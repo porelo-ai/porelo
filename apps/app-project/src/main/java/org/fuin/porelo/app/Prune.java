@@ -510,10 +510,11 @@ public final class Prune {
         for (final String scheme : names(transports)) {
             final Path root = transports.resolve(scheme);
             final String what = "the " + scheme + " conversation's record of it";
-            // <project>.json beside the three directories, each of which is keyed by project too.
+            // <project>.json beside the four directories, each of which is keyed by project too.
             sweep(root, ".json", what, remaining, apply, removes, keeps);
             sweep(root.resolve("members"), ".json", what, remaining, apply, removes, keeps);
             sweep(root.resolve("addresses"), ".json", what, remaining, apply, removes, keeps);
+            sweep(root.resolve("taken"), ".json", what, remaining, apply, removes, keeps);
             sweep(root.resolve("inbound"), "", what, remaining, apply, removes, keeps);
         }
     }

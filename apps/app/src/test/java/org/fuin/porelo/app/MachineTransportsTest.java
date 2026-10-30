@@ -290,6 +290,534 @@ class MachineTransportsTest {
         assertThat(runner.lines()).as("no setup ran").noneMatch(line -> line.contains(" setup"));
     }
 
+    /** The transport {@code room}, keeping persons in its rooms beside machines. */
+    private void personsTransport(final String members) throws IOException {
+        roomTransport();
+        runner.answering(
+                " describe",
+                "{\"scheme\":\"room\",\"lifecycle\":[\"setup\",\"settings\",\"members\"],"
+                        + "\"takes\":[\"machine\",\"create-room\",\"persons\"]}");
+        runner.answering(" members", members);
+    }
+
+    /** What follows an option in the last {@code members} run, or {@code null} without it. */
+    private @Nullable String membersOption(final String option) {
+        final List<String> members =
+                runner.invocations().stream()
+                        .filter(each -> each.arguments().contains("members"))
+                        .reduce((before, after) -> after)
+                        .orElseThrow()
+                        .arguments();
+        final int at = members.indexOf(option);
+        return at < 0 ? null : members.get(at + 1);
+    }
+
+    @Test
+    void aTransportTakingPersonsKeepsEveryDeveloperInTheRoomAsAPerson() throws Exception {
+        final PoreloContext context = unlockedVault();
+        personsTransport(
+                "{\"invited\":[],\"removed\":[],"
+                        + "\"persons_invited\":[\"alice\",\"bob\"],\"persons_removed\":[]}");
+        followed(context);
+
+        final int code = execute(context, "talk", "room", "p");
+
+        assertThat(code).as("the room is made: " + err).isZero();
+        final List<String> members = only("members").arguments();
+        final int machines = members.indexOf("--machines");
+        assertThat(members.subList(machines + 2, machines + 4))
+                .as("every developer's account, sorted, right after the machines")
+                .containsExactly("--persons", "alice,bob");
+        assertThat(members).as("given once").containsOnlyOnce("--persons");
+        assertThat(out.toString())
+                .as("the persons on lines of their own")
+                .contains("persons invited  alice, bob\n")
+                .contains("persons removed  -\n");
+    }
+
+    @Test
+    void aDeveloperDroppedFromTheAccessFileIsPassedNoMoreAndShownRemoved() throws Exception {
+        final PoreloContext context = unlockedVault();
+        personsTransport(
+                "{\"invited\":[],\"removed\":[],"
+                        + "\"persons_invited\":[],\"persons_removed\":[\"bob\"]}");
+        followed(context);
+        runner.answering(
+                "show a1:access.yml",
+                DEVELOPERS.substring(0, DEVELOPERS.indexOf("  bob:"))
+                        + DEVELOPERS.substring(DEVELOPERS.indexOf("  alice:")));
+
+        assertThat(execute(context, "talk", "room", "p")).as(err.toString()).isZero();
+
+        assertThat(membersOption("--persons")).as("bob is passed no more").isEqualTo("alice");
+        assertThat(out.toString())
+                .as("the transport's answer names him removed")
+                .contains("persons removed  bob\n");
+    }
+
+    @Test
+    void anAppliedAccessCommitKeepsThePersonsTooWhereTheTransportTakesThem() throws Exception {
+        final PoreloContext context = unlockedVault();
+        personsTransport("{\"invited\":[],\"removed\":[]}");
+        final Project project = followed(context);
+        MachineTransports.createRoom(context, project);
+
+        Reconcile.recordApplied(
+                context,
+                new FollowedProjects.Followed(
+                        "p",
+                        "git@example.org:p/project.git",
+                        "c0",
+                        "",
+                        "APPLIED",
+                        "",
+                        "",
+                        "",
+                        false,
+                        "a0",
+                        "APPLIED"),
+                new Reconcile.Result(Reconcile.Outcome.APPLIED, "c1", "", "", "", "a1", "APPLIED"));
+
+        assertThat(membersOption("--persons"))
+                .as("every developer of the applied access file")
+                .isEqualTo("alice,bob");
+    }
+
+    @Test
+    void aTransportNotTakingPersonsIsGivenTheMachinesAlone() throws Exception {
+        final PoreloContext context = unlockedVault();
+        roomTransport();
+        followed(context);
+
+        assertThat(execute(context, "talk", "room", "p")).as(err.toString()).isZero();
+
+        assertThat(membersOption("--persons")).as("never given").isNull();
+        assertThat(membersOption("--machines")).as("the machines kept as before").isNotEmpty();
+        assertThat(out.toString()).as("no person said").doesNotContain("persons");
+    }
+
+    @Test
+    void aTransportAskingForPeoplesWordsAloneIsGivenNoPersonsOnMembers() throws Exception {
+        final PoreloContext context = unlockedVault();
+        roomTransport();
+        // "persons": true asks for people's words on poll; its list does not name persons.
+        runner.answering(
+                " describe",
+                "{\"scheme\":\"room\",\"poll\":true,\"persons\":true,"
+                        + "\"lifecycle\":[\"setup\",\"settings\",\"members\"],"
+                        + "\"takes\":[\"machine\",\"create-room\"]}");
+        followed(context);
+
+        assertThat(execute(context, "talk", "room", "p")).as(err.toString()).isZero();
+
+        assertThat(only("members").arguments()).as("never given").doesNotContain("--persons");
+    }
+
+    @Test
+    void anAppliedAccessCommitAloneKeepsThePersons() throws Exception {
+        final PoreloContext context = unlockedVault();
+        personsTransport(
+                "{\"invited\":[\"m\\u001b[2J\"],\"removed\":[],\"persons_removed\":[\"bob\\u2028\"]}");
+        final Project project = followed(context);
+        MachineTransports.createRoom(context, project);
+        runner.answering(
+                "show a2:access.yml",
+                DEVELOPERS.substring(0, DEVELOPERS.indexOf("  bob:"))
+                        + DEVELOPERS.substring(DEVELOPERS.indexOf("  alice:")));
+        new FollowedProjects(context.paths().projects().followed())
+                .write(
+                        new FollowedProjects.Followed(
+                                "p",
+                                "git@example.org:p/project.git",
+                                "c1",
+                                "",
+                                "APPLIED",
+                                "",
+                                "",
+                                "",
+                                false,
+                                "a2",
+                                "APPLIED"));
+
+        // The project file is as it was; only the access file moved on.
+        Reconcile.recordApplied(
+                context,
+                new FollowedProjects.Followed(
+                        "p",
+                        "git@example.org:p/project.git",
+                        "c1",
+                        "",
+                        "APPLIED",
+                        "",
+                        "",
+                        "",
+                        false,
+                        "a1",
+                        "APPLIED"),
+                new Reconcile.Result(
+                        Reconcile.Outcome.UNCHANGED, "c1", "", "", "", "a2", "APPLIED"));
+
+        assertThat(membersOption("--persons")).as("bob dropped").isEqualTo("alice");
+        assertThat(EventLog.of(context).entries(null))
+                .as("the log names the persons kept, a missing list as none")
+                .anySatisfy(
+                        entry ->
+                                assertThat(String.valueOf(entry.get("detail")))
+                                        .contains(
+                                                "invited m?[2J, removed -; persons invited -,"
+                                                        + " removed bob?"));
+    }
+
+    @Test
+    void theLastDeveloperDroppedIsPassedAnEmptyList() throws Exception {
+        final PoreloContext context = unlockedVault();
+        personsTransport("{\"invited\":[],\"removed\":[],\"persons_removed\":[\"bob\"]}");
+        followed(context);
+        runner.answering(
+                "show a1:access.yml",
+                DEVELOPERS.substring(0, DEVELOPERS.indexOf("developers:")) + "developers: {}\n");
+
+        assertThat(execute(context, "talk", "room", "p")).as(err.toString()).isZero();
+
+        assertThat(membersOption("--persons"))
+                .as("given empty, so the transport removes every person")
+                .isEmpty();
+    }
+
+    @Test
+    void aPersonsLineCannotBeForgedByTheTransportsAnswer() throws Exception {
+        final PoreloContext context = unlockedVault();
+        personsTransport(
+                "{\"invited\":[],\"removed\":[],"
+                        + "\"persons_invited\":[\"alice\\npersons removed  bob\\u2028\"],"
+                        + "\"persons_removed\":[]}");
+        followed(context);
+
+        assertThat(execute(context, "talk", "room", "p")).as(err.toString()).isZero();
+
+        assertThat(out.toString())
+                .contains("persons invited  alice?persons removed  bob?\n")
+                .contains("persons removed  -\n");
+    }
+
+    @Test
+    void aDevelopersWordsAreTakenWithoutAJoinAndTheyCanBeAnswered() throws Exception {
+        final PoreloContext context = unlockedVault();
+        personsTransport("{\"invited\":[],\"removed\":[]}");
+        final Mailbox review = conversation(context);
+        said(context, "t1--room-person-one.json", "@bob:hs", "bob");
+
+        final var outcome = conversations(context).pass(group(review));
+
+        assertThat(outcome.failures()).noneMatch(each -> each.startsWith("dropped"));
+        assertThat(fromIn(review)).as("handed to the task as bob's words").containsExactly("bob");
+        assertThat(kept(context, "taken"))
+                .as("kept apart from who joined, so a task can answer him")
+                .isEqualTo(Map.of("bob", "@bob:hs"));
+        assertThat(kept(context, "members")).as("nobody joined").isEmpty();
+        assertThat(Conversations.members(context, GateSupport.byName(context, "p")))
+                .as("a task answers him by name")
+                .isEqualTo(Map.of("bob", "@bob:hs"));
+    }
+
+    @Test
+    void aDeveloperTheAccessFileDropsIsForgotten() throws Exception {
+        final PoreloContext context = unlockedVault();
+        personsTransport("{\"invited\":[],\"removed\":[]}");
+        final Mailbox review = conversation(context);
+        said(context, "t1--room-person-one.json", "@bob:hs", "bob");
+        conversations(context).pass(group(review));
+        applyWithoutBob(context);
+
+        assertThat(Conversations.members(context, GateSupport.byName(context, "p")))
+                .as("no task answers him any more, before any pass")
+                .isEmpty();
+        said(context, "t2--room-person-two.json", "@bob:hs", null);
+        final var outcome = conversations(context).pass(group(review));
+
+        assertThat(fromIn(review)).as("only his words from before").containsExactly("bob");
+        assertThat(outcome.failures())
+                .anySatisfy(each -> assertThat(each).contains("t2--room-person-two.json"));
+    }
+
+    @Test
+    void aSecondSenderClaimingTheSameDeveloperInOneBatchIsRefused() throws Exception {
+        final PoreloContext context = unlockedVault();
+        personsTransport("{\"invited\":[],\"removed\":[]}");
+        final Mailbox review = conversation(context);
+        said(context, "t1--room-person-one.json", "@bob:hs", "bob");
+        said(context, "t2--room-person-two.json", "@mallory:hs", "bob");
+
+        final var outcome = conversations(context).pass(group(review));
+
+        assertThat(fromIn(review)).containsExactly("bob");
+        assertThat(outcome.failures()).anySatisfy(each -> assertThat(each).contains("@mallory:hs"));
+        assertThat(kept(context, "taken")).isEqualTo(Map.of("bob", "@bob:hs"));
+    }
+
+    @Test
+    void thisMachinesOwnAccountIsNeverTakenForADeveloper() throws Exception {
+        final PoreloContext context = unlockedVault();
+        personsTransport("{\"invited\":[],\"removed\":[]}");
+        final Mailbox review = conversation(context, "@made-here:hs");
+        said(context, "t1--room-person-one.json", "@made-here:hs", "bob");
+
+        final var outcome = conversations(context).pass(group(review));
+
+        assertThat(fromIn(review)).isEmpty();
+        assertThat(outcome.failures())
+                .anySatisfy(each -> assertThat(each).contains("@made-here:hs"));
+        assertThat(kept(context, "taken")).as("bob's own account is still free").isEmpty();
+    }
+
+    @Test
+    void aTransportWhoseListNamesNoPersonsHasNoDeveloperTakenByAccount() throws Exception {
+        final PoreloContext context = unlockedVault();
+        personsTransport("{\"invited\":[],\"removed\":[]}");
+        final Mailbox review = conversation(context);
+        runner.answering(
+                " describe",
+                "{\"scheme\":\"room\",\"poll\":true,\"persons\":true,"
+                        + "\"lifecycle\":[\"setup\",\"settings\",\"members\"],"
+                        + "\"takes\":[\"machine\",\"create-room\"]}");
+        said(context, "t1--room-person-one.json", "@bob:hs", "bob");
+
+        conversations(context).pass(group(review));
+
+        assertThat(fromIn(review)).isEmpty();
+        assertThat(kept(context, "taken")).isEmpty();
+    }
+
+    @Test
+    void aJoinIsNeverUndoneWhenTheAccessFileDropsADeveloperTakenBefore() throws Exception {
+        final PoreloContext context = unlockedVault();
+        personsTransport("{\"invited\":[],\"removed\":[]}");
+        final Mailbox review = conversation(context);
+        said(context, "t1--room-person-one.json", "@bob:hs", "bob");
+        conversations(context).pass(group(review));
+        // As talk join keeps a person.
+        Files.writeString(
+                Files.createDirectories(
+                                context.paths().xdg().state().resolve("transport/room/members"))
+                        .resolve("p.json"),
+                "{\"bob\":\"@bob:hs\"}");
+        applyWithoutBob(context);
+        said(context, "t2--room-person-two.json", "@bob:hs", null);
+
+        conversations(context).pass(group(review));
+
+        assertThat(fromIn(review)).as("heard as one who joined").containsExactly("bob", "bob");
+        assertThat(kept(context, "members")).isEqualTo(Map.of("bob", "@bob:hs"));
+    }
+
+    @Test
+    void aDamagedRecordOfWhoWasTakenLetsNobodyIn() throws Exception {
+        final PoreloContext context = unlockedVault();
+        personsTransport("{\"invited\":[],\"removed\":[]}");
+        final Mailbox review = conversation(context);
+        final Path taken =
+                Files.createDirectories(
+                        context.paths().xdg().state().resolve("transport/room/taken"));
+        Files.writeString(taken.resolve("p.json"), "{\"bob\":");
+        said(context, "t1--room-person-one.json", "@bob:hs", null);
+
+        conversations(context).pass(group(review));
+
+        assertThat(fromIn(review)).isEmpty();
+        assertThat(Conversations.members(context, GateSupport.byName(context, "p"))).isEmpty();
+    }
+
+    @Test
+    void clearingTheConversationRemovesWhoWasTaken() throws Exception {
+        final PoreloContext context = unlockedVault();
+        personsTransport("{\"invited\":[],\"removed\":[]}");
+        final Mailbox review = conversation(context);
+        said(context, "t1--room-person-one.json", "@bob:hs", "bob");
+        conversations(context).pass(group(review));
+        runner.answering(" clear", "{\"removed\":[]}");
+
+        new TransportLifecycle(context, context.paths().messaging().transportDirectory())
+                .clear("room", "p", Map.of());
+
+        assertThat(context.paths().xdg().state().resolve("transport/room/taken/p.json"))
+                .doesNotExist();
+    }
+
+    @Test
+    void aDevelopersWordsInADirectChatAreHeardUntilTheAccessFileDropsThem() throws Exception {
+        final PoreloContext context = unlockedVault();
+        personsTransport("{\"invited\":[],\"removed\":[]}");
+        final Mailbox review = conversation(context);
+        runner.answering(
+                " describe",
+                "{\"scheme\":\"room\",\"poll\":true,"
+                        + "\"lifecycle\":[\"setup\",\"settings\",\"members\",\"enroll\"],"
+                        + "\"takes\":[\"machine\",\"create-room\",\"persons\",\"direct\"]}");
+        runner.answering(
+                " enroll", "{\"secrets\":{\"T\":\"t-1\"},\"address\":\"@porelo-p-review:hs\"}");
+        final TransportLifecycle lifecycle =
+                new TransportLifecycle(context, context.paths().messaging().transportDirectory());
+        lifecycle.enroll("room", "p", "porelo-p-review", Map.of());
+        saidDirectly(context, "t1--room-person-one.json", "@bob:hs", "bob");
+
+        conversations(context).pass(group(review));
+        applyWithoutBob(context);
+        saidDirectly(context, "t2--room-person-two.json", "@bob:hs", null);
+        final var outcome = conversations(context).waitDirect(group(review).getFirst());
+
+        assertThat(fromIn(review)).as("only the words from before").containsExactly("bob");
+        assertThat(outcome.failures())
+                .anySatisfy(each -> assertThat(each).contains("t2--room-person-two.json"));
+    }
+
+    @Test
+    void aMachineThatDidNotMakeTheRoomTakesADeveloperToo() throws Exception {
+        final PoreloContext context = unlockedVault();
+        personsTransport("{\"invited\":[],\"removed\":[]}");
+        runner.answering(
+                " setup",
+                "{\"conversation\":\"!r\",\"room\":\"#p:access.example\","
+                        + "\"machine\":\"follower\",\"admitted\":true,"
+                        + "\"secrets\":{\"POLLER\":\"p-1\"}}");
+        followed(context);
+        new TransportLifecycle(context, context.paths().messaging().transportDirectory())
+                .setup("room", "p", Map.of());
+        assertThat(context.paths().xdg().state().resolve("transport/room/p.room"))
+                .as("this machine made no room")
+                .doesNotExist();
+        final Mailbox review = new Mailbox(dir.resolve("review"));
+        said(context, "t1--room-person-one.json", "@bob:hs", "bob");
+
+        conversations(context).pass(group(review));
+
+        assertThat(fromIn(review)).containsExactly("bob");
+    }
+
+    /** A person's words in a direct chat with the review task, as the transport left them. */
+    private static void saidDirectly(
+            final PoreloContext context,
+            final String name,
+            final String sender,
+            final @Nullable String account)
+            throws IOException {
+        final Path into =
+                Files.createDirectories(
+                        context.paths()
+                                .xdg()
+                                .state()
+                                .resolve("transport/room/direct/porelo-p-review"));
+        Files.writeString(
+                into.resolve(name),
+                "{\"sender\":\""
+                        + sender
+                        + "\""
+                        + (account == null ? "" : ",\"account\":\"" + account + "\"")
+                        + ",\"direct\":true,\"body\":\"hi\",\"to\":[\"@porelo-p-review:hs\"]}");
+    }
+
+    /** The project's room made here, and the one task that reads it. */
+    private Mailbox conversation(final PoreloContext context) throws Exception {
+        return conversation(context, "");
+    }
+
+    /** The project's room made here under this machine's account, and the task that reads it. */
+    private Mailbox conversation(final PoreloContext context, final String address)
+            throws Exception {
+        runner.answering(
+                " setup",
+                "{\"conversation\":\"!r\",\"room\":\"#p:access.example\","
+                        + "\"machine\":\"made-here\",\"address\":\""
+                        + address
+                        + "\",\"admitted\":true,\"secrets\":{\"POLLER\":\"p-1\"}}");
+        MachineTransports.createRoom(context, followed(context));
+        return new Mailbox(dir.resolve("review"));
+    }
+
+    private static List<TransportConversations.Member> group(final Mailbox review) {
+        return List.of(new TransportConversations.Member("porelo-p-review", review, "p", "room"));
+    }
+
+    private static TransportConversations conversations(final PoreloContext context) {
+        return new TransportConversations(
+                context, context.paths().messaging().transportDirectory());
+    }
+
+    /** A person's words as the transport left them, with the host account it names, if any. */
+    private static void said(
+            final PoreloContext context,
+            final String name,
+            final String sender,
+            final @Nullable String account)
+            throws IOException {
+        final Path inbound =
+                Files.createDirectories(
+                        context.paths().xdg().state().resolve("transport/room/inbound/p"));
+        Files.writeString(
+                inbound.resolve(name),
+                "{\"sender\":\""
+                        + sender
+                        + "\""
+                        + (account == null ? "" : ",\"account\":\"" + account + "\"")
+                        + ",\"body\":\"hi\",\"to\":[]}");
+    }
+
+    /** Whom each message the task was handed is from. */
+    private static List<Object> fromIn(final Mailbox review) throws IOException {
+        if (!Files.isDirectory(review.inbound())) {
+            return List.of();
+        }
+        try (var files = Files.list(review.inbound())) {
+            return files.filter(each -> each.getFileName().toString().endsWith(".json"))
+                    .sorted()
+                    .map(
+                            each -> {
+                                try {
+                                    final Map<?, ?> message =
+                                            (Map<?, ?>)
+                                                    org.fuin.porelo.wire.Json.parse(
+                                                            Files.readString(each));
+                                    return ((Map<?, ?>) message.get("metadata")).get("from");
+                                } catch (IOException ex) {
+                                    throw new java.io.UncheckedIOException(ex);
+                                }
+                            })
+                    .map(Object.class::cast)
+                    .toList();
+        }
+    }
+
+    /** Who is kept under one of the transport's state folders, as a map. */
+    private static Map<?, ?> kept(final PoreloContext context, final String folder)
+            throws IOException {
+        final Path file =
+                context.paths().xdg().state().resolve("transport/room/" + folder + "/p.json");
+        return Files.isRegularFile(file)
+                ? (Map<?, ?>) org.fuin.porelo.wire.Json.parse(Files.readString(file))
+                : Map.of();
+    }
+
+    /** The access file applied at a2, which no longer names bob. */
+    private void applyWithoutBob(final PoreloContext context) throws IOException {
+        runner.answering(
+                "show a2:access.yml",
+                DEVELOPERS.substring(0, DEVELOPERS.indexOf("  bob:"))
+                        + DEVELOPERS.substring(DEVELOPERS.indexOf("  alice:")));
+        new FollowedProjects(context.paths().projects().followed())
+                .write(
+                        new FollowedProjects.Followed(
+                                "p",
+                                "git@example.org:p/project.git",
+                                "c1",
+                                "",
+                                "APPLIED",
+                                "",
+                                "",
+                                "",
+                                false,
+                                "a2",
+                                "APPLIED"));
+    }
+
     private Command only(final String verb) {
         final List<Command> found =
                 runner.invocations().stream()

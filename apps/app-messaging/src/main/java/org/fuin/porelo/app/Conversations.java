@@ -116,14 +116,16 @@ public final class Conversations {
     }
 
     /**
-     * Returns who has joined a project's conversation.
+     * Returns who is heard in a project's conversation: who joined, and each developer of the
+     * applied access file taken by their host account.
      *
      * @param context Where the state is.
      * @param project The project.
-     * @return Person to the account the transport made.
+     * @return Person to their account.
      */
     public static Map<String, String> members(PoreloContext context, Project project) {
-        return new TaskConversations(context).members(context, project);
+        // A developer taken by their host account counts while the access file names them.
+        return new TaskConversations(context).heard(context, project);
     }
 
     /**

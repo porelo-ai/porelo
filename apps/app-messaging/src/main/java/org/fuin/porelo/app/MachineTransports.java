@@ -127,9 +127,10 @@ public final class MachineTransports {
     }
 
     /**
-     * Keeps a project's room to the machines of its applied developer list, where this account made
-     * the room: each developer's account on this host by its machine's name, and this machine.
-     * Nothing is asked of the transport anywhere else.
+     * Keeps a project's room to its applied developer list, where this account made the room: as
+     * machines, each developer's account on this host by its machine's name, and this machine; as
+     * persons, each developer's account, where the transport takes them. Nothing is asked of the
+     * transport anywhere else.
      *
      * @param context The machine.
      * @param project The project.
@@ -160,6 +161,7 @@ public final class MachineTransports {
                             scheme,
                             project.name(),
                             new ArrayList<>(machines),
+                            new ArrayList<>(new TreeSet<>(access.developers().keySet())),
                             ProjectAccess.settings(context, project, scheme));
         } catch (TransportLifecycle.Refused ex) {
             throw new Conversations.Refused(String.valueOf(ex.getMessage()), ex.code(), null);

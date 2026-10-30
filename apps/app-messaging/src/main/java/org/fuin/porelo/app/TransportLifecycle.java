@@ -329,14 +329,128 @@ final class TransportLifecycle {
      * @return Person to their account.
      */
     Map<String, String> people(String scheme, String project) {
-        return names(
-                context.paths()
-                        .xdg()
-                        .state()
-                        .resolve("transport")
-                        .resolve(scheme)
-                        .resolve("members")
-                        .resolve(project + ".json"));
+        return names(peopleFile(scheme, project));
+    }
+
+    /**
+     * Returns the developers of a project's applied access file, where the transport's list names
+     * {@code persons}: the room's maker keeps each of them in the room as a person, so their words
+     * are taken without a join.
+     *
+     * @param scheme The transport.
+     * @param project The project.
+     * @return Their host accounts; empty where the transport keeps no persons, or nothing is
+     *     applied.
+     */
+    java.util.Set<String> developers(String scheme, String project) {
+        if (!names(scheme, TransportConversations.PERSONS)) {
+            return java.util.Set.of();
+        }
+        try {
+            final org.fuin.porelo.core.project.Project followed =
+                    GateSupport.byName(context, project);
+            if (followed.access() == null) {
+                return java.util.Set.of();
+            }
+            return java.util.Set.copyOf(
+                    ProjectAccess.applied(context, followed).developers().keySet());
+        } catch (ProjectAccess.Withheld | RuntimeException ex) {
+            // Nothing applied that can be read: nobody is taken but who joined.
+            return java.util.Set.of();
+        }
+    }
+
+    /**
+     * Returns who is heard in a project's conversation now: who joined, and each developer taken by
+     * their host account while the applied access file still names them. Who was taken is kept
+     * apart from who joined, so a developer the file drops is heard no more and answered no more at
+     * once, and a later join is never undone by it.
+     *
+     * @param scheme The transport.
+     * @param project The project.
+     * @param developers The applied access file's developers, as {@link #developers} read them.
+     * @return Person to their account.
+     */
+    Map<String, String> heard(String scheme, String project, java.util.Set<String> developers) {
+        final Map<String, String> people = new LinkedHashMap<>(people(scheme, project));
+        // Unreadable, it names nobody: only who joined is heard.
+        names(takenFile(scheme, project))
+                .forEach(
+                        (person, user) -> {
+                            if (developers.contains(person)
+                                    && !people.containsKey(person)
+                                    && !people.containsValue(user)) {
+                                people.put(person, user);
+                            }
+                        });
+        return people;
+    }
+
+    /**
+     * Returns who is heard in a project's conversation, reading the developers only when somebody
+     * was taken by their host account: a listing of who joined never runs the transport.
+     *
+     * @param scheme The transport.
+     * @param project The project.
+     * @return Person to their account.
+     */
+    Map<String, String> heard(String scheme, String project) {
+        if (!Files.exists(takenFile(scheme, project))) {
+            return people(scheme, project);
+        }
+        return heard(scheme, project, developers(scheme, project));
+    }
+
+    /**
+     * Keeps the account a developer writes under, the first time they are taken by their host
+     * account, so a task can answer them; apart from who joined, under a lock of its own.
+     *
+     * @param scheme The transport.
+     * @param project The project.
+     * @param person Their host account.
+     * @param user The account the conversation knows them by.
+     */
+    void remember(String scheme, String project, String person, String user) {
+        final Path taken = takenFile(scheme, project);
+        try {
+            Files.createDirectories(taken.getParent());
+            FileLocks.holding(
+                    lockOf(taken),
+                    () -> {
+                        final Map<String, String> kept = new LinkedHashMap<>(names(taken));
+                        if (!kept.containsKey(person) && !kept.containsValue(user)) {
+                            kept.put(person, user);
+                            whole(taken, Json.write(kept));
+                        }
+                        return Boolean.TRUE;
+                    });
+        } catch (IOException ex) {
+            // Taken all the same; only answering them by name waits for the next time.
+        }
+    }
+
+    private static Path lockOf(Path file) {
+        return file.resolveSibling("." + file.getFileName() + ".lock");
+    }
+
+    private Path takenFile(String scheme, String project) {
+        return context.paths()
+                .xdg()
+                .state()
+                .resolve("transport")
+                .resolve(scheme)
+                .resolve("taken")
+                .resolve(project + ".json");
+    }
+
+    private Path peopleFile(String scheme, String project) {
+        return context.paths()
+                .xdg()
+                .state()
+                .resolve("transport")
+                .resolve(scheme)
+                .resolve("members")
+                .resolve(project + ".json");
     }
 
     private Path addressesFile(String scheme, String project) {
@@ -439,6 +553,7 @@ final class TransportLifecycle {
         try {
             Files.deleteIfExists(state(scheme, project));
             Files.deleteIfExists(addressesFile(scheme, project));
+            Files.deleteIfExists(takenFile(scheme, project));
             Files.deleteIfExists(
                     context.paths()
                             .xdg()
@@ -751,31 +866,48 @@ final class TransportLifecycle {
     }
 
     /**
-     * Keeps a project's room to the machines given, as the account that made it: the transport's
-     * {@code members}, declarative, so a machine not given is taken out and one given is let in.
+     * Keeps a project's room to the machines and persons given, as the account that made it: the
+     * transport's {@code members}, declarative, so a machine not given is taken out and one given
+     * is let in. The persons are given only to a transport that takes {@code persons}; one that
+     * does not leaves every person as it is.
      *
      * @param scheme The transport.
      * @param project The project.
      * @param machines The machines the room holds afterwards, by the names their transport goes by.
+     * @param persons The persons the room holds afterwards, by their accounts on this host.
      * @param settings What the project says to this transport.
      * @return What the transport printed: whom it invited and removed.
      * @throws Refused If the transport does not offer it, or refused.
      */
     Map<?, ?> members(
-            String scheme, String project, List<String> machines, Map<String, Object> settings)
+            String scheme,
+            String project,
+            List<String> machines,
+            List<String> persons,
+            Map<String, Object> settings)
             throws Refused {
         offered(scheme, "members");
         readable(scheme);
-        return run(
-                scheme,
-                settings,
-                given(scheme, project),
-                false,
-                "members",
-                "--project",
-                project,
-                "--machines",
-                String.join(",", machines));
+        final List<String> verb =
+                new java.util.ArrayList<>(
+                        List.of(
+                                "members",
+                                "--project",
+                                project,
+                                "--machines",
+                                String.join(",", machines)));
+        // Named in its list, not announced as a field: that asks for people's words on poll alone.
+        if (names(scheme, TransportConversations.PERSONS)) {
+            verb.add("--" + TransportConversations.PERSONS);
+            verb.add(String.join(",", persons));
+        }
+        return run(scheme, settings, given(scheme, project), false, verb.toArray(String[]::new));
+    }
+
+    /** Says whether the transport's list names an option: only then is it given. */
+    private boolean names(String scheme, String option) {
+        final Path adapter = transports.find(scheme);
+        return adapter != null && TransportDescription.of(context.runner(), adapter).names(option);
     }
 
     /** Refuses an option the transport does not list: an option it does not list is never given. */

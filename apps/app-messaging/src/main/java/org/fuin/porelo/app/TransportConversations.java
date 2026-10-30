@@ -192,25 +192,25 @@ final class TransportConversations {
                     poll(adapter, described, secrets, inbound, scheme, project, 0, failures);
                 }
                 final Map<String, String> accounts = lifecycle.addresses(scheme, project);
-                final Map<String, String> people = lifecycle.people(scheme, project);
+                final java.util.Set<String> developers = lifecycle.developers(scheme, project);
+                final TransportLifecycle.Conversation conversation =
+                        lifecycle.conversation(scheme, project);
                 dropped +=
                         handOut(
                                 inbound,
                                 group,
                                 accounts,
-                                people,
+                                lifecycle.heard(scheme, project, developers),
+                                developers,
+                                ours(conversation),
+                                (person, user) -> lifecycle.remember(scheme, project, person, user),
                                 handed,
                                 failures,
-                                new HelperAnswer(
-                                        context,
-                                        adapter,
-                                        secrets,
-                                        lifecycle.conversation(scheme, project)));
+                                new HelperAnswer(context, adapter, secrets, conversation));
                 if (described.takes(DIRECT)) {
                     for (final Member member : group) {
                         if (!WAITING.contains(key(member.scheme(), member.container()))) {
-                            dropped +=
-                                    direct(adapter, member, accounts, people, handed, failures, 0);
+                            dropped += direct(adapter, member, handed, failures, 0);
                         }
                     }
                 }
@@ -386,20 +386,21 @@ final class TransportConversations {
                 Files.createDirectories(inbound);
                 poll(adapter, described, secrets, inbound, scheme, project, WAIT_SECONDS, failures);
                 final Map<String, String> accounts = lifecycle.addresses(scheme, project);
-                final Map<String, String> people = lifecycle.people(scheme, project);
+                final java.util.Set<String> developers = lifecycle.developers(scheme, project);
+                final TransportLifecycle.Conversation conversation =
+                        lifecycle.conversation(scheme, project);
                 dropped +=
                         handOut(
                                 inbound,
                                 group,
                                 accounts,
-                                people,
+                                lifecycle.heard(scheme, project, developers),
+                                developers,
+                                ours(conversation),
+                                (person, user) -> lifecycle.remember(scheme, project, person, user),
                                 handed,
                                 failures,
-                                new HelperAnswer(
-                                        context,
-                                        adapter,
-                                        secrets,
-                                        lifecycle.conversation(scheme, project)));
+                                new HelperAnswer(context, adapter, secrets, conversation));
             } catch (IOException ex) {
                 failures.add(String.valueOf(ex.getMessage()));
             }
@@ -421,14 +422,7 @@ final class TransportConversations {
         final Path adapter = transports.find(member.scheme());
         if (adapter != null) {
             try {
-                direct(
-                        adapter,
-                        member,
-                        lifecycle.addresses(member.scheme(), member.project()),
-                        lifecycle.people(member.scheme(), member.project()),
-                        handed,
-                        failures,
-                        WAIT_SECONDS);
+                direct(adapter, member, handed, failures, WAIT_SECONDS);
             } catch (IOException ex) {
                 failures.add(String.valueOf(ex.getMessage()));
             }
@@ -449,8 +443,6 @@ final class TransportConversations {
     private int direct(
             final Path adapter,
             final Member member,
-            final Map<String, String> accounts,
-            final Map<String, String> people,
             final Map<String, String> handed,
             final List<String> failures,
             final int wait)
@@ -494,18 +486,29 @@ final class TransportConversations {
                 "what was said to " + member.container() + " directly",
                 member.scheme(),
                 failures);
+        // Who is heard, and which accounts are tasks', are read after the poll: a wait may outlast
+        // a join, a remembered developer, an access file that dropped one or a task enrolled.
+        final Map<String, String> accounts = lifecycle.addresses(member.scheme(), member.project());
+        final java.util.Set<String> developers =
+                lifecycle.developers(member.scheme(), member.project());
+        final TransportLifecycle.Conversation conversation =
+                lifecycle.conversation(member.scheme(), member.project());
         return handOut(
                 into,
                 List.of(member),
                 accounts,
-                people,
+                lifecycle.heard(member.scheme(), member.project(), developers),
+                developers,
+                ours(conversation),
+                (person, user) ->
+                        lifecycle.remember(member.scheme(), member.project(), person, user),
                 handed,
                 failures,
                 new HelperAnswer(
                         context,
                         adapter,
                         lifecycle.secrets(member.scheme(), "project/" + member.project()),
-                        lifecycle.conversation(member.scheme(), member.project())));
+                        conversation));
     }
 
     /**
@@ -546,14 +549,35 @@ final class TransportConversations {
             Map<String, String> handed,
             List<String> said)
             throws IOException {
-        return handOut(inbound, members, accounts, people, handed, said, null);
+        return handOut(
+                inbound,
+                members,
+                accounts,
+                people,
+                java.util.Set.of(),
+                java.util.Set.of(),
+                (person, user) -> {},
+                handed,
+                said,
+                null);
+    }
+
+    /** This machine's own account in the conversation, which is never a person's. */
+    private static java.util.Set<String> ours(
+            final TransportLifecycle.@Nullable Conversation conversation) {
+        return conversation == null || conversation.address().isEmpty()
+                ? java.util.Set.of()
+                : java.util.Set.of(conversation.address());
     }
 
     private static int handOut(
             Path inbound,
             List<Member> members,
             Map<String, String> accounts,
-            Map<String, String> people,
+            Map<String, String> heard,
+            java.util.Set<String> developers,
+            java.util.Set<String> ours,
+            java.util.function.BiConsumer<String, String> learned,
             Map<String, String> handed,
             List<String> said,
             @Nullable HelperAnswer answer)
@@ -561,6 +585,9 @@ final class TransportConversations {
         final String project =
                 members.isEmpty() ? "this project" : "'" + members.getFirst().project() + "'";
         int dropped = 0;
+        // Each developer taken is heard by the next file at once, so a second sender cannot claim
+        // the same host account in the same batch.
+        final Map<String, String> people = new LinkedHashMap<>(heard);
         for (final Path message : messages(inbound)) {
             final String name = message.getFileName().toString();
             final Path signature = message.resolveSibling(name + ".sig");
@@ -569,12 +596,20 @@ final class TransportConversations {
             final @Nullable String person;
             final byte @Nullable [] bytes;
             if (!Files.isRegularFile(signature) && PERSON.matcher(name).matches()) {
-                final PersonsWords words = PersonsWords.read(message, members, accounts, people);
+                final PersonsWords words =
+                        PersonsWords.read(message, members, accounts, people, developers, ours);
                 if (words.refused() != null) {
                     said.add("dropped " + name + ": " + words.refused());
                     Files.deleteIfExists(message);
                     dropped++;
                     continue;
+                }
+                final String newcomer = words.person();
+                final String learnedAs = words.learned();
+                if (newcomer != null && learnedAs != null) {
+                    // Kept as join keeps a person, so a task can answer them by name.
+                    learned.accept(newcomer, learnedAs);
+                    people.put(newcomer, learnedAs);
                 }
                 if (words.answerTo() != null) {
                     try {

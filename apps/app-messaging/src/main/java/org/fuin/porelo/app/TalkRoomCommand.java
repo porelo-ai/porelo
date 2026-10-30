@@ -12,14 +12,16 @@ import picocli.CommandLine.Spec;
 
 /**
  * Makes a project's room on its server, as the project admin's machine. From then on this account
- * keeps the room's machines to the applied developer list after each applied commit.
+ * keeps the room's machines, and its persons where the transport takes them, to the applied
+ * developer list after each applied commit.
  */
 @Command(
         name = "room",
         mixinStandardHelpOptions = true,
         description =
                 "Makes a project's room on its server, as the project admin's machine; after each"
-                        + " applied commit this account keeps the room's machines to the list.")
+                        + " applied commit this account keeps the room's machines, and its persons"
+                        + " where the transport takes them, to the list.")
 public class TalkRoomCommand implements Callable<Integer>, PoreloFactory.ContextAware {
 
     @Parameters(index = "0", paramLabel = "<project>", description = "Project name.")
@@ -64,16 +66,33 @@ public class TalkRoomCommand implements Callable<Integer>, PoreloFactory.Context
         if (kept != null) {
             out.println("invited    " + listed(kept.get("invited")));
             out.println("removed    " + listed(kept.get("removed")));
+            // Said only by a transport that was given the persons.
+            if (kept.containsKey("persons_invited") || kept.containsKey("persons_removed")) {
+                out.println("persons invited  " + listed(kept.get("persons_invited")));
+                out.println("persons removed  " + listed(kept.get("persons_removed")));
+            }
         }
         out.flush();
         return 0;
     }
 
-    /** The machines a list names, comma separated, or "-" for none. */
-    private static String listed(final @Nullable Object machines) {
+    /**
+     * The machines or persons a list names, comma separated, or "-" for none. A transport's words:
+     * a control, format or line-separator character in them is shown as "?", so they cannot start a
+     * line of their own.
+     *
+     * @param machines What the transport answered.
+     * @return One line's worth.
+     */
+    static String listed(final @Nullable Object machines) {
         if (!(machines instanceof java.util.List<?> list) || list.isEmpty()) {
             return "-";
         }
-        return String.join(", ", list.stream().map(String::valueOf).toList());
+        return String.join(
+                ", ",
+                list.stream()
+                        .map(String::valueOf)
+                        .map(each -> each.replaceAll("[\\p{Cc}\\p{Cf}\\p{Zl}\\p{Zp}]", "?"))
+                        .toList());
     }
 }

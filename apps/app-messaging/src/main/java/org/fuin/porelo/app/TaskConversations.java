@@ -377,6 +377,21 @@ final class TaskConversations {
     }
 
     /**
+     * Returns who is heard in a project's conversation: who joined, and each developer of the
+     * applied access file taken by their host account.
+     *
+     * @param context Where the state is.
+     * @param project The project.
+     * @return Person to their account.
+     */
+    Map<String, String> heard(PoreloContext context, Project project) {
+        if (project.mail().conversations().isEmpty()) {
+            return Map.of();
+        }
+        return lifecycle.heard(scheme(project), project.name());
+    }
+
+    /**
      * Returns who has joined a project's conversation, by the name join was given.
      *
      * @param context Where the state is.

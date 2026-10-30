@@ -8,6 +8,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import org.fuin.porelo.wire.Json;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -33,6 +34,96 @@ class PersonsWordsTest {
         assertThat(words.answerTo())
                 .as("the answer reaches the sender's account")
                 .isEqualTo("@alice");
+    }
+
+    @Test
+    void aDeveloperLetInByTheRoomsMakerIsTakenByTheirHostAccount(@TempDir Path dir)
+            throws IOException {
+        // Kept in the room by members alone, never through join: refused, they could not be heard.
+        final List<TransportConversations.Member> members = members(dir);
+        final Path file = dir.resolve("person.json");
+        Files.writeString(
+                file, "{\"sender\":\"@bob:hs\",\"account\":\"bob\",\"body\":\"Hi\",\"to\":[]}");
+
+        final PersonsWords words =
+                PersonsWords.read(
+                        file, members, Map.of(), Map.of("alice", "@alice"), Set.of("bob"));
+
+        assertThat(words.refused()).isNull();
+        assertThat(words.person()).isEqualTo("bob");
+        assertThat(words.learned()).as("kept to answer him").isEqualTo("@bob:hs");
+        assertThat(words.readers()).containsExactlyElementsOf(members);
+    }
+
+    @Test
+    void anAccountTheAccessFileDoesNotNameIsNobody(@TempDir Path dir) throws IOException {
+        final Path file = dir.resolve("person.json");
+        Files.writeString(
+                file, "{\"sender\":\"@eve:hs\",\"account\":\"eve\",\"body\":\"Hi\",\"to\":[]}");
+
+        final PersonsWords words =
+                PersonsWords.read(file, members(dir), Map.of(), Map.of(), Set.of("bob"));
+
+        assertThat(words.refused()).contains("@eve:hs");
+        assertThat(words.person()).isNull();
+    }
+
+    @Test
+    void aDeveloperWhoJoinedUnderAnotherAccountIsNotTakenOver(@TempDir Path dir)
+            throws IOException {
+        // Somebody else's room account claiming bob must not speak as him.
+        final Path file = dir.resolve("person.json");
+        Files.writeString(
+                file,
+                "{\"sender\":\"@mallory:hs\",\"account\":\"bob\",\"body\":\"Hi\"," + "\"to\":[]}");
+
+        final PersonsWords words =
+                PersonsWords.read(
+                        file, members(dir), Map.of(), Map.of("bob", "@bob:hs"), Set.of("bob"));
+
+        assertThat(words.refused()).contains("@mallory:hs");
+    }
+
+    @Test
+    void aTasksAccountIsNeverTakenForADeveloper(@TempDir Path dir) throws IOException {
+        final Path file = dir.resolve("person.json");
+        Files.writeString(
+                file,
+                "{\"sender\":\"@porelo-p-build:hs\",\"account\":\"bob\",\"body\":\"Hi\",\"to\":[]}");
+
+        final PersonsWords words =
+                PersonsWords.read(
+                        file,
+                        members(dir),
+                        Map.of("porelo-p-build", "@porelo-p-build:hs"),
+                        Map.of(),
+                        Set.of("bob"));
+
+        assertThat(words.refused()).contains("@porelo-p-build:hs");
+        assertThat(words.learned()).isNull();
+    }
+
+    @Test
+    void aBlankSenderIsNeverTakenForADeveloper(@TempDir Path dir) throws IOException {
+        final Path file = dir.resolve("person.json");
+        Files.writeString(file, "{\"sender\":\" \",\"account\":\"bob\",\"body\":\"Hi\",\"to\":[]}");
+
+        final PersonsWords words =
+                PersonsWords.read(file, members(dir), Map.of(), Map.of(), Set.of("bob"));
+
+        assertThat(words.refused()).isNotNull();
+        assertThat(words.learned()).isNull();
+    }
+
+    @Test
+    void anAccountIsNothingWithoutTheAccessFile(@TempDir Path dir) throws IOException {
+        final Path file = dir.resolve("person.json");
+        Files.writeString(
+                file, "{\"sender\":\"@bob:hs\",\"account\":\"bob\",\"body\":\"Hi\",\"to\":[]}");
+
+        assertThat(PersonsWords.read(file, members(dir), Map.of(), Map.of()).refused())
+                .as("the transport's word alone lets nobody in")
+                .isNotNull();
     }
 
     private static List<TransportConversations.Member> members(Path dir) {

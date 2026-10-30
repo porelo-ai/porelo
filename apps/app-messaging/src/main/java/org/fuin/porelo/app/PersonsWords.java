@@ -8,6 +8,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import org.fuin.porelo.wire.Json;
 import org.jspecify.annotations.Nullable;
 
@@ -27,13 +28,26 @@ import org.jspecify.annotations.Nullable;
  * @param message The message, as the agents get it.
  * @param refused Why nobody gets it, or {@code null}.
  * @param answerTo The person's account to answer for a helper mention, or {@code null}.
+ * @param learned The account a developer let in by the room's maker writes under, the first time
+ *     they are taken by their host account, so it is kept for answering them; {@code null} for
+ *     anybody already known.
  */
 record PersonsWords(
         List<TransportConversations.Member> readers,
         @Nullable String person,
         byte @Nullable [] message,
         @Nullable String refused,
-        @Nullable String answerTo) {
+        @Nullable String answerTo,
+        @Nullable String learned) {
+
+    PersonsWords(
+            final List<TransportConversations.Member> readers,
+            final @Nullable String person,
+            final byte @Nullable [] message,
+            final @Nullable String refused,
+            final @Nullable String answerTo) {
+        this(readers, person, message, refused, answerTo, null);
+    }
 
     /**
      * Reads a person's words as a transport handed them over.
@@ -51,6 +65,54 @@ record PersonsWords(
             final Map<String, String> accounts,
             final Map<String, String> people)
             throws IOException {
+        return read(file, members, accounts, people, Set.of());
+    }
+
+    /**
+     * Reads a person's words, taking a developer of the applied access file by the host account the
+     * transport names them by.
+     *
+     * @param file The transport's file.
+     * @param members The project's tasks on this machine.
+     * @param accounts Each task's account, by container.
+     * @param people Each person who joined, to their account.
+     * @param developers The applied access file's developers, where the room's maker keeps them in
+     *     the room as persons; empty otherwise.
+     * @return Whom it is for and what they read, or why nobody gets it.
+     * @throws IOException Reading failed.
+     */
+    static PersonsWords read(
+            final Path file,
+            final List<TransportConversations.Member> members,
+            final Map<String, String> accounts,
+            final Map<String, String> people,
+            final Set<String> developers)
+            throws IOException {
+        return read(file, members, accounts, people, developers, Set.of());
+    }
+
+    /**
+     * Reads a person's words, taking a developer by their host account only from an account that is
+     * no task's and not this machine's.
+     *
+     * @param file The transport's file.
+     * @param members The project's tasks on this machine.
+     * @param accounts Each task's account, by container.
+     * @param people Each person who joined, to their account.
+     * @param developers The applied access file's developers, where the room's maker keeps them in
+     *     the room as persons; empty otherwise.
+     * @param ours This machine's own accounts in the conversation.
+     * @return Whom it is for and what they read, or why nobody gets it.
+     * @throws IOException Reading failed.
+     */
+    static PersonsWords read(
+            final Path file,
+            final List<TransportConversations.Member> members,
+            final Map<String, String> accounts,
+            final Map<String, String> people,
+            final Set<String> developers,
+            final Set<String> ours)
+            throws IOException {
         final Object parsed;
         try {
             parsed = Json.parse(Files.readString(file, StandardCharsets.UTF_8));
@@ -62,12 +124,27 @@ record PersonsWords(
                 || !(said.get("body") instanceof String body)) {
             return refused("it names no sender or no words");
         }
-        final String person =
+        String person =
                 people.entrySet().stream()
                         .filter(entry -> entry.getValue().equals(sender))
                         .map(Map.Entry::getKey)
                         .findFirst()
                         .orElse(null);
+        String learned = null;
+        // Let in by the room's maker, never through join: the transport names their host
+        // account, and only a developer of the applied access file is taken by it. One who
+        // joined under another account of the room is not taken over.
+        // A task's account or this machine's is never a person's, whatever the transport says.
+        if (person == null
+                && said.get("account") instanceof String account
+                && developers.contains(account)
+                && !people.containsKey(account)
+                && !sender.isBlank()
+                && !accounts.containsValue(sender)
+                && !ours.contains(sender)) {
+            person = account;
+            learned = sender;
+        }
         if (person == null) {
             // Only somebody let into the project's conversation: the room is how a person reaches
             // its agents, and an account the transport admitted is not yet somebody the project let
@@ -75,7 +152,7 @@ record PersonsWords(
             return refused("it is from " + sender + ", who is not in the project's conversation");
         }
         if (Boolean.TRUE.equals(said.get("helpers"))) {
-            return new PersonsWords(List.of(), person, null, null, sender);
+            return new PersonsWords(List.of(), person, null, null, sender, learned);
         }
         final List<String> to = new ArrayList<>();
         final List<TransportConversations.Member> named = new ArrayList<>();
@@ -128,7 +205,8 @@ record PersonsWords(
                 person,
                 Json.write(message).getBytes(StandardCharsets.UTF_8),
                 null,
-                null);
+                null,
+                learned);
     }
 
     /** Said in the project's conversation, where everybody reads it. */

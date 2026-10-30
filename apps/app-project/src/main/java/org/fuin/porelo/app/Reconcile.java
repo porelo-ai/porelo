@@ -1065,9 +1065,18 @@ public final class Reconcile {
                         name,
                         "",
                         "room kept to the list: invited "
-                                + kept.get("invited")
+                                + TalkRoomCommand.listed(kept.get("invited"))
                                 + ", removed "
-                                + kept.get("removed"));
+                                + TalkRoomCommand.listed(kept.get("removed"))
+                                + (kept.containsKey("persons_invited")
+                                                || kept.containsKey("persons_removed")
+                                        ? "; persons invited "
+                                                + TalkRoomCommand.listed(
+                                                        kept.get("persons_invited"))
+                                                + ", removed "
+                                                + TalkRoomCommand.listed(
+                                                        kept.get("persons_removed"))
+                                        : ""));
             }
         } catch (final Conversations.Refused | RuntimeException ex) {
             System.err.println(

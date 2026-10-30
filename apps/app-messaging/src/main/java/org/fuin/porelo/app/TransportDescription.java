@@ -28,6 +28,9 @@ import org.fuin.porelo.wire.Json;
  * @param takes The options it takes beyond the ones every transport does - {@code machine} for this
  *     machine's name on its lifecycle verbs. An option it does not list is never passed: an unknown
  *     one is its 64. {@link TransportInput#INPUT} when it takes its secrets on its standard input.
+ * @param named The options its {@code takes} list names itself, without the ones it announces as
+ *     fields of their own: {@code "persons": true} asks for people's words on {@code poll}, while
+ *     {@code persons} in the list also takes the persons on {@code members}.
  */
 public record TransportDescription(
         String scheme,
@@ -36,11 +39,34 @@ public record TransportDescription(
         String confirms,
         List<String> lifecycle,
         List<String> takes,
-        String waitsOn) {
+        String waitsOn,
+        List<String> named) {
 
     /** What is assumed of a transport that cannot be asked: the least, so nothing is granted. */
     public static final TransportDescription UNKNOWN =
             new TransportDescription("", false, List.of(), "", List.of(), List.of(), "");
+
+    /**
+     * Constructor for a transport whose list names every option it takes.
+     *
+     * @param scheme The part before the colon in a peer's address.
+     * @param polls Whether {@code poll} is worth calling at all.
+     * @param attests What it proves about a message it hands over.
+     * @param confirms How far it can confirm a message.
+     * @param lifecycle The lifecycle verbs it offers.
+     * @param takes The options it takes beyond the common ones.
+     * @param waitsOn What its setup waits on, or empty.
+     */
+    public TransportDescription(
+            String scheme,
+            boolean polls,
+            List<String> attests,
+            String confirms,
+            List<String> lifecycle,
+            List<String> takes,
+            String waitsOn) {
+        this(scheme, polls, attests, confirms, lifecycle, takes, waitsOn, takes);
+    }
 
     /**
      * Constructor for a transport with no lifecycle, the shape before transports kept a
@@ -103,11 +129,11 @@ public record TransportDescription(
                         said.get("lifecycle") instanceof List<?> verbs
                                 ? verbs.stream().map(String::valueOf).toList()
                                 : List.of();
-                final List<String> takes =
-                        new java.util.ArrayList<>(
-                                said.get("takes") instanceof List<?> options
-                                        ? options.stream().map(String::valueOf).toList()
-                                        : List.of());
+                final List<String> named =
+                        said.get("takes") instanceof List<?> options
+                                ? options.stream().map(String::valueOf).toList()
+                                : List.of();
+                final List<String> takes = new java.util.ArrayList<>(named);
                 // Announced as its own field: it shows a person a line of Porelo's, passed as
                 // --shown.
                 if (Boolean.TRUE.equals(said.get(TransportSend.SHOWN))) {
@@ -137,7 +163,8 @@ public record TransportDescription(
                         takes,
                         said.get("waitsOn") instanceof String wait
                                 ? StartStep.cleanWaitingOn(wait)
-                                : "");
+                                : "",
+                        named);
             }
         } catch (final RuntimeException ex) {
             return UNKNOWN;
@@ -182,5 +209,15 @@ public record TransportDescription(
      */
     public boolean takes(String option) {
         return takes.contains(option);
+    }
+
+    /**
+     * Says whether this transport's {@code takes} list names an option itself.
+     *
+     * @param option {@code persons}.
+     * @return {@code true} when the list names it, whatever it announced as fields.
+     */
+    public boolean names(String option) {
+        return named.contains(option);
     }
 }
