@@ -147,7 +147,7 @@ public class SigningKey implements AgentKey {
                 return false;
             }
             final byte[] material = SshWire.readString(key);
-            if (material.length != Ed25519PublicKeyParameters.KEY_SIZE) {
+            if (material.length != Ed25519PublicKeyParameters.KEY_SIZE || key.hasRemaining()) {
                 return false;
             }
             final java.nio.ByteBuffer signed = java.nio.ByteBuffer.wrap(signatureBlob);
@@ -159,6 +159,10 @@ public class SigningKey implements AgentKey {
                 return false;
             }
             final byte[] signature = SshWire.readString(signed);
+            // As ssh-keygen: nothing after the signature, so one signature has one encoding.
+            if (signed.hasRemaining()) {
+                return false;
+            }
             final Ed25519Signer verifier = new Ed25519Signer();
             verifier.init(false, new Ed25519PublicKeyParameters(material, 0));
             verifier.update(data, 0, data.length);

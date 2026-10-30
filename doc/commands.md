@@ -11,7 +11,7 @@ file are in [the project file](project-file.md).
 | [`shield`](#shield) | Inspects and changes what a task may reach. |
 | [`vault`](#vault) | Manages stored credentials. |
 | [`credentials`](#credentials) | Records which credential each destination is connected to with. |
-| [`card`](#card) | Checks a person's card. |
+| [`card`](#card) | Checks a person's card; makes and checks a host's. |
 | [`gate`](#gate) | Reviews and forwards what an agent pushed. |
 | [`talk`](#talk) | Shows and moves the messages a task exchanges with other tasks. |
 | [`agents`](#agents) | Lists the agents installed on this machine. |
@@ -455,6 +455,20 @@ The email is shown as the person wrote it; nobody checks it.
 
 `--json` answers `{"login", "name", "email", "ssh", "expires", "revoked", "chain"}`: `email` is `""` when the card
 has none, `ssh` the card's key, `chain` the fingerprints from the pinned key to the card's.
+
+A host card says where a host is reached and what listens there. It is a YAML body - `host` (a lower-case DNS label),
+`address`, `ssh_port`, `ssh_host_key` (an OpenSSH public key line, `ssh-ed25519 AAAA...`), and `services`: `forge`
+with `web_port` and `git_port`, `matrix` with `port`, every port a plain number from 1 to 65535 - followed by one
+armored SSH signature in the `porelo` namespace, the host admin's. The body names no signer: whoever reads the card
+names the key they trust for the host admin.
+
+| Command | What it does |
+|---|---|
+| `porelo card make-host --host NAME --address ADDRESS --ssh-port PORT --ssh-host-key FILE --forge-web-port PORT --forge-git-port PORT --matrix-port PORT --key FILE` | Writes a host card to standard output, signed with the host admin's key: run on their own machine, since nothing on the host holds it. `--ssh-port` is the host's own SSH port; the host serves the forge and the homeserver on sockets only, so `--forge-web-port`, `--forge-git-port` and `--matrix-port` are the local ends a person's tunnel forwards to them (3000, 3001 and 8448 by default in the interface), all three required. `--ssh-host-key` is the host's `.pub` file, its comment dropped; `--key` an unencrypted Ed25519 OpenSSH private key file, since signing through `ssh-agent` is not supported yet. Exit 0, or 65 naming why; 66 when a file cannot be read. |
+| `porelo card verify-host CARD --signer SHA256:... [--json]` | Accepts the card when the key with that fingerprint signed it and nothing else. Exit 0, or 65 naming why - a bad signature, another signer, a host name that is not a lower-case DNS label, a field or port missing; 66 when the file cannot be read. Needs no vault, home or network. |
+
+`--json` answers `{"host", "address", "ssh_port", "ssh_host_key", "services": {"forge": {"web_port", "git_port"},
+"matrix": {"port"}}, "signed_by"}`, the ports as numbers, `signed_by` the signer's fingerprint.
 
 ## talk
 

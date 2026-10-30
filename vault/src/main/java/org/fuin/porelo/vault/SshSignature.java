@@ -136,6 +136,10 @@ public final class SshSignature {
         } catch (final IllegalArgumentException e) {
             return null;
         }
+        // Padded and canonical, as ssh-keygen reads it: no other spelling of the same bytes.
+        if (!Base64.getEncoder().encodeToString(blob).equals(body)) {
+            return null;
+        }
         if (blob.length < MAGIC.length + 4
                 || !Arrays.equals(Arrays.copyOf(blob, MAGIC.length), MAGIC)) {
             return null;
@@ -147,9 +151,13 @@ public final class SshSignature {
             }
             final byte[] key = SshWire.readString(buffer);
             final byte[] namespace = SshWire.readString(buffer);
-            SshWire.readString(buffer);
+            final byte[] reserved = SshWire.readString(buffer);
             final byte[] hash = SshWire.readString(buffer);
             final byte[] signature = SshWire.readString(buffer);
+            // As ssh-keygen -Y verify: nothing reserved, and nothing after the signature.
+            if (reserved.length > 0 || buffer.hasRemaining()) {
+                return null;
+            }
             return new Parsed(
                     key,
                     new String(namespace, StandardCharsets.UTF_8),

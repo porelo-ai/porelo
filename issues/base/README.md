@@ -20,6 +20,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b349"></a>[B349](B349-A-Host-Card-Signed-By-Its-Host-Admin.md) | S | - | A host card - host, address, SSH host key, the forge's web and Git ports and the homeserver's port - signed by its host admin on their own machine; `card make-host` and `card verify-host --signer --json` |
 | <a id="b347"></a>[B347](B347-An-Agent-Says-How-It-Signs-In.md) | M | - | `login.flow` is `paste-code`, `device-code` or `loopback` in an agent's definition; a loopback sign-in over SSH is refused before it starts |
 | <a id="b334"></a>[B334](B334-A-Person-Kept-In-The-Project-Room.md) | M | - | Every developer of the applied access file is a person in the project's room under their host account, kept with the machines by the transport's `members --persons` and heard by the host account it names, and one dropped from the file leaves the room |
 | <a id="b337"></a>[B337](B337-A-Person-Card-Signed-By-Its-Own-Key.md) | S | - | A person card - login, name, optional email, `ssh-ed25519` key, expiry, predecessor - signed by its own key; a change of key signed by both; `card verify --pinned [--krl] --json` |
@@ -39,7 +40,6 @@ from its side, as *blocked by*.
 | <a id="b335"></a>[B335](B335-Every-Change-To-A-Protected-File-Signed.md) | M | - | A follow checks every commit along the first parent that changes a protected file - `project.yml`, `access.yml`, `machine-signers`, a named snippet file, the access repository's file - signed by `signers` as they stood before it, instead of the tip alone; the refusal names commit and file |
 | <a id="b341"></a>[B341](B341-A-New-Commit-Is-Never-Accepted-By-A-Retired-Key.md) | M | [B335](README.md#b335) | A retired key stays for reading history with `valid-before`, while a new commit is checked against the signers without such keys and against the revocation list |
 | <a id="b345"></a>[B345](B345-A-Host-Vault-Opened-By-The-Persons-Key.md) | L | - | A host account's vault has one keyslot, a share derived on the person's machine from their SSH signature and kept in locked memory on the host; a lost key means a new vault, answered `other-key` |
-| <a id="b349"></a>[B349](B349-A-Host-Card-Signed-By-Its-Host-Admin.md) | S | - | A host card - host, address, SSH host key, the forge's web and Git ports and the homeserver's port - signed by its host admin on their own machine; `card make-host` and `card verify-host --signer --json` |
 | <a id="b214"></a>[B214](B214-A-Vault-Entry-Put-Again-Unchanged.md) | M | - | `vault put` given the value an entry already holds says `unchanged` and exits 0, so a second play reports nothing changed |
 | <a id="b154"></a>[B154](B154-A-Tamper-Evident-Event-Log-Per-Node.md) | L | - | One hash-chained event log per account, anchored in the user's journal, optionally copied off the machine, kept by `porelo clear`; written by approve, reject, clearance, hand-in, credentials and project changes.; part 1 built, the copy off the machine after it |
 

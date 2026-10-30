@@ -1,0 +1,2 @@
+title: "A host card - host, address, SSH host key, the forge's web and Git ports and the homeserver's port - signed by its host admin with `porelo card make-host` and checked with `porelo card verify-host --signer --json`; SSH signatures are checked as `ssh-keygen -Y verify` checks them, nothing reserved and nothing after the signature"
+type: added
