@@ -122,6 +122,11 @@ session:
 instructions:                 # optional; how the agent takes standing instructions from a file
   arguments: ["--append-system-prompt-file", "{file}"]   # {file} is where the file's path goes
 
+login:
+  arguments: ["auth", "login"]
+  flow: paste-code             # optional; paste-code, device-code or loopback
+  documentation: https://example.com/sign-in
+
 provider:
   token_env:
     oauth: EXAMPLE_OAUTH_TOKEN
@@ -142,6 +147,15 @@ install:                      # what the image build fetches, pinned and verifie
   as_root: |                  # anything else; shell, unavoidably
     RUN mkdir -p /opt/example && chown agent /opt/example
 ```
+
+`login.flow` declares how the person authorizes the sign-in. `paste-code` opens a page and asks the person to
+paste the returned code into the sign-in; `device-code` asks them to authorize the displayed device code in a
+browser. `loopback` needs a browser redirect to a local listener and is refused when `SSH_CONNECTION` is set,
+before the vault is asked or a login image or container is started. It runs on the person's own desktop.
+Any other value is refused naming `login.flow`. An omitted flow keeps the older sign-in behavior, over SSH too.
+Porelo leaves `BROWSER` unset and keeps the URL-printing browser shim. Measure the adapter's flow before declaring
+it. `porelo agents --json` reports each agent's `flow` with the declared spelling, or `""` when undeclared, so an
+interface can show the corresponding sign-in hint.
 
 **A digest is required.** The fetch and the check are generated into one `RUN`
 with `set -e`, so a mismatch fails the layer and nothing is installed — verified

@@ -166,6 +166,15 @@ access for the seconds the login takes.
 What the login writes is copied out, stored in the vault and the copy deleted at once; for that moment it lies in
 plaintext on the way, an accepted risk ([the decision](decisions.md#a-sign-in-passes-through-plaintext-on-its-way-to-the-vault)).
 
+Over SSH, the agent's declared sign-in flow determines what happens. For `paste-code`, open the sign-in page
+in your browser and paste the returned code into the terminal. For `device-code`, open the page and authorize
+the device code shown in the terminal. A `loopback` flow needs a browser redirect to the account's machine;
+with `SSH_CONNECTION` set, Porelo refuses it naming the agent, before asking the vault, building an image or
+starting a container. Run that sign-in on your own desktop. An older adapter that declares no flow signs in
+as before, over SSH too. Porelo leaves `BROWSER` unset; its browser shim prints the URL for you to open.
+`porelo agents --json` reports each agent's `flow` as `paste-code`, `device-code`, `loopback` or `""` when
+undeclared, so an interface can show the hint before the sign-in starts.
+
 ### A subscription granted once: GitHub Copilot
 
 Copilot is reached with a GitHub token a person grants once, through GitHub's device flow. One command makes

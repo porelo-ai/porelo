@@ -1,6 +1,6 @@
 # B347 — An Agent Says How It Signs In
 
-**Status:** Implementing. Estimated and Backlog (operator, 2026-10-30, sprint 6m).
+**Status:** Review. Estimated and Backlog (operator, 2026-10-30, sprint 6m).
 **Size:** M - estimated 90 minutes from the median of M builds: a field in the agent API carried through YAML, the
 definition's JSON both ways and the agent server, the check in the sign-in, the `BROWSER` setting removed, docs. It
 grew from XS when planned: the definition crosses a process boundary, so the field is a contract change.
@@ -34,6 +34,20 @@ SSH key per person, the state signed in Git, everything between a person and a h
 
 - That `BROWSER` is absent inside a sign-in container once Porelo stops setting it, image layers included.
 - Which value each adapter declares is measured in its own repository.
+
+## Done
+
+- `login.flow` is read from an agent's definition as `paste-code`, `device-code` or `loopback`, any other value refused
+  naming the key; it crosses to the host in the agent's description, an explicit null there being no flow.
+- `porelo vault login` refuses a `loopback` sign-in when `SSH_CONNECTION` is set, before the vault is asked, anything
+  is built or leftover login containers are swept; an undeclared flow signs in as before, with the forward hint.
+- `porelo agents --json` answers `flow`, `""` when undeclared. `BROWSER` is no longer set in the sign-in image.
+- No refusal names `porelo vault login` as the way out where it would be refused: a task's start, its check and
+  `vault import` ask one rule.
+- An agy Gemini reading found the refusals elsewhere, the explicit null, the sweep before the refusal and the docs; all
+  fixed, with tests. A narrow reading of those fixes confirmed them and asked for tests that fail if they are undone,
+  added for the hint, the sweep and an agent not installed. The three call sites that ask the rule have no test of
+  their own: each needs an installed agent and a vault.
 
 ## Acceptance
 

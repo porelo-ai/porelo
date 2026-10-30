@@ -114,7 +114,8 @@ public class VaultImportCommand implements Callable<Integer>, PoreloFactory.Cont
 
         if (result.outcome() == CredentialImport.Outcome.NOTHING_TO_IMPORT
                 && agentName != null
-                && Offer.atTerminal()) {
+                && Offer.atTerminal()
+                && AgentLogin.signsInHere(context, agentName)) {
             err.println("porelo: " + result.detail());
             err.flush();
             return loginInstead(

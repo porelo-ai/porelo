@@ -5,6 +5,9 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.io.StringReader;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.ValueSource;
 
 /** Tests for {@link AgentDefinitionReader}. */
 class AgentDefinitionReaderTest {
@@ -24,6 +27,50 @@ class AgentDefinitionReaderTest {
 
     private static AgentDefinition read(String yaml) {
         return AgentDefinitionReader.read(new StringReader(yaml), "test.yaml");
+    }
+
+    @Test
+    void refusesAnUnknownLoginFlow() {
+        assertThatThrownBy(
+                        () ->
+                                read(
+                                        MINIMAL
+                                                + """
+                login:
+                  flow: invalid
+                """))
+                .as("an unknown flow must not silently bypass the sign-in policy")
+                .isInstanceOf(AgentException.class)
+                .hasMessageContaining("login.flow");
+    }
+
+    @ParameterizedTest
+    @CsvSource({"paste-code, PASTE_CODE", "device-code, DEVICE_CODE", "loopback, LOOPBACK"})
+    void readsEachDeclaredLoginFlow(String value, LoginFlow expected) {
+        final AgentDefinition definition = read(MINIMAL + "login:\n  flow: " + value + "\n");
+
+        assertThat(definition.loginFlow())
+                .as("the adapter's declaration controls the sign-in policy")
+                .isEqualTo(expected);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"''", "true", "7", "[]", "{}", "null"})
+    void refusesALoginFlowThatIsNotOneOfTheDeclaredValues(String value) {
+        assertThatThrownBy(() -> read(MINIMAL + "login:\n  flow: " + value + "\n"))
+                .as("a malformed flow must not silently become an undeclared flow")
+                .isInstanceOf(AgentException.class)
+                .hasMessageContaining("login.flow");
+    }
+
+    @Test
+    void anOlderDefinitionDeclaresNoLoginFlow() {
+        assertThat(read(MINIMAL).loginFlow())
+                .as("an older adapter keeps its sign-in behavior")
+                .isNull();
+        assertThat(read(MINIMAL + "login:\n  arguments: []\n").loginFlow())
+                .as("a login declared before flows keeps its behavior too")
+                .isNull();
     }
 
     @Test

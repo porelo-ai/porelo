@@ -5,11 +5,20 @@ import static org.assertj.core.api.Assertions.assertThat;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import org.fuin.porelo.agent.api.AgentDefinition;
+import org.fuin.porelo.agent.api.AgentDefinitionReader;
+import org.fuin.porelo.agent.api.LoginFlow;
 import org.fuin.porelo.core.config.XdgPaths;
 import org.fuin.porelo.core.project.SecurityClass;
 import org.fuin.porelo.testing.FakeCommandRunner;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.ValueSource;
 
 /**
  * Tests for logging in with an agent.
@@ -46,7 +55,17 @@ class AgentLoginTest {
         // still there is litter, and a teardown cannot cover a kill.
         runner.answering("ps", "porelo-login-1788886971400\nporelo-uc-shell-1\n");
 
-        AgentLogin.login(context(dir), null, false, false, new PrintWriter(out, true));
+        // Swept by a login that passed its refusals, before anything is built.
+        AgentLogin.login(
+                context(dir),
+                definition(dir, "paste-code"),
+                false,
+                false,
+                new PrintWriter(out, true),
+                directory -> false,
+                (command, directory) ->
+                        new AgentLogin.Result(
+                                AgentLogin.Outcome.NOTHING_TO_COLLECT, "", "", 0, ""));
 
         assertThat(runner.lines())
                 .anyMatch(
@@ -65,6 +84,26 @@ class AgentLoginTest {
 
         assertThat(result.outcome()).isEqualTo(AgentLogin.Outcome.NO_SUCH_AGENT);
         assertThat(result.detail()).isNotBlank();
+        assertThat(runner.invocations()).as("nothing is swept for a login refused").isEmpty();
+    }
+
+    @Test
+    void anAgentNotInstalledHasNoLoginToNameAsAWayOut(@TempDir Path dir) {
+        assertThat(AgentLogin.signsInHere(context(dir), "absent")).isFalse();
+    }
+
+    @Test
+    void theHintFollowsTheDeclaredFlow() {
+        assertThat(String.join("\n", AgentLogin.hint(null, "box")))
+                .as("an undeclared flow keeps the forward it always had")
+                .contains("ssh -L <port>:localhost:<port> box");
+        assertThat(String.join("\n", AgentLogin.hint(LoginFlow.PASTE_CODE, "box")))
+                .contains("paste the returned code")
+                .doesNotContain("ssh -L");
+        assertThat(String.join("\n", AgentLogin.hint(LoginFlow.DEVICE_CODE, "box")))
+                .contains("device code")
+                .doesNotContain("ssh -L");
+        assertThat(AgentLogin.hint(LoginFlow.LOOPBACK, "box")).isEmpty();
     }
 
     @Test
@@ -96,12 +135,161 @@ class AgentLoginTest {
                 .contains("/usr/local/bin/xdg-open")
                 .contains("sensible-browser")
                 .contains("www-browser");
-        // BROWSER is set again, and both reversals happened for measured reasons rather than taste.
-        // With it set, Claude Code redirects to a port on localhost instead of printing a code;
-        // that port is unreachable from the operator's computer unless the container shares this
-        // machine's network, which the login container does - so the redirect lands somewhere an
-        // ssh forward can reach. That was chosen over copying a code between two windows.
-        assertThat(rendered).contains("ENV BROWSER=");
+        assertThat(rendered)
+                .as("setting BROWSER can change the adapter's chosen sign-in flow")
+                .doesNotContain("BROWSER");
+    }
+
+    private static AgentDefinition definition(Path directory, String flow) {
+        return AgentDefinitionReader.read(
+                new java.io.StringReader(
+                        """
+                        name: example
+                        binary: example-cli
+                        git_identity:
+                          name: Example
+                          email: noreply@example.com
+                        headless:
+                          prompt_flag: "-p"
+                        config_dir: %s
+                        login:
+                          arguments: [auth, login]
+                        %s
+                        """
+                                .formatted(directory, flow.isEmpty() ? "" : "  flow: " + flow)),
+                "test.yaml");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"192.0.2.1 50000 192.0.2.2 22", ""})
+    void refusesALoopbackSignInOverSshBeforeAskingTheVaultOrLaunching(
+            String ssh, @TempDir Path dir) {
+        final PoreloContext base = context(dir);
+        final PoreloContext remote =
+                new PoreloContext(
+                                runner,
+                                base.paths(),
+                                command -> {
+                                    throw new AssertionError("no build or container may start");
+                                },
+                                name -> "SSH_CONNECTION".equals(name) ? ssh : null)
+                        .asking(
+                                prompt -> {
+                                    throw new AssertionError("the vault must not be asked");
+                                });
+        remote.vault().write(Map.of(), "test-passphrase".toCharArray());
+
+        final AgentLogin.Result result =
+                AgentLogin.login(
+                        remote,
+                        definition(dir, "loopback"),
+                        false,
+                        false,
+                        new PrintWriter(out, true),
+                        directory -> {
+                            throw new AssertionError("no existing credential may be read");
+                        },
+                        (command, directory) -> {
+                            throw new AssertionError("no login may launch");
+                        });
+
+        assertThat(result.outcome())
+                .as("a loopback redirect cannot reach the SSH account")
+                .isEqualTo(AgentLogin.Outcome.LOOPBACK_OVER_SSH);
+        assertThat(result.detail()).as("the refusal identifies the agent").contains("example");
+        assertThat(runner.invocations()).as("no container operation on refusal").isEmpty();
+    }
+
+    @ParameterizedTest
+    @CsvSource({"true, false", "false, true", "true, true"})
+    void neitherPreviewNorForceBypassesTheSshRefusal(
+            boolean dryRun, boolean force, @TempDir Path dir) {
+        final PoreloContext remote =
+                new PoreloContext(
+                        runner,
+                        context(dir).paths(),
+                        command -> 0,
+                        name -> "SSH_CONNECTION".equals(name) ? "connected" : null);
+
+        final AgentLogin.Result result =
+                AgentLogin.login(
+                        remote,
+                        definition(dir, "loopback"),
+                        dryRun,
+                        force,
+                        new PrintWriter(out, true),
+                        directory -> false,
+                        (command, directory) -> {
+                            throw new AssertionError("a refused login must not launch");
+                        });
+
+        assertThat(result.outcome())
+                .as("flags do not make the remote redirect reachable")
+                .isEqualTo(AgentLogin.Outcome.LOOPBACK_OVER_SSH);
+    }
+
+    @ParameterizedTest
+    @CsvSource({
+        "loopback, false",
+        "paste-code, true",
+        "device-code, true",
+        "'', true",
+        "'', false"
+    })
+    void launchesLocalLoopbackAndRemoteCodeOrUndeclaredSignIns(
+            String flow, boolean ssh, @TempDir Path dir) {
+        final PoreloContext allowed =
+                new PoreloContext(
+                        runner,
+                        context(dir).paths(),
+                        command -> 0,
+                        name -> ssh && "SSH_CONNECTION".equals(name) ? "connected" : null);
+        final List<List<String>> launched = new ArrayList<>();
+        final AgentLogin.Result ran =
+                new AgentLogin.Result(AgentLogin.Outcome.NOTHING_TO_COLLECT, "", "", 0, "");
+
+        final AgentLogin.Result result =
+                AgentLogin.login(
+                        allowed,
+                        definition(dir, flow),
+                        false,
+                        false,
+                        new PrintWriter(out, true),
+                        directory -> false,
+                        (command, directory) -> {
+                            launched.add(List.copyOf(command));
+                            assertThat(directory)
+                                    .as("the declared directory is collected")
+                                    .isEqualTo(dir.toString());
+                            return ran;
+                        });
+
+        assertThat(launched)
+                .as("the permitted flow reaches the launch with the declared command")
+                .containsExactly(List.of("example-cli", "auth", "login"));
+        assertThat(result).as("the launch's result reaches the caller").isSameAs(ran);
+    }
+
+    @ParameterizedTest
+    @CsvSource({
+        "loopback, true, false",
+        "loopback, false, true",
+        "paste-code, true, true",
+        "device-code, true, true",
+        "'', true, true"
+    })
+    void namesTheLoginAsAWayOutOnlyWhereItCanRun(
+            String flow, boolean ssh, boolean offered, @TempDir Path dir) {
+        // Every place that tells a person to sign in asks this; a login it would then refuse is
+        // no way out.
+        final PoreloContext here =
+                new PoreloContext(
+                        runner,
+                        context(dir).paths(),
+                        command -> 0,
+                        name -> ssh && "SSH_CONNECTION".equals(name) ? "connected" : null);
+
+        assertThat(AgentLogin.signsInHere(here, definition(dir, flow))).isEqualTo(offered);
     }
 
     @Test

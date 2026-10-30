@@ -139,7 +139,10 @@ public final class AgentDefinitionReader {
                         : null,
                 // The OAuth apps it signs in to providers with, which 'porelo vault authorize'
                 // grants for it.
-                grants(optionalSection(root, "login").get("grants"), origin));
+                grants(optionalSection(root, "login").get("grants"), origin),
+                optionalSection(root, "login").containsKey("flow")
+                        ? LoginFlow.of(optionalSection(root, "login").get("flow"), origin)
+                        : null);
     }
 
     /**

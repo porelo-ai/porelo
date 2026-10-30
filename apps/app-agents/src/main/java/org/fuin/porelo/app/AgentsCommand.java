@@ -45,7 +45,7 @@ public class AgentsCommand implements Callable<Integer>, PoreloFactory.ContextAw
             names = "--json",
             description =
                     "Prints one JSON object: the vault's state, and each agent with the entry it signs"
-                            + " in under and whether the vault holds it.")
+                            + " in under, how its sign-in works and whether the vault holds it.")
     private boolean json;
 
     @Spec private CommandSpec spec;

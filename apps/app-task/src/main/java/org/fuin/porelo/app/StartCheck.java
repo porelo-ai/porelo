@@ -1213,7 +1213,7 @@ public final class StartCheck {
                         "the vault holds no credential for '"
                                 + credential
                                 + "'"
-                                + (agent.definition().loginArguments() == null
+                                + (!AgentLogin.signsInHere(context, agent.definition())
                                         ? ""
                                         : "; sign in with '"
                                                 + agent.name()

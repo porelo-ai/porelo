@@ -47,7 +47,8 @@ public final class AgentSignIns {
      * credential} and {@code signed_in} are both left out for an agent whose default provider
      * cannot be used - none named, none declared, or a dialect it does not serve - since a start is
      * refused whatever the vault holds. A sign-in lacking a setting its provider sends beside the
-     * token is not signed in.
+     * token is not signed in. Each row carries {@code flow} with the declared sign-in spelling, or
+     * an empty string when undeclared, so the interface can show its hint before a sign-in starts.
      *
      * @param agents The installed agents, in the order they are listed.
      * @param providers The providers this machine declares.
@@ -81,6 +82,7 @@ public final class AgentSignIns {
         final Map<String, Object> row = new LinkedHashMap<>();
         row.put("name", agent.name());
         row.put("found_by", found.foundBy().toString());
+        row.put("flow", agent.loginFlow() == null ? "" : agent.loginFlow().value());
         final SelectedProvider.Choice choice = SelectedProvider.consider(providers, agent, null);
         if (choice.refusal() != null) {
             // A start is refused whatever the vault holds, so a sign-in would change nothing.

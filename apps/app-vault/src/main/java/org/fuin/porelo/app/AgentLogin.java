@@ -5,8 +5,10 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import org.fuin.porelo.agent.api.AgentDefinition;
 import org.fuin.porelo.agent.api.Credential;
 import org.fuin.porelo.agent.api.InstalledAgent;
+import org.fuin.porelo.agent.api.LoginFlow;
 import org.fuin.porelo.core.project.Project;
 import org.fuin.porelo.core.project.SecurityClass;
 import org.jspecify.annotations.Nullable;
@@ -62,6 +64,9 @@ public final class AgentLogin {
 
         /** The agent does not say how to log in. */
         UNSUPPORTED,
+
+        /** The sign-in needs a local browser redirect, which cannot reach an SSH session. */
+        LOOPBACK_OVER_SSH,
 
         /** The agent does not say where it keeps its credentials, so nothing can be collected. */
         NO_CONFIG_DIRECTORY,
@@ -309,12 +314,6 @@ public final class AgentLogin {
             boolean force,
             PrintWriter out) {
 
-        // First, and before anything expensive. A login container is never reused - the name
-        // carries the millisecond it was made - so one still on the machine is litter, and the
-        // teardown at the end cannot have covered every way a login ends: a kill leaves nothing a
-        // chance to run. The login *image* is the expensive part and is deliberately kept.
-        sweepLeftoverLogins(context.podman(), out);
-
         try (var agents = context.agents()) {
 
             final java.util.Optional<InstalledAgent> found =
@@ -330,82 +329,179 @@ public final class AgentLogin {
             }
             final InstalledAgent agent = found.get();
 
-            final List<String> loginArguments = agent.definition().loginArguments();
-            // Null, not empty: an agent whose login is "just run me" declares the section with no
-            // arguments, and treating that as "cannot log in" would refuse the commonest shape.
-            if (loginArguments == null) {
-                return failed(
-                        Outcome.UNSUPPORTED,
-                        "'"
-                                + agent.name()
-                                + "' does not say how to log"
-                                + " in, so there is nothing to run. Store its credential with"
-                                + " 'porelo vault put', or import one it already holds");
-            }
-            final String configDirectory = agent.definition().configDirectory();
-            if (configDirectory == null) {
-                return failed(
-                        Outcome.NO_CONFIG_DIRECTORY,
-                        "'"
-                                + agent.name()
-                                + "' does not say"
-                                + " where it keeps its credentials, so nothing could be collected"
-                                + " afterwards");
-            }
-
-            // Checked before anything is built: a second authorization is not free. Porelo does not
-            // touch this machine's copy - the container has its own home - but whether a second one
-            // invalidates the first is the provider's business, and somebody who already has a
-            // working credential here almost certainly wants to copy it rather than risk that. The
-            // same extractor 'vault import' uses answers the question.
-            if (!force) {
-                final Path onThisNode = VaultImportCommand.expand(configDirectory);
-                if (Files.isDirectory(onThisNode)
-                        && agent.extractCredential(onThisNode).isPresent()) {
-                    return failed(
-                            Outcome.ALREADY_SIGNED_IN,
-                            "'"
-                                    + agent.name()
-                                    + "' is already"
-                                    + " signed in on this machine. Copy what it has with 'porelo vault"
-                                    + " import "
-                                    + agent.name()
-                                    + "', which logs in nowhere - or pass"
-                                    + " --force to authorize again, which may or may not invalidate the"
-                                    + " credential already here");
-                }
-            }
-
-            final List<String> command = new ArrayList<>(List.of(agent.definition().binary()));
-            command.addAll(loginArguments);
-            out.println("agent     " + agent.name());
-            out.println("runs      " + String.join(" ", command));
-            out.println(
-                    "where     a throwaway container with ordinary network access - no egress"
-                            + " ruleset, no broker, no vault");
-            if (dryRun) {
-                out.println("previewed nothing was built or run");
-                out.flush();
-                return new Result(Outcome.PREVIEWED, "", "", 0, "");
-            }
-            out.flush();
-
-            // Asked before the login, never after it: a person who signed in and was then told the
-            // vault is locked had to sign in again. Without a terminal nothing is asked, and the
-            // end of the login refuses as before.
-            context.openIfShut(true, false, out);
-            if (context.vault().exists() && context.opener().isEmpty()) {
-                return failed(
-                        Outcome.VAULT_LOCKED,
-                        "the vault is locked, so nothing was run: what the login produced"
-                                + " could not be stored - 'porelo vault unlock' and run this again");
-            }
-
-            return run(context, agent, command, configDirectory, out);
-
+            return login(
+                    context,
+                    agent.definition(),
+                    dryRun,
+                    force,
+                    out,
+                    directory -> agent.extractCredential(directory).isPresent(),
+                    (command, directory) -> run(context, agent, command, directory, out));
         } catch (RuntimeException ex) {
             return failed(Outcome.FAILED, String.valueOf(ex.getMessage()));
         }
+    }
+
+    /** Runs the sign-in preflight before asking the vault or launching anything. */
+    static Result login(
+            PoreloContext context,
+            AgentDefinition definition,
+            boolean dryRun,
+            boolean force,
+            PrintWriter out,
+            java.util.function.Predicate<Path> signedIn,
+            java.util.function.BiFunction<List<String>, String, Result> launch) {
+        final List<String> loginArguments = definition.loginArguments();
+        // Null, not empty: an agent whose login is "just run me" declares the section with no
+        // arguments, and treating that as "cannot log in" would refuse the commonest shape.
+        if (loginArguments == null) {
+            return failed(
+                    Outcome.UNSUPPORTED,
+                    "'"
+                            + definition.name()
+                            + "' does not say how to log"
+                            + " in, so there is nothing to run. Store its credential with"
+                            + " 'porelo vault put', or import one it already holds");
+        }
+        if (loopbackOverSsh(context, definition)) {
+            return failed(
+                    Outcome.LOOPBACK_OVER_SSH,
+                    "'"
+                            + definition.name()
+                            + "' needs a browser redirect to this machine, so it cannot sign in over"
+                            + " SSH. Run the sign-in on your own desktop");
+        }
+        final String configDirectory = definition.configDirectory();
+        if (configDirectory == null) {
+            return failed(
+                    Outcome.NO_CONFIG_DIRECTORY,
+                    "'"
+                            + definition.name()
+                            + "' does not say"
+                            + " where it keeps its credentials, so nothing could be collected"
+                            + " afterwards");
+        }
+
+        // Checked before anything is built: a second authorization is not free. Porelo does not
+        // touch this machine's copy - the container has its own home - but whether a second one
+        // invalidates the first is the provider's business, and somebody who already has a
+        // working credential here almost certainly wants to copy it rather than risk that. The
+        // same extractor 'vault import' uses answers the question.
+        if (!force) {
+            final Path onThisNode = VaultImportCommand.expand(configDirectory);
+            if (Files.isDirectory(onThisNode) && signedIn.test(onThisNode)) {
+                return failed(
+                        Outcome.ALREADY_SIGNED_IN,
+                        "'"
+                                + definition.name()
+                                + "' is already"
+                                + " signed in on this machine. Copy what it has with 'porelo vault"
+                                + " import "
+                                + definition.name()
+                                + "', which logs in nowhere - or pass"
+                                + " --force to authorize again, which may or may not invalidate the"
+                                + " credential already here");
+            }
+        }
+
+        final List<String> command = new ArrayList<>(List.of(definition.binary()));
+        command.addAll(loginArguments);
+        out.println("agent     " + definition.name());
+        out.println("runs      " + String.join(" ", command));
+        out.println(
+                "where     a throwaway container with ordinary network access - no egress"
+                        + " ruleset, no broker, no vault");
+        if (dryRun) {
+            out.println("previewed nothing was built or run");
+            out.flush();
+            return new Result(Outcome.PREVIEWED, "", "", 0, "");
+        }
+        out.flush();
+
+        // Before anything expensive, and after every refusal. A login container is never reused -
+        // the name carries the millisecond it was made - so one still on the machine is litter,
+        // and the teardown at the end cannot have covered every way a login ends: a kill leaves
+        // nothing a chance to run. The login *image* is the expensive part and is deliberately
+        // kept.
+        sweepLeftoverLogins(context.podman(), out);
+
+        // Asked before the login, never after it: a person who signed in and was then told the
+        // vault is locked had to sign in again. Without a terminal nothing is asked, and the
+        // end of the login refuses as before.
+        context.openIfShut(true, false, out);
+        if (context.vault().exists() && context.opener().isEmpty()) {
+            return failed(
+                    Outcome.VAULT_LOCKED,
+                    "the vault is locked, so nothing was run: what the login produced"
+                            + " could not be stored - 'porelo vault unlock' and run this again");
+        }
+
+        return launch.apply(command, configDirectory);
+    }
+
+    /**
+     * Returns whether {@code porelo vault login} can sign this agent in from here: it declares a
+     * login, and that login is not a redirect to this machine asked for over SSH.
+     *
+     * <p>For every place that names the login as the way out: one it would refuse is no way out.
+     *
+     * @param context The machine.
+     * @param definition The agent.
+     * @return {@code true} when the login can run here.
+     */
+    public static boolean signsInHere(PoreloContext context, AgentDefinition definition) {
+        return definition.loginArguments() != null && !loopbackOverSsh(context, definition);
+    }
+
+    /**
+     * Returns whether {@code porelo vault login} can sign this agent in from here, by its name.
+     *
+     * @param context The machine.
+     * @param agentName The agent.
+     * @return {@code true} when it is installed and its login can run here.
+     */
+    public static boolean signsInHere(PoreloContext context, String agentName) {
+        try (var agents = context.agents()) {
+            return agents.find(agentName)
+                    .map(agent -> signsInHere(context, agent.definition()))
+                    .orElse(false);
+        }
+    }
+
+    /**
+     * Returns the lines that say how the sign-in reaches the person, by the flow the agent
+     * declares.
+     *
+     * @param flow The declared flow, or {@code null} when the agent does not say.
+     * @param host This machine's name, for the forward.
+     * @return The lines; none for a loopback sign-in, which runs only where the browser is.
+     */
+    static List<String> hint(@Nullable LoginFlow flow, String host) {
+        if (flow == LoginFlow.PASTE_CODE) {
+            return List.of(
+                    "  * Open the sign-in page in your browser, then paste the returned code here.");
+        }
+        if (flow == LoginFlow.DEVICE_CODE) {
+            return List.of(
+                    "  * Open the sign-in page in your browser and enter the device code shown here.");
+        }
+        if (flow == null) {
+            // An agent that does not say how it signs in keeps the advice it always had.
+            return List.of(
+                    "  * If that machine is not this one, a redirect back to 'localhost' will"
+                            + " not reach you. Open a second terminal and forward the port the URL names:",
+                    "",
+                    "        ssh -L <port>:localhost:<port> " + host,
+                    "",
+                    "    The container shares this machine's network, so the callback lands"
+                            + " here and the forward carries it to your browser.");
+        }
+        return List.of();
+    }
+
+    private static boolean loopbackOverSsh(PoreloContext context, AgentDefinition definition) {
+        return definition.loginFlow() == LoginFlow.LOOPBACK
+                && context.environment().apply("SSH_CONNECTION") != null;
     }
 
     private static Result run(
@@ -494,15 +590,7 @@ public final class AgentLogin {
             out.println(
                     "  * Nothing is stored unless the login finishes. Ctrl-C or leaving the"
                             + " agent aborts it, and the container is removed either way.");
-            out.println(
-                    "  * If that machine is not this one, a redirect back to 'localhost' will"
-                            + " not reach you. Open a second terminal and forward the port the URL names:");
-            out.println();
-            out.println("        ssh -L <port>:localhost:<port> " + hostname());
-            out.println();
-            out.println(
-                    "    The container shares this machine's network, so the callback lands"
-                            + " here and the forward carries it to your browser.");
+            hint(agent.definition().loginFlow(), hostname()).forEach(out::println);
             out.println();
             out.flush();
             // WATCHED WHILE IT RUNS, not collected after it stops. The token is written the moment
@@ -840,14 +928,6 @@ public final class AgentLogin {
     }
 
     /**
-     * Returns this machine's name, for the forward somebody may have to set up.
-     *
-     * <p>Printed rather than left as {@code <this machine>}: whoever needs the command is already
-     * doing something fiddly, and a line they can edit beats one they have to compose.
-     *
-     * @return The host name, or a placeholder when it cannot be read.
-     */
-    /**
      * Returns image lines installing something for the agent to "open a browser" with.
      *
      * <p><strong>Without this the login stops dead.</strong> An agent asked to authenticate tries
@@ -860,18 +940,8 @@ public final class AgentLogin {
      * is exactly what somebody sitting at a different machine needs - and the same trick works for
      * any agent, because all three names are the standard ones.
      *
-     * <p><strong>{@code BROWSER} is deliberately NOT set, and that is a reversal.</strong> It was,
-     * and it was measured what it costs: with {@code BROWSER} set, Claude Code stops printing a
-     * link and a code and switches to redirecting to {@code localhost} on a port it picks per run -
-     * which on a machine somebody reaches over ssh lands on the wrong computer and needs that port
-     * forwarded, with the port knowable only by reading it out of the URL. Unset, the login stays
-     * link-and-code: the page opens where the person is, they paste the code back into the
-     * terminal, and nothing has to be forwarded at all.
-     *
-     * <p>The shim stays, because an agent that calls {@code xdg-open} itself still needs the
-     * address printed rather than swallowed. <strong>What is NOT measured</strong> is whether the
-     * shim's mere presence makes an agent choose the redirect anyway; the measurement varied {@code
-     * BROWSER} and not the shim.
+     * <p>{@code BROWSER} is left unset because it can change the agent's chosen sign-in flow. An
+     * agent calling one of the standard browser commands still gets its URL printed.
      *
      * @return Lines to run as root while the login image is built.
      */
@@ -919,14 +989,17 @@ public final class AgentLogin {
         lines.add("    && chmod 0755 /usr/local/bin/xdg-open \\");
         lines.add("    && ln -sf /usr/local/bin/xdg-open /usr/local/bin/sensible-browser \\");
         lines.add("    && ln -sf /usr/local/bin/xdg-open /usr/local/bin/www-browser");
-        // Set again, deliberately. Unset, an agent stays on link-and-code and nothing has to be
-        // forwarded; set, it redirects to a port on this machine's own loopback - which the login
-        // container shares, so the operator's ssh forward reaches it. That was chosen the second:
-        // it is the one where nobody has to copy a code between two windows.
-        lines.add("ENV BROWSER=/usr/local/bin/xdg-open");
         return java.util.List.copyOf(lines);
     }
 
+    /**
+     * Returns this machine's name, for the forward somebody may have to set up.
+     *
+     * <p>Printed rather than left as {@code <this machine>}: whoever needs the command is already
+     * doing something fiddly, and a line they can edit beats one they have to compose.
+     *
+     * @return The host name, or a placeholder when it cannot be read.
+     */
     private static String hostname() {
         try {
             return java.net.InetAddress.getLocalHost().getHostName();

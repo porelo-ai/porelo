@@ -87,6 +87,9 @@ public final class AgentDefinitionJson {
         putIfPresent(out, "configDirectory", definition.configDirectory());
         putIfPresent(out, "loginArguments", definition.loginArguments());
         putIfPresent(out, "loginDocumentation", definition.loginDocumentation());
+        if (definition.loginFlow() != null) {
+            out.put("loginFlow", definition.loginFlow().value());
+        }
         out.put("sandboxedArguments", definition.sandboxedArguments());
         out.put("instructionArguments", definition.instructionArguments());
         if (definition.atRest() != null) {
@@ -216,7 +219,11 @@ public final class AgentDefinitionJson {
                                                         map(grant.get("hosts")),
                                                         optional(grant, "owner")))
                                 .toList()
-                        : List.of());
+                        : List.of(),
+                // An explicit null is no flow, as for every optional field here.
+                source.get("loginFlow") != null
+                        ? LoginFlow.of(source.get("loginFlow"), "the agent's own description")
+                        : null);
     }
 
     private static Map<String, Object> writeWaiting(Waiting waiting) {

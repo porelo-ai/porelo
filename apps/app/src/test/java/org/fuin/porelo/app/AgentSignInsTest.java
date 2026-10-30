@@ -175,7 +175,7 @@ class AgentSignInsTest {
 
         assertThat(rows(report).get(0))
                 .as("a start would have to choose a provider first")
-                .containsOnlyKeys("name", "found_by");
+                .containsOnlyKeys("name", "found_by", "flow");
     }
 
     @Test
@@ -234,7 +234,30 @@ class AgentSignInsTest {
                         true,
                         Optional.of(Map.of()));
 
-        assertThat(rows(report).get(0)).containsOnlyKeys("name", "found_by");
+        assertThat(rows(report).get(0)).containsOnlyKeys("name", "found_by", "flow");
+    }
+
+    @Test
+    void everyAgentReportsItsFlowEvenWhenItsProviderCannotBeUsed() {
+        final List<AgentSignIns.Found> agents =
+                List.of(
+                        agent("paste", "login:\n  flow: paste-code\n"),
+                        agent("device", "login:\n  flow: device-code\n"),
+                        agent("redirect", "login:\n  flow: loopback\n"),
+                        agent("older", ""),
+                        agent(
+                                "unusable",
+                                "login:\n  flow: loopback\nprovider:\n  dialect: openai\n  endpoint: url\n"));
+
+        for (final boolean vaultExists : List.of(false, true)) {
+            final Map<String, Object> report =
+                    AgentSignIns.report(agents, providers(), vaultExists, Optional.empty());
+
+            assertThat(rows(report))
+                    .as("the interface can choose a hint before the vault is open")
+                    .extracting(row -> row.get("flow"))
+                    .containsExactly("paste-code", "device-code", "loopback", "", "loopback");
+        }
     }
 
     @Test

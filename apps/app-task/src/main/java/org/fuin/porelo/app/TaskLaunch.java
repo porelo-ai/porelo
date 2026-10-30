@@ -2568,7 +2568,7 @@ public final class TaskLaunch {
                 selection == null ? null : context.providers().get(selection.name());
         return nextCommand(
                 agent == null ? null : agent.name(),
-                agent != null && agent.definition().loginArguments() != null,
+                agent != null && AgentLogin.signsInHere(context, agent.definition()),
                 provider,
                 agent == null ? "" : credentials().credentialName(agent));
     }
@@ -2579,7 +2579,7 @@ public final class TaskLaunch {
                 selection == null ? null : context.providers().get(selection.name());
         return nextStep(
                 agent == null ? null : agent.name(),
-                agent != null && agent.definition().loginArguments() != null,
+                agent != null && AgentLogin.signsInHere(context, agent.definition()),
                 provider,
                 agent == null ? "" : credentials().credentialName(agent));
     }
