@@ -106,6 +106,8 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b335"></a>[B335](B335-Every-Change-To-A-Protected-File-Signed.md) | M | - | A follow checks every commit along the first parent that changes a protected file - `project.yml`, `access.yml`, `machine-signers`, a named snippet file, the access repository's file - signed by `signers` as they stood before it, instead of the tip alone; the refusal names commit and file |
+| <a id="b336"></a>[B336](B336-A-Repository-Says-Whether-A-Merge-Needs-A-Review.md) | S | - | `repositories.<name>.review` is `required` (the default) or `optional`, any other value refused, and handed to the host through `verify --json` |
 | <a id="b334"></a>[B334](B334-A-Person-Kept-In-The-Project-Room.md) | - | - | Every developer of the applied access file is a person in the project's room under their host account, kept with the machines by the transport's `members --persons`, and one dropped from the file leaves the room |
 | <a id="b274"></a>[B274](B274-A-Room-Line-Wakes-Only-The-Tasks-It-Mentions.md) | S | - | A person's room line wakes only the tasks it mentions, and every task on `@room`; an unaddressed line is delivered but wakes none, read at the next wake; a reply to a task's message stays a mention |
 | <a id="b270"></a>[B270](B270-A-Forge-Token-Stored-By-The-Forges-Own-Login.md) | - | - | A person gets their forge token into a machine's vault as `git.token.<host>` by the forge's own device-code login in a terminal there, never by pasting a token made by hand; Porelo's OAuth App by default, a person's own if named, `repo` scope |
