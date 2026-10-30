@@ -31,6 +31,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b347"></a>[B347](B347-An-Agent-Says-How-It-Signs-In.md) | M | - | `login.flow` is `paste-code`, `device-code` or `loopback` in an agent's definition; a loopback sign-in over SSH is refused before it starts |
 | <a id="b337"></a>[B337](B337-A-Person-Card-Signed-By-Its-Own-Key.md) | S | - | A person card - login, name, optional email, `ssh-ed25519` key, expiry, predecessor - signed by its own key; a change of key signed by both; `card verify --pinned [--krl] --json` |
 | <a id="b214"></a>[B214](B214-A-Vault-Entry-Put-Again-Unchanged.md) | M | - | `vault put` given the value an entry already holds says `unchanged` and exits 0, so a second play reports nothing changed |
 | <a id="b154"></a>[B154](B154-A-Tamper-Evident-Event-Log-Per-Node.md) | L | - | One hash-chained event log per account, anchored in the user's journal, optionally copied off the machine, kept by `porelo clear`; written by approve, reject, clearance, hand-in, credentials and project changes.; part 1 built, the copy off the machine after it |
@@ -114,7 +115,6 @@ from its side, as *blocked by*.
 | <a id="b344"></a>[B344](B344-Messages-Signed-By-A-Tasks-Key.md) | M | [B343](README.md#b343), [B334](README.md#b334) | Messages signed by the plain task key and checked through its certificate; the machine key, `project enroll`, `machine-signers` and `--machines` go, a transport is given `login` |
 | <a id="b338"></a>[B338](B338-An-Identity-Made-Changed-And-Replaced.md) | M | [B339](README.md#b339), [B342](README.md#b342), [B345](README.md#b345) | `identity create`, `rotate` and `revoke --lost`, publishing the card to the registry and each host with `published[]` |
 | <a id="b346"></a>[B346](B346-A-Backup-Key-For-A-Single-Admin.md) | S | [B338](README.md#b338), [B342](README.md#b342), [B343](README.md#b343) | An offline backup key for a single project admin, host admin or registry owner, allowed to change only the signers and to certify nothing |
-| <a id="b347"></a>[B347](B347-An-Agent-Says-How-It-Signs-In.md) | XS | - | `login.flow` is `paste-code`, `device-code` or `loopback` in an agent's definition; a loopback sign-in over SSH is refused before it starts |
 | <a id="b334"></a>[B334](B334-A-Person-Kept-In-The-Project-Room.md) | - | - | Every developer of the applied access file is a person in the project's room under their host account, kept with the machines by the transport's `members --persons`, and one dropped from the file leaves the room |
 | <a id="b274"></a>[B274](B274-A-Room-Line-Wakes-Only-The-Tasks-It-Mentions.md) | S | - | A person's room line wakes only the tasks it mentions, and every task on `@room`; an unaddressed line is delivered but wakes none, read at the next wake; a reply to a task's message stays a mention |
 | <a id="b270"></a>[B270](B270-A-Forge-Token-Stored-By-The-Forges-Own-Login.md) | - | - | A person gets their forge token into a machine's vault as `git.token.<host>` by the forge's own device-code login in a terminal there, never by pasting a token made by hand; Porelo's OAuth App by default, a person's own if named, `repo` scope |
