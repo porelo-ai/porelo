@@ -1,8 +1,8 @@
 # B336 — A Repository Says Whether A Merge Needs A Review
 
-**Status:** Accepted.
-**Size:** S - a guess before analysis: one key in the project file's schema and reader, its documentation, and the
-value handed on where the host reads it.
+**Status:** Backlog.
+**Size:** S - estimated 136 minutes from the median of S builds: one key in the project file's schema and reader, its
+documentation, and the value handed on where the host reads it.
 
 **What must be true.** The project file says for each repository whether a pull request on the host's forge needs
 another person's approval before it is merged: `repositories.<name>.review`, and `project.review` for the project's

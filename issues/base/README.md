@@ -48,6 +48,8 @@ from its side, as *blocked by*.
 | <a id="b207"></a>[B207](B207-An-Image-Built-Within-The-Projects-Egress.md) | L | - | An image's build reaches only the project's egress and its trusted package sources, run in a guard container behind the task's own firewall (measured to hold), so a snippet - a project's or a repository's `porelo.yml` - cannot fetch from anywhere while the image is made.; plan written, two questions for the operator |
 | <a id="b216"></a>[B216](B216-A-Second-Setup-Says-Nothing-Changed.md) | M | - | A second `porelo-setup.sh` run changes nothing and says so, as a last line and in `--json`, so a playbook reports it truly |
 | <a id="b321"></a>[B321](B321-A-Long-Command-Says-What-It-Is-Doing.md) | M | - | A long command shows what it is doing while it runs: a transport's stderr streamed line by line, each line redacted against the secrets handed in, and a phase line for the other long commands a sweep finds |
+| <a id="b335"></a>[B335](B335-Every-Change-To-A-Protected-File-Signed.md) | M | - | A follow checks every commit along the first parent that changes a protected file - `project.yml`, `access.yml`, `machine-signers`, a named snippet file, the access repository's file - signed by `signers` as they stood before it, instead of the tip alone; the refusal names commit and file |
+| <a id="b336"></a>[B336](B336-A-Repository-Says-Whether-A-Merge-Needs-A-Review.md) | S | - | `project.review` and `repositories.<name>.review` are `required` (the default) or `optional`, any other value refused, and answered to the host by `verify --json` |
 
 ## Analyzed
 
@@ -106,8 +108,6 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
-| <a id="b335"></a>[B335](B335-Every-Change-To-A-Protected-File-Signed.md) | M | - | A follow checks every commit along the first parent that changes a protected file - `project.yml`, `access.yml`, `machine-signers`, a named snippet file, the access repository's file - signed by `signers` as they stood before it, instead of the tip alone; the refusal names commit and file |
-| <a id="b336"></a>[B336](B336-A-Repository-Says-Whether-A-Merge-Needs-A-Review.md) | S | - | `project.review` and `repositories.<name>.review` are `required` (the default) or `optional`, any other value refused, and answered to the host by `verify --json` |
 | <a id="b334"></a>[B334](B334-A-Person-Kept-In-The-Project-Room.md) | - | - | Every developer of the applied access file is a person in the project's room under their host account, kept with the machines by the transport's `members --persons`, and one dropped from the file leaves the room |
 | <a id="b274"></a>[B274](B274-A-Room-Line-Wakes-Only-The-Tasks-It-Mentions.md) | S | - | A person's room line wakes only the tasks it mentions, and every task on `@room`; an unaddressed line is delivered but wakes none, read at the next wake; a reply to a task's message stays a mention |
 | <a id="b270"></a>[B270](B270-A-Forge-Token-Stored-By-The-Forges-Own-Login.md) | - | - | A person gets their forge token into a machine's vault as `git.token.<host>` by the forge's own device-code login in a terminal there, never by pasting a token made by hand; Porelo's OAuth App by default, a person's own if named, `repo` scope |
