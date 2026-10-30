@@ -1,6 +1,6 @@
 # B342 — Persons In The Access File By Their Cards
 
-**Status:** Accepted.
+**Status:** Implementing.
 **Size:** M - estimated 90 minutes from the median of M builds: a contract change: the access file, `verify --json` and
 its readers, with docs.
 

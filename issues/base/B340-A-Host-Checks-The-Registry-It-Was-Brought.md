@@ -1,6 +1,6 @@
 # B340 — A Host Checks The Registry It Was Brought
 
-**Status:** Accepted.
+**Status:** Implementing.
 **Size:** S - estimated 136 minutes from the median of S builds: one verb over the registry rule, run as `verify` runs.
 
 **What must be true.** `porelo registry verify --repository <bundle> --host <host> --pinned <host admin fingerprint>
