@@ -31,6 +31,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b337"></a>[B337](B337-A-Person-Card-Signed-By-Its-Own-Key.md) | S | - | A person card - login, name, optional email, `ssh-ed25519` key, expiry, predecessor - signed by its own key; a change of key signed by both; `card verify --pinned [--krl] --json` |
 | <a id="b214"></a>[B214](B214-A-Vault-Entry-Put-Again-Unchanged.md) | M | - | `vault put` given the value an entry already holds says `unchanged` and exits 0, so a second play reports nothing changed |
 | <a id="b154"></a>[B154](B154-A-Tamper-Evident-Event-Log-Per-Node.md) | L | - | One hash-chained event log per account, anchored in the user's journal, optionally copied off the machine, kept by `porelo clear`; written by approve, reject, clearance, hand-in, credentials and project changes.; part 1 built, the copy off the machine after it |
 
@@ -103,7 +104,6 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
-| <a id="b337"></a>[B337](B337-A-Person-Card-Signed-By-Its-Own-Key.md) | S | - | A person card - login, name, optional email, `ssh-ed25519` key, expiry, predecessor - signed by its own key; a change of key signed by both; `card verify --pinned [--krl] --json` |
 | <a id="b349"></a>[B349](B349-A-Host-Card-Signed-By-Its-Host-Admin.md) | S | - | A host card - host, address, SSH host key, the forge's web and Git ports and the homeserver's port - signed by its host admin on their own machine; `card make-host` and `card verify-host --signer --json` |
 | <a id="b342"></a>[B342](B342-Persons-In-The-Access-File-By-Their-Cards.md) | M | [B337](README.md#b337), [B334](README.md#b334) | The access file names persons by login and pinned key fingerprint with their cards beside it; `verify --json` answers `persons` and every admitted person's key as a task certifier; WireGuard fields, `ca_sha256` and laptops go |
 | <a id="b341"></a>[B341](B341-A-New-Commit-Is-Never-Accepted-By-A-Retired-Key.md) | S | [B335](README.md#b335) | A retired key stays for reading history with `valid-before`, while a new commit is checked against the signers without such keys and against the revocation list |
