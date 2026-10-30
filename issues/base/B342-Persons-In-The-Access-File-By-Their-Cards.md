@@ -13,7 +13,9 @@ project's signers stay in the project file, as the project admins' keys. The Wir
 laptops go from the access file.
 
 `porelo project verify --json` answers `"persons": [{"login", "ssh", "role", "hosts", "expires", "revoked", "locked"}]`
-from the cards and `"certifiers"`: the key of every admitted person neither `locked` nor `revoked` as a `cert-authority`
+from the cards, `role` being `admin` or `developer` and any other value refused; `"admins"`: the logins of the persons
+whose role is `admin`, neither `locked` nor `revoked`, in the access file's order, for a host's room admins; and
+`"certifiers"`: the key of every admitted person neither `locked` nor `revoked` as a `cert-authority`
 line, limited to the tasks' namespaces and principals, since whoever starts a task certifies its key. A host builds its
 accounts and key list from the verified commit only. A person whose card fails is answered `revoked: true` and named.
 
@@ -23,6 +25,8 @@ SSH key per person, the state signed in Git, everything between a person and a h
 ## Acceptance
 
 - An access file with persons and cards is read; `verify --json` answers each person and the certifiers as above.
+- `admins` names only persons with role `admin`; a locked or revoked admin is left out; a role other than `admin` or
+  `developer` is refused, naming it.
 - A card whose key is not the fingerprint the access file pins, or that fails its check, makes that person `revoked:
   true`, named on a line of its own; the others are answered.
 - A fingerprint moved under `revoked` by a signed commit makes that person's old card `revoked: true` and their new one

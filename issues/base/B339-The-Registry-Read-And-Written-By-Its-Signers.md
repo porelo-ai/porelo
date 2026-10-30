@@ -22,9 +22,10 @@ state it trusted last, path by path, and every new commit against the revocation
   its path.
 
 A card filed for a login is trusted at first read only when its key is among the keys the central forge lists for that
-login: its authentication keys, and on GitHub its signing keys as well. Both lists answer without a token. Before the
-forge was asked, as when the person is offline, the card is `first-seen`; on a forge without a public key list it stays
-so until an admin confirms its fingerprint out of band.
+login: its authentication keys as the page `<forge>/<login>.keys` lists them, and on GitHub its signing keys as well.
+Both answer without a token; Forgejo's API asks a token even for another person's public keys, so the page is read,
+not the API. Before the forge was asked, as when the person is offline, the card is `first-seen`; on a forge without a
+public key list it stays so until an admin confirms its fingerprint out of band.
 
 `porelo registry read <checkout> --json` answers `{"people": [{"login", "name", "email", "key", "fingerprint", "state":
 "trusted|first-seen|refused", "why"}], "owners": [{"login", "fingerprint", "backup"}], "warnings": [], "hosts":
