@@ -11,6 +11,7 @@ file are in [the project file](project-file.md).
 | [`shield`](#shield) | Inspects and changes what a task may reach. |
 | [`vault`](#vault) | Manages stored credentials. |
 | [`credentials`](#credentials) | Records which credential each destination is connected to with. |
+| [`card`](#card) | Checks a person's card. |
 | [`gate`](#gate) | Reviews and forwards what an agent pushed. |
 | [`talk`](#talk) | Shows and moves the messages a task exchanges with other tasks. |
 | [`agents`](#agents) | Lists the agents installed on this machine. |
@@ -438,6 +439,22 @@ Which secret a destination uses, and where it lives. Nothing here prints a value
 | `porelo credentials forget MATCH` | Forgets a record. The value is left alone. |
 | `porelo credentials keys` | Lists this account's ssh keys without reading them. |
 | `porelo credentials trust-host HOST[:PORT] [--fingerprint=SHA256:...]` | Shows a host's keys and records the one you confirm. Name the port when its ssh is not on 22 - `forge.example.org:7999` - as the hint at a start does. |
+
+## card
+
+A person's card says who they are and names the one key they sign, log in and certify with. It is a
+YAML body - `login`, `name`, optional `email`, `key` (`ssh-ed25519`), `created`, `expires`, and `predecessor` when the
+card changes the key - followed by one or two armored SSH signatures in the `porelo` namespace over the body's exact
+bytes. The first is the card's own key; a change of key is signed by the old key as well, so neither a stranger nor
+the old key alone can hand an identity on. `ssh-keygen -Y verify -n porelo` checks each signature over the body too.
+The email is shown as the person wrote it; nobody checks it.
+
+| Command | What it does |
+|---|---|
+| `porelo card verify CARD --pinned SHA256:... [--earlier CARD]... [--krl FILE] [--json]` | Accepts the card when its key is the pinned one, or a chain of changes of key, each signed by both keys, leads back to it through the earlier cards given. A chain through a key on the revocation list (`ssh-keygen -k`) is refused; the card's own key on it is answered `revoked`. Exit 0, or 65 naming why; 66 when a file cannot be read, the revocation list included. Needs no vault, home or network. |
+
+`--json` answers `{"login", "name", "email", "ssh", "expires", "revoked", "chain"}`: `email` is `""` when the card
+has none, `ssh` the card's key, `chain` the fingerprints from the pinned key to the card's.
 
 ## talk
 

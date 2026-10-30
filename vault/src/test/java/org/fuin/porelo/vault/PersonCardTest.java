@@ -1,0 +1,269 @@
+package org.fuin.porelo.vault;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+
+import java.time.LocalDate;
+import java.util.List;
+import org.jspecify.annotations.Nullable;
+import org.junit.jupiter.api.Test;
+
+/**
+ * A person's card and the chain of its changes of key. Harm guarded: a card taken on its word lets
+ * whoever can write a file speak as somebody else; a change of key signed by one key alone hands an
+ * identity to a stranger or to a key nobody holds.
+ */
+class PersonCardTest {
+
+    private static final LocalDate MADE = LocalDate.parse("2026-10-30");
+
+    private static final LocalDate ENDS = LocalDate.parse("2027-10-30");
+
+    private final SigningKey first = SigningKey.generate("first");
+
+    private final SigningKey second = SigningKey.generate("second");
+
+    private final SigningKey third = SigningKey.generate("third");
+
+    private PersonCard card(final SigningKey own, final @Nullable SigningKey predecessor) {
+        return PersonCard.read(
+                PersonCard.write("alice", "Alice", "", own, MADE, ENDS, predecessor), "test");
+    }
+
+    @Test
+    void reads_what_it_writes_with_every_field() {
+
+        final PersonCard card =
+                PersonCard.read(
+                        PersonCard.write(
+                                "alice",
+                                "Alice \"Al\" Example",
+                                "alice@example.org",
+                                first,
+                                MADE,
+                                ENDS,
+                                null),
+                        "test");
+
+        assertThat(card.login()).isEqualTo("alice");
+        assertThat(card.name()).isEqualTo("Alice \"Al\" Example");
+        assertThat(card.email()).isEqualTo("alice@example.org");
+        assertThat(card.key()).isEqualTo(PersonCard.keyLine(first));
+        assertThat(card.created()).isEqualTo(MADE);
+        assertThat(card.expires()).isEqualTo(ENDS);
+        assertThat(card.predecessor()).isEmpty();
+        assertThat(card.signedAsItMustBe()).isTrue();
+    }
+
+    @Test
+    void a_body_changed_after_signing_is_not_signed() {
+        final String file = PersonCard.write("alice", "Alice", "", first, MADE, ENDS, null);
+
+        // Same key, another name: the signature covers the body's exact bytes.
+        final PersonCard forged = PersonCard.read(file.replace("\"Alice\"", "\"Mallory\""), "test");
+
+        assertThat(forged.signedAsItMustBe()).isFalse();
+    }
+
+    @Test
+    void a_card_signed_by_another_key_is_not_signed() {
+        final String other = PersonCard.write("alice", "Alice", "", second, MADE, ENDS, null);
+        final String mine = PersonCard.write("alice", "Alice", "", first, MADE, ENDS, null);
+        final String body = mine.substring(0, mine.indexOf("-----BEGIN"));
+
+        final PersonCard forged =
+                PersonCard.read(body + other.substring(other.indexOf("-----BEGIN")), "test");
+
+        assertThat(forged.signedAsItMustBe()).isFalse();
+    }
+
+    @Test
+    void a_change_of_key_needs_both_signatures() {
+        final String both = PersonCard.write("alice", "Alice", "", second, MADE, ENDS, first);
+        final int secondSignature = both.indexOf("-----BEGIN", both.indexOf("-----END"));
+
+        assertThat(PersonCard.read(both, "test").signedAsItMustBe()).isTrue();
+        assertThat(PersonCard.read(both.substring(0, secondSignature), "test").signedAsItMustBe())
+                .as("the new key alone")
+                .isFalse();
+    }
+
+    @Test
+    void a_change_of_key_signed_by_the_old_key_alone_is_not_signed() {
+        final String both = PersonCard.write("alice", "Alice", "", second, MADE, ENDS, first);
+        final int firstSignature = both.indexOf("-----BEGIN");
+        final int secondSignature = both.indexOf("-----BEGIN", both.indexOf("-----END"));
+
+        final PersonCard oldAlone =
+                PersonCard.read(
+                        both.substring(0, firstSignature) + both.substring(secondSignature),
+                        "test");
+
+        assertThat(oldAlone.signedAsItMustBe()).isFalse();
+    }
+
+    @Test
+    void refuses_a_merge_key_an_anchor_and_a_tag() {
+        final String card = PersonCard.write("alice", "Alice", "", first, MADE, ENDS, null);
+        final String key = PersonCard.keyLine(second);
+
+        for (final String changed :
+                List.of(
+                        card.replace(
+                                "name: \"Alice\"\n",
+                                "name: \"Alice\"\n<<: {key: \"" + key + "\"}\n"),
+                        card.replace("name: \"Alice\"", "name: &n \"Alice\"\nemail: *n"),
+                        card.replace("name: \"Alice\"", "name: !!str \"Alice\""),
+                        card.replace("name: \"Alice\"", "name: [\"Alice\"]"))) {
+            assertThatThrownBy(() -> PersonCard.read(changed, "test"))
+                    .as(changed)
+                    .isInstanceOf(CardException.class);
+        }
+    }
+
+    @Test
+    void refuses_a_key_that_is_not_one_line_and_a_name_with_a_control_character() {
+        final String card = PersonCard.write("alice", "Alice", "", first, MADE, ENDS, null);
+        final String key = PersonCard.keyLine(first);
+
+        for (final String changed :
+                List.of(
+                        card.replace("key: \"" + key, "key: \"\\n" + key),
+                        card.replace("key: \"" + key, "key: \"" + key + "\\u2000"),
+                        card.replace("name: \"Alice\"", "name: \"Alice\\e[2J\""),
+                        card.replace("name: \"Alice\"", "name: \"Alice\\r\\nREVOKED\""))) {
+            assertThatThrownBy(() -> PersonCard.read(changed, "test"))
+                    .as(changed)
+                    .isInstanceOf(CardException.class);
+        }
+    }
+
+    @Test
+    void refuses_a_day_that_is_no_day_or_carries_a_time() {
+        final String card = PersonCard.write("alice", "Alice", "", first, MADE, ENDS, null);
+
+        for (final String changed :
+                List.of(
+                        card.replace("expires: \"2027-10-30\"", "expires: 2027-02-31"),
+                        card.replace("expires: \"2027-10-30\"", "expires: \"2027-02-31\""),
+                        card.replace(
+                                "expires: \"2027-10-30\"", "expires: 2027-10-30T23:00:00-05:00"))) {
+            assertThatThrownBy(() -> PersonCard.read(changed, "test"))
+                    .as(changed)
+                    .isInstanceOf(CardException.class);
+        }
+    }
+
+    @Test
+    void an_unquoted_day_is_read_as_written() {
+        final String card = PersonCard.write("alice", "Alice", "", first, MADE, ENDS, null);
+
+        final PersonCard read =
+                PersonCard.read(
+                        card.replace("expires: \"2027-10-30\"", "expires: 2027-10-30"), "test");
+
+        assertThat(read.expires()).isEqualTo(ENDS);
+    }
+
+    @Test
+    void the_earlier_cards_lead_back_in_any_order() {
+        final PersonCard middle = card(second, first);
+        // The same key's later card, which made no change of key: it cannot lead back.
+        final PersonCard renewed = card(second, null);
+        final PersonCard last = card(third, second);
+        final String pinned = PersonCard.fingerprint(PersonCard.keyLine(first));
+
+        assertThat(PersonCardChain.check(last, List.of(renewed, middle), pinned)).hasSize(3);
+        assertThat(PersonCardChain.check(last, List.of(middle, renewed), pinned)).hasSize(3);
+    }
+
+    @Test
+    void a_chain_of_changes_leads_back_to_the_pinned_key() {
+        final PersonCard middle = card(second, first);
+        final PersonCard last = card(third, second);
+
+        assertThat(
+                        PersonCardChain.check(
+                                last,
+                                List.of(middle),
+                                PersonCard.fingerprint(PersonCard.keyLine(first))))
+                .containsExactly(
+                        PersonCard.fingerprint(PersonCard.keyLine(first)),
+                        middle.fingerprint(),
+                        last.fingerprint());
+    }
+
+    @Test
+    void a_card_whose_chain_misses_the_pinned_key_is_refused() {
+        final PersonCard stranger = card(third, second);
+
+        assertThatThrownBy(
+                        () ->
+                                PersonCardChain.check(
+                                        stranger,
+                                        List.of(),
+                                        PersonCard.fingerprint(PersonCard.keyLine(first))))
+                .isInstanceOf(CardException.class)
+                .hasMessageContaining("needed to lead back");
+    }
+
+    @Test
+    void a_stranger_naming_the_pinned_key_as_predecessor_is_refused() {
+        final String honest = PersonCard.write("alice", "Alice", "", second, MADE, ENDS, first);
+        // Only the stranger's own signature: the pinned key never agreed to the change.
+        final PersonCard claimed =
+                PersonCard.read(
+                        honest.substring(
+                                0, honest.indexOf("-----BEGIN", honest.indexOf("-----END"))),
+                        "test");
+
+        assertThatThrownBy(
+                        () ->
+                                PersonCardChain.check(
+                                        claimed,
+                                        List.of(),
+                                        PersonCard.fingerprint(PersonCard.keyLine(first))))
+                .isInstanceOf(CardException.class)
+                .hasMessageContaining("not signed");
+    }
+
+    @Test
+    void refuses_a_field_no_card_has_and_a_key_of_another_kind() {
+        final String file = PersonCard.write("alice", "Alice", "", first, MADE, ENDS, null);
+
+        assertThatThrownBy(() -> PersonCard.read("machine: \"l1\"\n" + file, "test"))
+                .hasMessageContaining("'machine' is not a field");
+        assertThatThrownBy(
+                        () ->
+                                PersonCard.read(
+                                        file.replaceFirst("key: \"ssh-ed25519 ", "key: \"ssh-rsa "),
+                                        "test"))
+                .hasMessageContaining("'key' is not an 'ssh-ed25519");
+        assertThatThrownBy(() -> PersonCard.read(file.replace("\"alice\"", "\"Alice\""), "test"))
+                .hasMessageContaining("is not a login");
+    }
+
+    @Test
+    void refuses_a_login_porelo_keeps_for_itself() {
+        final String file = PersonCard.write("alice", "Alice", "", first, MADE, ENDS, null);
+
+        assertThatThrownBy(
+                        () ->
+                                PersonCard.read(
+                                        file.replace("\"alice\"", "\"porelo-matrix\""), "test"))
+                .hasMessageContaining("keeps for itself");
+        assertThatThrownBy(() -> PersonCard.read(file.replace("\"alice\"", "\"porelo\""), "test"))
+                .hasMessageContaining("keeps for itself");
+    }
+
+    @Test
+    void a_card_without_signature_is_refused() {
+        final String file = PersonCard.write("alice", "Alice", "", first, MADE, ENDS, null);
+
+        assertThatThrownBy(
+                        () ->
+                                PersonCard.read(
+                                        file.substring(0, file.indexOf("-----BEGIN")), "test"))
+                .hasMessageContaining("carries no signature");
+    }
+}

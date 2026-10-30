@@ -1,6 +1,6 @@
 # B337 — A Person Card Signed By Its Own Key
 
-**Status:** Implementing. Estimated and Backlog (operator, 2026-10-30, sprint 6m).
+**Status:** Review. Estimated and Backlog (operator, 2026-10-30, sprint 6m).
 **Size:** S - estimated 136 minutes from the median of S builds: the card's format, its check and the chain of keys, in
 one module with its tests.
 
@@ -43,6 +43,19 @@ it too. The first signature is the card's own key, the second its predecessor's.
 
 - Whether `ssh-keygen -Q` is on every machine that runs `card verify` (host and laptop: OpenSSH client is a dependency
   already).
+
+## Done
+
+- `PersonCard` reads a card from the parser's events, as one flat mapping of text to text. A merge key, an anchor, an
+  alias, a tag, a nested value, a control character, a key line that is not exactly `ssh-ed25519 AAAA...`, and a day
+  that is not strictly `YYYY-MM-DD` are each refused. It signs with the card's key, then with the predecessor's.
+- `PersonCardChain` walks back to the pinned key; when several earlier cards carry the same key, each is tried, so their
+  order changes nothing.
+- `porelo card verify` answers the card for a program; a revocation list that is empty, missing or unreadable is exit
+  66, never skipped.
+- A read-only security reading by agy Gemini found seven faults, all fixed with tests seen red: the merge keys, a key
+  with a line break, a name with a control character, a rolled-over day, the order of earlier cards, an empty `--krl`
+  skipping the list, and a missing test for a change signed by the old key alone.
 
 ## Acceptance
 
