@@ -200,6 +200,62 @@ class CardVerifyCommandTest {
     }
 
     @Test
+    void a_key_revoked_on_an_earlier_card_is_walked_around() throws Exception {
+        final SigningKey third = SigningKey.generate("third");
+        final SigningKey fourth = SigningKey.generate("fourth");
+        final Path toSecond =
+                card(
+                        "to-second.card",
+                        PersonCard.write("alice", "Alice", "", second, MADE, ENDS, first));
+        final Path viaSecond =
+                card(
+                        "via-second.card",
+                        PersonCard.write("alice", "Alice", "", third, MADE, ENDS, second));
+        final Path fromFirst =
+                card(
+                        "from-first.card",
+                        PersonCard.write("alice", "Alice", "", third, MADE, ENDS, first));
+        final Path last =
+                card(
+                        "alice.card",
+                        PersonCard.write("alice", "Alice", "", fourth, MADE, ENDS, third));
+        final Path krl = revoked(second);
+
+        assertThat(
+                        verify(
+                                last.toString(),
+                                "--pinned",
+                                pin(first),
+                                "--earlier",
+                                toSecond.toString(),
+                                "--earlier",
+                                viaSecond.toString(),
+                                "--krl",
+                                krl.toString()))
+                .isEqualTo(65);
+        assertThat(err.toString()).contains(pin(second)).contains("revoked");
+        err.getBuffer().setLength(0);
+        assertThat(
+                        verify(
+                                last.toString(),
+                                "--pinned",
+                                pin(first),
+                                "--earlier",
+                                viaSecond.toString(),
+                                "--earlier",
+                                toSecond.toString(),
+                                "--earlier",
+                                fromFirst.toString(),
+                                "--krl",
+                                krl.toString(),
+                                "--json"))
+                .as(err.toString())
+                .isZero();
+        assertThat(((Map<?, ?>) Json.parse(out.toString())).get("chain"))
+                .isEqualTo(List.of(pin(first), pin(third), pin(fourth)));
+    }
+
+    @Test
     void a_chain_of_two_changes_takes_the_earlier_card() throws Exception {
         final SigningKey third = SigningKey.generate("third");
         final Path middle =

@@ -1,11 +1,14 @@
 package org.fuin.porelo.vault;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.function.Predicate;
+import java.util.stream.Collectors;
 
 /**
  * Follows a card back through its changes of key to a key already trusted.
@@ -16,7 +19,7 @@ import java.util.function.Predicate;
  */
 public final class PersonCardChain {
 
-    /** More steps than any person makes; it stops a list of cards that leads in a circle. */
+    /** More changes of key than any person makes; it bounds how deep the walk goes. */
     private static final int MAX_STEPS = 64;
 
     private PersonCardChain() {
@@ -58,22 +61,30 @@ public final class PersonCardChain {
             final List<PersonCard> earlier,
             final String pinned,
             final Predicate<String> revoked) {
-        final Set<String> seen = new HashSet<>();
-        seen.add(card.fingerprint());
-        return walk(card, card, earlier, pinned, revoked, seen);
+        final Map<String, List<PersonCard>> byKey =
+                earlier.stream().collect(Collectors.groupingBy(PersonCard::fingerprint));
+        final Set<String> path = new HashSet<>();
+        path.add(card.fingerprint());
+        return walk(card, card, byKey, pinned, revoked, path, new HashMap<>());
     }
+
+    /** Why a key led nowhere, and how deep the walk was when it did. */
+    private record Refusal(CardException reason, int depth) {}
 
     /**
      * Walks back from one card. Each key is followed once: a key that led nowhere leads nowhere the
-     * second time either, so a list of many copies costs no more than one of each.
+     * second time either, and is refused again for the reason it was refused first, so a list of
+     * many copies costs no more than one of each. Only a key on the path walked now is a circle. A
+     * key refused deeper is tried again nearer the card: the changes left to make there are more.
      */
     private static List<String> walk(
             final PersonCard card,
             final PersonCard current,
-            final List<PersonCard> earlier,
+            final Map<String, List<PersonCard>> byKey,
             final String pinned,
             final Predicate<String> revoked,
-            final Set<String> seen) {
+            final Set<String> path,
+            final Map<String, Refusal> refusedBefore) {
         if (!current.signedAsItMustBe()) {
             throw new CardException(
                     "the card of "
@@ -103,14 +114,22 @@ public final class PersonCardChain {
             throw new CardException(
                     card.login() + "'s card leads back through " + before + ", which is revoked");
         }
+        // The path holds the card's key and each walked back to: one change of key per key on it.
+        if (path.size() > MAX_STEPS) {
+            throw new CardException(
+                    card.login() + "'s cards make more than " + MAX_STEPS + " changes of key");
+        }
         if (before.equals(pinned)) {
             return List.of(before, current.fingerprint());
         }
-        if (!seen.add(before) || seen.size() > MAX_STEPS) {
+        final Refusal earlierRefusal = refusedBefore.get(before);
+        if (earlierRefusal != null && earlierRefusal.depth() <= path.size()) {
+            throw earlierRefusal.reason();
+        }
+        if (path.contains(before)) {
             throw new CardException(card.login() + "'s cards lead in a circle");
         }
-        final List<PersonCard> candidates =
-                earlier.stream().filter(each -> each.fingerprint().equals(before)).toList();
+        final List<PersonCard> candidates = byKey.getOrDefault(before, List.of());
         if (candidates.isEmpty()) {
             throw new CardException(
                     card.login()
@@ -119,17 +138,21 @@ public final class PersonCardChain {
                             + " is needed to lead back to the pinned key "
                             + pinned);
         }
+        path.add(before);
         CardException refused = null;
         for (final PersonCard candidate : candidates) {
             try {
                 final List<String> chain =
-                        new ArrayList<>(walk(card, candidate, earlier, pinned, revoked, seen));
+                        new ArrayList<>(
+                                walk(card, candidate, byKey, pinned, revoked, path, refusedBefore));
                 chain.add(current.fingerprint());
                 return List.copyOf(chain);
             } catch (final CardException ex) {
                 refused = ex;
             }
         }
-        throw Objects.requireNonNull(refused);
+        path.remove(before);
+        refusedBefore.put(before, new Refusal(Objects.requireNonNull(refused), path.size()));
+        throw refused;
     }
 }

@@ -10,6 +10,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Callable;
+import java.util.function.Predicate;
 import org.fuin.porelo.core.process.Command;
 import org.fuin.porelo.core.process.CommandResult;
 import org.fuin.porelo.vault.CardException;
@@ -119,18 +120,18 @@ public class CardVerifyCommand implements Callable<Integer>, PoreloFactory.Conte
             }
         }
         final Map<String, Boolean> onList = listed;
+        // With a list, a key it was not asked about counts as revoked, never as kept.
+        final Predicate<String> isRevoked =
+                list == null
+                        ? fingerprint -> false
+                        : fingerprint -> !Boolean.FALSE.equals(onList.get(fingerprint));
         final List<String> chain;
         try {
-            chain =
-                    PersonCardChain.check(
-                            checked,
-                            before,
-                            pinned,
-                            fingerprint -> Boolean.TRUE.equals(onList.get(fingerprint)));
+            chain = PersonCardChain.check(checked, before, pinned, isRevoked);
         } catch (final CardException ex) {
             return refuse(err, 65, String.valueOf(ex.getMessage()));
         }
-        final boolean revoked = Boolean.TRUE.equals(onList.get(checked.fingerprint()));
+        final boolean revoked = isRevoked.test(checked.fingerprint());
         final Map<String, Object> answer = new LinkedHashMap<>();
         answer.put("login", checked.login());
         answer.put("name", checked.name());

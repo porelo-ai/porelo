@@ -277,6 +277,89 @@ class PersonCardTest {
     }
 
     @Test
+    void many_dead_ends_before_the_way_back_do_not_hide_it() {
+        final SigningKey end = SigningKey.generate("end");
+        final PersonCard last = card(end, third);
+        final List<PersonCard> earlier = new java.util.ArrayList<>();
+        // More dead ends than any chain has steps, each tried before the card that leads back.
+        for (int at = 0; at < 70; at++) {
+            earlier.add(card(third, SigningKey.generate("dead" + at)));
+        }
+        earlier.add(card(third, second));
+        earlier.add(card(second, first));
+        final String pinned = PersonCard.fingerprint(PersonCard.keyLine(first));
+
+        assertThat(PersonCardChain.check(last, earlier, pinned)).hasSize(4).startsWith(pinned);
+    }
+
+    @Test
+    void a_card_given_twice_keeps_the_reason_it_was_refused() {
+        final SigningKey fourth = SigningKey.generate("fourth");
+        final SigningKey fifth = SigningKey.generate("fifth");
+        final PersonCard toThird = card(fourth, third);
+        final PersonCard last = card(fifth, fourth);
+        final String pinned = PersonCard.fingerprint(PersonCard.keyLine(first));
+
+        // The second key's own card is missing; the copy must not turn that into a circle.
+        assertThatThrownBy(
+                        () ->
+                                PersonCardChain.check(
+                                        last,
+                                        List.of(toThird, toThird, card(third, second)),
+                                        pinned))
+                .isInstanceOf(CardException.class)
+                .hasMessageContaining("is needed to lead back");
+    }
+
+    @Test
+    void a_key_refused_too_deep_is_tried_again_nearer_the_card() {
+        final SigningKey from = SigningKey.generate("from");
+        final SigningKey via = SigningKey.generate("via");
+        final SigningKey to = SigningKey.generate("to");
+        final PersonCard last = card(SigningKey.generate("last"), from);
+        final List<PersonCard> earlier = new java.util.ArrayList<>();
+        // A long way round reaches the key 'via' past the most changes a chain may have ...
+        SigningKey at = from;
+        for (int step = 0; step < 62; step++) {
+            final SigningKey next = SigningKey.generate("dead" + step);
+            earlier.add(card(at, next));
+            at = next;
+        }
+        earlier.add(card(at, via));
+        earlier.add(card(via, to));
+        earlier.add(card(to, first));
+        // ... and a short one, given last, reaches it too.
+        earlier.add(card(from, via));
+        final String pinned = PersonCard.fingerprint(PersonCard.keyLine(first));
+
+        assertThat(PersonCardChain.check(last, earlier, pinned)).hasSize(5).startsWith(pinned);
+    }
+
+    @Test
+    void a_chain_may_make_sixty_four_changes_of_key_and_no_more() {
+        final List<SigningKey> keys = new java.util.ArrayList<>();
+        for (int at = 0; at <= 65; at++) {
+            keys.add(SigningKey.generate("key" + at));
+        }
+        final List<PersonCard> earlier = new java.util.ArrayList<>();
+        for (int at = 1; at < 65; at++) {
+            earlier.add(card(keys.get(at), keys.get(at - 1)));
+        }
+        final String pinned = PersonCard.fingerprint(PersonCard.keyLine(keys.get(0)));
+
+        assertThat(PersonCardChain.check(card(keys.get(64), keys.get(63)), earlier, pinned))
+                .as("64 changes")
+                .hasSize(65);
+        assertThatThrownBy(
+                        () ->
+                                PersonCardChain.check(
+                                        card(keys.get(65), keys.get(64)), earlier, pinned))
+                .as("65 changes")
+                .isInstanceOf(CardException.class)
+                .hasMessageContaining("more than 64");
+    }
+
+    @Test
     void a_chain_of_changes_leads_back_to_the_pinned_key() {
         final PersonCard middle = card(second, first);
         final PersonCard last = card(third, second);
