@@ -80,20 +80,19 @@ public class CardVerifyCommand implements Callable<Integer>, PoreloFactory.Conte
             return refuse(err, 65, "'" + printable(pinned) + "' is not a key's fingerprint");
         }
         final PersonCard checked;
-        final List<String> chain;
         final List<PersonCard> before = new ArrayList<>();
         try {
             checked = read(card);
             for (final Path each : earlier) {
                 before.add(read(each));
             }
-            chain = PersonCardChain.check(checked, before, pinned);
         } catch (final CardException ex) {
             return refuse(err, 65, String.valueOf(ex.getMessage()));
         } catch (final IOException ex) {
             return refuse(err, 66, "cannot read " + ex.getMessage());
         }
-        boolean revoked = false;
+        // Asked before the chain is sought, so a revoked key is walked around, not found after.
+        Map<String, Boolean> listed = Map.of();
         final Path list = krl;
         if (list != null) {
             final Map<String, String> keys = new LinkedHashMap<>();
@@ -106,7 +105,6 @@ public class CardVerifyCommand implements Callable<Integer>, PoreloFactory.Conte
                     .map(PersonCard::predecessor)
                     .filter(each -> !each.isEmpty())
                     .forEach(each -> keys.put(PersonCard.fingerprint(each), each));
-            final Map<String, Boolean> listed;
             try {
                 listed = revoked(list, keys);
             } catch (final IOException | IllegalStateException ex) {
@@ -119,19 +117,20 @@ public class CardVerifyCommand implements Callable<Integer>, PoreloFactory.Conte
                                 + "': "
                                 + ex.getMessage());
             }
-            for (final String step : chain) {
-                if (!step.equals(checked.fingerprint()) && Boolean.TRUE.equals(listed.get(step))) {
-                    return refuse(
-                            err,
-                            65,
-                            checked.login()
-                                    + "'s card leads back through "
-                                    + step
-                                    + ", which is revoked");
-                }
-            }
-            revoked = Boolean.TRUE.equals(listed.get(checked.fingerprint()));
         }
+        final Map<String, Boolean> onList = listed;
+        final List<String> chain;
+        try {
+            chain =
+                    PersonCardChain.check(
+                            checked,
+                            before,
+                            pinned,
+                            fingerprint -> Boolean.TRUE.equals(onList.get(fingerprint)));
+        } catch (final CardException ex) {
+            return refuse(err, 65, String.valueOf(ex.getMessage()));
+        }
+        final boolean revoked = Boolean.TRUE.equals(onList.get(checked.fingerprint()));
         final Map<String, Object> answer = new LinkedHashMap<>();
         answer.put("login", checked.login());
         answer.put("name", checked.name());

@@ -169,6 +169,17 @@ class CardVerifyCommandTest {
     }
 
     @Test
+    void a_revocation_list_ssh_keygen_cannot_read_is_unreadable() throws Exception {
+        final Path own =
+                card("alice.card", PersonCard.write("alice", "Alice", "", first, MADE, ENDS, null));
+        final Path bad = Files.writeString(dir.resolve("bad.krl"), "not a revocation list\n");
+
+        assertThat(verify(own.toString(), "--pinned", pin(first), "--krl", bad.toString()))
+                .isEqualTo(66);
+        assertThat(out.toString()).isEmpty();
+    }
+
+    @Test
     void a_card_whose_own_key_is_revoked_answers_revoked() throws Exception {
         final Path file =
                 card("alice.card", PersonCard.write("alice", "Alice", "", first, MADE, ENDS, null));

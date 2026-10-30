@@ -178,6 +178,105 @@ class PersonCardTest {
     }
 
     @Test
+    void a_change_of_key_signed_twice_by_one_key_is_not_signed() {
+        final String both = PersonCard.write("alice", "Alice", "", second, MADE, ENDS, first);
+        final int firstSignature = both.indexOf("-----BEGIN");
+        final int secondSignature = both.indexOf("-----BEGIN", both.indexOf("-----END"));
+        final String newOnly = both.substring(firstSignature, secondSignature);
+        final String oldOnly = both.substring(secondSignature);
+        final String body = both.substring(0, firstSignature);
+
+        assertThat(PersonCard.read(body + newOnly + newOnly, "test").signedAsItMustBe())
+                .as("the new key twice")
+                .isFalse();
+        assertThat(PersonCard.read(body + oldOnly + oldOnly, "test").signedAsItMustBe())
+                .as("the old key twice")
+                .isFalse();
+    }
+
+    @Test
+    void refuses_a_field_given_twice_and_an_anchor_alone() {
+        final String card = PersonCard.write("alice", "Alice", "", first, MADE, ENDS, null);
+
+        for (final String changed :
+                List.of(
+                        card.replace("name: \"Alice\"", "name: \"Alice\"\nname: \"Mallory\""),
+                        card.replace("name: \"Alice\"", "name: &n \"Alice\""))) {
+            assertThatThrownBy(() -> PersonCard.read(changed, "test"))
+                    .as(changed)
+                    .isInstanceOf(CardException.class);
+        }
+    }
+
+    @Test
+    @org.junit.jupiter.api.Timeout(
+            value = 10,
+            threadMode = org.junit.jupiter.api.Timeout.ThreadMode.SEPARATE_THREAD)
+    void many_copies_of_each_earlier_card_are_walked_once() {
+        final List<SigningKey> keys = new java.util.ArrayList<>();
+        for (int at = 0; at <= 26; at++) {
+            keys.add(SigningKey.generate("key" + at));
+        }
+        final List<PersonCard> earlier = new java.util.ArrayList<>();
+        // Every step but the first given twice: walked naively, that is 2^25 tries.
+        for (int at = 1; at < 26; at++) {
+            earlier.add(card(keys.get(at + 1), keys.get(at)));
+            earlier.add(card(keys.get(at + 1), keys.get(at)));
+        }
+
+        assertThatThrownBy(
+                        () ->
+                                PersonCardChain.check(
+                                        earlier.getLast(),
+                                        earlier,
+                                        PersonCard.fingerprint(PersonCard.keyLine(keys.get(0)))))
+                .isInstanceOf(CardException.class);
+    }
+
+    @Test
+    void cards_that_lead_in_a_circle_are_refused() {
+        final PersonCard there = card(third, second);
+        final PersonCard back = card(second, third);
+
+        assertThatThrownBy(
+                        () ->
+                                PersonCardChain.check(
+                                        there,
+                                        List.of(back, there),
+                                        PersonCard.fingerprint(PersonCard.keyLine(first))))
+                .isInstanceOf(CardException.class);
+    }
+
+    @Test
+    void a_revoked_key_is_walked_around_whatever_the_order() {
+        final SigningKey fourth = SigningKey.generate("fourth");
+        final PersonCard toSecond = card(second, first);
+        final PersonCard viaSecond = card(third, second);
+        // After the second key was revoked, the third was certified again from the first.
+        final PersonCard fromFirst = card(third, first);
+        final PersonCard last = card(fourth, third);
+        final String pinned = PersonCard.fingerprint(PersonCard.keyLine(first));
+        final String revoked = toSecond.fingerprint();
+
+        for (final List<PersonCard> earlier :
+                List.of(
+                        List.of(toSecond, viaSecond, fromFirst),
+                        List.of(toSecond, fromFirst, viaSecond))) {
+            assertThat(PersonCardChain.check(last, earlier, pinned, revoked::equals))
+                    .containsExactly(pinned, fromFirst.fingerprint(), last.fingerprint());
+        }
+        assertThatThrownBy(
+                        () ->
+                                PersonCardChain.check(
+                                        last,
+                                        List.of(toSecond, viaSecond),
+                                        pinned,
+                                        revoked::equals))
+                .isInstanceOf(CardException.class)
+                .hasMessageContaining("revoked");
+    }
+
+    @Test
     void a_chain_of_changes_leads_back_to_the_pinned_key() {
         final PersonCard middle = card(second, first);
         final PersonCard last = card(third, second);

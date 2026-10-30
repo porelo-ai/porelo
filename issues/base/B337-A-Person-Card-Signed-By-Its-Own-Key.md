@@ -49,13 +49,16 @@ it too. The first signature is the card's own key, the second its predecessor's.
 - `PersonCard` reads a card from the parser's events, as one flat mapping of text to text. A merge key, an anchor, an
   alias, a tag, a nested value, a control character, a key line that is not exactly `ssh-ed25519 AAAA...`, and a day
   that is not strictly `YYYY-MM-DD` are each refused. It signs with the card's key, then with the predecessor's.
-- `PersonCardChain` walks back to the pinned key; when several earlier cards carry the same key, each is tried, so their
-  order changes nothing.
+- `PersonCardChain` walks back to the pinned key, following each key once, and leaves revoked keys out while it seeks
+  the chain; neither the order of the earlier cards nor many copies of them change the answer or its cost.
 - `porelo card verify` answers the card for a program; a revocation list that is empty, missing or unreadable is exit
   66, never skipped.
 - A read-only security reading by agy Gemini found seven faults, all fixed with tests seen red: the merge keys, a key
   with a line break, a name with a control character, a rolled-over day, the order of earlier cards, an empty `--krl`
   skipping the list, and a missing test for a change signed by the old key alone.
+- The narrow reading of those fixes found two more, also fixed with tests seen red: a walk exponential in copies of the
+  earlier cards, and a revoked key found only after a chain was chosen. It also asked for tests of a list `ssh-keygen`
+  cannot read, a card signed twice by one key, a field given twice, an anchor alone and a circle, now there.
 
 ## Acceptance
 

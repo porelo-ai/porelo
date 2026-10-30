@@ -1,0 +1,2 @@
+title: "`porelo card verify` checks a person's card, an SSH-signed YAML file, against a pinned key, follows changes of key signed by both keys, and leaves keys on a revocation list out of the chain"
+type: added

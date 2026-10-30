@@ -307,17 +307,14 @@ public record PersonCard(
     /**
      * Reads the body as one flat mapping of text to text, from the parser's events.
      *
-     * <p>Not through a constructor: one resolves merge keys, which slip past the duplicate check,
-     * aliases, tags and timestamps that roll an impossible day over. A card has none of them, so
-     * any is refused, and every value stays the text that was signed.
+     * <p>Only the parser runs, not a constructor: one resolves merge keys, which slip past a
+     * duplicate check, aliases, tags and timestamps that roll an impossible day over. A card has
+     * none of them, so any is refused, and every value stays the text that was signed.
      */
     private static Map<String, String> mapping(final String body, final String origin) {
-        final LoaderOptions options = new LoaderOptions();
-        options.setAllowDuplicateKeys(false);
-        options.setMaxAliasesForCollections(0);
         final List<Event> events = new ArrayList<>();
         try {
-            new Yaml(new SafeConstructor(options))
+            new Yaml(new SafeConstructor(new LoaderOptions()))
                     .parse(new java.io.StringReader(body))
                     .forEach(events::add);
         } catch (final RuntimeException ex) {
