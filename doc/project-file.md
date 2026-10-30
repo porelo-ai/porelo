@@ -75,6 +75,18 @@ repositories:
     # goes by "Agent backend". No two repositories, the project's own among them, may go by one
     # name, whatever the case.
     nickname: "Payments"
+    # Optional. How far others can build on this repository, one of four words; any other is
+    # refused. Porelo only checks the word and changes nothing by it.
+    #   crazy-chicken  Just hatched and running in every direction: interfaces, formats and even
+    #                  the purpose may change any day. Use it only to try ideas, never to build on.
+    #   early-bird     Does its job and is used inside the project, but its contracts may still
+    #                  change with notice in the changelog. Build on it if you can follow its
+    #                  snapshots.
+    #   stable         Its contracts change only in a new major version, with a migration path, and
+    #                  it is released and tested on every supported platform. Safe to build on.
+    #   deprecated     Kept only for those who still depend on it: no new features, fixes only for
+    #                  security. Its replacement, if any, is named in its README.
+    maturity: "early-bird"
 
   frontend:
     upstream: "git@github.com:you/frontend.git"

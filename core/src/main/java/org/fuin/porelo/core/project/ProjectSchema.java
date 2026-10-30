@@ -64,7 +64,8 @@ final class ProjectSchema {
                         "image",
                         "agent",
                         "nickname",
-                        "branch"));
+                        "branch",
+                        "maturity"));
     }
 
     /**
@@ -78,6 +79,10 @@ final class ProjectSchema {
 
     /** The modes a message rule takes, in the order they are offered. */
     private static final List<String> MODES = List.of(Mail.PROMPT, Mail.ALLOW, Mail.DENY, Mail.OFF);
+
+    /** How far a repository can be built on, from just hatched to kept only for those on it. */
+    static final List<String> MATURITIES =
+            List.of("crazy-chicken", "early-bird", "stable", "deprecated");
 
     private static final List<ProjectKey> KEYS =
             List.of(
@@ -553,6 +558,15 @@ final class ProjectSchema {
                             "The one word its agent goes by, as Agent <nickname>, in a conversation"
                                     + " and on its commits; without one, Agent <repository>.",
                             "string",
+                            "",
+                            false),
+                    new ProjectKey(
+                            "repositories.<repository>",
+                            "maturity",
+                            "How far others can build on it: crazy-chicken, early-bird, stable or"
+                                    + " deprecated; Porelo only checks the word.",
+                            "string",
+                            MATURITIES,
                             "",
                             false));
 

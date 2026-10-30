@@ -468,6 +468,7 @@ public final class ProjectReader {
                 throw new ProjectException(
                         origin + ": 'repositories." + name + "' must be a mapping with 'upstream'");
             }
+            maturity(repository, origin, name);
             read.add(
                     new Repository(
                             name,
@@ -634,6 +635,22 @@ public final class ProjectReader {
                                 + "'; a nickname may not repeat another repository's nickname or"
                                 + " name, whatever the case");
             }
+        }
+    }
+
+    /** Refuses a {@code maturity} that is not one of the four words; Porelo keeps nothing of it. */
+    private static void maturity(Map<?, ?> repository, String origin, String name) {
+        final Object value = repository.get("maturity");
+        if (value != null && !ProjectSchema.MATURITIES.contains(String.valueOf(value))) {
+            throw new ProjectException(
+                    origin
+                            + ": 'repositories."
+                            + name
+                            + ".maturity' is one of "
+                            + String.join(", ", ProjectSchema.MATURITIES)
+                            + ", not '"
+                            + value
+                            + "'");
         }
     }
 
