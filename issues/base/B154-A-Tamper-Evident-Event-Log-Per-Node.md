@@ -84,9 +84,8 @@ Steps:
   Not changed: entries another process of the account adds to the journal under the log's identifier can only make
   `verify` fail, never hold.
 
-**What a private access file changes, nothing
-reworked yet:** a project may name a private access file ([B310](README.md#b310)); an applied commit of it
-is a `project-applied` line too, naming the access repository. It is built with that issue.
+**What a private access file changes:** a project may name a private access file; an applied commit of it is a
+`project-applied` line too, naming the access repository, as the follow already writes it.
 
 ## Acceptance
 

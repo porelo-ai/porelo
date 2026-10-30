@@ -13,7 +13,7 @@ only the account that made the room does so.
 
 Decided by the operator: on a prepared host, the
 project admin's Porelo holds the room and admits and removes
-developers' machines. With the list in the signed access file ([B310](README.md#b310)), the room follows it with no hand
+developers' machines. With the list in the signed access file, the room follows it with no hand
 of anyone.
 
 ## Plan
@@ -25,10 +25,10 @@ Read in the code on 2026-10-28.
   its meaning.
 - **The plan:**
   - `porelo talk room P` passes the transport's `setup --create-room`, and records that this account made the room.
-  - After each applied commit (`Reconcile.recordApplied`'s place, [B310](README.md#b310)), an account that made the room
+  - After each applied commit (`Reconcile.recordApplied`'s place), an account that made the room
     calls the
-    transport's `members --project P --machines <host>-<account>,...` from the applied list ([B312](README.md#b312)'s
-    names), and
+    transport's `members --project P --machines <host>-<account>,...` from the applied list (each machine named
+    `<host>-<account>`), and
     logs what it invited and removed.
   - The daemon gets `CreateRoom`, additive, in `45-messaging.varlink`.
   - Each refused where `describe` does not offer the verb.
