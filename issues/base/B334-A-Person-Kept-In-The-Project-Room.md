@@ -1,6 +1,8 @@
 # B334 — A Person Kept In The Project Room
 
-**Status:** Accepted.
+**Status:** Implementing. Estimated and Backlog (operator, 2026-10-30, sprint 6m).
+**Size:** S - 24 minutes by the median of S builds: the `members` call takes the access file's developers beside
+the machines, gated on the transport's description.
 
 **What must be true.** Every developer the applied access file names is in the project's room as a person, under
 their own account on the host's homeserver, and a developer dropped from the access file leaves the room, as their

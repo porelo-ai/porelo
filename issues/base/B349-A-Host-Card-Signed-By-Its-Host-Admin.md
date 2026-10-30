@@ -1,6 +1,6 @@
 # B349 — A Host Card Signed By Its Host Admin
 
-**Status:** Accepted.
+**Status:** Implementing. Estimated and Backlog (operator, 2026-10-30, sprint 6m).
 **Size:** S - estimated 136 minutes from the median of S builds: the host card's format and its check, beside the person
 card.
 
