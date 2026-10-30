@@ -1,6 +1,6 @@
 # B335 — Every Change To A Protected File Signed
 
-**Status:** Backlog.
+**Status:** Implementing.
 **Size:** M - estimated 90 minutes from the median of M builds: the follow's check moves from the tip to each
 protecting commit, on both repositories, with its refusal, docs and an acceptance step.
 
@@ -31,6 +31,27 @@ The access repository holds `access.yml` alone, and the same rule applies there:
 that changes it is signed by a key the project's chain holds, so an unsigned change cannot be carried by a later
 signed one either.
 
+## Plan
+
+1. `apps/app-project`: a new `ProtectedFiles` names, for one commit, the protected paths of the project's repository -
+   `project.yml`, `access.yml` beside it when the project file puts it there, `machine-signers`, and every
+   `image.snippet_file` of the project and its repositories - read from the committed YAML with `git show`, never from
+   the working tree. `SignerHandover` walks the first-parent range it already lists (`between`), compares each commit
+   with its first parent (`git diff-tree --no-renames -r --name-only`, so a rename counts at both ends), checks every
+   commit touching a protected path with `ConfigurationGate.verify` against the keys in force before it, and then
+   advances the signers. A failed listing refuses instead of yielding an empty range.
+2. `Reconcile.reconcileProject` applies the fetched tip when the whole range passes, a document-only unsigned tip
+   included; `reconcileAccess` walks the access repository's range the same way for `access.yml`.
+3. The refusal names commit and file: `following --json` adds `refused_file`, `access_refused` and
+   `access_refused_file` (`""` when none), carried through `Reconcile.Result`, `FollowedProjects.Followed`,
+   `ProjectInventory`, `ProjectFollowingCommand` and the varlink `Followed`; `verify` refuses with 65 naming both on
+   stderr, and answers `signer: ""` for an unsigned document tip.
+4. Tests, red first: `ReconcileTest` - an unsigned document-only commit on an applied project is refused today
+   (`NOT_SIGNED` at the tip), and an unsigned `project.yml` change under a later signed document commit is applied
+   today. Then `AccessReconcileTest`, `ProjectVerifyCommandTest`, `ProjectFollowingCommandTest`: every protected path,
+   a deletion, a rename, a merge on the first-parent path, a self-added signer.
+5. Docs: `doc/project-file.md`, `doc/hosts.md`, `doc/commands.md`; the acceptance feature `project-follow-signed`.
+
 ## Acceptance
 
 - A developer's unsigned commit that changes only a document, followed by nothing else, is applied.
@@ -43,6 +64,9 @@ signed one either.
   unsigned change to `project.yml` that a later signed commit covers.
 
 ## To be checked
+
+- The first follow and an accepted rewrite keep checking the tip against the anchor given, as today.
+- What a range of hundreds of commits costs.
 
 - Whether anything else the project's repository holds is read by a following machine; each one found is protected
   the same way, or the protection is bypassed through it.
