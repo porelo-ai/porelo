@@ -48,3 +48,7 @@ signed one either.
   the same way, or the protection is bypassed through it.
 - How a merge commit on the first-parent path is compared: against its first parent, so what a merged branch changed
   counts as changed by the merge commit.
+- With the design accepted on 2026-10-30, one key per person: `machine-signers` goes from the protected files when
+  [B344](README.md#b344) lands, and the access repository's `cards/` join them, a change of a person's own card by a
+  valid change of key excepted ([B337](README.md#b337)). The same check, a signer per path, serves the registry
+  ([B339](README.md#b339)).
