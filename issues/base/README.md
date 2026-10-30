@@ -130,6 +130,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b352"></a>[B352](B352-A-Persons-Access-Written-By-Porelo.md) | M | [B338](README.md#b338), [B342](README.md#b342) | `porelo project access init\|add\|remove\|lock\|unlock --base --id --json`: the admin's Porelo writes the access file and the cards and signs the commit through their agent, idempotent by id |
 | <a id="b351"></a>[B351](B351-A-Host-Card-Signed-Through-The-SSH-Agent.md) | - | - | `porelo card make-host` signs through `ssh-agent`, KeePassXC included, so a host admin's key never lies on disk to sign their host's card |
 | <a id="b350"></a>[B350](B350-A-Loopback-Sign-In-Over-SSH-Names-Its-Forward.md) | - | [B347](README.md#b347) | A `loopback` sign-in over SSH runs: Porelo names the callback port and the interface shows the one `ssh -L` line to open first |
 | <a id="b330"></a>[B330](B330-A-Snippet-File-Is-Read-From-The-Commit-Being-Applied.md) | - | - | A follow reads `image.snippet_file` from the commit it judges, not from the working tree before it moves, so a first follow of a project with a snippet file is not refused |
