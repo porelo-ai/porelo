@@ -513,11 +513,16 @@ public final class FollowedProjects {
         final boolean was = unfollow(name);
         if (Files.isRegularFile(signers)) {
             final List<String> lines = new ArrayList<>(Files.readAllLines(signers));
-            if (lines.removeIf(line -> line.startsWith(name + " "))) {
+            if (lines.removeIf(line -> named(line, name))) {
                 Files.writeString(signers, lines.isEmpty() ? "" : String.join("\n", lines) + "\n");
             }
         }
         return was;
+    }
+
+    private static boolean named(final String line, final String name) {
+        final AllowedSigner signer = AllowedSigner.parse(line);
+        return signer != null && signer.principal().equals(name);
     }
 
     /**

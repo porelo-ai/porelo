@@ -110,6 +110,28 @@ class FollowedProjectsTest {
     }
 
     @Test
+    void unfollowing_takes_every_line_ssh_keygen_reads_as_the_projects(@TempDir final Path dir)
+            throws IOException {
+        // A pin left behind keeps verifying configurations for a project no longer followed.
+        final FollowedProjects projects = new FollowedProjects(dir.resolve("follow"));
+        projects.follow("alpha", "https://example.org/alpha.git");
+        final Path signers =
+                Files.writeString(
+                        dir.resolve("configuration_signers"),
+                        "\"alpha\" ssh-ed25519 AAAAone\n"
+                                + "alpha\tssh-ed25519 AAAAtwo\n"
+                                + "  alpha ssh-ed25519 AAAAthree\n"
+                                + "beta ssh-ed25519 AAAAfour\n"
+                                + "\"alpha,beta\" ssh-ed25519 AAAAfive\n");
+
+        assertThat(projects.unfollow("alpha", signers)).isTrue();
+
+        assertThat(Files.readString(signers))
+                .as("every line read as alpha's goes, and a line for another principal list stays")
+                .isEqualTo("beta ssh-ed25519 AAAAfour\n\"alpha,beta\" ssh-ed25519 AAAAfive\n");
+    }
+
+    @Test
     void aPassesResultIsWrittenOnlyOntoTheRecordItReadSoAnUnfollowMeanwhileStays(
             @org.junit.jupiter.api.io.TempDir java.nio.file.Path dir) throws java.io.IOException {
         // The daemon's pass reads every record, fetches for seconds, and writes what it found.

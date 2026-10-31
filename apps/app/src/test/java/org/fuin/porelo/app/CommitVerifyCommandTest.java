@@ -515,6 +515,76 @@ class CommitVerifyCommandTest {
         }
     }
 
+    /**
+     * Git asks ssh-keygen which principals a key's line names and verifies by each, so a line
+     * naming none is refused, and of several lines for one key the first in force decides.
+     */
+    @Test
+    void decides_a_person_by_the_principals_git_finds_for_the_key() throws Exception {
+        final String byPerson = commit(person, "by alice", base);
+        final String key = publicKey(person);
+        for (final String refused :
+                List.of(
+                        "!alice " + key,
+                        "alice,!alice " + key,
+                        "\"\" " + key,
+                        "!alice " + key + "\nbob " + key,
+                        "alice-mail namespaces=\"mail\" " + key + "\nbob " + key)) {
+            Files.writeString(signers, refused + "\n");
+
+            assertThat(gitVerifies(byPerson)).as("git refuses %s", refused).isFalse();
+            assertThat(verify(push(base, byPerson, "refs/heads/main")))
+                    .as("%s is refused as git refuses it: %s", refused, err)
+                    .isEqualTo(65);
+        }
+        for (final String accepted :
+                List.of(
+                        "alice-future valid-after=\"20990101Z\" " + key + "\nbob " + key,
+                        "bob " + key + "\nalice " + key,
+                        "x,bob namespaces=\"mail\" " + key + "\nbob " + key)) {
+            Files.writeString(signers, accepted + "\n");
+
+            assertThat(gitVerifies(byPerson)).as("git accepts %s", accepted).isTrue();
+            assertThat(verify(push(base, byPerson, "refs/heads/main"), "--json"))
+                    .as("%s is accepted as git accepts it: %s", accepted, err)
+                    .isZero();
+            assertThat(((Map<?, ?>) verdicts().getFirst().get("signer")).get("principal"))
+                    .as("the signer is the principal git verified by")
+                    .isEqualTo("bob");
+        }
+    }
+
+    /**
+     * ssh-keygen takes only a space or a tab as a blank in an allowed-signers line, so no other
+     * blank may part a principal from its key or vanish from the front of a principal.
+     */
+    @Test
+    void reads_only_a_space_or_a_tab_as_a_blank_as_ssh_keygen_does() throws Exception {
+        final String byPerson = commit(person, "by alice", base);
+        final String enQuad = Character.toString(0x2000);
+        for (final String blank : List.of("\u000b", "\u000c", enQuad)) {
+            Files.writeString(signers, "alice" + blank + publicKey(person) + "\n");
+
+            assertThat(gitVerifies(byPerson)).as("git refuses %s as a blank", blank).isFalse();
+            assertThat(verify(push(base, byPerson, "refs/heads/main")))
+                    .as("a line parted by %s is not accepted: %s", blank.codePointAt(0), err)
+                    .isNotZero();
+        }
+        Files.writeString(signers, "alice " + publicKey(person) + "\n");
+        final Path certificate = certify(task, certifier, PRINCIPAL, "-1m:+7d");
+        final String byTask = commit(certificate, "by the task", base);
+        Files.writeString(
+                certifiers,
+                enQuad
+                        + "task:demo:* cert-authority,namespaces=\"git\" "
+                        + publicKey(certifier)
+                        + "\n");
+
+        assertThat(verify(push(base, byTask, "refs/heads/main")))
+                .as("ssh-keygen reads the principal with its leading space: %s", err)
+                .isEqualTo(65);
+    }
+
     /** A certifier's principal list in quotes is handed to ssh-keygen as it reads it. */
     @Test
     void accepts_a_plain_task_key_whose_certifier_principals_ssh_keygen_reads_in_quotes()

@@ -47,7 +47,7 @@ class UnfollowFailureTest {
         follows.write(new FollowedProjects.Followed("uc", "fixture.git", "", "", "", ""));
         final Path signers = context.paths().projects().configurationSigners();
         Files.createDirectories(signers.getParent());
-        Files.writeString(signers, "uc signer-to-keep\n");
+        Files.writeString(signers, "uc ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIPinned\n");
         final Map<String, Object> answer =
                 ProjectMethods.unfollow(context, Map.of("name", "uc", "force", true));
         assertThat(answer.get("outcome"))

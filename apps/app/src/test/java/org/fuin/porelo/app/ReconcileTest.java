@@ -3252,6 +3252,31 @@ class ReconcileTest {
     }
 
     @Test
+    void a_key_pinned_under_a_quoted_principal_leaves_force_when_it_is_retired(
+            @TempDir final Path dir) throws IOException {
+        // ssh-keygen reads "demo" as demo, so a retired key left pinned so would stay in force.
+        final PoreloContext context = context(dir);
+        final Path key = key(dir, "operator");
+        final Path successor = key(dir, "successor");
+        pin(context, "demo", key);
+        final Path signers = context.paths().projects().configurationSigners();
+        Files.writeString(signers, "\"demo\" " + typeAndKey(key) + "\n");
+        final Path repo = published(dir, key, "demo");
+        final Reconcile.Result first =
+                new Reconcile(context).run(following(context, followed(repo)));
+        commitNaming(repo, key, "retirement", successor);
+
+        final Reconcile.Result result =
+                new Reconcile(context)
+                        .run(following(context, Reconcile.after(followed(repo), first)));
+
+        assertThat(result.outcome()).as(result.detail()).isEqualTo(Reconcile.Outcome.APPLIED);
+        assertThat(PinnedSigners.of(signers).get("demo"))
+                .as("only the successor is in force once the quoted line's key is retired")
+                .containsExactly(SignedBy.fingerprintOf(typeAndKey(successor)));
+    }
+
+    @Test
     void an_unsigned_document_tip_is_applied(@TempDir final Path dir) throws IOException {
         // A document writer cannot change the configuration and needs no configuration key.
         final PoreloContext context = context(dir);

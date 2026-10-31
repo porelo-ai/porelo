@@ -1,6 +1,6 @@
 # B376 — An Allowed-Signers Line Read As Ssh-Keygen Reads It
 
-**Status:** Idea.
+**Status:** Review.
 **Size:** M, proposed - every reader of a pinned or given allowed-signers line made to read it through one parser,
 the signer found as git finds it, ssh-keygen's blanks, a commit's own encoding, and git's whole signature, each with
 its test.
@@ -25,3 +25,28 @@ a pushed commit exactly as `git verify-commit` does. A second reading of the fol
   ssh-keygen and git accept the signature.
 
 Each is answered by a test that fails today.
+
+## Done
+
+- The first three were measured with git 2.53 and OpenSSH 10.2 and are real. ssh-keygen reads `"demo" ssh-ed25519 ...`
+  and `demo<tab>ssh-ed25519 ...` as demo's. `git verify-commit` refuses a key whose line names `!alice`,
+  `alice,!alice`, `*,!*`, `""`, `","` or `,alice`; of several lines for one key it verifies by the principals
+  `ssh-keygen -Y find-principals` prints for the first line in force, so `alice-mail namespaces="mail"` before `bob`
+  is refused and `alice-future valid-after="20990101Z"` before `bob` is accepted as bob. ssh-keygen parts a line only
+  at a space or a tab: a vertical tab, form feed or U+2000 between principal and key leaves the line unread, and a
+  leading U+2000 stays in the principal.
+- `Reconcile`'s staging and `FollowedProjects.unfollow` find a project's pinned lines through `AllowedSigner.parse`,
+  and `project enroll` names the pinned fingerprints through `PinnedSigners`, so a retired or unfollowed key pinned
+  under a quoted principal, a tab or a leading blank leaves force.
+- `porelo commit verify` writes a person's lines in force for the key with their own principals, asks `ssh-keygen -Y
+  find-principals` at the arrival which principals they name, verifies by each in turn and answers the one that
+  verified as the signer; none named or none verifying is refused.
+- `AllowedSigner` takes only a space or a tab as a blank, around a line and between its fields.
+- Each has a test seen red on the code before and red again by a mutant: `ReconcileTest` retiring a key pinned under
+  a quoted principal, `FollowedProjectsTest` unfollowing quoted, tab-parted and indented lines,
+  `CommitVerifyCommandTest` deciding a person by the principals git finds and reading only a space or a tab as a blank,
+  the commits also judged by `git verify-commit`, and `AllowedSignerTest` pinning no key for a line parted by another
+  blank.
+- The last three - a commit's own encoding, every `gpgsig` header appended, text after the armor's end or a reserved
+  field - are left open and not measured: as the code reads, each refuses a commit git accepts and accepts none git
+  refuses.

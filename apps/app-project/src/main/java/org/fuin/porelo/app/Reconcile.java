@@ -668,9 +668,9 @@ public final class Reconcile {
             }
         }
 
-        private static String principalOf(final String line) {
-            final String[] fields = line.strip().split("\\s+", 2);
-            return fields[0];
+        private static @org.jspecify.annotations.Nullable String principalOf(final String line) {
+            final AllowedSigner signer = AllowedSigner.parse(line);
+            return signer == null ? null : signer.principal();
         }
 
         private static boolean atCommit(

@@ -505,28 +505,26 @@ final class HostArrivals {
                 return refused(
                         commit, ref, signer, "its key " + fingerprint + " is revoked by the KRL");
             }
-            final List<String> lines = new ArrayList<>();
-            for (final AllowedSigner each : own) {
-                lines.add(
-                        "porelo "
-                                + (each.options().isEmpty()
-                                        ? ""
-                                        : String.join(",", each.options()) + " ")
-                                + each.key());
-            }
             final Path allowed =
                     scratchFile(
                             round.scratch(),
                             "signers-",
-                            String.join("", lines.stream().map(e -> e + "\n").toList()));
-            if (!verifies(signed, signature, allowed, "porelo", round)) {
-                return refused(
-                        commit,
-                        ref,
-                        signer,
-                        "its signature does not verify by the key in force " + fingerprint);
+                            String.join("", own.stream().map(e -> line(e) + "\n").toList()));
+            for (final String principal : principalsFor(signature, allowed, round)) {
+                if (verifies(signed, signature, allowed, principal, round)) {
+                    return new Verdict(
+                            commit,
+                            ref,
+                            true,
+                            new Signer("person", fingerprint, principal, null, null),
+                            "");
+                }
             }
-            return new Verdict(commit, ref, true, signer, "");
+            return refused(
+                    commit,
+                    ref,
+                    signer,
+                    "its signature does not verify by the key in force " + fingerprint);
         }
         SshCertificate kept = null;
         String refusal = null;
@@ -765,6 +763,23 @@ final class HostArrivals {
             return true;
         }
         throw new IOException("the KRL could not be asked: " + asked.standardError().strip());
+    }
+
+    /** The principals git verifies a signature by: those ssh-keygen finds for its key. */
+    private List<String> principalsFor(Path signature, Path allowed, Round round) {
+        final CommandResult found =
+                keygen(
+                        "-Y",
+                        "find-principals",
+                        "-f",
+                        allowed.toAbsolutePath().toString(),
+                        "-s",
+                        signature.toAbsolutePath().toString(),
+                        "-Overify-time=" + VERIFY_TIME.format(round.now()) + "Z");
+        if (!found.successful()) {
+            return List.of();
+        }
+        return found.standardOutput().lines().filter(each -> !each.isEmpty()).toList();
     }
 
     /** Verifies the signature at the arrival, never at the time the commit names. */

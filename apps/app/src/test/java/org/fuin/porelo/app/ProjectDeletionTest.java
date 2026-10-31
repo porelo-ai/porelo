@@ -238,7 +238,8 @@ class ProjectDeletionTest {
         Files.createDirectories(base.paths().projects().configurationSigners().getParent());
         final Path signers =
                 Files.writeString(
-                        base.paths().projects().configurationSigners(), "uc pinned-key\n");
+                        base.paths().projects().configurationSigners(),
+                        "uc ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIPinned\n");
         final var permissions = Files.getPosixFilePermissions(signers);
         final PoreloContext observed =
                 new PoreloContext(
