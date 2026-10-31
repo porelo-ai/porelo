@@ -585,7 +585,7 @@ public final class RegistryHistory {
 
         static Model of(RegistryState state) {
             final Map<String, RegistryState.Owner> owners = new LinkedHashMap<>();
-            state.owners().forEach(owner -> owners.put(owner.login(), owner));
+            state.owners().forEach(owner -> owners.put(owner.fingerprint(), owner));
             final Map<String, RegistryState.Person> people = new TreeMap<>();
             state.people().forEach(person -> people.put(person.login(), person));
             final Map<String, RegistryState.Host> hosts = new TreeMap<>();
@@ -613,9 +613,16 @@ public final class RegistryHistory {
                     new java.util.LinkedHashSet<>(removed));
         }
 
+        /** Whether the key is an owner's own, never a backup key. */
         boolean owner(String fingerprint) {
-            return owners.values().stream()
-                    .anyMatch(owner -> owner.fingerprint().equals(fingerprint));
+            final RegistryState.Owner owner = owners.get(fingerprint);
+            return owner != null && !owner.backup();
+        }
+
+        /** Whether the key is one of the host's admins' own, never a backup key. */
+        boolean hostAdmin(String host, String fingerprint) {
+            return hostAdmins.getOrDefault(host, List.of()).stream()
+                    .anyMatch(admin -> admin.fingerprint().equals(fingerprint) && !admin.backup());
         }
 
         /** Whether the registry counts as accepted, by the one rule records share. */
@@ -938,15 +945,13 @@ public final class RegistryHistory {
             } catch (CardException ex) {
                 throw new Refused(String.valueOf(ex.getMessage()));
             }
-            if (before.blobs().containsKey(OWNERS)) {
-                if (!before.owner(signer)) {
-                    throw new Refused("signed by " + signer + ", not a registry owner");
-                }
-            } else {
+            if (!before.blobs().containsKey(OWNERS)) {
                 founding(file, signer);
+            } else if (!before.owner(signer)) {
+                backedOnly(before, file, signer);
             }
             model.owners().clear();
-            file.owners().forEach(entry -> model.owners().put(entry.login(), owner(entry)));
+            file.owners().forEach(entry -> model.owners().put(entry.fingerprint(), owner(entry)));
             model.hostAdmins().clear();
             file.hostAdmins()
                     .forEach(
@@ -955,6 +960,128 @@ public final class RegistryHistory {
                                             .put(host, admins.stream().map(Walk::owner).toList()));
             model.blobs().put(OWNERS, object.orElseThrow());
             return true;
+        }
+
+        /**
+         * Judges an owners file signed by a backup key: it may change only the entries of the login
+         * it backs, among the owners where it backs an owner, under a host where it backs that
+         * host's admin; everything else must stay as it was.
+         */
+        private void backedOnly(Model before, RegistryOwners file, String signer) throws Refused {
+            final Optional<String> owner = backs(List.copyOf(before.owners().values()), signer);
+            final Map<String, String> admins = new TreeMap<>();
+            before.hostAdmins()
+                    .forEach(
+                            (host, entries) ->
+                                    backs(entries, signer)
+                                            .ifPresent(login -> admins.put(host, login)));
+            if (owner.isEmpty() && admins.isEmpty()) {
+                throw new Refused("signed by " + signer + ", not a registry owner");
+            }
+            final List<RegistryState.Owner> owners =
+                    file.owners().stream().map(Walk::owner).toList();
+            boolean same =
+                    without(owners, owner)
+                            .equals(without(List.copyOf(before.owners().values()), owner));
+            final Set<String> hosts = new TreeSet<>(before.hostAdmins().keySet());
+            hosts.addAll(file.hostAdmins().keySet());
+            for (String host : hosts) {
+                final Optional<String> login = Optional.ofNullable(admins.get(host));
+                same &=
+                        without(
+                                                file
+                                                        .hostAdmins()
+                                                        .getOrDefault(host, List.of())
+                                                        .stream()
+                                                        .map(Walk::owner)
+                                                        .toList(),
+                                                login)
+                                        .equals(
+                                                without(
+                                                        before.hostAdmins()
+                                                                .getOrDefault(host, List.of()),
+                                                        login))
+                                && file.hostAdmins().containsKey(host)
+                                        == before.hostAdmins().containsKey(host);
+            }
+            if (!same) {
+                throw new Refused(
+                        "signed by "
+                                + signer
+                                + ", a backup key, which may change only the entries it backs");
+            }
+            if (owner.isPresent()) {
+                replacesOnly(
+                        List.copyOf(before.owners().values()),
+                        owners,
+                        owner.orElseThrow(),
+                        signer,
+                        before.revoked());
+            }
+            for (Map.Entry<String, String> admin : admins.entrySet()) {
+                replacesOnly(
+                        before.hostAdmins().getOrDefault(admin.getKey(), List.of()),
+                        file.hostAdmins().getOrDefault(admin.getKey(), List.of()).stream()
+                                .map(Walk::owner)
+                                .toList(),
+                        admin.getValue(),
+                        signer,
+                        before.revoked());
+            }
+        }
+
+        /**
+         * Refuses unless the backed login's entries after the change are its backup key's entry, as
+         * it was, and one new key of its own in place of the old one, which is not revoked.
+         */
+        private static void replacesOnly(
+                List<RegistryState.Owner> before,
+                List<RegistryState.Owner> after,
+                String login,
+                String signer,
+                Set<String> revoked)
+                throws Refused {
+            final List<RegistryState.Owner> was =
+                    before.stream().filter(entry -> entry.login().equals(login)).toList();
+            final List<RegistryState.Owner> is =
+                    after.stream().filter(entry -> entry.login().equals(login)).toList();
+            final List<RegistryState.Owner> kept =
+                    was.stream()
+                            .filter(entry -> entry.backup() && entry.fingerprint().equals(signer))
+                            .toList();
+            final List<RegistryState.Owner> keys =
+                    is.stream().filter(entry -> !entry.backup()).toList();
+            if (!is.stream().filter(RegistryState.Owner::backup).toList().equals(kept)
+                    || keys.size() != 1
+                    || was.stream()
+                            .anyMatch(
+                                    entry ->
+                                            entry.fingerprint()
+                                                    .equals(keys.getFirst().fingerprint()))
+                    || revoked.contains(keys.getFirst().fingerprint())) {
+                throw new Refused(
+                        "signed by "
+                                + signer
+                                + ", a backup key, which may only put one new key, not revoked,"
+                                + " in place of the key of "
+                                + login
+                                + " it backs");
+            }
+        }
+
+        /** The login whose backup key this is in the list, if it is one. */
+        private static Optional<String> backs(List<RegistryState.Owner> entries, String signer) {
+            return entries.stream()
+                    .filter(entry -> entry.backup() && entry.fingerprint().equals(signer))
+                    .map(RegistryState.Owner::login)
+                    .findFirst();
+        }
+
+        private static List<RegistryState.Owner> without(
+                List<RegistryState.Owner> entries, Optional<String> login) {
+            return entries.stream()
+                    .filter(entry -> login.isEmpty() || !entry.login().equals(login.orElseThrow()))
+                    .toList();
         }
 
         /**
@@ -967,7 +1094,7 @@ public final class RegistryHistory {
         private void founding(RegistryOwners file, String signer) throws Refused, Undecided {
             final RegistryOwners.Entry founder =
                     file.owners().stream()
-                            .filter(entry -> entry.fingerprint().equals(signer))
+                            .filter(entry -> entry.fingerprint().equals(signer) && !entry.backup())
                             .findFirst()
                             .orElseThrow(
                                     () ->
@@ -1287,8 +1414,7 @@ public final class RegistryHistory {
             if (object.isEmpty() && !before.blobs().containsKey(path)) {
                 return false;
             }
-            if (before.hostAdmins().getOrDefault(host, List.of()).stream()
-                    .noneMatch(admin -> admin.fingerprint().equals(signer))) {
+            if (!before.hostAdmin(host, signer)) {
                 throw new Refused(
                         "signed by " + signer + ", not a host admin owners.yml names for " + host);
             }

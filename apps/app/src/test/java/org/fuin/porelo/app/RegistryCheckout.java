@@ -185,6 +185,17 @@ final class RegistryCheckout implements AutoCloseable {
         return commit("michael");
     }
 
+    /**
+     * What every read of the owners file below warns of: neither michael nor hank has a backup key.
+     */
+    List<String> soleWarnings() {
+        return List.of(
+                "owners.yml names michael as the registry's only owner, without a backup key; make"
+                        + " one with porelo identity backup-key --registry",
+                "owners.yml names hank as the only admin of walk6m, without a backup key; make one"
+                        + " with porelo identity backup-key --host walk6m");
+    }
+
     /** The owners file naming michael as owner and hank as walk6m's admin. */
     String owners() {
         return "owners:\n  - login: michael\n    key: \""
@@ -254,6 +265,11 @@ final class RegistryCheckout implements AutoCloseable {
 
     PoreloContext context() {
         return new PoreloContext(runner, paths, args -> 0, environment());
+    }
+
+    /** The machine, running what it would run on the person's terminal through this instead. */
+    PoreloContext context(java.util.function.ToIntFunction<List<String>> terminal) {
+        return new PoreloContext(runner, paths, terminal, environment());
     }
 
     /** Runs {@code porelo registry ...} with the test's forge in place of the real one. */

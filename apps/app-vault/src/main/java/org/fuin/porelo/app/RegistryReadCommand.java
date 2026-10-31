@@ -131,12 +131,34 @@ public class RegistryReadCommand implements Callable<Integer>, PoreloFactory.Con
                                                 + ": "
                                                 + refused.why()));
             }
-            for (String warning : state.warnings()) {
+            for (String warning : warnings(state)) {
                 out.println("warning: " + RegistryVerifyCommand.printable(warning));
             }
         }
         out.flush();
         return 0;
+    }
+
+    /**
+     * What the read warns of: what the walk warned of, then each registry or host whose one owner
+     * or admin has no backup key.
+     *
+     * @param state The state read.
+     * @return The warnings.
+     */
+    static List<String> warnings(final RegistryState state) {
+        final List<String> warnings = new java.util.ArrayList<>(state.warnings());
+        for (RegistryState.Sole sole : state.soleWithoutBackup()) {
+            warnings.add(
+                    "owners.yml names "
+                            + sole.login()
+                            + (sole.host() == null
+                                    ? " as the registry's only owner"
+                                    : " as the only admin of " + sole.host())
+                            + ", without a backup key; make one with porelo identity backup-key "
+                            + (sole.host() == null ? "--registry" : "--host " + sole.host()));
+        }
+        return List.copyOf(warnings);
     }
 
     /**
@@ -183,7 +205,7 @@ public class RegistryReadCommand implements Callable<Integer>, PoreloFactory.Con
                                     checkout.toAbsolutePath().normalize().toString())));
         }
         // Whichever command read it: a warning, such as a record discarded, is never lost.
-        for (String warning : state.warnings()) {
+        for (String warning : warnings(state)) {
             err.println("porelo: warning: " + RegistryVerifyCommand.printable(warning));
         }
         err.flush();
@@ -530,7 +552,7 @@ public class RegistryReadCommand implements Callable<Integer>, PoreloFactory.Con
                                                                         "backup", admin.backup()))
                                                 .toList()));
         answer.put("host_admins", hostAdmins);
-        answer.put("warnings", state.warnings());
+        answer.put("warnings", warnings(state));
         answer.put(
                 "hosts",
                 state.hosts().stream()

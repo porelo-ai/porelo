@@ -134,6 +134,43 @@ public final class OpenSshPrivateKey {
     }
 
     /**
+     * The public half an OpenSSH private key file names in its clear part, so an encrypted key is
+     * named without its passphrase. Nothing proves the file's secret part belongs to it: whatever
+     * the key signs is checked against it, and a file that lies signs nothing that verifies.
+     *
+     * @param text The whole file.
+     * @return The key, {@code ssh-ed25519 AAAA...}.
+     * @throws VaultException If it is no OpenSSH private key file of one Ed25519 key.
+     */
+    public static String publicKey(final String text) {
+        final int begins = text.indexOf(BEGIN);
+        final int ends = text.indexOf(END);
+        if (!looksLikeOne(text) || ends < begins) {
+            throw new VaultException("not an OpenSSH private key file");
+        }
+        try {
+            final Reader reader =
+                    new Reader(
+                            Base64.getMimeDecoder()
+                                    .decode(text.substring(begins + BEGIN.length(), ends)));
+            reader.expect(MAGIC, "not an OpenSSH private key");
+            reader.string();
+            reader.string();
+            reader.bytes();
+            if (reader.int32() != 1) {
+                throw new VaultException("the key file holds more than one key");
+            }
+            final byte[] blob = reader.bytes();
+            if (!"ssh-ed25519".equals(new Reader(blob).string())) {
+                throw new VaultException("the key file holds no Ed25519 key");
+            }
+            return "ssh-ed25519 " + Base64.getEncoder().encodeToString(blob);
+        } catch (final IllegalArgumentException ex) {
+            throw new VaultException("not an OpenSSH private key file");
+        }
+    }
+
+    /**
      * Returns the seed to store, given the contents of a private key file.
      *
      * @param text The whole file, armour and all.

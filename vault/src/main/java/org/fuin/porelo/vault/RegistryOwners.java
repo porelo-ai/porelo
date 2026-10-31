@@ -159,23 +159,38 @@ record RegistryOwners(List<Entry> owners, Map<String, List<Entry>> hostAdmins) {
             expect(Event.ID.MappingEnd);
         }
 
-        /** A list of at least one entry, each login once. */
+        /**
+         * A list of at least one entry: each login once with its key, and at most once more with a
+         * backup key, each key once.
+         */
         private List<Entry> entries() {
             final Event start = current();
             expect(Event.ID.SequenceStart);
             final List<Entry> entries = new ArrayList<>();
             final Set<String> logins = new HashSet<>();
+            final Set<String> backups = new HashSet<>();
+            final Set<String> keys = new HashSet<>();
             while (!next(Event.ID.SequenceEnd)) {
                 final Event opening = current();
                 final Entry entry = entry();
-                if (!logins.add(entry.login())) {
-                    throw bad(opening.getStartMark(), "the login is given twice");
+                if (!(entry.backup() ? backups : logins).add(entry.login())) {
+                    throw bad(
+                            opening.getStartMark(),
+                            entry.backup()
+                                    ? "the login has a backup key already"
+                                    : "the login is given twice");
+                }
+                if (!keys.add(entry.fingerprint())) {
+                    throw bad(opening.getStartMark(), "the key is given twice");
                 }
                 entries.add(entry);
             }
             expect(Event.ID.SequenceEnd);
             if (entries.isEmpty()) {
                 throw bad(start.getStartMark(), "at least one entry is required");
+            }
+            if (!logins.containsAll(backups)) {
+                throw bad(start.getStartMark(), "a backup key backs a login the list names");
             }
             return entries;
         }

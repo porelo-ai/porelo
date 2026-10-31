@@ -438,6 +438,182 @@ class RegistryHistoryTest {
                 .startsWith(change + " owners.yml: signed by " + pin("bob"));
     }
 
+    /**
+     * The owners file with carol's key as michael's backup and bob's as hank's, michael and hank
+     * holding the keys named.
+     */
+    private String backedOwners(String michael, String hank) {
+        return "owners:\n  - login: michael\n    key: \""
+                + key(michael)
+                + "\"\n  - login: michael\n    key: \""
+                + key("carol")
+                + "\"\n    backup: true\nhost_admins:\n  walk6m:\n    - login: hank\n      key: \""
+                + key(hank)
+                + "\"\n    - login: hank\n      key: \""
+                + key("bob")
+                + "\"\n      backup: true\n";
+    }
+
+    /** A backup key replaces the key it backs, and changes nothing else. */
+    @Test
+    void a_backup_key_changes_only_the_entry_it_backs() throws Exception {
+        forge.owners.put("michael", true);
+        forge.keys.put("michael", List.of(key("michael")));
+        write("owners.yml", backedOwners("michael", "hank"));
+        commit("michael");
+        write("owners.yml", backedOwners("alice-new", "hank"));
+        commit("carol");
+        write(
+                "owners.yml",
+                backedOwners("alice-new", "hank")
+                        .replace(
+                                "host_admins:",
+                                "  - login: bob\n    key: \"" + key("bob") + "\"\nhost_admins:"));
+        final String more = commit("carol");
+        write("owners.yml", backedOwners("alice-new", "alice"));
+        commit("bob");
+        write("owners.yml", backedOwners("michael", "alice"));
+        final String other = commit("bob");
+
+        final RegistryState state = read(null);
+        assertThat(state.owners())
+                .extracting(RegistryState.Owner::fingerprint)
+                .as("michael's key replaced by his backup key, nobody added")
+                .containsExactly(pin("alice-new"), pin("carol"));
+        assertThat(state.hostAdmins().get("walk6m"))
+                .extracting(RegistryState.Owner::fingerprint)
+                .as("hank's key replaced by his backup key for the host")
+                .containsExactly(pin("alice"), pin("bob"));
+        write("people/alice.card", card("alice", "alice", null, "Alice"));
+        commit("alice");
+        assertThat(read(state).owners())
+                .extracting(RegistryState.Owner::fingerprint)
+                .as("a read from the trust record keeps a login's key and its backup key apart")
+                .containsExactly(pin("alice-new"), pin("carol"));
+        assertThat(state.warnings())
+                .containsExactly(
+                        more
+                                + " owners.yml: signed by "
+                                + pin("carol")
+                                + ", a backup key, which may change only the entries it backs",
+                        other
+                                + " owners.yml: signed by "
+                                + pin("bob")
+                                + ", a backup key, which may change only the entries it backs");
+    }
+
+    /**
+     * A backup key may only put one new key, not revoked, in place of the key it backs: it must not
+     * make itself the owner, remove the owner it backs, put another backup key in its place or
+     * bring back a revoked key.
+     */
+    @Test
+    void a_backup_key_neither_promotes_itself_nor_removes_swaps_or_brings_back_a_revoked_key()
+            throws Exception {
+        forge.owners.put("michael", true);
+        forge.keys.put("michael", List.of(key("michael")));
+        forge.keys.put("alice", List.of(key("alice")));
+        final String owners = backedOwners("michael", "hank");
+        final String hank = "  - login: hank\n    key: \"" + key("hank") + "\"\n";
+        final String rest = hank + owners.substring(owners.indexOf("host_admins:"));
+        write("owners.yml", owners.replace("host_admins:", hank + "host_admins:"));
+        commit("michael");
+        write("people/alice.card", card("alice", "alice", null, "Alice"));
+        commit("alice");
+        write("people/alice.card", card("alice", "alice-new", null, "Alice"));
+        commit("michael");
+        forge.keys.put("alice", List.of(key("alice"), key("alice-new")));
+        final String base = git("rev-parse", "HEAD");
+        final Map<String, String> michaels =
+                Map.of(
+                        "promotes itself",
+                        "  - login: michael\n    key: \"" + key("carol") + "\"\n",
+                        "removes the owner it backs",
+                        "",
+                        "swaps the backup key",
+                        "  - login: michael\n    key: \""
+                                + key("michael")
+                                + "\"\n  - login: michael\n    key: \""
+                                + key("alice-new")
+                                + "\"\n    backup: true\n",
+                        "brings back a revoked key",
+                        "  - login: michael\n    key: \""
+                                + key("alice")
+                                + "\"\n  - login: michael\n    key: \""
+                                + key("carol")
+                                + "\"\n    backup: true\n");
+        for (Map.Entry<String, String> attempt : michaels.entrySet()) {
+            git("reset", "-q", "--hard", base);
+            write("owners.yml", "owners:\n" + attempt.getValue() + rest);
+            final String forged = commit("carol");
+
+            final RegistryState state = read(null);
+
+            assertThat(state.revoked()).containsExactly(pin("alice"));
+            assertThat(state.owners())
+                    .extracting(RegistryState.Owner::fingerprint, RegistryState.Owner::backup)
+                    .as("a backup key that %s changes nothing", attempt.getKey())
+                    .containsExactly(
+                            org.assertj.core.api.Assertions.tuple(pin("michael"), false),
+                            org.assertj.core.api.Assertions.tuple(pin("carol"), true),
+                            org.assertj.core.api.Assertions.tuple(pin("hank"), false));
+            assertThat(state.warnings())
+                    .as(attempt.getKey())
+                    .singleElement(org.assertj.core.api.InstanceOfAssertFactories.STRING)
+                    .startsWith(forged + " owners.yml: signed by " + pin("carol"));
+        }
+        git("reset", "-q", "--hard", base);
+        write(
+                "owners.yml",
+                owners.substring(0, owners.indexOf("host_admins:"))
+                        + hank
+                        + "host_admins:\n  walk6m:\n    - login: hank\n      key: \""
+                        + key("bob")
+                        + "\"\n");
+        commit("bob");
+        assertThat(read(null).hostAdmins().get("walk6m"))
+                .extracting(RegistryState.Owner::fingerprint, RegistryState.Owner::backup)
+                .as("a host admin's backup key does not make itself the host's admin")
+                .containsExactly(
+                        org.assertj.core.api.Assertions.tuple(pin("hank"), false),
+                        org.assertj.core.api.Assertions.tuple(pin("bob"), true));
+    }
+
+    /** A backup key is kept offline for one entry; it signs no host's files and founds nothing. */
+    @Test
+    void a_backup_key_signs_no_host_file_and_founds_no_registry() throws Exception {
+        forge.owners.put("michael", true);
+        forge.keys.put("michael", List.of(key("michael"), key("carol")));
+        write("owners.yml", backedOwners("michael", "hank"));
+        final String founding = commit("carol");
+        assertThat(read(null).warnings())
+                .singleElement(org.assertj.core.api.InstanceOfAssertFactories.STRING)
+                .startsWith(
+                        founding
+                                + " owners.yml: the first owners.yml is signed by "
+                                + pin("carol"));
+
+        // The same file again, a byte apart, so the owner's commit founds the registry.
+        write("owners.yml", backedOwners("michael", "hank") + "\n");
+        commit("michael");
+        write("hosts/walk6m/card", hostCard("hank"));
+        write("hosts/walk6m/access.yml", access("demo"));
+        commit("hank");
+        write("hosts/walk6m/access.yml", access("other"));
+        final String forged = commit("bob");
+        final RegistryState state = read(null);
+        assertThat(state.hosts().getFirst().projects())
+                .extracting(RegistryState.Project::name)
+                .containsExactly("demo");
+        assertThat(state.warnings())
+                .last(org.assertj.core.api.InstanceOfAssertFactories.STRING)
+                .startsWith(
+                        forged
+                                + " hosts/walk6m/access.yml: signed by "
+                                + pin("bob")
+                                + ", not a host admin");
+    }
+
     /** A card is trusted only when the forge lists its key for its login. */
     @Test
     void a_card_is_trusted_refused_or_first_seen_by_the_keys_the_forge_lists() throws Exception {

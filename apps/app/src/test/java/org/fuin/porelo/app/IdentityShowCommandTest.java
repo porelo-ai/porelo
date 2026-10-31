@@ -73,7 +73,8 @@ class IdentityShowCommandTest {
                         "card_refused",
                         "registry",
                         "forge",
-                        "pending");
+                        "pending",
+                        "sole_without_backup");
         assertThat(answer.get("login")).isEqualTo("alice");
         assertThat(answer.get("email")).as("none on the card").isNull();
         assertThat(answer.get("fingerprint")).isEqualTo(registry.pin("alice"));
@@ -105,6 +106,39 @@ class IdentityShowCommandTest {
                 .last()
                 .isEqualTo("https://forge.example.org null");
         assertThat((List<?>) answer.get("pending")).isEmpty();
+        assertThat((List<?>) answer.get("sole_without_backup")).as("alice owns nothing").isEmpty();
+    }
+
+    /** The one owner or admin without a backup key is told where, so the interface offers one. */
+    @Test
+    void names_each_registry_and_host_the_person_alone_holds_without_a_backup_key()
+            throws Exception {
+        filed();
+        IdentityRun.keep(registry, registry.card("michael", "michael"));
+        assertThat(IdentityRun.identity(registry, "show", "--json")).isZero();
+        assertThat(registry.answer().get("sole_without_backup"))
+                .isEqualTo(
+                        List.of(
+                                Map.of(
+                                        "role",
+                                        "registry-owner",
+                                        "scope",
+                                        Map.of(
+                                                "kind",
+                                                "registry",
+                                                "name",
+                                                RegistryCheckout.ORIGIN))));
+
+        IdentityRun.keep(registry, registry.card("hank", "hank"));
+        assertThat(IdentityRun.identity(registry, "show", "--json")).isZero();
+        assertThat(registry.answer().get("sole_without_backup"))
+                .isEqualTo(
+                        List.of(
+                                Map.of(
+                                        "role",
+                                        "host-admin",
+                                        "scope",
+                                        Map.of("kind", "host", "name", "walk6m"))));
     }
 
     /** Only a machine with no card is refused; the interface then offers to make one. */

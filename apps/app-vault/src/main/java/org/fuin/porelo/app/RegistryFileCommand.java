@@ -72,7 +72,7 @@ public class RegistryFileCommand implements Callable<Integer>, PoreloFactory.Con
     @Parameters(
             index = "0",
             paramLabel = "KIND",
-            description = "card, host-card, host-access or host-card-remove.")
+            description = "card, host-card, host-access, host-card-remove or owners.")
     private String kind = "";
 
     @Parameters(index = "1", paramLabel = "CHECKOUT", description = "The registry checkout.")
@@ -87,7 +87,7 @@ public class RegistryFileCommand implements Callable<Integer>, PoreloFactory.Con
     @Option(
             names = "--file",
             paramLabel = "FILE",
-            description = "The access file, for host-access.")
+            description = "The access file, for host-access; the owners file, for owners.")
     private @Nullable Path file;
 
     @Option(
@@ -110,6 +110,14 @@ public class RegistryFileCommand implements Callable<Integer>, PoreloFactory.Con
                     "The registry commit the change was made against; refused when the checkout's"
                             + " HEAD is another.")
     private @Nullable String base;
+
+    @Option(
+            names = "--signing-key-file",
+            paramLabel = "FILE",
+            description =
+                    "For owners: signs with this backup key's file, its passphrase asked by"
+                            + " ssh-keygen on the terminal, instead of a key the ssh-agent holds.")
+    private @Nullable Path signingKeyFile;
 
     @Option(names = "--json", description = "Answers the commit and path as JSON.")
     private boolean json;
@@ -174,6 +182,12 @@ public class RegistryFileCommand implements Callable<Integer>, PoreloFactory.Con
                                 RegistryFiles.hostCard(text, origin, requiredHost(), admins(state));
                         case "host-card-remove" ->
                                 RegistryFiles.hostCardRemoval(requiredHost(), admins(state));
+                        case "owners" ->
+                                signingKeyFile == null
+                                        ? RegistryFiles.owners(
+                                                text, origin, state.owners(), state.revoked())
+                                        : RegistryFiles.ownersByBackup(
+                                                text, origin, backupKey(), state);
                         default ->
                                 RegistryFiles.hostAccess(
                                         text, origin, requiredHost(), admins(state));
@@ -191,8 +205,11 @@ public class RegistryFileCommand implements Callable<Integer>, PoreloFactory.Con
                                 + base
                                 + "; read it again and file anew");
             }
-            final String socket = agentSocket(filing);
-            final String key = heldKey(held(socket), filing);
+            final String socket = signingKeyFile == null ? agentSocket(filing) : "";
+            final String key =
+                    signingKeyFile == null
+                            ? heldKey(held(socket), filing)
+                            : filing.signers().getFirst();
             if (source == null) {
                 // What the registry accepts is removed, whatever HEAD holds there.
                 final String accepted = state.blobs().get(filing.path());
@@ -263,15 +280,16 @@ public class RegistryFileCommand implements Callable<Integer>, PoreloFactory.Con
     private @Nullable Path source() {
         final boolean removal = kind.equals("host-card-remove");
         final boolean forHost = kind.equals("host-card") || kind.equals("host-access") || removal;
-        if (!kind.equals("card") && !forHost) {
+        final boolean byFile = kind.equals("host-access") || kind.equals("owners");
+        if (!kind.equals("card") && !kind.equals("owners") && !forHost) {
             throw new IllegalArgumentException(
-                    "the kind must be card, host-card, host-access or host-card-remove, not '"
+                    "the kind must be card, host-card, host-access, host-card-remove or owners, not '"
                             + RegistryVerifyCommand.printable(kind)
                             + "'");
         }
         if (forHost != (host != null)) {
             throw new IllegalArgumentException(
-                    forHost ? kind + " needs --host" : "card takes no --host");
+                    forHost ? kind + " needs --host" : kind + " takes no --host");
         }
         if (id != null && !id.matches(ID)) {
             throw new IllegalArgumentException(
@@ -289,11 +307,11 @@ public class RegistryFileCommand implements Callable<Integer>, PoreloFactory.Con
             }
             return null;
         }
-        final Path given = kind.equals("host-access") ? file : card;
-        if (given == null || (kind.equals("host-access") ? card : file) != null) {
+        final Path given = byFile ? file : card;
+        if (given == null || (byFile ? card : file) != null) {
             throw new IllegalArgumentException(
                     kind
-                            + (kind.equals("host-access")
+                            + (byFile
                                     ? " takes --file FILE and no --card"
                                     : " takes --card FILE and no --file"));
         }
@@ -369,12 +387,12 @@ public class RegistryFileCommand implements Callable<Integer>, PoreloFactory.Con
     }
 
     /**
-     * The host's admins as the read accepted them, without a revoked key, which signs nothing the
-     * rule accepts; none when the accepted owners name none.
+     * The host's admins as the read accepted them, without a revoked key or a backup key, which
+     * sign nothing the rule accepts here; none when the accepted owners name none.
      */
     private List<RegistryState.Owner> admins(final RegistryState state) {
         return state.hostAdmins().getOrDefault(requiredHost(), List.of()).stream()
-                .filter(admin -> !state.revoked().contains(admin.fingerprint()))
+                .filter(admin -> !admin.backup() && !state.revoked().contains(admin.fingerprint()))
                 .toList();
     }
 
@@ -419,10 +437,11 @@ public class RegistryFileCommand implements Callable<Integer>, PoreloFactory.Con
     /**
      * Refuses to remove a refused copy of a person's card when the registry accepted a card for
      * that login: removed, the accepted card would go with its key and its chain, and the card
-     * filed after it would be judged as a first one. The person reverts the refused commit instead.
+     * filed after it would be judged as a first one. Nor is an accepted owners file ever removed.
+     * The person reverts the refused commit instead.
      */
     private void checkRemovable(final RegistryState state, final String path, final String head) {
-        if (!kind.equals("card") || !state.blobs().containsKey(path)) {
+        if (!(kind.equals("card") || kind.equals("owners")) || !state.blobs().containsKey(path)) {
             return;
         }
         final String refused =
@@ -443,7 +462,9 @@ public class RegistryFileCommand implements Callable<Integer>, PoreloFactory.Con
                         + path
                         + " from "
                         + refused
-                        + ", which the registry refused, and it accepts another card there;"
+                        + ", which the registry refused, and it accepts another "
+                        + (kind.equals("card") ? "card" : "owners file")
+                        + " there;"
                         + " revert "
                         + refused
                         + " with git, then file again");
@@ -794,6 +815,22 @@ public class RegistryFileCommand implements Callable<Integer>, PoreloFactory.Con
         }
     }
 
+    /** The public half the backup key's file names; its secret part stays in the file. */
+    private String backupKey() throws IOException {
+        if (!kind.equals("owners")) {
+            throw new IllegalArgumentException("--signing-key-file files owners.yml alone");
+        }
+        final Path given = java.util.Objects.requireNonNull(signingKeyFile);
+        if (Files.isSymbolicLink(given) || !Files.isRegularFile(given)) {
+            throw new IOException(given + " is not a key file");
+        }
+        try {
+            return org.fuin.porelo.vault.OpenSshPrivateKey.publicKey(Files.readString(given));
+        } catch (org.fuin.porelo.vault.VaultException ex) {
+            throw new CardException(given + ": " + ex.getMessage());
+        }
+    }
+
     private String agentSocket(final RegistryFiles.Filing filing) {
         final String socket = environment.apply(AGENT);
         if (socket == null || socket.isEmpty()) {
@@ -1101,7 +1138,9 @@ public class RegistryFileCommand implements Callable<Integer>, PoreloFactory.Con
         final String tree = require(git(index, "write-tree"), "git write-tree").trimmedOutput();
         final Map<String, String> signing = new LinkedHashMap<>(index);
         signing.putAll(identity);
-        signing.put(AGENT, socket);
+        if (signingKeyFile == null) {
+            signing.put(AGENT, socket);
+        }
         return require(
                         git(
                                 signing,
@@ -1110,7 +1149,10 @@ public class RegistryFileCommand implements Callable<Integer>, PoreloFactory.Con
                                 "-c",
                                 "gpg.ssh.program=ssh-keygen",
                                 "-c",
-                                "user.signingkey=key::" + key,
+                                "user.signingkey="
+                                        + (signingKeyFile == null
+                                                ? "key::" + key
+                                                : signingKeyFile.toAbsolutePath().toString()),
                                 "commit-tree",
                                 "-S",
                                 "-p",

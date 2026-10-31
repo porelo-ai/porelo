@@ -139,6 +139,88 @@ public final class RegistryFiles {
                 admins.stream().map(RegistryState.Owner::key).toList());
     }
 
+    /**
+     * Reads the registry's owners file for filing: it goes to {@code owners.yml} and is filed by
+     * any owner the accepted one names, by their own key; a backup key files nothing here.
+     *
+     * @param text The owners file.
+     * @param origin Where it came from, for messages.
+     * @param owners The owners, as the read of the registry accepted them.
+     * @param revoked The fingerprints of the keys the registry revoked.
+     * @return The filing.
+     * @throws CardException If it is not an owners file, or no owner's key may file it.
+     */
+    public static Filing owners(
+            String text,
+            String origin,
+            List<RegistryState.Owner> owners,
+            java.util.Collection<String> revoked) {
+        RegistryOwners.read(text, origin);
+        final List<String> keys =
+                owners.stream()
+                        .filter(owner -> !owner.backup() && !revoked.contains(owner.fingerprint()))
+                        .map(RegistryState.Owner::key)
+                        .toList();
+        if (keys.isEmpty()) {
+            throw new CardException("the registry accepts no owners.yml whose owners may file one");
+        }
+        return new Filing("owners.yml", keys);
+    }
+
+    /**
+     * Reads the owners file for filing by a backup key: the key must be one the accepted file names
+     * as a backup key, not revoked; what it may change the reader judges.
+     *
+     * @param text The owners file.
+     * @param origin Where it came from, for messages.
+     * @param key The backup key, {@code ssh-ed25519 AAAA...}.
+     * @param state The registry as read.
+     * @return The filing, by that key alone.
+     * @throws CardException If it is not an owners file, or the key is no backup key in force.
+     */
+    public static Filing ownersByBackup(
+            String text, String origin, String key, RegistryState state) {
+        RegistryOwners.read(text, origin);
+        final String fingerprint = PersonCard.fingerprint(key);
+        final boolean backup =
+                java.util.stream.Stream.concat(
+                                state.owners().stream(),
+                                state.hostAdmins().values().stream().flatMap(List::stream))
+                        .anyMatch(
+                                entry -> entry.backup() && entry.fingerprint().equals(fingerprint));
+        if (!backup || state.revoked().contains(fingerprint)) {
+            throw new CardException(
+                    "the key file's key "
+                            + fingerprint
+                            + " is no backup key the accepted owners.yml names");
+        }
+        return new Filing("owners.yml", List.of(key));
+    }
+
+    /**
+     * The entries an owners file names for the registry, or for one host.
+     *
+     * @param text The owners file.
+     * @param origin Where it came from, for messages.
+     * @param host The host whose admins are asked, or {@code null} for the registry's owners.
+     * @return Them, in the file's order; none for a host it names no admin of.
+     * @throws CardException If it is not an owners file.
+     */
+    public static List<RegistryState.Owner> entries(
+            String text, String origin, @org.jspecify.annotations.Nullable String host) {
+        final RegistryOwners file = RegistryOwners.read(text, origin);
+        return (host == null ? file.owners() : file.hostAdmins().getOrDefault(host, List.of()))
+                .stream()
+                        .map(
+                                entry ->
+                                        new RegistryState.Owner(
+                                                entry.login(),
+                                                entry.key(),
+                                                entry.fingerprint(),
+                                                entry.backup()))
+                        .toList();
+    }
+
     private static void checkAdmins(String host, List<RegistryState.Owner> admins) {
         if (!RegistryOwners.HOST.matcher(host).matches()) {
             throw new IllegalArgumentException(

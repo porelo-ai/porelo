@@ -130,7 +130,37 @@ public class IdentityShowCommand implements Callable<Integer>, PoreloFactory.Con
                 "forge",
                 IdentityFacts.forgeAnswer(forges, registries, card.login(), card.fingerprint()));
         answer.put("pending", pending(machine));
+        answer.put("sole_without_backup", sole(registries, card.login()));
         return answer;
+    }
+
+    /**
+     * Each registry and host this machine reads where the person is the one owner or admin and has
+     * no backup key, so the interface can offer to make one.
+     */
+    private static List<Map<String, Object>> sole(
+            final List<IdentityFacts.Registry> registries, final String login) {
+        final List<Map<String, Object>> sole = new ArrayList<>();
+        for (final IdentityFacts.Registry registry : registries) {
+            for (final RegistryState.Sole one : registry.state().soleWithoutBackup()) {
+                if (one.login().equals(login)) {
+                    final boolean host = one.host() != null;
+                    sole.add(
+                            Map.of(
+                                    "role",
+                                    one.role(),
+                                    "scope",
+                                    Map.of(
+                                            "kind",
+                                            host ? "host" : "registry",
+                                            "name",
+                                            host
+                                                    ? java.util.Objects.requireNonNull(one.host())
+                                                    : registry.known().origin())));
+                }
+            }
+        }
+        return sole;
     }
 
     /**

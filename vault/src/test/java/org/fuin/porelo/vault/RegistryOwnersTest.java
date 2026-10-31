@@ -11,22 +11,32 @@ import org.junit.jupiter.params.provider.ValueSource;
 /** Guards against an owners file read loosely, or quoted back to whoever reads a refusal. */
 class RegistryOwnersTest {
     private static final String KEY =
-            "ssh-ed25519 " + Base64.getEncoder().encodeToString(SshWireKey.blob());
+            "ssh-ed25519 " + Base64.getEncoder().encodeToString(SshWireKey.blob(0));
+
+    private static final String BACKUP =
+            "ssh-ed25519 " + Base64.getEncoder().encodeToString(SshWireKey.blob(1));
+
+    private static final String OTHER =
+            "ssh-ed25519 " + Base64.getEncoder().encodeToString(SshWireKey.blob(2));
 
     private static final String GOOD =
             "owners:\n  - login: alice\n    key: \""
                     + KEY
+                    + "\"\n  - login: alice\n    key: \""
+                    + BACKUP
                     + "\"\n    backup: true\nhost_admins:\n  walk6m:\n    - login: michael\n      key: \""
                     + KEY
                     + "\"\n";
 
     /** An Ed25519 public key blob, built as OpenSSH writes one. */
     private static final class SshWireKey {
-        static byte[] blob() {
+        static byte[] blob(int last) {
             final byte[] type = "ssh-ed25519".getBytes(java.nio.charset.StandardCharsets.US_ASCII);
             final java.nio.ByteBuffer buffer =
                     java.nio.ByteBuffer.allocate(4 + type.length + 4 + 32);
-            buffer.putInt(type.length).put(type).putInt(32).put(new byte[32]);
+            final byte[] point = new byte[32];
+            point[31] = (byte) last;
+            buffer.putInt(type.length).put(type).putInt(32).put(point);
             return buffer.array();
         }
     }
@@ -35,7 +45,10 @@ class RegistryOwnersTest {
     @Test
     void reads_owners_and_host_admins() {
         final RegistryOwners owners = RegistryOwners.read(GOOD, "owners.yml");
-        assertThat(owners.owners()).containsExactly(new RegistryOwners.Entry("alice", KEY, true));
+        assertThat(owners.owners())
+                .containsExactly(
+                        new RegistryOwners.Entry("alice", KEY, false),
+                        new RegistryOwners.Entry("alice", BACKUP, true));
         assertThat(owners.hostAdmins().get("walk6m"))
                 .containsExactly(new RegistryOwners.Entry("michael", KEY, false));
     }
@@ -47,6 +60,9 @@ class RegistryOwnersTest {
                 "unknown-top-level",
                 "duplicate-top-level",
                 "duplicate-login",
+                "second-backup",
+                "duplicate-key",
+                "backup-of-nobody",
                 "rsa-key",
                 "porelo-login",
                 "uppercase-host",
@@ -63,9 +79,19 @@ class RegistryOwnersTest {
                     case "duplicate-login" ->
                             GOOD.replace(
                                     "    backup: true\n",
-                                    "  - login: alice\n    key: \"" + KEY + "\"\n");
+                                    "  - login: alice\n    key: \"" + BACKUP + "\"\n");
+                    case "second-backup" ->
+                            GOOD.replace(
+                                    "    backup: true\n",
+                                    "    backup: true\n  - login: alice\n    key: \""
+                                            + OTHER
+                                            + "\"\n    backup: true\n");
+                    case "duplicate-key" -> GOOD.replace(BACKUP, KEY);
+                    case "backup-of-nobody" ->
+                            GOOD.replace("  - login: alice\n    key: \"" + KEY + "\"\n", "");
                     case "rsa-key" ->
-                            GOOD.replace(KEY + "\"\n    backup", "ssh-rsa AAAAB3Nza\"\n    backup");
+                            GOOD.replace(
+                                    BACKUP + "\"\n    backup", "ssh-rsa AAAAB3Nza\"\n    backup");
                     case "porelo-login" -> GOOD.replace("login: alice", "login: porelo-x");
                     case "uppercase-host" -> GOOD.replace("walk6m:", "Walk6m:");
                     case "anchor" -> GOOD.replace("login: alice", "login: &a alice");

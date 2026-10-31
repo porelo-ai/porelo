@@ -561,20 +561,20 @@ class IdentityRotateCommandTest {
 
     /**
      * A card the registry refused names nobody, and a backup key is kept offline: neither may put a
-     * name or an address before the person as one to ask.
+     * name or an address before the person as one to ask, nor name its owner twice.
      */
     @Test
     void who_may_names_no_refused_card_and_no_backup_owner() throws Exception {
         registry.agent("alice", "alice-new");
         filed();
-        // As a registry read leaves them: bob a backup owner michael names, and michael's own
-        // card, which the forge does not list, refused.
+        // As a registry read leaves them: a backup key of michael's, and michael's own card, which
+        // the forge does not list, refused.
         registry.write(
                 "owners.yml",
                 registry.owners()
                         .replace(
                                 "host_admins:",
-                                "  - login: bob\n    key: \""
+                                "  - login: michael\n    key: \""
                                         + registry.key("bob")
                                         + "\"\n    backup: true\nhost_admins:"));
         registry.write(
@@ -595,7 +595,8 @@ class IdentityRotateCommandTest {
                         Files.readString(
                                 RegistryReadCommand.trustRecord(
                                         registry.context(), RegistryCheckout.ORIGIN)));
-        assertThat(read.owners()).anyMatch(owner -> owner.login().equals("bob") && owner.backup());
+        assertThat(read.owners())
+                .anyMatch(owner -> owner.login().equals("michael") && owner.backup());
         assertThat(read.people())
                 .anyMatch(
                         person ->

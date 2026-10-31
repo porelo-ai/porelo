@@ -1,8 +1,12 @@
 # B346 — A Backup Key For A Single Admin
 
-**Status:** Accepted.
-**Size:** S - estimated 136 minutes from the median of S builds: one verb, two lists and one limit in the follow's
-check.
+**Status:** Implementing (Accepted, operator, 2026-10-31: the whole L in sprint 6m, the project part included).
+**Size:** L - grown from S: the registry part alone needed owners keyed by key rather than by login, a rule for what a
+backup-signed commit may change in `owners.yml`, a new `registry file owners` path that signs with a key file instead of
+the agent, warnings in `registry read` and `identity show`, and the verb's two halves; the project part adds a backup
+signer to the follow's walk. Plan: (1) registry and host: `owners.yml` entries with `backup: true`, the history's rule,
+`registry file owners [--signing-key-file]`, warnings; (2) `identity backup-key --host|--registry` make and use;
+(3) project: a backup signer among the signers, the walk's rule, `--project`, `verify`'s warning; (4) docs.
 
 **What must be true.** A project with a single admin, a host with a single host admin and a registry with a single owner
 each keep a second, offline backup key, until a main key with certified working keys exists: among the project's

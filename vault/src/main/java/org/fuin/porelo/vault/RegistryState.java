@@ -150,6 +150,87 @@ public record RegistryState(
     public record Owner(String login, String key, String fingerprint, boolean backup) {}
 
     /**
+     * A registry or host with one owner or admin and no backup key for them.
+     *
+     * @param role {@code registry-owner} or {@code host-admin}.
+     * @param host The host for a host admin; {@code null} for the registry.
+     * @param login Who it is.
+     */
+    public record Sole(String role, @Nullable String host, String login) {}
+
+    /**
+     * Writes an owners file as {@code owners.yml} is read: the owners, then each host's admins,
+     * each entry with its login and key and, for a backup key, {@code backup: true}.
+     *
+     * @param owners The owners, in order.
+     * @param hostAdmins The admins of each host.
+     * @return The file's text.
+     */
+    public static String ownersFile(List<Owner> owners, Map<String, List<Owner>> hostAdmins) {
+        final StringBuilder text = new StringBuilder("owners:\n");
+        owners.forEach(owner -> entry(text, "  ", owner));
+        if (!hostAdmins.isEmpty()) {
+            text.append("host_admins:\n");
+            hostAdmins.forEach(
+                    (host, admins) -> {
+                        text.append("  ").append(host).append(":\n");
+                        admins.forEach(admin -> entry(text, "    ", admin));
+                    });
+        }
+        return text.toString();
+    }
+
+    private static void entry(StringBuilder text, String indent, Owner owner) {
+        text.append(indent)
+                .append("- login: ")
+                .append(owner.login())
+                .append('\n')
+                .append(indent)
+                .append("  key: \"")
+                .append(owner.key())
+                .append("\"\n");
+        if (owner.backup()) {
+            text.append(indent).append("  backup: true\n");
+        }
+    }
+
+    /**
+     * The registry and each host whose one owner or admin has no backup key: losing that key leaves
+     * nobody who may change it.
+     *
+     * @return Them, the registry first, then the hosts by name.
+     */
+    public List<Sole> soleWithoutBackup() {
+        final List<Sole> sole = new ArrayList<>();
+        sole(owners).ifPresent(login -> sole.add(new Sole("registry-owner", null, login)));
+        new java.util.TreeMap<>(hostAdmins)
+                .forEach(
+                        (host, admins) ->
+                                sole(admins)
+                                        .ifPresent(
+                                                login ->
+                                                        sole.add(
+                                                                new Sole(
+                                                                        "host-admin",
+                                                                        host,
+                                                                        login))));
+        return List.copyOf(sole);
+    }
+
+    private static java.util.Optional<String> sole(List<Owner> entries) {
+        final List<Owner> own = entries.stream().filter(entry -> !entry.backup()).toList();
+        return own.size() == 1
+                        && entries.stream()
+                                .noneMatch(
+                                        entry ->
+                                                entry.backup()
+                                                        && entry.login()
+                                                                .equals(own.getFirst().login()))
+                ? java.util.Optional.of(own.getFirst().login())
+                : java.util.Optional.empty();
+    }
+
+    /**
      * A person, as their card last accepted says.
      *
      * @param login The login, the identity.
@@ -472,13 +553,13 @@ public record RegistryState(
     void validate() {
         Fields.require(commit != null && COMMIT.matcher(commit).matches(), "commit");
         Fields.require(owners.stream().allMatch(RegistryState::valid), "owners");
-        Fields.require(distinct(owners.stream().map(Owner::login).toList()), "owners");
+        Fields.require(listed(owners), "owners");
         hostAdmins.forEach(
                 (host, admins) ->
                         Fields.require(
                                 RegistryOwners.HOST.matcher(host).matches()
                                         && admins.stream().allMatch(RegistryState::valid)
-                                        && distinct(admins.stream().map(Owner::login).toList())
+                                        && listed(admins)
                                         && !admins.isEmpty(),
                                 "host_admins"));
         for (Person person : people) {
@@ -649,6 +730,21 @@ public record RegistryState(
             }
         }
         return true;
+    }
+
+    /**
+     * Whether a list is as {@code owners.yml} lists it: each login once with its key and at most
+     * once more with a backup key that backs it, each key once.
+     */
+    private static boolean listed(List<Owner> entries) {
+        final List<String> logins =
+                entries.stream().filter(entry -> !entry.backup()).map(Owner::login).toList();
+        final List<String> backups =
+                entries.stream().filter(Owner::backup).map(Owner::login).toList();
+        return distinct(logins)
+                && distinct(backups)
+                && logins.containsAll(backups)
+                && distinct(entries.stream().map(Owner::fingerprint).toList());
     }
 
     private static boolean distinct(List<String> names) {

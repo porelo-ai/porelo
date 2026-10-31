@@ -100,7 +100,7 @@ class RegistryFileCommandTest {
 
         final Map<?, ?> answer = read();
         assertThat(answer.get("revision")).isEqualTo(head);
-        assertThat(answer.get("warnings")).isEqualTo(List.of());
+        assertThat(answer.get("warnings")).isEqualTo(registry.soleWarnings());
         final Map<?, ?> person = (Map<?, ?>) ((List<?>) answer.get("people")).getFirst();
         assertThat(person.get("login")).isEqualTo("alice");
         assertThat(person.get("state")).isEqualTo(RegistryState.TRUSTED);
@@ -143,11 +143,94 @@ class RegistryFileCommandTest {
         assertThat(registry.out.toString()).contains("hosts/walk6m/access.yml");
 
         final Map<?, ?> answer = read();
-        assertThat(answer.get("warnings")).isEqualTo(List.of());
+        assertThat(answer.get("warnings")).isEqualTo(registry.soleWarnings());
         final Map<?, ?> host = (Map<?, ?>) ((List<?>) answer.get("hosts")).getFirst();
         assertThat(((Map<?, ?>) host.get("card")).get("signed_by")).isEqualTo(registry.pin("hank"));
         assertThat(((Map<?, ?>) ((List<?>) host.get("projects")).getFirst()).get("name"))
                 .isEqualTo("demo");
+    }
+
+    /** The owners file with alice's key as michael's backup key. */
+    private String backedOwners() {
+        return registry.owners()
+                .replace(
+                        "host_admins:",
+                        "  - login: michael\n    key: \""
+                                + registry.key("alice")
+                                + "\"\n    backup: true\nhost_admins:");
+    }
+
+    /** The owners file is filed by an owner's own key, and a backup key filed so is answered. */
+    @Test
+    void an_owners_file_is_filed_by_an_agent_held_owner() throws Exception {
+        registry.agent("michael");
+        final Path owners = file("owners.yml", backedOwners());
+
+        assertThat(
+                        registry.registry(
+                                "file",
+                                "owners",
+                                registry.repo.toString(),
+                                "--file",
+                                owners.toString(),
+                                "--json"))
+                .as(registry.err.toString())
+                .isZero();
+        assertThat(registry.answer())
+                .isEqualTo(Map.of("commit", registry.head(), "path", "owners.yml"));
+        assertThat(read().get("owners"))
+                .isEqualTo(
+                        List.of(
+                                Map.of(
+                                        "login",
+                                        "michael",
+                                        "fingerprint",
+                                        registry.pin("michael"),
+                                        "backup",
+                                        false),
+                                Map.of(
+                                        "login",
+                                        "michael",
+                                        "fingerprint",
+                                        registry.pin("alice"),
+                                        "backup",
+                                        true)));
+    }
+
+    /** A backup key is kept offline and files no owners file, even when an agent holds it. */
+    @Test
+    void a_backup_key_files_no_owners_file() throws Exception {
+        registry.agent("michael");
+        final Path owners = file("owners.yml", backedOwners());
+        assertThat(
+                        registry.registry(
+                                "file",
+                                "owners",
+                                registry.repo.toString(),
+                                "--file",
+                                owners.toString()))
+                .isZero();
+        registry.close();
+        registry.agent("alice");
+        final String filed = registry.head();
+        final Path again =
+                file(
+                        "again.yml",
+                        backedOwners().replace(registry.key("hank"), registry.key("bob")));
+
+        assertThat(
+                        registry.registry(
+                                "file",
+                                "owners",
+                                registry.repo.toString(),
+                                "--file",
+                                again.toString()))
+                .as(registry.err.toString())
+                .isEqualTo(65);
+        assertThat(registry.err.toString())
+                .contains(registry.pin("michael"))
+                .doesNotContain(registry.pin("alice"));
+        assertThat(registry.head()).isEqualTo(filed);
     }
 
     /** Without the key the rule wants, a commit would only be refused later, by every reader. */
@@ -1185,7 +1268,7 @@ class RegistryFileCommandTest {
         }
         assertThat(cleaned).as("no clean filter").doesNotExist();
         assertThat(monitored).as("no fsmonitor").doesNotExist();
-        assertThat(read().get("warnings")).isEqualTo(List.of());
+        assertThat(read().get("warnings")).isEqualTo(registry.soleWarnings());
     }
 
     /** A card the reader would refuse for itself must not become a commit. */
@@ -1262,6 +1345,9 @@ class RegistryFileCommandTest {
                 "host-card --card x",
                 "host-access --card x --host walk6m",
                 "host-access --host walk6m",
+                "owners --card x",
+                "owners --file x --host walk6m",
+                "owners",
             })
     void options_the_kind_does_not_take_are_wrong_use(String use) throws Exception {
         final List<String> args = new java.util.ArrayList<>(List.of(use.split(" ")));

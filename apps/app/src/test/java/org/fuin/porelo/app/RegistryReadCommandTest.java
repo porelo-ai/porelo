@@ -213,8 +213,9 @@ class RegistryReadCommandTest {
         Files.writeString(registry.record(), "{\"commit\": \"\u001b[2J secret\"");
         assertThat(registry.registry("read", registry.repo.toString(), "--json")).isZero();
         assertThat(registry.answer().get("owners")).as("as a fresh read").isEqualTo(fresh);
-        assertThat((List<?>) registry.answer().get("warnings"))
-                .singleElement()
+        final List<?> warnings = (List<?>) registry.answer().get("warnings");
+        assertThat(warnings.subList(1, warnings.size())).isEqualTo(registry.soleWarnings());
+        assertThat(warnings.getFirst())
                 .asString()
                 .startsWith("the registry trust record was discarded")
                 .contains(registry.record().toString())
@@ -226,6 +227,35 @@ class RegistryReadCommandTest {
                 .usingRecursiveComparison()
                 .ignoringFields("warnings")
                 .isEqualTo(RegistryState.fromJson(kept));
+    }
+
+    /**
+     * A registry or host with one owner or admin and no backup key is warned about, on stderr too,
+     * until a backup key is filed for them.
+     */
+    @Test
+    void a_sole_owner_or_host_admin_without_a_backup_key_is_warned_about() throws Exception {
+        registry.founded();
+        assertThat(registry.registry("read", registry.repo.toString(), "--json")).isZero();
+        assertThat(registry.answer().get("warnings")).isEqualTo(registry.soleWarnings());
+        assertThat(registry.err.toString())
+                .contains("porelo: warning: " + registry.soleWarnings().getFirst())
+                .contains("porelo: warning: " + registry.soleWarnings().getLast());
+
+        registry.write(
+                "owners.yml",
+                registry.owners()
+                                .replace(
+                                        "host_admins:",
+                                        "  - login: michael\n    key: \""
+                                                + registry.key("alice")
+                                                + "\"\n    backup: true\nhost_admins:")
+                        + "    - login: hank\n      key: \""
+                        + registry.key("bob")
+                        + "\"\n      backup: true\n");
+        registry.commit("michael");
+        assertThat(registry.registry("read", registry.repo.toString(), "--json")).isZero();
+        assertThat(registry.answer().get("warnings")).isEqualTo(List.of());
     }
 
     /**
