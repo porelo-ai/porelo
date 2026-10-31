@@ -23,3 +23,11 @@ or lends a credential, trusts a key wrongly or loses data. Each one placed is sp
 - Low: a person recorded as joined under a name outside the rule, by a join before that check, can no longer be
   removed through `talk remove`; the transport never made such an account. Found while fixing
   [B379](README.md#b379).
+- Medium: `identity create --keepassxc` asks the master password three times, once for the entry and once for each
+  attachment. Found while building [B356](README.md#b356).
+- Medium: when the entry is added but an attachment import is refused, the empty entry stays in the database; the
+  answer says to remove it. Found while building [B356](README.md#b356).
+- Low: a person who never types the master password has keepassxc-cli killed after the process runner's ten
+  minutes; with neither an agent nor a terminal the answer is `key-not-in-agent`, not `no-terminal`; a re-run with
+  the same `--id` answers without `entry`; with `/proc` mounted `hidepid` the answer is `key-store-refused` with
+  words that do not say why. Found while building [B356](README.md#b356).
