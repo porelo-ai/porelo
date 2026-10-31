@@ -140,6 +140,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b379"></a>[B379](B379-A-Mailbox-Opened-Only-For-Its-Own-Task.md) | M | [B369](README.md#b369) | `porelo talk pass` opens only its own task's mailbox of its own project, and a key is believed only for the task its certificate names |
 | <a id="b378"></a>[B378](B378-A-Failed-Start-Touches-Only-What-It-Made.md) | L | [B367](README.md#b367) | A failed task start stops and removes only what it made; what it keeps resumes with its helpers and is removable |
 | <a id="b377"></a>[B377](B377-A-Backup-Key-Never-Pinned-Never-A-Signer.md) | L | [B370](README.md#b370) | A backup key is never pinned, active or retired, and no revoked key signs, on every path of follow, access and backup-key |
 | <a id="b376"></a>[B376](B376-An-Allowed-Signers-Line-Read-As-Ssh-Keygen-Reads-It.md) | M | [B366](README.md#b366) | Every reader of an allowed-signers line reads it as ssh-keygen does, and a push is judged exactly as `git verify-commit` judges it |
