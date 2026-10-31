@@ -6,68 +6,58 @@ import java.util.Map;
 import org.jspecify.annotations.Nullable;
 
 /**
- * A project's access file, {@code access.yml}: what the public {@code project.yml} must not show.
+ * A project's public access settings, authenticated by its project signers.
  *
- * <p>Public keys and addresses only, never a secret: the file is signed like the project file and
- * may lie beside it, as visible as the project's repository.
- *
- * @param host The prepared host, or {@code null} when the file names none.
- * @param developers Each developer by account, in the order written; empty when none is named.
- * @param transports Each transport's settings, kept as written, by scheme; empty when none.
+ * @param host The prepared host, or {@code null} when none is named.
+ * @param persons Persons by card login, in file order; their cards are checked separately.
+ * @param revoked Fingerprints no card or chain may carry.
+ * @param transports Each transport's settings, kept as written, by scheme.
  */
 public record AccessFile(
-        @Nullable Host host, Map<String, Developer> developers, Map<String, Object> transports) {
+        @Nullable Host host,
+        Map<String, Person> persons,
+        List<String> revoked,
+        Map<String, Object> transports) {
 
     /**
-     * The prepared host the project's machines and developers reach.
+     * The prepared host.
      *
      * @param address Its public name or address.
-     * @param endpoint Its WireGuard endpoint, {@code host:port}.
-     * @param wireguardPublicKey Its WireGuard public key.
-     * @param network The VPN's network, in CIDR notation.
-     * @param sshHostKey Its ssh host key, as ssh-keygen prints a public key.
-     * @param caSha256 The SHA-256 of its CA certificate, hex.
+     * @param sshHostKey Its SSH host key, as ssh-keygen prints a public key.
      */
-    public record Host(
-            String address,
-            String endpoint,
-            String wireguardPublicKey,
-            String network,
-            String sshHostKey,
-            String caSha256) {}
+    public record Host(String address, String sshHostKey) {}
 
     /**
-     * One developer of the project.
+     * A person's project access, pinned to the fingerprint their card must lead back to.
      *
-     * @param account Their account on the host.
-     * @param laptops Each laptop they reach the host from.
-     * @param forgeLogin Their login at the forge, or {@code null}.
+     * @param login Their card's login.
+     * @param fingerprint Their pinned key fingerprint.
+     * @param role Their project role, {@code admin} or {@code developer}.
+     * @param hosts The host names they work on.
+     * @param locked Whether this project has locked them out.
      */
-    public record Developer(String account, List<Laptop> laptops, @Nullable String forgeLogin) {}
+    public record Person(
+            String login, String fingerprint, String role, List<String> hosts, boolean locked) {
+        /** Canonical constructor; host grants cannot be changed afterwards. */
+        public Person {
+            hosts = List.copyOf(hosts);
+        }
+    }
 
-    /**
-     * A laptop a developer reaches the host from.
-     *
-     * @param sshPublicKey Its ssh public key.
-     * @param wireguardPublicKey Its WireGuard public key.
-     * @param vpnAddress Its address inside the host's {@link Host#network()}.
-     */
-    public record Laptop(String sshPublicKey, String wireguardPublicKey, String vpnAddress) {}
-
-    /** Canonical constructor; the maps are copied, keeping their order. */
+    /** Canonical constructor; collections are copied, keeping file order. */
     public AccessFile {
-        developers =
-                java.util.Collections.unmodifiableMap(new java.util.LinkedHashMap<>(developers));
+        persons = java.util.Collections.unmodifiableMap(new java.util.LinkedHashMap<>(persons));
+        revoked = List.copyOf(revoked);
         transports =
                 java.util.Collections.unmodifiableMap(new java.util.LinkedHashMap<>(transports));
     }
 
     /**
-     * Reads an access file.
+     * Reads access settings; cards are verified from the same repository commit by the caller.
      *
-     * @param reader Its content.
+     * @param reader The file's content.
      * @param origin Name used in error messages.
-     * @return What it says.
+     * @return The settings.
      * @throws ProjectException If it does not read as an access file.
      */
     public static AccessFile read(final Reader reader, final String origin) {

@@ -129,7 +129,7 @@ final class ProjectSchema {
                     key(
                             "",
                             "access",
-                            "Where the project's access file is: its host, developers and"
+                            "Where the project's access file is: its host, persons and"
                                     + " transports' settings, signed like this file and kept out of"
                                     + " it.",
                             "map",

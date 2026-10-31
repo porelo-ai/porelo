@@ -478,6 +478,17 @@ public final class FollowedProjects {
     }
 
     /**
+     * Distinguishes an absent follow from an unreadable record skipped by {@link #find}.
+     *
+     * @param name The project.
+     * @return Whether its record is definitely absent; false for an unreadable or dangling entry.
+     */
+    public boolean absent(final String name) {
+        return Files.notExists(
+                directory.resolve(name + ".json"), java.nio.file.LinkOption.NOFOLLOW_LINKS);
+    }
+
+    /**
      * Returns every project this account follows.
      *
      * @return The records, by name. Empty when this account follows nothing.

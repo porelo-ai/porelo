@@ -476,6 +476,18 @@ class TransportConversationsTest {
                 new TransportLifecycle(context, context.paths().messaging().transportDirectory());
         lifecycle.setup("room", "p", Map.of());
         lifecycle.enroll("room", "p", "porelo-p-review", Map.of());
+        final Path projectFile = dir.resolve("project.yml");
+        Files.writeString(
+                projectFile,
+                """
+                project: {name: p, security_class: guarded}
+                image: {base_image: 'ubuntu:24.04'}
+                mail:
+                  transports:
+                    room: {server: 'https://example.org'}
+                """);
+        new ProjectRegistry(context.paths().projects().projectRegistry())
+                .remember("p", projectFile);
         new TaskConversations(context).join(context, project("guarded"), "alice", false);
         assertThat(lifecycle.people("room", "p"))
                 .as("the fixture admits the sender")

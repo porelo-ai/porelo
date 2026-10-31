@@ -13,7 +13,7 @@ import picocli.CommandLine.Spec;
 /**
  * Makes a project's room on its server, as the project admin's machine. From then on this account
  * keeps the room's machines, and its persons where the transport takes them, to the applied
- * developer list after each applied commit.
+ * admitted persons list after each applied commit.
  */
 @Command(
         name = "room",

@@ -111,13 +111,22 @@ The answer, alone on standard output, for the newest commits that hold:
 ```json
 {"project": "acme", "commit": "<project commit>", "access_commit": "<access commit>",
  "signer": "ssh-ed25519 AAAA...", "signers": ["ssh-ed25519 AAAA..."],
- "host": {...}, "developers": {...}, "transports": {...}}
+ "host": {...}, "persons": [{"login": "alice", "ssh": "ssh-ed25519 AAAA...",
+ "role": "admin", "hosts": ["example-host"], "expires": "2027-10-30", "revoked": false, "locked": false}],
+ "admins": ["alice"],
+ "certifiers": ["task:acme:* cert-authority,namespaces=\"git\" ssh-ed25519 AAAA..."],
+ "transports": {...}}
 ```
 
-- **`host`** is the access file's `host:` with its keys as written (`address`, `endpoint`, `wireguard_public_key`,
-  `network`, `ssh_host_key`, `ca_sha256`), or `null`; **`developers`** each developer by account, with `laptops`
-  and `forge_login`; **`transports`** the access file's settings, or the project file's for a project naming none,
-  when `access_commit` is "".
+- **`host`** is the access file's `host:` (`address`, `ssh_host_key`), or `null`.
+  **`persons`** lists each login in access-file order, with the SSH key and expiry from its verified
+  card, role, hosts, revocation and project lock. A revoked person's `ssh` and `expires` are empty;
+  stderr names each refused person on a separate line while the others are still answered.
+- **`admins`** lists only admins neither locked nor revoked, in access-file order.
+  **`certifiers`** gives one allowed-signers line per person neither locked nor revoked, of either
+  role, limited to `namespaces="git"` and principal `task:<project>:*`, the form a task certificate
+  carries. **`transports`** is the access file's settings, or the project file's for a project
+  naming none, when `access_commit` is "". The persons, admins and certifiers are then empty lists.
 - **`signer`** is the key that signed the project commit. **`signers`** are the keys in force after it, a handover
   walked: a handover commit is signed by the key before it and hands on to its successors, so `signers` is what a
   caller pins and names with `--signed-by` next time, with `commit` and `access_commit` as `--since` and

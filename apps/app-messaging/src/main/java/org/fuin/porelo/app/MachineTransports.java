@@ -7,7 +7,6 @@ import java.util.ArrayList;
 import java.util.Map;
 import java.util.TreeSet;
 import org.fuin.porelo.core.process.CommandException;
-import org.fuin.porelo.core.project.AccessFile;
 import org.fuin.porelo.core.project.Project;
 import org.fuin.porelo.core.project.SecurityClass;
 
@@ -127,10 +126,10 @@ public final class MachineTransports {
     }
 
     /**
-     * Keeps a project's room to its applied developer list, where this account made the room: as
-     * machines, each developer's account on this host by its machine's name, and this machine; as
-     * persons, each developer's account, where the transport takes them. Nothing is asked of the
-     * transport anywhere else.
+     * Keeps a project's room to its admitted persons list, where this account made the room: as
+     * machines, each admitted person's login on this host by its machine's name, and this machine;
+     * as persons, each admitted person's login, where the transport takes them. Nothing is asked of
+     * the transport anywhere else.
      *
      * @param context The machine.
      * @param project The project.
@@ -150,10 +149,16 @@ public final class MachineTransports {
             return null;
         }
         try {
-            final AccessFile access = ProjectAccess.applied(context, project);
+            java.util.Set<String> persons;
+            try {
+                persons = ProjectAccess.admitted(context, project);
+            } catch (final ProjectAccess.Withheld ex) {
+                // A room whose settings remain readable must remove persons it cannot admit.
+                persons = java.util.Set.of();
+            }
             final TreeSet<String> machines = new TreeSet<>();
             machines.add(context.machineName().get());
-            for (final String account : access.developers().keySet()) {
+            for (final String account : persons) {
                 machines.add(MachineName.of(MachineName.hostName(), account));
             }
             return lifecycle(context)
@@ -161,7 +166,7 @@ public final class MachineTransports {
                             scheme,
                             project.name(),
                             new ArrayList<>(machines),
-                            new ArrayList<>(new TreeSet<>(access.developers().keySet())),
+                            new ArrayList<>(new TreeSet<>(persons)),
                             ProjectAccess.settings(context, project, scheme));
         } catch (TransportLifecycle.Refused ex) {
             throw new Conversations.Refused(String.valueOf(ex.getMessage()), ex.code(), null);

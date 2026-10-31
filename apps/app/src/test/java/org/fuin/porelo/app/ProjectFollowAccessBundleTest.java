@@ -22,7 +22,7 @@ import picocli.CommandLine;
 /**
  * A follow that takes its access file from a bundle, for a host that cannot fetch the private
  * repository. Harm guarded: an access file that arrived beside the project without the check a
- * fetched one gets, whose developers and settings would then be applied unverified.
+ * fetched one gets, whose persons and settings would then be applied unverified.
  */
 class ProjectFollowAccessBundleTest {
 

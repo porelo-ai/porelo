@@ -1,6 +1,6 @@
 Feature: A project takes its transports' settings only from an access file signed like its project file
 
-    A project file naming an access file takes the host, the developers and the transports' settings from it,
+    A project file naming an access file takes the host, the persons and the transports' settings from it,
     in a repository of its own or beside project.yml, checked against the project's signers in both places.
     Until it is applied, nothing reaches a transport for the project.
 

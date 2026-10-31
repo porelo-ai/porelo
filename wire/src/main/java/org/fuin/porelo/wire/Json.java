@@ -109,8 +109,9 @@ public final class Json {
 
     private static void writeString(StringBuilder out, String value) {
         out.append('"');
-        for (int i = 0; i < value.length(); i++) {
-            final char c = value.charAt(i);
+        for (int i = 0; i < value.length(); ) {
+            final int c = value.codePointAt(i);
+            i += Character.charCount(c);
             switch (c) {
                 case '"' -> out.append("\\\"");
                 case '\\' -> out.append("\\\\");
@@ -118,10 +119,16 @@ public final class Json {
                 case '\r' -> out.append("\\r");
                 case '\t' -> out.append("\\t");
                 default -> {
-                    if (c < 0x20) {
-                        out.append(String.format("\\u%04x", (int) c));
+                    final int type = Character.getType(c);
+                    if (type == Character.CONTROL
+                            || type == Character.FORMAT
+                            || type == Character.LINE_SEPARATOR
+                            || type == Character.PARAGRAPH_SEPARATOR) {
+                        for (final char unit : Character.toChars(c)) {
+                            out.append(String.format("\\u%04x", (int) unit));
+                        }
                     } else {
-                        out.append(c);
+                        out.appendCodePoint(c);
                     }
                 }
             }

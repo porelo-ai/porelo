@@ -10,6 +10,9 @@ import org.jspecify.annotations.Nullable;
 import org.yaml.snakeyaml.LoaderOptions;
 import org.yaml.snakeyaml.Yaml;
 import org.yaml.snakeyaml.constructor.SafeConstructor;
+import org.yaml.snakeyaml.error.Mark;
+import org.yaml.snakeyaml.error.MarkedYAMLException;
+import org.yaml.snakeyaml.reader.ReaderException;
 
 /**
  * Reads a {@code project.yml} into a {@link Project}.
@@ -50,6 +53,93 @@ public final class ProjectReader {
         } catch (IOException ex) {
             throw new ProjectException("Cannot read " + file, ex);
         }
+    }
+
+    /**
+     * Reads only the declared name before the project's signature is checked.
+     *
+     * @param reader The unverified project YAML.
+     * @param origin The file named in diagnostics.
+     * @return The declared name, whose shape the verifier still checks.
+     * @throws ProjectException If the YAML cannot be read or names no project.
+     */
+    public static String name(final Reader reader, final String origin) {
+        final Object loaded = load(reader, origin);
+        if (loaded instanceof Map<?, ?> root
+                && root.get("project") instanceof Map<?, ?> section
+                && section.get("name") instanceof String name
+                && !name.isBlank()) {
+            return name;
+        }
+        throw new ProjectException(origin + " names no project");
+    }
+
+    /** Parser excerpts can disclose private content even before a signature is checked. */
+    private static @Nullable Object load(final Reader reader, final String origin) {
+        final LoaderOptions options = new LoaderOptions();
+        options.setAllowDuplicateKeys(false);
+        final String text;
+        try {
+            final int limit = options.getCodePointLimit() * 2;
+            final StringBuilder content = new StringBuilder();
+            final char[] buffer = new char[4096];
+            int count;
+            while ((count =
+                            reader.read(
+                                    buffer,
+                                    0,
+                                    Math.min(buffer.length, limit + 1 - content.length())))
+                    != -1) {
+                content.append(buffer, 0, count);
+                if (content.length() > limit) {
+                    throw new ProjectException("Cannot parse " + origin + ": YAML is too large");
+                }
+            }
+            text = content.toString();
+        } catch (final IOException ex) {
+            throw new ProjectException("Cannot read " + origin, ex);
+        }
+        try {
+            return new Yaml(new SafeConstructor(options)).load(text);
+        } catch (final MarkedYAMLException ex) {
+            final Mark mark = ex.getProblemMark();
+            throw new ProjectException(
+                    "Cannot parse "
+                            + origin
+                            + (mark == null
+                                    ? ""
+                                    : " at line "
+                                            + (mark.getLine() + 1)
+                                            + ", column "
+                                            + (mark.getColumn() + 1)),
+                    ex);
+        } catch (final ReaderException ex) {
+            throw new ProjectException(
+                    "Cannot parse " + origin + " at " + position(text, ex.getPosition()), ex);
+        } catch (final RuntimeException ex) {
+            throw new ProjectException("Cannot parse " + origin, ex);
+        }
+    }
+
+    private static String position(final String text, final int position) {
+        int line = 1;
+        int column = 1;
+        int offset = 0;
+        for (int index = 0; index < position && offset < text.length(); index++) {
+            final int point = text.codePointAt(offset);
+            offset += Character.charCount(point);
+            if (point == '\n'
+                    || point == 0x85
+                    || point == 0x2028
+                    || point == 0x2029
+                    || point == '\r' && (offset == text.length() || text.charAt(offset) != '\n')) {
+                line++;
+                column = 1;
+            } else if (point != '\r') {
+                column++;
+            }
+        }
+        return "line " + line + ", column " + column;
     }
 
     /**
@@ -128,16 +218,7 @@ public final class ProjectReader {
      * @throws ProjectException If the content does not describe a usable project.
      */
     public static Project read(Reader reader, String origin) {
-
-        final LoaderOptions options = new LoaderOptions();
-        options.setAllowDuplicateKeys(false);
-
-        final Object loaded;
-        try {
-            loaded = new Yaml(new SafeConstructor(options)).load(reader);
-        } catch (RuntimeException ex) {
-            throw new ProjectException("Cannot parse " + origin + ": " + ex.getMessage(), ex);
-        }
+        final Object loaded = load(reader, origin);
         if (!(loaded instanceof Map<?, ?> root)) {
             throw new ProjectException(origin + " is empty or is not a YAML mapping");
         }

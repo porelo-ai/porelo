@@ -192,7 +192,7 @@ final class TransportConversations {
                     poll(adapter, described, secrets, inbound, scheme, project, 0, failures);
                 }
                 final Map<String, String> accounts = lifecycle.addresses(scheme, project);
-                final java.util.Set<String> developers = lifecycle.developers(scheme, project);
+                final java.util.Set<String> persons = lifecycle.persons(scheme, project);
                 final TransportLifecycle.Conversation conversation =
                         lifecycle.conversation(scheme, project);
                 dropped +=
@@ -200,8 +200,8 @@ final class TransportConversations {
                                 inbound,
                                 group,
                                 accounts,
-                                lifecycle.heard(scheme, project, developers),
-                                developers,
+                                lifecycle.heard(scheme, project, persons),
+                                persons,
                                 ours(conversation),
                                 (person, user) -> lifecycle.remember(scheme, project, person, user),
                                 handed,
@@ -386,7 +386,7 @@ final class TransportConversations {
                 Files.createDirectories(inbound);
                 poll(adapter, described, secrets, inbound, scheme, project, WAIT_SECONDS, failures);
                 final Map<String, String> accounts = lifecycle.addresses(scheme, project);
-                final java.util.Set<String> developers = lifecycle.developers(scheme, project);
+                final java.util.Set<String> persons = lifecycle.persons(scheme, project);
                 final TransportLifecycle.Conversation conversation =
                         lifecycle.conversation(scheme, project);
                 dropped +=
@@ -394,8 +394,8 @@ final class TransportConversations {
                                 inbound,
                                 group,
                                 accounts,
-                                lifecycle.heard(scheme, project, developers),
-                                developers,
+                                lifecycle.heard(scheme, project, persons),
+                                persons,
                                 ours(conversation),
                                 (person, user) -> lifecycle.remember(scheme, project, person, user),
                                 handed,
@@ -487,18 +487,17 @@ final class TransportConversations {
                 member.scheme(),
                 failures);
         // Who is heard, and which accounts are tasks', are read after the poll: a wait may outlast
-        // a join, a remembered developer, an access file that dropped one or a task enrolled.
+        // a join, a remembered person, an access file that dropped one or a task enrolled.
         final Map<String, String> accounts = lifecycle.addresses(member.scheme(), member.project());
-        final java.util.Set<String> developers =
-                lifecycle.developers(member.scheme(), member.project());
+        final java.util.Set<String> persons = lifecycle.persons(member.scheme(), member.project());
         final TransportLifecycle.Conversation conversation =
                 lifecycle.conversation(member.scheme(), member.project());
         return handOut(
                 into,
                 List.of(member),
                 accounts,
-                lifecycle.heard(member.scheme(), member.project(), developers),
-                developers,
+                lifecycle.heard(member.scheme(), member.project(), persons),
+                persons,
                 ours(conversation),
                 (person, user) ->
                         lifecycle.remember(member.scheme(), member.project(), person, user),
@@ -575,7 +574,7 @@ final class TransportConversations {
             List<Member> members,
             Map<String, String> accounts,
             Map<String, String> heard,
-            java.util.Set<String> developers,
+            java.util.Set<String> persons,
             java.util.Set<String> ours,
             java.util.function.BiConsumer<String, String> learned,
             Map<String, String> handed,
@@ -585,7 +584,7 @@ final class TransportConversations {
         final String project =
                 members.isEmpty() ? "this project" : "'" + members.getFirst().project() + "'";
         int dropped = 0;
-        // Each developer taken is heard by the next file at once, so a second sender cannot claim
+        // Each person taken is heard by the next file at once, so a second sender cannot claim
         // the same host account in the same batch.
         final Map<String, String> people = new LinkedHashMap<>(heard);
         for (final Path message : messages(inbound)) {
@@ -597,7 +596,7 @@ final class TransportConversations {
             final byte @Nullable [] bytes;
             if (!Files.isRegularFile(signature) && PERSON.matcher(name).matches()) {
                 final PersonsWords words =
-                        PersonsWords.read(message, members, accounts, people, developers, ours);
+                        PersonsWords.read(message, members, accounts, people, persons, ours);
                 if (words.refused() != null) {
                     said.add("dropped " + name + ": " + words.refused());
                     Files.deleteIfExists(message);
@@ -782,7 +781,7 @@ final class TransportConversations {
         }
         final Set<String> answered = lines(member.mailbox().record().resolve(ANSWERED));
         final Map<String, String> tasks = lifecycle.addresses(member.scheme(), member.project());
-        final Map<String, String> people = lifecycle.people(member.scheme(), member.project());
+        final Map<String, String> people = lifecycle.heard(member.scheme(), member.project());
         final Map<String, String> secrets =
                 lifecycle.secrets(member.scheme(), "task/" + member.container());
         if (secrets.isEmpty() || tasks.isEmpty() && people.isEmpty()) {

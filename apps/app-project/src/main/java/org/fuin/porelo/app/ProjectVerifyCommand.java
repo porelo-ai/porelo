@@ -19,9 +19,6 @@ import org.fuin.porelo.core.project.AccessFile;
 import org.fuin.porelo.core.project.Project;
 import org.fuin.porelo.core.project.ProjectException;
 import org.jspecify.annotations.Nullable;
-import org.yaml.snakeyaml.LoaderOptions;
-import org.yaml.snakeyaml.Yaml;
-import org.yaml.snakeyaml.constructor.SafeConstructor;
 import picocli.CommandLine.Model.CommandSpec;
 import picocli.CommandLine.Option;
 import picocli.CommandLine.Spec;
@@ -229,8 +226,20 @@ public class ProjectVerifyCommand implements Callable<Integer>, PoreloFactory.Co
         } catch (final ProjectException ex) {
             return refuse(err, 65, String.valueOf(ex.getMessage()));
         }
+        for (final org.fuin.porelo.vault.AccessPersons.Person person : checked.persons()) {
+            if (person.revoked()) {
+                diagnostic(err, person.login() + " revoked: " + person.refusal());
+            }
+        }
+        err.flush();
         final Map<String, Object> answer =
-                answer(project, result, checked.key(), checked.signers(), access);
+                answer(
+                        project,
+                        result,
+                        checked.key(),
+                        checked.signers(),
+                        access,
+                        checked.persons());
         final String written;
         try {
             written = org.fuin.porelo.wire.Json.write(answer);
@@ -280,7 +289,8 @@ public class ProjectVerifyCommand implements Callable<Integer>, PoreloFactory.Co
             final Reconcile.Result result,
             final @Nullable String key,
             final List<String> signers,
-            final @Nullable AccessFile access) {
+            final @Nullable AccessFile access,
+            final List<org.fuin.porelo.vault.AccessPersons.Person> persons) {
         final Map<String, Object> answer = new LinkedHashMap<>();
         answer.put("project", project.name());
         answer.put("commit", result.commit());
@@ -288,11 +298,25 @@ public class ProjectVerifyCommand implements Callable<Integer>, PoreloFactory.Co
         answer.put("signer", key == null ? "" : key);
         answer.put("signers", signers);
         answer.put("host", access == null || access.host() == null ? null : host(access.host()));
-        final Map<String, Object> developers = new LinkedHashMap<>();
-        if (access != null) {
-            access.developers().forEach((account, one) -> developers.put(account, developer(one)));
-        }
-        answer.put("developers", developers);
+        answer.put("persons", persons.stream().map(ProjectVerifyCommand::person).toList());
+        answer.put(
+                "admins",
+                persons.stream()
+                        .filter(org.fuin.porelo.vault.AccessPersons.Person::admitted)
+                        .filter(person -> person.role().equals("admin"))
+                        .map(org.fuin.porelo.vault.AccessPersons.Person::login)
+                        .toList());
+        answer.put(
+                "certifiers",
+                persons.stream()
+                        .filter(org.fuin.porelo.vault.AccessPersons.Person::admitted)
+                        .map(
+                                person ->
+                                        "task:"
+                                                + project.name()
+                                                + ":* cert-authority,namespaces=\"git\" "
+                                                + person.ssh())
+                        .toList());
         answer.put(
                 "transports", access == null ? project.mail().transports() : access.transports());
         return answer;
@@ -301,26 +325,20 @@ public class ProjectVerifyCommand implements Callable<Integer>, PoreloFactory.Co
     private static Map<String, Object> host(final AccessFile.Host host) {
         final Map<String, Object> map = new LinkedHashMap<>();
         map.put("address", host.address());
-        map.put("endpoint", host.endpoint());
-        map.put("wireguard_public_key", host.wireguardPublicKey());
-        map.put("network", host.network());
         map.put("ssh_host_key", host.sshHostKey());
-        map.put("ca_sha256", host.caSha256());
         return map;
     }
 
-    private static Map<String, Object> developer(final AccessFile.Developer developer) {
-        final List<Object> laptops = new ArrayList<>();
-        for (final AccessFile.Laptop laptop : developer.laptops()) {
-            final Map<String, Object> map = new LinkedHashMap<>();
-            map.put("ssh_public_key", laptop.sshPublicKey());
-            map.put("wireguard_public_key", laptop.wireguardPublicKey());
-            map.put("vpn_address", laptop.vpnAddress());
-            laptops.add(map);
-        }
+    private static Map<String, Object> person(
+            final org.fuin.porelo.vault.AccessPersons.Person person) {
         final Map<String, Object> map = new LinkedHashMap<>();
-        map.put("laptops", laptops);
-        map.put("forge_login", developer.forgeLogin());
+        map.put("login", person.login());
+        map.put("ssh", person.ssh());
+        map.put("role", person.role());
+        map.put("hosts", person.hosts());
+        map.put("expires", person.expires());
+        map.put("revoked", person.revoked());
+        map.put("locked", person.locked());
         return map;
     }
 
@@ -406,16 +424,8 @@ public class ProjectVerifyCommand implements Callable<Integer>, PoreloFactory.Co
             if (!shown.successful()) {
                 throw new ProjectException(path + " holds no project.yml at its HEAD");
             }
-            final Object loaded =
-                    new Yaml(new SafeConstructor(new LoaderOptions()))
-                            .load(new StringReader(shown.standardOutput()));
-            if (loaded instanceof Map<?, ?> root
-                    && root.get("project") instanceof Map<?, ?> section
-                    && section.get("name") instanceof String name
-                    && !name.isBlank()) {
-                return name;
-            }
-            throw new ProjectException("the project.yml in " + path + " names no project");
+            return org.fuin.porelo.core.project.ProjectReader.name(
+                    new StringReader(shown.standardOutput()), "project.yml in " + path);
         } catch (final IOException ex) {
             throw new ProjectException(
                     "cannot make a scratch clone to read " + path + ": " + ex.getMessage());
@@ -449,11 +459,15 @@ public class ProjectVerifyCommand implements Callable<Integer>, PoreloFactory.Co
 
     /** A value as a message may show it: one line, whatever it held. */
     private static String printable(final String value) {
-        return value.replaceAll("\\p{Cntrl}", "?");
+        return value.replaceAll("[\\p{Cc}\\p{Cf}\\p{Zl}\\p{Zp}]", "?");
+    }
+
+    private static void diagnostic(final PrintWriter err, final String message) {
+        err.println(printable(message));
     }
 
     private static int refuse(final PrintWriter err, final int code, final String message) {
-        err.println("porelo: " + message);
+        diagnostic(err, "porelo: " + message);
         err.flush();
         return code;
     }

@@ -191,7 +191,7 @@ mail:
   # transports:
   #   matrix: {}
 
-# Optional. Where the project's access file is - its host, developers and transports' settings,
+# Optional. Where the project's access file is - its host, persons and transports' settings,
 # signed like this file and kept out of it. Exactly one of the two. See "The access file" below.
 # access:
 #   repository: git@forge.example:acme/acme-access.git   # access.yml in a repository of its own
@@ -475,8 +475,8 @@ from git.
 ## The access file
 
 A project file is often public. What would identify the people and machines behind a project - a
-prepared host's address and WireGuard endpoint, each developer's account, laptops and keys, the
-conversation server's name, room and CA - goes into a second file, `access.yml`, which
+prepared host's address, each person's login, card and key fingerprint, and the
+conversation server's settings - goes into a second file, `access.yml`, which
 `project.yml` names under `access`:
 
 - **`access: {repository: <url>}`** - `access.yml` at the top of a repository of its own. A machine
@@ -484,7 +484,7 @@ conversation server's name, room and CA - goes into a second file, `access.yml`,
   so whoever follows the project needs read access to both.
 - **`access: {file: access.yml}`** - `access.yml` beside `project.yml`, in the same commit. Nothing
   else is fetched. **It is then as visible as the project's repository**: if that repository is
-  public, so are the host's address and endpoint and the developers' accounts and keys. Porelo does
+  public, so are the host's address and the persons' cards, logins and key fingerprints. Porelo does
   not find out whether a repository is public; the choice is the project's.
 
 The access file is checked against the project's own signers in either place: a commit of the
@@ -500,27 +500,47 @@ admitted, and its tasks' messages wait in their mailboxes, neither sent nor fetc
 working tree.
 
 ```yaml
-host:
+host:                           # optional
   address: host.example.org
-  endpoint: host.example.org:51820
-  wireguard_public_key: "<the host's WireGuard public key>"
-  network: 10.77.0.0/24
   ssh_host_key: "ssh-ed25519 AAAA..."
-  ca_sha256: "<SHA-256 of the host's CA certificate, hex>"
-developers:
+persons:
   alice:
-    laptops:
-      - ssh_public_key: "ssh-ed25519 AAAA... alice@laptop"
-        wireguard_public_key: "<the laptop's WireGuard public key>"
-        vpn_address: 10.77.0.10
-    forge_login: alice-forge     # optional
+    fingerprint: "SHA256:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+    role: admin                 # admin or developer
+    hosts: [example-host]       # at least one host name
+    locked: false               # optional; defaults to false
+revoked: []                     # optional list of key fingerprints
 transports:
   matrix: {homeserver: "https://host.example.org:8448", room: "#acme:host.example.org"}
 ```
 
 - **Public keys and addresses only.** No signers - those are the project file's - and nothing
-  secret; a value holding a private key is refused. A laptop's `vpn_address` lies inside `network`,
-  is not its first address (the host's own), and is used once.
+  secret; a value holding a private key is refused.
+- **Persons are checked by their cards.** Each `cards/<login>.card` lies beside `access.yml` in the
+  same repository and is read from the same verified commit with its own history, never the working
+  tree. Its signatures and chain of changes of key must reach the pinned `fingerprint`; the chain
+  allows at most 64 changes. When history is needed, at most 64 file revisions are accepted; a
+  longer history answers that person as revoked. A login matches `[a-z][a-z0-9-]{0,31}` and is neither `porelo` nor
+  prefixed `porelo-`. A host name matches `[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?`.
+- **Roles are `admin` or `developer`.** Any other role is refused by name. Either role can certify
+  task keys and be kept as a person in the room when neither locked nor revoked. Only admitted
+  admins are answered in `admins`.
+- **A lock is local to this project.** `locked: true` leaves the person in the verified answer but
+  removes them from `admins`, `certifiers` and the room's persons; removing it admits them again.
+- **Only verified admitted persons participate.** Manual joins and remembered accounts count only
+  while that login is admitted by the verified access commit. Locked, revoked and unnamed logins
+  cannot join or reset an account, be heard, receive answers or have read receipts polled. An
+  unverified follow admits nobody; a registered project with an access file beside it also admits
+  nobody until its persons come from a verified commit. The room removes excluded persons on its
+  next membership pass, keeping their records for a later unlock.
+- **A revoked key admits nobody.** A missing or invalid card, a different login, an untrusted key or
+  a revoked predecessor or a chain through a fingerprint in `revoked` answers that person as revoked, with empty `ssh` and
+  `expires`, and names them on stderr. The other persons are still answered. To replace a lost
+  key, put the new fingerprint and card in a signed access commit and list the old fingerprint
+  under `revoked`. The project's signers remain in `project.yml`.
+- **Retired keys are refused anywhere in the file:** `developers`, `laptops`,
+  `wireguard_public_key`, `endpoint`, `network`, `ca_sha256` and `vpn_address`. There is no fallback
+  to the laptop or VPN schema.
 - **No transport runs for the project until its access file is applied.** While it is not readable,
   not verified, waiting for a rewrite, or names nothing for a transport the project uses, a task's
   start, `porelo talk` and the conversation's messages are refused or wait, each naming why.

@@ -7,9 +7,37 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 /** Tests for {@link Json}. */
 class JsonTest {
+
+    // Harm guarded: serialized keys and values must not inject terminal controls or forged lines.
+    @ParameterizedTest
+    @ValueSource(ints = {0, 27, 127, 128, 155, 159, 173, 8205, 8232, 8233, 8238, 917505})
+    void controlsAndFormatCharactersAreEscapedWithoutChangingTheirValue(final int codePoint) {
+        final String text = new String(Character.toChars(codePoint));
+        final StringBuilder escaped = new StringBuilder();
+        for (final char unit : text.toCharArray()) {
+            escaped.append("\\u%04x".formatted((int) unit));
+        }
+        final Map<String, String> value = Map.of(text, text);
+
+        final String json = Json.write(value);
+
+        assertThat(json)
+                .as("both keys and values are safe to display")
+                .isEqualTo("{\"" + escaped + "\":\"" + escaped + "\"}");
+        assertThat(Json.parse(json)).as("escaping preserves the complete value").isEqualTo(value);
+    }
+
+    @Test
+    void lineEndsAndTabsKeepTheirShortEscapes() {
+        assertThat(Json.write(Map.of("log", "one\r\ntwo\tthree")))
+                .as("the short escapes, as before")
+                .isEqualTo("{\"log\":\"one\\r\\ntwo\\tthree\"}");
+    }
 
     @Test
     void readsAnObject() {

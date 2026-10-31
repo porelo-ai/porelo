@@ -6,7 +6,6 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.Collections;
-import java.util.HashSet;
 import java.util.IdentityHashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -45,101 +44,111 @@ final class AccessFileReader {
         if (root.containsKey("signers")) {
             throw refusal(origin, "signers", "belongs to the project file alone");
         }
-        known(root, Set.of("host", "developers", "transports"), "", origin);
+        known(root, Set.of("host", "persons", "revoked", "transports"), "", origin);
         final AccessFile.Host host =
                 root.containsKey("host")
                         ? host(mapping(root.get("host"), "host", origin), origin)
                         : null;
-        final Network network = host == null ? null : network(host.network(), origin);
-        return new AccessFile(host, developers(root, network, origin), transports(root, origin));
+        return new AccessFile(
+                host, persons(root, origin), revoked(root, origin), transports(root, origin));
     }
 
     private static AccessFile.Host host(final Map<?, ?> host, final String origin) {
-        known(
-                host,
-                Set.of(
-                        "address",
-                        "endpoint",
-                        "wireguard_public_key",
-                        "network",
-                        "ssh_host_key",
-                        "ca_sha256"),
-                "host",
-                origin);
+        known(host, Set.of("address", "ssh_host_key"), "host", origin);
         final String address = required(host, "address", "host", origin);
         if (!hostAddress(address)) {
             throw refusal(origin, "host.address", "is not a DNS name or IP address");
         }
-        final String endpoint = required(host, "endpoint", "host", origin);
-        if (!endpoint(endpoint)) {
-            throw refusal(origin, "host.endpoint", "must be host:port with a port in 1..65535");
-        }
-        final String wireguard =
-                wireguard(
-                        required(host, "wireguard_public_key", "host", origin),
-                        "host.wireguard_public_key",
-                        origin);
-        final String cidr = required(host, "network", "host", origin);
-        final String ssh =
-                ssh(required(host, "ssh_host_key", "host", origin), "host.ssh_host_key", origin);
-        final String ca = required(host, "ca_sha256", "host", origin);
-        if (!ca.matches("[0-9a-f]{64}")) {
-            throw refusal(origin, "host.ca_sha256", "must be 64 lower-case hex characters");
-        }
-        return new AccessFile.Host(address, endpoint, wireguard, cidr, ssh, ca);
+        return new AccessFile.Host(
+                address,
+                ssh(required(host, "ssh_host_key", "host", origin), "host.ssh_host_key", origin));
     }
 
-    private static Map<String, AccessFile.Developer> developers(
-            final Map<?, ?> root, final @Nullable Network network, final String origin) {
-        if (!root.containsKey("developers")) {
+    private static Map<String, AccessFile.Person> persons(
+            final Map<?, ?> root, final String origin) {
+        if (!root.containsKey("persons")) {
             return Map.of();
         }
-        final Map<?, ?> named = mapping(root.get("developers"), "developers", origin);
-        final Map<String, AccessFile.Developer> developers = new LinkedHashMap<>();
-        final Set<Long> addresses = new HashSet<>();
+        final Map<?, ?> named = mapping(root.get("persons"), "persons", origin);
+        final Map<String, AccessFile.Person> persons = new LinkedHashMap<>();
         for (final Map.Entry<?, ?> entry : named.entrySet()) {
-            final String account = key(entry.getKey());
-            final String path = "developers." + account;
-            if (!(entry.getKey() instanceof String) || !account.matches("[a-z_][a-z0-9_-]{0,31}")) {
+            final String login = key(entry.getKey());
+            final String path = "persons." + login;
+            if (!(entry.getKey() instanceof String)
+                    || !login.matches("[a-z][a-z0-9-]{0,31}")
+                    || login.equals("porelo")
+                    || login.startsWith("porelo-")) {
                 throw refusal(
-                        origin, path, "is not an account name; expected [a-z_][a-z0-9_-]{0,31}");
+                        origin,
+                        path,
+                        "is not a card login; expected [a-z][a-z0-9-]{0,31}, excluding porelo and porelo-*");
             }
-            final Map<?, ?> developer = mapping(entry.getValue(), path, origin);
-            known(developer, Set.of("laptops", "forge_login"), path, origin);
-            final Object value = developer.get("laptops");
+            final Map<?, ?> person = mapping(entry.getValue(), path, origin);
+            known(person, Set.of("fingerprint", "role", "hosts", "locked"), path, origin);
+            final String fingerprint =
+                    fingerprint(
+                            required(person, "fingerprint", path, origin),
+                            path + ".fingerprint",
+                            origin);
+            final String role = required(person, "role", path, origin);
+            if (!Set.of("admin", "developer").contains(role)) {
+                throw refusal(
+                        origin,
+                        path + ".role",
+                        "'" + role + "' is not a role; expected admin or developer");
+            }
+            final Object value = person.get("hosts");
             if (!(value instanceof List<?> entries) || entries.isEmpty()) {
-                throw refusal(origin, path + ".laptops", "must be a list of at least one laptop");
+                throw refusal(origin, path + ".hosts", "must be a list of at least one host name");
             }
-            final List<AccessFile.Laptop> laptops = new ArrayList<>();
-            for (int i = 0; i < entries.size(); i++) {
-                final String laptopPath = path + ".laptops[" + i + "]";
-                final Map<?, ?> laptop = mapping(entries.get(i), laptopPath, origin);
-                known(
-                        laptop,
-                        Set.of("ssh_public_key", "wireguard_public_key", "vpn_address"),
-                        laptopPath,
-                        origin);
-                final String ssh =
-                        ssh(
-                                required(laptop, "ssh_public_key", laptopPath, origin),
-                                laptopPath + ".ssh_public_key",
-                                origin);
-                final String wireguard =
-                        wireguard(
-                                required(laptop, "wireguard_public_key", laptopPath, origin),
-                                laptopPath + ".wireguard_public_key",
-                                origin);
-                final String vpn = required(laptop, "vpn_address", laptopPath, origin);
-                vpnAddress(vpn, network, addresses, laptopPath + ".vpn_address", origin);
-                laptops.add(new AccessFile.Laptop(ssh, wireguard, vpn));
+            final List<String> hosts = new ArrayList<>();
+            for (final Object entryHost : entries) {
+                if (!(entryHost instanceof String name)
+                        || !name.matches("[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?")) {
+                    throw refusal(
+                            origin,
+                            path + ".hosts",
+                            "must contain host names matching [a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?");
+                }
+                hosts.add(name);
             }
-            final String login =
-                    developer.containsKey("forge_login")
-                            ? required(developer, "forge_login", path, origin)
-                            : null;
-            developers.put(account, new AccessFile.Developer(account, List.copyOf(laptops), login));
+            if (person.containsKey("locked") && !(person.get("locked") instanceof Boolean)) {
+                throw refusal(origin, path + ".locked", "must be a boolean");
+            }
+            persons.put(
+                    login,
+                    new AccessFile.Person(
+                            login,
+                            fingerprint,
+                            role,
+                            hosts,
+                            Boolean.TRUE.equals(person.get("locked"))));
         }
-        return developers;
+        return persons;
+    }
+
+    private static List<String> revoked(final Map<?, ?> root, final String origin) {
+        if (!root.containsKey("revoked")) {
+            return List.of();
+        }
+        if (!(root.get("revoked") instanceof List<?> entries)) {
+            throw refusal(origin, "revoked", "must be a list of key fingerprints");
+        }
+        final List<String> revoked = new ArrayList<>();
+        for (final Object entry : entries) {
+            if (!(entry instanceof String value)) {
+                throw refusal(origin, "revoked", "must be a list of key fingerprints");
+            }
+            revoked.add(fingerprint(value, "revoked", origin));
+        }
+        return revoked;
+    }
+
+    private static String fingerprint(final String value, final String path, final String origin) {
+        if (!value.matches("SHA256:[A-Za-z0-9+/]{43}")) {
+            throw refusal(origin, path, "must contain SHA256 key fingerprints");
+        }
+        return value;
     }
 
     private static Map<String, Object> transports(final Map<?, ?> root, final String origin) {
@@ -160,56 +169,6 @@ final class AccessFileReader {
             transports.put(scheme, mapping(entry.getValue(), path, origin));
         }
         return transports;
-    }
-
-    private static void vpnAddress(
-            final String value,
-            final @Nullable Network network,
-            final Set<Long> used,
-            final String path,
-            final String origin) {
-        if (network == null) {
-            throw refusal(origin, path, "requires 'host.network'; there is no 'host' section");
-        }
-        final long address = ipv4(value);
-        if (address < 0) {
-            throw refusal(origin, path, "must be an IPv4 address");
-        }
-        if (address < network.first() || address > network.last()) {
-            throw refusal(origin, path, "is outside 'host.network'");
-        }
-        if (address == network.first()) {
-            throw refusal(origin, path, "is the network address");
-        }
-        if (address == network.last()) {
-            throw refusal(origin, path, "is the broadcast address");
-        }
-        if (address == network.first() + 1) {
-            throw refusal(origin, path, "is the host's own address");
-        }
-        if (!used.add(address)) {
-            throw refusal(origin, path, "is already used by another laptop");
-        }
-    }
-
-    private record Network(long first, long last) {}
-
-    private static Network network(final String value, final String origin) {
-        final String[] parts = value.split("/", -1);
-        if (parts.length == 2 && parts[1].matches("[0-9]{1,2}")) {
-            final long address = ipv4(parts[0]);
-            final int prefix = Integer.parseInt(parts[1]);
-            if (address >= 0 && prefix >= 8 && prefix <= 30) {
-                final long size = 1L << (32 - prefix);
-                if (address % size == 0) {
-                    return new Network(address, address + size - 1);
-                }
-            }
-        }
-        throw refusal(
-                origin,
-                "host.network",
-                "must be an IPv4 network in CIDR notation with prefix 8..30");
     }
 
     private static long ipv4(final String value) {
@@ -256,34 +215,6 @@ final class AccessFileReader {
             }
         }
         return true;
-    }
-
-    private static boolean endpoint(final String value) {
-        final int colon = value.lastIndexOf(':');
-        if (colon < 1) {
-            return false;
-        }
-        final String host = value.substring(0, colon);
-        final String port = value.substring(colon + 1);
-        final boolean validHost =
-                host.startsWith("[") && host.endsWith("]")
-                        ? host.substring(1, host.length() - 1).contains(":")
-                                && hostAddress(host.substring(1, host.length() - 1))
-                        : !host.contains(":") && hostAddress(host);
-        return validHost
-                && port.matches("[0-9]{1,5}")
-                && Integer.parseInt(port) >= 1
-                && Integer.parseInt(port) <= 65535;
-    }
-
-    private static String wireguard(final String value, final String path, final String origin) {
-        if (value.matches("[A-Za-z0-9+/]{43}=")
-                && Base64.getEncoder()
-                        .encodeToString(Base64.getDecoder().decode(value))
-                        .equals(value)) {
-            return value;
-        }
-        throw refusal(origin, path, "must be a WireGuard public key (base64 of 32 bytes)");
     }
 
     private static String ssh(final String value, final String path, final String origin) {
@@ -353,6 +284,22 @@ final class AccessFileReader {
         }
         if (value instanceof Map<?, ?> map) {
             for (final Map.Entry<?, ?> entry : map.entrySet()) {
+                if (Set.of(
+                                "developers",
+                                "laptops",
+                                "wireguard_public_key",
+                                "endpoint",
+                                "network",
+                                "ca_sha256",
+                                "vpn_address")
+                        .contains(key(entry.getKey()))) {
+                    throw refusal(
+                            origin,
+                            path.equals("$")
+                                    ? key(entry.getKey())
+                                    : path + "." + key(entry.getKey()),
+                            "is retired; name persons by their cards");
+                }
                 publicOnly(entry.getKey(), path, origin, seen);
                 publicOnly(
                         entry.getValue(),

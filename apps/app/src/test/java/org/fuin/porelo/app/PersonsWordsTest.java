@@ -37,7 +37,7 @@ class PersonsWordsTest {
     }
 
     @Test
-    void aDeveloperLetInByTheRoomsMakerIsTakenByTheirHostAccount(@TempDir Path dir)
+    void aPersonLetInByTheRoomsMakerIsTakenByTheirHostAccount(@TempDir Path dir)
             throws IOException {
         // Kept in the room by members alone, never through join: refused, they could not be heard.
         final List<TransportConversations.Member> members = members(dir);
@@ -69,8 +69,7 @@ class PersonsWordsTest {
     }
 
     @Test
-    void aDeveloperWhoJoinedUnderAnotherAccountIsNotTakenOver(@TempDir Path dir)
-            throws IOException {
+    void aPersonWhoJoinedUnderAnotherAccountIsNotTakenOver(@TempDir Path dir) throws IOException {
         // Somebody else's room account claiming bob must not speak as him.
         final Path file = dir.resolve("person.json");
         Files.writeString(
@@ -85,7 +84,7 @@ class PersonsWordsTest {
     }
 
     @Test
-    void aTasksAccountIsNeverTakenForADeveloper(@TempDir Path dir) throws IOException {
+    void aTasksAccountIsNeverTakenForAPerson(@TempDir Path dir) throws IOException {
         final Path file = dir.resolve("person.json");
         Files.writeString(
                 file,
@@ -104,7 +103,7 @@ class PersonsWordsTest {
     }
 
     @Test
-    void aBlankSenderIsNeverTakenForADeveloper(@TempDir Path dir) throws IOException {
+    void aBlankSenderIsNeverTakenForAPerson(@TempDir Path dir) throws IOException {
         final Path file = dir.resolve("person.json");
         Files.writeString(file, "{\"sender\":\" \",\"account\":\"bob\",\"body\":\"Hi\",\"to\":[]}");
 

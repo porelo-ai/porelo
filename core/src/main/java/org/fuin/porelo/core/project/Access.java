@@ -1,7 +1,7 @@
 package org.fuin.porelo.core.project;
 
 /**
- * Where a project keeps its access file: the host, the developers and the transports' settings that
+ * Where a project keeps its access file: the host, the persons and the transports' settings that
  * the public {@code project.yml} must not show.
  *
  * <p>The place is the project's own choice. A second repository is for confidentiality, not for

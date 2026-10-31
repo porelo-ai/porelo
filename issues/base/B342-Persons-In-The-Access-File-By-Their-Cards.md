@@ -1,6 +1,6 @@
 # B342 — Persons In The Access File By Their Cards
 
-**Status:** Implementing.
+**Status:** Review.
 **Size:** M - estimated 90 minutes from the median of M builds: a contract change: the access file, `verify --json` and
 its readers, with docs.
 
@@ -35,3 +35,30 @@ SSH key per person, the state signed in Git, everything between a person and a h
 - A person marked `locked` is answered `locked: true` for this project and is no certifier, so their tasks' commits are
   refused; unmarked `false`.
 - Seen to fail first: today's access file requires the WireGuard fields and names no person by a card.
+
+## Done
+
+The access file names persons by login, pinned key fingerprint, role and hosts. Each person's card is read from
+the same verified commit and checked back to their pin; a missing, invalid, mismatched or revoked card revokes only
+that person and withholds their key and expiry. History is bounded to 64 file revisions, with one more requested
+only to detect overflow. The retired developer, laptop, WireGuard and host CA fields are refused by name.
+
+`project verify --json` answers ordered persons, admitted admins and admitted task certifiers. A task's certificate
+principal is `task:<project>:<task>`, matched by
+`task:<project>:* cert-authority,namespaces="git" ssh-ed25519 AAAA...`. Locked and revoked persons remain in the
+answer but are neither admins nor certifiers. Project signers remain in `project.yml`.
+
+Only persons admitted by the verified access commit participate in a project's room, of either role. A manual
+join or remembered account counts only while its login is admitted. Locked, revoked and unnamed logins cannot
+join or reset an account, be heard, receive answers or have their read receipts polled. The room removes them on
+its next membership pass; their records stay for a later unlock. An unverified follow admits nobody. A registered
+project with an access file beside it also admits nobody without a verified access commit; a project without an
+access file keeps its existing behavior.
+
+Every verification diagnostic replaces control, format and line-separator characters with `?`; a YAML parse
+failure names its file, line and column without quoting its contents. JSON escapes those characters in keys and
+values without changing their meaning.
+
+Tests: access-file schema and card chains; ordered verification answers and signed replacement; join and reset
+refusals before transport calls; dropped, locked, revoked, local and unverified room persons; admitted read
+receipts; safe YAML and git diagnostics; JSON escaping; bounded card history.

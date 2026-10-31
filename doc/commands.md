@@ -498,7 +498,7 @@ A task's mailbox. Each command names the task by its container name.
 | `porelo talk members PROJECT` | Lists each person who joined the conversation and their account, or says nobody has joined. |
 | `porelo talk remove PROJECT PERSON` | Removes a person through the transport, then drops them from the members list. Says why if their account stays; a failed removal leaves them listed. |
 | `porelo talk admit PROJECT MACHINE --into FILE` | Lets another machine into the project's conversation on this machine's server, and writes what it needs - its secret among it - to a new file readable by you only. Refused for an offline project. |
-| `porelo talk room PROJECT` | Makes the project's room on its server, as the project admin's machine, and keeps its machines to the applied developer list at once and after each applied commit of the project or its access file: this machine and each developer's account on this host, by `<host>-<account>`. Where the transport takes `persons`, each developer is kept in the room as a person too, by their account, and the persons invited and removed are shown on lines of their own. Only the account that made the room does so. Refused for an offline project and where the transport does not take `--create-room`. |
+| `porelo talk room PROJECT` | Makes the project's room on its server, as the project admin's machine, and keeps its machines to the applied persons list at once and after each applied commit of the project or its access file: this machine and each admitted person's login on this host, by `<host>-<account>`. Where the transport takes `persons`, each person neither locked nor revoked is kept in the room too, by login, and the persons invited and removed are shown on lines of their own. Only the account that made the room does so. Refused for an offline project and where the transport does not take `--create-room`. |
 | `porelo talk dismiss PROJECT MACHINE` | Takes another machine out of this machine's conversation server: out of every project's conversation there, not only PROJECT's, and its registration token revoked, so a machine that still holds another project here is cut off from it too. Refused for an offline project. |
 
 A message is never edited. Read it before you release it. A message released despite the filter is
@@ -550,7 +550,15 @@ porelo project enroll PROJECT [--remove] [--as=PRINCIPAL]
   `--access-repository`; its URL is never fetched, and an access option the project file has no use for is
   refused rather than passed unchecked. `--json` answers a program, as
   [A host a playbook brings up](hosts.md#a-project-verified-without-following-it) says; 65 names why a check
-  failed, 66 a path that is not there.
+  failed, 66 a path that is not there. It answers `persons` in access-file order with `login`, `ssh`,
+  `role`, `hosts`, `expires`, `revoked` and `locked`, checking `cards/<login>.card` and its history
+  from the verified access commit against its pinned fingerprint. Bad or missing cards revoke only
+  that person, leave their `ssh` and `expires` empty and name them on a separate stderr line.
+  `admins` lists admins neither locked nor revoked; `certifiers` lists every person neither locked
+  nor revoked as `task:<project>:* cert-authority,namespaces="git" ssh-ed25519 AAAA...`.
+  Diagnostics show control, format and line-separator characters as `?`; malformed YAML names its
+  file, line and column without a source excerpt. JSON strings and keys escape those characters as
+  Unicode escapes, preserving their values.
 - **`following`** lists the follows; **`list`** (also `porelo projects`) lists the projects. `following --json`
   answers a program, as [A host a playbook brings up](hosts.md) says.
   `list --json`, `Projects()` and `WatchProjects()` carry `lastUsed`: the latest recorded task start or

@@ -333,7 +333,7 @@ final class TransportLifecycle {
     }
 
     /**
-     * Returns the developers of a project's applied access file, where the transport's list names
+     * Returns the persons of a project's applied access file, where the transport's list names
      * {@code persons}: the room's maker keeps each of them in the room as a person, so their words
      * are taken without a join.
      *
@@ -342,7 +342,7 @@ final class TransportLifecycle {
      * @return Their host accounts; empty where the transport keeps no persons, or nothing is
      *     applied.
      */
-    java.util.Set<String> developers(String scheme, String project) {
+    java.util.Set<String> persons(String scheme, String project) {
         if (!names(scheme, TransportConversations.PERSONS)) {
             return java.util.Set.of();
         }
@@ -352,32 +352,31 @@ final class TransportLifecycle {
             if (followed.access() == null) {
                 return java.util.Set.of();
             }
-            return java.util.Set.copyOf(
-                    ProjectAccess.applied(context, followed).developers().keySet());
+            return ProjectAccess.admitted(context, followed);
         } catch (ProjectAccess.Withheld | RuntimeException ex) {
-            // Nothing applied that can be read: nobody is taken but who joined.
+            // An unreadable admission decision grants nobody access by their host account.
             return java.util.Set.of();
         }
     }
 
     /**
-     * Returns who is heard in a project's conversation now: who joined, and each developer taken by
+     * Returns who is heard in a project's conversation now: who joined, and each person taken by
      * their host account while the applied access file still names them. Who was taken is kept
-     * apart from who joined, so a developer the file drops is heard no more and answered no more at
+     * apart from who joined, so a person the file drops is heard no more and answered no more at
      * once, and a later join is never undone by it.
      *
      * @param scheme The transport.
      * @param project The project.
-     * @param developers The applied access file's developers, as {@link #developers} read them.
+     * @param persons The applied access file's persons, as {@link #persons} read them.
      * @return Person to their account.
      */
-    Map<String, String> heard(String scheme, String project, java.util.Set<String> developers) {
-        final Map<String, String> people = new LinkedHashMap<>(people(scheme, project));
-        // Unreadable, it names nobody: only who joined is heard.
+    Map<String, String> heard(String scheme, String project, java.util.Set<String> persons) {
+        final Map<String, String> people = admittedJoins(scheme, project);
+        // Unreadable, it names nobody: only admitted joins are heard.
         names(takenFile(scheme, project))
                 .forEach(
                         (person, user) -> {
-                            if (developers.contains(person)
+                            if (persons.contains(person)
                                     && !people.containsKey(person)
                                     && !people.containsValue(user)) {
                                 people.put(person, user);
@@ -386,9 +385,34 @@ final class TransportLifecycle {
         return people;
     }
 
+    /** A join counts only while admitted; its record stays for a later unlock. */
+    private Map<String, String> admittedJoins(String scheme, String project) {
+        final Map<String, String> people = new LinkedHashMap<>(people(scheme, project));
+        if (people.isEmpty()) {
+            return people;
+        }
+        try {
+            // A damaged record must not turn an authenticated project lock into an absent one.
+            final FollowedProjects follows =
+                    new FollowedProjects(context.paths().projects().followed());
+            if (follows.find(project) == null && !follows.absent(project)) {
+                return new LinkedHashMap<>();
+            }
+            final org.fuin.porelo.core.project.Project followed =
+                    GateSupport.byName(context, project);
+            if (followed.access() != null) {
+                people.keySet().retainAll(ProjectAccess.admitted(context, followed));
+            }
+            return people;
+        } catch (IOException | ProjectAccess.Withheld | RuntimeException ex) {
+            // An unreadable access decision cannot count as permission to hear a joined account.
+            return new LinkedHashMap<>();
+        }
+    }
+
     /**
-     * Returns who is heard in a project's conversation, reading the developers only when somebody
-     * was taken by their host account: a listing of who joined never runs the transport.
+     * Returns who is heard in a project's conversation, reading the persons only when somebody was
+     * taken by their host account: a listing of who joined never runs the transport.
      *
      * @param scheme The transport.
      * @param project The project.
@@ -396,14 +420,14 @@ final class TransportLifecycle {
      */
     Map<String, String> heard(String scheme, String project) {
         if (!Files.exists(takenFile(scheme, project))) {
-            return people(scheme, project);
+            return admittedJoins(scheme, project);
         }
-        return heard(scheme, project, developers(scheme, project));
+        return heard(scheme, project, persons(scheme, project));
     }
 
     /**
-     * Keeps the account a developer writes under, the first time they are taken by their host
-     * account, so a task can answer them; apart from who joined, under a lock of its own.
+     * Keeps the account a person writes under, the first time they are taken by their host account,
+     * so a task can answer them; apart from who joined, under a lock of its own.
      *
      * @param scheme The transport.
      * @param project The project.

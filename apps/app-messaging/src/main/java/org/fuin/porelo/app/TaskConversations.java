@@ -236,6 +236,11 @@ final class TaskConversations {
             boolean token,
             @Nullable String display)
             throws TransportLifecycle.Refused {
+        try {
+            ProjectAccess.requireAdmitted(context, project, person);
+        } catch (final ProjectAccess.Withheld ex) {
+            throw new TransportLifecycle.Refused(String.valueOf(ex.getMessage()), 69);
+        }
         final String scheme = scheme(project);
         if (!reset && members(context, project).containsKey(person)) {
             throw new TransportLifecycle.Refused(
@@ -377,8 +382,8 @@ final class TaskConversations {
     }
 
     /**
-     * Returns who is heard in a project's conversation: who joined, and each developer of the
-     * applied access file taken by their host account.
+     * Returns who is heard in a project's conversation: admitted joins and each admitted person of
+     * the applied access file taken by their host account.
      *
      * @param context Where the state is.
      * @param project The project.

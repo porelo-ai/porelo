@@ -278,6 +278,7 @@ public final class Reconcile {
      *     none unless the check found the commit good to apply.
      * @param project The project file read at that commit, its snippets from that commit, or {@code
      *     null} unless the check found that commit good to apply.
+     * @param persons The access commit's card-verified persons, read before the scratch clone goes.
      */
     public record Checked(
             Result result,
@@ -285,7 +286,8 @@ public final class Reconcile {
             @org.jspecify.annotations.Nullable String projectFile,
             @org.jspecify.annotations.Nullable String accessFile,
             List<String> signers,
-            org.fuin.porelo.core.project.@org.jspecify.annotations.Nullable Project project) {
+            org.fuin.porelo.core.project.@org.jspecify.annotations.Nullable Project project,
+            List<org.fuin.porelo.vault.AccessPersons.Person> persons) {
 
         /**
          * Constructor for a check that kept no access file.
@@ -298,7 +300,7 @@ public final class Reconcile {
                 final Result result,
                 final @org.jspecify.annotations.Nullable String key,
                 final @org.jspecify.annotations.Nullable String projectFile) {
-            this(result, key, projectFile, null, List.of(), null);
+            this(result, key, projectFile, null, List.of(), null, List.of());
         }
 
         /**
@@ -427,16 +429,33 @@ public final class Reconcile {
             // Read whatever the gate said: with no key pinned here it verifies nothing and names no
             // signer.
             final String projectFile = projectFile(clone, result);
+            final String accessText = accessFile(clone, scratch.resolve("access"), result);
+            final org.fuin.porelo.core.project.Project project =
+                    projectFile == null ? null : project(clone, result.commit());
+            final List<org.fuin.porelo.vault.AccessPersons.Person> persons =
+                    accessText == null || project == null
+                            ? List.of()
+                            : org.fuin.porelo.vault.AccessPersons.read(
+                                    context.runner(),
+                                    project.access()
+                                                    instanceof
+                                                    org.fuin.porelo.core.project.Access.InRepository
+                                            ? scratch.resolve("access")
+                                            : clone,
+                                    result.accessCommit(),
+                                    AccessFile.read(
+                                            new java.io.StringReader(accessText), Access.FILE));
             return new Checked(
                     result,
                     SignedBy.keyOf(context.runner(), clone, "FETCH_HEAD"),
                     projectFile,
-                    accessFile(clone, scratch.resolve("access"), result),
+                    accessText,
                     projectFile == null
                             ? List.of()
                             : new SignerHandover(context.runner(), checkSigners)
                                     .pinned(followed.name()),
-                    projectFile == null ? null : project(clone, result.commit()));
+                    project,
+                    persons);
         } catch (final IOException ex) {
             return new Checked(
                     new Result(
@@ -1051,7 +1070,7 @@ public final class Reconcile {
     }
 
     /**
-     * Keeps the project's room to its applied developer list, where this account made the room, and
+     * Keeps the project's room to its admitted persons list, where this account made the room, and
      * logs what changed; a room that cannot be kept is said, never a reason to undo the commit.
      */
     private static void keepRoom(final PoreloContext context, final String name) {

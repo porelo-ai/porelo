@@ -136,6 +136,122 @@ public final class ProjectAccess {
     }
 
     /**
+     * Resolves persons only from the access commit in force, never from local card files.
+     *
+     * @param context The machine.
+     * @param project The project naming an access file.
+     * @return Its persons, including locked and revoked persons.
+     * @throws Withheld When no verified access commit is in force.
+     */
+    public static java.util.List<org.fuin.porelo.vault.AccessPersons.Person> persons(
+            final PoreloContext context, final Project project) throws Withheld {
+        final FollowedProjects.Followed followed;
+        try {
+            followed =
+                    new FollowedProjects(context.paths().projects().followed())
+                            .find(project.name());
+        } catch (final IOException ex) {
+            throw new Withheld(
+                    "cannot read the access commit of " + project.name() + ": " + ex.getMessage());
+        }
+        if (followed == null) {
+            throw new Withheld(
+                    "the persons of "
+                            + project.name()
+                            + " have no verified access commit; follow the project with 'porelo project follow'");
+        }
+        if (followed.unverified()) {
+            return java.util.List.of();
+        }
+        if (followed.commit().isEmpty()) {
+            throw new Withheld(
+                    "the persons of " + project.name() + " have no verified project commit");
+        }
+        refuseUnapplied(project, followed);
+        final AccessFile access =
+                inForce(
+                        context,
+                        project,
+                        java.util.Objects.requireNonNull(
+                                project.access(),
+                                "only a project naming an access file has persons"),
+                        followed.accessCommit());
+        final Path clone =
+                project.access() instanceof Access.InRepository
+                        ? context.paths().projects().followedAccessClone(project.name())
+                        : context.paths().projects().followedClone(project.name());
+        return org.fuin.porelo.vault.AccessPersons.read(
+                context.runner(), clone, followed.accessCommit(), access);
+    }
+
+    /**
+     * Returns logins admitted by their cards and project locks, for room membership and words.
+     *
+     * @param context The machine.
+     * @param project The project naming an access file.
+     * @return Admitted logins in access-file order.
+     * @throws Withheld When no verified access commit is in force.
+     */
+    public static java.util.Set<String> admitted(final PoreloContext context, final Project project)
+            throws Withheld {
+        final java.util.Set<String> admitted = new java.util.LinkedHashSet<>();
+        for (final org.fuin.porelo.vault.AccessPersons.Person person : persons(context, project)) {
+            if (person.admitted()) {
+                admitted.add(person.login());
+            }
+        }
+        return java.util.Collections.unmodifiableSet(admitted);
+    }
+
+    /**
+     * Refuses a login before any account is created or reset unless the access file admits it.
+     *
+     * @param context The machine.
+     * @param project The project, with or without an access file.
+     * @param login The person asking to join.
+     * @throws Withheld When the project does not admit the login now.
+     */
+    public static void requireAdmitted(
+            final PoreloContext context, final Project project, final String login)
+            throws Withheld {
+        if (project.access() == null) {
+            return;
+        }
+        final java.util.List<org.fuin.porelo.vault.AccessPersons.Person> persons;
+        try {
+            persons = persons(context, project);
+        } catch (final Withheld ex) {
+            throw new Withheld(
+                    "'"
+                            + login
+                            + "' is not admitted to "
+                            + project.name()
+                            + ": "
+                            + ex.getMessage());
+        }
+        for (final org.fuin.porelo.vault.AccessPersons.Person person : persons) {
+            if (person.login().equals(login)) {
+                if (person.admitted()) {
+                    return;
+                }
+                throw new Withheld(
+                        "'"
+                                + login
+                                + "' is "
+                                + (person.locked() ? "locked" : "revoked")
+                                + " in "
+                                + project.name());
+            }
+        }
+        throw new Withheld(
+                "'"
+                        + login
+                        + "' is not admitted to "
+                        + project.name()
+                        + " by its verified access file");
+    }
+
+    /**
      * Reads the access file at the commit in force, never the working tree: what lies there may be
      * a later commit that did not read as an access file, or an edit nobody signed.
      */

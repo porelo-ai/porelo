@@ -7,6 +7,7 @@ import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -15,8 +16,12 @@ import org.fuin.porelo.core.process.Command;
 import org.fuin.porelo.core.process.CommandResult;
 import org.fuin.porelo.core.process.CommandRunner;
 import org.fuin.porelo.core.process.ProcessCommandRunner;
+import org.fuin.porelo.vault.PersonCard;
+import org.fuin.porelo.vault.SigningKey;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import picocli.CommandLine;
 
 /**
@@ -75,10 +80,67 @@ class ProjectVerifyCommandTest {
 
     private static final String ACCESS_URL = "git@forge.example.org:demo/access.git";
 
-    private static final String WIREGUARD = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
-
     private static final String ACCESS =
             "transports: {matrix: {homeserver: \"https://chat.example.org\"}}\n";
+
+    // Harm guarded: an unsigned YAML excerpt must never disclose its contents or forge diagnostics.
+    @ParameterizedTest
+    @ValueSource(strings = {"reader", "scanner", "named"})
+    void aMalformedProjectNamesOnlyItsFileAndPosition(final String fault) throws Exception {
+        final Path key = key("operator");
+        final Path project = repository("project");
+        Files.writeString(
+                project.resolve("project.yml"),
+                fault.equals("reader")
+                        ? "project: [PRIVATE-SNIPPET\n  forged\u009b\u202e\n"
+                        : "project: [PRIVATE-SNIPPET\u202e\n  forged\n");
+        commit(project, key);
+        final List<String> args =
+                new ArrayList<>(
+                        List.of("--repository", project.toString(), "--signed-by", publicKey(key)));
+        if (fault.equals("named")) {
+            args.addAll(List.of("--project", "demo"));
+        }
+
+        assertThat(verify(args.toArray(String[]::new)))
+                .as("malformed YAML is refused")
+                .isEqualTo(65);
+        assertThat(err.toString())
+                .as("no scanner excerpt reaches the terminal")
+                .doesNotContain("PRIVATE-SNIPPET", "forged", "\u009b", "\u202e")
+                .contains("project.yml", "line", "column");
+        assertThat(err.toString().lines().toList()).as("one diagnostic only").hasSize(1);
+    }
+
+    // Harm guarded: names, paths and git diagnostics cannot inject control sequences or extra
+    // lines.
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void gitErrorsAndPathsArePrintedOnOneSafeLine(final boolean named) throws Exception {
+        final Path key = key("operator");
+        final Path repository = Files.createDirectory(dir.resolve("broken\n\u009b\u202e"));
+        final List<String> args =
+                new ArrayList<>(
+                        List.of(
+                                "--repository",
+                                repository.toString(),
+                                "--signed-by",
+                                publicKey(key)));
+        if (named) {
+            args.addAll(List.of("--project", "demo"));
+        }
+
+        assertThat(verify(args.toArray(String[]::new)))
+                .as("git refuses a non-repository")
+                .isEqualTo(65);
+        assertThat(err.toString())
+                .as("all diagnostic paths share the sanitizer")
+                .doesNotContain("\u009b", "\u202e")
+                .contains("broken???");
+        assertThat(err.toString().lines().toList())
+                .as("git's newlines cannot forge another line")
+                .hasSize(1);
+    }
 
     @Test
     void aGoodProjectAndAccessFileAreAnsweredForAProgram() throws Exception {
@@ -109,7 +171,9 @@ class ProjectVerifyCommandTest {
                         "signer",
                         "signers",
                         "host",
-                        "developers",
+                        "persons",
+                        "admins",
+                        "certifiers",
                         "transports")
                 .containsEntry("project", "demo")
                 .containsEntry("commit", git(project, "rev-parse", "HEAD"))
@@ -320,7 +384,7 @@ class ProjectVerifyCommandTest {
     }
 
     @Test
-    void theHostAndDevelopersOfTheAccessFileAreAnsweredByTheirNames() throws Exception {
+    void theHostOfTheAccessFileIsAnsweredWithoutRetiredFields() throws Exception {
         final Path key = key("operator");
         final Path access = repository("access");
         Files.writeString(
@@ -328,64 +392,15 @@ class ProjectVerifyCommandTest {
                 """
                 host:
                   address: host.example.org
-                  endpoint: host.example.org:51820
-                  wireguard_public_key: %s
-                  network: 10.77.0.0/24
                   ssh_host_key: ssh-ed25519 AAAA host@example.org
-                  ca_sha256: %s
-                developers:
-                  alice:
-                    laptops:
-                      - ssh_public_key: ssh-ed25519 AAAA alice@laptop
-                        wireguard_public_key: %s
-                        vpn_address: 10.77.0.10
-                    forge_login: alice-gh
-                """
-                        .formatted(WIREGUARD, "0123456789abcdef".repeat(4), WIREGUARD));
+                """);
         commit(access, key);
-        final Path project = project(ACCESS_URL, key);
-
-        final int code =
-                verify(
-                        "--repository",
-                        project.toString(),
-                        "--signed-by",
-                        publicKey(key),
-                        "--access-repository",
-                        access.toString(),
-                        "--json");
-
-        assertThat(code).as("a full access file passes: " + err).isZero();
-        @SuppressWarnings("unchecked")
-        final Map<String, Object> answer =
-                (Map<String, Object>) org.fuin.porelo.wire.Json.parse(out.toString().strip());
+        final Map<?, ?> answer = verifyPersons(project(ACCESS_URL, key), access, key);
         assertThat(answer.get("host"))
-                .as("the host by the names a program reads")
+                .as("only the current host fields are answered")
                 .isEqualTo(
-                        Map.of(
-                                "address", "host.example.org",
-                                "endpoint", "host.example.org:51820",
-                                "wireguard_public_key", WIREGUARD,
-                                "network", "10.77.0.0/24",
-                                "ssh_host_key", "ssh-ed25519 AAAA",
-                                "ca_sha256", "0123456789abcdef".repeat(4)));
-        assertThat(answer.get("developers"))
-                .as("each developer's laptops and forge login")
-                .isEqualTo(
-                        Map.of(
-                                "alice",
-                                Map.of(
-                                        "laptops",
-                                        List.of(
-                                                Map.of(
-                                                        "ssh_public_key",
-                                                        "ssh-ed25519 AAAA",
-                                                        "wireguard_public_key",
-                                                        WIREGUARD,
-                                                        "vpn_address",
-                                                        "10.77.0.10")),
-                                        "forge_login",
-                                        "alice-gh")));
+                        Map.of("address", "host.example.org", "ssh_host_key", "ssh-ed25519 AAAA"));
+        assertThat(answer.get("persons")).as("no identity is invented").isEqualTo(List.of());
     }
 
     @Test
@@ -625,6 +640,301 @@ class ProjectVerifyCommandTest {
         assertThat(code).as("refused, not a crash: " + err).isEqualTo(65);
         assertThat(err.toString()).as("says why").contains("cannot be answered");
         assertThat(dir.resolve("state")).as("no failure log was written").doesNotExist();
+    }
+
+    // Harm guarded: an unverified or revoked identity must never authorize accounts or task keys.
+    @Test
+    void personsAndTaskCertifiersComeFromCardsAtTheVerifiedCommit() throws Exception {
+        final Path key = key("operator");
+        final SigningKey alice = SigningKey.generate("alice");
+        final SigningKey bob = SigningKey.generate("bob");
+        final Path access = repository("access");
+        writeCard(access, "alice", alice, null);
+        writeCard(access, "bob", bob, null);
+        Files.writeString(
+                access.resolve("access.yml"),
+                "persons:\n"
+                        + person("bob", bob, "developer", false)
+                        + person("alice", alice, "admin", false));
+        commit(access, key);
+        // Unsigned edits must not change the identities or authorizations answered.
+        Files.writeString(access.resolve("cards/alice.card"), "forged working tree");
+        final Map<?, ?> answer = verifyPersons(project(ACCESS_URL, key), access, key);
+        assertThat(answer.get("persons"))
+                .as("persons in access order, from signed cards")
+                .isEqualTo(
+                        List.of(
+                                personAnswer("bob", bob, "developer", false, false),
+                                personAnswer("alice", alice, "admin", false, false)));
+        assertThat(answer.get("admins")).as("only admitted admins").isEqualTo(List.of("alice"));
+        assertThat(answer.get("certifiers"))
+                .as("task principals and git namespace only")
+                .isEqualTo(List.of(certifier(bob), certifier(alice)));
+        assertThat(answer.containsKey("developers")).as("the retired answer is absent").isFalse();
+    }
+
+    @Test
+    void lockedAndRevokedAdminsAreAnsweredButCannotAdministerOrCertify() throws Exception {
+        final Path key = key("operator");
+        final SigningKey alice = SigningKey.generate("alice");
+        final SigningKey bob = SigningKey.generate("bob");
+        final SigningKey carol = SigningKey.generate("carol");
+        final Path access = repository("access");
+        writeCard(access, "alice", alice, null);
+        writeCard(access, "bob", bob, null);
+        writeCard(access, "carol", carol, null);
+        Files.writeString(
+                access.resolve("access.yml"),
+                "persons:\n"
+                        + person("alice", alice, "admin", true)
+                        + person("bob", bob, "admin", false)
+                        + person("carol", carol, "admin", false)
+                        + "revoked: [\""
+                        + pin(bob)
+                        + "\"]\n");
+        commit(access, key);
+        final Map<?, ?> answer = verifyPersons(project(ACCESS_URL, key), access, key);
+        assertThat(answer.get("persons"))
+                .as("locked stays visible and revoked loses key and expiry")
+                .isEqualTo(
+                        List.of(
+                                personAnswer("alice", alice, "admin", false, true),
+                                personAnswer("bob", bob, "admin", true, false),
+                                personAnswer("carol", carol, "admin", false, false)));
+        assertThat(answer.get("admins"))
+                .as("locked and revoked admins are excluded")
+                .isEqualTo(List.of("carol"));
+        assertThat(answer.get("certifiers"))
+                .as("neither locked nor revoked may certify")
+                .isEqualTo(List.of(certifier(carol)));
+        assertThat(err.toString().lines().filter(line -> line.contains("bob")))
+                .as("bob is named")
+                .hasSize(1);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"other-pin", "forged", "missing", "other-login", "revoked-predecessor"})
+    void aBadCardRevokesOnlyItsPersonAndNamesThem(final String fault) throws Exception {
+        final Path key = key("operator");
+        final SigningKey alice = SigningKey.generate("alice");
+        final SigningKey bob = SigningKey.generate("bob");
+        final Path access = repository("access");
+        writeCard(access, "alice", alice, null);
+        writeCard(access, "bob", bob, null);
+        final Path card = access.resolve("cards/alice.card");
+        if (fault.equals("forged")) {
+            Files.writeString(
+                    card, Files.readString(card).replace("name: \"alice\"", "name: \"forged\""));
+        } else if (fault.equals("missing")) {
+            Files.delete(card);
+        } else if (fault.equals("other-login")) {
+            Files.writeString(card, card("carol", alice, null));
+        } else if (fault.equals("revoked-predecessor")) {
+            commit(access, key);
+            writeCard(access, "alice", bob, alice);
+        }
+        Files.writeString(
+                access.resolve("access.yml"),
+                "persons:\n"
+                        + person("alice", fault.equals("other-pin") ? bob : alice, "admin", false)
+                        + person("bob", bob, "developer", false)
+                        + (fault.equals("revoked-predecessor")
+                                ? "revoked: [\"" + pin(alice) + "\"]\n"
+                                : ""));
+        commit(access, key);
+        final Map<?, ?> answer = verifyPersons(project(ACCESS_URL, key), access, key);
+        assertThat(answer.get("persons"))
+                .as("a broken card cannot keep another person out")
+                .isEqualTo(
+                        List.of(
+                                personAnswer("alice", alice, "admin", true, false),
+                                personAnswer("bob", bob, "developer", false, false)));
+        assertThat(answer.get("certifiers"))
+                .as("only bob may certify")
+                .isEqualTo(List.of(certifier(bob)));
+        assertThat(err.toString().lines().toList())
+                .as("each refused person on a line of their own")
+                .hasSize(1)
+                .allMatch(line -> line.contains("alice") && line.contains("revoked"));
+    }
+
+    @Test
+    void aSignedReplacementRevokesTheOldCardAndAdmitsTheNewPin() throws Exception {
+        final Path key = key("operator");
+        final SigningKey old = SigningKey.generate("old");
+        final SigningKey next = SigningKey.generate("next");
+        final Path access = repository("access");
+        writeCard(access, "alice", old, null);
+        Files.writeString(
+                access.resolve("access.yml"), "persons:\n" + person("alice", old, "admin", false));
+        commit(access, key);
+        final Path project = project(ACCESS_URL, key);
+        final String before = git(access, "rev-parse", "HEAD");
+        // One admin-signed commit revokes the lost key and pins its replacement without a handover.
+        Files.writeString(
+                access.resolve("access.yml"),
+                "persons:\n"
+                        + person("alice", next, "admin", false)
+                        + "revoked: [\""
+                        + pin(old)
+                        + "\"]\n");
+        commit(access, key);
+        assertThat(verifyPersons(project, access, key, "--access-since", before).get("persons"))
+                .as("the old card cannot survive revocation")
+                .isEqualTo(List.of(personAnswer("alice", old, "admin", true, false)));
+        writeCard(access, "alice", next, null);
+        commit(access, key);
+        out.getBuffer().setLength(0);
+        assertThat(verifyPersons(project, access, key, "--access-since", before).get("persons"))
+                .as("the signed new pin admits its card despite the old key being revoked")
+                .isEqualTo(List.of(personAnswer("alice", next, "admin", false, false)));
+    }
+
+    @ParameterizedTest
+    @ValueSource(ints = {0, 66})
+    void cardHistorySuppliesEverySignedChangeBackToThePinnedKey(final int renewals)
+            throws Exception {
+        final Path key = key("operator");
+        final SigningKey first = SigningKey.generate("first");
+        final SigningKey middle = SigningKey.generate("middle");
+        final SigningKey last = SigningKey.generate("last");
+        final Path access = repository("access");
+        Files.writeString(
+                access.resolve("access.yml"),
+                "persons:\n" + person("alice", first, "developer", false));
+        writeCard(access, "alice", first, null);
+        commit(access, key);
+        writeCard(access, "alice", middle, first);
+        commit(access, key);
+        writeCard(access, "alice", last, middle);
+        commit(access, key);
+        for (int renewal = 0; renewal < renewals; renewal++) {
+            Files.writeString(
+                    access.resolve("cards/alice.card"),
+                    PersonCard.write(
+                            "alice",
+                            "Alice " + renewal,
+                            "",
+                            last,
+                            LocalDate.parse("2026-10-30"),
+                            LocalDate.parse("2027-10-30"),
+                            middle));
+            commit(access, key);
+        }
+        final Map<?, ?> answer = verifyPersons(project(ACCESS_URL, key), access, key);
+        final boolean overflow = renewals + 3 > 64;
+        assertThat(answer.get("persons"))
+                .as("only bounded history can prove the handover")
+                .isEqualTo(List.of(personAnswer("alice", last, "developer", overflow, false)));
+        assertThat(answer.get("certifiers"))
+                .as("overflow cannot certify tasks")
+                .isEqualTo(overflow ? List.of() : List.of(certifier(last)));
+    }
+
+    @Test
+    void anUnknownRoleIsRefusedByName() throws Exception {
+        final Path key = key("operator");
+        final SigningKey alice = SigningKey.generate("alice");
+        final Path access = repository("access");
+        Files.writeString(
+                access.resolve("access.yml"),
+                "persons:\n" + person("alice", alice, "owner", false));
+        commit(access, key);
+        final Path project = project(ACCESS_URL, key);
+        assertThat(
+                        verify(
+                                "--repository",
+                                project.toString(),
+                                "--signed-by",
+                                publicKey(key),
+                                "--access-repository",
+                                access.toString(),
+                                "--json"))
+                .as("an unknown role grants no authority")
+                .isEqualTo(65);
+        assertThat(err.toString()).as("the refused role is named").contains("owner");
+    }
+
+    private Map<?, ?> verifyPersons(
+            final Path project, final Path access, final Path key, final String... extra)
+            throws Exception {
+        final List<String> args =
+                new ArrayList<>(
+                        List.of(
+                                "--repository",
+                                project.toString(),
+                                "--signed-by",
+                                publicKey(key),
+                                "--access-repository",
+                                access.toString(),
+                                "--json"));
+        args.addAll(List.of(extra));
+        assertThat(verify(args.toArray(String[]::new)))
+                .as("the signed access file passes: " + err)
+                .isZero();
+        return (Map<?, ?>) org.fuin.porelo.wire.Json.parse(out.toString().strip());
+    }
+
+    private static String pin(final SigningKey key) {
+        return PersonCard.fingerprint(PersonCard.keyLine(key));
+    }
+
+    private static String person(
+            final String login, final SigningKey key, final String role, final boolean locked) {
+        return "  "
+                + login
+                + ":\n    fingerprint: \""
+                + pin(key)
+                + "\"\n    role: "
+                + role
+                + "\n    hosts: [example-host]\n"
+                + (locked ? "    locked: true\n" : "");
+    }
+
+    private static String card(
+            final String login, final SigningKey key, final SigningKey predecessor) {
+        return PersonCard.write(
+                login,
+                login,
+                "",
+                key,
+                LocalDate.parse("2026-10-30"),
+                LocalDate.parse("2027-10-30"),
+                predecessor);
+    }
+
+    private static void writeCard(
+            final Path repo, final String login, final SigningKey key, final SigningKey predecessor)
+            throws IOException {
+        Files.createDirectories(repo.resolve("cards"));
+        Files.writeString(repo.resolve("cards/" + login + ".card"), card(login, key, predecessor));
+    }
+
+    private static Map<String, Object> personAnswer(
+            final String login,
+            final SigningKey key,
+            final String role,
+            final boolean revoked,
+            final boolean locked) {
+        return Map.of(
+                "login",
+                login,
+                "ssh",
+                revoked ? "" : PersonCard.keyLine(key),
+                "role",
+                role,
+                "hosts",
+                List.of("example-host"),
+                "expires",
+                revoked ? "" : "2027-10-30",
+                "revoked",
+                revoked,
+                "locked",
+                locked);
+    }
+
+    private static String certifier(final SigningKey key) {
+        return "task:demo:* cert-authority,namespaces=\"git\" " + PersonCard.keyLine(key);
     }
 
     private Path access(final Path key) throws IOException {

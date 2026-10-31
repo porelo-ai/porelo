@@ -28,9 +28,9 @@ import org.jspecify.annotations.Nullable;
  * @param message The message, as the agents get it.
  * @param refused Why nobody gets it, or {@code null}.
  * @param answerTo The person's account to answer for a helper mention, or {@code null}.
- * @param learned The account a developer let in by the room's maker writes under, the first time
- *     they are taken by their host account, so it is kept for answering them; {@code null} for
- *     anybody already known.
+ * @param learned The account a person let in by the room's maker writes under, the first time they
+ *     are taken by their host account, so it is kept for answering them; {@code null} for anybody
+ *     already known.
  */
 record PersonsWords(
         List<TransportConversations.Member> readers,
@@ -69,15 +69,15 @@ record PersonsWords(
     }
 
     /**
-     * Reads a person's words, taking a developer of the applied access file by the host account the
+     * Reads a person's words, taking a person of the applied access file by the host account the
      * transport names them by.
      *
      * @param file The transport's file.
      * @param members The project's tasks on this machine.
      * @param accounts Each task's account, by container.
      * @param people Each person who joined, to their account.
-     * @param developers The applied access file's developers, where the room's maker keeps them in
-     *     the room as persons; empty otherwise.
+     * @param persons The applied access file's persons, where the room's maker keeps them in the
+     *     room as persons; empty otherwise.
      * @return Whom it is for and what they read, or why nobody gets it.
      * @throws IOException Reading failed.
      */
@@ -86,21 +86,21 @@ record PersonsWords(
             final List<TransportConversations.Member> members,
             final Map<String, String> accounts,
             final Map<String, String> people,
-            final Set<String> developers)
+            final Set<String> persons)
             throws IOException {
-        return read(file, members, accounts, people, developers, Set.of());
+        return read(file, members, accounts, people, persons, Set.of());
     }
 
     /**
-     * Reads a person's words, taking a developer by their host account only from an account that is
-     * no task's and not this machine's.
+     * Reads a person's words, taking a person by their host account only from an account that is no
+     * task's and not this machine's.
      *
      * @param file The transport's file.
      * @param members The project's tasks on this machine.
      * @param accounts Each task's account, by container.
      * @param people Each person who joined, to their account.
-     * @param developers The applied access file's developers, where the room's maker keeps them in
-     *     the room as persons; empty otherwise.
+     * @param persons The applied access file's persons, where the room's maker keeps them in the
+     *     room as persons; empty otherwise.
      * @param ours This machine's own accounts in the conversation.
      * @return Whom it is for and what they read, or why nobody gets it.
      * @throws IOException Reading failed.
@@ -110,7 +110,7 @@ record PersonsWords(
             final List<TransportConversations.Member> members,
             final Map<String, String> accounts,
             final Map<String, String> people,
-            final Set<String> developers,
+            final Set<String> persons,
             final Set<String> ours)
             throws IOException {
         final Object parsed;
@@ -132,12 +132,12 @@ record PersonsWords(
                         .orElse(null);
         String learned = null;
         // Let in by the room's maker, never through join: the transport names their host
-        // account, and only a developer of the applied access file is taken by it. One who
+        // account, and only a person of the applied access file is taken by it. One who
         // joined under another account of the room is not taken over.
         // A task's account or this machine's is never a person's, whatever the transport says.
         if (person == null
                 && said.get("account") instanceof String account
-                && developers.contains(account)
+                && persons.contains(account)
                 && !people.containsKey(account)
                 && !sender.isBlank()
                 && !accounts.containsValue(sender)

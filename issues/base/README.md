@@ -20,6 +20,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b342"></a>[B342](B342-Persons-In-The-Access-File-By-Their-Cards.md) | M | [B337](README.md#b337), [B334](README.md#b334) | The access file names persons by login and pinned key fingerprint with their cards beside it; `verify --json` answers `persons` and every admitted person's key as a task certifier; WireGuard fields, `ca_sha256` and laptops go |
 | <a id="b340"></a>[B340](B340-A-Host-Checks-The-Registry-It-Was-Brought.md) | M | [B339](README.md#b339), [B349](README.md#b349) | `registry verify --repository <bundle> --host --pinned --json` for root's sync, no network, no home |
 | <a id="b349"></a>[B349](B349-A-Host-Card-Signed-By-Its-Host-Admin.md) | S | - | A host card - host, address, SSH host key, the forge's web and Git ports and the homeserver's port - signed by its host admin on their own machine; `card make-host` and `card verify-host --signer --json` |
 | <a id="b347"></a>[B347](B347-An-Agent-Says-How-It-Signs-In.md) | M | - | `login.flow` is `paste-code`, `device-code` or `loopback` in an agent's definition; a loopback sign-in over SSH is refused before it starts |
@@ -36,7 +37,6 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
-| <a id="b342"></a>[B342](B342-Persons-In-The-Access-File-By-Their-Cards.md) | M | [B337](README.md#b337), [B334](README.md#b334) | The access file names persons by login and pinned key fingerprint with their cards beside it; `verify --json` answers `persons` and every admitted person's key as a task certifier; WireGuard fields, `ca_sha256` and laptops go |
 | <a id="b335"></a>[B335](B335-Every-Change-To-A-Protected-File-Signed.md) | M | - | A follow checks every commit along the first parent that changes a protected file - `project.yml`, `access.yml`, `machine-signers`, a named snippet file, the access repository's file - signed by `signers` as they stood before it, instead of the tip alone; the refusal names commit and file |
 | <a id="b341"></a>[B341](B341-A-New-Commit-Is-Never-Accepted-By-A-Retired-Key.md) | M | [B335](README.md#b335) | A retired key stays for reading history with `valid-before`, while a new commit is checked against the signers without such keys and against the revocation list |
 | <a id="b345"></a>[B345](B345-A-Host-Vault-Opened-By-The-Persons-Key.md) | L | - | A host account's vault has one keyslot, a share derived on the person's machine from their SSH signature and kept in locked memory on the host; a lost key means a new vault, answered `other-key` |

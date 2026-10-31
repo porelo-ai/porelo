@@ -85,7 +85,7 @@ takes its secrets on its input, and goes in a change of its own.
 | `settings` | when a project file is checked | nothing: no secrets, no network | `refused`, `warnings` |
 | `admit --project P --machine M` | on `porelo talk admit`, on the machine whose server holds the conversation | account and project secrets | `admission` (what machine `M` needs to reach the conversation) and `secrets` (what it keeps as secrets), answered once, never kept here |
 | `setup --project P --create-room` | on `porelo talk room`, by the project admin's machine, where `describe` lists `create-room` in `takes` | account and project secrets | as `setup`, the room made on the server |
-| `members --project P --machines M1,M2,... [--persons A1,A2,...]` | after each applied commit of the project or its access file, only in the account that made the room with `talk room` | account and project secrets | `invited` and `removed`: the room's machines are made exactly the list, this machine and each developer of the applied access file by `<host>-<account>`; with `--persons`, `persons_invited` and `persons_removed`: the room's persons are made exactly the developers, each by their account on this host, the key under `developers:` |
+| `members --project P --machines M1,M2,... [--persons A1,A2,...]` | after each applied commit of the project or its access file, only in the account that made the room with `talk room` | account and project secrets | `invited` and `removed`: the room's machines are made exactly the list, this machine and each person neither locked nor revoked in the applied access file by `<host>-<account>`; with `--persons`, `persons_invited` and `persons_removed`: the room's persons are made exactly the persons neither locked nor revoked, of either role, by login under `persons:` with a verified card |
 | `dismiss --project P --machine M` | on `porelo talk dismiss` | account and project secrets | `removed`: every account of M taken out of every project's conversation on this server, and M's registration refused; the project only names the server |
 
 - **Every map of secrets is complete** for the verbs that use it: a project's are what `poll` reads and what
@@ -109,8 +109,8 @@ takes its secrets on its input, and goes in a change of its own.
 - **`"admitted": false`** from `setup`, exiting 0 with its `account` secrets, means a person still has to let this
   machine in; Porelo starts no task of the project until it is true, and absent means true.
 - **`--persons`** is added to `members` for a transport whose `takes` list names `persons` (which also gives it to
-  `poll`; `"persons": true` alone gives it to `poll` only), with every developer's account of the applied access
-  file, comma separated and sorted; that account is also their login on the homeserver. With no developer left it is
+  `poll`; `"persons": true` alone gives it to `poll` only), with every admitted person's login from the applied access
+  file, comma separated and sorted, of either role; it is also their login on the homeserver. With no admitted person left it is
   given empty, `--persons ""`, and the room keeps no person. Without it the transport leaves every person as it is.
   Porelo has no verb of its own to invite or remove a person.
 - A verb a transport does not list is never run.
@@ -121,12 +121,17 @@ message into `inbox/cur`, and asks `receipt` about what a task sent, by the reci
 
 With `--persons`, a person's words arrive unsigned as `<time>--<scheme>-person-<id>.json`, holding `sender` (the
 person's account), `body`, `to` (the accounts mentioned), and optionally `eventId`, `direct` and `account`. The
-sender must be somebody who joined the project's conversation, or a developer the room's maker keeps in it:
+sender must be an admitted person when the project has an access file, whether they joined manually or the room's maker keeps them in it:
 `account` names that person's host account, only for a sender who is a person's own account on the project's server,
-and Porelo takes the words when it is a developer of the applied access file who did not join under another account,
+and Porelo takes the words when it is a person neither locked nor revoked in the applied access file who did not join under another account,
 from a sender that is neither a task's account nor this machine's. It then keeps the sender as that person's account,
 apart from who joined, so a task can answer them while the applied access file names them, and not a moment longer;
-`porelo talk members` lists them with who joined. A room message with an empty `to` reaches every task.
+`porelo talk members` lists admitted persons with their known accounts. A manual join, a remembered account and a
+read receipt count only while the verified access file admits that login. A locked, revoked or unnamed login is
+neither heard nor answered, and `talk join`, including `--reset`, refuses it before any transport call. Its records
+stay for a later unlock. An unverified follow or an unreadable admission decision admits nobody, including for a
+registered project with an access file beside it. A project without an access file keeps its manual joins as before.
+A room message with an empty `to` reaches every task.
 When the line names only the room's helper accounts, the transport instead includes `"helpers": true` and an
 empty `to`: exactly the JSON boolean `true` means no task reads it. Any other value, or no field, keeps the
 ordinary delivery behavior.
