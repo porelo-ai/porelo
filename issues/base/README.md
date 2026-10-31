@@ -20,6 +20,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b372"></a>[B372](B372-A-Test-Leaves-No-Watcher-Running.md) | S | - | A run of the suite leaves no `shield watch` of its own running: no test starts a real watcher it does not stop |
 | <a id="b366"></a>[B366](B366-A-Push-Judged-As-Git-And-Ssh-Keygen-Judge-It.md) | S | [B363](README.md#b363) | `porelo commit verify` reads escaped quotes, every `valid-after` zone spelling, every signature header and long texts as `git` and `ssh-keygen` do |
 | <a id="b363"></a>[B363](B363-A-Push-Judged-By-Porelo-When-It-Arrives.md) | M | [B341](README.md#b341), [B342](README.md#b342), [B343](README.md#b343) | The host forge's pre-receive hook has Porelo judge every new commit at its arrival against the signers in force, the certifiers, the recorded task certificates and the KRL |
 | <a id="b362"></a>[B362](B362-A-Host-Checks-A-Task-Certificate-Before-It-Records-It.md) | S | [B343](README.md#b343) | The host's helper has Porelo check a task's certificate as signed by the person's key in force for that task before it records it; the start's caller contract written down |
@@ -148,7 +149,6 @@ from its side, as *blocked by*.
 | <a id="b375"></a>[B375](B375-An-Address-Whose-Host-Hides-No-Credential.md) | M | [B368](README.md#b368) | No bracketed host, `%40` authority or scp form carries a credential, and an IPv6 address is matched as git fetches it |
 | <a id="b374"></a>[B374](B374-A-Registry-Commit-Split-As-Git-Splits-It.md) | S | [B366](README.md#b366) | A registry commit's signature is checked over the bytes git checks: every header starting with `gpgsig` left out |
 | <a id="b373"></a>[B373](B373-A-Token-Lent-To-A-Forge-On-Its-Own-Port.md) | S | [B368](README.md#b368) | A vault token is lent to an `https://` repository on a port of its own: the helper's key names the port |
-| <a id="b372"></a>[B372](B372-A-Test-Leaves-No-Watcher-Running.md) | S | - | A run of the suite leaves no `shield watch` of its own running: no test starts a real watcher it does not stop |
 | <a id="b371"></a>[B371](B371-A-History-Judged-Under-The-Rules-Of-Its-Time.md) | M | [B363](README.md#b363) | A history mode of `porelo commit verify`: each commit judged by the keys and certificates in force at its own time, for a migrated history before the hook is armed |
 | <a id="b370"></a>[B370](B370-A-Backup-Key-That-Can-Do-Nothing-Else.md) | M | [B346](README.md#b346) | A backup key replaces only the key it backs on a rewrite too, never with a revoked key; a repeated `--id` answers only its own change; no key file removed that the command did not write |
 | <a id="b369"></a>[B369](B369-A-Message-Sender-Named-As-Its-Key-Names-It.md) | S | [B344](README.md#b344) | A message is held only when it names another sender than its key traces to, in either form; `people` and `person` are no task names; `mail.peers` names a task of another project |

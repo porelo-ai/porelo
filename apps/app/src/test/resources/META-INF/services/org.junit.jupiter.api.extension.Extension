@@ -1,1 +1,2 @@
 org.fuin.porelo.testing.KeyringLeakGuard
+org.fuin.porelo.app.WatcherLeakGuard

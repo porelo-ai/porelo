@@ -17,8 +17,25 @@ import org.junit.jupiter.api.extension.ExtensionContext;
  * was the installed release, and in a Porelo task there was none, so the start failed. This writes
  * a launcher of the test's own class path, named {@code porelo} as the real one is, and names it
  * through {@value PoreloBinary#NAMED} while the class runs.
+ *
+ * <p><strong>All but the clearance watcher.</strong> A watcher follows its events file until
+ * something stops it: one whose pid file was not yet written when a test's teardown looked, or one
+ * a test leaves running on purpose, outlived the JVM and never exited. The stand-in does what a
+ * start waits for, making the socket a watcher listens on, and exits.
  */
 final class OwnPorelo implements BeforeAllCallback, AfterAllCallback {
+
+    /** Answers {@code shield watch} by making its {@code --socket} and exiting. */
+    static final String WATCHER =
+            """
+            if [ "$1" = shield ] && [ "$2" = watch ]; then
+              while [ $# -gt 1 ]; do
+                [ "$1" = --socket ] && : > "$2"
+                shift
+              done
+              exit 0
+            fi
+            """;
 
     private @org.jspecify.annotations.Nullable Path directory;
 
@@ -29,7 +46,9 @@ final class OwnPorelo implements BeforeAllCallback, AfterAllCallback {
         final String java = ProcessHandle.current().info().command().orElse("java");
         Files.writeString(
                 launcher,
-                "#!/bin/sh\nexec '"
+                "#!/bin/sh\n"
+                        + WATCHER
+                        + "exec '"
                         + java
                         + "' -cp '"
                         + System.getProperty("java.class.path")
