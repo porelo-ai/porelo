@@ -139,6 +139,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b364"></a>[B364](B364-A-Test-Run-With-Its-Own-Temp-Directory.md) | S | - | Each test JVM gets a temp directory of its own under its module's `target/`, so two suites on one machine never see each other's scratch files |
 | <a id="b360"></a>[B360](B360-The-Persons-Own-Files-Read-Only-As-Themselves.md) | M | [B338](README.md#b338) | Every file Porelo keeps in the person's configuration and state directories is read and written only as itself, never through a link or another account's directory |
 | <a id="b359"></a>[B359](B359-A-Trust-Record-That-Keeps-Who-Could-Sign-When.md) | M | [B339](README.md#b339) | The registry's trust record keeps who could sign at each change, so its check judges every signer as the walk does |
 | <a id="b357"></a>[B357](B357-Build2-Waits-60-Seconds-When-The-Forge-Names-No-Wait.md) | S | - | When a forge names no wait, `Build2.RateLimited` answers `retryAfter: 60`, as `Review1` does, not 0 |
