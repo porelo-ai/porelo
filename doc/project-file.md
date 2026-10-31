@@ -157,6 +157,7 @@ limits:
   pids: 2048       # process count; stops a fork bomb
   cpus: "4"        # "none" opts out
   hand_in: "64m"   # the largest file 'porelo task give' may hand to a running task
+  subagents: 0     # the most subagents a task's agent runs at the same time; 0 for none
 
 # Optional. Whom the project's tasks may write to. Tasks of one project reach each other by task
 # name without being listed, and a project with a conversation has 'people', the people in it,
@@ -267,6 +268,18 @@ build argument, rounded down to at least 1, so `RUN nproc` sees the bound. The a
 layer and before the snippet and agent layers; it does not become an image environment variable.
 `limits.cpus: none` leaves the build without these resource flags or the build argument;
 `limits.memory: none` removes the memory flag. Open-file limits stay the container runtime's.
+
+`limits.subagents` is how many subagents a task's agent may run at the same time inside the task: 0, the default, for
+none, and 1 or more for that many at once, not over the whole task. `porelo task start --subagents N` wins over the
+file, and a repository's `limits.subagents` over the project's. The number is fixed when the task is created and kept
+with it: a stopped task brought back hands its agent the same number again, takes `--subagents` with that number and
+refuses another with exit code 64. The agent's adapter turns it into the agent's own switch, and its definition says
+what it can enforce: a task asking for more than that, such as any subagent of an agent that can only switch them
+off, is refused with exit code 64 before anything is made, naming the agent and what it can enforce, and the daemon's
+`CanStart` answers `SUBAGENTS_REFUSED` in the same words. A number below 0 or one that is not whole is refused too.
+An agent started attended hears its number only from the files its adapter writes into the container, so a task
+whose agent's files cannot be written is not started; a shell or an unattended run starts and says so, since a
+shell starts no agent and an unattended run carries the number in its own request.
 
 ## Services on this host
 

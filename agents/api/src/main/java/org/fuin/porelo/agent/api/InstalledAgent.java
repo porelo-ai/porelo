@@ -414,6 +414,23 @@ public class InstalledAgent implements AutoCloseable {
      */
     public List<String> buildCommand(RunRequest request) {
 
+        final Object command =
+                client.call(AgentProtocol.BUILD_COMMAND, parameters(request)).get("command");
+        if (!(command instanceof List<?> list)) {
+            throw new AgentException(name() + " returned no command");
+        }
+        final List<String> result = new ArrayList<>();
+        list.forEach(item -> result.add(String.valueOf(item)));
+        return List.copyOf(result);
+    }
+
+    /**
+     * Returns a request as the parameters of a {@code BuildCommand} call.
+     *
+     * @param request What to run.
+     * @return Parameters, an absent value left out.
+     */
+    static Map<String, Object> parameters(RunRequest request) {
         final Map<String, Object> parameters = new java.util.LinkedHashMap<>();
         parameters.put("prompt", request.prompt());
         if (request.model() != null) {
@@ -427,14 +444,9 @@ public class InstalledAgent implements AutoCloseable {
         }
         parameters.put("verbose", Boolean.valueOf(request.verbose()));
         parameters.put("machineReadable", Boolean.valueOf(request.machineReadable()));
-
-        final Object command = client.call(AgentProtocol.BUILD_COMMAND, parameters).get("command");
-        if (!(command instanceof List<?> list)) {
-            throw new AgentException(name() + " returned no command");
-        }
-        final List<String> result = new ArrayList<>();
-        list.forEach(item -> result.add(String.valueOf(item)));
-        return List.copyOf(result);
+        // Always sent, 0 too, so an adapter acts on the task's number and never on a default.
+        parameters.put("subagents", Integer.valueOf(request.subagents()));
+        return parameters;
     }
 
     /**

@@ -142,7 +142,26 @@ public final class AgentDefinitionReader {
                 grants(optionalSection(root, "login").get("grants"), origin),
                 optionalSection(root, "login").containsKey("flow")
                         ? LoginFlow.of(optionalSection(root, "login").get("flow"), origin)
-                        : null);
+                        : null,
+                subagents(root, origin));
+    }
+
+    /**
+     * Reads {@code subagents}: what the adapter can enforce of the subagents a task allows.
+     *
+     * <p>Absent is a definition from before it was declared, read as able to hold only none. YAML
+     * reads an unquoted {@code off} as {@code false}, which is taken as the same declaration.
+     *
+     * @param root The whole definition.
+     * @param origin Where it was read from, for a refusal.
+     * @return What it declares.
+     */
+    private static SubagentLimit subagents(final Map<?, ?> root, final String origin) {
+        if (!root.containsKey("subagents")) {
+            return SubagentLimit.OFF;
+        }
+        final Object value = root.get("subagents");
+        return Boolean.FALSE.equals(value) ? SubagentLimit.OFF : SubagentLimit.of(value, origin);
     }
 
     /**

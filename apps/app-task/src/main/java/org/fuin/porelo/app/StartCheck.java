@@ -153,7 +153,14 @@ public final class StartCheck {
          * The start would have no gate, and the project declares host services, which a task
          * reaches at the gate's address. {@code detail} names them.
          */
-        HOST_SERVICES_NEED_A_GATE
+        HOST_SERVICES_NEED_A_GATE,
+
+        /**
+         * The project file asks the task's agent for more subagents at the same time than its
+         * definition says it can enforce. {@code detail} names the agent and where the number came
+         * from, in the words Start refuses with.
+         */
+        SUBAGENTS_REFUSED
     }
 
     /**
@@ -434,7 +441,8 @@ public final class StartCheck {
                         agentName,
                         providerName,
                         credentialType,
-                        needsRepository ? namedRepository(projectFile, repository) : null);
+                        needsRepository ? namedRepository(projectFile, repository) : null,
+                        limitsFrom(projectFile, repository, needsRepository));
         final Result valued = withParameters(checked, projectFile, parameters);
         final Result rest =
                 needsRepository
@@ -1089,6 +1097,61 @@ public final class StartCheck {
     }
 
     /**
+     * Returns the repository whose limits a start would take, as Start settles it.
+     *
+     * @param projectFile The project file, or {@code null}.
+     * @param repository The name given, or {@code null}.
+     * @param needsRepository Whether the run would have a gate.
+     * @return The repository; the project's own for a run without a gate and none named; {@code
+     *     null} when there is none to take, which the other checks say.
+     */
+    private static org.fuin.porelo.core.project.@Nullable Repository limitsFrom(
+            @Nullable Path projectFile, @Nullable String repository, boolean needsRepository) {
+        if (projectFile == null) {
+            return null;
+        }
+        if (repository != null && !repository.isBlank()) {
+            return namedRepository(projectFile, repository);
+        }
+        if (needsRepository) {
+            return null;
+        }
+        try {
+            return org.fuin.porelo.core.project.ProjectReader.read(projectFile).ownRepository();
+        } catch (RuntimeException ex) {
+            return null;
+        }
+    }
+
+    /**
+     * Says why the agent cannot hold the task to the project file's number of subagents.
+     *
+     * @param agent The task's agent.
+     * @param projectFile The project file.
+     * @param repository The repository whose limits the start takes.
+     * @return Start's refusal, or {@code null} when the agent can enforce it.
+     */
+    private static @Nullable String subagentsRefused(
+            InstalledAgent agent,
+            Path projectFile,
+            org.fuin.porelo.core.project.Repository repository) {
+        final int asked;
+        try {
+            asked =
+                    org.fuin.porelo.core.project.ProjectReader.read(projectFile)
+                            .limitsFor(repository)
+                            .subagents();
+        } catch (RuntimeException ex) {
+            // A file that cannot be read is the other checks' to say.
+            return null;
+        }
+        return TaskLaunch.subagentsRefused(
+                agent.definition(),
+                asked,
+                TaskLaunch.subagentsFrom(null, repository) + " " + asked);
+    }
+
+    /**
      * Everything a start needs except which repository it is for.
      *
      * @param context The machine.
@@ -1099,6 +1162,8 @@ public final class StartCheck {
      * @param credentialType Credential kind override, or {@code null}.
      * @param repository The repository the task is for, whose agent is taken without {@code
      *     agentName}, or {@code null}.
+     * @param limitsFrom The repository whose limits the start takes, or {@code null} when there is
+     *     none to take yet.
      * @return What was found.
      */
     private static Result checkEverythingElse(
@@ -1108,7 +1173,8 @@ public final class StartCheck {
             @Nullable String agentName,
             @Nullable String providerName,
             @Nullable String credentialType,
-            org.fuin.porelo.core.project.@Nullable Repository repository) {
+            org.fuin.porelo.core.project.@Nullable Repository repository,
+            org.fuin.porelo.core.project.@Nullable Repository limitsFrom) {
 
         if (projectFile != null && !Files.isRegularFile(projectFile)) {
             return refused(Outcome.NO_PROJECT_FILE, "no project file at " + projectFile);
@@ -1156,6 +1222,14 @@ public final class StartCheck {
                         Outcome.NO_AGENT,
                         "no agent is installed, so there is nothing to"
                                 + " run; a task can still be started as a shell");
+            }
+            // Before the provider and the credential, as Start refuses it.
+            final String tooMany =
+                    projectFile == null || limitsFrom == null
+                            ? null
+                            : subagentsRefused(agent, projectFile, limitsFrom);
+            if (tooMany != null) {
+                return new Result(Outcome.SUBAGENTS_REFUSED, agent.name(), "", "", tooMany);
             }
 
             final SelectedProvider.Choice serving =

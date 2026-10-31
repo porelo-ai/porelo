@@ -50,6 +50,13 @@ final class HeadlessCommandBuilder {
             command.add(flags.maxTurnsFlag());
             command.add(String.valueOf(request.maxTurns()));
         }
+        if (!definition.subagents().enforces(request.subagents())) {
+            throw new AgentException(
+                    "Agent '"
+                            + definition.name()
+                            + "' can enforce only 0 subagents, not "
+                            + request.subagents());
+        }
         if (request.verbose() && flags.verboseFlag() != null) {
             command.add(flags.verboseFlag());
         }

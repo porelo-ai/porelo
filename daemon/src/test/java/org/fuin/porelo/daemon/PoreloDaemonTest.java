@@ -449,6 +449,50 @@ class PoreloDaemonTest {
     }
 
     @Test
+    void aNumberOfSubagentsThatIsNoWholeNumberIsRefusedAsWrongUseAndNeverRead(@TempDir Path dir)
+            throws Exception {
+
+        // Read as a lower whole number, or dropped for the project file's, it would bound the agent
+        // to something nobody asked for.
+        final PoreloContext context = hooked(dir);
+        projectFile(dir);
+        runner.answering("podman version", "5.8.1");
+
+        servingContext(
+                context,
+                dir,
+                socket -> {
+                    try (VarlinkClient client = new VarlinkClient(socket)) {
+                        for (final Object given : List.<Object>of(-0.5, 2.7, 1e11, -1, "2", true)) {
+                            final Map<String, Object> reply =
+                                    client.call(
+                                            PoreloDaemon.INTERFACE + ".Start",
+                                            Map.of(
+                                                    "project",
+                                                    PROJECT,
+                                                    "task",
+                                                    "shell",
+                                                    "repository",
+                                                    "uc",
+                                                    "subagents",
+                                                    given));
+                            assertThat(((Number) reply.get("exitCode")).intValue())
+                                    .as("%s is refused as wrong use", given)
+                                    .isEqualTo(64);
+                            @SuppressWarnings("unchecked")
+                            final List<String> output = (List<String>) reply.get("output");
+                            assertThat(String.join("\n", output))
+                                    .as("the refusal names the parameter")
+                                    .contains("subagents takes a whole number from 0");
+                        }
+                    }
+                });
+        assertThat(runner.lines())
+                .as("nothing is asked of the runtime for a start refused as wrong use")
+                .noneMatch(line -> line.contains("podman ps") || line.contains("podman create"));
+    }
+
+    @Test
     void aValueTheProjectDoesNotAllowIsRefusedByCanStartAndStartAlike(@TempDir Path dir)
             throws Exception {
 

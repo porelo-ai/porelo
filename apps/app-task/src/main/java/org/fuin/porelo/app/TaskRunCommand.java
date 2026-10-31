@@ -159,6 +159,14 @@ public class TaskRunCommand implements Callable<Integer>, PoreloFactory.ContextA
     private @Nullable Integer maxTurns;
 
     @Option(
+            names = "--subagents",
+            paramLabel = "<n>",
+            description =
+                    "The most subagents the agent may run at the same time inside the task; 0 for"
+                            + " none. Default: the project file's limits.subagents, else 0.")
+    private @Nullable Integer subagents;
+
+    @Option(
             names = "--minutes",
             paramLabel = "<n>",
             description = "How long the agent may run. Default: ${DEFAULT-VALUE}")
@@ -622,7 +630,8 @@ public class TaskRunCommand implements Callable<Integer>, PoreloFactory.ContextA
                                         repository,
                                         credentials,
                                         given,
-                                        branch),
+                                        branch,
+                                        subagents),
                                 new StartSteps(step -> StartSteps.render(out, step), err))
                         // What a refusal would name is offered at a terminal instead; a script or a
                         // pipe is refused as before.
@@ -1200,6 +1209,7 @@ public class TaskRunCommand implements Callable<Integer>, PoreloFactory.ContextA
                     "--prompt",
                     "--model",
                     "--max-turns",
+                    "--subagents",
                     "--minutes",
                     "--upstream",
                     "--no-gate",

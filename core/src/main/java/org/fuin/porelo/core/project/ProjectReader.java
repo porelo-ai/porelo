@@ -1000,7 +1000,8 @@ public final class ProjectReader {
                         ? null
                         : Limits.bytes(
                                 text(limits.get("hand_in")),
-                                origin + ": 'repositories." + name + ".limits.hand_in'"));
+                                origin + ": 'repositories." + name + ".limits.hand_in'"),
+                subagents(limits, origin + ": 'repositories." + name + ".limits.subagents'"));
     }
 
     /**
@@ -1072,11 +1073,34 @@ public final class ProjectReader {
                             : "none".equals(memory) ? null : memory,
                     cpus.isEmpty() ? Limits.DEFAULT_CPUS : "none".equals(cpus) ? null : cpus,
                     pids == null ? Limits.DEFAULT_PIDS : Integer.parseInt(String.valueOf(pids)),
-                    handIn);
+                    handIn,
+                    java.util.Objects.requireNonNullElse(
+                            subagents(limits, origin + ": 'limits.subagents'"), 0));
         } catch (NumberFormatException ex) {
             throw new ProjectException(
                     origin + ": 'limits.pids' must be a number, not '" + pids + "'");
         }
+    }
+
+    /**
+     * Reads {@code subagents} from a limits block: how many subagents a task's agent may run at the
+     * same time.
+     *
+     * @param limits The block.
+     * @param key The key as the refusal names it.
+     * @return The number, or {@code null} when the block says nothing.
+     * @throws ProjectException When it is not a whole number of 0 or more.
+     */
+    private static @Nullable Integer subagents(final Map<?, ?> limits, final String key) {
+        final Object value = limits.get("subagents");
+        if (value == null) {
+            return null;
+        }
+        if (!(value instanceof Integer number) || number < 0) {
+            throw new ProjectException(
+                    key + " must be a whole number of 0 or more, not '" + value + "'");
+        }
+        return number;
     }
 
     private static String required(

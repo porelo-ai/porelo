@@ -675,20 +675,34 @@ final class TaskMethods {
 
                     final java.util.concurrent.atomic.AtomicReference<String> started =
                             new java.util.concurrent.atomic.AtomicReference<>("");
+                    // Wrong use, as at the command line, before anything is asked or made: a value
+                    // read as a lower number, or dropped, would bound the agent to something nobody
+                    // asked for.
+                    final String badSubagents = PoreloDaemon.subagentsRefused(parameters);
                     final TaskLaunch launch =
                             new TaskLaunch(
                                     context,
-                                    request(parameters, context),
+                                    badSubagents == null
+                                            ? request(parameters, context)
+                                            : request(withoutSubagents(parameters), context),
                                     new org.fuin.porelo.app.StartSteps(progress, sink));
                     // A task that already exists is brought back, not created again - the same call
                     // the CLI makes first, so a stopped task answers the same over the socket as at
                     // a terminal.
-                    final TaskLaunch.Existing existing = launch.startExisting(sink, sink);
+                    final TaskLaunch.Existing existing =
+                            badSubagents == null ? launch.startExisting(sink, sink) : null;
                     final int code;
                     // What Start did, or the refusal it answered with - on the final reply, as the
                     // contract says.
-                    final String action = existing == null ? "CREATE" : existing.action();
-                    if (existing != null) {
+                    final String action =
+                            badSubagents != null
+                                    ? null
+                                    : existing == null ? "CREATE" : existing.action();
+                    if (badSubagents != null) {
+                        sink.println("porelo: " + badSubagents);
+                        sink.println("porelo: nothing was created");
+                        code = 64;
+                    } else if (existing != null) {
                         started.set(existing.container());
                         // Brought back with a prompt, it runs - continuing its session where the
                         // agent can - as a new task with a prompt does. A start that ignored it
@@ -844,6 +858,13 @@ final class TaskMethods {
             throw new VarlinkException(INTERFACE + ".NotRunning", Map.of("task", task));
         }
         return task;
+    }
+
+    /** The call's parameters without its number of subagents, which it refuses itself. */
+    private static Map<String, Object> withoutSubagents(final Map<String, Object> parameters) {
+        final Map<String, Object> rest = new LinkedHashMap<>(parameters);
+        rest.remove("subagents");
+        return rest;
     }
 
     private static long number(final Map<String, Object> parameters, final String name) {

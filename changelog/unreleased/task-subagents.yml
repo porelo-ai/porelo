@@ -1,0 +1,2 @@
+title: "A task bounds how many subagents its agent runs at the same time with `porelo task start --subagents N` or `limits.subagents` in the project file, none by default; an agent definition declares `subagents: off` or `subagents: count`, and a task asking for more than its agent can enforce is refused with 64 before anything is made"
+type: added

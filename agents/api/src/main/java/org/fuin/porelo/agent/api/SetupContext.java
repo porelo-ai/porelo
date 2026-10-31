@@ -15,9 +15,52 @@ package org.fuin.porelo.agent.api;
  *     not brokered.
  * @param provider Name of the provider serving this task, as the provider declares itself. An agent
  *     that registers providers by name needs it; one pointed by a variable does not.
+ * @param subagents The most subagents the agent may run at the same time inside the task; 0 for
+ *     none. Here as well as in a {@link RunRequest}, because an attended agent is started without
+ *     one, and an adapter whose agent reads the switch from a file writes it here.
  */
 public record SetupContext(
-        String token, String credentialType, String workspace, String endpoint, String provider) {
+        String token,
+        String credentialType,
+        String workspace,
+        String endpoint,
+        String provider,
+        int subagents) {
+
+    /**
+     * Constructor with checks.
+     *
+     * @param token Token the agent should present.
+     * @param credentialType Kind of credential it stands in for.
+     * @param workspace Working directory inside the container.
+     * @param endpoint Where the agent sends its requests, or empty.
+     * @param provider Name of the provider serving the task.
+     * @param subagents The most subagents at the same time; 0 for none.
+     * @throws AgentException If {@code subagents} is below 0.
+     */
+    public SetupContext {
+        if (subagents < 0) {
+            throw new AgentException("subagents must be 0 or more, not " + subagents);
+        }
+    }
+
+    /**
+     * Constructor for a task that allows no subagents.
+     *
+     * @param token Token the agent should present.
+     * @param credentialType Kind of credential it stands in for.
+     * @param workspace Working directory inside the container.
+     * @param endpoint Where the agent sends its requests, or empty.
+     * @param provider Name of the provider serving the task.
+     */
+    public SetupContext(
+            String token,
+            String credentialType,
+            String workspace,
+            String endpoint,
+            String provider) {
+        this(token, credentialType, workspace, endpoint, provider, 0);
+    }
 
     /**
      * Returns this context as the parameters of a {@code ContainerSetup} call.
@@ -40,7 +83,9 @@ public record SetupContext(
                 "endpoint",
                 endpoint,
                 "provider",
-                provider);
+                provider,
+                "subagents",
+                Integer.valueOf(subagents));
     }
 
     /**

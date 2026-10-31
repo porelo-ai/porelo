@@ -810,7 +810,49 @@ public final class PoreloDaemon {
                 empty(parameters, "repository"),
                 credentials(parameters),
                 values(parameters),
-                empty(parameters, "branch"));
+                empty(parameters, "branch"),
+                // Absent leaves it to the project file, as at the command line.
+                subagents(parameters));
+    }
+
+    /**
+     * Returns the number of subagents a start asks for.
+     *
+     * @param parameters The call's parameters.
+     * @return The number, or {@code null} when none was given.
+     * @throws VarlinkException If one was given that is no whole number from 0 up, which Start
+     *     refuses before it gets here ({@link #subagentsRefused}).
+     */
+    static @Nullable Integer subagents(Map<String, Object> parameters) {
+        final Object given = parameters.get("subagents");
+        if (given == null) {
+            return null;
+        }
+        final Integer subagents = org.fuin.porelo.agent.api.SubagentLimit.wholeNumber(given);
+        if (subagents == null) {
+            throw new VarlinkException(
+                    "org.varlink.service.InvalidParameter", Map.of("parameter", "subagents"));
+        }
+        return subagents;
+    }
+
+    /**
+     * Says why a start's number of subagents is refused, as the command line refuses it.
+     *
+     * @param parameters The call's parameters.
+     * @return The refusal, or {@code null} when none was given or it is a whole number from 0 up.
+     */
+    static @Nullable String subagentsRefused(Map<String, Object> parameters) {
+        final Object given = parameters.get("subagents");
+        if (given == null || org.fuin.porelo.agent.api.SubagentLimit.wholeNumber(given) != null) {
+            return null;
+        }
+        // Read as a lower whole number, or dropped for the project file's, it would bound the agent
+        // to something nobody asked for.
+        return "subagents takes a whole number from 0 to "
+                + org.fuin.porelo.agent.api.SubagentLimit.MOST
+                + ", not "
+                + (given instanceof String text ? "'" + text + "'" : given);
     }
 
     /**

@@ -84,6 +84,33 @@ class TaskRunCommandTest {
                                                 "definition",
                                                 org.fuin.porelo.agent.api.AgentDefinitionJson.write(
                                                         definition))));
+                // Says what it was told, as the command it would run and the file it would write.
+                server.method(
+                        "BuildCommand",
+                        (parameters, replies) ->
+                                replies.last(
+                                        java.util.Map.of(
+                                                "command",
+                                                List.of(
+                                                        "preview",
+                                                        String.valueOf(parameters.get("prompt")),
+                                                        "subagents=" + told(parameters)))));
+                server.method(
+                        "ContainerSetup",
+                        (parameters, replies) -> {
+                            if (Files.exists(Path.of(args[0] + ".setup-fails"))) {
+                                throw new org.fuin.porelo.agent.api.AgentException(
+                                        "the setup broke");
+                            }
+                            // Beside its definition rather than in a container, which a unit test
+                            // has none of.
+                            try {
+                                Files.writeString(Path.of(args[0] + ".told"), told(parameters));
+                            } catch (IOException ex) {
+                                throw new java.io.UncheckedIOException(ex);
+                            }
+                            replies.last(java.util.Map.of("files", List.of()));
+                        });
                 System.out.println("ready " + args[2]);
                 System.out.flush();
                 server.run();
@@ -91,7 +118,17 @@ class TaskRunCommandTest {
         }
     }
 
+    private static String told(java.util.Map<String, Object> parameters) {
+        return String.valueOf(
+                org.fuin.porelo.agent.api.SubagentLimit.wholeNumber(parameters.get("subagents")));
+    }
+
     private void previewAgent(PoreloContext context, String name) throws IOException {
+        previewAgent(context, name, "");
+    }
+
+    private void previewAgent(PoreloContext context, String name, String declared)
+            throws IOException {
         final Path agents = Files.createDirectories(context.paths().xdg().data().resolve("agents"));
         final Path definition = agents.resolve(name + ".yaml");
         Files.writeString(
@@ -109,7 +146,8 @@ class TaskRunCommandTest {
                   endpoint: url
                   base_url_env: PREVIEW_BASE_URL
                 """
-                        .formatted(name));
+                                .formatted(name)
+                        + declared);
         final Path executable =
                 agents.resolve(org.fuin.porelo.agent.api.AgentDirectory.PREFIX + name);
         Files.writeString(
@@ -927,6 +965,282 @@ class TaskRunCommandTest {
     }
 
     @Test
+    void aStoppedTaskBroughtBackKeepsItsSubagentsAndRefusesANewNumber(@TempDir Path dir)
+            throws IOException {
+
+        // Its agent was set up for its number when it was created; a new one would change nothing
+        // and look applied.
+        final PoreloContext context = context(dir, true);
+        runner.answering(
+                "ps",
+                "porelo-uc-shell\tExited (0) 4 minutes ago\t1700000000\t1700000100\tuc\tguarded\tuc\t\n");
+
+        final int code =
+                execute(
+                        context,
+                        "task",
+                        "start",
+                        "shell",
+                        "-p",
+                        projectFile(dir, MINIMAL),
+                        "--subagents",
+                        "2");
+
+        assertThat(code).as(err.toString()).isEqualTo(64);
+        assertThat(err.toString())
+                .as("a task that recorded no number was told none")
+                .contains("was started with --subagents 0");
+        assertThat(runner.lines())
+                .as("nothing is resumed for a number it would not take")
+                .noneMatch(line -> line.contains("podman start"));
+    }
+
+    private void recordSubagents(PoreloContext context, String agent, int subagents)
+            throws IOException {
+        final Path state =
+                Files.createDirectories(context.paths().tasks().containerState("porelo-uc-shell"));
+        new org.fuin.porelo.wire.TaskProfile(
+                        org.fuin.porelo.wire.TaskProfile.VERSION,
+                        agent,
+                        org.fuin.porelo.wire.TaskMode.UNATTENDED,
+                        "do the work",
+                        null,
+                        "2026-10-31T00:00:00Z",
+                        "deny",
+                        null,
+                        null,
+                        null,
+                        null,
+                        subagents)
+                .writeTo(state);
+    }
+
+    /**
+     * A machine with the preview agent installed, taking no brokered credential and able to bound
+     * its subagents, and its hooks registered.
+     */
+    private PoreloContext countingContext(Path dir) throws IOException {
+        final PoreloContext context = previewContext(dir);
+        previewAgent(context, "preview", "subagents: count\n");
+        final Path definition = context.paths().xdg().data().resolve("agents/preview.yaml");
+        final String declared = Files.readString(definition);
+        Files.writeString(
+                definition,
+                declared.substring(0, declared.indexOf("provider:"))
+                        + declared.substring(declared.indexOf("subagents:")));
+        hookBinaries(dir);
+        new org.fuin.porelo.runtime.HookInstaller(
+                        context.paths().hooksDirectory(), context.paths().binaryDirectory())
+                .install();
+        return context;
+    }
+
+    @Test
+    void aNewTaskRecordsItsNumberForAStartThatContinuesIt(@TempDir Path dir) throws IOException {
+
+        // A continuation hands its agent the number from the record; one never written is none.
+        final PoreloContext context = countingContext(dir);
+
+        final int started =
+                execute(
+                        context,
+                        "task",
+                        "start",
+                        "-p",
+                        projectFile(dir, MINIMAL),
+                        "--agent",
+                        "preview",
+                        "--no-gate",
+                        "--subagents",
+                        "2");
+
+        assertThat(started).as("started: %s", err).isZero();
+        assertThat(
+                        org.fuin.porelo.wire.TaskProfile.readFrom(
+                                        context.paths().tasks().containerState("porelo-uc-shell"))
+                                .subagents())
+                .as("its record keeps the number")
+                .isEqualTo(2);
+        assertThat(
+                        Files.readString(
+                                context.paths().xdg().data().resolve("agents/preview.yaml.told")))
+                .as("its agent's setup is told the number, attended as it starts")
+                .isEqualTo("2");
+    }
+
+    @Test
+    void anAttendedTaskWhoseAgentSetupFailsIsNotStarted(@TempDir Path dir) throws IOException {
+
+        // Attended, its agent hears its number only from its setup: run without it, it would start
+        // as many subagents as its own default allows while the task said none.
+        final PoreloContext context = countingContext(dir);
+        Files.writeString(
+                context.paths().xdg().data().resolve("agents/preview.yaml.setup-fails"), "");
+
+        final int started =
+                execute(
+                        context,
+                        "task",
+                        "start",
+                        "-p",
+                        projectFile(dir, MINIMAL),
+                        "--agent",
+                        "preview",
+                        "--no-gate");
+
+        assertThat(started).as("refused: %s", err).isEqualTo(70);
+        assertThat(err.toString())
+                .as("the refusal says why the task cannot go without its setup")
+                .contains("could not prepare the agent's files", "the setup broke")
+                .contains("preview is started attended")
+                .contains("(none)");
+        assertThat(execCalls).as("nobody is put into a task whose agent is not set up").isEmpty();
+    }
+
+    @Test
+    void aShellTaskWhoseAgentSetupFailsStillStarts(@TempDir Path dir) throws IOException {
+
+        // Porelo starts no agent in a shell, so the failure is said and the shell comes up.
+        final PoreloContext context = countingContext(dir);
+        Files.writeString(
+                context.paths().xdg().data().resolve("agents/preview.yaml.setup-fails"), "");
+
+        final int started =
+                execute(
+                        context,
+                        "task",
+                        "start",
+                        "-p",
+                        projectFile(dir, MINIMAL),
+                        "--agent",
+                        "preview",
+                        "--no-gate",
+                        "--attach",
+                        "shell");
+
+        assertThat(started).as("started: %s", err).isZero();
+        assertThat(err.toString())
+                .contains("could not prepare the agent's files")
+                .doesNotContain("is started attended");
+        assertThat(execCalls).as("the shell it went into").hasSize(1);
+    }
+
+    @Test
+    void aStoppedTaskBroughtBackTakesTheNumberItWasStartedWithAndRefusesAnother(@TempDir Path dir)
+            throws IOException {
+
+        // Its record keeps the number; saying it again changes nothing, and is no mistake.
+        final PoreloContext context = context(dir, true);
+        runner.answering(
+                "ps",
+                "porelo-uc-shell\tExited (0) 4 minutes ago\t1700000000\t1700000100\tuc\tguarded\tuc\t\n");
+        recordSubagents(context, "preview", 2);
+
+        final int other =
+                execute(
+                        context,
+                        "task",
+                        "start",
+                        "shell",
+                        "-p",
+                        projectFile(dir, MINIMAL),
+                        "--subagents",
+                        "3",
+                        "--detach");
+
+        assertThat(other).as(err.toString()).isEqualTo(64);
+        assertThat(err.toString())
+                .as("the refusal names the number it keeps")
+                .contains("was started with --subagents 2");
+        assertThat(runner.lines())
+                .as("nothing is resumed for a number it would not take")
+                .noneMatch(line -> line.contains("podman start"));
+
+        err.getBuffer().setLength(0);
+        final int before = runner.lines().size();
+        execute(
+                context,
+                "task",
+                "start",
+                "shell",
+                "-p",
+                projectFile(dir, MINIMAL),
+                "--subagents",
+                "2",
+                "--detach");
+
+        assertThat(err.toString())
+                .as("its own number is taken")
+                .doesNotContain("was started with --subagents");
+        assertThat(runner.lines().subList(before, runner.lines().size()))
+                .as("brought back with its own number: its container is asked for")
+                .anyMatch(line -> line.contains("container inspect"));
+    }
+
+    @Test
+    void aStoppedTaskContinuedWithAPromptHandsItsAgentTheNumberItWasStartedWith(@TempDir Path dir)
+            throws IOException {
+
+        // The run request is where an unattended agent hears its number; continued with none, it
+        // would be told zero, or with the transient default, whatever its start said.
+        final PoreloContext context = previewContext(dir);
+        previewAgent(context, "preview", "subagents: count\n");
+        recordSubagents(context, "preview", 2);
+        // What runs the agent in its container says what it was asked to run, into the task's log.
+        final Path podman = dir.resolve("echoing-podman");
+        Files.writeString(podman, "#!/bin/sh\necho \"$@\"\n");
+        Files.setPosixFilePermissions(
+                podman, java.nio.file.attribute.PosixFilePermissions.fromString("rwx------"));
+        final String standIn = System.getProperty(org.fuin.porelo.runtime.Podman.NAMED);
+        System.setProperty(org.fuin.porelo.runtime.Podman.NAMED, podman.toString());
+        final int code;
+        try {
+            code =
+                    new TaskLaunch(
+                                    context,
+                                    new TaskLaunch.Request(
+                                            "shell",
+                                            dir.resolve("project.yml"),
+                                            null,
+                                            null,
+                                            null,
+                                            8,
+                                            null,
+                                            true,
+                                            false,
+                                            "deny",
+                                            true,
+                                            org.fuin.porelo.wire.TaskMode.UNATTENDED,
+                                            "go on",
+                                            null,
+                                            null,
+                                            1,
+                                            "uc",
+                                            java.util.Map.of(),
+                                            java.util.Map.of(),
+                                            null,
+                                            null))
+                            .runAgentInExisting(
+                                    "porelo-uc-shell",
+                                    null,
+                                    new PrintWriter(out),
+                                    new PrintWriter(err));
+        } finally {
+            System.setProperty(org.fuin.porelo.runtime.Podman.NAMED, standIn);
+        }
+
+        assertThat(code).as("the run went ahead: %s", err).isZero();
+        assertThat(
+                        Files.readString(
+                                context.paths()
+                                        .tasks()
+                                        .containerState("porelo-uc-shell")
+                                        .resolve("task.log")))
+                .as("the agent is asked for its run with the task's own number")
+                .contains("go on subagents=2");
+    }
+
+    @Test
     void aTaskIsGivenItsValuesInItsEnvironmentAndRecordsWhereEachCameFrom(@TempDir Path dir)
             throws IOException {
 
@@ -1066,6 +1380,195 @@ class TaskRunCommandTest {
         assertThat(err.toString()).as("in one line naming the provider").contains("nosuch");
         assertThat(err.toString()).as("not a defect").doesNotContain("Exception");
         assertThat(runner.invocations()).as("a dry run must touch no container runtime").isEmpty();
+    }
+
+    @Test
+    void anAgentThatSaysNothingOfSubagentsIsRefusedATaskAskingForOneBeforeAnythingIsMade(
+            @TempDir Path dir) throws IOException {
+        // Started anyway, its agent would run as many subagents as it likes while the task said
+        // two: less enforced than was asked, and nobody told.
+        final PoreloContext context = refusingProviderContext(dir, true);
+
+        final int code = unattendedStart(context, dir, "--subagents", "2");
+
+        assertThat(code).as("wrong use of this agent: %s", err).isEqualTo(64);
+        assertThat(err.toString())
+                .as("the refusal names the agent, what it can enforce, and what was asked")
+                .contains("preview can only switch its subagents off, so it can enforce 0")
+                .contains("--subagents 2");
+        assertThat(runner.lines())
+                .as("nothing is built or created for a task its agent cannot hold")
+                .noneMatch(line -> line.contains("podman build") || line.contains("podman create"));
+        assertThat(execCalls).as("a refused start enters no task").isEmpty();
+    }
+
+    @Test
+    void anAgentThatCanOnlySwitchThemOffIsRefusedTheProjectFilesNumber(@TempDir Path dir)
+            throws IOException {
+        final PoreloContext context = previewContext(dir);
+        previewAgent(context, "preview", "subagents: off\n");
+
+        final int code =
+                execute(
+                        context,
+                        "task",
+                        "start",
+                        "-p",
+                        projectFile(dir, MINIMAL + "limits:\n  subagents: 1\n"),
+                        "--agent",
+                        "preview",
+                        "--dry-run");
+
+        assertThat(code).as("refused as wrong use: %s", err).isEqualTo(64);
+        assertThat(err.toString())
+                .as("the refusal names where the number came from")
+                .contains("preview can only switch its subagents off")
+                .contains("limits.subagents 1");
+        assertThat(runner.invocations()).as("a dry run touches no container runtime").isEmpty();
+    }
+
+    @Test
+    void canStartRefusesTheProjectFilesNumberAsStartRefusesIt(@TempDir Path dir)
+            throws IOException {
+
+        // An interface offered a start by CanStart would see Start refuse it, for a reason it was
+        // never told.
+        final PoreloContext context = previewContext(dir);
+        previewAgent(context, "preview", "subagents: off\n");
+        final String project =
+                projectFile(
+                        dir,
+                        MINIMAL
+                                + "limits:\n  subagents: 1\n"
+                                + "repositories:\n  backend:\n    limits:\n      subagents: 2\n");
+
+        final StartCheck.Result checked =
+                StartCheck.check(
+                        context,
+                        dir.resolve("project.yml"),
+                        "shell",
+                        "preview",
+                        null,
+                        null,
+                        "backend",
+                        true,
+                        java.util.Map.of(),
+                        java.util.Map.of(),
+                        null);
+        final int started =
+                execute(
+                        context,
+                        "task",
+                        "start",
+                        "-p",
+                        project,
+                        "--repository",
+                        "backend",
+                        "--agent",
+                        "preview",
+                        "--dry-run");
+
+        assertThat(started).as("Start refuses it: %s", err).isEqualTo(64);
+        assertThat(checked.outcome())
+                .as("CanStart says it cannot start: %s", checked.detail())
+                .isEqualTo(StartCheck.Outcome.SUBAGENTS_REFUSED);
+        assertThat(checked.ready()).isFalse();
+        assertThat(checked.detail())
+                .as("in the words Start refuses with, naming the repository's key")
+                .contains("repository backend's limits.subagents 2");
+        assertThat(err.toString()).contains("porelo: " + checked.detail());
+    }
+
+    @Test
+    void theStartsNumberWinsOverTheProjectFiles(@TempDir Path dir) throws IOException {
+        final PoreloContext context = previewContext(dir);
+        previewAgent(context, "preview", "subagents: off\n");
+        final String project = projectFile(dir, MINIMAL + "limits:\n  subagents: 3\n");
+
+        final int none =
+                execute(
+                        context,
+                        "task",
+                        "start",
+                        "-p",
+                        project,
+                        "--agent",
+                        "preview",
+                        "--subagents",
+                        "0",
+                        "--dry-run");
+
+        assertThat(none)
+                .as("--subagents 0 over the file's 3 is what the agent can hold: %s", err)
+                .isZero();
+
+        final int more =
+                execute(
+                        context,
+                        "task",
+                        "start",
+                        "-p",
+                        projectFile(dir, MINIMAL),
+                        "--agent",
+                        "preview",
+                        "--subagents",
+                        "2",
+                        "--dry-run");
+
+        assertThat(more).as("--subagents 2 over the file's none is refused").isEqualTo(64);
+        assertThat(err.toString()).contains("--subagents 2");
+    }
+
+    @Test
+    void anAgentThatDeclaresACountIsStartedForTheNumberAsked(@TempDir Path dir) throws IOException {
+        final PoreloContext context = previewContext(dir);
+        previewAgent(context, "preview", "subagents: count\n");
+
+        final int code =
+                execute(
+                        context,
+                        "task",
+                        "start",
+                        "-p",
+                        projectFile(dir, MINIMAL),
+                        "--agent",
+                        "preview",
+                        "--subagents",
+                        "3",
+                        "--dry-run");
+
+        assertThat(code).as("its adapter holds the task to three: %s", err).isZero();
+        assertThat(err.toString()).as("nothing refused").doesNotContain("subagents");
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource({
+        "-1, 64, --subagents takes 0 or more",
+        "two, 2, --subagents",
+        "1.5, 2, --subagents"
+    })
+    void aNumberOfSubagentsBelowNoneOrNotWholeIsWrongUse(
+            String value, int refused, String said, @TempDir Path dir) throws IOException {
+        // Below none is refused by the start, as the daemon's is; what is no number at all is
+        // refused by the parser, as every option's is.
+        final PoreloContext context = previewContext(dir);
+        previewAgent(context, "preview", "subagents: count\n");
+
+        final int code =
+                execute(
+                        context,
+                        "task",
+                        "start",
+                        "-p",
+                        projectFile(dir, MINIMAL),
+                        "--agent",
+                        "preview",
+                        "--subagents=" + value,
+                        "--dry-run");
+
+        assertThat(code).as("refused as wrong use: %s", err).isEqualTo(refused);
+        assertThat(err.toString()).as("naming the option").contains(said);
+        assertThat(runner.invocations()).as("nothing touched").isEmpty();
     }
 
     @Test

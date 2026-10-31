@@ -143,6 +143,28 @@ class HeadlessCommandTest {
     }
 
     @Test
+    void aSharedCommandIsNeverBuiltForMoreSubagentsThanTheAgentCanHold() {
+
+        // The last place before the agent runs: a request past what the definition declares would
+        // otherwise start an agent nothing holds to the number.
+        assertThatThrownBy(
+                        () ->
+                                agent(FULL)
+                                        .headlessCommand(
+                                                new RunRequest(
+                                                        "go", null, null, null, false, false, 1)))
+                .as("an agent that can only switch them off is not run with one")
+                .isInstanceOf(AgentException.class)
+                .hasMessageContaining("example");
+        assertThat(
+                        agent(FULL + "subagents: count\n")
+                                .headlessCommand(
+                                        new RunRequest("go", null, null, null, false, false, 2)))
+                .as("an agent that declares a count is run as asked")
+                .containsExactly("example-cli", "-p", "go");
+    }
+
+    @Test
     void putsThePromptLast() {
 
         // An agent taking the prompt positionally needs it after the flags; one taking it behind a

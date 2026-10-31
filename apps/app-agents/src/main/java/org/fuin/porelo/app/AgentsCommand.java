@@ -186,6 +186,13 @@ public class AgentsCommand implements Callable<Integer>, PoreloFactory.ContextAw
                         out.println(
                                 "             resume:  "
                                         + (agent.definition().supportsResume() ? "yes" : "no"));
+                        out.println(
+                                "             subagents: "
+                                        + (agent.definition().subagents()
+                                                        == org.fuin.porelo.agent.api.SubagentLimit
+                                                                .COUNT
+                                                ? "a count, at the same time"
+                                                : "off only - started only for a task that allows none"));
                         // What a check waits for once the agent is attached, and for how long. Said
                         // when it is absent too: then whether it reached work cannot be told.
                         final org.fuin.porelo.agent.api.ReadyMarker ready =

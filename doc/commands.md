@@ -212,7 +212,9 @@ At a terminal a shut vault asks for its passphrase; a script must unlock it firs
   reboot alike, and the start says whether it continued or began fresh. An agent that names no
   session, or a continuation that failed, begins fresh and says so; nothing runs twice unasked. The
   `--model` a task was started with is kept for `task attach` and later starts, and starting a stopped
-  task with another `--model` is refused, naming what it was started with.
+  task with another `--model` is refused, naming what it was started with. So is its
+  [`--subagents`](project-file.md#limits) number: a continuation hands its agent the number the task was
+  started with, takes `--subagents` with that number and refuses another with exit code 64.
 
 A start names each step as it takes it. The CLI adds `step`, `waiting` and `failed` lines to its
 usual output; a failure includes the dependency's last error line when available. With `more` and

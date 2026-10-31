@@ -57,6 +57,8 @@ public final class TaskLaunch {
      *     against the project's declarations.
      * @param branch Value of {@code --branch}: the task's branch at the forge named outright, or
      *     {@code null} for the one the project's scheme makes.
+     * @param subagents Value of {@code --subagents}: the most subagents the agent may run at the
+     *     same time, or {@code null} for what the project file says, and none when it says nothing.
      */
     public record Request(
             String task,
@@ -78,7 +80,77 @@ public final class TaskLaunch {
             @Nullable String repository,
             java.util.Map<String, String> credentials,
             java.util.Map<String, org.fuin.porelo.core.project.Parameters.Given> parameters,
-            @Nullable String branch) {
+            @Nullable String branch,
+            @Nullable Integer subagents) {
+
+        /**
+         * Constructor for a request that leaves its subagents to the project file.
+         *
+         * @param task Task name.
+         * @param projectFile Project file.
+         * @param agentName Agent to use, or {@code null}.
+         * @param providerName Provider, or {@code null}.
+         * @param credentialType Credential type override, or {@code null}.
+         * @param tokenHours Phantom token lifetime.
+         * @param upstream Upstream override, or {@code null}.
+         * @param noGate Whether to skip the gate.
+         * @param dryRun Whether to stop before starting.
+         * @param clearance Clearance mode.
+         * @param keep Whether to keep the container.
+         * @param mode What the task is for.
+         * @param prompt Prompt, or {@code null}.
+         * @param model Model, or {@code null}.
+         * @param maxTurns Turn limit, or {@code null}.
+         * @param minutes Minutes an unattended run may take.
+         * @param repository Which repository, or {@code null}.
+         * @param credentials Further credentials, by vault entry.
+         * @param parameters The values a start hands in.
+         * @param branch The task's branch at the forge, or {@code null}.
+         */
+        public Request(
+                String task,
+                Path projectFile,
+                @Nullable String agentName,
+                @Nullable String providerName,
+                @Nullable String credentialType,
+                int tokenHours,
+                @Nullable String upstream,
+                boolean noGate,
+                boolean dryRun,
+                String clearance,
+                boolean keep,
+                org.fuin.porelo.wire.TaskMode mode,
+                @Nullable String prompt,
+                @Nullable String model,
+                @Nullable Integer maxTurns,
+                int minutes,
+                @Nullable String repository,
+                java.util.Map<String, String> credentials,
+                java.util.Map<String, org.fuin.porelo.core.project.Parameters.Given> parameters,
+                @Nullable String branch) {
+            this(
+                    task,
+                    projectFile,
+                    agentName,
+                    providerName,
+                    credentialType,
+                    tokenHours,
+                    upstream,
+                    noGate,
+                    dryRun,
+                    clearance,
+                    keep,
+                    mode,
+                    prompt,
+                    model,
+                    maxTurns,
+                    minutes,
+                    repository,
+                    credentials,
+                    parameters,
+                    branch,
+                    null);
+        }
 
         /**
          * Constructor for a request that names no branch: the project's scheme makes it.
@@ -400,7 +472,8 @@ public final class TaskLaunch {
                     repository,
                     credentials,
                     parameters,
-                    branch);
+                    branch,
+                    subagents);
         }
     }
 
@@ -464,6 +537,15 @@ public final class TaskLaunch {
      * {@code --agent} names none.
      */
     private org.fuin.porelo.core.project.@Nullable Repository workedOn;
+
+    /**
+     * The most subagents the task's agent may run at the same time, once the start has settled it
+     * from {@code --subagents} or the project file; none until then.
+     */
+    private int subagents;
+
+    /** What the start says {@link #subagents} came from, as a refusal names it. */
+    private String subagentsAsked = "--subagents 0";
 
     /**
      * Constructor.
@@ -616,6 +698,21 @@ public final class TaskLaunch {
             err.flush();
             return new Existing(container, project.name(), 64);
         }
+        // Fixed when it was created, as its agent was set up then, and handed to its agent again
+        // from its record; a different number handed to a start that brings it back would change
+        // nothing, and say nothing.
+        final int kept = keptSubagents(container);
+        if (request.subagents() != null && request.subagents() != kept) {
+            err.println(
+                    "porelo: "
+                            + container
+                            + " was started with --subagents "
+                            + kept
+                            + ", which stays as it was; start it again without --subagents, or"
+                            + " remove it and start a new task");
+            err.flush();
+            return new Existing(container, project.name(), 64);
+        }
         // A task's values were fixed when it was created, in its environment and its record; a
         // value handed to a start that brings it back would change neither, and said nothing.
         if (!request.parameters().isEmpty()) {
@@ -738,6 +835,19 @@ public final class TaskLaunch {
         }
     }
 
+    /**
+     * Returns the number of subagents a task's start settled, as its record keeps it.
+     *
+     * @param container The task's container.
+     * @return The number; 0 for a task whose record does not say, which is what it was told.
+     */
+    private int keptSubagents(String container) {
+        final org.fuin.porelo.wire.TaskProfile profile =
+                org.fuin.porelo.wire.TaskProfile.readFrom(
+                        context.paths().tasks().containerState(container));
+        return profile == null ? 0 : profile.subagents();
+    }
+
     static @Nullable String ofAnotherProject(
             org.fuin.porelo.runtime.ContainerSummary found, String project) {
         return TaskInventory.ofAnotherProject(found, project);
@@ -792,7 +902,8 @@ public final class TaskLaunch {
                             request.repository(),
                             request.credentials(),
                             request.parameters(),
-                            request.branch());
+                            request.branch(),
+                            request.subagents());
         }
         return null;
     }
@@ -1233,6 +1344,9 @@ public final class TaskLaunch {
                                         + " ("
                                         + given.origin()
                                         + ")"));
+        if (!settleSubagents(project, repository, out, err)) {
+            return 64;
+        }
         if (!request.noGate()) {
             // Settled here, before anything exists, and kept with the task: a resume and a later
             // change to the project file leave it as it is.
@@ -1285,6 +1399,9 @@ public final class TaskLaunch {
                     return 2;
                 }
                 final InstalledAgent selected = choice.agent();
+                if (selected != null && refusesSubagents(selected, err)) {
+                    return 64;
+                }
                 SelectedProvider serving = null;
                 if (selected != null) {
                     // Refused as the start refuses it, in one line and 2: a provider the run
@@ -1345,6 +1462,13 @@ public final class TaskLaunch {
         final String container = runner.containerName(project, request.task());
 
         try (org.fuin.porelo.agent.api.InstalledAgents agents = context.agents()) {
+
+            // First, before a credential is looked at or anything is made: a task its agent cannot
+            // hold to its number is not one to prepare.
+            final InstalledAgent asked = select(agents);
+            if (asked != null && refusesSubagents(asked, err)) {
+                return 64;
+            }
 
             credentials().reportStaleCredential(select(agents), out);
             credentials().reportLegacyCredential(select(agents), out);
@@ -1994,7 +2118,9 @@ public final class TaskLaunch {
                         .prepareWorkspace(runner, workspace, container, environmentCache, out, err);
             }
 
-            placeAgentFiles(runner, selected, container, environmentCache, out, err);
+            if (!placeAgentFiles(runner, selected, container, environmentCache, out, err)) {
+                return cleanUp(runner, container, 70, out, err);
+            }
             out.println();
 
             clearance().startClearance(runner, project, container, out, err);
@@ -2165,7 +2291,13 @@ public final class TaskLaunch {
                 sessions.toContinue(container, selected.definition()).orElse(null);
         final org.fuin.porelo.agent.api.RunRequest agentRequest =
                 new org.fuin.porelo.agent.api.RunRequest(
-                        prompt, request.model(), request.maxTurns(), continuing, false, true);
+                        prompt,
+                        request.model(),
+                        request.maxTurns(),
+                        continuing,
+                        false,
+                        true,
+                        subagents);
 
         out.println();
         out.println("running   " + selected.name() + " (up to " + request.minutes() + " minutes)");
@@ -2233,6 +2365,9 @@ public final class TaskLaunch {
                     profile == null || profile.agent() == null
                             ? null
                             : agents.find(profile.agent()).orElse(null);
+            // Its number as its start settled it: the run request is where an unattended agent
+            // hears it, on every run.
+            subagents = profile == null ? 0 : profile.subagents();
             // Nothing extra for the exec: a container that exists already carries what it was
             // given.
             final int code =
@@ -2272,7 +2407,8 @@ public final class TaskLaunch {
                             null,
                             servingName,
                             request.model(),
-                            forgeBranch)
+                            forgeBranch,
+                            subagents)
                     .writeTo(context.paths().tasks().containerState(container));
         } catch (java.io.IOException ex) {
             err.println("porelo: could not record what this task is: " + ex.getMessage());
@@ -2362,6 +2498,94 @@ public final class TaskLaunch {
             layers = layers.and(project.imageSnippetLines(), java.util.List.of());
         }
         return layers;
+    }
+
+    /**
+     * Settles how many subagents the task's agent may run at the same time: {@code --subagents},
+     * else the repository's {@code limits.subagents}, else the project's, else none.
+     *
+     * @param project The project.
+     * @param repository The repository the task works on.
+     * @param out Where the number is said.
+     * @param err Where a number below none is refused.
+     * @return {@code false} when refused.
+     */
+    private boolean settleSubagents(
+            Project project,
+            org.fuin.porelo.core.project.Repository repository,
+            PrintWriter out,
+            PrintWriter err) {
+        final Integer flag = request.subagents();
+        if (flag != null && flag < 0) {
+            err.println("porelo: --subagents takes 0 or more, not " + flag);
+            err.println("porelo: nothing was created");
+            err.flush();
+            return false;
+        }
+        subagents = flag != null ? flag : project.limitsFor(repository).subagents();
+        final String from = subagentsFrom(flag, repository);
+        subagentsAsked = from + " " + subagents;
+        out.println(
+                "subagents      "
+                        + (subagents == 0 ? "none" : subagents + " at the same time")
+                        + (subagents == 0 && from.equals("limits.subagents")
+                                ? ""
+                                : " (from " + from + ")"));
+        return true;
+    }
+
+    /**
+     * Says where a start's number of subagents comes from, as a refusal names it.
+     *
+     * @param flag Value of {@code --subagents}, or {@code null}.
+     * @param repository The repository the task works on.
+     * @return The option or the key.
+     */
+    static String subagentsFrom(
+            @Nullable Integer flag, org.fuin.porelo.core.project.Repository repository) {
+        return flag != null
+                ? "--subagents"
+                : repository.limits().subagents() != null
+                        ? "repository " + repository.name() + "'s limits.subagents"
+                        : "limits.subagents";
+    }
+
+    /**
+     * Refuses a task whose agent cannot hold it to its number of subagents.
+     *
+     * @param agent The task's agent.
+     * @param err Where the refusal is said.
+     * @return {@code true} when refused.
+     */
+    private boolean refusesSubagents(InstalledAgent agent, PrintWriter err) {
+        final String refused = subagentsRefused(agent.definition(), subagents, subagentsAsked);
+        if (refused == null) {
+            return false;
+        }
+        err.println("porelo: " + refused);
+        err.println("porelo: nothing was created");
+        err.flush();
+        return true;
+    }
+
+    /**
+     * Says why an agent cannot be started for a number of subagents, if it cannot.
+     *
+     * @param definition The agent's definition.
+     * @param subagents The most subagents the task allows at the same time.
+     * @param asked Where the number came from, as the person wrote it.
+     * @return Why not, or {@code null} when its adapter can enforce the number.
+     */
+    static @Nullable String subagentsRefused(
+            org.fuin.porelo.agent.api.AgentDefinition definition, int subagents, String asked) {
+        if (definition.subagents().enforces(subagents)) {
+            return null;
+        }
+        return definition.name()
+                + " can only switch its subagents off, so it can enforce 0 and not "
+                + asked
+                + "; start it with --subagents 0, or with an agent whose definition declares"
+                + " 'subagents: count'";
     }
 
     @Nullable
@@ -2496,8 +2720,10 @@ public final class TaskLaunch {
      * @param environment Variables already prepared for the task.
      * @param out Where progress is reported.
      * @param err Where problems are reported.
+     * @return {@code false} when the files could not be placed for an agent started attended, whose
+     *     setup is the only place it hears its number of subagents; the task must not start then.
      */
-    private void placeAgentFiles(
+    private boolean placeAgentFiles(
             TaskRunner runner,
             org.fuin.porelo.agent.api.@org.jspecify.annotations.Nullable InstalledAgent agent,
             String container,
@@ -2506,7 +2732,7 @@ public final class TaskLaunch {
             PrintWriter err) {
 
         if (agent == null) {
-            return;
+            return true;
         }
         final String variable = credentials().tokenVariable(agent);
         final String named = variable == null ? null : environment.get(variable);
@@ -2526,7 +2752,8 @@ public final class TaskLaunch {
                                             .credentialType(credentials().credentialName(agent)),
                                     TaskWorkspace.MOUNT,
                                     wiring().endpointFor(agent, environment),
-                                    selection == null ? "" : selection.name()));
+                                    selection == null ? "" : selection.name(),
+                                    subagents));
             for (final var file : files) {
                 runner.place(container, file);
             }
@@ -2537,11 +2764,27 @@ public final class TaskLaunch {
                                 + " file(s) the agent needs to start"
                                 + " without being asked");
             }
+            return true;
         } catch (java.io.IOException | RuntimeException ex) {
-            // Not fatal: the agent still runs, it just asks the questions this would have answered.
-            // Saying so beats a task that looks wired up and then stops for input.
             err.println("porelo: could not prepare the agent's files: " + ex.getMessage());
+            if (request.mode() == org.fuin.porelo.wire.TaskMode.AGENT) {
+                // Started attended, its agent has no run request: without its setup it would run
+                // with its subagents as its own default has them, not as the task asks.
+                err.println(
+                        "porelo: "
+                                + agent.name()
+                                + " is started attended and hears how many subagents it may run ("
+                                + (subagents == 0 ? "none" : subagents + " at the same time")
+                                + ") only from these files, so the task is not started without"
+                                + " them");
+                err.flush();
+                return false;
+            }
+            // Otherwise not fatal: the run request carries the number, and the agent only asks the
+            // questions this would have answered. Saying so beats a task that looks wired up and
+            // then stops for input.
             err.flush();
+            return true;
         }
     }
 

@@ -72,7 +72,8 @@ public class AgentServer implements AutoCloseable {
                                     String.valueOf(parameters.get("credentialType")),
                                     String.valueOf(parameters.get("workspace")),
                                     text(parameters.get("endpoint")),
-                                    text(parameters.get("provider")));
+                                    text(parameters.get("provider")),
+                                    subagents(parameters));
                     for (final ContainerFile file : agent.containerSetup().files(context)) {
                         final Map<String, Object> entry = new LinkedHashMap<>();
                         entry.put("path", file.path());
@@ -97,7 +98,8 @@ public class AgentServer implements AutoCloseable {
                                     integer(parameters, "maxTurns"),
                                     optional(parameters, "resumeSession"),
                                     Boolean.TRUE.equals(parameters.get("verbose")),
-                                    Boolean.TRUE.equals(parameters.get("machineReadable")));
+                                    Boolean.TRUE.equals(parameters.get("machineReadable")),
+                                    subagents(parameters));
                     replies.last(Map.of("command", agent.headlessCommand(request)));
                 });
 
@@ -188,6 +190,30 @@ public class AgentServer implements AutoCloseable {
 
     private static @Nullable String optional(Map<String, Object> parameters, String key) {
         return parameters.get(key) instanceof String value && !value.isBlank() ? value : null;
+    }
+
+    /**
+     * Returns how many subagents the task allows, 0 when an older Porelo sent none.
+     *
+     * @param parameters The call's parameters.
+     * @return The number.
+     * @throws AgentException If one was sent and it is no whole number from 0 up: read as a lower
+     *     one, it would bound the agent to something nobody asked for.
+     */
+    private static int subagents(Map<String, Object> parameters) {
+        final Object given = parameters.get("subagents");
+        if (given == null) {
+            return 0;
+        }
+        final Integer subagents = SubagentLimit.wholeNumber(given);
+        if (subagents == null) {
+            throw new AgentException(
+                    "subagents takes a whole number from 0 to "
+                            + SubagentLimit.MOST
+                            + ", not "
+                            + (given instanceof String text ? "'" + text + "'" : given));
+        }
+        return subagents;
     }
 
     private static @Nullable Integer integer(Map<String, Object> parameters, String key) {

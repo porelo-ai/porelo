@@ -119,6 +119,8 @@ session:
     shows: ["bypass permissions on"]               # text that must all be on the screen
     lacks: ["esc to interrupt", "Esc to cancel"]   # text that must none be on it
 
+subagents: count              # optional; off (the default) or count: what the adapter can enforce
+
 instructions:                 # optional; how the agent takes standing instructions from a file
   arguments: ["--append-system-prompt-file", "{file}"]   # {file} is where the file's path goes
 
@@ -244,6 +246,16 @@ agent - attended, unattended, continued - behind whatever turns its prompts off.
 has its mailbox's guide, `/run/porelo/mail/README.md`, instead, and an agent that declares nothing is not told. The flag is the
 agent's own, so it is declared, never guessed. The guide is the same for every task of one Porelo version, so a
 provider that caches a prompt by its beginning keeps caching it.
+
+**`subagents` is what the adapter can enforce of the subagents a task allows.** A task gives one number, 0 by
+default for none, 1 or more for the most subagents its agent may run at the same time inside the task; the adapter
+receives it as `subagents` in `RunRequest` and in `SetupContext` (the parameter `subagents` of `BuildCommand` and
+`ContainerSetup`, always sent; anything but a whole number from 0 up is refused by `AgentServer`, never rounded)
+and turns it into the agent's own switch, a flag, a setting or a file. `off` says it
+can only switch them off, so only 0 is held; `count` says it bounds the number at once. A definition without the key
+is read as `off`, and a task asking for more than the definition declares is refused before it starts, naming the
+agent. Write `off` unquoted or quoted; YAML reading it as `false` is the same declaration. Declare `count` only once
+the adapter holds the agent to it, measured at the version it pins.
 
 ### 3. `agents/<name>/src/main/java/org/fuin/porelo/agent/impl/<name>/<Name>Agent.java`
 

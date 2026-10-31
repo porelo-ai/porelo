@@ -514,6 +514,13 @@ method Start(
   model: ?string,
   # Turn limit, when the agent declares one.
   maxTurns: ?int,
+  # The most subagents the agent may run at the same time inside the task; 0 for none. Default: the
+  # project file's limits.subagents, else 0. A number the agent's definition says it cannot enforce
+  # is refused with exitCode 64 before anything is made, and so is anything but a whole number from
+  # 0 to 2147483647 (a fraction, a string, a boolean); CanStart answers SUBAGENTS_REFUSED for the
+  # project file's number. A task brought back keeps its number and hands it to its agent again: the
+  # same number is taken, another is refused with exitCode 64.
+  subagents: ?int,
   # How long the agent may run, in minutes. Default: 30. On expiry the run is killed and whatever
   # it produced is kept - the exit code is 124 and the log holds what it managed to say.
   minutes: ?int,
@@ -758,7 +765,11 @@ type StartOutcome (
   # The start would have no gate (noGate), and the project declares host services, which a task
   # reaches at the gate's address. 'detail' names them. Start refuses the same case before anything is
   # created.
-  HOST_SERVICES_NEED_A_GATE
+  HOST_SERVICES_NEED_A_GATE,
+  # project.yml's limits.subagents, or the repository's, asks the agent for more subagents at the same
+  # time than its definition says it can enforce. 'detail' names the agent and where the number came
+  # from, in the words Start refuses with (exitCode 64).
+  SUBAGENTS_REFUSED
 )
 
 # Whether work could start here, asked before anything is created.

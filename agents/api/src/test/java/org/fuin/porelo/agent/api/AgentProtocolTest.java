@@ -202,6 +202,174 @@ class AgentProtocolTest {
         }
     }
 
+    /** An adapter that answers with what it was told, as the command it would run. */
+    private static Agent echoingSubagents() {
+        final AgentDefinition definition =
+                AgentDefinitionReader.read(new StringReader(DEFINITION), "test.yaml");
+        return new Agent() {
+            @Override
+            public AgentDefinition definition() {
+                return definition;
+            }
+
+            @Override
+            public List<String> headlessCommand(RunRequest request) {
+                return List.of(request.prompt(), "subagents=" + request.subagents());
+            }
+
+            @Override
+            public ContainerSetup containerSetup() {
+                return context ->
+                        List.of(
+                                new ContainerFile(
+                                        "/subagents", String.valueOf(context.subagents()), false));
+            }
+        };
+    }
+
+    @Test
+    void aRunThatSaysNothingOfSubagentsReachesTheAdapterAsNone(@TempDir Path dir) throws Exception {
+
+        // The default is none, and it has to arrive as a number: an adapter told nothing would
+        // leave its agent's own default in place, which is to start as many as it likes.
+        try (AgentServer server = new AgentServer(echoingSubagents(), dir.resolve("a.sock"))) {
+            Thread.ofVirtual().start(server::serve);
+
+            try (var client = new org.fuin.porelo.wire.varlink.VarlinkClient(server.socketPath())) {
+                final Map<String, Object> plain = InstalledAgent.parameters(RunRequest.of("go"));
+                assertThat(plain)
+                        .as("the client sends none as a number")
+                        .containsEntry("subagents", 0);
+                assertThat((List<?>) client.call(AgentProtocol.BUILD_COMMAND, plain).get("command"))
+                        .as("the adapter is told none")
+                        .map(String::valueOf)
+                        .containsExactly("go", "subagents=0");
+                assertThat(
+                                (List<?>)
+                                        client.call(
+                                                        AgentProtocol.BUILD_COMMAND,
+                                                        InstalledAgent.parameters(
+                                                                new RunRequest(
+                                                                        "go", null, null, null,
+                                                                        false, false, 3)))
+                                                .get("command"))
+                        .as("the adapter is told the task's number")
+                        .map(String::valueOf)
+                        .containsExactly("go", "subagents=3");
+                assertThat(
+                                (List<?>)
+                                        client.call(
+                                                        AgentProtocol.BUILD_COMMAND,
+                                                        Map.of("prompt", "go"))
+                                                .get("command"))
+                        .as("an older Porelo that sends nothing is read as none")
+                        .map(String::valueOf)
+                        .containsExactly("go", "subagents=0");
+            }
+        }
+    }
+
+    @Test
+    void anAttendedTasksSetupTellsTheAdapterItsSubagents(@TempDir Path dir) throws Exception {
+
+        // An attended agent is started without a run request, so its setup is where an adapter
+        // hears the number, and none when the task says nothing.
+        try (AgentServer server = new AgentServer(echoingSubagents(), dir.resolve("a.sock"))) {
+            Thread.ofVirtual().start(server::serve);
+
+            try (var client = new org.fuin.porelo.wire.varlink.VarlinkClient(server.socketPath())) {
+                for (final var told :
+                        Map.of(
+                                        new SetupContext("t", "api-key", "/workspace", "", "p"),
+                                        "0",
+                                        new SetupContext("t", "api-key", "/workspace", "", "p", 2),
+                                        "2")
+                                .entrySet()) {
+                    assertThat(
+                                    (List<?>)
+                                            client.call(
+                                                            AgentProtocol.CONTAINER_SETUP,
+                                                            told.getKey().parameters())
+                                                    .get("files"))
+                            .as("the adapter is told %s", told.getValue())
+                            .singleElement()
+                            .extracting(file -> ((Map<?, ?>) file).get("content"))
+                            .isEqualTo(told.getValue());
+                }
+            }
+        }
+    }
+
+    @Test
+    void aNumberOfSubagentsThatIsNoWholeNumberFromNoneUpIsRefusedNotRounded(@TempDir Path dir)
+            throws Exception {
+
+        // Rounded or dropped, the adapter would bound its agent to a number nobody asked for.
+        try (AgentServer server = new AgentServer(echoingSubagents(), dir.resolve("a.sock"))) {
+            Thread.ofVirtual().start(server::serve);
+
+            try (var client = new org.fuin.porelo.wire.varlink.VarlinkClient(server.socketPath())) {
+                for (final Object given : List.<Object>of(-0.5, 2.7, 1e11, -1, "2", true)) {
+                    assertThatThrownBy(
+                                    () ->
+                                            client.call(
+                                                    AgentProtocol.BUILD_COMMAND,
+                                                    Map.of("prompt", "go", "subagents", given)))
+                            .as("a run asking %s is refused", given)
+                            .hasMessageContaining("subagents takes a whole number from 0");
+                    assertThatThrownBy(
+                                    () ->
+                                            client.call(
+                                                    AgentProtocol.CONTAINER_SETUP,
+                                                    Map.of(
+                                                            "token",
+                                                            "t",
+                                                            "credentialType",
+                                                            "api-key",
+                                                            "workspace",
+                                                            "/workspace",
+                                                            "subagents",
+                                                            given)))
+                            .as("a setup asking %s is refused", given)
+                            .hasMessageContaining("subagents takes a whole number from 0");
+                }
+                assertThat(
+                                (List<?>)
+                                        client.call(
+                                                        AgentProtocol.BUILD_COMMAND,
+                                                        Map.of("prompt", "go", "subagents", 4))
+                                                .get("command"))
+                        .as("a whole number is taken as it is")
+                        .map(String::valueOf)
+                        .containsExactly("go", "subagents=4");
+            }
+        }
+    }
+
+    @Test
+    void theClientSendsEveryFieldOfARunRequest() {
+
+        // As for the setup context: a field added to the request and never sent is an adapter that
+        // is quietly told nothing.
+        final RunRequest request = new RunRequest("go", "big", 5, "abc", true, true, 2);
+
+        assertThat(InstalledAgent.parameters(request).keySet())
+                .containsExactlyInAnyOrderElementsOf(
+                        java.util.Arrays.stream(RunRequest.class.getRecordComponents())
+                                .map(java.lang.reflect.RecordComponent::getName)
+                                .toList());
+    }
+
+    @Test
+    void aNegativeNumberOfSubagentsIsNoRequest() {
+        assertThatThrownBy(() -> new RunRequest("go", null, null, null, false, false, -1))
+                .as("below none is a mistake, never a bound")
+                .isInstanceOf(AgentException.class);
+        assertThatThrownBy(() -> new SetupContext("t", "api-key", "/workspace", "", "p", -1))
+                .as("below none is a mistake in a setup too")
+                .isInstanceOf(AgentException.class);
+    }
+
     @Test
     void theClientSendsEveryFieldOfTheSetupContext() {
 

@@ -74,6 +74,39 @@ class AgentDefinitionReaderTest {
     }
 
     @Test
+    void aDefinitionThatSaysNothingOfSubagentsCanHoldOnlyNone() {
+        final AgentDefinition older = read(MINIMAL);
+
+        assertThat(older.subagents())
+                .as("an adapter from before the declaration can switch nothing")
+                .isEqualTo(SubagentLimit.OFF);
+        assertThat(older.subagents().enforces(0)).as("none is always held").isTrue();
+        assertThat(older.subagents().enforces(1)).as("one is more than it can hold").isFalse();
+    }
+
+    @ParameterizedTest
+    @CsvSource({"off, OFF", "'\"off\"', OFF", "count, COUNT"})
+    void readsWhatAnAdapterCanEnforceOfItsSubagents(String value, SubagentLimit expected) {
+        final AgentDefinition definition = read(MINIMAL + "subagents: " + value + "\n");
+
+        assertThat(definition.subagents())
+                .as("the adapter's declaration decides which tasks it is started for")
+                .isEqualTo(expected);
+        assertThat(definition.subagents().enforces(3))
+                .as("only a count holds a task to three")
+                .isEqualTo(expected == SubagentLimit.COUNT);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"on", "true", "2", "''", "null", "[]", "{}", "depth"})
+    void refusesASubagentDeclarationThatIsNeitherOffNorACount(String value) {
+        assertThatThrownBy(() -> read(MINIMAL + "subagents: " + value + "\n"))
+                .as("a declaration nobody can read must not pass as one")
+                .isInstanceOf(AgentException.class)
+                .hasMessageContaining("subagents");
+    }
+
+    @Test
     void readsTheMinimumAnAgentMustDeclare() {
 
         final AgentDefinition definition = read(MINIMAL);

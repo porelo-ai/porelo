@@ -12,8 +12,11 @@ import org.jspecify.annotations.Nullable;
  * @param memory Value for {@code --memory}, for example {@code 8g}, or {@code null} for no limit.
  * @param cpus Value for {@code --cpus}, for example {@code 2.0}, or {@code null} for no limit.
  * @param pids Value for {@code --pids-limit}.
+ * @param handIn Bytes one file handed to a running task may have.
+ * @param subagents The most subagents a task's agent may run at the same time; 0 for none.
  */
-public record Limits(@Nullable String memory, @Nullable String cpus, int pids, long handIn) {
+public record Limits(
+        @Nullable String memory, @Nullable String cpus, int pids, long handIn, int subagents) {
 
     /** Memory a task gets unless the project says otherwise. */
     public static final String DEFAULT_MEMORY = "8g";
@@ -43,7 +46,7 @@ public record Limits(@Nullable String memory, @Nullable String cpus, int pids, l
      * @return Defaults.
      */
     public static Limits defaults() {
-        return new Limits(DEFAULT_MEMORY, DEFAULT_CPUS, DEFAULT_PIDS, DEFAULT_HAND_IN);
+        return new Limits(DEFAULT_MEMORY, DEFAULT_CPUS, DEFAULT_PIDS, DEFAULT_HAND_IN, 0);
     }
 
     /**
@@ -66,6 +69,7 @@ public record Limits(@Nullable String memory, @Nullable String cpus, int pids, l
      * @param cpus CPU limit, or {@code null}.
      * @param pids Process limit.
      * @param handIn Bytes one file handed to a running task may have.
+     * @param subagents The most subagents at the same time.
      */
     public Limits {
         if (pids < 1) {
@@ -74,6 +78,21 @@ public record Limits(@Nullable String memory, @Nullable String cpus, int pids, l
         if (handIn < 1) {
             throw new ProjectException("A hand-in limit of " + handIn + " bytes lets no file in");
         }
+        if (subagents < 0) {
+            throw new ProjectException("A subagent limit of " + subagents + " is below none");
+        }
+    }
+
+    /**
+     * Constructor for limits that allow no subagents.
+     *
+     * @param memory Memory limit, or {@code null}.
+     * @param cpus CPU limit, or {@code null}.
+     * @param pids Process limit.
+     * @param handIn Bytes one file handed to a running task may have.
+     */
+    public Limits(@Nullable String memory, @Nullable String cpus, int pids, long handIn) {
+        this(memory, cpus, pids, handIn, 0);
     }
 
     /**
@@ -124,12 +143,16 @@ public record Limits(@Nullable String memory, @Nullable String cpus, int pids, l
      * @param cpus Value for {@code --cpus}, {@code "none"} for no limit, or {@code null} when the
      *     repository said nothing.
      * @param pids Process limit, or {@code null} when the repository said nothing.
+     * @param handIn Hand-in limit in bytes, or {@code null} when the repository said nothing.
+     * @param subagents The most subagents at the same time, or {@code null} when the repository
+     *     said nothing.
      */
     public record Declared(
             @Nullable String memory,
             @Nullable String cpus,
             @Nullable Integer pids,
-            @Nullable Long handIn) {
+            @Nullable Long handIn,
+            @Nullable Integer subagents) {
 
         /** How a project or a repository opts out of a limit on purpose. */
         public static final String NONE = "none";
@@ -141,6 +164,7 @@ public record Limits(@Nullable String memory, @Nullable String cpus, int pids, l
          * @param cpus CPU limit, {@code "none"}, or {@code null}.
          * @param pids Process limit, or {@code null}.
          * @param handIn Hand-in limit in bytes, or {@code null}.
+         * @param subagents The most subagents at the same time, or {@code null}.
          */
         public Declared {
             if (pids != null && pids < 1) {
@@ -150,6 +174,25 @@ public record Limits(@Nullable String memory, @Nullable String cpus, int pids, l
                 throw new ProjectException(
                         "A hand-in limit of " + handIn + " bytes lets no file in");
             }
+            if (subagents != null && subagents < 0) {
+                throw new ProjectException("A subagent limit of " + subagents + " is below none");
+            }
+        }
+
+        /**
+         * Constructor for a repository that says nothing of subagents.
+         *
+         * @param memory Memory limit, {@code "none"}, or {@code null}.
+         * @param cpus CPU limit, {@code "none"}, or {@code null}.
+         * @param pids Process limit, or {@code null}.
+         * @param handIn Hand-in limit in bytes, or {@code null}.
+         */
+        public Declared(
+                @Nullable String memory,
+                @Nullable String cpus,
+                @Nullable Integer pids,
+                @Nullable Long handIn) {
+            this(memory, cpus, pids, handIn, null);
         }
 
         /**
@@ -158,7 +201,11 @@ public record Limits(@Nullable String memory, @Nullable String cpus, int pids, l
          * @return {@code true} when every key was absent.
          */
         public boolean isEmpty() {
-            return memory == null && cpus == null && pids == null && handIn == null;
+            return memory == null
+                    && cpus == null
+                    && pids == null
+                    && handIn == null
+                    && subagents == null;
         }
 
         /**
@@ -175,7 +222,8 @@ public record Limits(@Nullable String memory, @Nullable String cpus, int pids, l
                     memory == null ? base.memory() : NONE.equals(memory) ? null : memory,
                     cpus == null ? base.cpus() : NONE.equals(cpus) ? null : cpus,
                     pids == null ? base.pids() : pids,
-                    handIn == null ? base.handIn() : handIn);
+                    handIn == null ? base.handIn() : handIn,
+                    subagents == null ? base.subagents() : subagents);
         }
 
         /**
@@ -184,7 +232,7 @@ public record Limits(@Nullable String memory, @Nullable String cpus, int pids, l
          * @return Every key absent.
          */
         public static Declared none() {
-            return new Declared(null, null, null, null);
+            return new Declared(null, null, null, null, null);
         }
     }
 }

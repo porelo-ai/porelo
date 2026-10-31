@@ -49,7 +49,7 @@ final class ProjectSchema {
                 Set.of("name", "description", "security_class", "upstream", "signers", "nickname"));
         SECTIONS.put("image", Set.of("base_image", "snippet", "snippet_file", "package_sources"));
         SECTIONS.put("egress", Set.of("sets", "domains", "refused", "host_services"));
-        SECTIONS.put("limits", Set.of("memory", "pids", "cpus", "hand_in"));
+        SECTIONS.put("limits", Set.of("memory", "pids", "cpus", "hand_in", "subagents"));
         SECTIONS.put("mail", Set.of("peers", "transports", "outgoing_filter", Mail.RULES));
         SECTIONS.put("mail.rules", Set.of("project", "room", "others"));
         SECTIONS.put("mail.peers.<peer>", Set.of("address", "trust", "per_day", "mode"));
@@ -401,6 +401,14 @@ final class ProjectSchema {
                             "64m",
                             false),
                     key(
+                            "limits",
+                            "subagents",
+                            "The most subagents a task's agent may run at the same time; 0 for none."
+                                    + " '--subagents' wins; an agent that cannot enforce it is refused.",
+                            "integer",
+                            "0",
+                            false),
+                    key(
                             "mail",
                             "peers",
                             "The names tasks may write to, each with where it is reached.",
@@ -518,7 +526,7 @@ final class ProjectSchema {
                             "repositories.<repository>",
                             "limits",
                             "What a task on this repository may consume, replacing the"
-                                    + " project's key by key: memory, pids, cpus.",
+                                    + " project's key by key: memory, pids, cpus, subagents.",
                             "map",
                             "",
                             false),

@@ -61,6 +61,8 @@ import org.jspecify.annotations.Nullable;
  * @param grants The OAuth apps it signs in to providers with, which {@code porelo vault authorize}
  *     grants for it; empty when it signs in to none.
  * @param loginFlow How its sign-in works, or {@code null} when undeclared.
+ * @param subagents What its adapter can enforce of the subagents a task allows it; {@link
+ *     SubagentLimit#OFF} when it declares nothing, so that it is started only with none.
  */
 public record AgentDefinition(
         String name,
@@ -89,7 +91,99 @@ public record AgentDefinition(
         List<String> instructionArguments,
         @Nullable AtRest atRest,
         List<AgentGrant> grants,
-        @Nullable LoginFlow loginFlow) {
+        @Nullable LoginFlow loginFlow,
+        SubagentLimit subagents) {
+
+    /**
+     * Constructor for an agent that declares nothing about its subagents, and is therefore started
+     * only with none.
+     *
+     * @param name Short name.
+     * @param label Human-readable label.
+     * @param binary Executable inside the container.
+     * @param gitIdentity Commit author.
+     * @param headless Command-line shape.
+     * @param supportsResume Whether it continues a session.
+     * @param resumeFlag The flag that does, or {@code null}.
+     * @param tokenEnvironment Where its token goes, by credential type.
+     * @param provider How it reaches a provider, or {@code null}.
+     * @param allowedDomains Destinations it may reach.
+     * @param refusedDomains Destinations it may not.
+     * @param version Its pinned version, or {@code null}.
+     * @param artifacts What the image build fetches.
+     * @param installAsRoot Commands run as root in the image.
+     * @param installAsAgent Commands run as the agent in the image.
+     * @param packaged Trees the package carries.
+     * @param configDirectory Where it keeps its credentials, or {@code null}.
+     * @param loginArguments What runs its login, or {@code null}.
+     * @param loginDocumentation Where that login is described, or {@code null}.
+     * @param sandboxedArguments What turns its own permission prompts off.
+     * @param ready What it shows once at work, or {@code null}.
+     * @param waiting What waiting for a person looks like, or {@code null}.
+     * @param sessionIds Where it names its session, or {@code null}.
+     * @param instructionArguments How it takes standing instructions.
+     * @param atRest What its screen shows at rest, or {@code null}.
+     * @param grants The OAuth apps it signs in to providers with.
+     * @param loginFlow How its sign-in works, or {@code null}.
+     */
+    public AgentDefinition(
+            String name,
+            String label,
+            String binary,
+            GitIdentity gitIdentity,
+            HeadlessFlags headless,
+            boolean supportsResume,
+            @Nullable String resumeFlag,
+            Map<String, String> tokenEnvironment,
+            @Nullable AgentProvider provider,
+            List<String> allowedDomains,
+            List<String> refusedDomains,
+            @Nullable String version,
+            List<InstallArtifact> artifacts,
+            List<String> installAsRoot,
+            List<String> installAsAgent,
+            List<PackagedTree> packaged,
+            @Nullable String configDirectory,
+            @Nullable List<String> loginArguments,
+            @Nullable String loginDocumentation,
+            List<String> sandboxedArguments,
+            @Nullable ReadyMarker ready,
+            @Nullable Waiting waiting,
+            @Nullable SessionIds sessionIds,
+            List<String> instructionArguments,
+            @Nullable AtRest atRest,
+            List<AgentGrant> grants,
+            @Nullable LoginFlow loginFlow) {
+        this(
+                name,
+                label,
+                binary,
+                gitIdentity,
+                headless,
+                supportsResume,
+                resumeFlag,
+                tokenEnvironment,
+                provider,
+                allowedDomains,
+                refusedDomains,
+                version,
+                artifacts,
+                installAsRoot,
+                installAsAgent,
+                packaged,
+                configDirectory,
+                loginArguments,
+                loginDocumentation,
+                sandboxedArguments,
+                ready,
+                waiting,
+                sessionIds,
+                instructionArguments,
+                atRest,
+                grants,
+                loginFlow,
+                SubagentLimit.OFF);
+    }
 
     /**
      * Constructor for an agent that does not declare its sign-in flow.
@@ -928,6 +1022,7 @@ public record AgentDefinition(
         }
         artifacts = List.copyOf(artifacts);
         grants = grants == null ? List.of() : List.copyOf(grants);
+        subagents = subagents == null ? SubagentLimit.OFF : subagents;
         installAsRoot = List.copyOf(installAsRoot);
         installAsAgent = List.copyOf(installAsAgent);
     }

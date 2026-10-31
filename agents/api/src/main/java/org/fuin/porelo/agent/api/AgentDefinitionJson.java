@@ -90,6 +90,7 @@ public final class AgentDefinitionJson {
         if (definition.loginFlow() != null) {
             out.put("loginFlow", definition.loginFlow().value());
         }
+        out.put("subagents", definition.subagents().value());
         out.put("sandboxedArguments", definition.sandboxedArguments());
         out.put("instructionArguments", definition.instructionArguments());
         if (definition.atRest() != null) {
@@ -223,7 +224,11 @@ public final class AgentDefinitionJson {
                 // An explicit null is no flow, as for every optional field here.
                 source.get("loginFlow") != null
                         ? LoginFlow.of(source.get("loginFlow"), "the agent's own description")
-                        : null);
+                        : null,
+                // Absent from an adapter older than the field, which can hold only none.
+                source.get("subagents") != null
+                        ? SubagentLimit.of(source.get("subagents"), "the agent's own description")
+                        : SubagentLimit.OFF);
     }
 
     private static Map<String, Object> writeWaiting(Waiting waiting) {

@@ -47,6 +47,9 @@ import org.jspecify.annotations.Nullable;
  * @param forgeBranch The branch the task's work carries beyond the gate, as its start settled it
  *     from the project's scheme or {@code --branch}; {@code null} in a profile from before it was
  *     recorded, which means {@code porelo/<task>}.
+ * @param subagents The most subagents the task's agent may run at the same time, as its start
+ *     settled it; a continuation hands its agent this number again. 0 in a profile from before it
+ *     was recorded, which is what the agent was told then.
  */
 public record TaskProfile(
         int version,
@@ -59,7 +62,50 @@ public record TaskProfile(
         @Nullable String label,
         @Nullable String provider,
         @Nullable String model,
-        @Nullable String forgeBranch) {
+        @Nullable String forgeBranch,
+        int subagents) {
+
+    /**
+     * Constructor for a task whose agent may run no subagents.
+     *
+     * @param version Schema version.
+     * @param agent Agent running in the task, or {@code null}.
+     * @param mode How a person is meant to be involved.
+     * @param prompt What an unattended task was asked to do, or {@code null}.
+     * @param branch Ref the work goes to, or {@code null}.
+     * @param startedAt When it started, ISO-8601.
+     * @param clearance What it does with a blocked connection.
+     * @param label Its caption, or {@code null}.
+     * @param provider Its model provider, or {@code null}.
+     * @param model Model requested at start, or {@code null}.
+     * @param forgeBranch The branch beyond the gate, or {@code null}.
+     */
+    public TaskProfile(
+            int version,
+            @Nullable String agent,
+            TaskMode mode,
+            @Nullable String prompt,
+            @Nullable String branch,
+            String startedAt,
+            @Nullable String clearance,
+            @Nullable String label,
+            @Nullable String provider,
+            @Nullable String model,
+            @Nullable String forgeBranch) {
+        this(
+                version,
+                agent,
+                mode,
+                prompt,
+                branch,
+                startedAt,
+                clearance,
+                label,
+                provider,
+                model,
+                forgeBranch,
+                0);
+    }
 
     /**
      * Constructor for a task whose branch beyond the gate is today's, {@code porelo/<task>}.
@@ -183,7 +229,8 @@ public record TaskProfile(
                 caption == null || caption.isBlank() ? null : caption.strip(),
                 provider,
                 model,
-                forgeBranch);
+                forgeBranch,
+                subagents);
     }
 
     /**
@@ -208,7 +255,8 @@ public record TaskProfile(
                 label,
                 provider,
                 model,
-                forgeBranch);
+                forgeBranch,
+                subagents);
     }
 
     /**
@@ -228,7 +276,7 @@ public record TaskProfile(
     }
 
     /** Current schema version. */
-    public static final int VERSION = 6;
+    public static final int VERSION = 7;
 
     /** Name of the file in a task's state directory. */
     public static final String FILE = "task.json";
@@ -252,6 +300,7 @@ public record TaskProfile(
         document.put("provider", provider == null ? "" : provider);
         document.put("model", model == null ? "" : model);
         document.put("forgeBranch", forgeBranch == null ? "" : forgeBranch);
+        document.put("subagents", subagents);
         final Path file = stateDirectory.resolve(FILE);
         Files.writeString(file, Json.write(document), StandardCharsets.UTF_8);
         // A prompt is the operator's own words and may name anything they were working on; the same
@@ -295,12 +344,24 @@ public record TaskProfile(
                     text(document, "provider"),
                     text(document, "model"),
                     // A task started before it was recorded reads as porelo/<task>, its name then.
-                    text(document, "forgeBranch"));
+                    text(document, "forgeBranch"),
+                    // A task started before it was recorded was told none.
+                    subagents(document));
         } catch (IOException | RuntimeException ex) {
             // A half-written file from a start that was killed. A task nobody can describe is still
             // a task somebody may need to stop.
             return null;
         }
+    }
+
+    private static int subagents(Map<?, ?> document) {
+        // Anything but a whole number from 0 up reads as none, the fewest it could mean.
+        return document.get("subagents") instanceof Number number
+                        && number.doubleValue() >= 0
+                        && number.doubleValue() <= Integer.MAX_VALUE
+                        && number.doubleValue() == Math.rint(number.doubleValue())
+                ? number.intValue()
+                : 0;
     }
 
     @Nullable
