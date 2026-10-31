@@ -298,6 +298,7 @@ final class SignerHandover {
                     if (signingKey != null
                             && (backups.contains(signingKey)
                                     || declared.contains(signingKey)
+                                    || backupsAt(clone, commit).contains(signingKey)
                                     || !parents.isEmpty()
                                             && backupsAt(clone, parents.getFirst())
                                                     .contains(signingKey))) {
@@ -336,8 +337,13 @@ final class SignerHandover {
                                 java.util.Objects.requireNonNull(
                                         named,
                                         "removing a declared list was refused before verification");
+                        final List<String> backupsHere = backupsAt(clone, commit);
                         for (final String key : keys) {
-                            if (!next.contains(key)) {
+                            // A backup key is never kept, active or retired.
+                            if (!next.contains(key)
+                                    && !backups.contains(key)
+                                    && !declared.contains(key)
+                                    && !backupsHere.contains(key)) {
                                 final Retired retired = new Retired(key, timeOf(clone, commit));
                                 final Path check = Files.createTempFile("porelo-retirement-", "");
                                 try {
@@ -363,6 +369,16 @@ final class SignerHandover {
                     tipVerdict = verdict;
                 }
             }
+            // A key a registry read here revokes is never pinned, nor vouches for the tip in force.
+            keys =
+                    keys.stream()
+                            .filter(
+                                    key -> {
+                                        final String fingerprint = SignedBy.fingerprintOf(key);
+                                        return fingerprint == null
+                                                || !revokedByRegistry.test(fingerprint);
+                                    })
+                            .toList();
             if (commits.isEmpty()) {
                 final ConfigurationGate.Verdict verdict = verify(clone, project, keys, tip);
                 tipVerdict = verdict.mayApply() ? verdict : null;

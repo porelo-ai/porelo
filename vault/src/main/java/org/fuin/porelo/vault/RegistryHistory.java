@@ -387,8 +387,16 @@ public final class RegistryHistory {
             }
             for (RegistryState.Host host : trusted.hosts()) {
                 final String path = "hosts/" + host.host() + "/";
+                // A host admin's backup key places no host file, as the walk's hostAdmin() has it.
+                final Set<String> backups = new java.util.HashSet<>();
+                admins.getOrDefault(host.host(), List.of()).stream()
+                        .filter(RegistryState.Owner::backup)
+                        .forEach(admin -> backups.add(admin.fingerprint()));
                 final String card = trusted.blobs().get(path + "card");
                 final RegistryState.Change change = trusted.changes().get(path + "card");
+                if (change != null && backups.contains(change.signer())) {
+                    return false;
+                }
                 final RegistryState.Card read =
                         card == null || change == null
                                 ? null
@@ -404,6 +412,10 @@ public final class RegistryHistory {
                 final List<RegistryState.Admin> projectAdmins = new ArrayList<>();
                 final List<RegistryState.Project> projects = new ArrayList<>();
                 if (access != null) {
+                    final RegistryState.Change placed = trusted.changes().get(path + "access.yml");
+                    if (placed == null || backups.contains(placed.signer())) {
+                        return false;
+                    }
                     final RegistryAccess file =
                             RegistryAccess.read(text(repository, access), path + "access.yml");
                     file.admins()

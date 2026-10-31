@@ -1192,13 +1192,24 @@ public class ProjectAccessCommand implements Callable<Integer>, PoreloFactory.Co
         return field.isEmpty() ? List.of() : List.of(field.split("\u001E", -1));
     }
 
-    /** Whether a commit is signed by a key pinned for the project, as the follow checks it. */
+    /**
+     * Whether a commit is signed by a key pinned for the project that no registry read here
+     * revokes, as the follow checks it.
+     */
     private boolean signed(
             final SignerHandover handover, final Path repository, final String commit)
             throws Refused {
+        final Set<String> revoked = registryRevocations();
+        final List<String> keys =
+                handover.pinned(projectName).stream()
+                        .filter(
+                                key -> {
+                                    final String fingerprint = SignedBy.fingerprintOf(key);
+                                    return fingerprint == null || !revoked.contains(fingerprint);
+                                })
+                        .toList();
         try {
-            return handover.verify(repository, projectName, handover.pinned(projectName), commit)
-                    .mayApply();
+            return handover.verify(repository, projectName, keys, commit).mayApply();
         } catch (final ProjectException ex) {
             throw new Refused(65, String.valueOf(ex.getMessage()));
         }

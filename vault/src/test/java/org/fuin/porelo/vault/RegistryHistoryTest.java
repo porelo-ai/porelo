@@ -1710,6 +1710,63 @@ class RegistryHistoryTest {
     }
 
     /**
+     * A host admin's backup key places no host card nor access file in the walk, so a record naming
+     * one it placed must not bring that host's card or project admins in either.
+     */
+    @ParameterizedTest
+    @ValueSource(strings = {"card", "access.yml"})
+    void a_trust_record_holding_a_host_file_a_host_admins_backup_key_placed_is_discarded(
+            String name) throws Exception {
+        forge.owners.put("michael", true);
+        forge.keys.put("michael", List.of(key("michael")));
+        write("owners.yml", backedOwners("michael", "hank"));
+        commit("michael");
+        final String path = "hosts/walk6m/" + name;
+        final String text = name.equals("card") ? hostCard("bob") : access("demo");
+        write(path, text);
+        final String placedAt = commit("bob");
+        final RegistryState walked = read(null);
+        assertThat(walked.hosts()).as("the walk refuses what hank's backup key placed").isEmpty();
+        final Map<String, String> blobs = new HashMap<>(walked.blobs());
+        blobs.put(path, git("rev-parse", placedAt + ":" + path));
+        final Map<String, RegistryState.Change> changes = new HashMap<>(walked.changes());
+        changes.put(path, new RegistryState.Change(placedAt, pin("bob")));
+        final RegistryState.Host host =
+                name.equals("card")
+                        ? new RegistryState.Host(
+                                "walk6m",
+                                RegistryState.Card.of(HostCard.read(text, path), pin("bob")),
+                                List.of(),
+                                List.of())
+                        : new RegistryState.Host(
+                                "walk6m",
+                                null,
+                                List.of(new RegistryState.Admin("alice", pin("alice"))),
+                                List.of(
+                                        new RegistryState.Project(
+                                                "demo",
+                                                "alice",
+                                                "ssh://git@example.org/demo.git")));
+        final RegistryState record =
+                new RegistryState(
+                        walked.commit(),
+                        walked.accepted(),
+                        walked.firm(),
+                        walked.owners(),
+                        walked.hostAdmins(),
+                        walked.people(),
+                        List.of(host),
+                        walked.revoked(),
+                        blobs,
+                        changes,
+                        List.of(),
+                        List.of(),
+                        List.of());
+        RegistryState.fromJson(record.toJson());
+        readAfresh(read(record), "does not match the registry's history");
+    }
+
+    /**
      * A record must hold a host's card only as the walk would take it: naming its own host and
      * signed by the admin who committed it. Otherwise one host's card answers for another.
      */

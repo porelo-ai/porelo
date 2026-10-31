@@ -197,6 +197,30 @@ class RegistryFileCommandTest {
                                         true)));
     }
 
+    /**
+     * A key this machine's revocation list names signs nothing a follower here accepts, so it never
+     * signs the owners file, by the agent or by a backup key's file.
+     */
+    @Test
+    void a_key_the_revocation_list_names_never_signs_the_owners_file() throws Exception {
+        registry.agent("michael");
+        IdentityRun.revoke(registry, "michael");
+        final String before = registry.head();
+        final Path owners = file("owners.yml", backedOwners());
+
+        assertThat(
+                        registry.registry(
+                                "file",
+                                "owners",
+                                registry.repo.toString(),
+                                "--file",
+                                owners.toString()))
+                .as(registry.err.toString())
+                .isEqualTo(65);
+        assertThat(registry.err.toString()).contains(registry.pin("michael"));
+        assertThat(registry.head()).as("nothing is committed").isEqualTo(before);
+    }
+
     /** A backup key is kept offline and files no owners file, even when an agent holds it. */
     @Test
     void a_backup_key_files_no_owners_file() throws Exception {

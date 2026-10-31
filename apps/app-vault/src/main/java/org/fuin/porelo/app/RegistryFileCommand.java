@@ -209,7 +209,7 @@ public class RegistryFileCommand implements Callable<Integer>, PoreloFactory.Con
             final String key =
                     signingKeyFile == null
                             ? heldKey(held(socket), filing)
-                            : filing.signers().getFirst();
+                            : unrevoked(filing.signers().getFirst());
             if (source == null) {
                 // What the registry accepts is removed, whatever HEAD holds there.
                 final String accepted = state.blobs().get(filing.path());
@@ -747,6 +747,13 @@ public class RegistryFileCommand implements Callable<Integer>, PoreloFactory.Con
                 return null;
             }
             signer = change.signer();
+            // The owners file names who may sign each change of it, a backup key's alone included.
+            if (kind.equals("owners")
+                    && filing.signers().stream()
+                            .map(PersonCard::fingerprint)
+                            .noneMatch(signer::equals)) {
+                return null;
+            }
         }
         return touchesOnly(name, commit.parent(), path) ? signer : null;
     }
@@ -862,18 +869,44 @@ public class RegistryFileCommand implements Callable<Integer>, PoreloFactory.Con
         return held;
     }
 
-    /** The first key the rule accepts for the path that the agent holds. */
-    private String heldKey(final List<String> held, final RegistryFiles.Filing filing) {
+    /** The first key the rule accepts for the path that the agent holds and nothing revokes. */
+    private String heldKey(final List<String> held, final RegistryFiles.Filing filing)
+            throws IOException {
+        final List<String> revoked = new ArrayList<>();
         for (String wanted : filing.signers()) {
             if (held.contains(wanted)) {
-                return wanted;
+                if (!revokedHere(wanted)) {
+                    return wanted;
+                }
+                revoked.add(PersonCard.fingerprint(wanted));
             }
         }
         throw new CardException(
                 "the ssh-agent holds none of the keys that may file "
                         + filing.path()
                         + ": "
-                        + fingerprints(filing));
+                        + fingerprints(filing)
+                        + (revoked.isEmpty()
+                                ? ""
+                                : "; this machine's revocation list revokes "
+                                        + String.join(", ", revoked)));
+    }
+
+    /** The key, refused when this machine's revocation list names it. */
+    private String unrevoked(final String key) throws IOException {
+        if (revokedHere(key)) {
+            throw new CardException(
+                    PersonCard.fingerprint(key) + " is revoked by this machine's revocation list");
+        }
+        return key;
+    }
+
+    /** Whether this machine's revocation list names the key; the filing left out a registry's. */
+    private boolean revokedHere(final String key) throws IOException {
+        return IdentityFacts.revoked(
+                java.util.Objects.requireNonNull(context, "picocli's factory sets the context"),
+                List.of(),
+                key);
     }
 
     private static String fingerprints(final RegistryFiles.Filing filing) {

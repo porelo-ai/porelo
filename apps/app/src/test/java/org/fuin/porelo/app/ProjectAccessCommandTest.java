@@ -376,6 +376,42 @@ class ProjectAccessCommandTest {
     }
 
     @Test
+    void anIdOnACommitOfASignerARegistryReadHereRevokedIsNoAnswer() throws Exception {
+        // A revoked key's trailer would answer "done" for a lock nobody made.
+        final Path second = key("second");
+        agentAdds(second);
+        Files.writeString(
+                context().paths().projects().configurationSigners(),
+                "demo " + publicKey(signer) + "\ndemo " + publicKey(second) + "\n");
+        final String first = init();
+        refresh();
+        final String digest =
+                "sha256:"
+                        + java.util.HexFormat.of()
+                                .formatHex(
+                                        java.security.MessageDigest.getInstance("SHA-256")
+                                                .digest(
+                                                        "action=lock\nperson=alice\nhost=\nrole=\ncard=\n"
+                                                                .getBytes(
+                                                                        java.nio.charset
+                                                                                .StandardCharsets
+                                                                                .UTF_8)));
+        final String forged =
+                pushed(
+                        true,
+                        "notes\n\nPorelo-Change-Id: lock-alice\nPorelo-Change-Digest: "
+                                + digest
+                                + "\n",
+                        tree -> Files.writeString(tree.resolve("notes.md"), "a\n"));
+        registryRevokes(SignedBy.fingerprintOf(publicKey(signer)));
+
+        assertThat(access("lock", "--person", "alice", "--base", first, "--id", "lock-alice"))
+                .as("a commit a revoked key signed answers nothing")
+                .isEqualTo(65);
+        assertThat(err.toString()).contains("the access repository is at " + forged);
+    }
+
+    @Test
     void aRemoteHeadTheFollowWouldRefuseIsNotWrittenOnto() throws Exception {
         // Signed on top by the admin, an unsigned change to access.yml would pass every follow.
         final String first = init();

@@ -95,9 +95,9 @@ final class IdentityChange {
             return reason;
         }
 
-        /** The words, never {@code null}. */
+        /** The words, never {@code null}, and never an address with its userinfo. */
         String words() {
-            return String.valueOf(getMessage());
+            return org.fuin.porelo.vault.Userinfo.leftOutOf(String.valueOf(getMessage()));
         }
 
         /** The typed answer, or {@code null} for a refusal that carries no reason. */

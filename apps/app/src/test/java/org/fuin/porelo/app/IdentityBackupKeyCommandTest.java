@@ -17,6 +17,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import picocli.CommandLine;
 
 /**
@@ -36,6 +38,10 @@ class IdentityBackupKeyCommandTest {
 
     /** What happens while ssh-keygen asks the passphrase, as another process might act then. */
     private Runnable whileAsked = () -> {};
+
+    /** What the verb runs its commands through, as the machine's runner may fail. */
+    private java.util.function.UnaryOperator<org.fuin.porelo.core.process.CommandRunner> machine =
+            runner -> runner;
 
     @BeforeEach
     void checkout() throws Exception {
@@ -59,7 +65,9 @@ class IdentityBackupKeyCommandTest {
         registry.err.getBuffer().setLength(0);
         final CommandLine cli =
                 PoreloCli.commandLine(
-                        registry.context(
+                        new PoreloContext(
+                                machine.apply(registry.runner),
+                                registry.paths,
                                 command -> {
                                     ran.add(command);
                                     final List<String> keygen = new ArrayList<>(command);
@@ -68,7 +76,8 @@ class IdentityBackupKeyCommandTest {
                                             registry.runner.run(Command.of(keygen)).exitCode();
                                     whileAsked.run();
                                     return made;
-                                }));
+                                },
+                                registry.environment()));
         cli.setOut(new PrintWriter(registry.out));
         cli.setErr(new PrintWriter(registry.err));
         final IdentityBackupKeyCommand verb =
@@ -522,6 +531,69 @@ class IdentityBackupKeyCommandTest {
     }
 
     @Test
+    void an_id_answers_no_replacement_another_key_than_the_backup_key_signed() throws Exception {
+        IdentityRun.keep(registry, registry.card("michael", "michael"));
+        registry.agent("michael");
+        final Path file = dir.resolve("backup");
+        assertThat(backupKey("--registry", "--out", file.toString())).isZero();
+        assertThat(registry.registry("read", registry.repo.toString())).isZero();
+        final Path replaced =
+                Files.writeString(
+                        dir.resolve("replaced.yml"),
+                        registry.git("show", "HEAD:owners.yml")
+                                .replace(registry.key("michael"), registry.key("alice-new")));
+        assertThat(
+                        registry.registry(
+                                "file",
+                                "owners",
+                                registry.repo.toString(),
+                                "--file",
+                                replaced.toString(),
+                                "--id",
+                                "lost-1"))
+                .as(registry.err.toString())
+                .isZero();
+        final String byOwner = registry.head();
+        registry.close();
+        final Path card =
+                Files.writeString(dir.resolve("new.card"), registry.card("michael", "alice-new"));
+
+        final int code =
+                backupKey(
+                        "--registry",
+                        "--use",
+                        file.toString(),
+                        "--card",
+                        card.toString(),
+                        "--id",
+                        "lost-1",
+                        "--json");
+
+        assertThat(code)
+                .as(
+                        "lost-1 was signed by michael's own key, not by the backup key: "
+                                + registry.out)
+                .isEqualTo(65);
+        assertThat(registry.head()).as("nothing is committed").isEqualTo(byOwner);
+    }
+
+    @Test
+    void an_id_asked_again_after_its_key_was_revoked_answers_nothing() throws Exception {
+        IdentityRun.keep(registry, registry.card("michael", "michael"));
+        registry.agent("michael");
+        final Path file = dir.resolve("backup");
+        assertThat(backupKey("--registry", "--out", file.toString(), "--id", "bk-1"))
+                .as(registry.err.toString())
+                .isZero();
+        IdentityRun.revoke(registry, "michael");
+
+        assertThat(backupKey("--registry", "--out", file.toString(), "--id", "bk-1", "--json"))
+                .as("a revoked key is refused asked again as it is asked anew")
+                .isEqualTo(65);
+        assertThat(registry.answer().get("reason")).isEqualTo("revoked");
+    }
+
+    @Test
     void a_checkout_whose_origin_moved_is_not_read_as_another_registry() throws Exception {
         IdentityRun.keep(registry, registry.card("michael", "michael"));
         registry.agent("michael");
@@ -622,6 +694,65 @@ class IdentityBackupKeyCommandTest {
         assertThat(code).as("the work tree's owners.yml could not be written").isNotZero();
         assertThat(registry.head()).as("the commit was made").isNotEqualTo(before);
         assertThat(file).as("the key its commit files is the person's to keep").exists();
+    }
+
+    @Test
+    void a_key_filed_before_head_could_be_read_again_is_kept() throws Exception {
+        IdentityRun.keep(registry, registry.card("michael", "michael"));
+        registry.agent("michael");
+        final String before = registry.head();
+        final Path owners = registry.repo.resolve("owners.yml");
+        Files.setPosixFilePermissions(owners, PosixFilePermissions.fromString("r--r--r--"));
+        final boolean[] moved = {false};
+        machine =
+                runner ->
+                        command -> {
+                            if (moved[0] && command.arguments().contains("rev-parse")) {
+                                throw new org.fuin.porelo.core.process.CommandException(
+                                        command, new java.io.IOException("git is gone"));
+                            }
+                            moved[0] |= command.arguments().contains("update-ref");
+                            return runner.run(command);
+                        };
+        final Path file = dir.resolve("backup");
+
+        final int code = backupKey("--registry", "--out", file.toString(), "--json");
+
+        Files.setPosixFilePermissions(owners, PosixFilePermissions.fromString("rw-r--r--"));
+        assertThat(code).as("the work tree's owners.yml could not be written").isNotZero();
+        assertThat(registry.head()).as("the commit was made").isNotEqualTo(before);
+        assertThat(file).as("a HEAD that cannot be read may hold the key filed").exists();
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"base-moved", "not-signer"})
+    void a_filing_git_refuses_names_its_reason(final String reason) throws Exception {
+        IdentityRun.keep(registry, registry.card("michael", "michael"));
+        registry.agent("michael");
+        machine =
+                runner ->
+                        command -> {
+                            if (reason.equals("base-moved")
+                                    && command.arguments().contains("update-ref")) {
+                                // Another commit lands between the signed commit and the move.
+                                registry.git("commit", "-q", "--allow-empty", "-m", "another");
+                            }
+                            if (reason.equals("not-signer")
+                                    && command.arguments().contains("commit-tree")) {
+                                // The agent goes, as one does that refuses to sign.
+                                try {
+                                    registry.close();
+                                } catch (final InterruptedException ex) {
+                                    Thread.currentThread().interrupt();
+                                }
+                            }
+                            return runner.run(command);
+                        };
+
+        assertThat(backupKey("--registry", "--out", dir.resolve("backup").toString(), "--json"))
+                .as(registry.err.toString())
+                .isEqualTo(65);
+        assertThat(registry.answer().get("reason")).as(registry.err.toString()).isEqualTo(reason);
     }
 
     @Test

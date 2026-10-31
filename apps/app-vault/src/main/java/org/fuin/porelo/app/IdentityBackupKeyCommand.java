@@ -247,6 +247,7 @@ public class IdentityBackupKeyCommand implements Callable<Integer>, PoreloFactor
             final String head = head(machine, registry);
             final String[] earlier = id == null ? null : earlier(machine, registry, head);
             if (earlier != null) {
+                answerableEarlier(machine, registry, own);
                 return use == null
                         ? madeEarlier(machine, registry, login, earlier[0], earlier[1])
                         : replacedEarlier(machine, registry, login, earlier[0], earlier[1]);
@@ -436,6 +437,25 @@ public class IdentityBackupKeyCommand implements Callable<Integer>, PoreloFactor
         final String revision = file(machine, registry, text, null, base);
         kept = true;
         return made(backup.fingerprint(), revision, false);
+    }
+
+    /**
+     * Refuses to answer an earlier change with a key revoked since, as the change asked anew would
+     * be refused: the caller's own for a make, the backup key and the new card's for a use.
+     */
+    private void answerableEarlier(
+            final PoreloContext machine,
+            final IdentityFacts.Registry registry,
+            final PersonCard own)
+            throws IdentityChange.Refused, IOException {
+        final List<String> keys =
+                use == null ? List.of(own.key()) : List.of(backupKey(use), next(own.login()).key());
+        for (final String key : keys) {
+            if (IdentityFacts.revoked(machine, List.of(registry), key)) {
+                throw new IdentityChange.Refused(
+                        65, "revoked", "the key " + PersonCard.fingerprint(key) + " is revoked");
+            }
+        }
     }
 
     /** Answers the key an earlier call replaced under this id, as that call answered it. */
@@ -801,7 +821,8 @@ public class IdentityBackupKeyCommand implements Callable<Integer>, PoreloFactor
             final PoreloContext machine, final IdentityFacts.Registry registry, final String key) {
         try {
             return ownersAt(machine, registry, head(machine, registry)).contains(key);
-        } catch (IdentityChange.Refused ex) {
+        } catch (IdentityChange.Refused | RuntimeException ex) {
+            // Git that cannot answer may not answer that the key was never filed.
             return true;
         }
     }
@@ -898,13 +919,14 @@ public class IdentityBackupKeyCommand implements Callable<Integer>, PoreloFactor
                 final String why = words.startsWith("porelo: ") ? words.substring(8) : words;
                 throw new IdentityChange.Refused(
                         code,
-                        code == 65 && why.contains("HEAD is")
+                        code == 65 && (why.contains("HEAD is") || why.contains("update-ref"))
                                 ? "base-moved"
                                 : code == 65 && signingKey != null && why.contains("commit-tree")
                                         ? "wrong-passphrase"
                                         : code == 65
                                                         && signingKey == null
-                                                        && why.contains("ssh-agent")
+                                                        && (why.contains("ssh-agent")
+                                                                || why.contains("commit-tree"))
                                                 ? "not-signer"
                                                 : null,
                         why);

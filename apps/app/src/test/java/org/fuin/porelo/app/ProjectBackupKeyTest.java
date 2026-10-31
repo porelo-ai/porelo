@@ -818,6 +818,21 @@ class ProjectBackupKeyTest {
         assertThat(refused.detail()).contains("revoked by a registry");
     }
 
+    @Test
+    void a_signer_a_registry_read_here_revoked_is_never_pinned_on_an_unchanged_tip()
+            throws Exception {
+        revokedInRegistry(keys.keyFiles.get("bob"), "alice");
+
+        final Reconcile.Result unchanged = follow(keys.key("bob"));
+
+        assertThat(unchanged.outcome())
+                .as(unchanged.detail())
+                .isEqualTo(Reconcile.Outcome.UNCHANGED);
+        assertThat(Files.readString(keys.paths.projects().configurationSigners()))
+                .as("pinned, a revoked key would sign the access file on this machine")
+                .doesNotContain(keys.key("bob").split(" ")[1]);
+    }
+
     /**
      * Revokes the key of a file in the registry this machine reads, as a registry revokes a key:
      * its login's card replaced by an owner, with a card carrying the replacement login's key.
@@ -1018,6 +1033,96 @@ class ProjectBackupKeyTest {
         assertThat(pinned())
                 .as("pinned, the backup key would sign any later change and the access file")
                 .containsExactly(keys.key("michael"));
+    }
+
+    @Test
+    void a_backup_key_a_person_names_on_an_unchanged_tip_is_never_pinned() throws Exception {
+        final Path file = made();
+        final String backupKey =
+                org.fuin.porelo.vault.OpenSshPrivateKey.publicKey(Files.readString(file));
+
+        final Reconcile.Result unchanged = follow(backupKey);
+
+        assertThat(unchanged.outcome())
+                .as(unchanged.detail())
+                .isEqualTo(Reconcile.Outcome.UNCHANGED);
+        assertThat(Files.readString(keys.paths.projects().configurationSigners()))
+                .as("pinned, the backup key would sign any later change and the access file")
+                .doesNotContain(backupKey.split(" ")[1]);
+    }
+
+    @Test
+    void a_backup_key_a_person_names_across_a_signer_change_is_never_kept_as_retired()
+            throws Exception {
+        final Path file = made();
+        final String backupKey =
+                org.fuin.porelo.vault.OpenSshPrivateKey.publicKey(Files.readString(file));
+        commitText(
+                git(origin, "show", "main:project.yml")
+                        .replace(
+                                "    - \"" + keys.key("michael") + "\"\n",
+                                "    - \""
+                                        + keys.key("michael")
+                                        + "\"\n    - \""
+                                        + keys.key("alice-new")
+                                        + "\"\n"),
+                keys.keyFiles.get("michael"));
+
+        final Reconcile.Result applied = follow(backupKey);
+
+        assertThat(applied.outcome()).as(applied.detail()).isEqualTo(Reconcile.Outcome.APPLIED);
+        assertThat(Files.readString(keys.paths.projects().configurationSigners()))
+                .as("a retired backup key still verifies every commit made before its date")
+                .doesNotContain(backupKey.split(" ")[1]);
+    }
+
+    @Test
+    void a_commit_that_names_its_own_signer_a_backup_key_is_judged_as_signed_by_one()
+            throws Exception {
+        final String inForce = head();
+        final String tip =
+                commit(
+                        "other",
+                        "bob",
+                        "    - \""
+                                + keys.key("michael")
+                                + "\"\n    - key: \""
+                                + keys.key("bob")
+                                + "\"\n      backup: true\n      backs: \""
+                                + keys.pin("michael")
+                                + "\"\n      since: \"2026-01-01\"\n");
+
+        final Reconcile.Result refused = follow(keys.key("bob"));
+
+        assertThat(refused.outcome())
+                .as(
+                        "a backup key that files itself changes more than the key it backs: "
+                                + refused.detail())
+                .isEqualTo(Reconcile.Outcome.UNKNOWN_KEY);
+        assertThat(refused.commit()).as("the commit in force stays").isEqualTo(inForce);
+        assertThat(refused.refused()).isEqualTo(tip);
+    }
+
+    @Test
+    void a_refusal_never_names_the_projects_address_with_its_userinfo() throws Exception {
+        IdentityRun.keep(keys, keys.card("michael", "michael"));
+        keys.agent("michael");
+        final Path record = keys.paths.projects().followed().resolve("demo.json");
+        Files.writeString(
+                record,
+                Files.readString(record)
+                        .replace(
+                                origin.toString(),
+                                "https://secret-token@forge.invalid/org/demo.git"));
+        final Path file = dir.resolve("backup");
+
+        final int code = backupKey("--project", "demo", "--out", file.toString(), "--json");
+
+        assertThat(code).as(keys.err.toString()).isNotZero();
+        assertThat(keys.err.toString() + keys.out)
+                .as("the address is named, its secret never")
+                .contains("forge.invalid")
+                .doesNotContain("secret-token");
     }
 
     @Test

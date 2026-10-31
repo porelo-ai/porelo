@@ -1458,11 +1458,15 @@ public final class Reconcile {
             }
             final String signer =
                     handed.tip() == null ? "" : signerOf(runner, clone, handed.tip().commit());
-            if (tip.equals(followed.commit())) {
-                return new Result(Outcome.UNCHANGED, followed.commit(), "", "", signer);
-            }
             try (final SignerHandover.Staged staged =
                     handed.changed() ? handover.stage(followed.name(), handed) : null) {
+                if (tip.equals(followed.commit())) {
+                    // A key the walk dropped, a backup key a person named, leaves the keys checked.
+                    if (staged != null) {
+                        staged.publish();
+                    }
+                    return new Result(Outcome.UNCHANGED, followed.commit(), "", "", signer);
+                }
                 final Result applied = applied(runner, clone, followed, tip);
                 if (applied.outcome() != Outcome.APPLIED
                         && applied.outcome() != Outcome.UNCHANGED) {
