@@ -15,3 +15,11 @@ or lends a credential, trusts a key wrongly or loses data. Each one placed is sp
 - Low: with `--no-gate`, `/workspace` is never a git checkout, so a stopped no-gate task's census reads as unknown
   and `task remove` needs `--force` (read in `UnhandedWork.CENSUS`, not measured). Found while fixing
   [B378](README.md#b378).
+- Medium for the tests only: `TransportConversationsTest` and `MachineTransportsTest` still expect the machine's
+  own login to be one a transport takes, so they fail under a login such as `Michi` or `runner_1`. Found while
+  fixing [B379](README.md#b379).
+- Low: whether a task made earlier under a name beginning `porelo-` still starts again is not measured; a start
+  now refuses such a name. Found while fixing [B379](README.md#b379).
+- Low: a person recorded as joined under a name outside the rule, by a join before that check, can no longer be
+  removed through `talk remove`; the transport never made such an account. Found while fixing
+  [B379](README.md#b379).
