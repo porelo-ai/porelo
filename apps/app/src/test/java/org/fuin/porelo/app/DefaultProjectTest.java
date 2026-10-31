@@ -383,6 +383,16 @@ class DefaultProjectTest {
                         RepositoryAddress.same(
                                 "git@github.com:you/app.git", "git@github.com:you/other.git"))
                 .isFalse();
+        assertThat(
+                        RepositoryAddress.same(
+                                "git@[2001:db8::1]:you/app.git", "ssh://git@[2001:db8::1]/you/app"))
+                .as("an IPv6 host in either spelling")
+                .isTrue();
+        assertThat(
+                        RepositoryAddress.same(
+                                "https://[2001:db8::1]/you/app", "https://[2001:db8::2]/you/app"))
+                .as("two IPv6 hosts")
+                .isFalse();
         assertThat(RepositoryAddress.same("/srv/git/app.git", "/srv/git/app")).isTrue();
         assertThat(RepositoryAddress.same(null, "git@github.com:you/app.git")).isFalse();
     }

@@ -18,12 +18,14 @@ import java.util.regex.Pattern;
 public final class AddressForm {
 
     /**
-     * A host name, or an IPv6 address in brackets with an optional zone, which ssh takes as given
-     * and libcurl after {@code %25}.
+     * A host name, or an IPv6 address in brackets, with its colons, and an optional zone, which ssh
+     * takes as given and libcurl after {@code %25}: git decodes any other {@code %} and two hex
+     * digits in an ssh host, and {@code %40} is an at sign.
      */
     private static final String HOST =
             "(?:[\\p{L}\\p{N}_][\\p{L}\\p{M}\\p{N}._-]*"
-                    + "|\\[[0-9A-Fa-f:.]+(?:%(?:25)?[A-Za-z0-9._~-]+)?\\])";
+                    + "|\\[(?=[^\\]%]*:[^\\]%]*:)[0-9A-Fa-f:.]+"
+                    + "(?:%(?:25|(?![0-9A-Fa-f]{2}))[A-Za-z0-9._~-]+)?\\])";
 
     /** A port, possibly empty as git and libcurl allow. */
     private static final String PORT = "(?::[0-9]*)?";
@@ -62,6 +64,9 @@ public final class AddressForm {
 
     /** A host and port, all an authority may hold besides a user part. */
     private static final Pattern HOST_PORT = Pattern.compile(HOST + PORT);
+
+    /** An at sign a host and a colon follow, as in {@code user:password@host:path}. */
+    private static final Pattern HOST_AFTER_AT = Pattern.compile("@(?=" + HOST + ":)");
 
     /** A scheme an address begins with. */
     private static final Pattern SCHEME = Pattern.compile("[A-Za-z][A-Za-z0-9+.-]*://");
@@ -126,10 +131,11 @@ public final class AddressForm {
         final int end = slash < 0 ? address.length() : slash;
         final String authority = address.substring(start, end);
         final int at = authority.lastIndexOf('@');
+        if (authority.substring(at + 1).toLowerCase(Locale.ROOT).contains("%40")) {
+            return address.substring(0, start) + address.substring(end);
+        }
         if (at < 0) {
-            return authority.toLowerCase(Locale.ROOT).contains("%40")
-                    ? address.substring(0, start) + address.substring(end)
-                    : address;
+            return address;
         }
         final String user = authority.substring(0, at);
         final boolean ssh = SSH_SCHEMES.contains(scheme.toLowerCase(Locale.ROOT));
@@ -152,18 +158,31 @@ public final class AddressForm {
     }
 
     /**
-     * {@code user@host:path}: git splits it at the colon after its host, which may be bracketed
-     * after the user, and ssh takes the user up to the last at sign before that.
+     * {@code user@host:path}: git splits it at the first colon after its host, which may be
+     * bracketed after the user, and ssh takes the user up to the last at sign before that. A host
+     * without a user that a host and a colon follow after an at sign is read as a user and a
+     * password, as {@code bob:tok@example.org:demo.git} is written.
      */
     private static String scp(final String address) {
+        final int first = address.indexOf(':');
         final int slash = address.indexOf('/');
-        final String head = slash < 0 ? address : address.substring(0, slash);
-        final int colon = head.lastIndexOf(':');
-        final int at = colon < 0 ? -1 : head.lastIndexOf('@', colon);
-        if (at < 0 || plainUser(address.substring(0, at))) {
+        if (first < 0 || slash >= 0 && slash < first) {
             return address;
         }
-        return address.substring(at + 1);
+        final int bracket = address.indexOf("@[");
+        final int open = bracket < 0 ? 0 : bracket + 1;
+        final int close = address.startsWith("[", open) ? address.indexOf(']', open) : -1;
+        final int colon = address.indexOf(':', close < 0 ? 0 : close);
+        final int at = address.lastIndexOf('@', colon);
+        if (at >= 0) {
+            return plainUser(address.substring(0, at)) ? address : address.substring(at + 1);
+        }
+        final Matcher password = HOST_AFTER_AT.matcher(address);
+        int cut = -1;
+        while (password.find()) {
+            cut = password.end();
+        }
+        return cut < 0 ? address : address.substring(cut);
     }
 
     /** Whether a user part is one ssh reads as a plain name, and so no secret. */

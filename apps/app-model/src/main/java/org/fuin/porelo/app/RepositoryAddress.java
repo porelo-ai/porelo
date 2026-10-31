@@ -82,7 +82,9 @@ final class RepositoryAddress {
             final int slash = rest.indexOf('/');
             path = slash < 0 ? "" : rest.substring(slash + 1);
         } else {
-            path = trimmed.substring(trimmed.indexOf(':') + 1);
+            // After the host's colon: an IPv6 host holds colons of its own.
+            final int user = trimmed.indexOf('@');
+            path = trimmed.substring(trimmed.indexOf(':', user + 1 + host.length()) + 1);
         }
         return host.toLowerCase(Locale.ROOT) + "/" + trim(path);
     }

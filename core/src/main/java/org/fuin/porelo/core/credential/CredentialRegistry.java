@@ -229,7 +229,16 @@ public final class CredentialRegistry {
             return protocol + "://" + rest;
         }
         if (trimmed.matches("^[^/@]+@[^/:]+:.*")) {
-            return "ssh://" + trimmed.substring(trimmed.indexOf('@') + 1).replaceFirst(":", "/");
+            final String hostAndPath = trimmed.substring(trimmed.indexOf('@') + 1);
+            // An IPv6 host keeps its colons: its path begins after the closing bracket.
+            final int close = hostAndPath.startsWith("[") ? hostAndPath.indexOf(']') : -1;
+            final int colon = hostAndPath.indexOf(':', Math.max(close, 0));
+            return colon < 0
+                    ? "ssh://" + hostAndPath
+                    : "ssh://"
+                            + hostAndPath.substring(0, colon)
+                            + "/"
+                            + hostAndPath.substring(colon + 1);
         }
         return trimmed;
     }

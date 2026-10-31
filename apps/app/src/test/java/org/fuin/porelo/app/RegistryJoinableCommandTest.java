@@ -89,7 +89,8 @@ class RegistryJoinableCommandTest {
                     final Map<String, String> environment =
                             new HashMap<>(command.inheritsEnvironment() ? caller : Map.of());
                     environment.putAll(command.environment());
-                    if (command.arguments().contains(DEMO)) {
+                    if (command.arguments().contains(DEMO)
+                            || command.arguments().contains(PRIVATE)) {
                         environments.add(Map.copyOf(environment));
                     }
                     return new ProcessCommandRunner()
@@ -754,6 +755,30 @@ class RegistryJoinableCommandTest {
         org.junit.jupiter.api.Assumptions.assumeTrue(
                 org.fuin.porelo.vault.KernelKeyring.available(),
                 "no kernel keyring here: libkeyutils is missing or the kernel refuses it");
+        fetchedWithTheVaultsToken();
+    }
+
+    /**
+     * Java reads a variable and an argument by the locale, and in the C locale as ASCII: the helper
+     * git starts could not name a vault under a directory with an umlaut, and the project was
+     * answered as unreachable.
+     */
+    @Test
+    void an_account_whose_vault_path_holds_an_umlaut_is_still_lent_its_token() throws Exception {
+        org.junit.jupiter.api.Assumptions.assumeTrue(
+                org.fuin.porelo.vault.KernelKeyring.available(),
+                "no kernel keyring here: libkeyutils is missing or the kernel refuses it");
+        org.junit.jupiter.api.Assumptions.assumeTrue(
+                "UTF-8".equals(System.getProperty("sun.jnu.encoding")),
+                "this JVM reads file names as ASCII, so it cannot make the directory");
+        registry.close();
+        registry = new RegistryCheckout(Files.createDirectory(dir.resolve("m\u00fcller")));
+        assertThat(registry.paths.vault().vaultFile().toString()).contains("\u00fc");
+        fetchedWithTheVaultsToken();
+    }
+
+    /** The registry's private access repository, fetched with the token the vault holds. */
+    private void fetchedWithTheVaultsToken() throws Exception {
         final Path root = privateAccess();
         final char[] passphrase = vaultHoldingTheToken();
         System.setProperty(PoreloBinary.NAMED, ownPorelo().toString());
@@ -808,6 +833,16 @@ class RegistryJoinableCommandTest {
         assertThat(seen).doesNotContain("x-access-token:tok-4711");
         assertThat(list("projects")).as(registry.out.toString()).isEmpty();
         assertThat(list("refused")).hasSize(1);
+        // Without a home of its own, libcurl reads the netrc of the password database's home,
+        // which this test cannot plant: the fetch must be handed one that is neither.
+        assertThat(environments).as("the fetch of the access repository").isNotEmpty();
+        for (Map<String, String> environment : environments) {
+            assertThat(environment.get("HOME"))
+                    .as("the fetch's home")
+                    .isNotBlank()
+                    .isNotEqualTo(dir.resolve("home").toString())
+                    .isNotEqualTo(System.getProperty("user.home"));
+        }
     }
 
     /**

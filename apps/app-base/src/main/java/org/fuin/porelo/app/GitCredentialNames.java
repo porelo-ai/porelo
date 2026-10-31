@@ -90,15 +90,23 @@ public final class GitCredentialNames {
             // lent to the other.
             final int slash = rest.indexOf('/');
             final int at = (slash < 0 ? rest : rest.substring(0, slash)).lastIndexOf('@');
-            final String hostAndPath = at >= 0 ? rest.substring(at + 1) : rest;
-            final int end = firstOf(hostAndPath, '/', ':');
-            final String host = end < 0 ? hostAndPath : hostAndPath.substring(0, end);
+            final String host = leadingHost(at >= 0 ? rest.substring(at + 1) : rest);
             return host.isEmpty() ? null : host;
         }
         if (trimmed.matches("^[^/@]+@[^/:]+:.*")) {
-            return trimmed.substring(trimmed.indexOf('@') + 1, trimmed.indexOf(':'));
+            return leadingHost(trimmed.substring(trimmed.indexOf('@') + 1));
         }
         return null;
+    }
+
+    /** The host a host and its path begin with; an IPv6 host keeps the colons in its brackets. */
+    private static String leadingHost(final String hostAndPath) {
+        final int close = hostAndPath.startsWith("[") ? hostAndPath.indexOf(']') : -1;
+        if (close >= 0) {
+            return hostAndPath.substring(0, close + 1);
+        }
+        final int end = firstOf(hostAndPath, '/', ':');
+        return end < 0 ? hostAndPath : hostAndPath.substring(0, end);
     }
 
     /**

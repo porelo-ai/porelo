@@ -38,6 +38,23 @@ class GitCredentialNamesTest {
     }
 
     @Test
+    void anIpv6HostIsReadWholeSoNoOtherHostsEntryIsTried() {
+        // Cut at its first colon, every host of 2001:db8::/32 was '[2001': one entry served them
+        // all, and git matched no helper keyed by it.
+        assertThat(GitCredentialNames.hostOf("https://[2001:db8::1]/acme/demo.git"))
+                .isEqualTo("[2001:db8::1]");
+        assertThat(GitCredentialNames.hostOf("https://bob@[2001:db8::1]:8443/acme/demo.git"))
+                .isEqualTo("[2001:db8::1]");
+        assertThat(GitCredentialNames.hostOf("ssh://git@[::1]:2222/acme/demo.git"))
+                .isEqualTo("[::1]");
+        assertThat(GitCredentialNames.hostOf("git@[2001:db8::1]:acme/demo.git"))
+                .isEqualTo("[2001:db8::1]");
+        assertThat(GitCredentialNames.candidatesFor("https://[2001:db8::2]/acme/demo.git"))
+                .as("the entry of the host git connects to, and no other host's")
+                .containsExactly("git.token.[2001:db8::2]", "git.token");
+    }
+
+    @Test
     void anAtInThePathNeverNamesAnotherHostsCredential() {
         // The host is the authority's: read past the first '/', this address took github.com's key,
         // and the agent the key was lent through answered forge.example.org with it.

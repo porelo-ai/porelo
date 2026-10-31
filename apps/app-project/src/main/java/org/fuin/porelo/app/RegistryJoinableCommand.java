@@ -379,6 +379,8 @@ public class RegistryJoinableCommand implements Callable<Integer>, PoreloFactory
     static PoreloContext sealed(final PoreloContext machine, final Path home) {
         final Map<String, String> base = new LinkedHashMap<>(RegistryGit.ENVIRONMENT);
         base.put("HOME", home.toString());
+        // The vault's helper is Java, which reads its variables and arguments as ASCII under C.
+        base.put("LC_ALL", HelperEnvironment.LOCALE);
         final List<String> passed = new ArrayList<>(PASSED);
         passed.addAll(credentialVariables(machine));
         for (String name : passed) {
