@@ -140,6 +140,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b375"></a>[B375](B375-An-Address-Whose-Host-Hides-No-Credential.md) | M | [B368](README.md#b368) | No bracketed host, `%40` authority or scp form carries a credential, and an IPv6 address is matched as git fetches it |
 | <a id="b374"></a>[B374](B374-A-Registry-Commit-Split-As-Git-Splits-It.md) | S | [B366](README.md#b366) | A registry commit's signature is checked over the bytes git checks: every header starting with `gpgsig` left out |
 | <a id="b373"></a>[B373](B373-A-Token-Lent-To-A-Forge-On-Its-Own-Port.md) | S | [B368](README.md#b368) | A vault token is lent to an `https://` repository on a port of its own: the helper's key names the port |
 | <a id="b372"></a>[B372](B372-A-Test-Leaves-No-Watcher-Running.md) | S | - | A run of the suite leaves no `shield watch` of its own running: no test starts a real watcher it does not stop |
