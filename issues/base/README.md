@@ -115,6 +115,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b355"></a>[B355](B355-No-Switch-That-Turns-Every-Check-Off.md) | S | - | No `--insecure` that turns every check off; instead an `unsigned`/`unverified` mark in `task list`, the interface and the gate's verdicts, for what already runs so |
 | <a id="b344"></a>[B344](B344-Messages-Signed-By-A-Tasks-Key.md) | M | [B343](README.md#b343), [B334](README.md#b334) | Messages signed by the plain task key and checked through its certificate; the machine key, `project enroll`, `machine-signers` and `--machines` go, a transport is given `login` |
 | <a id="b338"></a>[B338](B338-An-Identity-Made-Changed-And-Replaced.md) | L | [B339](README.md#b339), [B342](README.md#b342), [B345](README.md#b345) | `identity create`, `rotate` and `revoke --lost`, publishing the card to the registry and each host with `published[]` |
 | <a id="b346"></a>[B346](B346-A-Backup-Key-For-A-Single-Admin.md) | S | [B338](README.md#b338), [B342](README.md#b342), [B343](README.md#b343) | An offline backup key for a single project admin, host admin or registry owner, allowed to change only the signers and to certify nothing |
@@ -132,7 +133,6 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
-| <a id="b355"></a>[B355](B355-No-Switch-That-Turns-Every-Check-Off.md) | S | - | No `--insecure` that turns every check off; instead an `unsigned`/`unverified` mark in `task list`, the interface and the gate's verdicts, for what already runs so |
 | <a id="b354"></a>[B354](B354-A-Task-Named-By-Its-Key.md) | S | [B343](README.md#b343) | A task's name carries a short suffix from its key's fingerprint, unique per login, so a name names one task key |
 | <a id="b351"></a>[B351](B351-A-Host-Card-Signed-Through-The-SSH-Agent.md) | - | - | `porelo card make-host` signs through `ssh-agent`, KeePassXC included, so a host admin's key never lies on disk to sign their host's card |
 | <a id="b350"></a>[B350](B350-A-Loopback-Sign-In-Over-SSH-Names-Its-Forward.md) | - | [B347](README.md#b347) | A `loopback` sign-in over SSH runs: Porelo names the callback port and the interface shows the one `ssh -L` line to open first |

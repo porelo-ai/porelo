@@ -1,8 +1,9 @@
 # B355 — No Switch That Turns Every Check Off
 
-**Status:** Idea.
-**Size:** S, proposed - no `--insecure` is built; what is built is one visible mark for what already runs
-unsigned or unverified, in `task list`, the interface and the gate's verdicts, read from state that exists.
+**Status:** Accepted (operator, 2026-10-31), no sprint.
+**Size:** S, proposed, plus the room's and the interface's parts - no `--insecure` is built; what is built is one
+visible mark for what already runs unsigned or unverified, in `task list`, the interface, the gate's verdicts and the
+room, read from state that exists.
 
 **What must be true.** Should Porelo get an `--insecure` switch that turns off all checks, everywhere, on
 request, for a developer who starts it briefly in the default project on their own machine without any
@@ -161,10 +162,32 @@ its absence) carried into three outputs and one record line; no new check, no ne
 - A start on a host without a certificate is still refused with 65 (`TaskLaunch.java:1901`), seen to fail
   if the mark is mistaken for permission.
 - `porelo --insecure` and any `insecure` key are refused as unknown, seen in a test.
+- A message from an uncertified task, or from a task of an unverified project, shows the mark in its line and the
+  task's display name in the room; another person's Porelo marks it from its own check of signature and
+  certificate, and marks a message whose signature it cannot check the same way, whatever the sender wrote.
 
-## Open questions
+## Decisions
 
-- Is the gate review in `default` part of what the developer wants to avoid? If so, the answer is a
-  person-chosen `online`-like class for `default`, not a switch - and `default`'s fixed settings change.
-- Should the mark also reach the room, so other persons see a message came from an uncertified task?
-- Is a per-person config file wanted at all, or does every opt-out stay a flag on its command?
+- No `--insecure`; the visible mark is built instead (operator, 2026-10-31).
+- `default` stays `guarded`, with no class of the person's choosing (operator, 2026-10-31).
+- The mark also reaches the room: other persons see that a message came from an uncertified task or an unverified
+  project (operator, 2026-10-31). What it takes in the transport and the interface is the room's and the
+  interface's part of this issue.
+
+## The mark, place by place
+
+- **On this machine:** `task list` and `task status --json` answer the task's `certified` (true or false, as
+  [B343](README.md#b343) answers it; the interface's proposed `signing` is this field), beside the project's
+  `verified`; an absent value shows as `unsigned`, never as certified. The gate's answer for a waiting push carries its arrival verdict as `ArrivalRecords` writes it
+  (`accepted` or `accepted, unsigned`), so the review shows it before an approval.
+- **In the room, for persons reading in any client:** the sending Porelo puts the mark into the line it already
+  makes (`send --shown`) and into the task's display name (`rename --display`, set again when the state changes).
+  The transport carries both unread; nothing changes there. A machine-readable `send --mark` in the transport is an
+  optional XS of the room's, built only when it is wanted.
+- **In another person's interface:** the mark is the receiving Porelo's own verdict, from the message's signature
+  and the task's certificate it checks itself ([B344](README.md#b344)). A mark the sender writes is the sender's
+  word: a sender that lies leaves it out, so its absence never reads as certified, and the interface shows nothing
+  it did not check. The mark is always a checker's verdict - the receiving Porelo's, the gate's or the host's -
+  never the sender's own content. The talk event Porelo hands the interface carries it as `mark` (`unsigned`,
+  `unverified` or empty).
+- No per-person config file: every opt-out stays a flag on its command (operator, 2026-10-31).
