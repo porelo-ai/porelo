@@ -11,11 +11,14 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.List;
+import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 /** Tests for {@link SshCertificate}, against certificates {@code ssh-keygen -s} made. */
 class SshCertificateTest {
+
+    private static final String X_FORWARDING = "permit-X11-forwarding"; // not-a-citation
 
     @TempDir Path dir;
 
@@ -42,6 +45,37 @@ class SshCertificateTest {
                 .as("valid-before is the first second it is not")
                 .isFalse();
         assertThat(certificate.validAt(certificate.validAfter().minusSeconds(1))).isFalse();
+    }
+
+    @Test
+    void names_its_extensions_with_their_data() throws Exception {
+        key("person");
+        key("task");
+
+        assertThat(SshCertificate.read(certify("person", "task", "id", "+1d")).extensions())
+                .as("what ssh-keygen grants by default, each empty")
+                .containsOnly(
+                        Map.entry(X_FORWARDING, ""),
+                        Map.entry("permit-agent-forwarding", ""),
+                        Map.entry("permit-port-forwarding", ""),
+                        Map.entry("permit-pty", ""),
+                        Map.entry("permit-user-rc", ""));
+        assertThat(
+                        SshCertificate.read(
+                                        certify(
+                                                "person",
+                                                "task",
+                                                "id",
+                                                "+1d",
+                                                "-O",
+                                                "clear",
+                                                "-O",
+                                                "extension:porelo@example.org=x"))
+                                .extensions())
+                .as("an extension's data is kept")
+                .hasSize(1)
+                .containsKey("porelo@example.org")
+                .doesNotContainValue("");
     }
 
     @Test

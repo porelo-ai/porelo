@@ -164,6 +164,7 @@ At a terminal a shut vault asks for its passphrase; a script must unlock it firs
 | `porelo task start TASK --host LOGIN@HOST --project PROJECT ...` | Starts the task on that host over SSH, detached, its key certified here by your own agent, which is never forwarded. Paths named are the host's; `--set-file`, `--set-env` and `--restarted` are refused. |
 | `porelo task certify TASK [--host LOGIN@HOST --project PROJECT]` | Certifies a running task's key anew for another week, by your agent; with `--host`, the task of that project on that host, by its own name. |
 | `porelo task certificate FINGERPRINT [--json]` | Says which task a key signed for, who certified it and while, after the task is gone too; on a host, from the host's own record. |
+| `porelo task check-certificate --task TASK --login LOGIN --keys FILE [--krl FILE] [--json]` | Run by a host's helper, not by hand: checks the task certificate on standard input before the host records it, and writes nothing ([the host's contract](hosts.md#a-task-certificate-judged-for-the-host)). |
 
 **`task start`**
 - `-p PROJECT`: without it, the project that names the checkout you stand in, else `default`.
@@ -308,6 +309,8 @@ recorded as an `arrived` event. When your agent holds none of those keys, the ta
 unsigned, and `certified` is `false` in `task list --json`; on a host whose persons start tasks
 (`porelo-host-person`), it does not start at all. There, the host records the certificate, makes the
 task's forge token, and pushes its branch, `porelo/<task>`, itself; the container holds no token.
+Porelo runs the helper by its path through `sudo -n`, as
+[the host's contract](hosts.md#a-task-certificate-judged-for-the-host) says.
 
 `lastWrote` in the JSON status and the daemon's `Task` is the modification time of `task.log`, an
 ISO-8601 instant, or `""` without a readable log. Ask `Tail(last: 1)` for its last line when showing it.

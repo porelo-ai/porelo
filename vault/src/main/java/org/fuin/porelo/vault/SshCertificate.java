@@ -8,7 +8,10 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Base64;
+import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * An OpenSSH user certificate of an Ed25519 key, signed by an Ed25519 key: what a person's key
@@ -26,6 +29,7 @@ import java.util.List;
  * @param validAfter The first instant it is valid.
  * @param validBefore The first instant it is no longer valid.
  * @param signer The key that signed it, {@code ssh-ed25519 AAAA...}.
+ * @param extensions Its extensions by name, each to its data in base64, {@code ""} for none.
  */
 public record SshCertificate(
         byte[] blob,
@@ -34,7 +38,8 @@ public record SshCertificate(
         List<String> principals,
         Instant validAfter,
         Instant validBefore,
-        String signer) {
+        String signer,
+        Map<String, String> extensions) {
 
     /** The only certificate type read. */
     public static final String TYPE = "ssh-ed25519-cert-v01@openssh.com";
@@ -56,10 +61,12 @@ public record SshCertificate(
      * @param validAfter The first instant it is valid.
      * @param validBefore The first instant it is no longer valid.
      * @param signer The key that signed it.
+     * @param extensions Its extensions.
      */
     public SshCertificate {
         blob = blob.clone();
         principals = List.copyOf(principals);
+        extensions = Collections.unmodifiableMap(new LinkedHashMap<>(extensions));
     }
 
     @Override
@@ -126,7 +133,16 @@ public record SshCertificate(
         if (SshWire.readString(in).length != 0) {
             throw new CardException("A certificate with a critical option is not accepted");
         }
-        SshWire.readString(in); // extensions: permissions for a login, nothing here uses them
+        // Permissions for a login: nothing here honours them, a caller may judge them.
+        final Map<String, String> extensions = new LinkedHashMap<>();
+        final ByteBuffer granted = ByteBuffer.wrap(SshWire.readString(in));
+        while (granted.hasRemaining()) {
+            final String name = text(SshWire.readString(granted));
+            final byte[] data = SshWire.readString(granted);
+            if (extensions.put(name, Base64.getEncoder().encodeToString(data)) != null) {
+                throw new CardException("The certificate names extension " + name + " twice");
+            }
+        }
         SshWire.readString(in); // reserved
         final byte[] signerBlob = SshWire.readString(in);
         final int signedLength = in.position();
@@ -152,7 +168,8 @@ public record SshCertificate(
                 principals,
                 validAfter,
                 validBefore,
-                ED25519 + " " + Base64.getEncoder().encodeToString(signerBlob));
+                ED25519 + " " + Base64.getEncoder().encodeToString(signerBlob),
+                extensions);
     }
 
     /**

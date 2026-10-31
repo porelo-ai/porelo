@@ -69,7 +69,9 @@ final class HostPerson {
                 run(
                         Command.of("sudo", "-n", program.toString(), "task", task)
                                 .withInput(certificate + "\n"));
-        return started.standardOutput();
+        final String token = started.standardOutput();
+        // One line end a helper may print after the token is no part of it.
+        return token.endsWith("\n") ? token.substring(0, token.length() - 1) : token;
     }
 
     /**

@@ -148,6 +148,53 @@ The answer, alone on standard output, for the newest commits that hold:
   option has no use, or a setting has no form in JSON; 66 when a path is not there. A repository without a
   `project.yml` at its tip is named so, before any signature is looked at.
 
+## A task certificate judged for the host
+
+A machine is a host whose persons start tasks when `/usr/local/sbin/porelo-host-person` is executable. Porelo runs
+it only by that path, through `sudo -n`, never with a shell, and never passes a task name beginning with `-` or `@`:
+
+- **Start:** `porelo-host-person task <task>`, standard input the task's certificate line and one line end, after
+  Porelo has checked the certificate itself. Exit 0: standard output is the forge token alone, or empty on a host
+  without a forge; one trailing line end is not part of it. Porelo keeps the token in the task's vault entries for
+  its gate, never in the container or a file. Any other exit fails the start: 69 is answered as 69, every other
+  code as 65. Porelo shows the helper's standard error, never its standard output.
+- **End:** removing the task runs `porelo-host-person task --end <task>`, which answers
+  `{"task":"<task>","ended":true}`; any other answer is reported as not ended.
+- **Show:** `porelo task certificate <fingerprint>` asks `porelo-host-person task --show <fingerprint>` for a
+  certificate this machine did not keep, and does not believe an answer naming another key.
+
+The helper has Porelo judge the certificate before it records anything, run as root's throwaway user with no home,
+vault or network; it reads only the files its flags name and writes nothing:
+
+```
+porelo task check-certificate --task <task> --login <login> --keys <file> [--krl <file>] [--json] < certificate
+```
+
+- **`--keys`** is the person's keys in force, one OpenSSH public key line each, as the host applied them from its
+  verified registry; an empty file refuses every certificate. **`--krl`** is the revocation list in force.
+- **Standard input** is one line of at most 16 KiB, ending in at most one line end; anything longer, a second line
+  or no line is refused before anything parses it.
+- **Accepted** only as `porelo task start` issues it: one `ssh-ed25519-cert-v01@openssh.com` user certificate,
+  signed by exactly one of `--keys`' lines, an Ed25519 key, neither that key nor the task's key revoked by the
+  list; exactly one principal, `task:<project>:<task>`, of that task and a project name or `default`; the key id
+  `porelo task <task> by <login>`; valid now or within five minutes from now, and valid before at most seven days
+  and five minutes from now, both by the host's clock, as the start judges it; no critical option, and exactly
+  the extensions `ssh-keygen` grants by default, each empty: `permit-agent-forwarding`, `permit-port-forwarding`,
+  `permit-pty`, `permit-user-rc` and `permit-X11-forwarding`. <!-- not-a-citation: an OpenSSH extension -->
+- **The answer** with `--json`, exit 0, alone on standard output; `fingerprint` is the task key's, `signed_by` the
+  person's key that signed it, the times UTC:
+
+```json
+{"task": "fix", "project": "acme", "principal": "task:acme:fix", "key_id": "porelo task fix by alice",
+ "fingerprint": "SHA256:...", "signed_by": "SHA256:...",
+ "valid_after": "2026-10-31T14:00:00Z", "valid_before": "2026-11-07T14:01:00Z"}
+```
+
+- **Refusals**, with nothing on standard output and one line on standard error naming the rule, controls replaced:
+  65 for a certificate not accepted, 64 for a task or login that is not one, 66 for a named file missing or
+  unreadable, the revocation list included, and 70 for Porelo's own fault. The host records the certificate only
+  after exit 0, and checks itself that `project` is one the person belongs to.
+
 ## A push judged when it arrives
 
 The pre-receive hook of the host's forge has Porelo judge every commit a push brings, rather than a checker of its

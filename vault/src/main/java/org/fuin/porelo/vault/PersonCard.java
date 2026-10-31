@@ -209,6 +209,18 @@ public record PersonCard(
     }
 
     /**
+     * Whether a name has a card's login's form.
+     *
+     * @param login The name.
+     * @return {@code true} for a lower-case name a card may carry, none Porelo keeps for itself.
+     */
+    public static boolean isLogin(final String login) {
+        return LOGIN.matcher(login).matches()
+                && !"porelo".equals(login)
+                && !login.startsWith("porelo-");
+    }
+
+    /**
      * Returns a key's fingerprint.
      *
      * @param keyLine {@code ssh-ed25519 AAAA...}.

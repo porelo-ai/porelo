@@ -73,6 +73,25 @@ final class TaskCertification {
     private TaskCertification() {}
 
     /**
+     * Checks a task certificate's validity as a start does: valid now or within {@link #SLACK} of
+     * now, for a certifier's clock a little ahead, and for no longer than {@link #VALIDITY} from
+     * now, the same slack allowed.
+     *
+     * @param certificate The certificate.
+     * @param now The time of the side that checks.
+     * @throws Refused If it is not valid now, or valid too long.
+     */
+    static void checkValidity(SshCertificate certificate, Instant now) {
+        if (!certificate.validAt(now.plus(SLACK)) && !certificate.validAt(now)) {
+            throw new Refused("the certificate is not valid now");
+        }
+        if (certificate.validBefore().isAfter(now.plus(VALIDITY).plus(SLACK))) {
+            throw new Refused(
+                    "the certificate is valid longer than " + VALIDITY.toDays() + " days");
+        }
+    }
+
+    /**
      * Makes a task's key and has it certified.
      *
      * @param project The task's project, or {@link #NO_PROJECT}.
@@ -146,13 +165,7 @@ final class TaskCertification {
         if (!certificate.principals().equals(List.of(principal))) {
             throw new Refused("the certificate must name exactly " + principal);
         }
-        if (!certificate.validAt(now.plus(SLACK)) && !certificate.validAt(now)) {
-            throw new Refused("the certificate is not valid now");
-        }
-        if (certificate.validBefore().isAfter(now.plus(VALIDITY).plus(SLACK))) {
-            throw new Refused(
-                    "the certificate is valid longer than " + VALIDITY.toDays() + " days");
-        }
+        checkValidity(certificate, now);
         if (!certifiers.isEmpty() && !certifiers.contains(certificate.signer())) {
             throw new Refused(
                     "the certificate is signed by "

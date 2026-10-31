@@ -41,6 +41,17 @@ class HostPersonTest {
     }
 
     @Test
+    void oneLineEndAfterTheTokenIsNoPartOfIt() {
+        // A token kept with its line end fails at the forge, so the task's every push would.
+        runner.answering("task fix", "forge-token-value\n");
+        final HostPerson host = new HostPerson(context(), dir.resolve("helper"));
+
+        assertThat(host.start("fix", "cert")).isEqualTo("forge-token-value");
+        runner.answering("task fix", "");
+        assertThat(host.start("fix", "cert")).as("a host without a forge").isEmpty();
+    }
+
+    @Test
     void aRefusalSaysWhyAndAnEndIsCheckedByItsAnswer() {
         runner.failing("task fix", 65, "the certificate is not signed by alice's current key\n");
         final HostPerson host = new HostPerson(context(), dir.resolve("helper"));
