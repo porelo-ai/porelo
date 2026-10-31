@@ -1489,6 +1489,9 @@ public class ProjectAccessCommand implements Callable<Integer>, PoreloFactory.Co
             written.put("ssh_host_key", was.sshHostKey());
             root.put("host", written);
         }
+        if (before.source() != null) {
+            root.put("source", before.source());
+        }
         final Map<String, Object> named = new LinkedHashMap<>();
         for (final AccessFile.Person person : persons.values()) {
             final Map<String, Object> written = new LinkedHashMap<>();

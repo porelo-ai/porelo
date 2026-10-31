@@ -75,6 +75,15 @@ public class PoreloCli implements Callable<Integer> {
         java.util.Objects.requireNonNull(
                         line.getSubcommands().get("vault"), "the vault group is named above")
                 .addSubcommand(VaultClearCommand.class);
+        // Added here as well: which projects a person may join is checked as a follow checks an
+        // access repository, which the registry's area does not depend on.
+        java.util.Objects.requireNonNull(
+                        line.getSubcommands().get("registry"), "the registry group is named above")
+                .addSubcommand(RegistryJoinableCommand.class);
+        // And the account a tunnel reaches asks its daemon as doctor does.
+        java.util.Objects.requireNonNull(
+                        line.getSubcommands().get("host"), "the host group is named above")
+                .addSubcommand(HostWhoamiCommand.class);
         return line.setParameterExceptionHandler(CliErrors.handler())
                 .setExecutionExceptionHandler(CliErrors.failures(context.paths()));
     }

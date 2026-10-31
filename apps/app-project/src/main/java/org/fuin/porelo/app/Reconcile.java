@@ -1124,6 +1124,67 @@ public final class Reconcile {
         }
     }
 
+    /**
+     * Checks an access repository on its own, as a first follow checks one: its head must be signed
+     * by a key this check was handed, and its access file and cards must read. Fetches into the
+     * clone given, which the caller removes, and applies nothing.
+     *
+     * @param name The project, the principal its keys are pinned under.
+     * @param url The access repository.
+     * @param clone Where it is fetched to.
+     * @return The access commit with the access file's text, its persons and the keys in force; the
+     *     text is {@code null} unless the commit was good.
+     */
+    Checked accessAlone(final String name, final String url, final Path clone) {
+        final FollowedProjects.Followed access =
+                new FollowedProjects.Followed(name, url, "", "", "", "");
+        final Result failed = fetch(access, clone);
+        if (failed != null) {
+            return new Checked(failed, null);
+        }
+        try {
+            final String commit = headOf(context.runner(), clone);
+            final SignerHandover.Handed checked = handover.access(clone, name, "", commit);
+            if (checked.refused() != null) {
+                return new Checked(refused(access, checked.refused(), checked.refusedFile()), null);
+            }
+            final Result read = readAccess(clone, commit, "");
+            if (read.outcome() != Outcome.APPLIED) {
+                return new Checked(read, null);
+            }
+            final CommandResult shown =
+                    context.runner()
+                            .run(
+                                    Command.of(
+                                            "git",
+                                            "-C",
+                                            clone.toString(),
+                                            "show",
+                                            commit + ":" + Access.FILE));
+            if (!shown.successful()) {
+                return new Checked(
+                        new Result(Outcome.UNREADABLE, "", "cannot read " + Access.FILE), null);
+            }
+            final String text = shown.standardOutput();
+            return new Checked(
+                    read,
+                    null,
+                    null,
+                    text,
+                    checked.keys(),
+                    null,
+                    org.fuin.porelo.vault.AccessPersons.read(
+                            context.runner(),
+                            clone,
+                            commit,
+                            AccessFile.read(new java.io.StringReader(text), Access.FILE)),
+                    List.of());
+        } catch (final RuntimeException ex) {
+            return new Checked(
+                    new Result(Outcome.FAILED, "", String.valueOf(ex.getMessage())), null);
+        }
+    }
+
     private Result readAccess(final Path clone, final String commit, final String inForce) {
         try {
             final CommandResult shown =

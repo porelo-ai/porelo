@@ -247,6 +247,22 @@ public record Repository(
     }
 
     /**
+     * Says whether an address is written in a form a registry or an access file takes: {@code
+     * ssh://}, {@code https://} or {@code user@host:path}, and no remote helper's {@code
+     * transport::}. A URL holds an {@code @} only in its authority: one after the first slash would
+     * make what follows it look like the host, while git reads the host before that slash, and so
+     * name a user part as one.
+     *
+     * @param address The address.
+     * @return Whether it has that form; whether git would read it as an option is asked by {@link
+     *     #refuseAsOption}.
+     */
+    public static boolean isAddress(String address) {
+        return !address.matches("[^:]+::[\\s\\S]*")
+                && address.matches("(?:ssh|https)://[^/]+(?:/[^@]*)?|[^@/:]+@[^/:]+:.+");
+    }
+
+    /**
      * Refuses an address a program would read as something other than an address.
      *
      * <p>An upstream reaches {@code git fetch} as written: {@code --upload-pack=<command>} ran that
@@ -259,12 +275,17 @@ public record Repository(
      * @throws ProjectException If it would be read as an option or a command.
      */
     public static void refuseAsOption(String value, String key) {
-        final String said = value.strip();
-        if (said.startsWith("-")
-                || said.startsWith("ext::")
-                || said.startsWith("fd::")
-                || said.chars()
-                        .anyMatch(c -> Character.isWhitespace(c) || Character.isISOControl(c))) {
+        // The value as given, never a stripped copy: a trailing space or line break passed that
+        // and stayed in the address git was handed.
+        if (value.startsWith("-")
+                || value.startsWith("ext::")
+                || value.startsWith("fd::")
+                || value.chars()
+                        .anyMatch(
+                                c ->
+                                        Character.isWhitespace(c)
+                                                || Character.isSpaceChar(c)
+                                                || Character.isISOControl(c))) {
             throw new ProjectException(
                     "'"
                             + key

@@ -54,8 +54,7 @@ record RegistryAccess(Map<String, String> admins, List<Project> projects) {
 
     /** Whether an address is written in a form this file accepts, and no transport helper's. */
     private static boolean addressForm(String repository) {
-        return !repository.matches("[^:]+::[\\s\\S]*")
-                && repository.matches("(?:ssh|https)://[^/]+(?:/.*)?|[^@/:]+@[^/:]+:.+");
+        return Repository.isAddress(repository);
     }
 
     static RegistryAccess read(String text, String origin) {

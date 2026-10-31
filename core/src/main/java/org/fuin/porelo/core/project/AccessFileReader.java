@@ -44,13 +44,42 @@ final class AccessFileReader {
         if (root.containsKey("signers")) {
             throw refusal(origin, "signers", "belongs to the project file alone");
         }
-        known(root, Set.of("host", "persons", "revoked", "transports"), "", origin);
+        known(root, Set.of("host", "persons", "revoked", "transports", "source"), "", origin);
         final AccessFile.Host host =
                 root.containsKey("host")
                         ? host(mapping(root.get("host"), "host", origin), origin)
                         : null;
         return new AccessFile(
-                host, persons(root, origin), revoked(root, origin), transports(root, origin));
+                host,
+                persons(root, origin),
+                revoked(root, origin),
+                transports(root, origin),
+                source(root, origin));
+    }
+
+    /** The project's own repository: an address git reads as one, never an option or a command. */
+    private static @Nullable String source(final Map<?, ?> root, final String origin) {
+        if (!root.containsKey("source")) {
+            return null;
+        }
+        if (!(root.get("source") instanceof String source)
+                || !Repository.isAddress(source)
+                || refusedAsOption(source)) {
+            throw refusal(
+                    origin,
+                    "source",
+                    "must be the project's repository, written ssh://, https:// or user@host:path");
+        }
+        return source;
+    }
+
+    private static boolean refusedAsOption(final String address) {
+        try {
+            Repository.refuseAsOption(address, "source");
+            return false;
+        } catch (ProjectException ex) {
+            return true;
+        }
     }
 
     private static AccessFile.Host host(final Map<?, ?> host, final String origin) {

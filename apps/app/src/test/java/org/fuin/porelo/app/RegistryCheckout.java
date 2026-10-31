@@ -274,6 +274,7 @@ final class RegistryCheckout implements AutoCloseable {
                 };
         final var verbs = cli.getSubcommands().get("registry").getSubcommands();
         ((RegistryReadCommand) verbs.get("read").getCommand()).forges = forges;
+        ((RegistryJoinableCommand) verbs.get("joinable").getCommand()).forges = forges;
         final RegistryFileCommand file = (RegistryFileCommand) verbs.get("file").getCommand();
         file.forges = forges;
         file.afterRead = afterRead;

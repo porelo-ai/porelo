@@ -251,6 +251,30 @@ class ProjectAccessCommandTest {
     }
 
     @Test
+    void aChangeKeepsTheProjectRepositoryTheAccessFileNames() throws Exception {
+        // Dropped, a person could no longer be told where the project they may join is.
+        final String first = init();
+        final String named =
+                pushed(
+                        true,
+                        "name the project's repository",
+                        tree -> {
+                            final Path file = tree.resolve("access.yml");
+                            Files.writeString(
+                                    file,
+                                    "source: ssh://git@example.org/demo.git\n"
+                                            + Files.readString(file));
+                        });
+        assertThat(named).isNotEqualTo(first);
+
+        change("lock", "--person", "alice", "--base", named, "--id", "lock-keeps");
+
+        assertThat(git(remote, "show", "HEAD:access.yml"))
+                .as("the source survives a change written by Porelo")
+                .contains("source: ssh://git@example.org/demo.git");
+    }
+
+    @Test
     void lockAnswersLockedAndUnlockAnswersNot() throws Exception {
         // A lock nobody can see is no lock.
         String at = init();

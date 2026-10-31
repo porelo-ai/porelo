@@ -41,6 +41,55 @@ class AccessFileReaderTest {
                 .isEqualTo(new AccessFile(null, Map.of(), List.of(), Map.of()));
     }
 
+    @ParameterizedTest
+    @ValueSource(
+            strings = {
+                "ssh://git@example.org/acme/demo.git",
+                "https://example.org/acme/demo.git",
+                "git@example.org:acme/demo.git"
+            })
+    void the_projects_repository_is_read_as_written(final String source) {
+        assertThat(read("source: '" + source + "'").source())
+                .as("the address a follow takes")
+                .isEqualTo(source);
+        assertThat(read("{}").source()).as("optional").isNull();
+    }
+
+    /** Followed as written: an option or a helper's transport would run a command. */
+    @ParameterizedTest
+    @ValueSource(
+            strings = {
+                "source: '--upload-pack=touch x'",
+                "source: 'ext::sh -c touch% x'",
+                "source: 'file:///srv/demo.git'",
+                "source: /srv/demo.git",
+                "source: 'https://example.org/a b'",
+                "source: 42",
+                "source: [ssh://git@example.org/demo.git]"
+            })
+    void a_projects_repository_of_another_form_is_refused(final String yaml) {
+        refuses(yaml, "source", "must be the project's repository");
+    }
+
+    /**
+     * Kept as written, a trailing blank reached git as part of the address; an {@code @} after the
+     * host made a user part read as the host.
+     */
+    @ParameterizedTest
+    @ValueSource(
+            strings = {
+                "source: 'ssh://git@example.org/acme/demo.git '",
+                "source: \"ssh://git@example.org/acme/demo.git\\t\"",
+                "source: \"git@example.org:acme/demo.git\\n\"",
+                "source: \"https://example.org/acme/demo.git\\u00a0\"",
+                "source: ' https://example.org/acme/demo.git'",
+                "source: 'https://example.org/x/@github.com/acme/demo.git'"
+            })
+    void a_projects_repository_with_a_blank_anywhere_or_an_at_after_its_host_is_refused(
+            final String yaml) {
+        refuses(yaml, "source", "must be the project's repository");
+    }
+
     @Test
     void a_host_can_be_named_without_persons_or_transports() {
         final AccessFile access = read(HOST);

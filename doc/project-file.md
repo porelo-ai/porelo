@@ -548,6 +548,7 @@ admitted, and its tasks' messages wait in their mailboxes, neither sent nor fetc
 working tree.
 
 ```yaml
+source: git@example.org:acme/demo.git   # optional; the project's own repository
 host:                           # optional
   address: host.example.org
   ssh_host_key: "ssh-ed25519 AAAA..."
@@ -562,6 +563,11 @@ transports:
   matrix: {homeserver: "https://host.example.org:8448", room: "#acme:host.example.org"}
 ```
 
+- **`source` is the project's own repository**, the address `porelo project follow` takes, written `ssh://`,
+  `https://` or `user@host:path`; an option, a remote helper's `transport::`, a path, `file://`, a value with
+  whitespace or a control character anywhere, or a URL with an `@` after its host is refused. A person learns
+  from it, through `porelo registry joinable`, which repository to follow; an access file without it answers its
+  project as refused there. A change Porelo writes with `project access` keeps it.
 - **Public keys and addresses only.** No signers - those are the project file's - and nothing
   secret; a value holding a private key is refused.
 - **Persons are checked by their cards.** Each `cards/<login>.card` lies beside `access.yml` in the

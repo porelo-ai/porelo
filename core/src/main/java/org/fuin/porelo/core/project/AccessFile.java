@@ -12,12 +12,15 @@ import org.jspecify.annotations.Nullable;
  * @param persons Persons by card login, in file order; their cards are checked separately.
  * @param revoked Fingerprints no card or chain may carry.
  * @param transports Each transport's settings, kept as written, by scheme.
+ * @param source The project's own repository, as a follow takes it, or {@code null} when none is
+ *     named.
  */
 public record AccessFile(
         @Nullable Host host,
         Map<String, Person> persons,
         List<String> revoked,
-        Map<String, Object> transports) {
+        Map<String, Object> transports,
+        @Nullable String source) {
 
     /**
      * The prepared host.
@@ -42,6 +45,22 @@ public record AccessFile(
         public Person {
             hosts = List.copyOf(hosts);
         }
+    }
+
+    /**
+     * Constructor for settings that name no project repository.
+     *
+     * @param host The prepared host, or {@code null}.
+     * @param persons Persons by card login.
+     * @param revoked Fingerprints no card or chain may carry.
+     * @param transports Each transport's settings.
+     */
+    public AccessFile(
+            @Nullable Host host,
+            Map<String, Person> persons,
+            List<String> revoked,
+            Map<String, Object> transports) {
+        this(host, persons, revoked, transports, null);
     }
 
     /** Canonical constructor; collections are copied, keeping file order. */
