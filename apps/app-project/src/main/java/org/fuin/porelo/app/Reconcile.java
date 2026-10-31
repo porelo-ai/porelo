@@ -1760,7 +1760,7 @@ public final class Reconcile {
      * @return The project.
      * @throws ProjectException If the commit holds no project file, or one that does not read.
      */
-    private static org.fuin.porelo.core.project.Project readAt(
+    static org.fuin.porelo.core.project.Project readAt(
             final CommandRunner runner, final Path clone, final String commit, final Path file) {
         final CommandResult shown =
                 runner.run(

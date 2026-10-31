@@ -32,6 +32,7 @@ import picocli.CommandLine.Spec;
             ProjectFollowingCommand.class,
             ProjectInventoryCommand.class,
             ProjectVerifyCommand.class,
+            ProjectAccessCommand.class,
             ProjectRefreshCommand.class,
             ProjectUnfollowCommand.class,
             ProjectClearCommand.class,

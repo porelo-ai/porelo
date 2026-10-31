@@ -35,12 +35,12 @@ from its side, as *blocked by*.
 | <a id="b190"></a>[B190](B190-A-Tasks-Branch-Named-By-The-Projects-Scheme.md) | L | - | `branch.template` and `branch.pattern` or `--branch` name a task's forge branch, kept in `task.json`; the gate passes on and keeps out of its mirror by them, an existing upstream branch refused at an online start, a guarded approval onto it by default and only within the pattern. |
 | <a id="b206"></a>[B206](B206-A-Transport-Takes-Its-Secrets-On-Its-Input.md) | L | - | A transport takes the secrets Porelo kept for it on its standard input, not in its environment, so no other process of the account can read them from `/proc`; a version declared in `describe`, with the matrix transport's matching change. |
 | <a id="b238"></a>[B238](B238-An-Unfollow-Leaves-Nothing-Of-The-Project.md) | M | - | `project unfollow` removes the project's build lock and upstream copies, so `porelo prune` finds nothing of it; following stops first, under the clone's lock, which a removal never leaves to two holders |
+| <a id="b352"></a>[B352](B352-A-Persons-Access-Written-By-Porelo.md) | M | [B342](README.md#b342) | `porelo project access init\|add\|remove\|lock\|unlock --base --id --json`: the admin's Porelo writes the access file and the cards and signs the commit through their agent, idempotent by id |
 
 ## Implementing
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
-| <a id="b352"></a>[B352](B352-A-Persons-Access-Written-By-Porelo.md) | M | [B342](README.md#b342) | `porelo project access init\|add\|remove\|lock\|unlock --base --id --json`: the admin's Porelo writes the access file and the cards and signs the commit through their agent, idempotent by id |
 | <a id="b339"></a>[B339](B339-The-Registry-Read-And-Written-By-Its-Signers.md) | M | [B337](README.md#b337), [B341](README.md#b341), [B349](README.md#b349) | The organisation's registry checked path by path against each path's own signer, `owners.yml` naming owners and host admins, a new card trusted only when the forge lists its key for that login; `registry read --json` and `registry file` |
 | <a id="b343"></a>[B343](B343-Each-Task-Signs-With-Its-Own-Certified-Key.md) | L | [B342](README.md#b342) | Each task's own key, held outside its container and certified at start by the person's agent on their machine, recorded and served by fingerprint, signs its commits; judged at arrival |
 | <a id="b214"></a>[B214](B214-A-Vault-Entry-Put-Again-Unchanged.md) | M | - | `vault put` given the value an entry already holds says `unchanged` and exits 0, so a second play reports nothing changed |

@@ -563,6 +563,8 @@ porelo project following [--json]
 porelo project inventory --machine-file FILE
 porelo project verify --repository PATH --signed-by KEY... [--project NAME] [--since COMMIT]
                       [--access-repository PATH] [--access-since COMMIT] [--krl FILE] [--json]
+porelo project access init|add|remove|lock|unlock --project NAME --person LOGIN [--host HOST] [--card FILE]
+                      [--role admin|developer] [--base COMMIT] --id ID [--json]
 porelo project refresh [NAME]
 porelo project list
 porelo project unfollow NAME [--dry-run] [--force]
@@ -613,6 +615,36 @@ porelo project enroll PROJECT [--remove] [--as=PRINCIPAL]
   Diagnostics show control, format and line-separator characters as `?`; malformed YAML names its
   file, line and column without a source excerpt. JSON strings and keys escape those characters as
   Unicode escapes, preserving their values.
+- **`access`** writes one change to a followed project's access file in its access repository and answers
+  the commit it made, `{"revision": "<commit>"}` with `--json`, else `revision <commit>`. The project must be
+  followed with `--signed-by`; the repository is the one `project.yml` names at the project commit in force.
+  It clones the repository into a scratch directory under the temp directory, which is always removed, and
+  refuses (65, naming the commit) a head that does not descend from the access commit in force here or whose
+  commits since it the follow's check refuses; with no access commit in force, the head itself must be signed
+  by a project signer, and `init` writes only into an empty repository. It writes `access.yml` (persons by
+  login, keys in the documented order, `host`, `revoked` and `transports` as they read) and
+  `cards/LOGIN.card`, checks the file reads as `verify` reads it and the commit verifies as the follow checks
+  it, commits and pushes to the branch the repository's HEAD names, leased on the head it read; a detached
+  HEAD is refused, and so is a HEAD naming no commit beside other refs. No git it runs reads your git
+  configuration, hooks or `GIT_*` environment, follows a redirect, or reaches the repository by a transport
+  other than `file`, `git`, `http`, `https` and `ssh`. Git signs the commit through your ssh agent
+  (`SSH_AUTH_SOCK`) with the key it holds that this machine pinned for the project, under the project's name
+  alone, not retired and not in `revoked.krl`; no private key file is read. The commit is pushed only when both
+  a first follow and this machine's follow would take it, the pinned line's options judged as they judge them.
+  `init` makes the first file with LOGIN as `admin` on `--host`, needs `--card` and is refused when
+  `access.yml` exists. `add --host` puts a person in as `developer` (or `--role`) with `--card`, or adds the
+  host to theirs; without `--card` it takes the repository's card only of a person already in whose card
+  carries the key `access.yml` pins for them. A card whose key or predecessor `revoked:` lists is refused.
+  `remove --host` takes one host away and the person once none is left; `remove` alone takes them off every
+  host. Their card stays. `lock` and `unlock` set `locked`. Every action but `init` needs `--base`, the
+  access commit it was made against, and is refused when the head is another, naming both; a push that
+  someone else's beat is refused the same way. `--id` (`[A-Za-z0-9._-]{1,64}`) is carried as the
+  `Porelo-Change-Id` trailer beside `Porelo-Change-Digest`: a signed commit among the last 1000 first-parent
+  commits made on the same `--base`, carrying the id and the digest once each, answers the same change, and
+  under another change is refused. A card must name LOGIN, be signed as a card must be, and be a regular
+  file of at most 64 KiB; `cards`, a card and `access.yml` in the repository must be a directory and regular
+  files. An access file beside `project.yml` is refused: it changes with a signed project commit. 64 is wrong
+  use, 65 a refusal, 66 a project not followed or a repository not reached, 69 a push that failed otherwise.
 - **`following`** lists the follows; **`list`** (also `porelo projects`) lists the projects. `following --json`
   answers a program, as [A host a playbook brings up](hosts.md) says.
   `list --json`, `Projects()` and `WatchProjects()` carry `lastUsed`: the latest recorded task start or
