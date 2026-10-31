@@ -140,6 +140,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b380"></a>[B380](B380-Small-Leftovers-Of-Sprint-6m.md) | - | - | The small edge cases sprint 6m left, gathered for michi to place |
 | <a id="b379"></a>[B379](B379-A-Mailbox-Opened-Only-For-Its-Own-Task.md) | M | [B369](README.md#b369) | `porelo talk pass` opens only its own task's mailbox of its own project, and a key is believed only for the task its certificate names |
 | <a id="b378"></a>[B378](B378-A-Failed-Start-Touches-Only-What-It-Made.md) | L | [B367](README.md#b367) | A failed task start stops and removes only what it made; what it keeps resumes with its helpers and is removable |
 | <a id="b377"></a>[B377](B377-A-Backup-Key-Never-Pinned-Never-A-Signer.md) | L | [B370](README.md#b370) | A backup key is never pinned, active or retired, and no revoked key signs, on every path of follow, access and backup-key |
