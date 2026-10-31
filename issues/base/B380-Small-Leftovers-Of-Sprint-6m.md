@@ -31,3 +31,8 @@ or lends a credential, trusts a key wrongly or loses data. Each one placed is sp
   minutes; with neither an agent nor a terminal the answer is `key-not-in-agent`, not `no-terminal`; a re-run with
   the same `--id` answers without `entry`; with `/proc` mounted `hidepid` the answer is `key-store-refused` with
   words that do not say why. Found while building [B356](README.md#b356).
+- Medium: Porelo reads a lone `\r` as a line end in an allowed-signers file, but ssh-keygen reads
+  `alice\rssh-ed25519 K` as one line, so Porelo refuses a file git reads. Found while fixing [B376](README.md#b376).
+- Low: a line ssh-keygen cannot parse is skipped by git, while Porelo refuses the whole signers file (66); a line
+  Java's `strip()` turns into a comment, such as `U+2000#x ssh-ed25519 K`, is skipped by Porelo but read by
+  ssh-keygen as the principal `U+2000#x`. Both fail closed. Found while fixing [B376](README.md#b376).
