@@ -1,6 +1,6 @@
 # B339 — The Registry Read And Written By Its Signers
 
-**Status:** Accepted.
+**Status:** Implementing.
 **Size:** M - estimated 90 minutes from the median of M builds: the per-path rule beside the protected-file rule, the
 registry verbs, the forge's key list at first read, docs.
 

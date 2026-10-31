@@ -1,6 +1,6 @@
 # B353 — The Projects A Person May Join
 
-**Status:** Idea. Placed in sprint 6m by the Coordinator, operator confirms 2026-10-31.
+**Status:** Backlog (operator, 2026-10-31), sprint 6m.
 **Size:** M, proposed - one verb joining the registry's read and the access file's check, with no rule of its own.
 
 **What must be true.** A person's Porelo answers which projects they may join, from the organisation's registry, without

@@ -39,6 +39,8 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b352"></a>[B352](B352-A-Persons-Access-Written-By-Porelo.md) | M | [B342](README.md#b342) | `porelo project access init\|add\|remove\|lock\|unlock --base --id --json`: the admin's Porelo writes the access file and the cards and signs the commit through their agent, idempotent by id |
+| <a id="b339"></a>[B339](B339-The-Registry-Read-And-Written-By-Its-Signers.md) | M | [B337](README.md#b337), [B341](README.md#b341), [B349](README.md#b349) | The organisation's registry checked path by path against each path's own signer, `owners.yml` naming owners and host admins, a new card trusted only when the forge lists its key for that login; `registry read --json` and `registry file` |
 | <a id="b343"></a>[B343](B343-Each-Task-Signs-With-Its-Own-Certified-Key.md) | M | [B342](README.md#b342) | Each task's own key, held outside its container and certified at start by the person's agent on their machine, recorded and served by fingerprint, signs its commits; judged at arrival |
 | <a id="b345"></a>[B345](B345-A-Host-Vault-Opened-By-The-Persons-Key.md) | L | - | A host account's vault has one keyslot, a share derived on the person's machine from their SSH signature and kept in locked memory on the host; a lost key means a new vault, answered `other-key` |
 | <a id="b214"></a>[B214](B214-A-Vault-Entry-Put-Again-Unchanged.md) | M | - | `vault put` given the value an entry already holds says `unchanged` and exits 0, so a second play reports nothing changed |
@@ -48,6 +50,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b353"></a>[B353](B353-The-Projects-A-Person-May-Join.md) | M | [B339](README.md#b339), [B342](README.md#b342) | `porelo registry joinable <checkout> --login L --json`: the projects a person may join, with each one's host card, verified access revision, signers and admins, and every unreadable access repository named |
 | <a id="b14"></a>[B14](B14-Talking-Between-Tasks.md) | XL | `porelo` [B86](README.md#b86) | Talking between tasks, built on one machine; splits into groups (M), trust confirmed once with fingerprints (M), two machines on one homeserver (L). |
 | <a id="b193"></a>[B193](B193-A-Dependency-Cache-Shared-Across-Tasks.md) | XL | - | Downloaded dependencies cached once for a project's tasks and handed in read-only; what a task installs stays its own; analyzed: filled only from reviewed work, mounted `:ro,z`, read through `maven.repo.local.tail`, filled by `dependency:go-offline` on request and when the default branch moved, Maven first |
 | <a id="b207"></a>[B207](B207-An-Image-Built-Within-The-Projects-Egress.md) | L | - | An image's build reaches only the project's egress and its trusted package sources, run in a guard container behind the task's own firewall (measured to hold), so a snippet - a project's or a repository's `porelo.yml` - cannot fetch from anywhere while the image is made.; plan written, two questions for the operator |
@@ -112,7 +115,6 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
-| <a id="b339"></a>[B339](B339-The-Registry-Read-And-Written-By-Its-Signers.md) | M | [B337](README.md#b337), [B341](README.md#b341), [B349](README.md#b349) | The organisation's registry checked path by path against each path's own signer, `owners.yml` naming owners and host admins, a new card trusted only when the forge lists its key for that login; `registry read --json` and `registry file` |
 | <a id="b344"></a>[B344](B344-Messages-Signed-By-A-Tasks-Key.md) | M | [B343](README.md#b343), [B334](README.md#b334) | Messages signed by the plain task key and checked through its certificate; the machine key, `project enroll`, `machine-signers` and `--machines` go, a transport is given `login` |
 | <a id="b338"></a>[B338](B338-An-Identity-Made-Changed-And-Replaced.md) | L | [B339](README.md#b339), [B342](README.md#b342), [B345](README.md#b345) | `identity create`, `rotate` and `revoke --lost`, publishing the card to the registry and each host with `published[]` |
 | <a id="b346"></a>[B346](B346-A-Backup-Key-For-A-Single-Admin.md) | S | [B338](README.md#b338), [B342](README.md#b342), [B343](README.md#b343) | An offline backup key for a single project admin, host admin or registry owner, allowed to change only the signers and to certify nothing |
@@ -131,8 +133,6 @@ from its side, as *blocked by*.
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
 | <a id="b354"></a>[B354](B354-A-Task-Named-By-Its-Key.md) | S | [B343](README.md#b343) | A task's name carries a short suffix from its key's fingerprint, unique per login, so a name names one task key |
-| <a id="b353"></a>[B353](B353-The-Projects-A-Person-May-Join.md) | M | [B339](README.md#b339), [B342](README.md#b342) | `porelo registry joinable <checkout> --login L --json`: the projects a person may join, with each one's host card, verified access revision, signers and admins, and every unreadable access repository named |
-| <a id="b352"></a>[B352](B352-A-Persons-Access-Written-By-Porelo.md) | M | [B338](README.md#b338), [B342](README.md#b342) | `porelo project access init\|add\|remove\|lock\|unlock --base --id --json`: the admin's Porelo writes the access file and the cards and signs the commit through their agent, idempotent by id |
 | <a id="b351"></a>[B351](B351-A-Host-Card-Signed-Through-The-SSH-Agent.md) | - | - | `porelo card make-host` signs through `ssh-agent`, KeePassXC included, so a host admin's key never lies on disk to sign their host's card |
 | <a id="b350"></a>[B350](B350-A-Loopback-Sign-In-Over-SSH-Names-Its-Forward.md) | - | [B347](README.md#b347) | A `loopback` sign-in over SSH runs: Porelo names the callback port and the interface shows the one `ssh -L` line to open first |
 | <a id="b330"></a>[B330](B330-A-Snippet-File-Is-Read-From-The-Commit-Being-Applied.md) | - | - | A follow reads `image.snippet_file` from the commit it judges, not from the working tree before it moves, so a first follow of a project with a snippet file is not refused |

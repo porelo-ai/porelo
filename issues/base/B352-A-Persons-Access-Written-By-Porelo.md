@@ -1,6 +1,6 @@
 # B352 — A Person's Access Written By Porelo
 
-**Status:** Idea. Placed in sprint 6m by the Coordinator (2026-10-30), operator confirms 2026-10-31.
+**Status:** Implementing. Backlog (operator, 2026-10-31), sprint 6m.
 **Size:** M, proposed - one verb writing the access file and its cards, signed through the agent, idempotent by id.
 
 **What must be true.** The project admin's Porelo writes a change to a project's access repository and signs its commit
@@ -20,8 +20,8 @@ answers `{"revision"}`, the commit it made:
   same id with another change is refused.
 
 Part of the design the operator accepted in `porelo-project` on 2026-10-30, *A Person Joins With One Click*: one Ed25519
-SSH key per person, the state signed in Git, everything between a person and a host over SSH. Signing through the
-person's agent is [B338](README.md#b338)'s.
+SSH key per person, the state signed in Git, everything between a person and a host over SSH. The commit is signed
+through the person's agent by Git itself (`gpg.format=ssh`, the key's public half as `user.signingkey`).
 
 ## Acceptance
 
