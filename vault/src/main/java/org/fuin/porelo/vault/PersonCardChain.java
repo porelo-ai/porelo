@@ -20,7 +20,7 @@ import java.util.stream.Collectors;
 public final class PersonCardChain {
 
     /** More changes of key than any person makes; it bounds how deep the walk goes. */
-    private static final int MAX_STEPS = 64;
+    static final int MAX_STEPS = 64;
 
     private PersonCardChain() {
         throw new UnsupportedOperationException("Utility class");

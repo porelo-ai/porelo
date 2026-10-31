@@ -470,6 +470,12 @@ names the key they trust for the host admin.
 `--json` answers `{"host", "address", "ssh_port", "ssh_host_key", "services": {"forge": {"web_port", "git_port"},
 "matrix": {"port"}}, "signed_by"}`, the ports as numbers, `signed_by` the signer's fingerprint.
 
+## registry
+
+| Command | What it does |
+|---|---|
+| `porelo registry verify --repository BUNDLE --host HOST --pinned SHA256:... [--since COMMIT] [--json]` | Checks a whole Git bundle in a regular file (v2 or v3, never a symlink or repository directory) in a temporary bare clone, without network, home or vault. The registry head is `refs/heads/main`; a bundle without it is refused. Every first-parent commit changing `hosts/HOST/` is compared with its own first parent and must be SSH-signed by the host admin in force; a new host card signed by a new key moves the pin only in a commit signed by the old key. Reads only `hosts/HOST/card`, `hosts/HOST/access.yml` (`admins: {login: fingerprint}`, `projects: [{name, admin, access_repository}]`) and the named `people/LOGIN.card` histories. Project names match `[a-z0-9][a-z0-9-]{0,62}` and are unique after lowercasing; access repositories are `ssh://`, `https://` or `user@host:path`, never options, commands or remote-helper transports. JSON answers `commit`, `host_card` (including `signed_by`), `admins`, `projects`, `persons` (`login`, `ssh`, `expires`, `revoked`). Person cards must lead back to their access-file pins; missing, refused or over-limit cards answer empty `ssh` and `expires` with `revoked: true`. Their full history is bounded to 64 changes. Diagnostics and JSON replace Unicode control, format and line or paragraph separator characters with `?`. `--since` is the full lowercase object name (40 or 64 hex digits) of the previously applied and verified commit, on main's first-parent line: `--pinned` must verify its host card, and only subsequent first-parent history is judged; without `--since`, history is judged from its root with the initial pin. Save the answered `host_card.signed_by` together with `commit` for the next call. Exit 65 on invalid state, naming commit and path for an unauthorized host change, or both commits for refused continuation; 66 for an unreadable or nonbundle source; 64 for bad options, including an empty repository value. |
+
 ## talk
 
 A task's mailbox. Each command names the task by its container name.
