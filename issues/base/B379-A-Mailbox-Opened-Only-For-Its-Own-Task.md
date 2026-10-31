@@ -1,6 +1,6 @@
 # B379 — A Mailbox Opened Only For Its Own Task
 
-**Status:** Idea.
+**Status:** Review.
 **Size:** M, proposed - the task given to `talk pass` checked as a task name, a removed task's project read from its
 own record, the certificate's principal compared, every person given to a transport checked, task names that start
 with `porelo-` refused, and the daemon's two methods tested through the daemon, each with its test.
@@ -24,3 +24,21 @@ belongs to, and believes a key only for the task its certificate names. A second
   whose login is outside the transport rule.
 
 Each is answered by a test that fails today.
+
+## Done
+
+- `porelo talk pass` refuses (64), before any mailbox is opened, a task that is no task name with `--project` and,
+  without it, one that is no task's container name - `fix/../porelo-other-secret`, `../mail/...`, an absolute path.
+- A removed task's project is the one its start recorded under the state directory, after the container's label and
+  before any fitting of names: `talk pass --project` refuses (66) a removed task of another project, and a
+  conversation's members are found by it, so a removed task of a project no longer followed is handed nothing of
+  another project's room and a removed sibling whose name fits two projects keeps what its room held for it.
+- A task of `default` believes the person who certified its own key only when that key is certified for that very
+  task, `task:default:<task>`.
+- `talk join`, the daemon's `JoinMessages`, `talk remove` and `RemoveMessageMember` refuse a person outside
+  `[a-z][a-z0-9-]{0,31}` before any transport runs, with or without an access file.
+- No task name begins with `porelo-`: a start refuses it, an unnamed start on a repository `porelo-pi` is named
+  `pi`, a certificate for such a task names no one task, and `mail.peers` takes no `task:<project>:porelo-...`.
+- `MessagingMethodsTest` asks `SetUpMessages`, `JoinMessages` and `RemoveMessageMember` through the daemon's socket,
+  with a login of its own rather than the machine's, and holds that a login no transport takes is refused (78).
+- Left: a task's own key is still used to sign when its certificate names another task.

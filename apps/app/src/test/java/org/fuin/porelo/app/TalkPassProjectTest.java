@@ -271,4 +271,186 @@ class TalkPassProjectTest {
                         command ->
                                 assertThat(command.arguments()).contains("poll", "--into", into));
     }
+
+    @Test
+    void aTaskGivenWithItsProjectThatClimbsOutOfItsMailboxIsRefused() throws Exception {
+        // 'fix/../porelo-other-secret' would make 'default''s task a path into 'other''s live
+        // mailbox, and pass 'default''s conversation into it.
+        final PoreloContext context = context();
+        register(context, "other", "");
+        running("porelo-other-secret", "other");
+        new Mailbox(context.paths().messaging().mailbox("porelo-default-fix")).create();
+        final CertifiedTaskKeys person = new CertifiedTaskKeys(dir);
+        final SigningKey build = person.task(MessageSigners.NO_PROJECT, "build");
+        final Mailbox other = arrived(context, "porelo-other-secret", "m-2", build);
+
+        final int code = pass(context, "fix/../porelo-other-secret", "--project", "default");
+
+        assertThat(code).as("refused as no task name: " + err).isEqualTo(64);
+        assertThat(other.inbound().resolve("m-2.json"))
+                .as("the other project's live mailbox is left as it was")
+                .exists();
+    }
+
+    @Test
+    void aPathGivenWithoutAProjectIsNoTaskAndItsDirectoryIsLeftAlone() throws Exception {
+        // No live task has the name, so it was taken as it stood - and a path opened any
+        // directory that looks like a mailbox.
+        final PoreloContext context = context();
+        final CertifiedTaskKeys person = new CertifiedTaskKeys(dir);
+        final SigningKey build = person.task(MessageSigners.NO_PROJECT, "build");
+        final Mailbox other = arrived(context, "porelo-other-secret", "m-2", build);
+
+        for (final String given :
+                List.of(
+                        "porelo-default-fix/../porelo-other-secret",
+                        "../mail/porelo-other-secret",
+                        other.root().toString())) {
+            new Mailbox(context.paths().messaging().mailbox("porelo-default-fix")).create();
+            final int code = pass(context, given);
+
+            assertThat(code).as("refused: " + given + ": " + err).isEqualTo(64);
+            assertThat(other.inbound().resolve("m-2.json"))
+                    .as("the mailbox a path names is left as it was: " + given)
+                    .exists();
+        }
+    }
+
+    /** What a start of a task records under the state directory, which outlives its container. */
+    private void recorded(final PoreloContext context, final String container, final String project)
+            throws IOException {
+        final Path record = Files.createDirectories(context.paths().tasks().taskRecord(container));
+        new org.fuin.porelo.wire.Sidecar(
+                        org.fuin.porelo.wire.Sidecar.VERSION,
+                        project,
+                        "guarded",
+                        "ruleset.nft",
+                        "dnsmasq.conf",
+                        "porelo",
+                        record.toString())
+                .writeTo(record.resolve("sidecar.json"));
+    }
+
+    @Test
+    void aRemovedTaskOfAnotherProjectIsRefusedForTheProjectGivenByWhatItsStartRecorded()
+            throws Exception {
+        // Its container gone, 'porelo-default-app-fix' fits 'default' as well, and was opened
+        // under it: 'default''s certifiers judged what arrived for 'default-app''s task.
+        final PoreloContext context = context();
+        register(context, "default-app", "");
+        recorded(context, "porelo-default-app-fix", "default-app");
+        final CertifiedTaskKeys person = new CertifiedTaskKeys(dir);
+        final SigningKey build = person.task(MessageSigners.NO_PROJECT, "build");
+        new TaskCertificateRecords(context).keep("build", "tester", person.certificate(build));
+        final Mailbox other = arrived(context, "porelo-default-app-fix", "m-2", build);
+
+        final int code = pass(context, "app-fix", "--project", "default");
+
+        assertThat(code).as("refused: " + err).isEqualTo(66);
+        assertThat(other.inbound().resolve("m-2.json"))
+                .as("the other project's mailbox is left as it was")
+                .exists();
+    }
+
+    @Test
+    void aTaskWithoutAProjectWhoseKeyIsCertifiedForAnotherProjectBelievesNobody() throws Exception {
+        // Its key names 'default-app''s 'fix': who certified it there may have been locked out of
+        // that project, and was believed for 'default' all the same.
+        final PoreloContext context = context();
+        final CertifiedTaskKeys person = new CertifiedTaskKeys(dir);
+        final SigningKey own = person.task("default-app", "fix");
+        assertThat(
+                        new TaskSecrets(context)
+                                .keepSigning(
+                                        "porelo-default-app-fix",
+                                        new TaskSecrets.Signing(
+                                                own.seedBase64(), person.certificate(own).line())))
+                .as("the task's key is kept")
+                .isEmpty();
+        final SigningKey build = person.task(MessageSigners.NO_PROJECT, "build");
+        new TaskCertificateRecords(context).keep("build", "tester", person.certificate(build));
+        final Mailbox mailbox = arrived(context, "porelo-default-app-fix", "m-1", build);
+
+        pass(context, "porelo-default-app-fix", "--project", "default");
+
+        assertThat(delivered(mailbox))
+                .as("nothing is believed by a certifier of another project's task: " + err)
+                .isZero();
+    }
+
+    /** A room transport set up for one project, with what its room holds for the project. */
+    private Path room(final PoreloContext context, final String project) throws Exception {
+        final Path adapter =
+                Files.createDirectories(dir.resolve("data/porelo/transports"))
+                        .resolve(TransportDirectory.PREFIX + "room");
+        Files.writeString(adapter, "#!/bin/sh\n");
+        assertThat(adapter.toFile().setExecutable(true)).as("the adapter runs").isTrue();
+        runner.answering(
+                "describe",
+                "{\"scheme\":\"room\",\"poll\":true,\"lifecycle\":[\"setup\",\"join\",\"part\"]}");
+        runner.answering(
+                " setup ", "{\"account\":{\"ADMIN\":\"a-1\"},\"secrets\":{\"POLLER\":\"p-1\"}}");
+        Conversations.setUp(context, GateSupport.byName(context, project));
+        return Files.createDirectories(
+                context.paths().xdg().state().resolve("transport/room/inbound").resolve(project));
+    }
+
+    private static void posted(final Path inbound, final String id) throws IOException {
+        Files.writeString(inbound.resolve(id + ".json"), "{\"messageId\":\"" + id + "\"}");
+        Files.writeString(inbound.resolve(id + ".json.sig"), "signature");
+    }
+
+    @Test
+    void aRemovedTaskOfAProjectNoLongerFollowedIsGivenNoOtherProjectsConversation()
+            throws Exception {
+        // 'porelo-web-app-fix' fits 'web' alone once 'web-app' is gone from the machine, and was
+        // handed 'web''s room although its start recorded 'web-app'.
+        final PoreloContext context = context();
+        final String mail = "mail:\n  transports:\n    room: {}\n";
+        register(context, "web", mail);
+        final Path inbound = room(context, "web");
+        recorded(context, "porelo-web-work", "web");
+        recorded(context, "porelo-web-app-fix", "web-app");
+        final Mailbox work = new Mailbox(context.paths().messaging().mailbox("porelo-web-work"));
+        work.create();
+        final Mailbox other =
+                new Mailbox(context.paths().messaging().mailbox("porelo-web-app-fix"));
+        other.create();
+        posted(inbound, "m-1");
+
+        final int code = pass(context, "porelo-web-work", "--project", "web");
+
+        assertThat(code).as(err.toString()).isZero();
+        assertThat(work.record().resolve(TransportConversations.ARRIVED))
+                .as("the room's message reached the project's own task: " + err)
+                .exists();
+        assertThat(other.inbound().resolve("m-1.json"))
+                .as("another project's mailbox is given nothing of this room")
+                .doesNotExist();
+    }
+
+    @Test
+    void aRemovedSiblingWhoseNameFitsTwoProjectsKeepsWhatItsRoomHeldForIt() throws Exception {
+        // 'porelo-web-app-build' fits 'web' and 'web-app': taken by neither, what 'web-app''s
+        // room held for it was deleted once handed to nobody.
+        final PoreloContext context = context();
+        final String mail = "mail:\n  transports:\n    room: {}\n";
+        register(context, "web", mail);
+        register(context, "web-app", mail);
+        final Path inbound = room(context, "web-app");
+        recorded(context, "porelo-web-app-fix", "web-app");
+        recorded(context, "porelo-web-app-build", "web-app");
+        new Mailbox(context.paths().messaging().mailbox("porelo-web-app-fix")).create();
+        final Mailbox build =
+                new Mailbox(context.paths().messaging().mailbox("porelo-web-app-build"));
+        build.create();
+        posted(inbound, "m-1");
+
+        final int code = pass(context, "porelo-web-app-fix", "--project", "web-app");
+
+        assertThat(code).as(err.toString()).isZero();
+        assertThat(build.inbound().resolve("m-1.json"))
+                .as("the sibling is handed what its room held: " + err)
+                .exists();
+    }
 }

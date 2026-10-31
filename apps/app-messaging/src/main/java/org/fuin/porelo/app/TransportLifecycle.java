@@ -735,6 +735,8 @@ final class TransportLifecycle {
             Map<String, Object> settings,
             boolean loopbackOnly)
             throws Refused {
+        // Listed by a join before persons were checked, a name read as an option is one.
+        login(person);
         final Path adapter = transports.find(scheme);
         if (adapter == null || !TransportDescription.of(context.runner(), adapter).offers("part")) {
             throw new Refused("the " + scheme + " transport does not offer part", 0);

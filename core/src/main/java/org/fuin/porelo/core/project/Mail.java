@@ -250,7 +250,8 @@ public record Mail(
          * <p>The second form takes exactly the tasks a start can make, in one expression another
          * filter can copy: at most 57 characters after {@code task:}, since the container name
          * {@code porelo-<project>-<task>} has at most 64, and no task named {@value #PEOPLE},
-         * {@value #PERSON} or only digits.
+         * {@value #PERSON} or only digits, or beginning {@code porelo-}, as a container's name
+         * does.
          */
         public static final String NAME_PATTERN =
                 "[a-zA-Z0-9][a-zA-Z0-9_.@-]*|task:(?=[a-z0-9:-]{3,57}\\z)"
@@ -259,7 +260,7 @@ public record Mail(
                         + PEOPLE
                         + "|"
                         + PERSON
-                        + "|[0-9]+)\\z)"
+                        + "|[0-9]+)\\z|porelo-)"
                         + Project.TASK_NAME_PATTERN;
 
         private static final Pattern NAME = Pattern.compile(NAME_PATTERN);

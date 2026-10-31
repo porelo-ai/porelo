@@ -10,8 +10,8 @@ import org.jspecify.annotations.Nullable;
  * <p>Not by the name's beginning alone: project and task names both take hyphens, so {@code
  * porelo-web-app-x} is task {@code app-x} of {@code web} or task {@code x} of {@code web-app}.
  * Taken by the first project that fitted, a task of one was the other's in messaging - its peers,
- * its conversation, its tasks as vouched siblings. The container's project label decides; a name
- * alone only when it can mean one project.
+ * its conversation, its tasks as vouched siblings. The container's project label decides, then what
+ * a removed task's start recorded; a name alone only when it can mean one project.
  */
 final class ProjectNames {
 
@@ -39,7 +39,8 @@ final class ProjectNames {
     }
 
     /**
-     * Returns each Porelo container's project label, as the runtime reports it now.
+     * Returns each Porelo container's project label, as the runtime reports it now, and for a
+     * container the runtime no longer has, the project its start recorded.
      *
      * @param context The machine.
      * @return Container to project.
@@ -51,6 +52,33 @@ final class ProjectNames {
                 labels.put(task.name(), task.project());
             }
         }
+        // A removed task's start recorded its project, which its name alone may not tell.
+        final java.nio.file.Path records = context.paths().tasks().taskRecord("");
+        if (java.nio.file.Files.isDirectory(records)) {
+            try (java.util.stream.Stream<java.nio.file.Path> entries =
+                    java.nio.file.Files.list(records)) {
+                for (final java.nio.file.Path record : entries.toList()) {
+                    final String project = recorded(record);
+                    if (project != null) {
+                        labels.putIfAbsent(record.getFileName().toString(), project);
+                    }
+                }
+            } catch (java.io.IOException | java.io.UncheckedIOException ex) {
+                // Unlisted, the records say nothing; the runtime's labels still do.
+            }
+        }
         return labels;
+    }
+
+    private static @Nullable String recorded(final java.nio.file.Path record) {
+        final java.nio.file.Path file = record.resolve("sidecar.json");
+        try {
+            return java.nio.file.Files.isRegularFile(file)
+                    ? org.fuin.porelo.wire.Sidecar.readFrom(file).project()
+                    : null;
+        } catch (java.io.IOException | RuntimeException ex) {
+            // An unreadable record names no project.
+            return null;
+        }
     }
 }

@@ -72,13 +72,13 @@ public class TaskCertifyCommand implements Callable<Integer>, PoreloFactory.Cont
         if (!projectOption.matches(RemoteStart.PROJECT)) {
             return "--host needs a project's name, " + RemoteStart.PROJECT;
         }
+        if (!org.fuin.porelo.runtime.ContainerName.taskFrom(projectOption, task).equals(task)) {
+            return "--host needs the task's own name, not its container's";
+        }
         final Optional<String> misnamed =
                 org.fuin.porelo.runtime.ContainerName.refusal(projectOption, task);
         if (misnamed.isPresent()) {
             return misnamed.get();
-        }
-        if (!org.fuin.porelo.runtime.ContainerName.taskFrom(projectOption, task).equals(task)) {
-            return "--host needs the task's own name, not its container's";
         }
         return null;
     }

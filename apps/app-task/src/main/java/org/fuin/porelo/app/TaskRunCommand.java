@@ -415,13 +415,13 @@ public class TaskRunCommand implements Callable<Integer>, PoreloFactory.ContextA
             return "--host needs a project's name, " + RemoteStart.PROJECT;
         }
         // The host would take a container's spelling for the task it names, and certify that.
+        if (!org.fuin.porelo.runtime.ContainerName.taskFrom(projectName, task).equals(task)) {
+            return "--host needs the task's own name, not its container's";
+        }
         final java.util.Optional<String> misnamed =
                 org.fuin.porelo.runtime.ContainerName.refusal(projectName, task);
         if (misnamed.isPresent()) {
             return misnamed.get();
-        }
-        if (!org.fuin.porelo.runtime.ContainerName.taskFrom(projectName, task).equals(task)) {
-            return "--host needs the task's own name, not its container's";
         }
         if (!setFiles.isEmpty()) {
             return "--host does not take --set-file: the host would read it from its own files";

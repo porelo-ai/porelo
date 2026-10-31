@@ -236,6 +236,8 @@ final class TaskConversations {
             boolean token,
             @Nullable String display)
             throws TransportLifecycle.Refused {
+        // Before setup, too: with no access file, nobody else checks the person's name.
+        TransportLifecycle.login(person);
         try {
             ProjectAccess.requireAdmitted(context, project, person);
         } catch (final ProjectAccess.Withheld ex) {

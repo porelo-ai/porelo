@@ -124,7 +124,11 @@ class ContainerNameTest {
             "a".repeat(49),
             "a".repeat(50),
             "a".repeat(54),
-            "a".repeat(55)
+            "a".repeat(55),
+            "porelo-p-build",
+            "porelo-web-app-build",
+            "porelo-build",
+            "porelo"
         };
         int taken = 0;
         int refused = 0;
@@ -132,7 +136,9 @@ class ContainerNameTest {
             for (final String task : tasks) {
                 final boolean starts =
                         project.matches(org.fuin.porelo.core.project.Project.NAME_PATTERN)
-                                && ContainerName.refusal(project, task).isEmpty();
+                                && ContainerName.refusal(project, task).isEmpty()
+                                // A start takes its container's spelling for the task it names.
+                                && ContainerName.taskFrom(project, task).equals(task);
                 assertThat(peer.matcher("task:" + project + ":" + task).matches())
                         .as(
                                 "task:"

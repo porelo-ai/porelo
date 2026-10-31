@@ -14,7 +14,12 @@ import org.fuin.porelo.app.PoreloPaths;
 import org.fuin.porelo.core.config.XdgPaths;
 import org.fuin.porelo.core.project.ProjectReader;
 import org.fuin.porelo.testing.FakeCommandRunner;
+import org.fuin.porelo.wire.varlink.VarlinkClient;
 import org.fuin.porelo.wire.varlink.VarlinkException;
+import org.fuin.porelo.wire.varlink.VarlinkServer;
+import org.jspecify.annotations.Nullable;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -66,8 +71,10 @@ class MessagingMethodsTest {
         final PoreloContext context = context(false);
 
         final Map<String, Object> joined =
-                MessagingMethods.joinMessages(
-                        context, Map.of("project", "p", "person", "alice", "reset", false));
+                daemon(
+                        context,
+                        "JoinMessages",
+                        Map.of("project", "p", "person", "alice", "reset", false));
 
         assertThat(joined.get("login"))
                 .as("the daemon answers the transport's login")
@@ -75,7 +82,7 @@ class MessagingMethodsTest {
         for (final String verb : new String[] {" setup ", " join "}) {
             assertThat(runner.only(verb).arguments())
                     .as(verb.strip() + " names the person's login")
-                    .containsSubsequence("--login", System.getProperty("user.name"));
+                    .containsSubsequence("--login", LOGIN);
         }
     }
 
@@ -84,11 +91,94 @@ class MessagingMethodsTest {
         // As a join's: an account set up without the login is shared by two persons' projects.
         final PoreloContext context = context(false);
 
-        MessagingMethods.setUpMessages(context, Map.of("project", "p"));
+        daemon(context, "SetUpMessages", Map.of("project", "p"));
 
         assertThat(runner.only(" setup ").arguments())
                 .as("setup names the person's login")
-                .containsSubsequence("--login", System.getProperty("user.name"));
+                .containsSubsequence("--login", LOGIN);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"Core", "runner_1"})
+    void anAccountWhoseLoginNoTransportTakesIsRefusedBeforeAnyTransportRuns(final String login)
+            throws Exception {
+        // An account made with a login the transport's rule refuses is one nobody can tell apart.
+        final PoreloContext context = context(false);
+        System.setProperty("user.name", login);
+
+        for (final String method : new String[] {"SetUpMessages", "JoinMessages"}) {
+            assertThatThrownBy(
+                            () ->
+                                    daemon(
+                                            context,
+                                            method,
+                                            "JoinMessages".equals(method)
+                                                    ? Map.of(
+                                                            "project", "p", "person", "alice",
+                                                            "reset", false)
+                                                    : Map.of("project", "p")))
+                    .as(method + " for login " + login)
+                    .isInstanceOfSatisfying(
+                            VarlinkException.class,
+                            ex -> {
+                                assertThat(ex.getErrorName())
+                                        .as("the named refusal")
+                                        .isEqualTo(PoreloDaemon.INTERFACE + ".ConversationRefused");
+                                assertThat(((Number) ex.getParameters().get("code")).intValue())
+                                        .as("a refused login's code")
+                                        .isEqualTo(78);
+                            });
+        }
+        assertThat(runner.invocations())
+                .as("no transport set up or joined")
+                .noneMatch(command -> command.arguments().contains("setup"))
+                .noneMatch(command -> command.arguments().contains("join"));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"Alice", "--token", "-x", "al_ice"})
+    void aPersonNoTransportTakesIsNeitherJoinedNorPartedWithoutAnAccessFile(final String person)
+            throws Exception {
+        // With no access file nobody is checked against the persons; a person read as an option
+        // reached the transport as one.
+        final PoreloContext context = context();
+        final int before = runner.invocations().size();
+
+        for (final String method : new String[] {"JoinMessages", "RemoveMessageMember"}) {
+            if ("RemoveMessageMember".equals(method)) {
+                // Listed as joined, as a join before the check could have left it.
+                final Path members =
+                        context.paths().xdg().state().resolve("transport/room/members/p.json");
+                assertThat(members).as("alice's join recorded her").exists();
+                Files.writeString(
+                        members,
+                        org.fuin.porelo.wire.Json.write(
+                                Map.of("alice", "@alice", person, "@someone")));
+            }
+            assertThatThrownBy(
+                            () ->
+                                    daemon(
+                                            context,
+                                            method,
+                                            "JoinMessages".equals(method)
+                                                    ? Map.of(
+                                                            "project", "p", "person", person,
+                                                            "reset", false)
+                                                    : Map.of("project", "p", "person", person)))
+                    .as(method + " for '" + person + "'")
+                    .isInstanceOfSatisfying(
+                            VarlinkException.class,
+                            ex ->
+                                    assertThat(ex.getErrorName())
+                                            .as("the named refusal")
+                                            .isEqualTo(
+                                                    PoreloDaemon.INTERFACE
+                                                            + ".ConversationRefused"));
+        }
+        assertThat(runner.invocations().subList(before, runner.invocations().size()))
+                .as("no transport is run for '" + person + "'")
+                .noneMatch(command -> command.arguments().contains("--person"))
+                .noneMatch(command -> command.arguments().contains("setup"));
     }
 
     @Test
@@ -180,6 +270,42 @@ class MessagingMethodsTest {
                                         .as("the named refusal, not a crash")
                                         .isEqualTo(
                                                 PoreloDaemon.INTERFACE + ".ConversationRefused"));
+    }
+
+    /** The login this account has, whatever the machine running the tests has. */
+    private static final String LOGIN = "core-2";
+
+    private @Nullable String machineLogin;
+
+    @BeforeEach
+    void login() {
+        machineLogin = System.getProperty("user.name");
+        System.setProperty("user.name", LOGIN);
+    }
+
+    @AfterEach
+    void restoreLogin() {
+        if (machineLogin == null) {
+            System.clearProperty("user.name");
+        } else {
+            System.setProperty("user.name", machineLogin);
+        }
+    }
+
+    /** Asks the daemon, over its socket, as a client does. */
+    private Map<String, Object> daemon(
+            final PoreloContext context, final String method, final Map<String, Object> parameters)
+            throws Exception {
+        final Path socket = dir.resolve("porelod.sock");
+        try (VarlinkServer server = PoreloDaemon.serving(context, socket)) {
+            final Thread thread = Thread.ofVirtual().start(server);
+            try (VarlinkClient client = new VarlinkClient(socket)) {
+                return client.call(PoreloDaemon.INTERFACE + "." + method, parameters);
+            } finally {
+                server.close();
+                thread.join(java.time.Duration.ofSeconds(5));
+            }
+        }
     }
 
     private PoreloContext context() throws Exception {

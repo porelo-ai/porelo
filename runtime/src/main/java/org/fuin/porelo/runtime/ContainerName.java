@@ -73,7 +73,8 @@ public final class ContainerName {
      * built and the policy, resolver and sidecar were written under a directory named for a task
      * that never came to exist. The task is also a git ref, and a loose ref is a file, so upper
      * case would make {@code Foo} and {@code foo} one ref on a case-insensitive filesystem. A name
-     * of only digits is refused because that is the shape that tells a login container apart.
+     * of only digits is refused because that is the shape that tells a login container apart, and
+     * one beginning {@value #PREFIX} because that is the shape of a container's name.
      *
      * @param project The project's name, or {@code ""} when it is not known: the length then goes
      *     unchecked.
@@ -108,6 +109,16 @@ public final class ContainerName {
                             + task
                             + "' is not a task name: a message names the room's people or a"
                             + " person by it");
+        }
+        if (task.startsWith(PREFIX)) {
+            // A start takes 'porelo-<project>-<task>' for the task it names, so such a name would
+            // be one task's on this machine and another's given to a host.
+            return java.util.Optional.of(
+                    "'"
+                            + task
+                            + "' is not a task name: '"
+                            + PREFIX
+                            + "' begins a container's name, never a task's");
         }
         final String container = PREFIX + project + "-" + task;
         if (!project.isEmpty() && container.length() > MAX_LENGTH) {

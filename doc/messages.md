@@ -80,10 +80,12 @@ A transport is a package on the host; [writing a transport](transports.md) says 
   only when one of the receiving project's certifiers issued that certificate and it is valid at the moment the
   message arrives, by the receiver's clock, whatever time the message claims. The certificate must name exactly one
   task, `task:<project>:<task>`, with names a project and a task can have. A task without a project accepts the
-  person who certified its own key, and while the vault holding that is locked, what arrives for it waits; a task
-  whose project file cannot be read accepts nobody. A task with no certified key sends nothing: its messages are
-  held and it is told; while only the vault is locked they wait. Anyone can check a signature with OpenSSH, given
-  the task's public key as the certificate names it:
+  person who certified its own key when that key is certified for this very task, and while the vault holding that
+  is locked, what arrives for it waits; a task whose project file cannot be read accepts nobody. A task's project
+  is the one its container is labelled with, else, once the container is gone, the one its start recorded, else
+  its name when it fits one project alone; so a removed task keeps its own project's conversation and certifiers.
+  A task with no certified key sends nothing: its messages are held and it is told; while only the vault is locked
+  they wait. Anyone can check a signature with OpenSSH, given the task's public key as the certificate names it:
 
   ```
   echo "task <task key>" > allowed_signers

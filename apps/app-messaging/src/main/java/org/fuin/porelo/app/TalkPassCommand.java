@@ -50,6 +50,12 @@ public class TalkPassCommand implements Callable<Integer>, PoreloFactory.Context
         // project given, that project's task, never another one's of the same task name.
         if (projectName == null) {
             container = TaskTarget.spelled(context, container);
+            if (!isTaskContainer(container)) {
+                // It names the mailbox's directory, so a path would open whatever it reaches.
+                err.println("porelo: " + container + " is no task's container name");
+                err.flush();
+                return 64;
+            }
         } else {
             if (!projectName.matches(org.fuin.porelo.core.project.Project.NAME_PATTERN)) {
                 // It names the mailbox's directory, so nothing else may stand where it does.
@@ -57,19 +63,18 @@ public class TalkPassCommand implements Callable<Integer>, PoreloFactory.Context
                 err.flush();
                 return 64;
             }
-            final String given = container;
-            container =
-                    org.fuin.porelo.runtime.ContainerName.PREFIX
-                            + projectName
-                            + "-"
-                            + org.fuin.porelo.runtime.ContainerName.taskFrom(projectName, given);
+            final String taskName =
+                    org.fuin.porelo.runtime.ContainerName.taskFrom(projectName, container);
+            final java.util.Optional<String> refusal =
+                    org.fuin.porelo.runtime.ContainerName.refusal(projectName, taskName);
+            if (refusal.isPresent()) {
+                err.println("porelo: " + refusal.get());
+                err.flush();
+                return 64;
+            }
+            container = org.fuin.porelo.runtime.ContainerName.PREFIX + projectName + "-" + taskName;
             final String named = container;
-            final String owner =
-                    context.podman().poreloTasks().stream()
-                            .filter(task -> task.name().equals(named) && task.project() != null)
-                            .map(org.fuin.porelo.runtime.ContainerSummary::project)
-                            .findFirst()
-                            .orElse(projectName);
+            final String owner = ProjectNames.labels(context).getOrDefault(named, projectName);
             if (!projectName.equals(owner)) {
                 err.println(
                         "porelo: "
@@ -217,5 +222,13 @@ public class TalkPassCommand implements Callable<Integer>, PoreloFactory.Context
         out.flush();
         err.flush();
         return 0;
+    }
+
+    /** A task's container name: the prefix, then a project's and a task's alphabet alone. */
+    private static boolean isTaskContainer(final String name) {
+        return org.fuin.porelo.runtime.ContainerName.isTask(name)
+                && name.length() <= org.fuin.porelo.runtime.ContainerName.MAX_LENGTH
+                && name.substring(org.fuin.porelo.runtime.ContainerName.PREFIX.length())
+                        .matches(org.fuin.porelo.core.project.Project.TASK_NAME_PATTERN);
     }
 }

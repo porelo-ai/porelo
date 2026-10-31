@@ -247,6 +247,10 @@ class TaskLifecycleCommandsTest {
         assertThat(TaskNames.fromRepository(context, "default", "person"))
                 .as("a person's name")
                 .isEqualTo("work");
+        // A repository named like a container: a start would refuse the task it names.
+        assertThat(TaskNames.fromRepository(context, "default", "porelo-pi"))
+                .as("a container's beginning")
+                .isEqualTo("pi");
     }
 
     @Test
