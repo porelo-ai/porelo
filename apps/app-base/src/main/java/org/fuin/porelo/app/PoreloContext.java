@@ -626,6 +626,14 @@ public record PoreloContext(
         }
     }
 
+    /** Forgets the passphrase typed in this process for this vault, once it no longer opens it. */
+    public void forgetTyped() {
+        final char[] asked = ASKED.remove(paths.vault().vaultFile().toAbsolutePath());
+        if (asked != null) {
+            java.util.Arrays.fill(asked, '\0');
+        }
+    }
+
     /**
      * Forgets every passphrase typed in this process, as a test that asked must before the next.
      */

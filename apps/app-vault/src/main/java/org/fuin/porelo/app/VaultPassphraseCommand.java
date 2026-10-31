@@ -71,16 +71,31 @@ public class VaultPassphraseCommand implements Callable<Integer>, PoreloFactory.
         }
 
         final var runner = new ProcessCommandRunner();
+        char[] given = null;
         char[] fresh = null;
         char[] again = null;
         try {
             context.requirePassphraseSlot();
-            final org.fuin.porelo.vault.VaultFile.Opener current =
-                    context.requireOpener(new CommandPassphrase(runner, passphraseCommand));
+            // Asked for even while the vault is unlocked: an unlocked vault is no leave to change
+            // its passphrase without knowing the current one.
+            given =
+                    new PassphraseTiers(
+                                    new CommandPassphrase(runner, passphraseCommand),
+                                    new ConsolePassphrase("Current vault passphrase: "))
+                            .require();
 
             // Checked before anything else is asked for. Discovering the current one was wrong
             // after somebody has typed a new one twice wastes the part of this that is tedious.
-            vault.read(current);
+            if (!vault.accepts(given)) {
+                err.println(
+                        "porelo: that passphrase does not open "
+                                + vault.path()
+                                + " - nothing was changed");
+                err.flush();
+                return 70;
+            }
+            final org.fuin.porelo.vault.VaultFile.Opener current =
+                    org.fuin.porelo.vault.VaultFile.Opener.passphrase(given);
 
             if (newPassphraseCommand != null) {
                 fresh =
@@ -114,6 +129,7 @@ public class VaultPassphraseCommand implements Callable<Integer>, PoreloFactory.
             }
 
             vault.rekey(current, fresh);
+            context.forgetTyped();
             out.println("re-encrypted " + vault.path());
 
             // The cached one is now the WRONG one, so it goes. Not a courtesy: leaving it turns the
@@ -177,7 +193,7 @@ public class VaultPassphraseCommand implements Callable<Integer>, PoreloFactory.
             err.flush();
             return 70;
         } finally {
-            for (final char[] secret : new char[][] {fresh, again}) {
+            for (final char[] secret : new char[][] {given, fresh, again}) {
                 if (secret != null) {
                     Arrays.fill(secret, '\0');
                 }
