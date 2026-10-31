@@ -1,0 +1,2 @@
+title: "A clearance watcher ends on its own once its task's container process is gone, so a missed stop no longer leaves it running"
+type: fixed

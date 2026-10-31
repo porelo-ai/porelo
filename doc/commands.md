@@ -336,7 +336,7 @@ What a task may resolve and reach. See [the firewall](security.md) and [DNS](sec
 | `porelo shield sets` | Lists the egress sets a project can name in `project.yml`. |
 | `porelo shield subscribe` | Follows the blocked connections a running watcher reports. |
 | `porelo shield read` | Reads blocked connections from the firewall log. Started per task. |
-| `porelo shield watch` | Prompts for each blocked connection. Started per task. |
+| `porelo shield watch` | Prompts for each blocked connection. Started per task. A watcher following its task's events ends on its own once the container process it was given (`--pid`) is gone, or a later process took that id; the task's stop or poststop hook ends it before that. |
 | `porelo shield dns` | The task's resolver for allowed domains. Started per task. |
 
 ## host

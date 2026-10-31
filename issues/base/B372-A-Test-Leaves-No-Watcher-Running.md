@@ -1,8 +1,9 @@
 # B372 — A Test Leaves No Watcher Running
 
 **Status:** Review.
-**Size:** S, proposed - the tests that start a task with clearance on get a watcher that is never a real process, or
-stop the one they start, with one test that fails while a watcher outlives its test.
+**Size:** S, proposed (M with the product change) - the tests that start a task with clearance on get a watcher that
+is never a real process, or stop the one they start, with one test that fails while a watcher outlives its test; and
+a watcher that ends with its container, with its test.
 
 **What must be true.** A run of the suite leaves no process of its own behind. Today a test whose stand-in podman
 answers a container pid (`4711`) with clearance on reaches `ClearanceWiring.startClearance`, which starts a real
@@ -16,8 +17,9 @@ all, when memory ran low for every agent.
   other helpers.
 - A test fails when a watcher of its own still runs after it, so a new test cannot bring the leak back.
 
-Open: whether a watcher should also end on its own once the pid it was given is no longer a process, which would
-bound the same leak outside the tests too.
+- Outside the tests too, a watcher ends once the task's container is gone: today nothing but a signal from whoever
+  holds its pid file (the poststop hook, `task stop`, `task remove`) ends it, so a watcher whose hook never ran or
+  whose pid file was lost follows its events file for good. Asked by michi on 2026-10-31 and placed in sprint 6m.
 
 ## Done
 
@@ -36,3 +38,8 @@ bound the same leak outside the tests too.
   launcher, naming that test, and is green with the stand-in; `WatcherLeakGuardTest` holds that it names and stops
   a watcher, lets one that exits in time pass, and leaves a watcher that ran before the test and any other process
   alone, each seen to fail with the guard broken.
+- A watcher following its task's events now ends on its own once the container process it was given with `--pid`
+  has ended, or a later process with another start time took that id; what the container wrote before is still
+  handled. `ShieldWatchEndsWithItsContainerTest` follows a real short-lived process: the watcher runs while it runs
+  and ends within a second after it; a reused id and an id no process has count as gone. Each check was seen to fail
+  with it taken out of the loop or the start time not compared.

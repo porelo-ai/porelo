@@ -513,15 +513,82 @@ public class ShieldWatchCommand implements Callable<Integer>, PoreloFactory.Cont
 
         final Path file =
                 java.util.Objects.requireNonNull(events, "followed only when --events names one");
+        if (followUntil(
+                file, line -> handle(hub, service, line, err), gone(containerPid), enough)) {
+            out.println(
+                    "the container's process "
+                            + containerPid
+                            + " is gone; this watcher ends with it");
+            out.flush();
+        }
+    }
+
+    /**
+     * Follows an events file until enough was decided or the container's process is gone.
+     *
+     * <p>Nothing else ends a watcher but a signal from whoever holds its pid file - the poststop
+     * hook, {@code task stop}, {@code task remove}. When that never came (the hook not run, the pid
+     * file overwritten or removed with the task's state), a watcher that waited only for it went on
+     * following a file nobody wrote to any more, for good.
+     *
+     * @param file The events file.
+     * @param handle What each whole line is given to.
+     * @param gone Whether the container's process has ended.
+     * @param enough Counted down once enough was decided.
+     * @return {@code true} when it ended because the container's process was gone.
+     * @throws IOException If the file cannot be read.
+     * @throws InterruptedException If interrupted while waiting.
+     */
+    static boolean followUntil(
+            final Path file,
+            final java.util.function.Consumer<String> handle,
+            final java.util.function.BooleanSupplier gone,
+            final java.util.concurrent.CountDownLatch enough)
+            throws IOException, InterruptedException {
         long position = 0;
         while (enough.getCount() > 0) {
             final Read read = linesFrom(file, position);
-            read.lines().forEach(line -> handle(hub, service, line, err));
+            read.lines().forEach(handle);
             position = read.position();
+            // Asked after the read, so what the container wrote before it ended is still handled.
+            if (gone.getAsBoolean()) {
+                return true;
+            }
             if (enough.await(1, java.util.concurrent.TimeUnit.SECONDS)) {
-                return;
+                return false;
             }
         }
+        return false;
+    }
+
+    /**
+     * Returns whether a process has ended since now.
+     *
+     * @param pid The process.
+     * @return {@code true} once it has, or once a later process took its id.
+     */
+    static java.util.function.BooleanSupplier gone(final long pid) {
+        return gone(pid, ProcessHandle.of(pid).flatMap(handle -> handle.info().startInstant()));
+    }
+
+    /**
+     * Returns whether a process that started at a given instant has ended.
+     *
+     * @param pid The process.
+     * @param started When it started, as read when the watcher took it; empty when unknown.
+     * @return {@code true} once no live process has the id, or the one that has it started at
+     *     another instant - a pid reused after the container ended is not the container.
+     */
+    static java.util.function.BooleanSupplier gone(
+            final long pid, final java.util.Optional<java.time.Instant> started) {
+        return () -> {
+            final java.util.Optional<ProcessHandle> handle = ProcessHandle.of(pid);
+            if (handle.isEmpty() || !handle.get().isAlive()) {
+                return true;
+            }
+            final java.util.Optional<java.time.Instant> now = handle.get().info().startInstant();
+            return started.isPresent() && now.isPresent() && !started.get().equals(now.get());
+        };
     }
 
     /**
