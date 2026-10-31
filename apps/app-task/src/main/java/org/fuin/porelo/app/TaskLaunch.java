@@ -656,10 +656,15 @@ public final class TaskLaunch {
             // launch says what it would do; the listing's startAction says which case applies.
             return null;
         }
-        if (context.hooks().registration()
-                != org.fuin.porelo.runtime.HookInstaller.Registration.ACTIVE) {
+        final org.fuin.porelo.runtime.HookInstaller.Registration hooks =
+                context.hooks().registration();
+        if (hooks != org.fuin.porelo.runtime.HookInstaller.Registration.ACTIVE
+                && !((hooks == org.fuin.porelo.runtime.HookInstaller.Registration.MISSING
+                                || hooks
+                                        == org.fuin.porelo.runtime.HookInstaller.Registration.STALE)
+                        && context.hooks().binariesPresent())) {
             // Refused by the launch, and before anything is asked of the runtime: a machine whose
-            // hooks are missing cannot start a task either way.
+            // hooks cannot be repaired cannot start a task either way.
             return null;
         }
 
@@ -680,6 +685,12 @@ public final class TaskLaunch {
                         .findFirst();
         if (summary.isEmpty()) {
             return null;
+        }
+        // Repaired once it is known the task exists: left to the launch, hooks it repairs hid a
+        // running task, which was then made again beside itself.
+        if (hooks != org.fuin.porelo.runtime.HookInstaller.Registration.ACTIVE
+                && !hooksReady(out, err)) {
+            return new Existing(container, project.name(), 69);
         }
         final String theirs = ofAnotherProject(summary.get(), project.name());
         if (theirs != null) {
@@ -1468,7 +1479,7 @@ public final class TaskLaunch {
         final String container = runner.containerName(project, request.task());
         // Until the task is handed on, a failure is a start that failed, which leaves nothing
         // running whether or not the task was to be kept.
-        boolean handedOver = false;
+        handedOver = false;
 
         try (org.fuin.porelo.agent.api.InstalledAgents agents = context.agents()) {
 
@@ -3415,6 +3426,11 @@ public final class TaskLaunch {
     /** The project whose conversations this start took the task into, or {@code null}. */
     private @Nullable Project enrolledIn;
 
+    /**
+     * Whether the started task was handed on, to a session or a run: before, nobody worked in it.
+     */
+    private boolean handedOver;
+
     /** What this run started on the host, written out so a later start can bring them back. */
     private final java.util.List<TaskHelpers.Helper> startedHelpers = new java.util.ArrayList<>();
 
@@ -3519,6 +3535,25 @@ public final class TaskLaunch {
         }
     }
 
+    /**
+     * Notes that a task stopped before it was handed on holds nothing, where its stop could not
+     * say: before its workspace is a checkout nothing can be asked, and the removal its start names
+     * then refused without {@code --force} a task nobody had worked in.
+     *
+     * @param container The task.
+     */
+    private void heldNothing(String container) {
+        final UnhandedWork.Held nothing = new UnhandedWork.Held(true, 0, 0, null);
+        for (final java.nio.file.Path where :
+                java.util.List.of(
+                        context.paths().tasks().containerState(container),
+                        context.paths().tasks().taskRecord(container))) {
+            if (!UnhandedWork.read(where).readable()) {
+                UnhandedWork.note(where, nothing);
+            }
+        }
+    }
+
     private static boolean reportStop(TaskControl.Stopped stopped, PrintWriter err) {
         for (final String alive : stopped.surviving()) {
             err.println("porelo: still running: " + alive);
@@ -3572,17 +3607,26 @@ public final class TaskLaunch {
             PrintWriter out,
             PrintWriter err) {
 
+        // Only the container it recorded is the start's: one of the same name it never made is
+        // somebody else's, and stopping or removing it by name destroyed what was not Porelo's.
         final String recorded = context.recordedId(container);
         final boolean exists =
-                recorded == null
-                        ? context.podman().idOf(container).isPresent()
-                        : context.podman().stateOf(recorded)
+                recorded != null
+                        && context.podman().stateOf(recorded)
                                 != org.fuin.porelo.runtime.Podman.ContainerState.ABSENT;
         boolean unmade = false;
 
         if (code != 0 && exists && !keep) {
+            if (!handedOver) {
+                // Kept to be started again, which brings back what is recorded: a start that failed
+                // had recorded none of what it started for it, and it came back without them.
+                writeResumeRecord(container, err);
+            }
             final TaskControl.Stopped held = new TaskControl(context).stop(container);
             if (!reportStop(held, err)) return code == 0 ? 70 : code;
+            if (!handedOver) {
+                heldNothing(container);
+            }
             out.println("kept      " + container + " - it failed, so nothing was removed");
             if (held.work() != null) {
                 out.println("          it holds " + held.work());
@@ -3610,12 +3654,11 @@ public final class TaskLaunch {
                 // in the project's conversations, its tokens and its mailbox with it. Removed with
                 // the container alone, the account stayed at the transport, and a prune later
                 // forgot the only credential that could retire it.
-                if (exists || recorded != null) {
+                if (recorded != null) {
                     final TaskControl.Stopped removed =
                             new TaskControl(context).remove(container, false, true);
                     if (!reportStop(removed, err)) return code == 0 ? 70 : code;
                 } else {
-                    runner.remove(container);
                     unmade = true;
                 }
             } else {
@@ -3647,8 +3690,13 @@ public final class TaskLaunch {
                 out.flush();
             }
         }
-        // Only reaps when no container is running: a start that failed fires no poststop hook.
-        runner.reapOrphans(container);
+        if (recorded == null) {
+            // Nothing it made runs, whatever of that name does: its helpers are all that is left.
+            TaskLifecycle.stopHelpers(context.paths().tasks().containerState(container));
+        } else {
+            // Only reaps when no container is running: a start that failed fires no poststop hook.
+            runner.reapOrphans(container);
+        }
         if (unmade) {
             // After the reaping, which finds the helpers by the pid files in its state.
             forgetUnmade(container, err);

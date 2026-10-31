@@ -642,6 +642,8 @@ final class TaskMethods {
                         final Map<String, Object> reply = new LinkedHashMap<>();
                         reply.put("container", "");
                         reply.put("exitCode", 64);
+                        // Refused as a start that would have created, as every refusal before one.
+                        reply.put("action", "CREATE");
                         reply.put(
                                 "output",
                                 replies.streaming()

@@ -523,6 +523,9 @@ class PoreloDaemonTest {
                         assertThat(((Number) reply.get("exitCode")).intValue())
                                 .as("refused as wrong use: %s", reply)
                                 .isEqualTo(64);
+                        assertThat(reply.get("action"))
+                                .as("its final reply says what it refused, as the contract has it")
+                                .isEqualTo("CREATE");
                         final Map<String, Object> unnamed =
                                 client.call(
                                         PoreloDaemon.INTERFACE + ".Start",

@@ -173,7 +173,9 @@ At a terminal a shut vault asks for its passphrase; a script must unlock it firs
 - By default you get the agent's session. `--attach shell` gives a shell, `-P`/`--prompt` runs the
   agent unattended, `--detach` hands over nothing, `--now` returns before the image is built.
 - `--rm` removes the container when you leave. By default it is kept. A start that fails leaves nothing running
-  either way: a container it made stays stopped for a look, and `porelo task remove` ends it.
+  either way: a container it made stays stopped for a look, starting it again brings back the helpers it had, and
+  `porelo task remove` ends it without `--force`. A container of the task's name that the start did not make is left
+  alone.
 - `--set NAME=VALUE`, `--set NAME`, `--set-file FILE` and `--set-env` hand in the
   [values the project declares](running.md#values-a-task-is-started-with), checked before anything is made.
 - `--branch NAME` names the task's branch at the forge outright, instead of the one the project's

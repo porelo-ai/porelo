@@ -645,6 +645,32 @@ class TaskRunCommandTest {
     }
 
     @Test
+    void aStartOnARunningTaskWithHooksAnUpgradeLeftBehindStillFindsItRunning(@TempDir Path dir)
+            throws IOException {
+
+        // Hooks to repair hid the task from the start, which went on to make it again beside the
+        // one running: a second broker took over its records, and the create that failed on the
+        // taken name then stopped the running task.
+        final PoreloContext context = context(dir, true);
+        runner.answering("ps", RUNNING_SHELL);
+        final Path descriptor =
+                dir.resolve("config/containers/oci/hooks.d/porelo-hook-nft-poststop.json");
+        Files.writeString(descriptor, "{\"version\":\"1.0.0\",\"hook\":{}}");
+
+        assertThat(startAt(context, false, "-p", projectFile(dir, MINIMAL)))
+                .as("said: %s", err)
+                .isEqualTo(65);
+        assertThat(err.toString()).contains("porelo-uc-shell is already running");
+        assertThat(runner.lines())
+                .as("nothing is made for it again: %s", runner.lines())
+                .noneMatch(line -> line.contains("podman create"))
+                .noneMatch(line -> line.contains("podman stop"));
+        assertThat(Files.readString(descriptor))
+                .as("and its hooks are brought up to date all the same")
+                .contains("porelo-hook-nft");
+    }
+
+    @Test
     void startingATaskWithoutNamingARepositoryIsRefused(@TempDir Path dir) throws IOException {
 
         final CommandLine cmd = PoreloCli.commandLine(context(dir, true));
@@ -1162,6 +1188,39 @@ class TaskRunCommandTest {
         }
     }
 
+    @Test
+    void aTaskKeptAfterItsStartFailedIsRemovedAsTheStartSaysWithoutForce(@TempDir Path dir)
+            throws IOException {
+
+        // Stopped before its workspace was a checkout, nothing could say what it held, and the
+        // removal its start named refused without --force: but nobody had worked in it yet.
+        final PoreloContext context = countingContext(dir);
+        Files.writeString(
+                context.paths().xdg().data().resolve("agents/preview.yaml.setup-fails"), "");
+        runner.answering("{{.State.Pid}}", "4242");
+
+        final int started =
+                execute(
+                        context,
+                        "task",
+                        "start",
+                        "-p",
+                        projectFile(dir, MINIMAL),
+                        "--agent",
+                        "preview",
+                        "--no-gate");
+        assertThat(started).as("refused: %s", err).isEqualTo(70);
+        assertThat(out.toString())
+                .as("kept, and named for removal: %s", out)
+                .contains("discard with 'porelo task remove porelo-uc-shell'");
+        runner.answering("{{.State.Pid}}", "0");
+        runner.answering("{{.State.Status}}", "exited");
+
+        assertThat(new TaskControl(context).remove("porelo-uc-shell", false, false).outcome())
+                .as("it is removed as it was named, held nothing")
+                .isNotEqualTo(TaskControl.Outcome.NOTHING_KNOWS);
+    }
+
     @org.junit.jupiter.params.ParameterizedTest(name = "with --rm: {0}")
     @org.junit.jupiter.params.provider.ValueSource(booleans = {false, true})
     void aStartThatFailsBeforeItsContainerLeavesItsConversationAndRecords(
@@ -1233,6 +1292,50 @@ class TaskRunCommandTest {
                     .doesNotExist();
         } finally {
             PoreloContext.forgetAsked();
+        }
+    }
+
+    @Test
+    void aStartThatFailsBeforeItsContainerLeavesAContainerOfItsNameItDidNotMake(@TempDir Path dir)
+            throws IOException {
+
+        // Somebody else's container that has the task's name is no task of Porelo's: a start that
+        // failed before it made its own stopped and removed that one by name. Running, it also hid
+        // the helpers the start had already made from the reaping.
+        final PoreloContext context = countingContext(dir);
+        runner.failing("podman build", 125, "the image does not build");
+        runner.answering("{{.Id}}", "0123456789ab");
+        runner.answering("{{.State.Pid}}", "4242");
+        final Path state =
+                Files.createDirectories(context.paths().tasks().containerState("porelo-uc-shell"));
+        final Process helper = new ProcessBuilder("sleep", "60").start();
+        try {
+            org.fuin.porelo.wire.HelperPid.record(state.resolve("vault.pid"), helper.toHandle());
+
+            final int started =
+                    execute(
+                            context,
+                            "task",
+                            "start",
+                            "-p",
+                            projectFile(dir, MINIMAL),
+                            "--agent",
+                            "preview",
+                            "--no-gate");
+
+            assertThat(started).as("it failed: %s", err).isNotZero();
+            assertThat(runner.lines())
+                    .as("the container it did not make is left alone: %s", runner.lines())
+                    .noneMatch(line -> line.contains("podman stop"))
+                    .noneMatch(line -> line.contains("podman rm"));
+            assertThat(helper.waitFor(5, java.util.concurrent.TimeUnit.SECONDS))
+                    .as("what it made is stopped all the same: %s", err)
+                    .isTrue();
+        } catch (InterruptedException ex) {
+            Thread.currentThread().interrupt();
+            throw new AssertionError(ex);
+        } finally {
+            helper.destroyForcibly();
         }
     }
 
@@ -1311,8 +1414,16 @@ class TaskRunCommandTest {
                 "#!/bin/sh\nprintf '%s\\n' \"$*\" >> " + shellArgument(said.toString()) + "\n");
         Files.setPosixFilePermissions(
                 podman, java.nio.file.attribute.PosixFilePermissions.fromString("rwx------"));
+        // Its helpers are no part of it: run as this build's porelo, its gate served whatever
+        // project of that name the account itself has, and outlived the test.
+        final Path helpers = dir.resolve("helpers-porelo");
+        Files.writeString(helpers, "#!/bin/sh\nexit 0\n");
+        Files.setPosixFilePermissions(
+                helpers, java.nio.file.attribute.PosixFilePermissions.fromString("rwx------"));
         final String standIn = System.getProperty(org.fuin.porelo.runtime.Podman.NAMED);
+        final String ownPorelo = System.getProperty(PoreloBinary.NAMED);
         System.setProperty(org.fuin.porelo.runtime.Podman.NAMED, podman.toString());
+        System.setProperty(PoreloBinary.NAMED, helpers.toString());
         final int started;
         try {
             started =
@@ -1326,9 +1437,17 @@ class TaskRunCommandTest {
                             "preview");
         } finally {
             System.setProperty(org.fuin.porelo.runtime.Podman.NAMED, standIn);
+            System.setProperty(PoreloBinary.NAMED, ownPorelo);
         }
 
         assertThat(started).as("started: %s", err).isZero();
+        assertThat(
+                        ProcessHandle.allProcesses()
+                                .map(process -> process.info().commandLine().orElse(""))
+                                .filter(line -> line.contains(dir.toString()))
+                                .filter(line -> line.contains(" gate serve ")))
+                .as("no gate of this build is left serving the account's own projects")
+                .isEmpty();
         final List<String> lines = Files.readAllLines(said);
         final int checkout = indexOf(lines, "git init -q");
         assertThat(checkout).as("the workspace is checked out: %s", lines).isNotNegative();
@@ -1339,6 +1458,61 @@ class TaskRunCommandTest {
                 .as("the agent's own file before it: %s", lines)
                 .isNotNegative()
                 .isLessThan(checkout);
+    }
+
+    @Test
+    void aTaskKeptAfterItsStartFailedComesBackWithTheHelpersItHad(@TempDir Path dir)
+            throws IOException {
+
+        // Its gate was up when its agent's file in the workspace could not be placed; kept, the
+        // start recorded none of it, and a start that brought it back brought no gate.
+        final PoreloContext context = countingContext(dir);
+        Files.writeString(context.paths().xdg().data().resolve("agents/preview.yaml.places"), "");
+        final Path podman = dir.resolve("refusing-podman");
+        Files.writeString(
+                podman,
+                "#!/bin/sh\ncase \"$*\" in *'tee "
+                        + TaskWorkspace.MOUNT
+                        + "/'*) exit 1 ;; esac\nexit 0\n");
+        Files.setPosixFilePermissions(
+                podman, java.nio.file.attribute.PosixFilePermissions.fromString("rwx------"));
+        final Path helpers = dir.resolve("helpers-porelo");
+        Files.writeString(helpers, "#!/bin/sh\nexit 0\n");
+        Files.setPosixFilePermissions(
+                helpers, java.nio.file.attribute.PosixFilePermissions.fromString("rwx------"));
+        runner.answering("{{.State.Pid}}", "4242");
+        final String standIn = System.getProperty(org.fuin.porelo.runtime.Podman.NAMED);
+        final String ownPorelo = System.getProperty(PoreloBinary.NAMED);
+        System.setProperty(org.fuin.porelo.runtime.Podman.NAMED, podman.toString());
+        System.setProperty(PoreloBinary.NAMED, helpers.toString());
+        try {
+            final int started =
+                    execute(
+                            context,
+                            "task",
+                            "start",
+                            "-p",
+                            projectFile(dir, MINIMAL),
+                            "--agent",
+                            "preview");
+            assertThat(started).as("refused: %s", err).isEqualTo(70);
+            assertThat(out.toString())
+                    .as("its gate was up, and it is kept to start again: %s", out)
+                    .contains("gate      http")
+                    .contains("which offers to start it again");
+            runner.answering("{{.State.Status}}", "exited");
+            runner.answering("{{.Id}}", "0123456789ab");
+            runner.answering(
+                    "ps", RUNNING_SHELL.replace("Up 4 minutes", "Exited (0) 4 minutes ago"));
+
+            assertThat(new TaskControl(context).resume("porelo-uc-shell").outcome())
+                    .as("it comes back with what it had: %s", err)
+                    .isNotEqualTo(TaskControl.Outcome.NO_HELPERS_RECORDED)
+                    .isNotEqualTo(TaskControl.Outcome.NO_CONTAINER);
+        } finally {
+            System.setProperty(org.fuin.porelo.runtime.Podman.NAMED, standIn);
+            System.setProperty(PoreloBinary.NAMED, ownPorelo);
+        }
     }
 
     private static int indexOf(List<String> lines, String part) {
