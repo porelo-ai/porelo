@@ -139,6 +139,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b370"></a>[B370](B370-A-Backup-Key-That-Can-Do-Nothing-Else.md) | M | [B346](README.md#b346) | A backup key replaces only the key it backs on a rewrite too, never with a revoked key; a repeated `--id` answers only its own change; no key file removed that the command did not write |
 | <a id="b369"></a>[B369](B369-A-Message-Sender-Named-As-Its-Key-Names-It.md) | S | [B344](README.md#b344) | A message is held only when it names another sender than its key traces to, in either form; `people` and `person` are no task names; `mail.peers` names a task of another project |
 | <a id="b368"></a>[B368](B368-An-Address-Answered-Without-Any-Credential.md) | S | [B353](README.md#b353) | No accepted or answered address carries a credential in any spelling; `registry joinable` reaches a private `https://` repository and refuses a registry with a refused founding `owners.yml` |
 | <a id="b367"></a>[B367](B367-A-Failed-Agent-Setup-Leaves-Nothing-Running.md) | S | [B361](README.md#b361) | An attended task whose agent setup fails leaves nothing running or unretired; the kept number read after a reboot; `Start` and `CanStart` refuse alike |
