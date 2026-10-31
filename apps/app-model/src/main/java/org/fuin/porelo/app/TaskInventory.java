@@ -62,6 +62,8 @@ public final class TaskInventory {
      *     task.
      * @param forgeBranch The branch its work carries beyond the gate, as its start settled it, or
      *     {@code null} when it has no gate.
+     * @param certified Whether its commits are signed by its own key, certified at its start, and
+     *     judged at its gate.
      */
     public record Task(
             String name,
@@ -95,7 +97,78 @@ public final class TaskInventory {
             String phase,
             String lastWrote,
             int inboxWaiting,
-            @Nullable String forgeBranch) {
+            @Nullable String forgeBranch,
+            boolean certified) {
+
+        /** Creates a task whose commits are not signed by a certified key of its own. */
+        public Task(
+                String name,
+                @Nullable String project,
+                @Nullable String securityClass,
+                String state,
+                boolean running,
+                long helpers,
+                @Nullable String agent,
+                @Nullable String mode,
+                @Nullable String prompt,
+                @Nullable String branch,
+                String since,
+                Activity activity,
+                @Nullable String waitingFor,
+                @Nullable String clearance,
+                @Nullable String label,
+                int waiting,
+                String startAction,
+                String startDetail,
+                @Nullable String repository,
+                @Nullable String commit,
+                AgentWaiting.Derived derived,
+                Map<String, String> credentials,
+                Map<String, Map<String, String>> grants,
+                @Nullable String provider,
+                AgentEnding.@Nullable Ended agentEnded,
+                HandIns.Summary handIns,
+                TaskBuilds.View builds,
+                Map<String, Map<String, String>> parameters,
+                String phase,
+                String lastWrote,
+                int inboxWaiting,
+                @Nullable String forgeBranch) {
+            this(
+                    name,
+                    project,
+                    securityClass,
+                    state,
+                    running,
+                    helpers,
+                    agent,
+                    mode,
+                    prompt,
+                    branch,
+                    since,
+                    activity,
+                    waitingFor,
+                    clearance,
+                    label,
+                    waiting,
+                    startAction,
+                    startDetail,
+                    repository,
+                    commit,
+                    derived,
+                    credentials,
+                    grants,
+                    provider,
+                    agentEnded,
+                    handIns,
+                    builds,
+                    parameters,
+                    phase,
+                    lastWrote,
+                    inboxWaiting,
+                    forgeBranch,
+                    false);
+        }
 
         /** Creates a task whose branch beyond the gate is today's or unknown. */
         public Task(
@@ -710,6 +783,7 @@ public final class TaskInventory {
             map.put("prompt", prompt == null ? "" : prompt);
             map.put("branch", branch == null ? "" : branch);
             map.put("forgeBranch", forgeBranch == null ? "" : forgeBranch);
+            map.put("certified", certified);
             map.put("since", since);
             map.put("activity", activity.name());
             map.put("lastWrote", lastWrote);
@@ -1206,7 +1280,10 @@ public final class TaskInventory {
                 startSteps.phase(state),
                 lastWrote == null ? "" : lastWrote.toString(),
                 inboxWaiting(summary.name()),
-                profile == null ? null : profile.forgeBranchOrToday());
+                profile == null ? null : profile.forgeBranchOrToday(),
+                java.nio.file.Files.isRegularFile(
+                        (restartTookIt ? context.paths().tasks().taskRecord(summary.name()) : state)
+                                .resolve(TaskState.CERTIFIERS)));
     }
 
     /**

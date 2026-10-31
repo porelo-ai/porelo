@@ -34,6 +34,9 @@ public final class TaskState {
      * stopped, and the egress it was given - the resolver's files, the firewall ruleset, the hooks'
      * description and the run-scope grants - which cannot be rebuilt exactly from anything else.
      */
+    /** The keys a certified task's gate accepts its certificate from, as allowed signers. */
+    public static final String CERTIFIERS = "certifiers";
+
     static final List<String> DURABLE =
             List.of(
                     org.fuin.porelo.wire.Sidecar.RECORDED_ID,
@@ -47,6 +50,7 @@ public final class TaskState {
                     TaskRunner.HAND_IN_LIMIT_FILE,
                     TaskRunner.HOST_ADDRESS_FILE,
                     TaskCertificates.FILE,
+                    CERTIFIERS,
                     "dnsmasq.servers",
                     "ruleset.nft",
                     "sidecar.json",

@@ -365,6 +365,70 @@ class GitGateTest {
     }
 
     @Test
+    void aPushWhoseArrivalIsRefusedNeverReachesTheUpstreamAndLeavesNothingInTheMirror()
+            throws IOException {
+        final Path upstream = upstreamWithMain();
+        final GitGate gate = gate(GateMode.ONLINE, upstream.toString());
+        final TaskToken token = TaskToken.mint();
+        final java.util.List<String> judged = new java.util.ArrayList<>();
+        final java.util.concurrent.atomic.AtomicInteger passed =
+                new java.util.concurrent.atomic.AtomicInteger();
+        try (GitHttpServer server =
+                new GitHttpServer(
+                                new InetSocketAddress(InetAddress.getLoopbackAddress(), 0),
+                                mirror,
+                                token,
+                                new GitSubprocess(),
+                                GitGate.INCOMING + "task-1",
+                                new GitHttpServer.Upstream() {
+                                    @Override
+                                    public void refresh() {
+                                        gate.refresh();
+                                    }
+
+                                    @Override
+                                    public @org.jspecify.annotations.Nullable String passOn(
+                                            String ref, String commit) {
+                                        passed.incrementAndGet();
+                                        return gate.passOn("porelo/task-1", commit);
+                                    }
+                                },
+                                Duration.ZERO)
+                        .judging(
+                                (old, commit) -> {
+                                    judged.add(old + " " + commit);
+                                    return "commit " + commit + " is not signed";
+                                })) {
+            server.start();
+            git(
+                    root,
+                    "clone",
+                    "--quiet",
+                    "-c",
+                    "http.extraHeader=Authorization: " + token.basicAuthorization(),
+                    url(server),
+                    work.toString());
+            makeCommit("agent.txt", "written by the agent");
+            final String head = git(work, "rev-parse", "HEAD").standardOutput().strip();
+
+            assertThatThrownBy(
+                            () ->
+                                    git(
+                                            work,
+                                            "push",
+                                            url(server),
+                                            "HEAD:" + GitGate.INCOMING + "task-1"))
+                    .hasMessageContaining("remote rejected")
+                    .hasMessageContaining("is not signed");
+            assertThat(judged).containsExactly(SignedArrivals.ZERO + " " + head);
+        }
+        assertThat(passed).as("the upstream is never asked").hasValue(0);
+        assertThat(gate.resolves(GitGate.INCOMING + "task-1"))
+                .as("what the gate did not take")
+                .isFalse();
+    }
+
+    @Test
     void anOnlineTasksGateRefusesDeletingItsBranch() throws IOException {
         final Path upstream = upstreamWithMain();
         final GitGate gate = gate(GateMode.ONLINE, upstream.toString());

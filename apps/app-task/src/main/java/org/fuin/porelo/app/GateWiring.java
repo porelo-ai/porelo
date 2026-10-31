@@ -94,6 +94,54 @@ final class GateWiring {
             final String taskName,
             final @Nullable String repository,
             final @Nullable String forgeBranch) {
+        return serving(project, bind, port, state, taskName, repository, forgeBranch, null);
+    }
+
+    /**
+     * What a certified task's gate judges its arrivals by.
+     *
+     * @param principal The task's certificate principal, {@code task:<project>:<task>}.
+     * @param signers The file of the certifiers' {@code cert-authority} lines.
+     * @param hostRepository The repository on the host's own forge, {@code <project>/<repo>}, the
+     *     host pushes the task's branch to, or {@code null} off a host.
+     */
+    record Certified(
+            String principal, java.nio.file.Path signers, @Nullable String hostRepository) {
+
+        /**
+         * A certified task off a host.
+         *
+         * @param principal The principal.
+         * @param signers The signers file.
+         */
+        Certified(String principal, java.nio.file.Path signers) {
+            this(principal, signers, null);
+        }
+    }
+
+    /**
+     * Returns the command that serves a task's gate, judging a certified task's arrivals.
+     *
+     * @param project The task's project.
+     * @param bind Where the gate listens.
+     * @param port Its port.
+     * @param state The task's runtime state.
+     * @param taskName The task's own name.
+     * @param repository Which repository of the project, or {@code null} for its own.
+     * @param forgeBranch The task's branch at the forge, or {@code null} for {@code porelo/<task>}.
+     * @param certified What its arrivals are judged by, or {@code null} for a task with no
+     *     certificate.
+     * @return The command.
+     */
+    static java.util.List<String> serving(
+            final org.fuin.porelo.core.project.Project project,
+            final String bind,
+            final int port,
+            final java.nio.file.Path state,
+            final String taskName,
+            final @Nullable String repository,
+            final @Nullable String forgeBranch,
+            final @Nullable Certified certified) {
         final java.util.List<String> command =
                 new java.util.ArrayList<>(
                         java.util.List.of(
@@ -120,11 +168,22 @@ final class GateWiring {
             // An online task's push goes on to the upstream at once, from here, with the host's
             // key; its container holds none.
             command.add("--pass-on");
-            if (forgeBranch != null && !forgeBranch.equals("porelo/" + taskName)) {
+            if (certified != null && certified.hostRepository() != null) {
+                // On a host, the task's branch is always porelo/<task> on the host's forge.
+                command.add("--host-push");
+                command.add(certified.hostRepository());
+            } else if (forgeBranch != null && !forgeBranch.equals("porelo/" + taskName)) {
                 // On the recorded command line too, so a resumed task passes on where it did.
                 command.add("--branch");
                 command.add(forgeBranch);
             }
+        }
+        if (certified != null) {
+            // On the recorded command line too: a resumed task's gate judges as it did.
+            command.add("--principal");
+            command.add(certified.principal());
+            command.add("--signers");
+            command.add(certified.signers().toString());
         }
         if (repository != null) {
             // On the recorded command line, so that resuming the task brings back a gate on the
@@ -144,6 +203,7 @@ final class GateWiring {
             String taskName,
             org.fuin.porelo.core.project.Project project,
             @org.jspecify.annotations.Nullable String forgeBranch,
+            @org.jspecify.annotations.Nullable Certified certified,
             PrintWriter out,
             PrintWriter err) {
 
@@ -156,7 +216,8 @@ final class GateWiring {
                         state,
                         taskName,
                         repository,
-                        forgeBranch);
+                        forgeBranch,
+                        certified);
 
         try {
             final ProcessBuilder builder =

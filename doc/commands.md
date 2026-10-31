@@ -160,6 +160,9 @@ At a terminal a shut vault asks for its passphrase; a script must unlock it firs
 | `porelo task watch-builds TASK ...` | Run by an online task's launch, not by hand: follows what the task pushes and hands each build's verdict into `/porelo/files`. |
 | `porelo task prepare -p PROJECT [-r REPOSITORY]` | Builds the project's task image without starting a task; with `-r`, the image a task on that repository gets, chosen as a start chooses it. |
 | `porelo task clearance TASK MODE` | Sets what happens to a blocked connection: `prompt`, `allow`, `deny` or `off`. |
+| `porelo task start TASK --host LOGIN@HOST --project PROJECT ...` | Starts the task on that host over SSH, detached, its key certified here by your own agent, which is never forwarded. Paths named are the host's; `--set-file`, `--set-env` and `--restarted` are refused. |
+| `porelo task certify TASK [--host LOGIN@HOST --project PROJECT]` | Certifies a running task's key anew for another week, by your agent; with `--host`, the task of that project on that host, by its own name. |
+| `porelo task certificate FINGERPRINT [--json]` | Says which task a key signed for, who certified it and while, after the task is gone too; on a host, from the host's own record. |
 
 **`task start`**
 - `-p PROJECT`: without it, the project that names the checkout you stand in, else `default`.
@@ -292,6 +295,18 @@ container runtime's own words; `activity` says what the work is doing:
 | `ended` | up, and its agent's run has ended: nothing more will happen in it on its own |
 | `dead` | the container is not up |
 | `unknown` | nothing on this side can see what it does, such as a task with a terminal attached |
+
+**A task's own key.** Every task with a gate gets an Ed25519 key of its own, held outside its container,
+and a certificate for it: valid seven days, for the one principal `task:<project>:<task>` (`default` for
+a task without a project), signed by your key through your own agent. A project's task is certified by a
+key of a person its [access file](project-file.md#the-access-file) admits, a task without a project by the first
+Ed25519 key in your agent. The task's commits are signed at its gate, so the agent never holds the key,
+and the gate judges every commit that arrives by `ssh-keygen -Y verify` at its arrival, not by the date
+it carries: a commit arriving after its certificate ended is refused, naming the end. Each verdict is
+recorded as an `arrived` event. When your agent holds none of those keys, the task starts as before,
+unsigned, and `certified` is `false` in `task list --json`; on a host whose persons start tasks
+(`porelo-host-person`), it does not start at all. There, the host records the certificate, makes the
+task's forge token, and pushes its branch, `porelo/<task>`, itself; the container holds no token.
 
 `lastWrote` in the JSON status and the daemon's `Task` is the modification time of `task.log`, an
 ISO-8601 instant, or `""` without a readable log. Ask `Tail(last: 1)` for its last line when showing it.

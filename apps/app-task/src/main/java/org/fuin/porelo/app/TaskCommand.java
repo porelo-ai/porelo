@@ -23,7 +23,9 @@ import picocli.CommandLine.Command;
             TaskGiveCommand.class,
             TaskTakeBackCommand.class,
             TaskFilesCommand.class,
-            TaskWatchBuildsCommand.class
+            TaskWatchBuildsCommand.class,
+            TaskCertificateCommand.class,
+            TaskCertifyCommand.class
         })
 public class TaskCommand
         implements java.util.concurrent.Callable<Integer>, PoreloFactory.ContextAware {

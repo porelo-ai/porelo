@@ -878,6 +878,25 @@ public final class TaskLaunch {
         return this;
     }
 
+    /** Where a start from the person's machine asks for its certificate, or {@code null}. */
+    private java.io.@org.jspecify.annotations.Nullable BufferedReader certifyIn;
+
+    private java.io.@org.jspecify.annotations.Nullable PrintWriter certifyOut;
+
+    /**
+     * Has the starting person's machine certify the task's key over this start's own input and
+     * output, as a start through SSH from there does.
+     *
+     * @param in Where the certificate comes from.
+     * @param out Where the request goes.
+     * @return This launch.
+     */
+    public TaskLaunch certifyingOver(final java.io.BufferedReader in, final PrintWriter out) {
+        this.certifyIn = in;
+        this.certifyOut = out;
+        return this;
+    }
+
     /**
      * Shows what a host this machine never met offers, and records its key when a person says it is
      * the one its owner publishes: a trust decision, so it defaults to no and is never taken by
@@ -1855,7 +1874,48 @@ public final class TaskLaunch {
                     environmentCache.put(parameter.env(), given.value());
                 }
             }
+            // Certified before its git is set up, so a task with a key signs from its first commit;
+            // one whose starter's agent holds no certifier's key starts as it did, unsigned.
+            final java.util.List<String> certifiers =
+                    workspace == null
+                            ? java.util.List.of()
+                            : TaskCertifying.certifiers(context, project);
+            final TaskCertification.Issued issued =
+                    workspace == null
+                            ? null
+                            : TaskCertifying.atStart(
+                                    project.name(),
+                                    request.task(),
+                                    System.getProperty("user.name", ""),
+                                    certifiers,
+                                    certifyIn == null
+                                            ? null
+                                            : new StdinCertifier(
+                                                    certifyIn,
+                                                    java.util.Objects.requireNonNull(certifyOut),
+                                                    certifiers),
+                                    agentSocket(),
+                                    java.time.Clock.systemUTC());
+            // A host records each task's certificate and makes its forge token: it starts none
+            // without one, since what it passes on is then vouched for by nobody.
+            final HostPerson host = new HostPerson(context);
+            // Refused where every refusal is, so what was started for it, its vault's broker
+            // first, is cleaned up with it.
+            if (workspace != null && issued == null && host.present()) {
+                throw new TaskCertification.Refused(
+                        certifiers.isEmpty()
+                                ? "this host starts a task only with a key of its own that you"
+                                        + " certify, and project "
+                                        + project.name()
+                                        + "'s access file names no key that may certify it"
+                                : "this host starts a task only with a key of its own that you"
+                                        + " certify: add the key of your card to your agent"
+                                        + " (ssh-add) and start it again");
+            }
             if (workspace != null) {
+                if (issued != null) {
+                    workspace.certified(issued.certificate().line());
+                }
                 environmentCache.putAll(workspace.environment(project, request.task()));
             }
 
@@ -1909,6 +1969,10 @@ public final class TaskLaunch {
                 wiring().startRelay(runner, container, plumbing.socket(), out, err);
             }
 
+            final String forgeToken =
+                    workspace != null && issued != null && host.present()
+                            ? host.start(request.task(), issued.certificate().line())
+                            : "";
             if (workspace != null) {
                 gate().startGate(
                                 runner,
@@ -1918,6 +1982,12 @@ public final class TaskLaunch {
                                 request.task(),
                                 project,
                                 forgeBranch,
+                                issued == null
+                                        ? null
+                                        : certifiedGate(
+                                                container,
+                                                issued,
+                                                project.name() + "/" + repository.name()),
                                 out,
                                 err);
                 workspace()
@@ -1949,6 +2019,36 @@ public final class TaskLaunch {
             if (!unkept.isEmpty()) {
                 out.println("reboot    " + unkept);
             }
+            if (issued != null) {
+                // Without its key in the vault the gate cannot sign: say so, as for the tokens.
+                final String unsigned =
+                        new TaskSecrets(context)
+                                .keepSigning(
+                                        container,
+                                        new TaskSecrets.Signing(
+                                                issued.key().seedBase64(),
+                                                issued.certificate().line()));
+                if (!unsigned.isEmpty()) {
+                    out.println("signing   " + unsigned);
+                }
+                if (!forgeToken.isEmpty()) {
+                    final String unkeptToken =
+                            new TaskSecrets(context).keepForgeToken(container, forgeToken);
+                    if (!unkeptToken.isEmpty()) {
+                        out.println("forge     " + unkeptToken);
+                    }
+                }
+                // Kept past the task, so a signature by its plain key is traced to whoever vouched.
+                try {
+                    new TaskCertificateRecords(context)
+                            .keep(
+                                    request.task(),
+                                    System.getProperty("user.name", ""),
+                                    issued.certificate());
+                } catch (java.io.IOException ex) {
+                    out.println("trace     the certificate is not kept: " + ex.getMessage());
+                }
+            }
 
             // The task is up. What happens next - run the agent to completion, attach a terminal,
             // or simply say so - is the caller's, and it happens inside this scope on purpose: the
@@ -1965,6 +2065,14 @@ public final class TaskLaunch {
                             project,
                             code -> cleanUp(runner, container, code, out, err)));
 
+        } catch (HostPerson.Refused ex) {
+            err.println("porelo: " + ex.getMessage());
+            err.flush();
+            return cleanUp(runner, container, ex.code() == 69 ? 69 : 65, out, err);
+        } catch (TaskCertification.Refused ex) {
+            err.println("porelo: " + ex.getMessage());
+            err.flush();
+            return cleanUp(runner, container, 65, out, err);
         } catch (TaskCertificates.Refused ex) {
             err.println("porelo: " + ex.getMessage());
             err.flush();
@@ -2986,6 +3094,29 @@ public final class TaskLaunch {
 
     /** The watcher that asks about blocked connections. Built on first use. */
     private @Nullable ClearanceWiring clearanceWiring;
+
+    /**
+     * Writes a certified task's certifiers beside its state, where its gate and a resume find them,
+     * and names them for the gate.
+     */
+    private GateWiring.Certified certifiedGate(
+            String container, TaskCertification.Issued issued, String hostRepository)
+            throws java.io.IOException {
+        final java.nio.file.Path file =
+                context.paths().tasks().containerState(container).resolve(TaskState.CERTIFIERS);
+        java.nio.file.Files.writeString(file, issued.signers());
+        return new GateWiring.Certified(
+                issued.principal(),
+                file,
+                // The host's own forge names a project's organization after the project.
+                new HostPerson(context).present() ? hostRepository : null);
+    }
+
+    /** The agent of the person starting the task, or {@code null} when there is none. */
+    private static java.nio.file.@org.jspecify.annotations.Nullable Path agentSocket() {
+        final String socket = System.getenv("SSH_AUTH_SOCK");
+        return socket == null || socket.isBlank() ? null : java.nio.file.Path.of(socket);
+    }
 
     /**
      * Removes a task that finished, and holds one that failed.

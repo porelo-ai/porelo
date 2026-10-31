@@ -1,0 +1,2 @@
+title: "Each task with a gate signs its commits with a key of its own, certified for a week by your agent, and its gate judges every arriving commit by that certificate at its arrival; `task certify` renews it, `task certificate` traces a key to its task, `task start --host` certifies a host's task on your own machine, and on a host the host records it and the gate pushes the task's branch to the host's forge with the task's own token"
+type: added

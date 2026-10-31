@@ -35,6 +35,18 @@ public record TaskPaths(PoreloPaths paths) {
     }
 
     /**
+     * Returns the directory holding the certificates of the task keys this machine held.
+     *
+     * <p>Under the state directory and kept after a task is removed: a signature by a task's plain
+     * key is traced to its certificate long after the key is gone.
+     *
+     * @return The directory.
+     */
+    public Path certificates() {
+        return paths.xdg().state().resolve("task-certificates");
+    }
+
+    /**
      * Returns the file holding the session a task's agent was running.
      *
      * <p>Under the state directory, like the mailbox and for the same reason: it is the task's, and

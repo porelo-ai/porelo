@@ -47,6 +47,10 @@ public class GitHttpServer implements AutoCloseable {
 
     private final java.time.Duration pace;
 
+    private volatile @org.jspecify.annotations.Nullable Arrivals arrivals;
+
+    private volatile @org.jspecify.annotations.Nullable Signer signer;
+
     private final Object refreshing = new Object();
 
     private long refreshedAt = Long.MIN_VALUE;
@@ -83,6 +87,38 @@ public class GitHttpServer implements AutoCloseable {
          */
         @org.jspecify.annotations.Nullable
         String passOn(String ref, String commit);
+    }
+
+    /** Signs a task's commit with its key, which only the host holds. */
+    @FunctionalInterface
+    public interface Signer {
+
+        /**
+         * Signs what git would sign.
+         *
+         * @param payload The commit, without its signature.
+         * @return The armored signature, in namespace {@code git}.
+         */
+        String sign(byte[] payload);
+    }
+
+    /** The most a commit to sign may be: a commit's text, never its tree. */
+    public static final int SIGN_LIMIT = 1024 * 1024;
+
+    /** Judges what a push brought to the task's ref, before anything is passed on. */
+    @FunctionalInterface
+    public interface Arrivals {
+
+        /**
+         * Judges one ref's update.
+         *
+         * @param old What the ref pointed at before, or git's zero name.
+         * @param commit What it points at now.
+         * @return {@code null} when it is accepted, else why not, for the agent.
+         * @throws IOException If it cannot be judged.
+         */
+        @org.jspecify.annotations.Nullable
+        String judge(String old, String commit) throws IOException;
     }
 
     /** Runs a git subprocess for one request. */
@@ -197,6 +233,30 @@ public class GitHttpServer implements AutoCloseable {
         server.setExecutor(java.util.concurrent.Executors.newVirtualThreadPerTaskExecutor());
     }
 
+    /**
+     * Has every push to the task's ref judged before it is passed on or answered: a refused one
+     * puts the mirror's ref back and is refused in git's protocol, naming why.
+     *
+     * @param judge The judge.
+     * @return This server.
+     */
+    public GitHttpServer judging(final Arrivals judge) {
+        this.arrivals = judge;
+        return this;
+    }
+
+    /**
+     * Has the gate sign the task's commits on request, at {@code POST /porelo/sign}, behind the
+     * same token as its pushes: the task's key stays on the host, and the container asks.
+     *
+     * @param with What signs.
+     * @return This server.
+     */
+    public GitHttpServer signing(final Signer with) {
+        this.signer = with;
+        return this;
+    }
+
     /** Starts serving. */
     public void start() {
         server.start();
@@ -236,7 +296,9 @@ public class GitHttpServer implements AutoCloseable {
                 return;
             }
             final String path = exchange.getRequestURI().getPath();
-            if ("GET".equals(exchange.getRequestMethod()) && path.endsWith("/info/refs")) {
+            if ("POST".equals(exchange.getRequestMethod()) && "/porelo/sign".equals(path)) {
+                sign(exchange);
+            } else if ("GET".equals(exchange.getRequestMethod()) && path.endsWith("/info/refs")) {
                 advertise(exchange);
             } else if ("POST".equals(exchange.getRequestMethod())) {
                 service(exchange, path.substring(path.lastIndexOf('/') + 1));
@@ -249,6 +311,29 @@ public class GitHttpServer implements AutoCloseable {
             exchange.sendResponseHeaders(403, -1);
         } finally {
             exchange.close();
+        }
+    }
+
+    private void sign(HttpExchange exchange) throws IOException {
+        final Signer with = signer;
+        if (with == null) {
+            exchange.sendResponseHeaders(404, -1);
+            return;
+        }
+        final byte[] payload;
+        try (InputStream in = exchange.getRequestBody()) {
+            payload = in.readNBytes(SIGN_LIMIT + 1);
+        }
+        if (payload.length > SIGN_LIMIT) {
+            exchange.sendResponseHeaders(413, -1);
+            return;
+        }
+        final byte[] signature =
+                with.sign(payload).getBytes(java.nio.charset.StandardCharsets.US_ASCII);
+        exchange.getResponseHeaders().add("Content-Type", "text/plain");
+        exchange.sendResponseHeaders(200, signature.length);
+        try (OutputStream out = exchange.getResponseBody()) {
+            out.write(signature);
         }
     }
 
@@ -381,6 +466,15 @@ public class GitHttpServer implements AutoCloseable {
                     hidingOthers("receive-pack", "--stateless-rpc", mirror.toString()),
                     body,
                     response);
+
+            final String judged = judge(commands(request));
+            if (judged != null) {
+                exchange.getResponseHeaders()
+                        .add("Content-Type", "application/x-" + service + "-result");
+                exchange.getResponseHeaders().add("Cache-Control", "no-cache");
+                send(exchange, refusal(updated, judged, capabilities(request)));
+                return;
+            }
 
             if (upstream != null) {
                 final String passed = passOn(commands(request));
@@ -559,20 +653,54 @@ public class GitHttpServer implements AutoCloseable {
                 continue;
             }
             System.err.println("the upstream refused " + printable(command[2]) + ": " + said);
-            final List<String> back =
-                    ZERO.equals(command[0])
-                            ? List.of(
-                                    "--git-dir", mirror.toString(), "update-ref", "-d", command[2])
-                            : List.of(
-                                    "--git-dir",
-                                    mirror.toString(),
-                                    "update-ref",
-                                    command[2],
-                                    command[0]);
-            git.run(back, new byte[0]);
+            putBack(command);
             return "the upstream refused it: " + said.strip().replace('\n', ' ');
         }
         return null;
+    }
+
+    /**
+     * Judges what a push wrote to the task's ref, and puts the mirror's ref back when it is
+     * refused.
+     *
+     * @param commands The push's {@code <old> <new> <ref>} commands.
+     * @return {@code null} when every update is accepted or none is judged, else why not.
+     */
+    private @org.jspecify.annotations.Nullable String judge(final List<String[]> commands)
+            throws IOException {
+        final Arrivals judge = arrivals;
+        if (judge == null) {
+            return null;
+        }
+        for (final String[] command : commands) {
+            // The rescue beside the task's ref is the person's, kept on the host and never passed
+            // on; a deletion brings nothing to judge.
+            if (!command[2].equals(ref) || ZERO.equals(command[1])) {
+                continue;
+            }
+            final String said = judge.judge(command[0], command[1]);
+            if (said == null) {
+                continue;
+            }
+            System.err.println("refused " + printable(command[2]) + ": " + printable(said));
+            putBack(command);
+            return said;
+        }
+        return null;
+    }
+
+    /** Puts the mirror's ref back to where a push found it. */
+    private void putBack(final String[] command) throws IOException {
+        final List<String> back =
+                ZERO.equals(command[0])
+                        ? List.of("--git-dir", mirror.toString(), "update-ref", "-d", command[2])
+                        : List.of(
+                                "--git-dir",
+                                mirror.toString(),
+                                "update-ref",
+                                command[2],
+                                command[0]);
+        git.run(back, new byte[0]);
     }
 
     /**

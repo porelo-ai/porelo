@@ -507,7 +507,20 @@ public final class TaskControl {
             new TaskState(context).forget(container);
             // A vault that is locked keeps them until the next task started prunes them: a removal
             // is not refused for want of a passphrase.
-            new TaskSecrets(context).forget(container);
+            final TaskSecrets secrets = new TaskSecrets(context);
+            // The host is told only when its start reached it, which the task's key in the vault
+            // says. A host that cannot be told now drops the token when its certificate expires.
+            final HostPerson host = new HostPerson(context);
+            if (host.present() && secrets.signing(container).isPresent()) {
+                try {
+                    host.end(
+                            org.fuin.porelo.runtime.ContainerName.taskIn(
+                                    String.valueOf(project), container));
+                } catch (final HostPerson.Refused ex) {
+                    // Nothing more to do here: the removal goes on.
+                }
+            }
+            secrets.forget(container);
             // Out of its project's conversations: its account there ends with it.
             new TaskConversations(context).retire(context, container, project);
             // The mailbox outlives the container on purpose, so this is the one place it ends.

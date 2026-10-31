@@ -232,6 +232,21 @@ public class TaskRunCommand implements Callable<Integer>, PoreloFactory.ContextA
     private boolean now;
 
     @Option(
+            names = "--host",
+            paramLabel = "<login>@<host>",
+            description =
+                    "Starts the task on that host over SSH, its key certified here by your own agent,"
+                            + " which is never forwarded. Starts it detached; paths and files are the host's.")
+    private @Nullable String host;
+
+    @Option(
+            names = "--certify-stdin",
+            hidden = true,
+            description =
+                    "Asks for the task's certificate on standard output and reads it from standard input.")
+    private boolean certifyStdin;
+
+    @Option(
             names = "--restarted",
             description =
                     "Brings back every task the machine took down when it restarted, each whole or not at"
@@ -288,6 +303,127 @@ public class TaskRunCommand implements Callable<Integer>, PoreloFactory.ContextA
                 .orElse(null);
     }
 
+    /**
+     * Returns the host's arguments for a start: the same ones less {@code --host}, certified and
+     * detached there.
+     *
+     * @param spec The parsed start.
+     * @return The host's Porelo arguments.
+     */
+    static java.util.List<String> hostArguments(final CommandSpec spec) {
+        final java.util.List<String> host =
+                java.util.List.of("--certify-stdin", "--detach", "--no-input");
+        final java.util.List<String> arguments =
+                new java.util.ArrayList<>(java.util.List.of("task", "start"));
+        // From what was parsed, not from the words given: each value goes with its own option, as
+        // "--name=value", so no word can pair with another option there or slip behind a "--".
+        final picocli.CommandLine.ParseResult parsed = spec.commandLine().getParseResult();
+        // Each option once, however often it was given: its values hold every occurrence.
+        for (final picocli.CommandLine.Model.OptionSpec option :
+                new java.util.LinkedHashSet<>(parsed.matchedOptions())) {
+            final String name = option.longestName();
+            if (name.equals("--host") || host.contains(name)) {
+                continue;
+            }
+            if (option.arity().max() == 0) {
+                // Its value, not its name alone: "--x=false" and a negated "--no-x" stay false.
+                arguments.add(name + "=" + option.getValue());
+                continue;
+            }
+            for (final String value : option.originalStringValues()) {
+                arguments.add(name + "=" + value);
+            }
+        }
+        arguments.addAll(host);
+        final java.util.List<String> positionals = new java.util.ArrayList<>();
+        for (final picocli.CommandLine.Model.PositionalParamSpec positional :
+                parsed.matchedPositionals()) {
+            positionals.addAll(positional.originalStringValues());
+        }
+        if (!positionals.isEmpty()) {
+            arguments.add("--");
+            arguments.addAll(positionals);
+        }
+        return arguments;
+    }
+
+    /**
+     * Starts the task on a host, by the same arguments less {@code --host}, certified here.
+     *
+     * @param out Where the host's output goes.
+     * @param err Where its errors go.
+     * @return The host's exit code.
+     */
+    private int onHost(final PrintWriter out, final PrintWriter err) {
+        final String refused = hostRefusal();
+        if (refused != null) {
+            err.println("porelo: " + refused);
+            err.flush();
+            return 64;
+        }
+        final java.nio.file.Path agent = RemoteStart.agent(context);
+        if (agent == null) {
+            err.println(
+                    "porelo: --host certifies the task's key with your agent, and none is running");
+            err.flush();
+            return 64;
+        }
+        final java.util.List<String> arguments = hostArguments(spec);
+        final java.util.List<String> connection = new java.util.ArrayList<>(RemoteStart.SSH);
+        connection.add(host);
+        try {
+            return new RemoteStart(connection, agent)
+                    .run(arguments, java.util.Objects.requireNonNull(projectName), task, out, err);
+        } catch (java.io.IOException ex) {
+            err.println("porelo: could not reach " + host + ": " + ex.getMessage());
+            err.flush();
+            return 69;
+        }
+    }
+
+    /**
+     * Says why a start cannot be run on a host as given, or {@code null}. The host runs the same
+     * start in its own account, with no checkout and its own environment, so whatever this machine
+     * would take from either has to be given.
+     */
+    private @Nullable String hostRefusal() {
+        if (!java.util.Objects.requireNonNull(host).matches(RemoteStart.HOST)) {
+            return "--host takes <login>@<host>";
+        }
+        if (restarted) {
+            return "--host does not take --restarted";
+        }
+        // Named, not defaulted: the host would pick its own name, and the certificate this one.
+        if (!spec.commandLine().getParseResult().hasMatchedPositional(0)
+                || task.isBlank()
+                || task.startsWith("@")
+                || task.startsWith("-")) {
+            return "--host needs the task's name, which its certificate names";
+        }
+        if (projectName == null || projectName.isBlank()) {
+            return "--host needs --project: the host has no checkout to take it from";
+        }
+        if (!projectName.matches(RemoteStart.PROJECT)) {
+            return "--host needs a project's name, " + RemoteStart.PROJECT;
+        }
+        // The host would take a container's spelling for the task it names, and certify that.
+        final java.util.Optional<String> misnamed =
+                org.fuin.porelo.runtime.ContainerName.refusal(projectName, task);
+        if (misnamed.isPresent()) {
+            return misnamed.get();
+        }
+        if (!org.fuin.porelo.runtime.ContainerName.taskFrom(projectName, task).equals(task)) {
+            return "--host needs the task's own name, not its container's";
+        }
+        if (!setFiles.isEmpty()) {
+            return "--host does not take --set-file: the host would read it from its own files";
+        }
+        if (setEnv || sets.stream().anyMatch(each -> !each.contains("="))) {
+            return "--host takes --set NAME=VALUE only: the host's environment is not this shell's";
+        }
+        return null;
+    }
+
     @Override
     public Integer call() {
         // A refusal the person answered with another way to start - another name, or a shell -
@@ -325,6 +461,10 @@ public class TaskRunCommand implements Callable<Integer>, PoreloFactory.ContextA
         final PrintWriter out = spec.commandLine().getOut();
         final PrintWriter err = spec.commandLine().getErr();
 
+        // Before --restarted: a start meant for a host never restarts this machine's tasks.
+        if (host != null) {
+            return onHost(out, err);
+        }
         if (restarted) {
             return restarted(out, err);
         }
@@ -487,6 +627,13 @@ public class TaskRunCommand implements Callable<Integer>, PoreloFactory.ContextA
                         // What a refusal would name is offered at a terminal instead; a script or a
                         // pipe is refused as before.
                         .offering(offer(noInput, yes, Offer.atTerminal(), err));
+        if (certifyStdin) {
+            launch.certifyingOver(
+                    new java.io.BufferedReader(
+                            new java.io.InputStreamReader(
+                                    System.in, java.nio.charset.StandardCharsets.UTF_8)),
+                    out);
+        }
 
         // A person at a terminal who typed 'start' wants to work in the task, running or not; a
         // script is answered with RUNNING as before, so it never hangs in a session.

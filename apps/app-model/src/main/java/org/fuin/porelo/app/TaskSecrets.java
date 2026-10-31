@@ -79,6 +79,29 @@ public final class TaskSecrets {
         }
     }
 
+    /** The task's own signing key's seed, after the task's container name. */
+    static final String SIGNING_KEY = "/signing-key";
+
+    /** The certificate its starting person's key gave the task's key. */
+    static final String CERTIFICATE = "/certificate";
+
+    /** The forge token a host made for the task, which only its gate uses. */
+    static final String FORGE = "/forge-token";
+
+    /**
+     * A task's own key, which only the host holds, and its certificate.
+     *
+     * @param seed The Ed25519 seed, base64.
+     * @param certificate The certificate line.
+     */
+    public record Signing(String seed, String certificate) {
+
+        @Override
+        public String toString() {
+            return "Signing[certificate=" + certificate + "]";
+        }
+    }
+
     /** Where the tokens of a task's other credentials are kept, below its own name. */
     static final String ROUTE = "/route/";
 
@@ -231,6 +254,109 @@ public final class TaskSecrets {
     }
 
     /**
+     * Keeps a task's key and its certificate, beside its tokens.
+     *
+     * @param container The task's container.
+     * @param signing The key and the certificate.
+     * @return "" when they are kept, otherwise why not.
+     */
+    public String keepSigning(String container, Signing signing) {
+        final Optional<VaultFile.Opener> opener = context.opener();
+        if (!context.vault().exists() || opener.isEmpty()) {
+            return "the vault is "
+                    + (context.vault().exists() ? "locked" : "not there")
+                    + ", so this task's key could not be kept";
+        }
+        try {
+            context.vault()
+                    .update(
+                            opener.get(),
+                            entries -> {
+                                final Map<String, VaultEntry> updated =
+                                        new LinkedHashMap<>(entries);
+                                put(updated, container + SIGNING_KEY, signing.seed());
+                                put(updated, container + CERTIFICATE, signing.certificate());
+                                return updated;
+                            });
+            return "";
+        } catch (VaultException ex) {
+            return "the vault could not be written (" + ex.getMessage() + ")";
+        }
+    }
+
+    /**
+     * Keeps the forge token a host made for a task, for its gate to pass its branch on with.
+     *
+     * @param container The task's container.
+     * @param token The token.
+     * @return "" when it is kept, otherwise why not.
+     */
+    public String keepForgeToken(String container, String token) {
+        final Optional<VaultFile.Opener> opener = context.opener();
+        if (!context.vault().exists() || opener.isEmpty()) {
+            return "the vault is "
+                    + (context.vault().exists() ? "locked" : "not there")
+                    + ", so this task's forge token could not be kept";
+        }
+        try {
+            context.vault()
+                    .update(
+                            opener.get(),
+                            entries -> {
+                                final Map<String, VaultEntry> updated =
+                                        new LinkedHashMap<>(entries);
+                                put(updated, container + FORGE, token);
+                                return updated;
+                            });
+            return "";
+        } catch (VaultException ex) {
+            return "the vault could not be written (" + ex.getMessage() + ")";
+        }
+    }
+
+    /**
+     * Reads the forge token a host made for a task.
+     *
+     * @param container The task's container.
+     * @return It, or empty when there is none or the vault cannot be read.
+     */
+    public Optional<String> forgeToken(String container) {
+        final Optional<VaultFile.Opener> opener = context.opener();
+        if (!context.vault().exists() || opener.isEmpty()) {
+            return Optional.empty();
+        }
+        try {
+            return Optional.ofNullable(
+                    value(context.vault().read(opener.get()).get(PREFIX + container + FORGE)));
+        } catch (VaultException ex) {
+            return Optional.empty();
+        }
+    }
+
+    /**
+     * Reads a task's key and certificate back.
+     *
+     * @param container The task's container.
+     * @return Both, or empty when there are none or the vault cannot be read.
+     */
+    public Optional<Signing> signing(String container) {
+        final Optional<VaultFile.Opener> opener = context.opener();
+        if (!context.vault().exists() || opener.isEmpty()) {
+            return Optional.empty();
+        }
+        try {
+            final Map<String, VaultEntry> entries = context.vault().read(opener.get());
+            final String seed = value(entries.get(PREFIX + container + SIGNING_KEY));
+            final String certificate = value(entries.get(PREFIX + container + CERTIFICATE));
+            return seed == null || certificate == null
+                    ? Optional.empty()
+                    : Optional.of(new Signing(seed, certificate));
+        } catch (VaultException ex) {
+            return Optional.empty();
+        }
+    }
+
+    /**
      * Forgets a task's tokens, as removing the task does.
      *
      * @param container The task's container.
@@ -252,13 +378,11 @@ public final class TaskSecrets {
                             entries -> {
                                 final Map<String, VaultEntry> updated =
                                         new LinkedHashMap<>(entries);
-                                updated.remove(PREFIX + container + GATE);
-                                updated.remove(PREFIX + container + PROVIDER);
+                                // Everything the task's own: its tokens, its key and its
+                                // certificate. The slash keeps porelo-p-task2's apart.
                                 updated.keySet()
                                         .removeIf(
-                                                name ->
-                                                        name.startsWith(
-                                                                PREFIX + container + ROUTE));
+                                                name -> name.startsWith(PREFIX + container + "/"));
                                 return updated;
                             });
             return "";

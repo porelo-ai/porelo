@@ -46,6 +46,58 @@ class GateServingTest {
     }
 
     @Test
+    void aCertifiedTasksGateJudgesItsArrivalsAndAnUncertifiedOnesIsNotToldTo() {
+        final Path state = Path.of("/run/user/1000/porelo/porelo-uc-shell");
+
+        assertThat(
+                        GateWiring.serving(
+                                project("online"),
+                                "127.0.0.1",
+                                9418,
+                                state,
+                                "shell",
+                                null,
+                                null,
+                                new GateWiring.Certified(
+                                        "task:uc:shell", state.resolve("certifiers"))))
+                .containsSequence("--principal", "task:uc:shell")
+                .containsSequence("--signers", state.resolve("certifiers").toString())
+                .containsSequence("--ref", "refs/porelo/incoming/shell");
+        assertThat(
+                        GateWiring.serving(
+                                project("online"),
+                                "127.0.0.1",
+                                9418,
+                                state,
+                                "shell",
+                                null,
+                                null,
+                                null))
+                .doesNotContain("--principal")
+                .doesNotContain("--signers");
+    }
+
+    @Test
+    void onAHostTheHostPushesTheTasksBranchWhateverTheSchemeNamesIt() {
+        final Path state = Path.of("/run/user/1000/porelo/porelo-uc-shell");
+
+        assertThat(
+                        GateWiring.serving(
+                                project("online"),
+                                "127.0.0.1",
+                                9418,
+                                state,
+                                "shell",
+                                null,
+                                "bugfix/porelo/shell",
+                                new GateWiring.Certified(
+                                        "task:uc:shell", state.resolve("certifiers"), "uc/uc")))
+                .contains("--pass-on")
+                .containsSequence("--host-push", "uc/uc")
+                .doesNotContain("--branch");
+    }
+
+    @Test
     void anOnlineTasksGateIsToldItsBranchOnlyWhenItIsNotTodays() {
 
         // On the recorded command line, so a resumed task passes on where it did; a task started

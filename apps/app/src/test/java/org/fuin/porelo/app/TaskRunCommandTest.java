@@ -2606,4 +2606,176 @@ class TaskRunCommandTest {
                 .contains("done")
                 .contains("all well");
     }
+
+    /** What a start with these arguments would have the host run. */
+    private List<String> hostArguments(Path dir, String... args) throws IOException {
+        final CommandLine cmd = PoreloCli.commandLine(context(dir, false));
+        cmd.parseArgs(args);
+        return TaskRunCommand.hostArguments(
+                cmd.getSubcommands().get("task").getSubcommands().get("start").getCommandSpec());
+    }
+
+    @Test
+    void aStartOnAHostRunsTheSameStartThereLessTheHost(@TempDir Path dir) throws IOException {
+
+        // The host runs what it is given: a word of the command path repeated, an argument dropped
+        // or the host kept would start another task there, or none.
+        assertThat(
+                        hostArguments(
+                                dir,
+                                "task",
+                                "start",
+                                "fix",
+                                "-p",
+                                "uc",
+                                "--host",
+                                "alice@build.example",
+                                "--shell=/bin/zsh",
+                                "--set",
+                                "NOTE=it's a b",
+                                "--repository",
+                                "uc"))
+                .containsExactly(
+                        "task",
+                        "start",
+                        "--project=uc",
+                        "--shell=/bin/zsh",
+                        "--set=NOTE=it's a b",
+                        "--repository=uc",
+                        "--certify-stdin",
+                        "--detach",
+                        "--no-input",
+                        "--",
+                        "fix");
+
+        // An option given twice goes once with both values, and a flag keeps its value:
+        // "--rm=false"
+        // passed on as "--rm" would remove the task on the host.
+        assertThat(
+                        hostArguments(
+                                dir,
+                                "task",
+                                "start",
+                                "fix",
+                                "--set",
+                                "A=1",
+                                "--host",
+                                "a@h",
+                                "--set",
+                                "B=2",
+                                "--rm=false",
+                                "--yes"))
+                .containsExactly(
+                        "task",
+                        "start",
+                        "--set=A=1",
+                        "--set=B=2",
+                        "--rm=false",
+                        "--yes=true",
+                        "--certify-stdin",
+                        "--detach",
+                        "--no-input",
+                        "--",
+                        "fix");
+
+        // The task's name stays behind a "--" the host's flags never follow.
+        assertThat(hostArguments(dir, "task", "start", "-p", "uc", "--host", "a@h", "--", "fix"))
+                .containsExactly(
+                        "task",
+                        "start",
+                        "--project=uc",
+                        "--certify-stdin",
+                        "--detach",
+                        "--no-input",
+                        "--",
+                        "fix");
+    }
+
+    /** What a start on a host with these arguments answers, with its exit code first. */
+    private String onAHost(Path dir, String... args) throws IOException {
+        final CommandLine cmd = PoreloCli.commandLine(context(dir, false));
+        cmd.setOut(new PrintWriter(out));
+        final StringWriter said = new StringWriter();
+        cmd.setErr(new PrintWriter(said));
+        final List<String> all = new ArrayList<>(List.of("task", "start"));
+        all.addAll(List.of(args));
+        return cmd.execute(all.toArray(new String[0])) + " " + said.toString().strip();
+    }
+
+    @Test
+    void aStartOnAHostIsRefusedWhenTheHostWouldRunSomethingElse(@TempDir Path dir)
+            throws IOException {
+
+        // ssh reads a word that starts with a dash as its own option: "-oProxyCommand" as the login
+        // or the host is ssh's, which can run a command on this machine.
+        assertThat(onAHost(dir, "fix", "-p", "uc", "--host=-oProxyCommand@h"))
+                .isEqualTo("64 porelo: --host takes <login>@<host>");
+        assertThat(onAHost(dir, "fix", "-p", "uc", "--host=a@-oProxyCommand"))
+                .isEqualTo("64 porelo: --host takes <login>@<host>");
+        // ssh takes brackets on its command line as part of the name, and a shell its glob.
+        assertThat(onAHost(dir, "fix", "-p", "uc", "--host=a@h[0-9]"))
+                .isEqualTo("64 porelo: --host takes <login>@<host>");
+
+        // A restart there would restart the host's tasks, not start this one.
+        assertThat(onAHost(dir, "fix", "-p", "uc", "--host=a@h", "--restarted"))
+                .isEqualTo("64 porelo: --host does not take --restarted");
+
+        // The host picks its own name for an unnamed task, and reads "@file" as its own file.
+        assertThat(onAHost(dir, "-p", "uc", "--host=a@h"))
+                .isEqualTo("64 porelo: --host needs the task's name, which its certificate names");
+        assertThat(onAHost(dir, "-p", "uc", "--host=a@h", "--", "@fix"))
+                .isEqualTo("64 porelo: --host needs the task's name, which its certificate names");
+        assertThat(onAHost(dir, "-p", "uc", "--host=a@h", "--", "-fix"))
+                .isEqualTo("64 porelo: --host needs the task's name, which its certificate names");
+        // The host would start "fix" for its container's name, and the certificate name the other.
+        assertThat(onAHost(dir, "porelo-uc-fix", "-p", "uc", "--host=a@h"))
+                .isEqualTo("64 porelo: --host needs the task's own name, not its container's");
+        assertThat(onAHost(dir, "Fix", "-p", "uc", "--host=a@h"))
+                .startsWith("64 porelo: 'Fix' is not");
+
+        // The host has no checkout to find the project in.
+        final String noProject =
+                "64 porelo: --host needs --project: the host has no checkout to take it from";
+        assertThat(onAHost(dir, "fix", "--host=a@h")).isEqualTo(noProject);
+        assertThat(onAHost(dir, "fix", "--project=", "--host=a@h")).isEqualTo(noProject);
+        // ssh-keygen reads "a,root" as two principals, the second root.
+        assertThat(onAHost(dir, "fix", "--project=a,root", "--host=a@h"))
+                .isEqualTo("64 porelo: --host needs a project's name, [a-z0-9][a-z0-9-]{0,62}");
+
+        // The host reads a file named there from its own files.
+        assertThat(onAHost(dir, "fix", "-p", "uc", "--host=a@h", "--set-file", "values.yml"))
+                .isEqualTo(
+                        "64 porelo: --host does not take --set-file: the host would read it from its"
+                                + " own files");
+
+        // A value taken from this shell's environment would be taken there from the host's.
+        final String setOnly =
+                "64 porelo: --host takes --set NAME=VALUE only: the host's environment is not this"
+                        + " shell's";
+        assertThat(onAHost(dir, "fix", "-p", "uc", "--host=a@h", "--set", "TOKEN"))
+                .isEqualTo(setOnly);
+        assertThat(onAHost(dir, "fix", "-p", "uc", "--host=a@h", "--set-env")).isEqualTo(setOnly);
+        assertThat(runner.lines()).as("nothing ran").isEmpty();
+    }
+
+    @Test
+    void aStartOnAHostIsQuotedSoTheHostsShellKeepsEachArgument(@TempDir Path dir)
+            throws IOException {
+
+        // ssh hands the host's shell one line: an unquoted value with a space or a quote would
+        // split or run there.
+        assertThat(
+                        RemoteStart.remoteCommand(
+                                hostArguments(
+                                        dir,
+                                        "tasks",
+                                        "start",
+                                        "fix",
+                                        "--host=alice@build.example",
+                                        "--set",
+                                        "NOTE=it's a b")))
+                .isEqualTo(
+                        "porelo 'task' 'start' '--set=NOTE=it'\\''s a b'"
+                                + " '--certify-stdin' '--detach' '--no-input' '--' 'fix'");
+    }
 }

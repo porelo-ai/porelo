@@ -459,6 +459,11 @@ public class TaskRunner {
         // The agent's screen, written by the task's root where the agent cannot write, so reading
         // it costs a file.
         specification.volume(ScreenFile.prepare(state), ScreenFile.MOUNT);
+        if (environment.containsValue(SigningShim.MOUNT)) {
+            // A certified task's git signs through its gate with this, read-only: its key is on
+            // the host, and the program that asks for a signature is not the agent's to change.
+            specification.volumeReadOnly(SigningShim.prepare(state), SigningShim.MOUNT);
+        }
         final TaskGuide guide = new TaskGuide(paths, container);
         if (guide.exists()) {
             // What Porelo gives the agent here, which it takes in when it starts: written by the

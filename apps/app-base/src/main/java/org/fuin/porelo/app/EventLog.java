@@ -54,6 +54,9 @@ public final class EventLog {
     /** What {@link #entries} shows for a line that cannot be read, rather than failing on it. */
     public static final String UNREADABLE = "unreadable";
 
+    /** A push arrived at a task's gate and was judged by its certificate. */
+    public static final String ARRIVED = "arrived";
+
     /**
      * A hash the anchor holds, and when it was anchored.
      *

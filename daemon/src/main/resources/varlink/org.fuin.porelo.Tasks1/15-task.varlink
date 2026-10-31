@@ -148,6 +148,10 @@ type Task (
   # task's approval goes by default in a project with a branch block. porelo/<task> for a task
   # started before it was recorded; "" when it has no gate.
   forgeBranch: string,
+  # Whether its commits are signed by a key of its own, certified at its start by a person the
+  # project's access file admits, and judged at its gate when they arrive. false for a task whose
+  # starter's agent held no such key, and for every task started before this field existed.
+  certified: bool,
   # When the current state began, ISO-8601: a running task since it started, a stopped one since
   # it exited. "" when the runtime could not say - a container that was created and never started
   # has no honest answer. This is what "idle for forty minutes" is arithmetic on; state is not.

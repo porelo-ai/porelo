@@ -68,7 +68,38 @@ public final class SshSignature {
      */
     public static byte[] signBlob(
             final AgentKey key, final byte[] message, final String namespace) {
-        final byte[] keyBlob = ed25519(key);
+        return signBlob(key, ed25519(key), message, namespace);
+    }
+
+    /**
+     * Signs a message, detached, naming the signer by a blob of its own choice: a certificate of
+     * the key, as {@code ssh-keygen -Y sign -f key-cert.pub} names it, so a verifier traces the
+     * signature through the certificate to the key that certified it.
+     *
+     * @param key Key to sign with.
+     * @param publicBlob The key's own blob, or a certificate of it.
+     * @param message The exact bytes to sign.
+     * @param namespace What the signature is for.
+     * @return The armored signature.
+     */
+    public static String sign(
+            final AgentKey key,
+            final byte[] publicBlob,
+            final byte[] message,
+            final String namespace) {
+        final byte[] blob = signBlob(key, publicBlob, message, namespace);
+        try {
+            return armor(blob);
+        } finally {
+            Arrays.fill(blob, (byte) 0);
+        }
+    }
+
+    private static byte[] signBlob(
+            final AgentKey key,
+            final byte[] keyBlob,
+            final byte[] message,
+            final String namespace) {
         final byte[] signature = key.sign(preimage(message, namespace), 0);
         try {
             final byte[] scope = namespace.getBytes(StandardCharsets.UTF_8);

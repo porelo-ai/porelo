@@ -339,6 +339,39 @@ class TaskWorkspaceTest {
     }
 
     @Test
+    void aCertifiedTasksGitSignsThroughItsGateAndAnUncertifiedOnesDoesNot(@TempDir Path root)
+            throws IOException {
+        final Path mirror = seededMirror(root, "main");
+        final org.fuin.porelo.core.project.Project project =
+                org.fuin.porelo.core.project.ProjectReader.read(
+                        new java.io.StringReader(
+                                """
+                                project:
+                                  name: "p"
+                                  security_class: "guarded"
+                                image:
+                                  base_image: "ubuntu:24.04"
+                                """),
+                        "test");
+        final TaskWorkspace workspace =
+                TaskWorkspace.gated(
+                        new org.fuin.porelo.gate.GitGate(
+                                runner, mirror, org.fuin.porelo.gate.GateMode.GATEKEEPING, null),
+                        "127.0.0.1");
+
+        assertThat(workspace.environment(project, "t"))
+                .containsEntry("GIT_CONFIG_COUNT", "1")
+                .doesNotContainKey("PORELO_GATE_URL");
+
+        workspace.certified("ssh-ed25519-cert-v01@openssh.com AAAAcert");
+        assertThat(workspace.environment(project, "t"))
+                .containsEntry("GIT_CONFIG_COUNT", "5")
+                .containsValue("key::ssh-ed25519-cert-v01@openssh.com AAAAcert")
+                .containsValue(SigningShim.MOUNT)
+                .containsKey("PORELO_GATE_URL");
+    }
+
+    @Test
     void aTasksCommitIsAuthoredByTheNameItsAgentGoesBy(@TempDir Path root) throws IOException {
 
         // Every task's commits said 'agent', so a reviewer of a project with several repositories

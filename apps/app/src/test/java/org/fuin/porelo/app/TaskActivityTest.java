@@ -65,6 +65,20 @@ class TaskActivityTest {
     }
 
     @Test
+    void aTaskSaysWhetherItsCommitsAreSignedByACertifiedKey(@TempDir Path dir) throws IOException {
+        // A gate that judges nothing is a choice a person must be able to see.
+        final PoreloContext context = context(dir);
+        final Path state = task("porelo-uc-shell-1", "Up 4 minutes", "1788500000", "0");
+
+        assertThat(only(context).asMap()).containsEntry("certified", false);
+
+        Files.writeString(state.resolve(TaskState.CERTIFIERS), "task:uc:* cert-authority k\n");
+
+        assertThat(only(context).certified()).isTrue();
+        assertThat(only(context).asMap()).containsEntry("certified", true);
+    }
+
+    @Test
     void anEndedRunCountsTheMessagesWaitingForItsNextRun(@TempDir Path dir) throws IOException {
         // Hiding an ended run's inbox loses the cue that a person must start it again.
         final PoreloContext context = context(dir);

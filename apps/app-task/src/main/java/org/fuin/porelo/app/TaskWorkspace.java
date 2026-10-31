@@ -58,6 +58,9 @@ public class TaskWorkspace {
      */
     private final @Nullable String goesBy;
 
+    /** The task's certificate line, once its start has one: every commit is then signed. */
+    private volatile @Nullable String certificate;
+
     /**
      * Prepares the settings for one task's gate.
      *
@@ -187,7 +190,8 @@ public class TaskWorkspace {
     public Map<String, String> environment(Project project, String taskName) {
         final Map<String, String> environment =
                 new LinkedHashMap<>(
-                        gateCredential("http://" + host + ":" + port() + "/", token.value()));
+                        TaskSigning.gitEnvironment(
+                                "http://" + host + ":" + port() + "/", token.value(), certificate));
         environment.put("PORELO_REMOTE_URL", url(project));
         // A push goes to a ref no branch points at, so nothing an operator is reading moves
         // underneath them. An online task's gate passes it on as porelo/<task> at the upstream at
@@ -198,6 +202,15 @@ public class TaskWorkspace {
         environment.put(
                 "PORELO_GIT_NAME", goesBy == null ? project.ownRepository().goesBy() : goesBy);
         return Map.copyOf(environment);
+    }
+
+    /**
+     * Has every commit of the task signed through its gate, with its certificate.
+     *
+     * @param line The task's certificate line.
+     */
+    public void certified(String line) {
+        this.certificate = line;
     }
 
     /**
