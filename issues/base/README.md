@@ -117,6 +117,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b361"></a>[B361](B361-An-Agent-Starts-Only-The-Subagents-Its-Task-Allows.md) | - | - | Porelo's agent interface carries how many subagents an agent may start in a task, default none, and refuses a value the agent cannot enforce |
 | <a id="b358"></a>[B358](B358-A-Task-Reviews-A-Pull-Request-On-The-Central-Forge.md) | - | [B172](README.md#b172) | A reviewer task also takes any existing pull request on the central forge by its URL, in a project or without one; read and commented with the person's own account, comments only, each released |
 | <a id="b355"></a>[B355](B355-No-Switch-That-Turns-Every-Check-Off.md) | S | - | No `--insecure` that turns every check off; instead an `unsigned`/`unverified` mark in `task list`, the interface and the gate's verdicts, for what already runs so |
 | <a id="b344"></a>[B344](B344-Messages-Signed-By-A-Tasks-Key.md) | M | [B343](README.md#b343), [B334](README.md#b334) | Messages signed by the plain task key and checked through its certificate; the machine key, `project enroll`, `machine-signers` and `--machines` go, a transport is given `login` |
