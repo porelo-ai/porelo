@@ -12,9 +12,10 @@ the agent cannot enforce, such as any subagent on an agent that can only be swit
 instead of enforcing less than was asked. The adapters, each in its own repository, turn the value into their
 agent's own switch.
 
-The value is one number (operator, 2026-10-31): 0 means none, 1 or more the most subagents the agent may start inside
-the task, given as `--subagents N` and as one number in the project file. There is no depth in it; where an agent's
-own switch needs a depth for the count to hold, its adapter sets that itself and says so in its issue.
+The value is one number (operator, 2026-10-31): 0 means none, 1 or more the most subagents the agent may run inside the
+task at the same time, not over the whole task (operator, 2026-10-31); a total over the task belongs to the hard bound
+named below. It is given as `--subagents N` and as one number in the project file. There is no depth in it; where an
+agent's own switch needs a depth for the count to hold, its adapter sets that itself and says so in its issue.
 
 Michi's decision of 2026-10-31 (operator): the soft switch, adapter-independent, default 0. A hard bound in Porelo
 itself, a process limit in the task's container or a cap at the provider proxy that also counts an agent starting
