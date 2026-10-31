@@ -53,102 +53,11 @@ final class AgentMethods {
                         final List<Map<String, Object>> found =
                                 agents.all().stream()
                                         .map(
-                                                agent -> {
-                                                    final Map<String, Object> entry =
-                                                            new LinkedHashMap<>();
-                                                    entry.put("name", agent.name());
-                                                    entry.put("label", agent.definition().label());
-                                                    entry.put(
-                                                            "binary", agent.definition().binary());
-                                                    entry.put(
-                                                            "version",
-                                                            agent.definition().version() == null
-                                                                    ? ""
-                                                                    : agent.definition().version());
-                                                    entry.put(
-                                                            "from", agent.executable().toString());
-                                                    // How this agent logs itself in, and where that
-                                                    // is written down. Declared in the manifest all
-                                                    // along and never answered here, so a client
-                                                    // that wanted to offer "log in with the agent"
-                                                    // had no way to know the verb - and Porelo must
-                                                    // not guess one, because hardcoding one agent's
-                                                    // would be wrong for the rest.
-                                                    entry.put(
-                                                            "loginArguments",
-                                                            agent.definition().loginArguments()
-                                                                            == null
-                                                                    ? java.util.List.<String>of()
-                                                                    : agent.definition()
-                                                                            .loginArguments());
-                                                    // Empty when the agent declares no login at
-                                                    // all, which is most of them: an agent whose
-                                                    // credential is an API key has nothing to log
-                                                    // in to.
-                                                    entry.put(
-                                                            "canLogIn",
-                                                            agent.definition().loginArguments()
-                                                                    != null);
-                                                    // The whole command, not the verb for a client
-                                                    // to spell out. A client that composes 'porelo
-                                                    // vault login <agent>' is right until the day
-                                                    // the verb moves, and then it is wrong
-                                                    // everywhere at once - the same reason
-                                                    // storeCommand is answered rather than joined
-                                                    // together from a provider list.
-                                                    entry.put(
-                                                            "loginCommand",
-                                                            agent.definition().loginArguments()
-                                                                            == null
-                                                                    ? java.util.List.<String>of()
-                                                                    : java.util.List.of(
-                                                                            "porelo",
-                                                                            "vault",
-                                                                            "login",
-                                                                            agent.name()));
-                                                    entry.put(
-                                                            "loginDocumentation",
-                                                            agent.definition().loginDocumentation()
-                                                                            == null
-                                                                    ? ""
-                                                                    : agent.definition()
-                                                                            .loginDocumentation());
-                                                    entry.put(
-                                                            "allowedDomains",
-                                                            agent.definition().allowedDomains());
-                                                    // Asked for and deliberately not given. Absent
-                                                    // from the allowed list means nobody mentioned
-                                                    // it; this means somebody decided, and the two
-                                                    // read the same way to anybody who is only
-                                                    // shown the first.
-                                                    entry.put(
-                                                            "refusedDomains",
-                                                            agent.definition().refusedDomains());
-                                                    entry.put(
-                                                            "artifacts",
-                                                            agent.definition().artifacts().stream()
-                                                                    .map(PoreloDaemon::artifact)
-                                                                    .toList());
-                                                    // What an agent's commits are signed with.
-                                                    // Nothing surfaced this until a pre-push guard
-                                                    // started deciding on it, and "did a person or
-                                                    // an agent write this commit?" had no answer
-                                                    // anybody could look up.
-                                                    final Map<String, Object> identity =
-                                                            new LinkedHashMap<>();
-                                                    identity.put(
-                                                            "name",
-                                                            agent.definition()
-                                                                    .gitIdentity()
-                                                                    .name());
-                                                    identity.put(
-                                                            "email",
-                                                            agent.definition()
-                                                                    .gitIdentity()
-                                                                    .email());
-                                                    entry.put("commitsAs", identity);
-                                                    return entry;
-                                                })
+                                                agent ->
+                                                        entry(
+                                                                agent.name(),
+                                                                agent.definition(),
+                                                                agent.executable()))
                                         .toList();
                         // Which copy of a shadowed name runs is a rule, and it lives in
                         // AgentDirectory with the scan that implements it. Reported separately
@@ -216,5 +125,80 @@ final class AgentMethods {
                                                                             one.version()))
                                                     .toList()));
                 });
+    }
+
+    /**
+     * One agent as the {@code Agents} method answers it.
+     *
+     * @param name The name the binary calls itself by.
+     * @param definition What it declares.
+     * @param executable Where it was found.
+     * @return The entry, in the interface's field order.
+     */
+    static Map<String, Object> entry(
+            String name, org.fuin.porelo.agent.api.AgentDefinition definition, Path executable) {
+        final Map<String, Object> entry = new LinkedHashMap<>();
+        entry.put("name", name);
+        entry.put("label", definition.label());
+        entry.put("binary", definition.binary());
+        entry.put("version", definition.version() == null ? "" : definition.version());
+        entry.put("from", executable.toString());
+        // How this agent logs itself in, and where that
+        // is written down. Declared in the manifest all
+        // along and never answered here, so a client
+        // that wanted to offer "log in with the agent"
+        // had no way to know the verb - and Porelo must
+        // not guess one, because hardcoding one agent's
+        // would be wrong for the rest.
+        entry.put(
+                "loginArguments",
+                definition.loginArguments() == null
+                        ? java.util.List.<String>of()
+                        : definition.loginArguments());
+        // Empty when the agent declares no login at
+        // all, which is most of them: an agent whose
+        // credential is an API key has nothing to log
+        // in to.
+        entry.put("canLogIn", definition.loginArguments() != null);
+        // The whole command, not the verb for a client
+        // to spell out. A client that composes 'porelo
+        // vault login <agent>' is right until the day
+        // the verb moves, and then it is wrong
+        // everywhere at once - the same reason
+        // storeCommand is answered rather than joined
+        // together from a provider list.
+        entry.put(
+                "loginCommand",
+                definition.loginArguments() == null
+                        ? java.util.List.<String>of()
+                        : java.util.List.of("porelo", "vault", "login", name));
+        // How its sign-in works, as 'porelo agents
+        // --json' says it: absent when the definition
+        // names none, so a client never reads a guess.
+        if (definition.loginFlow() != null) {
+            entry.put("loginFlow", definition.loginFlow().value());
+        }
+        entry.put(
+                "loginDocumentation",
+                definition.loginDocumentation() == null ? "" : definition.loginDocumentation());
+        entry.put("allowedDomains", definition.allowedDomains());
+        // Asked for and deliberately not given. Absent
+        // from the allowed list means nobody mentioned
+        // it; this means somebody decided, and the two
+        // read the same way to anybody who is only
+        // shown the first.
+        entry.put("refusedDomains", definition.refusedDomains());
+        entry.put(
+                "artifacts", definition.artifacts().stream().map(PoreloDaemon::artifact).toList());
+        // What an agent's commits are signed with.
+        // Nothing surfaced this until a pre-push guard
+        // started deciding on it, and "did a person or
+        // an agent write this commit?" had no answer
+        // anybody could look up.
+        final Map<String, Object> identity = new LinkedHashMap<>();
+        identity.put("name", definition.gitIdentity().name());
+        identity.put("email", definition.gitIdentity().email());
+        entry.put("commitsAs", identity);
+        return entry;
     }
 }

@@ -1,2 +1,2 @@
-title: "An agent definition says how its sign-in works with `login.flow` (`paste-code`, `device-code` or `loopback`); `porelo vault login` refuses a `loopback` sign-in over SSH before it starts, and `porelo agents --json` answers each agent's `flow`"
+title: "An agent definition says how its sign-in works with `login.flow` (`paste-code`, `device-code` or `loopback`); `porelo vault login` refuses a `loopback` sign-in over SSH before it starts, and `porelo agents --json` answers each agent's `flow`, as the daemon's `Agents` answers `loginFlow`"
 type: added

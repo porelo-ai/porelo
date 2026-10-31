@@ -35,6 +35,9 @@ type Agent (
   loginArguments: []string,
   # Where that login is described, or "". Worth reading BEFORE running one on a remote machine.
   loginDocumentation: string,
+  # How its sign-in works: "paste-code", "device-code" or "loopback". Absent when the definition
+  # names none. A loopback sign-in is refused over SSH, before its container starts.
+  loginFlow: ?string,
   allowedDomains: []string,
   # Hosts this agent declares and is deliberately NOT given. Not the same as absent from
   # allowedDomains: these were asked for and refused on purpose, which is worth showing beside

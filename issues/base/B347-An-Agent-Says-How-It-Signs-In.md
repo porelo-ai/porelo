@@ -42,6 +42,8 @@ SSH key per person, the state signed in Git, everything between a person and a h
 - `porelo vault login` refuses a `loopback` sign-in when `SSH_CONNECTION` is set, before the vault is asked, anything
   is built or leftover login containers are swept; an undeclared flow signs in as before, with the forward hint.
 - `porelo agents --json` answers `flow`, `""` when undeclared. `BROWSER` is no longer set in the sign-in image.
+- The daemon's `Agents` answers `loginFlow` on each agent, the same value, absent when undeclared, so an interface
+  reading the socket sees it too (`AgentEntryTest`, seen red without the field).
 - No refusal names `porelo vault login` as the way out where it would be refused: a task's start, its check and
   `vault import` ask one rule.
 - An agy Gemini reading found the refusals elsewhere, the explicit null, the sweep before the refusal and the docs; all
