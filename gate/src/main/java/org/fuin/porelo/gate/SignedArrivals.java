@@ -199,10 +199,13 @@ public final class SignedArrivals {
     /**
      * A commit split into what was signed and its signature, as git splits it.
      *
-     * @param payload The commit without its {@code gpgsig} header.
+     * @param payload The commit without any {@code gpgsig} or {@code gpgsig-sha256} header.
      * @param signature The armored signature.
      */
     public record Signed(byte[] payload, byte[] signature) {
+
+        /** The headers git writes a commit's signature into, one for each object format. */
+        private static final List<String> SIGNATURE_HEADERS = List.of("gpgsig", "gpgsig-sha256");
 
         /**
          * Splits a raw commit.
@@ -230,24 +233,30 @@ public final class SignedArrivals {
             final StringBuilder payload = new StringBuilder();
             final StringBuilder signature = new StringBuilder();
             boolean inSignature = false;
+            boolean leftOut = false;
             boolean found = false;
             for (final String line : headers.split("\n", -1)) {
                 if (line.isEmpty()) {
                     continue;
                 }
-                if (line.startsWith(" ") && inSignature) {
-                    signature.append(line.substring(1)).append('\n');
+                if (line.startsWith(" ") && leftOut) {
+                    if (inSignature) {
+                        signature.append(line.substring(1)).append('\n');
+                    }
                     continue;
                 }
                 inSignature = false;
-                // Only the commit's own signature header: a mergetag's signature is the tag's.
+                // Every signature header of either format is left out, as git leaves them out;
+                // a mergetag's signature is the tag's, inside its own header.
+                leftOut = SIGNATURE_HEADERS.stream().anyMatch(each -> line.startsWith(each + " "));
                 if (line.startsWith(header + " ") && !found) {
                     found = true;
                     inSignature = true;
                     signature.append(line.substring(header.length() + 1)).append('\n');
-                    continue;
                 }
-                payload.append(line).append('\n');
+                if (!leftOut) {
+                    payload.append(line).append('\n');
+                }
             }
             if (!found) {
                 return null;

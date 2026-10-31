@@ -5,7 +5,6 @@ import java.nio.file.Path;
 import java.time.Clock;
 import java.util.concurrent.Callable;
 import org.fuin.porelo.core.process.CommandException;
-import org.fuin.porelo.vault.RegistryText;
 import org.jspecify.annotations.Nullable;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Model.CommandSpec;
@@ -145,8 +144,7 @@ public class CommitVerifyCommand implements Callable<Integer>, PoreloFactory.Con
 
     private int fail(int code, String message) {
         final var err = spec.commandLine().getErr();
-        final String line = RegistryText.printable(message.replaceAll("\\R", " "));
-        err.println("porelo: " + (line.length() > 16 * 1024 ? line.substring(0, 16 * 1024) : line));
+        err.println("porelo: " + HostArrivals.text(message));
         err.flush();
         return code;
     }

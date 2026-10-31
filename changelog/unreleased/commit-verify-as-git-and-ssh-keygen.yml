@@ -1,0 +1,2 @@
+title: "`porelo commit verify` reads a commit and an allowed-signers line as git and ssh-keygen read them: a commit signed over a second signature header is refused and one signed for both object formats accepted, a `\\\"` in a quoted option and a `valid-after` time ending in `z` or `UTC` are understood, and a cut-short reason never ends in half a character"
+type: fixed

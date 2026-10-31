@@ -15,10 +15,20 @@ import org.jspecify.annotations.Nullable;
 /** One allowed-signers line, keeping its options separate from the key. */
 record AllowedSigner(String principal, String key, List<String> options) {
 
+    /**
+     * The options as ssh-keygen finds their end: whitespace outside quotes, where {@code \"} is a
+     * quote that neither opens nor closes one.
+     */
+    private static final String OPTIONS =
+            "(?:\\\\\"?+|[^\\s\"\\\\]|\"(?:\\\\\"?+|[^\"\\\\])*+\")++";
+
     private static final Pattern LINE =
             Pattern.compile(
-                    "^(\\S+)\\s+(?:((?:[^\\s\"]|\"[^\"]*\")+)\\s+)?"
-                            + "((?:ssh-|ecdsa-|sk-)[^\\s]+\\s+\\S+)(?:\\s+.*)?$");
+                    "^(\\S+)\\s+(?:("
+                            + OPTIONS
+                            + ")\\s+)?((?:ssh-|ecdsa-|sk-)[^\\s]+\\s+\\S+)(?:\\s+.*)?$");
+
+    private static final String UNWRITTEN = "the scratch file ssh-keygen reads cannot be written";
 
     static @Nullable AllowedSigner parse(final String line) {
         final Matcher match = LINE.matcher(line.strip());
@@ -31,7 +41,9 @@ record AllowedSigner(String principal, String key, List<String> options) {
             boolean quoted = false;
             int start = 0;
             for (int at = 0; at < text.length(); at++) {
-                if (text.charAt(at) == '"') {
+                if (escapedQuote(text, at)) {
+                    at++;
+                } else if (text.charAt(at) == '"') {
                     quoted = !quoted;
                 } else if (text.charAt(at) == ',' && !quoted) {
                     options.add(text.substring(start, at));
@@ -42,6 +54,11 @@ record AllowedSigner(String principal, String key, List<String> options) {
         }
         return new AllowedSigner(
                 match.group(1), match.group(3).replaceAll("\\s+", " "), List.copyOf(options));
+    }
+
+    /** Whether a {@code \"} starts here, which ssh-keygen reads as a quote kept in the value. */
+    private static boolean escapedQuote(final String text, final int at) {
+        return text.startsWith("\\\"", at);
     }
 
     /**
@@ -71,12 +88,11 @@ record AllowedSigner(String principal, String key, List<String> options) {
         final Path check;
         try {
             check = Files.createTempFile(directory, "signers-check-", "");
-            Files.write(check, entries);
         } catch (final IOException ex) {
-            throw new java.io.UncheckedIOException(
-                    "the scratch file ssh-keygen reads cannot be written", ex);
+            throw new java.io.UncheckedIOException(UNWRITTEN, ex);
         }
         try {
+            write(check, entries);
             final var result =
                     runner.run(
                             Command.of(
@@ -101,6 +117,14 @@ record AllowedSigner(String principal, String key, List<String> options) {
             }
         }
         return lines;
+    }
+
+    private static void write(final Path check, final List<String> entries) {
+        try {
+            Files.write(check, entries);
+        } catch (final IOException ex) {
+            throw new java.io.UncheckedIOException(UNWRITTEN, ex);
+        }
     }
 
     private static List<String> entries(final List<String> lines) throws IOException {

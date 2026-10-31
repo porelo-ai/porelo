@@ -23,6 +23,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.function.UnaryOperator;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.fuin.porelo.core.process.Command;
 import org.fuin.porelo.core.process.CommandResult;
@@ -82,7 +83,8 @@ final class HostArrivals {
             DateTimeFormatter.ofPattern("yyyyMMddHHmmss").withZone(ZoneOffset.UTC);
 
     /** A time in an allowed-signers option, as ssh-keygen reads one. */
-    private static final Pattern OPTION_TIME = Pattern.compile("(\\d{8}|\\d{12}|\\d{14})Z?");
+    private static final Pattern OPTION_TIME =
+            Pattern.compile("(\\d{8}|\\d{12}|\\d{14})(?i:Z|UTC)?");
 
     private static final DateTimeFormatter OPTION_TIME_FORMAT =
             DateTimeFormatter.ofPattern("uuuuMMddHHmmss").withResolverStyle(ResolverStyle.STRICT);
@@ -662,7 +664,10 @@ final class HostArrivals {
         return true;
     }
 
-    /** An option's value without its quotes, or {@code null} when it is another option. */
+    /**
+     * An option's value without its quotes, each {@code \"} in them a quote, or {@code null} when
+     * it is another option.
+     */
     private static @Nullable String valueOf(String option, String name) {
         final String text = option.strip();
         if (!text.toLowerCase(Locale.ROOT).startsWith(name + "=")) {
@@ -670,19 +675,21 @@ final class HostArrivals {
         }
         final String value = text.substring(name.length() + 1);
         return value.length() >= 2 && value.startsWith("\"") && value.endsWith("\"")
-                ? value.substring(1, value.length() - 1)
+                ? value.substring(1, value.length() - 1).replace("\\\"", "\"")
                 : value;
     }
 
     /**
-     * A time as an allowed-signers option gives it, {@code YYYYMMDD[HHMM[SS]][Z]}, read as UTC as
-     * ssh-keygen reads it in the environment it is run in; {@code null} when it is none.
+     * A time as an allowed-signers option gives it, {@code YYYYMMDD[HHMM[SS]][Z|UTC]} with the
+     * suffix in any case, read as UTC as ssh-keygen reads it in the environment it is run in;
+     * {@code null} when it is none.
      */
     private static @Nullable Instant optionTime(String value) {
-        if (!OPTION_TIME.matcher(value).matches()) {
+        final Matcher matcher = OPTION_TIME.matcher(value);
+        if (!matcher.matches()) {
             return null;
         }
-        final String digits = value.endsWith("Z") ? value.substring(0, value.length() - 1) : value;
+        final String digits = matcher.group(1);
         try {
             return LocalDateTime.parse((digits + "000000").substring(0, 14), OPTION_TIME_FORMAT)
                     .toInstant(ZoneOffset.UTC);
@@ -858,10 +865,17 @@ final class HostArrivals {
         }
     }
 
-    /** One printable line, as every text of the answer is. */
-    private static String text(String value) {
+    /** One printable line, as every text of the answer is, cut short only between characters. */
+    static String text(String value) {
         final String line = RegistryText.printable(value.replaceAll("\\R", " "));
-        return line.length() > MAX_REASON ? line.substring(0, MAX_REASON) : line;
+        if (line.length() <= MAX_REASON) {
+            return line;
+        }
+        return line.substring(
+                0,
+                Character.isHighSurrogate(line.charAt(MAX_REASON - 1))
+                        ? MAX_REASON - 1
+                        : MAX_REASON);
     }
 
     private static Signer taskSigner(SshCertificate certificate, String how) {

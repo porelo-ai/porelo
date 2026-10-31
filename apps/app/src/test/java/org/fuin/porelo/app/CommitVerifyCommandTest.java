@@ -9,6 +9,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.attribute.PosixFilePermissions;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -369,6 +370,127 @@ class CommitVerifyCommandTest {
                 .as("ssh-keygen reads git,!git as refusing git, so the plain key's path must too")
                 .isEqualTo(65);
         assertThat(err.toString()).contains("which is no certifier for " + PRINCIPAL);
+    }
+
+    @Test
+    void refuses_a_plain_task_key_whose_certifier_line_negates_git_after_an_escaped_quote()
+            throws Exception {
+        final Path records = records(certify(task, certifier, PRINCIPAL, "-1m:+7d"), "fix-login");
+        final String plain = commit(task, "by the plain key", base);
+        Files.writeString(
+                certifiers,
+                "task:demo:* cert-authority,namespaces=\"git,a\\\",!git,\\\"\" "
+                        + publicKey(certifier)
+                        + "\n");
+
+        assertThat(
+                        verify(
+                                push(base, plain, "refs/heads/main"),
+                                "--certificates",
+                                records.toString()))
+                .as("ssh-keygen keeps \\\" inside the quotes, so !git is in the list: %s", err)
+                .isEqualTo(65);
+        assertThat(err.toString()).contains("which is no certifier for " + PRINCIPAL);
+    }
+
+    @Test
+    void accepts_a_plain_task_key_whose_certifier_line_quotes_an_escaped_quote_and_a_space()
+            throws Exception {
+        final Path records = records(certify(task, certifier, PRINCIPAL, "-1m:+7d"), "fix-login");
+        final String plain = commit(task, "by the plain key", base);
+        Files.writeString(
+                certifiers,
+                "task:demo:* cert-authority,namespaces=\"x\\\" y,git\" "
+                        + publicKey(certifier)
+                        + "\n");
+
+        assertThat(
+                        verify(
+                                push(base, plain, "refs/heads/main"),
+                                "--certificates",
+                                records.toString()))
+                .as("ssh-keygen reads this line and admits git: %s", err)
+                .isZero();
+    }
+
+    @Test
+    void accepts_a_certifier_line_valid_after_a_time_ending_in_any_utc_suffix_ssh_keygen_reads()
+            throws Exception {
+        final Path records = records(certify(task, certifier, PRINCIPAL, "-1m:+7d"), "fix-login");
+        final String plain = commit(task, "by the plain key", base);
+        for (final String time : List.of("20200101z", "20200101UTC", "202001011200utc")) {
+            Files.writeString(
+                    certifiers,
+                    "task:demo:* cert-authority,valid-after=\""
+                            + time
+                            + "\" "
+                            + publicKey(certifier)
+                            + "\n");
+
+            assertThat(
+                            verify(
+                                    push(base, plain, "refs/heads/main"),
+                                    "--certificates",
+                                    records.toString()))
+                    .as("ssh-keygen holds a line valid after %s as in force: %s", time, err)
+                    .isZero();
+        }
+        Files.writeString(
+                certifiers,
+                "task:demo:* cert-authority,valid-after=\"20990101utc\" "
+                        + publicKey(certifier)
+                        + "\n");
+
+        assertThat(
+                        verify(
+                                push(base, plain, "refs/heads/main"),
+                                "--certificates",
+                                records.toString()))
+                .as("a line valid only after its arrival certifies nothing, whatever its suffix")
+                .isEqualTo(65);
+    }
+
+    @Test
+    void refuses_a_commit_whose_signature_covers_a_signature_header_git_leaves_out()
+            throws Exception {
+        final String raw = withHeaders(rawOf(commit(null, "crafted", base)), "gpgsig-sha256 x");
+        final String crafted =
+                store(withHeaders(raw, signatureHeader("gpgsig", sign(person, raw))));
+
+        assertThat(verify(push(base, crafted, "refs/heads/main")))
+                .as("git verifies the commit without its gpgsig-sha256 header, and so refuses it")
+                .isEqualTo(65);
+        assertThat(err.toString()).startsWith(crafted + " ");
+    }
+
+    @Test
+    void accepts_a_commit_signed_for_both_object_formats() throws Exception {
+        final String raw = rawOf(commit(null, "signed twice", base));
+        final String signature = sign(person, raw);
+        final String both =
+                store(
+                        withHeaders(
+                                raw,
+                                signatureHeader("gpgsig", signature),
+                                signatureHeader("gpgsig-sha256", signature)));
+
+        assertThat(verify(push(base, both, "refs/heads/main")))
+                .as("git verifies the commit without either signature header: %s", err)
+                .isZero();
+    }
+
+    @Test
+    void cuts_a_long_reason_without_splitting_a_character() {
+        final String reason = "a".repeat(16 * 1024 - 1) + "😀b";
+
+        final Map<?, ?> answer =
+                (Map<?, ?>)
+                        Json.parse(
+                                new HostArrivals.Answer(Instant.EPOCH, List.of(), reason).json());
+
+        assertThat((String) answer.get("reason"))
+                .as("half a character is no text a strict UTF-8 reader of the answer accepts")
+                .isEqualTo("a".repeat(16 * 1024 - 1));
     }
 
     @Test
@@ -734,6 +856,61 @@ class CommitVerifyCommandTest {
                         Command.of(all)
                                 .withEnvironment(environment)
                                 .withEnvironment(Map.of("GIT_DIR", gitDir(repository).toString())))
+                .trimmedOutput();
+    }
+
+    private String rawOf(String commit) {
+        return runner.runOrFail(
+                        Command.of(
+                                        "git",
+                                        "--git-dir",
+                                        forge.toString(),
+                                        "cat-file",
+                                        "commit",
+                                        commit)
+                                .withEnvironment(quiet()))
+                .standardOutput();
+    }
+
+    /** The headers placed after the commit's own, before the blank line. */
+    private static String withHeaders(String raw, String... headers) {
+        final int end = raw.indexOf("\n\n");
+        return raw.substring(0, end + 1) + String.join("\n", headers) + raw.substring(end);
+    }
+
+    /** A signature as git writes it into a header, each further line indented by one space. */
+    private static String signatureHeader(String name, String armored) {
+        return name + " " + armored.strip().replace("\n", "\n ");
+    }
+
+    private String sign(Path key, String payload) {
+        return runner.runOrFail(
+                        Command.of(
+                                        "ssh-keygen",
+                                        "-q",
+                                        "-Y",
+                                        "sign",
+                                        "-n",
+                                        "git",
+                                        "-f",
+                                        key.toString())
+                                .withInput(payload))
+                .standardOutput();
+    }
+
+    private String store(String raw) {
+        return runner.runOrFail(
+                        Command.of(
+                                        "git",
+                                        "--git-dir",
+                                        forge.toString(),
+                                        "hash-object",
+                                        "-t",
+                                        "commit",
+                                        "-w",
+                                        "--stdin")
+                                .withInput(raw)
+                                .withEnvironment(quiet()))
                 .trimmedOutput();
     }
 

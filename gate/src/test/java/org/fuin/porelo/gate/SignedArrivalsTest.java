@@ -2,6 +2,7 @@ package org.fuin.porelo.gate;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Clock;
@@ -103,6 +104,45 @@ class SignedArrivalsTest {
         assertThat(arrivals(Instant.now()).judge(signed, again))
                 .as("an unsigned commit below a signed tip is still judged")
                 .contains(unsigned);
+    }
+
+    /**
+     * Git leaves every signature header of either object format out of what a signature covers, so
+     * a signature over a second such header is no signature of the commit git would accept.
+     */
+    @Test
+    void a_commit_is_split_without_any_signature_header_as_git_splits_it() {
+        final String raw =
+                "tree 4b825dc642cb6eb9a060e54bf8d69288fbee4904\n"
+                        + "author A <a@example.org> 1 +0000\n"
+                        + "gpgsig-sha256 other\n"
+                        + " other, continued\n"
+                        + "committer A <a@example.org> 1 +0000\n"
+                        + "gpgsig first\n"
+                        + " first, continued\n"
+                        + "gpgsig second\n"
+                        + "mergetag object 1\n"
+                        + " gpgsig of the tag\n"
+                        + "\n"
+                        + "message\n";
+
+        final SignedArrivals.Signed signed =
+                SignedArrivals.Signed.of(raw.getBytes(StandardCharsets.UTF_8));
+
+        assertThat(signed).isNotNull();
+        assertThat(new String(signed.payload(), StandardCharsets.UTF_8))
+                .as("no signature header nor its continuation stays in what was signed")
+                .isEqualTo(
+                        "tree 4b825dc642cb6eb9a060e54bf8d69288fbee4904\n"
+                                + "author A <a@example.org> 1 +0000\n"
+                                + "committer A <a@example.org> 1 +0000\n"
+                                + "mergetag object 1\n"
+                                + " gpgsig of the tag\n"
+                                + "\n"
+                                + "message\n");
+        assertThat(new String(signed.signature(), StandardCharsets.UTF_8))
+                .as("the signature is the first header of the repository's format")
+                .isEqualTo("first\nfirst, continued\n");
     }
 
     private SignedArrivals arrivals(final Instant now) {
