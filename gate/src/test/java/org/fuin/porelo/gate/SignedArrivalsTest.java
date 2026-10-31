@@ -145,6 +145,45 @@ class SignedArrivalsTest {
                 .isEqualTo("first\nfirst, continued\n");
     }
 
+    /**
+     * Git leaves out every header whose name starts with {@code gpgsig}, with its continuation
+     * lines, so a signature over one is no signature of the commit git would accept.
+     */
+    @Test
+    void a_commit_is_split_without_any_header_starting_with_gpgsig_as_git_splits_it() {
+        final String raw =
+                "tree 4b825dc642cb6eb9a060e54bf8d69288fbee4904\n"
+                        + "author A <a@example.org> 1 +0000\n"
+                        + "committer A <a@example.org> 1 +0000\n"
+                        + "gpgsig\n"
+                        + " alone, continued\n"
+                        + "gpgsig-other x\n"
+                        + "gpgsig first\n"
+                        + "gpgsigfoo y\n"
+                        + " foo, continued\n"
+                        + "gpgsig\tz\n"
+                        + "encoding UTF-8\n"
+                        + "\n"
+                        + "message\n";
+
+        final SignedArrivals.Signed signed =
+                SignedArrivals.Signed.of(raw.getBytes(StandardCharsets.UTF_8));
+
+        assertThat(signed).isNotNull();
+        assertThat(new String(signed.payload(), StandardCharsets.UTF_8))
+                .as("no header starting with gpgsig nor its continuation stays in what was signed")
+                .isEqualTo(
+                        "tree 4b825dc642cb6eb9a060e54bf8d69288fbee4904\n"
+                                + "author A <a@example.org> 1 +0000\n"
+                                + "committer A <a@example.org> 1 +0000\n"
+                                + "encoding UTF-8\n"
+                                + "\n"
+                                + "message\n");
+        assertThat(new String(signed.signature(), StandardCharsets.UTF_8))
+                .as("only the format's own header is the signature, without another's lines")
+                .isEqualTo("first\n");
+    }
+
     private SignedArrivals arrivals(final Instant now) {
         return new SignedArrivals(
                 mirror,

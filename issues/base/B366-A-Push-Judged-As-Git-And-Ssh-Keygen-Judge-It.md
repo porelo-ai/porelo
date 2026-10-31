@@ -47,3 +47,15 @@ Each is answered by a test that fails today; nothing else of the verb changes.
   outside the Basic Multilingual Plane; the gate's `SignedArrivalsTest` splitting a commit with both headers and a
   mergetag; `AllowedSignerTest` reading in a JVM of its own that may create files but not write into them.
 - `doc/commands.md` and `doc/hosts.md` say the lines and the commit are read as ssh-keygen and git read them.
+- After a reading of the first build, three more places were measured with git 2.53 and OpenSSH 10.2 and are real:
+  `git verify-commit` leaves out every header whose name starts with `gpgsig` - `gpgsig` alone with a continuation
+  line, `gpgsig-other x`, `gpgsigfoo y`, `gpgsig<tab>x` - before or after the signature, refusing a signature over one
+  and accepting one beside it; ssh-keygen reads a principal list from a first quote to the next, whether or not a space
+  follows it (`"Alice Smith"`, `Al"ice Smith"` and `t@x,"other name"` are read, `"a b` and `a"b c"d` are not); and it
+  takes a `valid-after` day up to 31 and a second up to 61, rolling over as `timegm` does (`20210229` from March 1,
+  `20200101235960Z` from January 2, `20200101235961Z` a second later), refusing day 0 or 32, month 0 or 13, hour 24,
+  minute 60, second 62 and any time not after 1970 began. `SignedArrivals.Signed` now leaves out every such header,
+  `AllowedSigner` finds the principal list's end as ssh-keygen does and keeps it without its quotes, the certifier lines
+  handed to ssh-keygen quote it, and `HostArrivals` reads a `valid-after` time with ssh-keygen's ranges and roll-over.
+  Each has a test in `CommitVerifyCommandTest` or `SignedArrivalsTest`, the commits also judged by `git verify-commit`
+  in the test, seen red on the code before and red again by a mutant.

@@ -10,11 +10,9 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Clock;
 import java.time.Instant;
-import java.time.LocalDateTime;
+import java.time.LocalDate;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
-import java.time.format.DateTimeParseException;
-import java.time.format.ResolverStyle;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Base64;
@@ -85,9 +83,6 @@ final class HostArrivals {
     /** A time in an allowed-signers option, as ssh-keygen reads one. */
     private static final Pattern OPTION_TIME =
             Pattern.compile("(\\d{8}|\\d{12}|\\d{14})(?i:Z|UTC)?");
-
-    private static final DateTimeFormatter OPTION_TIME_FORMAT =
-            DateTimeFormatter.ofPattern("uuuuMMddHHmmss").withResolverStyle(ResolverStyle.STRICT);
 
     /** The signature header of a commit, by the object format of its repository. */
     private static final Map<String, String> SIGNATURE_HEADER =
@@ -682,20 +677,40 @@ final class HostArrivals {
     /**
      * A time as an allowed-signers option gives it, {@code YYYYMMDD[HHMM[SS]][Z|UTC]} with the
      * suffix in any case, read as UTC as ssh-keygen reads it in the environment it is run in;
-     * {@code null} when it is none.
+     * {@code null} when it is none. Like ssh-keygen, it takes any day up to 31 and a second up to
+     * 61, rolling what a month or minute does not hold over into the next, and refuses a time not
+     * after 1970 began.
      */
     private static @Nullable Instant optionTime(String value) {
         final Matcher matcher = OPTION_TIME.matcher(value);
         if (!matcher.matches()) {
             return null;
         }
-        final String digits = matcher.group(1);
-        try {
-            return LocalDateTime.parse((digits + "000000").substring(0, 14), OPTION_TIME_FORMAT)
-                    .toInstant(ZoneOffset.UTC);
-        } catch (DateTimeParseException ex) {
+        final String digits = (matcher.group(1) + "000000").substring(0, 14);
+        final int month = field(digits, 4);
+        final int day = field(digits, 6);
+        final int hour = field(digits, 8);
+        final int minute = field(digits, 10);
+        final int second = field(digits, 12);
+        if (month < 1
+                || month > 12
+                || day < 1
+                || day > 31
+                || hour > 23
+                || minute > 59
+                || second > 61) {
             return null;
         }
+        final Instant time =
+                LocalDate.of(Integer.parseInt(digits.substring(0, 4)), month, 1)
+                        .atStartOfDay(ZoneOffset.UTC)
+                        .toInstant()
+                        .plusSeconds(((day - 1) * 24L + hour) * 3600 + minute * 60L + second);
+        return time.isAfter(Instant.EPOCH) ? time : null;
+    }
+
+    private static int field(String digits, int at) {
+        return Integer.parseInt(digits.substring(at, at + 2));
     }
 
     /**
@@ -725,9 +740,11 @@ final class HostArrivals {
         return Pattern.compile(regex.toString(), Pattern.DOTALL).matcher(text).matches();
     }
 
-    /** An allowed-signers line as it was given: principals, options, key. */
+    /** An allowed-signers line as ssh-keygen reads it: principals in quotes, options, key. */
     private static String line(AllowedSigner signer) {
-        return signer.principal()
+        return "\""
+                + signer.principal()
+                + "\""
                 + (signer.options().isEmpty() ? "" : " " + String.join(",", signer.options()))
                 + " "
                 + signer.key();

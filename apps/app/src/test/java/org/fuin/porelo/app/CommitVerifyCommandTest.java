@@ -463,6 +463,161 @@ class CommitVerifyCommandTest {
         assertThat(err.toString()).startsWith(crafted + " ");
     }
 
+    /**
+     * Git leaves out every header whose name starts with {@code gpgsig}, with its continuation
+     * lines, so Porelo must decide each such commit as {@code git verify-commit} does.
+     */
+    @Test
+    void decides_a_commit_carrying_a_header_starting_with_gpgsig_as_git_does() throws Exception {
+        for (final String header :
+                List.of("gpgsig\n alone, continued", "gpgsig-other x", "gpgsigfoo y\n z")) {
+            final String raw = withHeaders(rawOf(commit(null, "over", base)), header);
+            final String over =
+                    store(withHeaders(raw, signatureHeader("gpgsig", sign(person, raw))));
+            final String rest = rawOf(commit(null, "beside", base));
+            final String beside =
+                    store(withHeaders(rest, header, signatureHeader("gpgsig", sign(person, rest))));
+
+            assertThat(gitVerifies(over)).as("git refuses a signature over %s", header).isFalse();
+            assertThat(verify(push(base, over, "refs/heads/main")))
+                    .as("a signature over %s is refused as git refuses it: %s", header, err)
+                    .isEqualTo(65);
+            assertThat(gitVerifies(beside))
+                    .as("git accepts %s beside the signature", header)
+                    .isTrue();
+            assertThat(verify(push(base, beside, "refs/heads/main")))
+                    .as(
+                            "%s beside a signature over the rest is accepted as git does: %s",
+                            header, err)
+                    .isZero();
+        }
+    }
+
+    /**
+     * ssh-keygen reads a principal list in quotes, which may hold spaces, and ends it at the
+     * closing quote even without a space behind it; such a signers file is no invalid one.
+     */
+    @Test
+    void accepts_a_person_whose_principal_ssh_keygen_reads_in_quotes() throws Exception {
+        final String byPerson = commit(person, "by alice", base);
+        for (final String principal :
+                List.of("\"Alice Smith\" ", "\"Alice Smith\"", "Al\"ice Smith\" ")) {
+            Files.writeString(
+                    signers, principal + "namespaces=\"git\" " + publicKey(person) + "\n");
+
+            assertThat(gitVerifies(byPerson)).as("git accepts %s", principal).isTrue();
+            assertThat(verify(push(base, byPerson, "refs/heads/main"), "--json"))
+                    .as("ssh-keygen and git accept %s as a principal: %s", principal, err)
+                    .isZero();
+            assertThat(((Map<?, ?>) verdicts().getFirst().get("signer")).get("principal"))
+                    .as("the principal is named as ssh-keygen reads it")
+                    .isEqualTo("Alice Smith");
+        }
+    }
+
+    /** A certifier's principal list in quotes is handed to ssh-keygen as it reads it. */
+    @Test
+    void accepts_a_plain_task_key_whose_certifier_principals_ssh_keygen_reads_in_quotes()
+            throws Exception {
+        final Path records = records(certify(task, certifier, PRINCIPAL, "-1m:+7d"), "fix-login");
+        final String plain = commit(task, "by the plain key", base);
+        for (final String principals :
+                List.of("\"other name,task:demo:*\" ", "other,\"task:demo:*\"")) {
+            Files.writeString(
+                    certifiers,
+                    principals
+                            + "cert-authority,namespaces=\"git\" "
+                            + publicKey(certifier)
+                            + "\n");
+
+            assertThat(
+                            verify(
+                                    push(base, plain, "refs/heads/main"),
+                                    "--certificates",
+                                    records.toString()))
+                    .as("ssh-keygen reads %s as certifying %s: %s", principals, PRINCIPAL, err)
+                    .isZero();
+        }
+    }
+
+    /**
+     * ssh-keygen rolls a day past a month's end and a second of 60 or 61 over into the next, and
+     * holds a certifier valid from that instant; it refuses any other field out of range.
+     */
+    @Test
+    void holds_a_certifier_valid_after_a_time_ssh_keygen_rolls_over_from_that_instant()
+            throws Exception {
+        final Map<String, String> rolled =
+                Map.of(
+                        "20210229", "2021-03-01T00:00:00Z",
+                        "20200431", "2020-05-01T00:00:00Z",
+                        "20200231", "2020-03-02T00:00:00Z",
+                        "20200101235960Z", "2020-01-02T00:00:00Z",
+                        "20200101235961Z", "2020-01-02T00:00:01Z",
+                        "20201231235960", "2021-01-01T00:00:00Z",
+                        "20210229UTC", "2021-03-01T00:00:00Z");
+        for (final Map.Entry<String, String> each : rolled.entrySet()) {
+            final AllowedSigner line = certifierValidAfter(each.getKey());
+            final Instant from = Instant.parse(each.getValue());
+
+            assertThat(HostArrivals.inForce(line, from))
+                    .as("ssh-keygen holds a line valid after %s from %s", each.getKey(), from)
+                    .isTrue();
+            assertThat(HostArrivals.inForce(line, from.minusSeconds(1)))
+                    .as("and not a second before %s", from)
+                    .isFalse();
+        }
+        for (final String refused :
+                List.of(
+                        "20200132",
+                        "20200100",
+                        "20201301",
+                        "20200001",
+                        "20200101240000Z",
+                        "20200101236000",
+                        "20200101235962Z",
+                        "19700101000000Z")) {
+            assertThat(
+                            HostArrivals.inForce(
+                                    certifierValidAfter(refused),
+                                    Instant.parse("2030-01-01T00:00:00Z")))
+                    .as("ssh-keygen refuses a line valid after %s", refused)
+                    .isFalse();
+        }
+    }
+
+    private AllowedSigner certifierValidAfter(String time) throws Exception {
+        return java.util.Objects.requireNonNull(
+                AllowedSigner.parse(
+                        "task:demo:* cert-authority,valid-after=\""
+                                + time
+                                + "\" "
+                                + publicKey(certifier)));
+    }
+
+    @Test
+    void accepts_a_certifier_line_valid_after_a_time_ssh_keygen_rolls_over() throws Exception {
+        final Path records = records(certify(task, certifier, PRINCIPAL, "-1m:+7d"), "fix-login");
+        final String plain = commit(task, "by the plain key", base);
+        for (final String time : List.of("20210229", "20200431", "20200101235960Z")) {
+            Files.writeString(
+                    certifiers,
+                    "task:demo:* cert-authority,valid-after=\""
+                            + time
+                            + "\" "
+                            + publicKey(certifier)
+                            + "\n");
+
+            assertThat(
+                            verify(
+                                    push(base, plain, "refs/heads/main"),
+                                    "--certificates",
+                                    records.toString()))
+                    .as("ssh-keygen holds a line valid after %s as in force: %s", time, err)
+                    .isZero();
+        }
+    }
+
     @Test
     void accepts_a_commit_signed_for_both_object_formats() throws Exception {
         final String raw = rawOf(commit(null, "signed twice", base));
@@ -896,6 +1051,23 @@ class CommitVerifyCommandTest {
                                         key.toString())
                                 .withInput(payload))
                 .standardOutput();
+    }
+
+    /** Whether git itself verifies a commit by the signers file. */
+    private boolean gitVerifies(String commit) {
+        return runner.run(
+                        Command.of(
+                                        "git",
+                                        "--git-dir",
+                                        forge.toString(),
+                                        "-c",
+                                        "gpg.format=ssh",
+                                        "-c",
+                                        "gpg.ssh.allowedSignersFile=" + signers,
+                                        "verify-commit",
+                                        commit)
+                                .withEnvironment(quiet()))
+                .successful();
     }
 
     private String store(String raw) {

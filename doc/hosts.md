@@ -209,13 +209,14 @@ porelo commit verify --repository <git-dir> --signers signers --certifiers certi
 
 - **`--signers`** are the project's keys in force, as `project verify` answers `signers` (no `valid-before` line signs a
   new commit); **`--certifiers`** its `certifiers` lines, of which only those in force at the arrival count (no
-  `valid-before`, any `valid-after` passed, the `git` namespace admitted), each line read as ssh-keygen reads it;
+  `valid-before`, any `valid-after` passed, the `git` namespace admitted), each line read as ssh-keygen reads it - a
+  principal list in quotes may hold spaces, and a `valid-after` day past its month's end or second 60 or 61 rolls over;
   **`--krl`** the revocation list in force; **`--certificates`** the host's recorded task certificates, one
   `porelo-host-person task --show` answer per line.
 - **Each new commit, merges included, must carry an SSH signature that holds now**, over what git verifies - the commit
-  without its `gpgsig` and `gpgsig-sha256` headers - however the commit is dated: a person's by a key in force, a task's
-  through its certificate from a certifier, valid now, for `task:<project>:<task>`, or a task's plain key whose recorded
-  certificate would itself be accepted; nothing the KRL revokes. Anything else is refused, and a deleted ref judges
+  without any header whose name starts with `gpgsig` - however the commit is dated: a person's by a key in force, a
+  task's through its certificate from a certifier, valid now, for `task:<project>:<task>`, or a task's plain key whose
+  recorded certificate would itself be accepted; nothing the KRL revokes. Anything else is refused, and a deleted ref judges
   nothing.
 - **The pushed objects are read through the quarantine git gives the hook**; no other git configuration, hook or
   proxy of the account takes effect.

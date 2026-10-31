@@ -199,13 +199,10 @@ public final class SignedArrivals {
     /**
      * A commit split into what was signed and its signature, as git splits it.
      *
-     * @param payload The commit without any {@code gpgsig} or {@code gpgsig-sha256} header.
+     * @param payload The commit without any header whose name starts with {@code gpgsig}.
      * @param signature The armored signature.
      */
     public record Signed(byte[] payload, byte[] signature) {
-
-        /** The headers git writes a commit's signature into, one for each object format. */
-        private static final List<String> SIGNATURE_HEADERS = List.of("gpgsig", "gpgsig-sha256");
 
         /**
          * Splits a raw commit.
@@ -246,9 +243,9 @@ public final class SignedArrivals {
                     continue;
                 }
                 inSignature = false;
-                // Every signature header of either format is left out, as git leaves them out;
+                // Git leaves out every header whose name starts with gpgsig, whatever follows;
                 // a mergetag's signature is the tag's, inside its own header.
-                leftOut = SIGNATURE_HEADERS.stream().anyMatch(each -> line.startsWith(each + " "));
+                leftOut = line.startsWith("gpgsig");
                 if (line.startsWith(header + " ") && !found) {
                     found = true;
                     inSignature = true;

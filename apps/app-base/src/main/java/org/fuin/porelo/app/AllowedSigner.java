@@ -12,8 +12,21 @@ import org.fuin.porelo.core.process.Command;
 import org.fuin.porelo.core.process.CommandRunner;
 import org.jspecify.annotations.Nullable;
 
-/** One allowed-signers line, keeping its options separate from the key. */
+/**
+ * One allowed-signers line, keeping its options separate from the key.
+ *
+ * @param principal The principal list as ssh-keygen reads it, without the quotes it was given in.
+ * @param key The key type and its base64.
+ * @param options The options as given, quotes kept.
+ */
 record AllowedSigner(String principal, String key, List<String> options) {
+
+    /**
+     * The principal list as ssh-keygen finds its end: at whitespace, or, from a first quote, at the
+     * next quote, whether or not whitespace follows it.
+     */
+    private static final String PRINCIPALS =
+            "([^\\s\"]*+\"[^\"]*+\"|[^\\s\"]++)(?:(?<=\")\\s*+|\\s++)";
 
     /**
      * The options as ssh-keygen finds their end: whitespace outside quotes, where {@code \"} is a
@@ -24,7 +37,9 @@ record AllowedSigner(String principal, String key, List<String> options) {
 
     private static final Pattern LINE =
             Pattern.compile(
-                    "^(\\S+)\\s+(?:("
+                    "^"
+                            + PRINCIPALS
+                            + "(?:("
                             + OPTIONS
                             + ")\\s+)?((?:ssh-|ecdsa-|sk-)[^\\s]+\\s+\\S+)(?:\\s+.*)?$");
 
@@ -53,7 +68,18 @@ record AllowedSigner(String principal, String key, List<String> options) {
             options.add(text.substring(start));
         }
         return new AllowedSigner(
-                match.group(1), match.group(3).replaceAll("\\s+", " "), List.copyOf(options));
+                match.group(1).replace("\"", ""),
+                match.group(3).replaceAll("\\s+", " "),
+                List.copyOf(options));
+    }
+
+    /** What follows a line's principal list: its options and key, as given. */
+    private static String afterPrincipals(final String line) {
+        final Matcher match = LINE.matcher(line.strip());
+        if (!match.matches()) {
+            throw new IllegalArgumentException("no allowed-signers line");
+        }
+        return line.strip().substring(match.end(1)).strip();
     }
 
     /** Whether a {@code \"} starts here, which ssh-keygen reads as a quote kept in the value. */
@@ -137,7 +163,7 @@ record AllowedSigner(String principal, String key, List<String> options) {
             if (parsed == null) {
                 throw new IOException("invalid allowed-signers line");
             }
-            entries.add("porelo" + line.strip().substring(parsed.principal().length()));
+            entries.add("porelo " + afterPrincipals(line));
         }
         return entries;
     }
