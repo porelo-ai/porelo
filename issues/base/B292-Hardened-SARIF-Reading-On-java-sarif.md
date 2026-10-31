@@ -13,6 +13,10 @@ daemon or appear clean.
 - Blocks: [B166](README.md#b166), [B171](README.md#b171), [B172](README.md#b172), [B141](README.md#b141),
   [B95](README.md#b95); the message filter, the forge adapters
   and the IDE plugin.
+- The reader, the profile and its fixtures are published as `porelo-review-api`, Porelo's sixth Central artifact,
+  with the fixtures as its tests jar, and AGENTS.md's list of artifacts says so (operator, 2026-10-31). This issue
+  makes the artifact; `Review1`, `ReviewReader` and their registration on `BuildMain` and `BuildServer` come with
+  [B171](README.md#b171).
 - Override the library's older Jackson dependencies together. Use a dedicated synchronous byte-stream factory and
   mapper, counting compressed and decompressed input before allocation. Enforce the profile's byte, depth, token,
   string, key, number and collection bounds before constructing generated model objects. Initial parser bounds are
@@ -33,6 +37,8 @@ daemon or appear clean.
 
 ## To be checked
 
+- Whether `porelo-review-api` relocates its Jackson set into its own package, so that a client loading it beside
+  its own Jackson, such as the IntelliJ plugin inside the IDE's class loader, gets the pinned set and no clash.
 - Inspect the released library's generated classes, annotations and extension handling, resolve the effective
   dependency graph and verify the maintained Jackson set against current advisories and binary compatibility.
   Do not infer a vulnerability or its fix from an advisory identifier in isolation.
