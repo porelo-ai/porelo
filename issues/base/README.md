@@ -139,6 +139,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b366"></a>[B366](B366-A-Push-Judged-As-Git-And-Ssh-Keygen-Judge-It.md) | S | [B363](README.md#b363) | `porelo commit verify` reads escaped quotes, every `valid-after` zone spelling, every signature header and long texts as `git` and `ssh-keygen` do |
 | <a id="b365"></a>[B365](B365-The-Providers-Usage-Answered-In-One-Form.md) | M | - | `porelo usage` answers each provider's allowance left in one form, per machine, account and window, with a threshold that marks a window critical |
 | <a id="b364"></a>[B364](B364-A-Test-Run-With-Its-Own-Temp-Directory.md) | S | - | Each test JVM gets a temp directory of its own under its module's `target/`, so two suites on one machine never see each other's scratch files |
 | <a id="b360"></a>[B360](B360-The-Persons-Own-Files-Read-Only-As-Themselves.md) | M | [B338](README.md#b338) | Every file Porelo keeps in the person's configuration and state directories is read and written only as itself, never through a link or another account's directory |
