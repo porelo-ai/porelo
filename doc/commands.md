@@ -616,14 +616,13 @@ A task's mailbox. Each command names the task by its container name.
 | `porelo talk tell TASK` | Writes your own words into the task's inbox, from standard input. |
 | `porelo talk pass TASK` | Moves the messages along once, without waiting for the daemon. |
 | `porelo talk log TASK` | What happened to each message, never its text. |
-| `porelo talk verify TASK` | Names the first entry of the message record that does not check out. |
-| `porelo talk key [--as=PRINCIPAL] [--publish]` | Prints this machine's signing key as an `allowed_signers` line. |
-| `porelo talk machine` | Prints the name this account goes by on a transport, `<host>-<account>` in lower case, which a project admin lists to let it into a conversation. |
+| `porelo talk verify TASK` | Names the first entry of the message record that does not check out: a message changed after it arrived, or one signed by a key whose task certificate this machine and its host no longer keep. |
+| `porelo talk machine` | Prints the name this account goes by on a transport, its login, as a transport that takes it is given it with `--login`, which a project admin lists to let it into a conversation. |
 | `porelo talk join PROJECT PERSON [--reset] [--into-vault ENTRY] [--display NAME]` | Makes a person an account in the project's conversation and shows the login once. `--reset` sets a new password. `--into-vault` keeps the person's access token in the vault under `ENTRY` instead and shows no password, for an agent whose output is its transcript; it refuses before making the account when there is no open vault, and its line names the room's id. `--display` is the name the conversation shows for the person, which others address them by; the transport checks it, and one starting with `-` is refused. |
 | `porelo talk members PROJECT` | Lists each person who joined the conversation and their account, or says nobody has joined. |
 | `porelo talk remove PROJECT PERSON` | Removes a person through the transport, then drops them from the members list. Says why if their account stays; a failed removal leaves them listed. |
 | `porelo talk admit PROJECT MACHINE --into FILE` | Lets another machine into the project's conversation on this machine's server, and writes what it needs - its secret among it - to a new file readable by you only. Refused for an offline project. |
-| `porelo talk room PROJECT` | Makes the project's room on its server, as the project admin's machine, and keeps its machines to the applied persons list at once and after each applied commit of the project or its access file: this machine and each admitted person's login on this host, by `<host>-<account>`. Where the transport takes `persons`, each person neither locked nor revoked is kept in the room too, by login, and the persons invited and removed are shown on lines of their own. Only the account that made the room does so. Refused for an offline project and where the transport does not take `--create-room`. |
+| `porelo talk room PROJECT` | Makes the project's room on its server, as the project admin's machine, and keeps its persons to the applied persons list at once and after each applied commit of the project or its access file: each person neither locked nor revoked, by login. Only the account that made the room does so. Refused for an offline project and where the transport does not take `--create-room`. |
 | `porelo talk dismiss PROJECT MACHINE` | Takes another machine out of this machine's conversation server: out of every project's conversation there, not only PROJECT's, and its registration token revoked, so a machine that still holds another project here is cut off from it too. Refused for an offline project. |
 
 A message is never edited. Read it before you release it. A message released despite the filter is
@@ -652,7 +651,6 @@ porelo project list
 porelo project unfollow NAME [--dry-run] [--force]
 porelo project clear NAME [--yes] [--dry-run] [--force]
 porelo project default [list | add ADDRESS [--name=NAME] | remove NAME]
-porelo project enroll PROJECT [--remove] [--as=PRINCIPAL]
 ```
 
 - **`follow`** takes the project's configuration from its repository, checked against the
@@ -770,7 +768,8 @@ porelo project enroll PROJECT [--remove] [--as=PRINCIPAL]
   mailboxes, its mirrors and image, the follow, its conversation and what this machine kept for it,
   and any deploy keys made by an earlier version from the vault. Without `--yes` it only lists what
   would go. Each earlier key is still forgotten here and named for you to remove at the forge,
-  alongside this machine's line in the project's `machine-signers`. See [clear](#clear).
+  alongside this machine's line in a `machine-signers` an earlier version had the project list, which
+  nothing reads any more. See [clear](#clear).
 - **`default`** is the project every machine has and nobody follows. It is `guarded`, reaches only
   the agent's provider, refuses blocked connections and has no conversation. `task start` without
   `-p`, in a checkout no followed project names, adds that checkout's `origin` to it, never with its
@@ -783,9 +782,6 @@ porelo project enroll PROJECT [--remove] [--as=PRINCIPAL]
   `porelo credentials`; never handed into the task. The daemon has no ssh agent, so through it only a
   key without a passphrase works. Trust an ssh host first with `porelo credentials trust-host`; until then the
   task does not start.
-- **`enroll`** proposes this machine's message key as a signer of the project, as
-  `enroll-<machine>` in the gate. Approve it with `porelo gate approve enroll-<machine> --signed`.
-  `--remove` undoes it.
 
 ## providers
 
@@ -887,7 +883,8 @@ and the installed packages stay: clearing is not uninstalling. `porelo vault cle
 
 Each line says `removed`, `would go`, `not removed` with why, or `for you`: a deploy key made by an
 earlier version to remove at its forge, or this machine's line to take out of a project's
-`machine-signers`. Each earlier key is still forgotten here and named once. Removing it at the forge
+`machine-signers`, a file an earlier version had a project list and nothing reads any more. Each
+earlier key is still forgotten here and named once. Removing it at the forge
 needs the forge's administration right, which your token for git does not need; changing
 `machine-signers` needs your signed commit. Clearing attempts neither. It refuses while work waits
 at the gate or tasks run; `--force` clears those too. Run again, it says there is nothing to clear.

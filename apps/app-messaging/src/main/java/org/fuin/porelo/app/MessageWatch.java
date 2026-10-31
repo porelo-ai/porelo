@@ -205,9 +205,6 @@ public final class MessageWatch implements AutoCloseable {
                 return 0;
             }
             final Moving prepared = prepared(mailboxes);
-            if (prepared == null) {
-                return 0;
-            }
             final long started = System.nanoTime();
             say(conversations(prepared.pass(), mailboxes));
             final long conversed = System.nanoTime();
@@ -258,9 +255,6 @@ public final class MessageWatch implements AutoCloseable {
                 return 0;
             }
             final Moving prepared = prepared(mailboxes);
-            if (prepared == null) {
-                return 0;
-            }
             final TransportConversations conversations =
                     new TransportConversations(context, prepared.pass().transports());
             final java.util.Map<String, String> projects = new java.util.LinkedHashMap<>();
@@ -336,28 +330,15 @@ public final class MessageWatch implements AutoCloseable {
         System.out.flush();
     }
 
-    /** What a pass moves with: its filter and key, and the peers it may reach. */
-    private record Moving(MessagePass pass, List<MessageDelivery.Peer> peers) {}
+    /** What a pass moves with: its filter and its transports. */
+    private record Moving(MessagePass pass) {}
 
-    private @org.jspecify.annotations.Nullable Moving prepared(final List<Path> mailboxes) {
-        final MessagePass pass;
-        final List<MessageDelivery.Peer> peers;
-        try {
-            pass =
-                    new MessagePass(
-                            context.runner(),
-                            HostKey.loadOrCreate(
-                                    context.paths().messaging().messageKey(),
-                                    "porelo@" + hostName()),
-                            context.paths().messaging().messageFilter(),
-                            context.paths().messaging().transportDirectory());
-            peers = KnownPeers.of(context);
-        } catch (final IOException ex) {
-            // No key that can be written, or a keyring with a line nobody can read. Both are the
-            // operator's to fix, and both stop every mailbox rather than one - so nothing is moved
-            // and the next tick tries again.
-            return null;
-        }
+    private Moving prepared(final List<Path> mailboxes) {
+        final MessagePass pass =
+                new MessagePass(
+                        context.runner(),
+                        context.paths().messaging().messageFilter(),
+                        context.paths().messaging().transportDirectory());
         // Each pass, every mailbox again: one made after the watch started announced its directory
         // before its outbox existed, so the watch on it failed then and was never tried again - and
         // its agent's answers waited for this timer, a minute. Registering a directory twice is the
@@ -365,7 +346,7 @@ public final class MessageWatch implements AutoCloseable {
         if (watcher != null) {
             mailboxes.forEach(this::watch);
         }
-        return new Moving(pass, peers);
+        return new Moving(pass);
     }
 
     private int move(final Moving prepared, final List<Path> mailboxes) {
@@ -396,12 +377,14 @@ public final class MessageWatch implements AutoCloseable {
                 // Whom it can reach changes as its project's tasks come and go; the guide beside it
                 // does not.
                 MailboxGuide.write(new Mailbox(mailbox), reachable);
+                final MessageSigners keys = keysOf(container);
                 final MessagePass.Report report =
                         prepared.pass()
                                 .run(
                                         new Mailbox(mailbox),
                                         reachable,
-                                        prepared.peers(),
+                                        keys::own,
+                                        keys,
                                         moderationOf(container));
                 woken(container, new Mailbox(mailbox), report);
                 moved++;
@@ -1069,6 +1052,33 @@ public final class MessageWatch implements AutoCloseable {
         return Moderation.of(context.paths(), owner == null ? container : owner);
     }
 
+    /**
+     * Returns a task's own key and whom it believes what arrives from: the task keys its project's
+     * certifiers certified.
+     *
+     * @param container The task.
+     * @return Its keys; for a mailbox whose project, or its file, cannot be read, keys that believe
+     *     nobody: the certifier of a task without a project is no certifier of a named one.
+     */
+    MessageSigners keysOf(final String container) {
+        final String owner = projectOf(container);
+        if (MessageSigners.NO_PROJECT.equals(owner)) {
+            return MessageSigners.of(context, container, null);
+        }
+        for (final ProjectInventory.Summary summary : projects()) {
+            if (summary.file() == null || !summary.name().equals(owner)) {
+                continue;
+            }
+            try {
+                return MessageSigners.of(
+                        context, container, GateSupport.project(Path.of(summary.file())));
+            } catch (final RuntimeException ex) {
+                break;
+            }
+        }
+        return MessageSigners.believingNobody(context, container, owner);
+    }
+
     Mail peersOf(final String container) {
         final String owner = projectOf(container);
         for (final ProjectInventory.Summary summary : projects()) {
@@ -1187,14 +1197,6 @@ public final class MessageWatch implements AutoCloseable {
             return found;
         } catch (final IOException ex) {
             return List.of();
-        }
-    }
-
-    private String hostName() {
-        try {
-            return java.net.InetAddress.getLocalHost().getHostName();
-        } catch (final java.net.UnknownHostException ex) {
-            return "localhost";
         }
     }
 }

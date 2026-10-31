@@ -75,8 +75,6 @@ public class TalkPassCommand implements Callable<Integer>, PoreloFactory.Context
         final var pass =
                 new MessagePass(
                         context.runner(),
-                        HostKey.loadOrCreate(
-                                context.paths().messaging().messageKey(), "porelo@" + hostName()),
                         context.paths().messaging().messageFilter(),
                         context.paths().messaging().transportDirectory());
         // As the daemon's pass does it: the project's conversation first, the task's siblings as
@@ -93,11 +91,13 @@ public class TalkPassCommand implements Callable<Integer>, PoreloFactory.Context
         }
         watch.conversations(pass, java.util.List.of(mailbox.root()))
                 .forEach(failure -> err.println("porelo: " + TalkReadCommand.shown(failure)));
+        final MessageSigners keys = watch.keysOf(container);
         final MessagePass.Report report =
                 pass.run(
                         mailbox,
                         watch.peersOf(container),
-                        KnownPeers.of(context),
+                        keys::own,
+                        keys,
                         watch.moderationOf(container));
 
         report.polled()
@@ -181,15 +181,5 @@ public class TalkPassCommand implements Callable<Integer>, PoreloFactory.Context
         out.flush();
         err.flush();
         return 0;
-    }
-
-    private String hostName() {
-        try {
-            return java.net.InetAddress.getLocalHost().getHostName();
-        } catch (final java.net.UnknownHostException e) {
-            // The name is a label in an allowed_signers line, not an address. A machine that cannot
-            // say its own name still signs; it just says less about itself.
-            return "localhost";
-        }
     }
 }

@@ -162,7 +162,7 @@ class OwnerAttestationTest {
                 new MessageDelivery()
                         .deliver(
                                 mailbox,
-                                List.of(new MessageDelivery.Peer("bob", List.of(bobs.keyBlob()))),
+                                PeerKeys.of("bob", bobs),
                                 Set.of(),
                                 null,
                                 null,
@@ -194,7 +194,7 @@ class OwnerAttestationTest {
         new MessageDelivery()
                 .deliver(
                         mailbox,
-                        List.of(new MessageDelivery.Peer("bob", List.of(bobs.keyBlob()))),
+                        PeerKeys.of("bob", bobs),
                         Set.of(),
                         null,
                         null,
@@ -223,7 +223,7 @@ class OwnerAttestationTest {
         new MessageDelivery()
                 .deliver(
                         mailbox,
-                        List.of(new MessageDelivery.Peer("bob", List.of(bobs.keyBlob()))),
+                        PeerKeys.of("bob", bobs),
                         Set.of(),
                         null,
                         null,

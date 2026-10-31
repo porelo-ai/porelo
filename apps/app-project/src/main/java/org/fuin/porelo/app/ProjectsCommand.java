@@ -36,7 +36,6 @@ import picocli.CommandLine.Spec;
             ProjectRefreshCommand.class,
             ProjectUnfollowCommand.class,
             ProjectClearCommand.class,
-            ProjectEnrollCommand.class,
             ProjectDefaultCommand.class
         },
         description = "Follows project repositories, and lists the projects this machine follows.")

@@ -6,6 +6,8 @@ import java.util.Map;
 import org.fuin.porelo.core.process.Command;
 import org.fuin.porelo.core.process.CommandException;
 import org.fuin.porelo.core.process.CommandResult;
+import org.fuin.porelo.vault.CardException;
+import org.fuin.porelo.vault.SshCertificate;
 import org.fuin.porelo.wire.Json;
 
 /**
@@ -89,6 +91,53 @@ final class HostPerson {
                     && task.equals(answer.get("task"))
                     && Boolean.TRUE.equals(answer.get("ended"));
         } catch (IllegalArgumentException ex) {
+            return false;
+        }
+    }
+
+    /**
+     * The host's record of a task key's certificate, as {@code porelo task certificate} answers it.
+     *
+     * @param fingerprint The key's fingerprint, {@code SHA256:...}.
+     * @return The record, or {@code null} when the host keeps none or could not be asked.
+     * @throws IllegalArgumentException If it answered something else than a record of this key.
+     */
+    @org.jspecify.annotations.Nullable
+    Map<?, ?> show(String fingerprint) {
+        final CommandResult shown;
+        try {
+            // The records are root's: sudo, which allows any admitted person.
+            shown =
+                    context.runner()
+                            .run(
+                                    Command.of(
+                                            "sudo",
+                                            "-n",
+                                            program.toString(),
+                                            "task",
+                                            "--show",
+                                            fingerprint));
+        } catch (CommandException ex) {
+            return null;
+        }
+        if (!shown.successful() || shown.standardOutput().isBlank()) {
+            return null;
+        }
+        final Object answer = Json.parse(shown.standardOutput().strip());
+        if (!(answer instanceof Map<?, ?> map)
+                || !fingerprint.equals(map.get("fingerprint"))
+                || !(map.get("certificate") instanceof String line)
+                || !certifies(line, fingerprint)) {
+            throw new IllegalArgumentException("not a record of " + fingerprint);
+        }
+        return map;
+    }
+
+    /** Whether a line is a certificate, its own signature checked, of exactly this key. */
+    private static boolean certifies(String line, String fingerprint) {
+        try {
+            return SshCertificate.read(line).fingerprint().equals(fingerprint);
+        } catch (CardException ex) {
             return false;
         }
     }

@@ -187,7 +187,8 @@ public final class Conversations {
                                         ? TaskConversations.notAdmitted(described.transport(), said)
                                         : "");
         row.put("loopbackOnly", project.securityClass() == SecurityClass.OFFLINE);
-        row.put("machine", said.machine());
+        // Named for the machine it was before a person's login took its place.
+        row.put("machine", said.login());
         row.put("admitted", admitted);
         row.put("address", said.address());
         row.put("room", said.room());

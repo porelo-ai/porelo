@@ -8,7 +8,6 @@ import java.io.StringWriter;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.List;
 import org.fuin.porelo.core.config.XdgPaths;
 import org.fuin.porelo.testing.FakeCommandRunner;
 import org.fuin.porelo.vault.SigningKey;
@@ -27,13 +26,13 @@ class TalkVerifyCommandTest {
     private final StringWriter err = new StringWriter();
 
     @Test
-    void aMessageFromAnotherTaskOfThisMachineIsIntactAsItWasDelivered(@TempDir final Path dir)
+    void aMessageSignedByATaskKeyWhoseCertificateIsKeptIsIntact(@TempDir final Path dir)
             throws IOException {
-        // A task's message to its sibling is signed with this machine's own key, which a pass
-        // believes; the check believed only the operator's allowed_signers and called it broken.
+        // The walk believes what the machine's records trace to a certificate, as delivery did.
         final PoreloContext context = context(dir);
-        final SigningKey own =
-                HostKey.loadOrCreate(context.paths().messaging().messageKey(), "porelo@here");
+        final CertifiedTaskKeys keys = new CertifiedTaskKeys(dir);
+        final SigningKey sibling = keys.task("p", "sibling");
+        new TaskCertificateRecords(context).keep("sibling", "tester", keys.certificate(sibling));
         final Mailbox mailbox = new Mailbox(context.paths().messaging().mailbox(TASK));
         mailbox.create();
         final String json = "{\"messageId\":\"m-1\"}";
@@ -41,15 +40,11 @@ class TalkVerifyCommandTest {
         Files.writeString(
                 mailbox.inbound().resolve("m-1.json.sig"),
                 SshSignature.sign(
-                        own, json.getBytes(StandardCharsets.UTF_8), MessageIntake.NAMESPACE));
+                        sibling, json.getBytes(StandardCharsets.UTF_8), MessageIntake.NAMESPACE));
         new MessageRecord(mailbox).append(MessageRecord.DELIVERED, "m-1.json", "m-1", "");
         assertThat(
                         new MessageDelivery()
-                                .deliver(
-                                        mailbox,
-                                        List.of(
-                                                new MessageDelivery.Peer(
-                                                        own.comment(), List.of(own.keyBlob()))))
+                                .deliver(mailbox, PeerKeys.of("sibling", sibling))
                                 .delivered())
                 .as("delivered as a pass delivers it")
                 .hasSize(1);
@@ -59,6 +54,27 @@ class TalkVerifyCommandTest {
         assertThat(err.toString()).as("nothing named broken").isEmpty();
         assertThat(code).isZero();
         assertThat(out.toString()).contains("1 signature(s) checked").contains("intact");
+    }
+
+    @Test
+    void aMessageSignedByAKeyWithNoCertificateKeptIsNamed(@TempDir final Path dir)
+            throws IOException {
+        final PoreloContext context = context(dir);
+        final SigningKey stranger = SigningKey.generate("stranger");
+        final Mailbox mailbox = new Mailbox(context.paths().messaging().mailbox(TASK));
+        mailbox.create();
+        final String json = "{\"messageId\":\"m-1\"}";
+        Files.writeString(mailbox.inbound().resolve("m-1.json"), json);
+        Files.writeString(
+                mailbox.inbound().resolve("m-1.json.sig"),
+                SshSignature.sign(
+                        stranger, json.getBytes(StandardCharsets.UTF_8), MessageIntake.NAMESPACE));
+        new MessageDelivery().deliver(mailbox, PeerKeys.of("stranger", stranger));
+
+        final int code = execute(context);
+
+        assertThat(code).isEqualTo(1);
+        assertThat(err.toString()).contains("by no task key whose certificate is kept");
     }
 
     private int execute(final PoreloContext context) {

@@ -1,0 +1,2 @@
+title: "A task signs each message it sends with its own certified key, and the receiver believes it only when a certifier of its project issued that key's certificate and it was valid when the message arrived here, by this machine's clock; a refused message is held naming the key, and `talk verify` checks a signature against the task key whose certificate is kept"
+type: changed

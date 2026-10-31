@@ -50,12 +50,8 @@ class MessagePassTest {
                 "{\"messageId\":\"m-1\",\"metadata\":{\"to\":\"reviewer\"}}");
 
         final MessagePass.Report report =
-                new MessagePass(
-                                runner,
-                                key,
-                                null,
-                                new TransportDirectory(List.of(dir.resolve("none"))))
-                        .run(mailbox, mail, List.of(), undecided(dir));
+                new MessagePass(runner, null, new TransportDirectory(List.of(dir.resolve("none"))))
+                        .run(mailbox, mail, () -> key, PeerKeys.NONE, undecided(dir));
 
         assertThat(report.taken()).containsExactly("m-1.json");
         assertThat(report.filtered().ran()).isFalse();
@@ -80,17 +76,12 @@ class MessagePassTest {
                         peerKey, json.getBytes(StandardCharsets.UTF_8), MessageIntake.NAMESPACE));
 
         final MessagePass.Report report =
-                new MessagePass(
-                                runner,
-                                key,
-                                null,
-                                new TransportDirectory(List.of(dir.resolve("none"))))
+                new MessagePass(runner, null, new TransportDirectory(List.of(dir.resolve("none"))))
                         .run(
                                 mailbox,
                                 mail,
-                                List.of(
-                                        new MessageDelivery.Peer(
-                                                "reviewer", List.of(peerKey.keyBlob()))),
+                                () -> key,
+                                PeerKeys.of("reviewer", peerKey),
                                 undecided(dir));
 
         assertThat(report.filtered().ran()).isFalse();
@@ -106,12 +97,8 @@ class MessagePassTest {
         Files.writeString(mailbox.feedback().resolve("answer.json"), "{\"parts\":[{\"data\":{}}]}");
 
         final MessagePass.Report report =
-                new MessagePass(
-                                runner,
-                                key,
-                                null,
-                                new TransportDirectory(List.of(dir.resolve("none"))))
-                        .run(mailbox, mail, List.of(), undecided(dir));
+                new MessagePass(runner, null, new TransportDirectory(List.of(dir.resolve("none"))))
+                        .run(mailbox, mail, () -> key, PeerKeys.NONE, undecided(dir));
 
         assertThat(report.bounced()).containsExactly("answer.json");
         assertThat(mailbox.inboxNew().resolve("answer.json")).exists();
@@ -147,10 +134,9 @@ class MessagePassTest {
         final MessagePass.Report report =
                 new MessagePass(
                                 runner,
-                                key,
                                 dir.resolve("filter"),
                                 new TransportDirectory(List.of(dir.resolve("none"))))
-                        .run(mailbox, mail, List.of(), moderation);
+                        .run(mailbox, mail, () -> key, PeerKeys.NONE, moderation);
 
         assertThat(report.filtered().exitCode()).isEqualTo(2);
         assertThat(report.dispatched().queued())
@@ -195,23 +181,23 @@ class MessagePassTest {
             throws IOException {
         final Mailbox mailbox = mailbox(dir);
         final SigningKey peerKey = SigningKey.generate("peer");
-        final List<MessageDelivery.Peer> peers =
-                List.of(new MessageDelivery.Peer("reviewer", List.of(peerKey.keyBlob())));
+        final MessageDelivery.Signers peers = PeerKeys.of("reviewer", peerKey);
         // One message a day from the reviewer: the second of the day is held.
         final Mail oneADay =
                 new Mail(List.of(new Mail.Peer("reviewer", "local:/peer/inbound", "vouched", 1)));
         final MessagePass pass =
-                new MessagePass(
-                        runner, key, null, new TransportDirectory(List.of(dir.resolve("none"))));
+                new MessagePass(runner, null, new TransportDirectory(List.of(dir.resolve("none"))));
         arrive(mailbox, peerKey, "in-1");
         arrive(mailbox, peerKey, "in-2");
-        final MessagePass.Report first = pass.run(mailbox, oneADay, peers, undecided(dir));
+        final MessagePass.Report first =
+                pass.run(mailbox, oneADay, () -> key, peers, undecided(dir));
         assertThat(first.delivered().held())
                 .extracting(MessageDelivery.Held::message)
                 .containsExactly("in-2.json");
 
         arrive(mailbox, peerKey, "in-2");
-        final MessagePass.Report second = pass.run(mailbox, oneADay, peers, undecided(dir));
+        final MessagePass.Report second =
+                pass.run(mailbox, oneADay, () -> key, peers, undecided(dir));
 
         assertThat(second.delivered().held()).as("held a second time").isEmpty();
         assertThat(second.delivered().duplicates())
@@ -227,24 +213,5 @@ class MessagePassTest {
                 mailbox.inbound().resolve(id + ".json.sig"),
                 SshSignature.sign(
                         peerKey, json.getBytes(StandardCharsets.UTF_8), MessageIntake.NAMESPACE));
-    }
-
-    @Test
-    void this_machines_own_key_is_believed_and_listed_only_once() {
-        final MessagePass pass =
-                new MessagePass(runner, key, null, new TransportDirectory(List.of()));
-
-        final List<MessageDelivery.Peer> with = pass.withOwn(List.of());
-        assertThat(with)
-                .singleElement()
-                .satisfies(
-                        peer -> {
-                            assertThat(peer.name()).isEqualTo("host");
-                            assertThat(peer.keys()).singleElement().isEqualTo(key.keyBlob());
-                        });
-        // An operator who named this machine's key already keeps their name for it.
-        final List<MessageDelivery.Peer> named =
-                List.of(new MessageDelivery.Peer("this-box", List.of(key.keyBlob())));
-        assertThat(pass.withOwn(named)).isEqualTo(named);
     }
 }

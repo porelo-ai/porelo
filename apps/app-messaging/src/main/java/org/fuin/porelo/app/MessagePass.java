@@ -11,7 +11,6 @@ import java.util.Map;
 import java.util.stream.Stream;
 import org.fuin.porelo.core.process.CommandRunner;
 import org.fuin.porelo.core.project.Mail;
-import org.fuin.porelo.vault.SigningKey;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -52,8 +51,6 @@ public final class MessagePass {
 
     private final CommandRunner runner;
 
-    private final SigningKey key;
-
     private final @Nullable Path filter;
 
     private final TransportDirectory transports;
@@ -64,17 +61,14 @@ public final class MessagePass {
      * Constructor.
      *
      * @param runner How commands are run.
-     * @param key The host's signing key.
      * @param filter The message filter, or {@code null} when none is installed.
      * @param transports Where the adapters are.
      */
     public MessagePass(
             final CommandRunner runner,
-            final SigningKey key,
             final @Nullable Path filter,
             final TransportDirectory transports) {
         this.runner = runner;
-        this.key = key;
         this.filter = filter;
         this.transports = transports;
     }
@@ -84,7 +78,8 @@ public final class MessagePass {
      *
      * @param mailbox The task's mailbox.
      * @param mail The project's peers, for resolving where a message goes.
-     * @param peers Who this task may hear from, with the keys allowed for each.
+     * @param own The key the task signs what it sends with.
+     * @param signers Whom an arriving message's key speaks for.
      * @param moderation What a person decided about the project's peers.
      * @return What happened.
      * @throws IOException A file could not be read or moved.
@@ -92,14 +87,16 @@ public final class MessagePass {
     public Report run(
             final Mailbox mailbox,
             final Mail mail,
-            final List<MessageDelivery.Peer> peers,
+            final MessageSigners.Own own,
+            final MessageDelivery.Signers signers,
             final Moderation moderation)
             throws IOException {
         // One pass at a time per mailbox, whoever runs it: the daemon's and a 'talk pass' ran over
         // one queue at once, sent a message twice, and the slower one's move failed halfway through
         // its pass.
         return FileLocks.holding(
-                mailbox.root().resolve(PASS_LOCK), () -> runHeld(mailbox, mail, peers, moderation));
+                mailbox.root().resolve(PASS_LOCK),
+                () -> runHeld(mailbox, mail, own, signers, moderation));
     }
 
     /**
@@ -111,11 +108,12 @@ public final class MessagePass {
     private Report runHeld(
             final Mailbox mailbox,
             final Mail mail,
-            final List<MessageDelivery.Peer> peers,
+            final MessageSigners.Own own,
+            final MessageDelivery.Signers signers,
             final Moderation moderation)
             throws IOException {
         final MessageRecord record = new MessageRecord(mailbox);
-        final List<String> taken = new MessageIntake(key).take(mailbox);
+        final List<String> taken = new MessageIntake(own).take(mailbox);
         for (final String message : taken) {
             // The role goes into the record: a person writing into a conversation has to be
             // distinguishable from the agent afterwards, and the message itself may be gone by the
@@ -217,7 +215,7 @@ public final class MessagePass {
                 new MessageDelivery()
                         .deliver(
                                 mailbox,
-                                withOwn(peers),
+                                signers,
                                 seen,
                                 new InboundCheck(runner, filter, mail),
                                 budget,
@@ -272,41 +270,6 @@ public final class MessagePass {
                     adapter != null && TransportDescription.of(runner, adapter).attestsOwner();
             return OwnerAttestation.refuse(mailbox, message, peer, mail, attesting);
         };
-    }
-
-    /**
-     * Returns the peers with this machine's own key among them.
-     *
-     * <p><strong>What this machine signed, this machine believes.</strong> A project's own tasks
-     * here are each other's peers, and every message they send is signed by this installation's one
-     * key after its filter read it. Delivered back to a task of the same project - through the
-     * project's conversation, say - it was held as "signed by a key no peer is allowed to use"
-     * (found on 2026-09-30): no list held this machine's own key. Which task it may reach is still
-     * decided by routing - a conversation is one project's, and the local transport addresses a
-     * sibling's inbox by path - and what arrives is still read by the filter on the way in, as for
-     * any peer this project's file does not vouch for by name.
-     *
-     * @param peers The peers the operator and this machine's other accounts named.
-     * @return Them, and this machine's key under its own principal unless one of them already holds
-     *     it.
-     */
-    List<MessageDelivery.Peer> withOwn(final List<MessageDelivery.Peer> peers) {
-        final byte[] own = key.keyBlob();
-        final boolean named =
-                peers.stream()
-                        .anyMatch(
-                                peer ->
-                                        peer.keys().stream()
-                                                .anyMatch(
-                                                        each ->
-                                                                java.util.Arrays.equals(
-                                                                        each, own)));
-        if (named) {
-            return peers;
-        }
-        final List<MessageDelivery.Peer> with = new java.util.ArrayList<>(peers);
-        with.add(new MessageDelivery.Peer(key.comment(), List.of(own)));
-        return with;
     }
 
     /**

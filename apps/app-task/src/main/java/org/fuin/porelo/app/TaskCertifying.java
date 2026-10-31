@@ -31,18 +31,9 @@ final class TaskCertifying {
      * @return Their keys, empty for a project without a verified access commit.
      */
     static List<String> certifiers(PoreloContext context, Project project) {
-        if (project.access() == null) {
-            return List.of();
-        }
         try {
             return certifiers(
-                    ProjectAccess.persons(context, project).stream()
-                            .filter(org.fuin.porelo.vault.AccessPersons.Person::admitted)
-                            .map(org.fuin.porelo.vault.AccessPersons.Person::ssh)
-                            .toList(),
-                    backups(context, project.name()));
-        } catch (ProjectAccess.Withheld ex) {
-            return List.of();
+                    MessageSigners.certifiers(context, project), backups(context, project.name()));
         } catch (IOException ex) {
             // The follows cannot be read, so which keys are backup keys is not known.
             return List.of();

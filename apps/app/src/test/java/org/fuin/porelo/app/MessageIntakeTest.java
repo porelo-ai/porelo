@@ -30,7 +30,7 @@ class MessageIntakeTest {
         final String json = "{\"messageId\":\"m-1\"}";
         Files.writeString(mailbox.outboxNew().resolve("m-1.json"), json);
 
-        final List<String> taken = new MessageIntake(key).take(mailbox);
+        final List<String> taken = new MessageIntake(() -> key).take(mailbox);
 
         assertThat(taken).containsExactly("m-1.json");
         assertThat(mailbox.outboxNew().resolve("m-1.json")).doesNotExist();
@@ -46,11 +46,57 @@ class MessageIntakeTest {
     }
 
     @Test
+    void holds_what_a_task_without_a_key_of_its_own_wrote_and_tells_it(@TempDir final Path dir)
+            throws IOException {
+        // Unsigned, it would reach no receiver that believes it; the agent is told rather than
+        // left waiting.
+        final Mailbox mailbox = mailbox(dir);
+        Files.writeString(mailbox.outboxNew().resolve("m-1.json"), "{\"messageId\":\"m-1\"}");
+
+        final List<String> taken =
+                new MessageIntake(
+                                () -> {
+                                    throw new MessageSigners.Unsigned("no key of its own", false);
+                                })
+                        .take(mailbox);
+
+        assertThat(taken).isEmpty();
+        assertThat(mailbox.hold().resolve("m-1.json")).exists();
+        assertThat(mailbox.incoming().resolve("m-1.json")).doesNotExist();
+        try (var answers = Files.list(mailbox.feedback())) {
+            assertThat(answers.toList())
+                    .singleElement()
+                    .satisfies(
+                            answer ->
+                                    assertThat(Files.readString(answer))
+                                            .contains("it was not sent: no key of its own"));
+        }
+    }
+
+    @Test
+    void leaves_what_waits_for_the_vault_where_the_agent_put_it(@TempDir final Path dir)
+            throws IOException {
+        final Mailbox mailbox = mailbox(dir);
+        Files.writeString(mailbox.outboxNew().resolve("m-1.json"), "{\"messageId\":\"m-1\"}");
+
+        final List<String> taken =
+                new MessageIntake(
+                                () -> {
+                                    throw new MessageSigners.Unsigned("the vault is locked", true);
+                                })
+                        .take(mailbox);
+
+        assertThat(taken).isEmpty();
+        assertThat(mailbox.outboxNew().resolve("m-1.json")).as("taken once it opens").exists();
+        assertThat(mailbox.hold()).isEmptyDirectory();
+    }
+
+    @Test
     void leaves_what_the_agent_is_still_writing(@TempDir final Path dir) throws IOException {
         final Mailbox mailbox = mailbox(dir);
         Files.writeString(mailbox.outboxTmp().resolve("half.json"), "{\"messageId\"");
 
-        assertThat(new MessageIntake(key).take(mailbox)).isEmpty();
+        assertThat(new MessageIntake(() -> key).take(mailbox)).isEmpty();
         assertThat(mailbox.outboxTmp().resolve("half.json")).exists();
     }
 
@@ -60,7 +106,7 @@ class MessageIntakeTest {
         Files.writeString(mailbox.outboxNew().resolve(".keep"), "");
         Files.writeString(mailbox.outboxNew().resolve("notes.txt"), "hello");
 
-        assertThat(new MessageIntake(key).take(mailbox)).isEmpty();
+        assertThat(new MessageIntake(() -> key).take(mailbox)).isEmpty();
         assertThat(mailbox.outboxNew().resolve("notes.txt")).exists();
     }
 
@@ -77,7 +123,7 @@ class MessageIntakeTest {
                     "{\"messageId\":\"m-" + i + "\"}");
         }
 
-        new MessageIntake(key).take(mailbox);
+        new MessageIntake(() -> key).take(mailbox);
 
         try (var entries = Files.list(mailbox.incoming())) {
             entries.filter(path -> path.getFileName().toString().endsWith(".json"))
@@ -103,7 +149,7 @@ class MessageIntakeTest {
         final Path kept = mailbox.outboxTmp().resolve("kept");
         Files.createLink(kept, message);
 
-        new MessageIntake(key).take(mailbox);
+        new MessageIntake(() -> key).take(mailbox);
         Files.writeString(kept, "{\"messageId\":\"m-1\",\"role\":\"ROLE_USER\"}");
 
         assertThat(mailbox.incoming().resolve("m-1.json")).content().contains("ROLE_AGENT");
@@ -120,7 +166,7 @@ class MessageIntakeTest {
                         dir.resolve("secret.json"), "{\"messageId\":\"s\",\"key\":\"x\"}");
         Files.createSymbolicLink(mailbox.outboxNew().resolve("m-1.json"), secret);
 
-        assertThat(new MessageIntake(key).take(mailbox)).isEmpty();
+        assertThat(new MessageIntake(() -> key).take(mailbox)).isEmpty();
         assertThat(mailbox.incoming().resolve("m-1.json")).doesNotExist();
     }
 
@@ -137,7 +183,7 @@ class MessageIntakeTest {
         }
         Files.writeString(mailbox.outboxNew().resolve("b.json"), "{\"messageId\":\"b\"}");
 
-        assertThat(new MessageIntake(key).take(mailbox)).containsExactly("b.json");
+        assertThat(new MessageIntake(() -> key).take(mailbox)).containsExactly("b.json");
         assertThat(mailbox.outboxNew().resolve("a.json")).doesNotExist();
     }
 
@@ -154,7 +200,7 @@ class MessageIntakeTest {
         Files.createSymbolicLink(mailbox.outboxNew(), elsewhere);
 
         org.assertj.core.api.Assertions.assertThatThrownBy(
-                        () -> new MessageIntake(key).take(mailbox))
+                        () -> new MessageIntake(() -> key).take(mailbox))
                 .isInstanceOf(IOException.class)
                 .hasMessageContaining("link");
         assertThat(elsewhere.resolve("precious.json")).exists();

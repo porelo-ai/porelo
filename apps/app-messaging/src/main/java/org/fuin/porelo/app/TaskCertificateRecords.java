@@ -93,6 +93,34 @@ final class TaskCertificateRecords {
         }
     }
 
+    /**
+     * Finds the certificate of a key: what this machine kept, else what the host it runs on keeps.
+     *
+     * @param fingerprint The key's fingerprint, {@code SHA256:...}.
+     * @param host The host's helper for its persons, asked only where it is installed.
+     * @return The certificate, its own signature checked and of exactly this key, or {@code null}
+     *     when none is kept, or what is kept is not one.
+     */
+    @Nullable SshCertificate certificate(String fingerprint, HostPerson host) {
+        Map<?, ?> record = find(fingerprint);
+        if (record == null && host.present()) {
+            try {
+                record = host.show(fingerprint);
+            } catch (IllegalArgumentException ex) {
+                return null;
+            }
+        }
+        if (record == null || !(record.get("certificate") instanceof String line)) {
+            return null;
+        }
+        try {
+            final SshCertificate certificate = SshCertificate.read(line);
+            return certificate.fingerprint().equals(fingerprint) ? certificate : null;
+        } catch (org.fuin.porelo.vault.CardException ex) {
+            return null;
+        }
+    }
+
     /** One file per key, named by its fingerprint in a file name's alphabet. */
     private Path file(String fingerprint) {
         final String name =

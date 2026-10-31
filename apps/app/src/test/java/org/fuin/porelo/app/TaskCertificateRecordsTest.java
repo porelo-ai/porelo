@@ -10,6 +10,7 @@ import java.util.Map;
 import org.fuin.porelo.core.config.XdgPaths;
 import org.fuin.porelo.testing.FakeCommandRunner;
 import org.fuin.porelo.vault.PersonCard;
+import org.fuin.porelo.vault.SshCertificate;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -56,7 +57,73 @@ class TaskCertificateRecordsTest {
         }
     }
 
+    @Test
+    void aKeysCertificateIsReadFromWhatThisMachineKeptElseFromItsHost() throws Exception {
+        final CertifiedTaskKeys keys = new CertifiedTaskKeys(dir);
+        final org.fuin.porelo.vault.SigningKey kept = keys.task("demo", "kept");
+        final org.fuin.porelo.vault.SigningKey hosts = keys.task("demo", "hosts");
+        final FakeCommandRunner runner = new FakeCommandRunner();
+        final PoreloContext context = context(runner);
+        final TaskCertificateRecords records = new TaskCertificateRecords(context);
+        records.keep("kept", "alice", keys.certificate(kept));
+        final Path program = dir.resolve("porelo-host-person");
+        Files.writeString(program, "#!/bin/sh\n");
+        program.toFile().setExecutable(true);
+        final String fingerprint = keys.certificate(hosts).fingerprint();
+        runner.answering(
+                "task --show " + fingerprint,
+                "{\"fingerprint\":\""
+                        + fingerprint
+                        + "\",\"certificate\":\""
+                        + keys.certificate(hosts).line()
+                        + "\"}");
+
+        assertThat(
+                        records.certificate(
+                                keys.certificate(kept).fingerprint(),
+                                new HostPerson(context, dir.resolve("none"))))
+                .as("kept here")
+                .extracting(SshCertificate::line)
+                .isEqualTo(keys.certificate(kept).line());
+        assertThat(records.certificate(fingerprint, new HostPerson(context, dir.resolve("none"))))
+                .as("not kept here, and no host to ask")
+                .isNull();
+        assertThat(records.certificate(fingerprint, new HostPerson(context, program)))
+                .as("the host's record")
+                .extracting(SshCertificate::line)
+                .isEqualTo(keys.certificate(hosts).line());
+    }
+
+    @Test
+    void aHostsRecordHoldingAnotherKeysCertificateIsNotBelieved() throws Exception {
+        final CertifiedTaskKeys keys = new CertifiedTaskKeys(dir);
+        final org.fuin.porelo.vault.SigningKey asked = keys.task("demo", "asked");
+        final org.fuin.porelo.vault.SigningKey other = keys.task("demo", "other");
+        final FakeCommandRunner runner = new FakeCommandRunner();
+        final PoreloContext context = context(runner);
+        final Path program = dir.resolve("porelo-host-person");
+        Files.writeString(program, "#!/bin/sh\n");
+        program.toFile().setExecutable(true);
+        final String fingerprint = keys.certificate(asked).fingerprint();
+        runner.answering(
+                "task --show " + fingerprint,
+                "{\"fingerprint\":\""
+                        + fingerprint
+                        + "\",\"certificate\":\""
+                        + keys.certificate(other).line()
+                        + "\"}");
+
+        assertThat(
+                        new TaskCertificateRecords(context)
+                                .certificate(fingerprint, new HostPerson(context, program)))
+                .isNull();
+    }
+
     private PoreloContext context() {
+        return context(new FakeCommandRunner());
+    }
+
+    private PoreloContext context(final FakeCommandRunner runner) {
         final XdgPaths xdg =
                 XdgPaths.of(
                         name ->
@@ -66,8 +133,7 @@ class TaskCertificateRecordsTest {
                                     default -> null;
                                 },
                         dir);
-        return new PoreloContext(
-                new FakeCommandRunner(), new PoreloPaths(xdg, dir.resolve("bin")), arguments -> 0);
+        return new PoreloContext(runner, new PoreloPaths(xdg, dir.resolve("bin")), arguments -> 0);
     }
 
     /** Signs with a key file, as {@code ssh-keygen -s} does without an agent. */

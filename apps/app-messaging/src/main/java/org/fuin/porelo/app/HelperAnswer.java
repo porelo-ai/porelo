@@ -51,11 +51,12 @@ final class HelperAnswer {
         try {
             final byte[] bytes = message(person);
             Files.write(message, bytes);
+            // By a key made for this answer alone: it is for a person, and no task believes a key
+            // no certifier certified, so an answer that reached a task would be held there.
             Files.writeString(
                     signature,
                     SshSignature.sign(
-                            HostKey.loadOrCreate(
-                                    context.paths().messaging().messageKey(), "porelo"),
+                            org.fuin.porelo.vault.SigningKey.generate("porelo"),
                             bytes,
                             MessageIntake.NAMESPACE),
                     StandardCharsets.UTF_8);

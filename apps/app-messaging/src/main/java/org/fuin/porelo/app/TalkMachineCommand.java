@@ -7,32 +7,25 @@ import picocli.CommandLine.Model.CommandSpec;
 import picocli.CommandLine.Spec;
 
 /**
- * Prints the name this account goes by on a transport, which a project admin lists to let it into a
- * conversation.
+ * Prints the name this account goes by on a transport, its login, which a project admin lists to
+ * let it into a conversation.
  */
 @Command(
         name = "machine",
         mixinStandardHelpOptions = true,
         description =
-                "Prints the name this account goes by on a transport: <host>-<account>, which a"
-                        + " project admin lists.")
-public class TalkMachineCommand implements Callable<Integer>, PoreloFactory.ContextAware {
+                "Prints the name this account goes by on a transport: its login, which a project"
+                        + " admin lists.")
+public class TalkMachineCommand implements Callable<Integer> {
 
     @Spec private CommandSpec spec;
-
-    private PoreloContext context = PoreloContext.real();
-
-    @Override
-    public void setContext(final PoreloContext context) {
-        this.context = context;
-    }
 
     @Override
     public Integer call() {
         final String name;
         try {
-            name = context.machineName().get();
-        } catch (IllegalArgumentException ex) {
+            name = TransportLifecycle.login();
+        } catch (TransportLifecycle.Refused ex) {
             final PrintWriter err = spec.commandLine().getErr();
             err.println("porelo: " + ex.getMessage());
             err.flush();

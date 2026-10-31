@@ -147,10 +147,8 @@ class ReviewRankingTest {
 
     @Test
     void aSignerListIsDangerousByKind() {
-        // A machine's enrolment: one line added, and it decides which machines every other one
-        // believes.
+        // One line added, and it decides whose signatures are believed.
         assertThat(ReviewRanking.dangerByPath("allowed_signers")).contains("signer list");
         assertThat(ReviewRanking.dangerByPath("sub/allowed_signers")).contains("signer list");
-        assertThat(ReviewRanking.dangerByPath("machine-signers")).contains("signer list");
     }
 }

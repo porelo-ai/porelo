@@ -1365,8 +1365,8 @@ class ReconcileTest {
         assertThat(rewritten.outcome()).as(rewritten.detail()).isEqualTo(Reconcile.Outcome.APPLIED);
         for (final Path retired :
                 outOfBand ? java.util.List.of(extra, old) : java.util.List.of(old)) {
-            Files.writeString(repo.resolve("machine-signers"), "# retired key change\n");
-            git(repo, "add", "machine-signers");
+            Files.writeString(repo.resolve(".gitattributes"), "# retired key change\n");
+            git(repo, "add", ".gitattributes");
             git(repo, "config", "user.signingkey", retired.toString());
             git(repo, "commit", "-q", "-S", "-m", "retired key change");
             final Reconcile.Result refused =
@@ -1534,10 +1534,10 @@ class ReconcileTest {
                                         rewrite)
                                 .result();
         assertThat(first.outcome()).as(first.detail()).isEqualTo(Reconcile.Outcome.APPLIED);
-        Files.writeString(repo.resolve("machine-signers"), "# change\n");
-        git(repo, "add", "machine-signers");
+        Files.writeString(repo.resolve(".gitattributes"), "# change\n");
+        git(repo, "add", ".gitattributes");
         git(repo, "config", "user.signingkey", extra.toString());
-        git(repo, "commit", "-q", "-S", "-m", "message key change");
+        git(repo, "commit", "-q", "-S", "-m", "attributes change");
 
         final Reconcile.Result changed =
                 follow.follow("demo", repo.toString(), null, false, false).result();
@@ -1551,8 +1551,8 @@ class ReconcileTest {
         final Reconcile.Result retired =
                 follow.follow("demo", repo.toString(), null, false, false).result();
         assertThat(retired.outcome()).as(retired.detail()).isEqualTo(Reconcile.Outcome.APPLIED);
-        Files.writeString(repo.resolve("machine-signers"), "# another change\n");
-        git(repo, "add", "machine-signers");
+        Files.writeString(repo.resolve(".gitattributes"), "# another change\n");
+        git(repo, "add", ".gitattributes");
         git(repo, "config", "user.signingkey", extra.toString());
         git(repo, "commit", "-q", "-S", "-m", "retired key change");
         final Reconcile.Result refused =
@@ -2196,8 +2196,8 @@ class ReconcileTest {
                 new Reconcile(context)
                         .run(following(context, Reconcile.after(followed(repo), first)));
         assertThat(retired.outcome()).as(retired.detail()).isEqualTo(Reconcile.Outcome.APPLIED);
-        Files.writeString(repo.resolve("machine-signers"), "# new message keys\n");
-        git(repo, "add", "machine-signers");
+        Files.writeString(repo.resolve(".gitattributes"), "# new attributes\n");
+        git(repo, "add", ".gitattributes");
         git(repo, "commit", "-q", "-S", "-m", "change by a retired key");
 
         final Reconcile.Result result =
@@ -2896,7 +2896,7 @@ class ReconcileTest {
         final Reconcile.Result first =
                 new Reconcile(context).run(following(context, followed(repo)));
         Files.writeString(
-                repo.resolve(protectedChange ? "machine-signers" : "notes.md"), "# change\n");
+                repo.resolve(protectedChange ? ".gitattributes" : "notes.md"), "# change\n");
         git(repo, "add", "--all");
         git(repo, "commit", "-q", "-S", "-m", "change");
         final Path signers = context.paths().projects().configurationSigners();
@@ -3178,10 +3178,10 @@ class ReconcileTest {
         Files.writeString(
                 context.paths().projects().configurationSigners(),
                 "demo " + typeAndKey(key) + "\ndemo " + typeAndKey(extra) + "\n");
-        Files.writeString(repo.resolve("machine-signers"), "# change\n");
-        git(repo, "add", "machine-signers");
+        Files.writeString(repo.resolve(".gitattributes"), "# change\n");
+        git(repo, "add", ".gitattributes");
         git(repo, "config", "user.signingkey", extra.toString());
-        git(repo, "commit", "-q", "-S", "-m", "message key change");
+        git(repo, "commit", "-q", "-S", "-m", "attributes change");
 
         Files.writeString(repo.resolve("notes.md"), "notes\n");
         git(repo, "add", "notes.md");
@@ -3324,8 +3324,7 @@ class ReconcileTest {
         "access.yml, delete",
         "project.yml, delete",
         "project.yml, rename",
-        "machine-signers, add",
-        "machine-signers, change",
+        ".gitattributes, add",
         ".gitattributes, change",
         "snippets/.gitattributes, change",
         "root.dockerfile, change",
@@ -3335,7 +3334,7 @@ class ReconcileTest {
     })
     void every_protected_path_is_checked_before_a_signed_document(
             final String path, final String operation, @TempDir final Path dir) throws IOException {
-        // An unsigned script, access rule, or message key must not inherit a later signature.
+        // An unsigned script, access rule, or attribute must not inherit a later signature.
         final PoreloContext context = context(dir);
         final Path key = key(dir, "operator");
         pin(context, "demo", key);
@@ -3351,7 +3350,6 @@ class ReconcileTest {
                         + "    image: {base_image: 'ubuntu:24.04', snippet_file:"
                         + " snippets/repo.dockerfile}\n");
         Files.writeString(repo.resolve("access.yml"), "{}\n");
-        Files.writeString(repo.resolve("machine-signers"), "# message keys\n");
         Files.writeString(repo.resolve("root.dockerfile"), "RUN true\n");
         Files.createDirectories(repo.resolve("snippets"));
         Files.writeString(repo.resolve("snippets/repo.dockerfile"), "RUN true\n");
@@ -3427,7 +3425,6 @@ class ReconcileTest {
     @org.junit.jupiter.params.ParameterizedTest
     @org.junit.jupiter.params.provider.ValueSource(
             strings = {
-                "machine-signers",
                 "snippet_file",
                 "project.yml",
                 "access.yml",

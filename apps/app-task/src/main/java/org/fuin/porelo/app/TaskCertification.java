@@ -26,7 +26,7 @@ final class TaskCertification {
     private static final Duration SLACK = Duration.ofMinutes(5);
 
     /** The project of a task that has none. */
-    static final String NO_PROJECT = "default";
+    static final String NO_PROJECT = MessageSigners.NO_PROJECT;
 
     /** Certifies a task's key: the starting person's side. */
     @FunctionalInterface

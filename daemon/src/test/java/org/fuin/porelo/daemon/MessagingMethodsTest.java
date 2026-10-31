@@ -54,9 +54,9 @@ class MessagingMethodsTest {
                 .as("the membership used by the daemon listing observes removal")
                 .isEmpty();
         assertThat(runner.only(" part ").arguments())
-                .as("the daemon uses the same lifecycle without machine")
+                .as("the daemon uses the same lifecycle, part without the login")
                 .containsSubsequence("part", "--project", "p", "--person", "alice")
-                .doesNotContain("--machine");
+                .doesNotContain("--login");
     }
 
     @Test
@@ -178,7 +178,7 @@ class MessagingMethodsTest {
         adapter.toFile().setExecutable(true);
         runner.answering(
                 "describe",
-                "{\"scheme\":\"room\",\"poll\":true,\"takes\":[\"machine\"],\"lifecycle\":[\"setup\",\"join\",\"part\"]}");
+                "{\"scheme\":\"room\",\"poll\":true,\"takes\":[\"login\"],\"lifecycle\":[\"setup\",\"join\",\"part\"]}");
         runner.answering(
                 " setup ", "{\"account\":{\"ADMIN\":\"a-1\"},\"secrets\":{\"POLLER\":\"p-1\"}}");
         runner.answering(" join ", "{\"login\":{\"user\":\"@alice\"}}");

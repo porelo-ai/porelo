@@ -38,7 +38,9 @@ class AllowedSignersTest {
 
         final var peers = AllowedSigners.read(file);
 
-        assertThat(peers).extracting(MessageDelivery.Peer::name).containsExactly("reviewer", "ops");
+        assertThat(peers)
+                .extracting(AllowedSigners.Signer::principal)
+                .containsExactly("reviewer", "ops");
         assertThat(peers.get(0).keys()).singleElement().isEqualTo(one.keyBlob());
     }
 

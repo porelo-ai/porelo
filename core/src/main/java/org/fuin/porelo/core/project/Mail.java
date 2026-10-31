@@ -233,9 +233,8 @@ public record Mail(
             return EXTERNAL.equals(trust);
         }
 
-        // A peer name has to be able to hold an OpenSSH principal, because that is what a peer is
-        // identified by when its message arrives: 'porelo talk key' prints 'porelo@<host>' and a
-        // project that could not name that would be unable to address the machine that produced it.
+        // A peer name has to be able to hold an OpenSSH principal such as 'porelo@<host>': a
+        // project that could not name one would be unable to address a peer named after one.
         // Measured on the VM, where the obvious path produced an identity nobody could address. It
         // reaches no file name and no argument list, only 'metadata.to' and a key in the moderation
         // file, so the dot and the at sign cost nothing.

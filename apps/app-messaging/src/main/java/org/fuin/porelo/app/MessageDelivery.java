@@ -5,8 +5,9 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.time.Clock;
+import java.time.Instant;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Comparator;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -20,7 +21,9 @@ import org.jspecify.annotations.Nullable;
  *
  * <p>A transport delivers into the mailbox's {@code inbound}; this is the step between that and the
  * agent's own inbox. What it decides is <strong>not</strong> what a message contains - the machine
- * that wrote it decided that - but whether anybody can say who wrote it.
+ * that wrote it decided that - but whether anybody can say who wrote it: a task key whose
+ * certificate one of the receiving project's certifiers issued, valid when the message arrives
+ * here.
  *
  * <p><strong>What cannot be attributed is held, never delivered and never deleted.</strong> An
  * agent acting on a message nobody can attribute is the failure this step exists to prevent, and
@@ -55,13 +58,35 @@ public final class MessageDelivery {
         String refuse(Mailbox mailbox, java.nio.file.Path message, String peer) throws IOException;
     }
 
+    /** Says whom an arriving message's key speaks for. */
+    @FunctionalInterface
+    public interface Signers {
+
+        /**
+         * Traces a key.
+         *
+         * @param key The OpenSSH public key blob the signature carries.
+         * @param arrived When the message arrived here, by this machine's clock.
+         * @return The peer it speaks for, or why it is not believed.
+         */
+        MessageSigners.Traced trace(byte[] key, Instant arrived);
+    }
+
+    private final Clock clock;
+
+    /** Constructor that takes the time a message arrives from this machine's clock. */
+    public MessageDelivery() {
+        this(Clock.systemUTC());
+    }
+
     /**
-     * One peer, and the keys allowed to speak for it.
+     * Constructor.
      *
-     * @param name Peer name, as the host knows it.
-     * @param keys OpenSSH public key blobs.
+     * @param clock What says when a message arrives.
      */
-    public record Peer(String name, List<byte[]> keys) {}
+    public MessageDelivery(final Clock clock) {
+        this.clock = clock;
+    }
 
     /**
      * One message that was not delivered.
@@ -113,33 +138,33 @@ public final class MessageDelivery {
      * Delivers what can be attributed and holds what cannot.
      *
      * @param mailbox The task's mailbox.
-     * @param peers The peers this task may hear from, with the keys allowed for each.
+     * @param signers Whom an arriving message's key speaks for.
      * @return What was delivered and what was held.
      * @throws IOException Reading or moving failed.
      */
-    public Outcome deliver(final Mailbox mailbox, final List<Peer> peers) throws IOException {
-        return deliver(mailbox, peers, Set.of());
+    public Outcome deliver(final Mailbox mailbox, final Signers signers) throws IOException {
+        return deliver(mailbox, signers, Set.of());
     }
 
     /**
      * Delivers what can be attributed, holds what cannot, and drops what has been delivered before.
      *
      * @param mailbox The task's mailbox.
-     * @param peers The peers this task may hear from, with the keys allowed for each.
+     * @param signers Whom an arriving message's key speaks for.
      * @param seen Ids this task has already been handed, from its record.
      * @return What was delivered, what was held and what was a repeat.
      * @throws IOException Reading or moving failed.
      */
-    public Outcome deliver(final Mailbox mailbox, final List<Peer> peers, final Set<String> seen)
+    public Outcome deliver(final Mailbox mailbox, final Signers signers, final Set<String> seen)
             throws IOException {
-        return deliver(mailbox, peers, seen, null);
+        return deliver(mailbox, signers, seen, null);
     }
 
     /**
      * Delivers what can be attributed and, where the peer is external, what the filter also passed.
      *
      * @param mailbox The task's mailbox.
-     * @param peers The peers this task may hear from, with the keys allowed for each.
+     * @param signers Whom an arriving message's key speaks for.
      * @param seen Ids this task has already been handed, from its record.
      * @param check What reads an external peer's message before an agent does, or {@code null} when
      *     nothing does - which is only ever the case where no peer is external.
@@ -148,18 +173,18 @@ public final class MessageDelivery {
      */
     public Outcome deliver(
             final Mailbox mailbox,
-            final List<Peer> peers,
+            final Signers signers,
             final Set<String> seen,
             final @org.jspecify.annotations.Nullable InboundCheck check)
             throws IOException {
-        return deliver(mailbox, peers, seen, check, null);
+        return deliver(mailbox, signers, seen, check, null);
     }
 
     /**
      * Delivers what can be attributed, what the filter passed and what is within the day's budget.
      *
      * @param mailbox The task's mailbox.
-     * @param peers The peers this task may hear from, with the keys allowed for each.
+     * @param signers Whom an arriving message's key speaks for.
      * @param seen Ids this task has already been handed, from its record.
      * @param check What reads an external peer's message before an agent does, or {@code null}.
      * @param budget How much this task and a peer may say to each other, or {@code null} for no
@@ -169,12 +194,12 @@ public final class MessageDelivery {
      */
     public Outcome deliver(
             final Mailbox mailbox,
-            final List<Peer> peers,
+            final Signers signers,
             final Set<String> seen,
             final @org.jspecify.annotations.Nullable InboundCheck check,
             final @org.jspecify.annotations.Nullable MessageBudget budget)
             throws IOException {
-        return deliver(mailbox, peers, seen, check, budget, null);
+        return deliver(mailbox, signers, seen, check, budget, null);
     }
 
     /**
@@ -182,7 +207,7 @@ public final class MessageDelivery {
      * passed and what is within the day's budget.
      *
      * @param mailbox The task's mailbox.
-     * @param peers The peers this task may hear from, with the keys allowed for each.
+     * @param signers Whom an arriving message's key speaks for.
      * @param seen Ids this task has already been handed, from its record.
      * @param check What reads an external peer's message before an agent does, or {@code null}.
      * @param budget How much this task and a peer may say to each other, or {@code null}.
@@ -193,7 +218,7 @@ public final class MessageDelivery {
      */
     public Outcome deliver(
             final Mailbox mailbox,
-            final List<Peer> peers,
+            final Signers signers,
             final Set<String> seen,
             final @org.jspecify.annotations.Nullable InboundCheck check,
             final @org.jspecify.annotations.Nullable MessageBudget budget,
@@ -253,16 +278,36 @@ public final class MessageDelivery {
                 held.add(new Held(name, "its signature cannot be read"));
                 continue;
             }
-            final Peer peer = peerFor(peers, signer);
-            if (peer == null) {
-                hold(mailbox, message, signature);
-                held.add(new Held(name, "it is signed by a key no peer is allowed to use"));
-                continue;
-            }
             if (!SshSignature.verify(bytes, armored, signer, MessageIntake.NAMESPACE)) {
                 hold(mailbox, message, signature);
                 held.add(
                         new Held(name, "its signature does not match the message it arrived with"));
+                continue;
+            }
+            // When this pass takes it, by this machine's clock: never a time the sender wrote.
+            final MessageSigners.Traced peer = signers.trace(signer, clock.instant());
+            if (peer.waits()) {
+                // Left where it arrived, as a task's own message waits for the vault: held, it
+                // would never be delivered once the vault opened.
+                continue;
+            }
+            if (!peer.believed()) {
+                hold(mailbox, message, signature);
+                held.add(new Held(name, peer.refusal()));
+                continue;
+            }
+            // The agent reads who wrote a message from its metadata, which the sender wrote: a
+            // name other than the key's would pass one task off as another, or as a person.
+            final String from = from(bytes);
+            if (from != null && !from.equals(peer.peer())) {
+                hold(mailbox, message, signature);
+                held.add(
+                        new Held(
+                                name,
+                                "it says it is from "
+                                        + from.replaceAll("\\p{Cntrl}", "?")
+                                        + ", and it is signed by "
+                                        + peer.peer()));
                 continue;
             }
 
@@ -290,7 +335,7 @@ public final class MessageDelivery {
             // Before anything else about the message: who put it here is a fact that stops being
             // knowable once it has been moved, and it is the one the peer table can disagree with.
             final String owner =
-                    attested == null ? "" : attested.refuse(mailbox, message, peer.name());
+                    attested == null ? "" : attested.refuse(mailbox, message, peer.peer());
             if (!owner.isEmpty()) {
                 hold(mailbox, message, signature);
                 held.add(new Held(name, owner, id));
@@ -300,7 +345,7 @@ public final class MessageDelivery {
             final String full =
                     budget == null
                             ? ""
-                            : budget.inbound(peer.name(), handedOver.getOrDefault(peer.name(), 0));
+                            : budget.inbound(peer.peer(), handedOver.getOrDefault(peer.peer(), 0));
             if (!full.isEmpty()) {
                 // Held rather than refused back: this machine is the one that is full, and the
                 // message itself is nobody's fault.
@@ -311,7 +356,7 @@ public final class MessageDelivery {
 
             // After attribution and after the repeat check: there is no point reading a message
             // nobody can attribute, and none in reading the same one twice.
-            final String refused = check == null ? "" : check.refuse(mailbox, message, peer.name());
+            final String refused = check == null ? "" : check.refuse(mailbox, message, peer.peer());
             if (!refused.isEmpty()) {
                 hold(mailbox, message, signature);
                 held.add(new Held(name, refused, id));
@@ -340,21 +385,29 @@ public final class MessageDelivery {
                         mailbox.record().resolve(name + OwnerAttestation.SUFFIX),
                         StandardCopyOption.REPLACE_EXISTING);
             }
-            delivered.add(new Delivered(name, id, peer.name()));
-            handedOver.merge(peer.name(), 1, Integer::sum);
+            delivered.add(new Delivered(name, id, peer.peer()));
+            handedOver.merge(peer.peer(), 1, Integer::sum);
         }
         return new Outcome(delivered, held, duplicates);
     }
 
-    private @Nullable Peer peerFor(final List<Peer> peers, final byte[] signer) {
-        for (final Peer peer : peers) {
-            for (final byte[] key : peer.keys()) {
-                if (Arrays.equals(key, signer)) {
-                    return peer;
-                }
-            }
+    /**
+     * Returns whom a message's {@code metadata.from} names, {@code null} when it names nobody, and
+     * "" for one that is no name or a message that cannot be read.
+     */
+    private static @Nullable String from(final byte[] message) {
+        final Object parsed;
+        try {
+            parsed = org.fuin.porelo.wire.Json.parse(new String(message, StandardCharsets.UTF_8));
+        } catch (final RuntimeException ex) {
+            return null;
         }
-        return null;
+        if (!(parsed instanceof java.util.Map<?, ?> document)
+                || !(document.get("metadata") instanceof java.util.Map<?, ?> metadata)
+                || !metadata.containsKey("from")) {
+            return null;
+        }
+        return metadata.get("from") instanceof String name ? name : "";
     }
 
     private void hold(final Mailbox mailbox, final Path message, final @Nullable Path signature)

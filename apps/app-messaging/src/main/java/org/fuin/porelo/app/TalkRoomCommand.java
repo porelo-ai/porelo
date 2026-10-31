@@ -12,16 +12,15 @@ import picocli.CommandLine.Spec;
 
 /**
  * Makes a project's room on its server, as the project admin's machine. From then on this account
- * keeps the room's machines, and its persons where the transport takes them, to the applied
- * admitted persons list after each applied commit.
+ * keeps the room's persons, by their logins, to the applied admitted persons list after each
+ * applied commit.
  */
 @Command(
         name = "room",
         mixinStandardHelpOptions = true,
         description =
                 "Makes a project's room on its server, as the project admin's machine; after each"
-                        + " applied commit this account keeps the room's machines, and its persons"
-                        + " where the transport takes them, to the list.")
+                        + " applied commit this account keeps the room's persons to the list.")
 public class TalkRoomCommand implements Callable<Integer>, PoreloFactory.ContextAware {
 
     @Parameters(index = "0", paramLabel = "<project>", description = "Project name.")
@@ -57,7 +56,7 @@ public class TalkRoomCommand implements Callable<Integer>, PoreloFactory.Context
             kept = MachineTransports.keepMembers(context, project);
         } catch (Conversations.Refused ex) {
             err.println(
-                    "porelo: the room is made, and its machines are not kept yet: "
+                    "porelo: the room is made, and its persons are not kept yet: "
                             + ex.getMessage());
             err.flush();
             out.flush();

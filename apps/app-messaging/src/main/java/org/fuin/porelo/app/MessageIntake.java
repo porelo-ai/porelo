@@ -11,6 +11,7 @@ import java.util.List;
 import java.util.stream.Stream;
 import org.fuin.porelo.vault.SigningKey;
 import org.fuin.porelo.vault.SshSignature;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Takes what an agent has finished writing out of its outbox, and signs it.
@@ -26,9 +27,11 @@ import org.fuin.porelo.vault.SshSignature;
  * that wrote {@code ROLE_USER} into its outbox would otherwise be forging a message from its own
  * operator.
  *
- * <p><strong>The signature is made over the bytes as they are</strong>, and nothing downstream may
- * rewrite them - not the filter, not a transport. That is what lets the far end verify with nothing
- * but {@code ssh-keygen} and an {@code allowed_signers} file.
+ * <p><strong>The signature is made over the bytes as they are, by the task's own key</strong>, and
+ * nothing downstream may rewrite them - not the filter, not a transport. The key is held on the
+ * host, never in the container; the far end traces it to its certificate by its fingerprint. A task
+ * without a key of its own sends nothing: its messages are held and it is told why. While only the
+ * vault is locked they wait in the outbox.
  */
 public final class MessageIntake {
 
@@ -41,14 +44,15 @@ public final class MessageIntake {
     /** The only role a message a person wrote may carry. */
     public static final String PERSON = "ROLE_USER";
 
-    private final SigningKey key;
+    private final MessageSigners.Own key;
 
     /**
-     * Constructor with the host's signing key.
+     * Constructor with the task's own key.
      *
-     * @param key Key held on the host. Never inside a container.
+     * @param key Its key, held on the host and never inside a container; read only when there is
+     *     something to sign.
      */
-    public MessageIntake(final SigningKey key) {
+    public MessageIntake(final MessageSigners.Own key) {
         this.key = key;
     }
 
@@ -78,7 +82,21 @@ public final class MessageIntake {
     private List<String> take(final Mailbox mailbox, final Path from, final boolean person)
             throws IOException {
         final List<String> taken = new ArrayList<>();
-        for (final Path message : finished(from)) {
+        final List<Path> finished = finished(from);
+        if (finished.isEmpty()) {
+            return taken;
+        }
+        @Nullable SigningKey signing = null;
+        String unsigned = "";
+        try {
+            signing = key.key();
+        } catch (final MessageSigners.Unsigned ex) {
+            if (ex.waits()) {
+                return taken;
+            }
+            unsigned = String.valueOf(ex.getMessage());
+        }
+        for (final Path message : finished) {
             final String name = message.getFileName().toString();
             // The bytes, once, and from then on the host's own copy: renamed onward, the file
             // stayed the agent's inode, and through a hard link it kept it could change a message
@@ -102,6 +120,14 @@ public final class MessageIntake {
                 continue;
             }
 
+            if (signing == null) {
+                // Held, with the sender told: unsigned, no receiver could believe it.
+                final Path held = mailbox.hold().resolve(name);
+                place(bytes, held);
+                new HostBounce().write(mailbox, held, "it was not sent: " + unsigned, true);
+                continue;
+            }
+
             // The signature is written before the message. A crash between the two leaves a
             // signature with no message, which the next run overwrites; the other order would leave
             // a message with no signature, and nothing downstream could tell whether it had been
@@ -109,7 +135,7 @@ public final class MessageIntake {
             final Path signature = mailbox.incoming().resolve(name + ".sig");
             final Path partial = mailbox.incoming().resolve("." + name + ".sig.tmp");
             Files.writeString(
-                    partial, SshSignature.sign(key, bytes, NAMESPACE), StandardCharsets.UTF_8);
+                    partial, SshSignature.sign(signing, bytes, NAMESPACE), StandardCharsets.UTF_8);
             Files.move(
                     partial,
                     signature,

@@ -51,7 +51,7 @@ class TransportConversationsTest {
         final var part = runner.only(" part ");
         assertThat(part.arguments().subList(1, part.arguments().size()))
                 .as(
-                        "part receives only the project and person, even when the transport takes machine")
+                        "part receives only the project and person, even when the transport takes login")
                 .containsExactly("part", "--project", "p", "--person", "alice");
         assertThat(part.environment())
                 .as("the account and project credentials reach part")
@@ -266,10 +266,10 @@ class TransportConversationsTest {
                 .as("offline removal succeeds")
                 .isZero();
         assertThat(runner.only(" part ").arguments())
-                .as("offline part is loopback only and never gets machine")
+                .as("offline part is loopback only and never gets a login")
                 .containsSubsequence("part", "--project", "p", "--person", "alice")
                 .contains("--loopback-only")
-                .doesNotContain("--machine");
+                .doesNotContain("--login");
     }
 
     @Test
@@ -359,7 +359,7 @@ class TransportConversationsTest {
             throws Exception {
         runner.answering(
                 "describe",
-                "{\"scheme\":\"room\",\"poll\":true,\"persons\":true,\"takes\":[\"machine\"],\"lifecycle\":[\"setup\",\"join\""
+                "{\"scheme\":\"room\",\"poll\":true,\"persons\":true,\"takes\":[\"login\"],\"lifecycle\":[\"setup\",\"join\""
                         + (offersPart ? ",\"part\"" : "")
                         + "]}");
         runner.answering(
@@ -544,14 +544,17 @@ class TransportConversationsTest {
                                 new String(answers.getFirst(), StandardCharsets.UTF_8), "porelo"))
                 .as("the signed message holds the same standard line")
                 .isEqualTo(line);
+        final byte[] signer = org.fuin.porelo.vault.SshSignature.signerOf(signatures.getFirst());
+        assertThat(signer).as("the answer is signed").isNotNull();
         assertThat(
                         org.fuin.porelo.vault.SshSignature.verify(
                                 answers.getFirst(),
                                 signatures.getFirst(),
-                                key.keyBlob(),
+                                signer,
                                 MessageIntake.NAMESPACE))
-                .as("the normal host message key signs the exact answer bytes")
+                .as("a key of its own signs the exact answer bytes")
                 .isTrue();
+        assertThat(signer).as("never this machine's message key").isNotEqualTo(key.keyBlob());
         assertThat(outcome.handed()).as("no task is handed the helper mention").isEmpty();
         for (final Mailbox mailbox : List.of(review, build)) {
             try (var files = Files.walk(mailbox.root())) {
@@ -853,7 +856,7 @@ class TransportConversationsTest {
     }
 
     @Test
-    void aTransportThatTakesTheMachinesNameIsGivenItAndOneThatDoesNotIsNot() throws Exception {
+    void aTransportThatTakesTheLoginIsGivenThisAccountsLoginAndNoMachinesName() throws Exception {
         Assumptions.assumeTrue(
                 KernelKeyring.available(),
                 "no kernel keyring here: libkeyutils is missing or the kernel refuses it");
@@ -866,7 +869,7 @@ class TransportConversationsTest {
             runner.answering(
                     "describe",
                     "{\"scheme\":\"room\",\"lifecycle\":[\"setup\",\"enroll\"],"
-                            + "\"takes\":[\"machine\"]}");
+                            + "\"takes\":[\"login\"]}");
             runner.answering(
                     "setup",
                     "{\"secrets\":{},\"conversation\":\"!r\",\"reaches\":[\"127.0.0.1\"]}");
@@ -875,14 +878,15 @@ class TransportConversationsTest {
             assertThat(new TaskConversations(context).enroll(project("guarded"), "porelo-p-review"))
                     .isNull();
 
-            // Two machines on one homeserver run tasks of the same name; the machine's name keeps
-            // them apart.
+            // Two persons on one homeserver run tasks of the same name; the login keeps them apart.
             assertThat(runner.only(" setup ").arguments())
-                    .as("a first setup is given this account's name on this host")
-                    .containsSequence("--machine", PoreloContext.TEST_MACHINE);
+                    .as("a first setup is given this account's login on this host")
+                    .containsSequence("--login", System.getProperty("user.name"))
+                    .doesNotContain("--machine", PoreloContext.TEST_MACHINE);
             assertThat(runner.only(" enroll ").arguments())
                     .as("and so is every task's enroll")
-                    .containsSequence("--machine", PoreloContext.TEST_MACHINE);
+                    .containsSequence("--login", System.getProperty("user.name"))
+                    .doesNotContain("--machine", PoreloContext.TEST_MACHINE);
         } finally {
             keyring.forget();
         }
@@ -902,21 +906,21 @@ class TransportConversationsTest {
             runner.answering(
                     "describe",
                     "{\"scheme\":\"room\",\"lifecycle\":[\"setup\",\"enroll\"],"
-                            + "\"takes\":[\"machine\"]}");
+                            + "\"takes\":[\"login\"]}");
             runner.answering(
                     "setup",
                     "{\"secrets\":{},\"conversation\":\"!r\",\"reaches\":[\"127.0.0.1\"],"
-                            + "\"machine\":\"build-1\"}");
+                            + "\"login\":\"build-1\"}");
             runner.answering("enroll", "{\"secrets\":{\"TASK\":\"t-1\"}}");
 
             assertThat(new TaskConversations(context).enroll(project("guarded"), "porelo-p-review"))
                     .as("the task enrolls")
                     .isNull();
 
-            // Passing the host's name back would let two accounts of one host share it in the room.
+            // Passing a name back would let two persons share it in the room.
             assertThat(runner.only(" enroll ").arguments())
-                    .as("<host>-<account>, not the name the transport answered at setup")
-                    .containsSequence("--machine", PoreloContext.TEST_MACHINE)
+                    .as("this account's login, not the one the transport answered at setup")
+                    .containsSequence("--login", System.getProperty("user.name"))
                     .doesNotContain("build-1");
         } finally {
             keyring.forget();
@@ -924,18 +928,14 @@ class TransportConversationsTest {
     }
 
     @Test
-    void anAccountThatMakesNoMachineNameIsRefusedBeforeTheTransportRuns() throws Exception {
+    void anAccountWhoseLoginNoTransportTakesIsRefusedBeforeTheTransportRuns() throws Exception {
         Assumptions.assumeTrue(
                 KernelKeyring.available(),
                 "no kernel keyring here: libkeyutils is missing or the kernel refuses it");
-        final PoreloContext context =
-                context()
-                        .namedAs(
-                                () -> {
-                                    throw new IllegalArgumentException(
-                                            "'build-1-al ice' is not a machine's name");
-                                });
+        final PoreloContext context = context();
         final KernelKeyring keyring = new KernelKeyring(context.paths().vault().vaultKeyringKey());
+        final String login = System.getProperty("user.name");
+        System.setProperty("user.name", "al ice");
         try {
             Files.createDirectories(context.vault().path().getParent());
             context.vault().write(Map.of(), PASSPHRASE);
@@ -943,7 +943,7 @@ class TransportConversationsTest {
             runner.answering(
                     "describe",
                     "{\"scheme\":\"room\",\"lifecycle\":[\"setup\",\"enroll\"],"
-                            + "\"takes\":[\"machine\"]}");
+                            + "\"takes\":[\"login\"]}");
             runner.answering(
                     "setup",
                     "{\"secrets\":{},\"conversation\":\"!r\",\"reaches\":[\"127.0.0.1\"]}");
@@ -951,7 +951,7 @@ class TransportConversationsTest {
             final String refused =
                     new TaskConversations(context).enroll(project("guarded"), "porelo-p-review");
 
-            // A name that is no machine's must never reach the transport's command line.
+            // A login no transport takes must never reach the transport's command line.
             assertThat(refused).as("the task is refused, naming what is wrong").contains("al ice");
             assertThat(runner.lines().stream().filter(line -> line.contains(" setup ")))
                     .as("the transport was never run with it")
@@ -969,6 +969,7 @@ class TransportConversationsTest {
                             TransportLifecycle.Refused.class,
                             ex -> assertThat(ex.code()).as("exit").isEqualTo(78));
         } finally {
+            System.setProperty("user.name", login);
             keyring.forget();
         }
     }
@@ -988,10 +989,10 @@ class TransportConversationsTest {
             runner.answering(
                     "describe",
                     "{\"scheme\":\"room\",\"lifecycle\":[\"setup\",\"enroll\"],"
-                            + "\"takes\":[\"machine\"]}");
+                            + "\"takes\":[\"login\"]}");
             runner.answering(
                     "setup",
-                    "{\"account\":{\"MACHINE\":\"m-1\"},\"machine\":\"host-b\","
+                    "{\"account\":{\"MACHINE\":\"m-1\"},\"login\":\"host-b\","
                             + "\"admitted\":false,\"address\":\"@porelo.host-b:example.org\",\"room\":\"#p:example.org\"}");
 
             final String refused =

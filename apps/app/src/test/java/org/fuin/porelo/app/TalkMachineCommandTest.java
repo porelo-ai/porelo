@@ -38,28 +38,11 @@ class TalkMachineCommandTest {
     }
 
     @Test
-    void printsTheNameATransportIsGiven() {
+    void printsTheLoginATransportIsGiven() {
         // A name listed that differs from the one passed would leave the account out of the room.
         assertThat(execute(context())).as("exit").isZero();
         assertThat(out.toString().strip())
-                .as("the very name the transport gets as --machine")
-                .isEqualTo(PoreloContext.TEST_MACHINE);
-    }
-
-    @Test
-    void anAccountThatMakesNoMachineNameExitsAsAConfigurationFault() {
-        // A play reading exit 0 would list an empty name.
-        final int code =
-                execute(
-                        context()
-                                .namedAs(
-                                        () -> {
-                                            throw new IllegalArgumentException(
-                                                    "'build-1-al ice' is not a machine's name");
-                                        }));
-
-        assertThat(code).as("78, what the transport verbs refuse such a name with").isEqualTo(78);
-        assertThat(out.toString()).as("no name printed").isEmpty();
-        assertThat(err.toString()).as("the refusal names it").contains("al ice");
+                .as("the very name the transport gets as --login")
+                .isEqualTo(System.getProperty("user.name"));
     }
 }

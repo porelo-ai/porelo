@@ -20,14 +20,6 @@ Feature: The talk commands
             | verify  |
             | say     |
             | tell    |
-            | key     |
-
-    Scenario: this machine's signing key is given as a peer would write it down, and only its public half
-        When a script runs "porelo talk key --as porelo-acceptance"
-        Then it exits zero
-        And its output contains "porelo-acceptance"
-        And its output contains "ssh-"
-        And its output does not contain "PRIVATE KEY"
 
     Scenario Outline: a command about a task that has no mailbox says so rather than acting on nothing
         When a script runs "porelo talk <command> porelo-acceptance-no-such-task <more>"

@@ -26,8 +26,8 @@ class MessageDeliveryTest {
         return mailbox;
     }
 
-    private List<MessageDelivery.Peer> reviewer() {
-        return List.of(new MessageDelivery.Peer("reviewer", List.of(peerKey.keyBlob())));
+    private MessageDelivery.Signers reviewer() {
+        return PeerKeys.of("reviewer", peerKey);
     }
 
     private void arrive(

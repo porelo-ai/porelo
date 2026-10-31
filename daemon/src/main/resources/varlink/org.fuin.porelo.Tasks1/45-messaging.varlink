@@ -8,6 +8,7 @@ type MessageMember (
 )
 
 # This machine's message key, for an interface that writes its machine-signers line into a project itself.
+# It signs no message any more: a task signs with its own certified key, and nothing reads machine-signers.
 method MessageKey() -> (principal: string, key: string, line: string, fingerprint: string)
 
 # ---------------------------------------------------------------------------- messages
@@ -288,14 +289,14 @@ method DismissMachine(
 
 # Makes a project's room on its server, as the project admin's machine, and records that this account
 # made it: from then on, after each applied commit of the project or its access file, this account keeps
-# the room's machines to the applied developer list through the transport's members. Refused with
+# the room's persons to the applied developer list through the transport's members. Refused with
 # ConversationRefused for an offline project and where the transport does not take --create-room.
 method CreateRoom(project: string) -> (
   # What a peer address of the project stands for.
   conversation: string,
   # The room the transport made.
   room: string,
-  # This machine's name on the transport, the one that made the room.
+  # The login the room was made by, as the transport kept it; named machine from before.
   machine: string
 )
 

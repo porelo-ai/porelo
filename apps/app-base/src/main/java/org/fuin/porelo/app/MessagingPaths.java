@@ -38,12 +38,11 @@ public record MessagingPaths(PoreloPaths paths) {
     }
 
     /**
-     * Returns the file holding the key this machine signs messages with.
+     * Returns the file holding this machine's own message key, which signs no message any more: a
+     * task signs with its own key. Kept while an interface still asks for the key and clearing
+     * still names its line, so a project that lists it can drop it.
      *
-     * <p>Under the state directory, mode {@code 0600}, and never mounted anywhere. A key a task
-     * container could reach is a key it could copy, which is why the task never signs and the host
-     * always does - and why what a signature proves is that this installation vouched for the
-     * message, not that a particular agent typed it.
+     * <p>Under the state directory, mode {@code 0600}, and never mounted anywhere.
      *
      * @return The key file, which may not exist yet.
      */
@@ -64,19 +63,6 @@ public record MessagingPaths(PoreloPaths paths) {
      */
     public Path moderation(String project) {
         return paths.xdg().state().resolve("moderation").resolve(project + ".json");
-    }
-
-    /**
-     * Returns where the users of this machine publish their message keys to each other.
-     *
-     * <p>Outside any user's home, because it is shared, and made only where an operator has allowed
-     * messaging between users. A file here is believed only if it is owned by the user it is named
-     * after.
-     *
-     * @return The directory, which need not exist.
-     */
-    public Path sharedKeys() {
-        return paths.spool().resolve("keys");
     }
 
     /**
@@ -112,19 +98,5 @@ public record MessagingPaths(PoreloPaths paths) {
             }
         }
         return null;
-    }
-
-    /**
-     * Returns the file naming who may speak for a peer.
-     *
-     * <p>OpenSSH's {@code allowed_signers} format, so the keys that decide what a task may read can
-     * be checked with {@code ssh-keygen -Y verify} by somebody who has no Porelo.
-     *
-     * @return The file, which may not exist.
-     */
-    public Path allowedSigners() {
-        // Named for what it holds, the message keys of other machines, as a project's own file is
-        // (the operator, 2026-10-04); the format is still OpenSSH's allowed_signers.
-        return paths.xdg().config().resolve("machine-signers");
     }
 }

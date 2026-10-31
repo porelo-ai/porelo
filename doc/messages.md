@@ -50,9 +50,9 @@ mail:
   port Porelo picks and keeps. It needs no root, and no other user on the machine shares it.
 - **An `offline` project** messages through a homeserver on this machine's loopback only; a declared
   homeserver anywhere else refuses its tasks before they start.
-- **On a shared homeserver this account goes by `<host>-<account>`**, in lower case, which `porelo talk machine`
-  prints for a project admin to list, so two people's accounts on one host never meet on one name. A transport keeps
-  the name it first used, so an account that used another one before keeps its accounts there.
+- **On a shared homeserver every account is a person's**, named by their login, whatever machine they sit at: the
+  transport is given this account's login and suffixes each account it makes with it, so two people's tasks of the
+  same name never meet on one name.
 - **Each task gets an account of its own** when it starts, and the account is deactivated when the task is
   removed. Its token stays in your vault; the task never holds it and has no route to the homeserver.
 - **The room is the boundary.** Every task of the project and every person in it reads everything said there.
@@ -64,25 +64,37 @@ mail:
   accounts. `porelo talk remove PROJECT PERSON` removes them through the transport and, only after it
   succeeds, from the members list; it says why if their account stays. Their room messages no longer reach
   tasks, and tasks can no longer address them by their joined name.
-- **Being in the room is not enough to be delivered.** A message reaches a task only if it is signed by a key
-  listed for a peer of that project and names one of that project's tasks; anything else is held and you are
-  told.
+- **Being in the room is not enough to be delivered.** A message reaches a task only if it is signed by a task's
+  key that one of the project's certifiers certified, valid when the message arrives, and names one of that
+  project's tasks; anything else is held and you are told, with the key named.
 
 A transport is a package on the host; [writing a transport](transports.md) says what one answers.
 
 ## What the host guarantees
 
-- **Every message is signed on the host**, never in the task: a detached OpenSSH signature over its exact
-  bytes, made with this machine's signing key (`porelo talk key` prints it as an `allowed_signers` line). It is
-  not your login key. Anyone can check a message with nothing but OpenSSH:
+- **Every message is signed on the host by its task's own key**, never in the task: a detached OpenSSH
+  signature in the `porelo-message` namespace over its exact bytes, made with the task's plain Ed25519 key, which
+  Porelo holds outside the container. It is not your login key. The signature names only the key; the receiver
+  looks up the key's certificate by its fingerprint, as `porelo task certificate <fingerprint>` answers it - what
+  this machine kept when the task started, else what the host the task runs on keeps - and accepts the message
+  only when one of the receiving project's certifiers issued that certificate and it is valid at the moment the
+  message arrives, by the receiver's clock, whatever time the message claims. The certificate must name exactly one
+  task, `task:<project>:<task>`, with names a project and a task can have. A task without a project accepts the
+  person who certified its own key, and while the vault holding that is locked, what arrives for it waits; a task
+  whose project file cannot be read accepts nobody. A task with no certified key sends nothing: its messages are
+  held and it is told; while only the vault is locked they wait. Anyone can check a signature with OpenSSH, given
+  the task's public key as the certificate names it:
 
   ```
-  ssh-keygen -Y verify -f allowed_signers -I <principal> -n porelo-message -s <message>.sig < <message>
+  echo "task <task key>" > allowed_signers
+  ssh-keygen -Y verify -f allowed_signers -I task -n porelo-message -s <message>.sig < <message>
   ```
 
-- **Trust is a property of the peer.** A message from a `vouched` peer - one of your own machines - is
-  delivered once its signature checks against a key listed for that peer. One from an `external` peer is
-  also put through the filter on the way in.
+- **Trust is a property of the peer.** A message from a `vouched` peer is delivered once its key traces to a
+  certificate as above; the peer is the task's name for a task of the same project, and its whole principal,
+  `task:<project>:<task>`, for one of another project. A message whose `metadata.from` names anyone else is
+  held. One from an `external` peer, or one the project does not list, is also put through the filter on the way
+  in.
 - **No order is promised, and nothing is delivered twice**: a message whose id already reached a mailbox is
   dropped and logged.
 - **The mailbox lives exactly as long as the task**: a stop, a start or a reboot leave it as it was, and the

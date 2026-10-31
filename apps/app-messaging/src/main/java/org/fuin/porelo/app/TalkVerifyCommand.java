@@ -43,7 +43,9 @@ public class TalkVerifyCommand implements Callable<Integer>, PoreloFactory.Conte
             err.flush();
             return 1;
         }
-        final MessageVerify.Report report = new MessageVerify().check(mailbox, believed());
+        final MessageVerify.Report report =
+                new MessageVerify()
+                        .check(mailbox, MessageSigners.of(context, container, null)::certified);
         out.println(
                 "record    "
                         + report.lines()
@@ -62,23 +64,5 @@ public class TalkVerifyCommand implements Callable<Integer>, PoreloFactory.Conte
         err.flush();
         // A failure, because this command exists to be run by something that acts on the answer.
         return 1;
-    }
-
-    /**
-     * Returns every key a delivery believes, as a pass gathers them: the operator's file alone
-     * named every message from this machine's own tasks, from the account next door and from a
-     * followed project's machines as signed by a key no peer may use, and the command failed.
-     */
-    private java.util.List<MessageDelivery.Peer> believed() throws java.io.IOException {
-        final java.util.List<MessageDelivery.Peer> peers =
-                new java.util.ArrayList<>(KnownPeers.of(context));
-        final java.nio.file.Path own = context.paths().messaging().messageKey();
-        if (java.nio.file.Files.isRegularFile(own)) {
-            // This machine's own key, which signs what its tasks send each other: only read here,
-            // never made - a machine without one has signed nothing.
-            final var key = HostKey.loadOrCreate(own, "porelo");
-            peers.add(new MessageDelivery.Peer(key.comment(), java.util.List.of(key.keyBlob())));
-        }
-        return peers;
     }
 }

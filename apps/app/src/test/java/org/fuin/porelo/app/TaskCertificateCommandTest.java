@@ -44,10 +44,9 @@ class TaskCertificateCommandTest {
 
     @Test
     void oneThisMachineDidNotKeepIsAskedOfTheHostAndItsAnswerChecked() throws Exception {
-        final String fingerprint = "SHA256:" + "B".repeat(43);
-        runner.answering(
-                "porelo-host-person task --show",
-                "{\"task\":\"fix\",\"fingerprint\":\"" + fingerprint + "\"}\n");
+        final SshCertificate certificate = certificate();
+        final String fingerprint = certificate.fingerprint();
+        runner.answering("porelo-host-person task --show", hostRecord(fingerprint, certificate));
 
         assertThat(porelo("task", "certificate", fingerprint, "--json")).isZero();
         assertThat(out.toString()).contains("\"task\":\"fix\"");
@@ -62,6 +61,40 @@ class TaskCertificateCommandTest {
                 .as("an answer about another key is not believed")
                 .isEqualTo(70);
         assertThat(out.toString()).isEmpty();
+    }
+
+    @Test
+    void aHostRecordWhoseCertificateIsOfAnotherKeyOrMissingIsNotBelieved() throws Exception {
+        // The outer fingerprint is only what the answer says about itself; the certificate is what
+        // a receiver would trust.
+        final SshCertificate other = certificate();
+        final String fingerprint = "SHA256:" + "B".repeat(43);
+        runner.answering("porelo-host-person task --show", hostRecord(fingerprint, other));
+
+        assertThat(porelo("task", "certificate", fingerprint, "--json"))
+                .as("a record holding another key's certificate")
+                .isEqualTo(70);
+        assertThat(out.toString()).isEmpty();
+
+        runner.answering(
+                "porelo-host-person task --show",
+                "{\"task\":\"fix\",\"fingerprint\":\"" + fingerprint + "\"}\n");
+        assertThat(porelo("task", "certificate", fingerprint, "--json"))
+                .as("a record holding no certificate")
+                .isEqualTo(70);
+        assertThat(out.toString()).isEmpty();
+    }
+
+    private static String hostRecord(final String fingerprint, final SshCertificate certificate) {
+        return Json.write(
+                        Map.of(
+                                "task",
+                                "fix",
+                                "fingerprint",
+                                fingerprint,
+                                "certificate",
+                                certificate.line()))
+                + "\n";
     }
 
     @Test

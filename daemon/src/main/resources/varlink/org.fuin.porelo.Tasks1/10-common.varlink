@@ -23,8 +23,9 @@ type ProjectMessages (
   detail: string,
   # True for an offline project: its conversation must be on this machine's loopback.
   loopbackOnly: bool,
-  # The name this machine goes by on the transport, as the transport kept it; "" before the first setup.
-  # It is what this machine's account is named after, so read it from here rather than guessing a host name.
+  # The person's login this account goes by on the transport, as the transport kept it; "" before the
+  # first setup. It is what this account's accounts there are named after. Named machine from before a
+  # login took a machine's name's place.
   machine: string,
   # Whether this machine is in the conversation. False on a shared server until a person there has let
   # this machine's account in; while it is, no task of the project starts, and 'detail' says whom to let in.

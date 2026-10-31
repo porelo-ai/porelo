@@ -48,11 +48,12 @@ public final class MessageVerify {
      * Checks one mailbox.
      *
      * @param mailbox The task's mailbox.
-     * @param peers The peers whose keys may have signed what arrived.
+     * @param certified Whether a key is a task key whose certificate is kept: whether it was
+     *     believed is what its arrival decided, against the time it arrived.
      * @return What was found.
      * @throws IOException Reading failed.
      */
-    public Report check(final Mailbox mailbox, final List<MessageDelivery.Peer> peers)
+    public Report check(final Mailbox mailbox, final java.util.function.Predicate<byte[]> certified)
             throws IOException {
         final List<Fault> faults = new ArrayList<>();
         final MessageRecord record = new MessageRecord(mailbox);
@@ -77,11 +78,11 @@ public final class MessageVerify {
             checked++;
             final String armored = Files.readString(signature, StandardCharsets.UTF_8);
             final byte[] signer = SshSignature.signerOf(armored);
-            if (signer == null || peerFor(peers, signer) == null) {
+            if (signer == null || !certified.test(signer)) {
                 faults.add(
                         new Fault(
                                 messageName,
-                                "its signature is not one of the keys a peer may use"));
+                                "its signature is by no task key whose certificate is kept"));
             } else if (!matches(message, armored, signer)) {
                 faults.add(
                         new Fault(
@@ -89,18 +90,6 @@ public final class MessageVerify {
             }
         }
         return new Report(record.size(), checked, List.copyOf(faults));
-    }
-
-    private MessageDelivery.@org.jspecify.annotations.Nullable Peer peerFor(
-            final List<MessageDelivery.Peer> peers, final byte[] signer) {
-        for (final MessageDelivery.Peer peer : peers) {
-            for (final byte[] key : peer.keys()) {
-                if (java.util.Arrays.equals(key, signer)) {
-                    return peer;
-                }
-            }
-        }
-        return null;
     }
 
     /**

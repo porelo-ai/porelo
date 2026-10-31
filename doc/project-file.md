@@ -364,7 +364,7 @@ follow their own.
 - **Every change to a protected file is signed by a key in force before that commit.** The first-parent
   range from the commit in force to the fetched tip is checked commit by commit, each against its first
   parent, including merges, deletions and both ends of a rename. Protected files are `project.yml`,
-  `access.yml` when named beside it, `machine-signers`, `porelo.yml` in the project's own repository,
+  `access.yml` when named beside it, `porelo.yml` in the project's own repository,
   and every `image.snippet_file` named by the project, a repository, or that `porelo.yml`, read from
   the committed YAML. The `.gitattributes` files at the root and
   in their ancestor directories are protected too, since Git can transform the checked-out files
@@ -520,25 +520,13 @@ as if it still did something: `unread_work_may_leave` is gone, and how closely a
 Porelo still runs on an older one. Porelo does not check the names under `credentials` and
 `repositories`, or anything under `mail.transports.<scheme>` (the transport checks that).
 
-## machine-signers, beside this file
+## project-signers, on each machine
 
-The public keys a project's machines sign messages with live in `machine-signers`, next to
-`project.yml`. **Secrets never travel; public keys travel through the project's repository**, which
-every machine verifies: each commit changing that file must be signed by a key in force, and the
-tip must descend from the commit in force,
-so a removed signer cannot be restored by replaying an older commit.
-
-- `porelo project enroll PROJECT` puts this machine's key up for review in the project's gate
-  (`--remove` takes it back). The review marks a signer list as dangerous.
-- `porelo gate approve enroll-<machine> --signed` merges it, signed with the approver's own git signing
-  key. The machine never holds that key; without one configured it refuses.
-- **The trust anchor is a person's step:** the signing key is given once, out of band, to
-  `project follow --signed-by`. It is never read from the repository it verifies.
-
-On each machine the same two kinds of key are kept apart by name, in `~/.config/porelo/`:
-`machine-signers` holds the message keys of other machines it accepts messages from, and
-`project-signers` the keys pinned with `--signed-by`, whose commits a followed project's configuration
-is taken from. A person's key is never a machine's, and the other way round.
+The keys pinned with `project follow --signed-by`, whose commits a followed project's configuration is
+taken from, are kept in `~/.config/porelo/project-signers`. **The trust anchor is a person's step:** the
+signing key is given once, out of band, to `project follow --signed-by`. It is never read from the
+repository it verifies. A project lists no message keys: a task signs its messages with its own key,
+which one of the project's certifiers certified at its start (see [messages](messages.md)).
 
 In `project-signers` only active lines named for the project being checked authorize new protected
 changes. Git prints that project name as the principal. Retired lines serve historical verification.

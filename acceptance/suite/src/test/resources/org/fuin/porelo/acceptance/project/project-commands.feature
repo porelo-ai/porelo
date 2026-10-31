@@ -78,3 +78,12 @@ Feature: The project commands
         And its output contains "no longer following"
         When a script runs "porelo project list"
         Then its output does not contain "dropped"
+
+    Scenario: making a deploy key is no longer a command
+        # More write-capable keys leave access the forge no longer expects.
+        When a script runs:
+            """
+            porelo credentials deploy-key; echo "deploy-key exit $?"
+            """
+        Then its output contains "has no command called 'deploy-key'"
+        And its output contains "deploy-key exit 2"

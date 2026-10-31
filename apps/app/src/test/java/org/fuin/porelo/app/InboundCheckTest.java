@@ -205,7 +205,7 @@ class InboundCheckTest {
                 new MessageDelivery()
                         .deliver(
                                 mailbox,
-                                List.of(new MessageDelivery.Peer("ops", List.of(opsKey.keyBlob()))),
+                                PeerKeys.of("ops", opsKey),
                                 java.util.Set.of(),
                                 new InboundCheck(filterThat(mailbox, false), filter, mail));
 

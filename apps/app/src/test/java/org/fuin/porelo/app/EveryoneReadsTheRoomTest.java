@@ -177,7 +177,7 @@ class EveryoneReadsTheRoomTest {
                 new MessageDelivery()
                         .deliver(
                                 writer,
-                                List.of(),
+                                PeerKeys.NONE,
                                 java.util.Set.of(),
                                 new InboundCheck(
                                         refusing,
@@ -207,7 +207,8 @@ class EveryoneReadsTheRoomTest {
         final Mailbox writer = mailbox("porelo-p-writer");
         Files.writeString(writer.inbound().resolve("m-1.json"), "{\"messageId\":\"m-1\"}");
 
-        final MessageDelivery.Outcome outcome = new MessageDelivery().deliver(writer, List.of());
+        final MessageDelivery.Outcome outcome =
+                new MessageDelivery().deliver(writer, PeerKeys.NONE);
 
         assertThat(outcome.held())
                 .singleElement()

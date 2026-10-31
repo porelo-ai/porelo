@@ -16,7 +16,9 @@ import org.junit.jupiter.api.io.TempDir;
  */
 class MessageIntakeRoleTest {
 
-    private final MessageIntake intake = new MessageIntake(SigningKey.generate("host"));
+    private final SigningKey key = SigningKey.generate("task");
+
+    private final MessageIntake intake = new MessageIntake(() -> key);
 
     private Mailbox mailbox(final Path dir) throws IOException {
         final Mailbox mailbox = new Mailbox(dir.resolve("porelo-p-t"));

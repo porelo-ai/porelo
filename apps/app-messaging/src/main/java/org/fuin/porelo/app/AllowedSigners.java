@@ -11,30 +11,37 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Who may speak for a peer, read from an OpenSSH {@code allowed_signers} file.
+ * Who may sign for a principal, read from an OpenSSH {@code allowed_signers} file.
  *
- * <p>The same file {@code ssh-keygen -Y verify} takes, and deliberately so: the keys that decide
- * what a task is allowed to read can be checked by somebody with no Porelo, and written by somebody
- * who has only ever used ssh.
+ * <p>The same file {@code ssh-keygen -Y verify} takes, and deliberately so: the keys it names can
+ * be checked by somebody with no Porelo, and written by somebody who has only ever used ssh.
  *
  * <p><strong>What cannot be read is not silently skipped.</strong> A line this cannot parse makes
  * the whole file refused, because a keyring that quietly lost an entry is a keyring that quietly
- * stops delivering - or, worse, quietly stops recognising the peer whose key was on that line.
+ * stops trusting - or, worse, quietly stops recognising the signer whose key was on that line.
  */
 public final class AllowedSigners {
+
+    /**
+     * One principal, and the keys allowed to sign for it.
+     *
+     * @param principal As the file names it.
+     * @param keys OpenSSH public key blobs.
+     */
+    public record Signer(String principal, List<byte[]> keys) {}
 
     private AllowedSigners() {
         throw new UnsupportedOperationException("Utility class");
     }
 
     /**
-     * Reads the peers and their keys.
+     * Reads the principals and their keys.
      *
      * @param file The file, which need not exist.
      * @return One entry per principal, with every key allowed for it. Empty when there is no file.
      * @throws IOException Reading failed, or a line is not one this understands.
      */
-    public static List<MessageDelivery.Peer> read(final Path file) throws IOException {
+    public static List<Signer> read(final Path file) throws IOException {
         if (!Files.isRegularFile(file)) {
             return List.of();
         }
@@ -44,17 +51,12 @@ public final class AllowedSigners {
     /**
      * Reads lines in the {@code allowed_signers} format.
      *
-     * <p>Separate from the file so that keys published elsewhere - one file per user, in a
-     * directory the users of a machine share - are read by exactly the same parser rather than by a
-     * second one that drifts.
-     *
      * @param lines The lines.
      * @param origin What to call them in an error.
-     * @return One peer per principal, with every key listed for it.
+     * @return One entry per principal, with every key listed for it.
      * @throws IOException If any line cannot be read.
      */
-    static List<MessageDelivery.Peer> parse(final List<String> lines, final Path origin)
-            throws IOException {
+    static List<Signer> parse(final List<String> lines, final Path origin) throws IOException {
         final Path file = origin;
         final Map<String, List<byte[]>> byPrincipal = new LinkedHashMap<>();
         int number = 0;
@@ -81,10 +83,9 @@ public final class AllowedSigners {
             }
             byPrincipal.computeIfAbsent(fields[0], principal -> new ArrayList<>()).add(key);
         }
-        final List<MessageDelivery.Peer> peers = new ArrayList<>();
+        final List<Signer> signers = new ArrayList<>();
         byPrincipal.forEach(
-                (principal, keys) ->
-                        peers.add(new MessageDelivery.Peer(principal, List.copyOf(keys))));
-        return List.copyOf(peers);
+                (principal, keys) -> signers.add(new Signer(principal, List.copyOf(keys))));
+        return List.copyOf(signers);
     }
 }

@@ -33,7 +33,6 @@ final class ProtectedFiles {
         }
         final Set<String> paths = new LinkedHashSet<>();
         paths.add("project.yml");
-        paths.add("machine-signers");
         paths.add("porelo.yml");
         final var image =
                 runner.run(

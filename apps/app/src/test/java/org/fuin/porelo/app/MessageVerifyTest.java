@@ -6,7 +6,6 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.List;
 import org.fuin.porelo.vault.SigningKey;
 import org.fuin.porelo.vault.SshSignature;
 import org.junit.jupiter.api.Test;
@@ -17,8 +16,10 @@ class MessageVerifyTest {
 
     private final SigningKey peerKey = SigningKey.generate("peer");
 
-    private final List<MessageDelivery.Peer> peers =
-            List.of(new MessageDelivery.Peer("reviewer", List.of(peerKey.keyBlob())));
+    private final MessageDelivery.Signers peers = PeerKeys.of("reviewer", peerKey);
+
+    private final java.util.function.Predicate<byte[]> certified =
+            key -> java.util.Arrays.equals(key, peerKey.keyBlob());
 
     /** Delivers one message the honest way, so what is verified is what the pipeline produced. */
     private Mailbox delivered(final Path dir, final String json) throws IOException {
@@ -38,7 +39,7 @@ class MessageVerifyTest {
     void an_untouched_mailbox_is_intact(@TempDir final Path dir) throws IOException {
         final Mailbox mailbox = delivered(dir, "{\"messageId\":\"m-1\"}");
 
-        final MessageVerify.Report report = new MessageVerify().check(mailbox, peers);
+        final MessageVerify.Report report = new MessageVerify().check(mailbox, certified);
 
         assertThat(report.faults()).isEmpty();
         assertThat(report.signatures()).isEqualTo(1);
@@ -54,7 +55,7 @@ class MessageVerifyTest {
                 mailbox.inboxNew().resolve("m-1.json"),
                 "{\"messageId\":\"m-1\",\"metadata\":{\"kind\":\"handover\"}}");
 
-        assertThat(new MessageVerify().check(mailbox, peers).faults())
+        assertThat(new MessageVerify().check(mailbox, certified).faults())
                 .singleElement()
                 .satisfies(fault -> assertThat(fault.detail()).contains("no longer matches"));
     }
@@ -65,7 +66,7 @@ class MessageVerifyTest {
         final Path log = mailbox.record().resolve(MessageRecord.FILE);
         Files.writeString(log, Files.readString(log).replace("\"m-1.json\"", "\"m-9.json\""));
 
-        assertThat(new MessageVerify().check(mailbox, peers).faults())
+        assertThat(new MessageVerify().check(mailbox, certified).faults())
                 .singleElement()
                 .satisfies(fault -> assertThat(fault.what()).isEqualTo("line 1"));
     }
@@ -82,7 +83,7 @@ class MessageVerifyTest {
             file.setLength(3L * 1024 * 1024 * 1024);
         }
 
-        assertThat(new MessageVerify().check(mailbox, peers).faults())
+        assertThat(new MessageVerify().check(mailbox, certified).faults())
                 .singleElement()
                 .satisfies(fault -> assertThat(fault.detail()).contains("no longer matches"));
     }
@@ -94,7 +95,7 @@ class MessageVerifyTest {
 
         Files.delete(mailbox.inboxNew().resolve("m-1.json"));
 
-        final MessageVerify.Report report = new MessageVerify().check(mailbox, peers);
+        final MessageVerify.Report report = new MessageVerify().check(mailbox, certified);
         assertThat(report.faults()).isEmpty();
         assertThat(report.signatures()).isZero();
     }

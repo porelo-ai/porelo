@@ -288,8 +288,8 @@ public class DoctorCommand implements Callable<Integer>, PoreloFactory.ContextAw
             }
             return Probe.ok(name, keys + " pinned in " + signers);
         } catch (final java.io.IOException ex) {
-            // One unreadable line refuses the whole file, by the same rule the message keyring
-            // follows: a keyring that is partly understood is worse than one that is refused.
+            // One unreadable line refuses the whole file: a keyring that is partly understood is
+            // worse than one that is refused.
             return Probe.degraded(
                     name, signers + " cannot be read: " + ex.getMessage(), "fix the line it names");
         }

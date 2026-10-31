@@ -80,17 +80,13 @@ class MessageWatchTest {
                 mailbox.inbound().resolve("in-1.json.sig"),
                 SshSignature.sign(
                         peer, json.getBytes(StandardCharsets.UTF_8), MessageIntake.NAMESPACE));
-        Files.createDirectories(context.paths().messaging().allowedSigners().getParent());
-        Files.writeString(
-                context.paths().messaging().allowedSigners(),
-                "reviewer " + peer.authorizedKeysLine() + "\n");
 
         final int moved = new MessageWatch(context, Duration.ofSeconds(60)).passOnce();
 
         assertThat(moved).isEqualTo(1);
         assertThat(mailbox.inbound().resolve("in-1.json")).as("it was taken in").doesNotExist();
         assertThat(mailbox.hold().resolve("in-1.json"))
-                .as("waiting for the task to come back, and for somebody to vouch for the sender")
+                .as("waiting for the task to come back, its sender's key traced to no certificate")
                 .exists();
     }
 
@@ -110,6 +106,9 @@ class MessageWatchTest {
                 "{\"messageId\":\"m-1\",\"metadata\":{\"to\":\"reviewer\"}}");
 
         assertThat(new MessageWatch(context, Duration.ofSeconds(60)).passOnce()).isEqualTo(1);
-        assertThat(orphan.incoming().resolve("m-1.json")).as("signed and kept, not sent").exists();
+        assertThat(orphan.hold().resolve("m-1.json"))
+                .as("held, not sent: without a vault the task has no key to sign it with")
+                .exists();
+        assertThat(orphan.outboxNew().resolve("m-1.json")).doesNotExist();
     }
 }

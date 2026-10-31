@@ -1,0 +1,2 @@
+title: "A transport is given the person's `--login` in place of the machine's name, a conversation records that login, and `members` is given `--persons` alone; `--machines` is no longer passed"
+type: changed

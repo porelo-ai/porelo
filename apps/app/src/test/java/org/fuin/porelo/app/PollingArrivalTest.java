@@ -68,13 +68,13 @@ class PollingArrivalTest {
         final MessagePass pass =
                 new MessagePass(
                         new ProcessCommandRunner(),
-                        hostKey,
                         null,
                         new TransportDirectory(List.of(transports)));
         return pass.run(
                 mailbox,
                 mail,
-                List.of(new MessageDelivery.Peer("bob", List.of(peerKey.keyBlob()))),
+                () -> hostKey,
+                PeerKeys.of("bob", peerKey),
                 new Moderation(mailbox.root().resolveSibling("moderation.json")));
     }
 
@@ -149,15 +149,13 @@ class PollingArrivalTest {
         final MessagePass.Report report =
                 new MessagePass(
                                 new ProcessCommandRunner(),
-                                hostKey,
                                 null,
                                 new TransportDirectory(List.of(transports)))
                         .run(
                                 mailbox,
                                 mail,
-                                List.of(
-                                        new MessageDelivery.Peer(
-                                                "bob", List.of(peerKey.keyBlob()))),
+                                () -> hostKey,
+                                PeerKeys.of("bob", peerKey),
                                 new Moderation(mailbox.root().resolveSibling("moderation.json")));
 
         assertThat(report.delivered().delivered()).isEmpty();

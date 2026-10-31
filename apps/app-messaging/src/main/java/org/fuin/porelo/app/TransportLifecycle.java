@@ -72,7 +72,7 @@ final class TransportLifecycle {
      * @param conversation What a peer address {@code <scheme>:} stands for, handed to {@code send}
      *     as {@code --to}.
      * @param reaches The hosts the project's messages reach through this transport.
-     * @param machine The name this machine goes by there, as the transport kept it, or "".
+     * @param login The person's login this account goes by there, as the transport kept it, or "".
      * @param admitted Whether this machine is in the conversation. False on a shared server until a
      *     person there has let this machine's account in; absent from what the transport said means
      *     true.
@@ -83,7 +83,7 @@ final class TransportLifecycle {
     record Conversation(
             String conversation,
             List<String> reaches,
-            String machine,
+            String login,
             boolean admitted,
             String address,
             String room) {
@@ -105,7 +105,7 @@ final class TransportLifecycle {
                     said.get("reaches") instanceof List<?> hosts
                             ? hosts.stream().map(String::valueOf).toList()
                             : List.of(),
-                    text(said.get("machine")),
+                    text(said.get("login")),
                     !Boolean.FALSE.equals(said.get("admitted")),
                     text(said.get("address")),
                     text(said.get("room")));
@@ -333,9 +333,9 @@ final class TransportLifecycle {
     }
 
     /**
-     * Returns the persons of a project's applied access file, where the transport's list names
-     * {@code persons}: the room's maker keeps each of them in the room as a person, so their words
-     * are taken without a join.
+     * Returns the persons of a project's applied access file, where the transport keeps the room's
+     * persons with {@code members} and hands over their words: the room's maker keeps each of them
+     * in the room as a person, so their words are taken without a join.
      *
      * @param scheme The transport.
      * @param project The project.
@@ -343,7 +343,12 @@ final class TransportLifecycle {
      *     applied.
      */
     java.util.Set<String> persons(String scheme, String project) {
-        if (!names(scheme, TransportConversations.PERSONS)) {
+        final Path adapter = transports.find(scheme);
+        if (adapter == null) {
+            return java.util.Set.of();
+        }
+        final TransportDescription described = TransportDescription.of(context.runner(), adapter);
+        if (!described.offers("members") || !described.takes(TransportConversations.PERSONS)) {
             return java.util.Set.of();
         }
         try {
@@ -890,48 +895,32 @@ final class TransportLifecycle {
     }
 
     /**
-     * Keeps a project's room to the machines and persons given, as the account that made it: the
-     * transport's {@code members}, declarative, so a machine not given is taken out and one given
-     * is let in. The persons are given only to a transport that takes {@code persons}; one that
-     * does not leaves every person as it is.
+     * Keeps a project's room to the persons given, as the account that made it: the transport's
+     * {@code members}, declarative, so a person not given is taken out with every account of their
+     * login, and one given is let in.
      *
      * @param scheme The transport.
      * @param project The project.
-     * @param machines The machines the room holds afterwards, by the names their transport goes by.
-     * @param persons The persons the room holds afterwards, by their accounts on this host.
+     * @param persons The persons the room holds afterwards, by their logins on this host.
      * @param settings What the project says to this transport.
      * @return What the transport printed: whom it invited and removed.
      * @throws Refused If the transport does not offer it, or refused.
      */
     Map<?, ?> members(
-            String scheme,
-            String project,
-            List<String> machines,
-            List<String> persons,
-            Map<String, Object> settings)
+            String scheme, String project, List<String> persons, Map<String, Object> settings)
             throws Refused {
         offered(scheme, "members");
         readable(scheme);
-        final List<String> verb =
-                new java.util.ArrayList<>(
-                        List.of(
-                                "members",
-                                "--project",
-                                project,
-                                "--machines",
-                                String.join(",", machines)));
-        // Named in its list, not announced as a field: that asks for people's words on poll alone.
-        if (names(scheme, TransportConversations.PERSONS)) {
-            verb.add("--" + TransportConversations.PERSONS);
-            verb.add(String.join(",", persons));
-        }
-        return run(scheme, settings, given(scheme, project), false, verb.toArray(String[]::new));
-    }
-
-    /** Says whether the transport's list names an option: only then is it given. */
-    private boolean names(String scheme, String option) {
-        final Path adapter = transports.find(scheme);
-        return adapter != null && TransportDescription.of(context.runner(), adapter).names(option);
+        return run(
+                scheme,
+                settings,
+                given(scheme, project),
+                false,
+                "members",
+                "--project",
+                project,
+                "--" + TransportConversations.PERSONS,
+                String.join(",", persons));
     }
 
     /** Refuses an option the transport does not list: an option it does not list is never given. */
@@ -1026,20 +1015,19 @@ final class TransportLifecycle {
         if (loopbackOnly) {
             arguments.add("--loopback-only");
         }
-        // This account's name on this host, to a transport that takes it: two accounts on one
-        // homeserver run tasks of the same name, and without it the second one's enroll would take
-        // the first one's account over. Never what setup answered: that may be the host's alone,
-        // which a second account of the host would share. The transport keeps the name it first
-        // used, so an account named otherwise before keeps its accounts.
-        // admit and dismiss name the other machine themselves, so this one's is never added.
+        // The person's login, to a transport that takes it: every account it makes on a shared
+        // homeserver is suffixed by it, so two persons' tasks of the same name never share one.
+        // Never what setup answered, and never a machine's name: a person reaches the host from any
+        // machine, and their Porelo runs once, in their own account there.
+        // admit and dismiss name the other machine themselves, so no login is added.
         final TransportDescription described = TransportDescription.of(context.runner(), adapter);
         if (!"settings".equals(verb[0])
                 && !"part".equals(verb[0])
                 && !"admit".equals(verb[0])
                 && !"dismiss".equals(verb[0])
-                && described.takes("machine")) {
-            arguments.add("--machine");
-            arguments.add(machine());
+                && described.takes(LOGIN)) {
+            arguments.add("--" + LOGIN);
+            arguments.add(login());
         }
         final CommandResult result;
         try {
@@ -1093,15 +1081,31 @@ final class TransportLifecycle {
                 76);
     }
 
-    private String machine() throws Refused {
-        try {
-            return context.machineName().get();
-        } catch (IllegalArgumentException ex) {
+    /** What a transport that takes this account's login lists in its {@code takes}. */
+    static final String LOGIN = "login";
+
+    /** What a login looks like: never an option, never blank, and no dot. */
+    private static final java.util.regex.Pattern LOGIN_NAME =
+            java.util.regex.Pattern.compile("[A-Za-z0-9][A-Za-z0-9_-]{0,31}");
+
+    /**
+     * Returns this account's login on this host, which is the person's, as a transport that takes
+     * it is given it.
+     *
+     * @return The login.
+     * @throws Refused If it is no name a transport takes.
+     */
+    static String login() throws Refused {
+        final String login = System.getProperty("user.name", "");
+        if (!LOGIN_NAME.matcher(login).matches()) {
             throw new Refused(
-                    String.valueOf(ex.getMessage())
-                            + "; this host and account give no name a transport takes",
+                    "'"
+                            + login.replaceAll("\\p{Cntrl}", "?")
+                            + "' is no login a transport takes: a letter or digit, then letters,"
+                            + " digits, '_' or '-', at most 32",
                     78);
         }
+        return login;
     }
 
     /**
@@ -1181,7 +1185,7 @@ final class TransportLifecycle {
         final Map<String, Object> written = new LinkedHashMap<>();
         written.put("conversation", conversation.conversation());
         written.put("reaches", conversation.reaches());
-        written.put("machine", conversation.machine());
+        written.put("login", conversation.login());
         written.put("admitted", conversation.admitted());
         written.put("address", conversation.address());
         written.put("room", conversation.room());

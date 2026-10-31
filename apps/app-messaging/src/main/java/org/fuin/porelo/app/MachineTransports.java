@@ -86,7 +86,8 @@ public final class MachineTransports {
      *
      * @param context The machine.
      * @param project The project.
-     * @return {@code conversation}, {@code room} and {@code machine}, as the transport said them.
+     * @return {@code conversation}, {@code room}, and under {@code machine} the login the room was
+     *     made by, as the transport said them.
      * @throws Conversations.Refused For an offline project, when the transport does not take it, or
      *     when it refuses.
      */
@@ -107,7 +108,7 @@ public final class MachineTransports {
             return Map.of(
                     "conversation", made.conversation(),
                     "room", made.room(),
-                    "machine", made.machine());
+                    "machine", made.login());
         } catch (TransportLifecycle.Refused ex) {
             throw new Conversations.Refused(String.valueOf(ex.getMessage()), ex.code(), null);
         } catch (ProjectAccess.Withheld ex) {
@@ -126,10 +127,8 @@ public final class MachineTransports {
     }
 
     /**
-     * Keeps a project's room to its admitted persons list, where this account made the room: as
-     * machines, each admitted person's login on this host by its machine's name, and this machine;
-     * as persons, each admitted person's login, where the transport takes them. Nothing is asked of
-     * the transport anywhere else.
+     * Keeps a project's room to its admitted persons list, where this account made the room: each
+     * admitted person's login. Nothing is asked of the transport anywhere else.
      *
      * @param context The machine.
      * @param project The project.
@@ -156,24 +155,16 @@ public final class MachineTransports {
                 // A room whose settings remain readable must remove persons it cannot admit.
                 persons = java.util.Set.of();
             }
-            final TreeSet<String> machines = new TreeSet<>();
-            machines.add(context.machineName().get());
-            for (final String account : persons) {
-                machines.add(MachineName.of(MachineName.hostName(), account));
-            }
             return lifecycle(context)
                     .members(
                             scheme,
                             project.name(),
-                            new ArrayList<>(machines),
                             new ArrayList<>(new TreeSet<>(persons)),
                             ProjectAccess.settings(context, project, scheme));
         } catch (TransportLifecycle.Refused ex) {
             throw new Conversations.Refused(String.valueOf(ex.getMessage()), ex.code(), null);
         } catch (ProjectAccess.Withheld ex) {
             throw new Conversations.Refused(String.valueOf(ex.getMessage()), 78, null);
-        } catch (IllegalArgumentException ex) {
-            throw new Conversations.Refused(String.valueOf(ex.getMessage()), 65, null);
         } catch (CommandException ex) {
             throw unrun(scheme, "members", ex);
         }

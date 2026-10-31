@@ -3,9 +3,6 @@ package org.fuin.porelo.app;
 import java.io.PrintWriter;
 import java.util.Map;
 import java.util.concurrent.Callable;
-import org.fuin.porelo.core.process.Command;
-import org.fuin.porelo.core.process.CommandException;
-import org.fuin.porelo.core.process.CommandResult;
 import org.fuin.porelo.wire.Json;
 import org.jspecify.annotations.Nullable;
 import picocli.CommandLine;
@@ -90,30 +87,6 @@ public class TaskCertificateCommand implements Callable<Integer>, PoreloFactory.
      * @throws IllegalArgumentException If it answered something else than a record of this key.
      */
     private @Nullable Object fromHost() {
-        final CommandResult shown;
-        try {
-            shown =
-                    context.runner()
-                            .run(
-                                    // The records are root's: sudo, which allows any admitted
-                                    // person.
-                                    Command.of(
-                                            "sudo",
-                                            "-n",
-                                            HostPerson.PROGRAM.toString(),
-                                            "task",
-                                            "--show",
-                                            fingerprint));
-        } catch (CommandException ex) {
-            return null;
-        }
-        if (!shown.successful() || shown.standardOutput().isBlank()) {
-            return null;
-        }
-        final Object answer = Json.parse(shown.standardOutput().strip());
-        if (!(answer instanceof Map<?, ?> map) || !fingerprint.equals(map.get("fingerprint"))) {
-            throw new IllegalArgumentException("not a record of " + fingerprint);
-        }
-        return answer;
+        return new HostPerson(context).show(fingerprint);
     }
 }

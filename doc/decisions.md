@@ -653,9 +653,9 @@ After the first key, named once out of band at `project follow --signed-by`, the
 whose signed commits change it. A commit that changes the list counts only when it is signed by a key in force before
 it, and a key never vouches for the commit that adds it, so a change of key is two commits: the old key names both,
 then the new key alone retires the old one. Pinning a new key on every following machine by hand, one by one, would
-make every machine refuse the next commit after a key change. The machines' message keys stay apart in
-`machine-signers` and never change a project's configuration, so a machine that is taken over has no power over the
-others.
+make every machine refuse the next commit after a key change. Messages are signed by each task's own key, certified by
+one of the project's certifiers, and no such key changes a project's configuration, so a machine that is taken over has
+no power over the others.
 
 ## A project may be followed without a signing key
 
@@ -688,8 +688,8 @@ after something went wrong, when the project has moved on.
 confirmed step. Porelo makes no deploy keys (`DeployKey` in `Tasks1` is retired and answers `DeployKeyRefused`); a
 deploy key made by an earlier version is still forgotten here and named once for a person to
 remove at the forge. Clearing removes nothing at the forge: that needs the forge's administration right, which the
-person's token for git does not need. This machine's line in a project's `machine-signers` is named too; removing it
-needs the person's signed commit. The vault, the person's keys and the installed packages stay: clearing is not
+person's token for git does not need. This machine's line in a `machine-signers` an earlier version had a project list
+is named too, though nothing reads that file any more; removing it needs the person's signed commit. The vault, the person's keys and the installed packages stay: clearing is not
 uninstalling.
 
 ## A task holds no key and sees no address
@@ -765,8 +765,8 @@ No task touches the homeserver: its account's token stays in the host's vault an
 and polls for it, and nothing in the room triggers a host action (starting or stopping a task, changing configuration,
 or approving work happen only at the host's command line or Varlink socket). The host joins a task's account to its own
 project's room and no other. For messages between tasks and peers, what a task receives is decided by the SSH signature
-on the message against the keys `project.yml` lists for its peers (`allowed_signers` and `machine-signers`), never by
-room membership, and anything else is held and the operator told; Matrix peers are `external`, so their inbound content
+on the message: by a task's own key, whose certificate, looked up by the key's fingerprint, one of the project's
+certifiers issued and which is valid when the message arrives, never by room membership, and anything else is held and the operator told; Matrix peers are `external`, so their inbound content
 goes through the filter. What a person writes from an account made for them by `porelo talk join` carries no SSH
 signature and is delivered to the project's tasks as `ROLE_USER` because that account is recorded as a joined person on
 the host.

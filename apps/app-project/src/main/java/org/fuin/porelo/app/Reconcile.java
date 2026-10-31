@@ -1861,8 +1861,7 @@ public final class Reconcile {
                                         ":(literal)" + path));
                 if (mode.successful()
                         && mode.standardOutput().isEmpty()
-                        && (path.equals("machine-signers")
-                                || path.equals("access.yml")
+                        && (path.equals("access.yml")
                                 || path.equals("porelo.yml")
                                 || Path.of(path)
                                         .getFileName()

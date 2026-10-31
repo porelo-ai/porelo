@@ -130,7 +130,7 @@ class MachineTransportsTest {
         runner.answering(
                 " describe",
                 "{\"scheme\":\"room\",\"lifecycle\":[\"setup\",\"settings\",\"admit\",\"dismiss\","
-                        + "\"clear\"],\"takes\":[\"machine\"]}");
+                        + "\"clear\"],\"takes\":[\"login\"]}");
         runner.answering(" settings", "{\"refused\":[],\"warnings\":[]}");
     }
 
@@ -401,7 +401,9 @@ class MachineTransportsTest {
         personsTransport("{\"invited\":[],\"removed\":[]}");
         final Mailbox review = conversation(context);
         runner.answering(
-                " describe", "{\"scheme\":\"room\",\"confirms\":\"read\",\"takes\":[\"persons\"]}");
+                " describe",
+                "{\"scheme\":\"room\",\"confirms\":\"read\",\"persons\":true,"
+                        + "\"lifecycle\":[\"members\"]}");
         runner.answering(" receipt ", "{\"state\":\"pending\"}");
         runner.answering("show a1:access.yml", deniedBob("locked"));
         joined(context, Map.of("bob", "@bob:hs", "charlie", "@charlie:hs"));
@@ -482,17 +484,17 @@ class MachineTransportsTest {
         runner.answering(
                 " describe",
                 "{\"scheme\":\"room\",\"lifecycle\":[\"setup\",\"settings\",\"members\"],"
-                        + "\"takes\":[\"machine\",\"create-room\"]}");
+                        + "\"takes\":[\"login\",\"create-room\"]}");
         runner.answering(" settings", "{\"refused\":[],\"warnings\":[]}");
         runner.answering(
                 " setup",
-                "{\"conversation\":\"!r\",\"room\":\"#p:access.example\",\"machine\":\"made-here\","
+                "{\"conversation\":\"!r\",\"room\":\"#p:access.example\",\"login\":\"made-here\","
                         + "\"admitted\":true}");
         runner.answering(" members", "{\"invited\":[\"x\"],\"removed\":[]}");
     }
 
     @Test
-    void theAdminsMachineMakesTheRoomAndKeepsItsMachinesToTheAppliedList() throws Exception {
+    void theAdminsMachineMakesTheRoomAndKeepsItsPersonsToTheAppliedList() throws Exception {
         final PoreloContext context = unlockedVault();
         roomTransport();
         followed(context);
@@ -503,20 +505,10 @@ class MachineTransportsTest {
         final List<String> setup = only("setup").arguments();
         assertThat(setup).as("made as the room's maker").contains("--create-room");
         final List<String> members = only("members").arguments();
-        assertThat(members.subList(members.indexOf("members"), members.indexOf("members") + 5))
-                .as("this machine and each person's account on this host, in order")
-                .containsExactly(
-                        "members",
-                        "--project",
-                        "p",
-                        "--machines",
-                        String.join(
-                                ",",
-                                new java.util.TreeSet<>(
-                                        List.of(
-                                                context.machineName().get(),
-                                                MachineName.of(MachineName.hostName(), "alice"),
-                                                MachineName.of(MachineName.hostName(), "bob")))));
+        assertThat(members.subList(members.indexOf("members"), members.indexOf("--persons") + 2))
+                .as("each person's login, sorted")
+                .containsExactly("members", "--project", "p", "--persons", "alice,bob");
+        assertThat(members).as("and no machine").doesNotContain("--machines");
         assertThat(out.toString())
                 .as("says what it made and whom it invited and removed")
                 .contains("#p:access.example")
@@ -575,10 +567,13 @@ class MachineTransportsTest {
     /** The transport {@code room}, keeping persons in its rooms beside machines. */
     private void personsTransport(final String members) throws IOException {
         roomTransport();
+        // As a transport describes itself now: people's words announced as a field of their own,
+        // and the persons kept with members, which is always given them.
         runner.answering(
                 " describe",
-                "{\"scheme\":\"room\",\"lifecycle\":[\"setup\",\"settings\",\"members\"],"
-                        + "\"takes\":[\"machine\",\"create-room\",\"persons\"]}");
+                "{\"scheme\":\"room\",\"poll\":true,\"persons\":true,"
+                        + "\"lifecycle\":[\"setup\",\"settings\",\"members\"],"
+                        + "\"takes\":[\"login\",\"create-room\"]}");
         runner.answering(" members", members);
     }
 
@@ -606,9 +601,9 @@ class MachineTransportsTest {
 
         assertThat(code).as("the room is made: " + err).isZero();
         final List<String> members = only("members").arguments();
-        final int machines = members.indexOf("--machines");
-        assertThat(members.subList(machines + 2, machines + 4))
-                .as("every person's account, sorted, right after the machines")
+        final int persons = members.indexOf("--persons");
+        assertThat(members.subList(persons, persons + 2))
+                .as("every person's login, sorted")
                 .containsExactly("--persons", "alice,bob");
         assertThat(members).as("given once").containsOnlyOnce("--persons");
         assertThat(out.toString())
@@ -666,33 +661,16 @@ class MachineTransportsTest {
     }
 
     @Test
-    void aTransportNotTakingPersonsIsGivenTheMachinesAlone() throws Exception {
+    void aTransportIsGivenThePersonsAloneWhetherItsListNamesThemOrNot() throws Exception {
         final PoreloContext context = unlockedVault();
         roomTransport();
         followed(context);
 
         assertThat(execute(context, "talk", "room", "p")).as(err.toString()).isZero();
 
-        assertThat(membersOption("--persons")).as("never given").isNull();
-        assertThat(membersOption("--machines")).as("the machines kept as before").isNotEmpty();
+        assertThat(membersOption("--persons")).as("every person").isEqualTo("alice,bob");
+        assertThat(membersOption("--machines")).as("no machine is named any more").isNull();
         assertThat(out.toString()).as("no person said").doesNotContain("persons");
-    }
-
-    @Test
-    void aTransportAskingForPeoplesWordsAloneIsGivenNoPersonsOnMembers() throws Exception {
-        final PoreloContext context = unlockedVault();
-        roomTransport();
-        // "persons": true asks for people's words on poll; its list does not name persons.
-        runner.answering(
-                " describe",
-                "{\"scheme\":\"room\",\"poll\":true,\"persons\":true,"
-                        + "\"lifecycle\":[\"setup\",\"settings\",\"members\"],"
-                        + "\"takes\":[\"machine\",\"create-room\"]}");
-        followed(context);
-
-        assertThat(execute(context, "talk", "room", "p")).as(err.toString()).isZero();
-
-        assertThat(only("members").arguments()).as("never given").doesNotContain("--persons");
     }
 
     @Test
@@ -853,15 +831,16 @@ class MachineTransportsTest {
     }
 
     @Test
-    void aTransportWhoseListNamesNoPersonsHasNoPersonTakenByAccount() throws Exception {
+    void aTransportThatKeepsNoPersonsInTheRoomHasNoPersonTakenByAccount() throws Exception {
+        // Without members nobody is let into the room by the access file, so only a join counts.
         final PoreloContext context = unlockedVault();
         personsTransport("{\"invited\":[],\"removed\":[]}");
         final Mailbox review = conversation(context);
         runner.answering(
                 " describe",
                 "{\"scheme\":\"room\",\"poll\":true,\"persons\":true,"
-                        + "\"lifecycle\":[\"setup\",\"settings\",\"members\"],"
-                        + "\"takes\":[\"machine\",\"create-room\"]}");
+                        + "\"lifecycle\":[\"setup\",\"settings\"],"
+                        + "\"takes\":[\"login\",\"create-room\"]}");
         said(context, "t1--room-person-one.json", "@bob:hs", "bob");
 
         conversations(context).pass(group(review));
@@ -990,7 +969,7 @@ class MachineTransportsTest {
                 " describe",
                 "{\"scheme\":\"room\",\"poll\":true,"
                         + "\"lifecycle\":[\"setup\",\"settings\",\"members\",\"enroll\"],"
-                        + "\"takes\":[\"machine\",\"create-room\",\"persons\",\"direct\"]}");
+                        + "\"takes\":[\"login\",\"create-room\",\"persons\",\"direct\"]}");
         runner.answering(
                 " enroll", "{\"secrets\":{\"T\":\"t-1\"},\"address\":\"@porelo-p-review:hs\"}");
         final TransportLifecycle lifecycle =
@@ -1015,7 +994,7 @@ class MachineTransportsTest {
         runner.answering(
                 " setup",
                 "{\"conversation\":\"!r\",\"room\":\"#p:access.example\","
-                        + "\"machine\":\"follower\",\"admitted\":true,"
+                        + "\"login\":\"follower\",\"admitted\":true,"
                         + "\"secrets\":{\"POLLER\":\"p-1\"}}");
         followed(context);
         new TransportLifecycle(context, context.paths().messaging().transportDirectory())
@@ -1064,7 +1043,7 @@ class MachineTransportsTest {
         runner.answering(
                 " setup",
                 "{\"conversation\":\"!r\",\"room\":\"#p:access.example\","
-                        + "\"machine\":\"made-here\",\"address\":\""
+                        + "\"login\":\"made-here\",\"address\":\""
                         + address
                         + "\",\"admitted\":true,\"secrets\":{\"POLLER\":\"p-1\"}}");
         MachineTransports.createRoom(context, followed(context));
