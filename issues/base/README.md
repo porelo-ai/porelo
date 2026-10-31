@@ -139,6 +139,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b369"></a>[B369](B369-A-Message-Sender-Named-As-Its-Key-Names-It.md) | S | [B344](README.md#b344) | A message is held only when it names another sender than its key traces to, in either form; `people` and `person` are no task names; `mail.peers` names a task of another project |
 | <a id="b368"></a>[B368](B368-An-Address-Answered-Without-Any-Credential.md) | S | [B353](README.md#b353) | No accepted or answered address carries a credential in any spelling; `registry joinable` reaches a private `https://` repository and refuses a registry with a refused founding `owners.yml` |
 | <a id="b367"></a>[B367](B367-A-Failed-Agent-Setup-Leaves-Nothing-Running.md) | S | [B361](README.md#b361) | An attended task whose agent setup fails leaves nothing running or unretired; the kept number read after a reboot; `Start` and `CanStart` refuse alike |
 | <a id="b366"></a>[B366](B366-A-Push-Judged-As-Git-And-Ssh-Keygen-Judge-It.md) | S | [B363](README.md#b363) | `porelo commit verify` reads escaped quotes, every `valid-after` zone spelling, every signature header and long texts as `git` and `ssh-keygen` do |
