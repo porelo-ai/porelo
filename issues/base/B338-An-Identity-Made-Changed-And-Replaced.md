@@ -1,7 +1,7 @@
 # B338 — An Identity Made, Changed And Replaced
 
 **Status:** Accepted.
-**Size:** L, proposed, operator confirms 2026-10-31 - grew from M (estimated 90 minutes from the median of M builds:
+**Size:** L (operator, 2026-10-31) - grew from M (estimated 90 minutes from the median of M builds:
 the identity verbs and their publishing to the registry and each host) when `identity show --json` was added for the
 interface's identity, with its registry and forge fields.
 

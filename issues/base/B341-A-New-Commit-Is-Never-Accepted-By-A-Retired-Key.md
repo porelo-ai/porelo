@@ -1,8 +1,9 @@
 # B341 — A New Commit Is Never Accepted By A Retired Key
 
 **Status:** Review. Estimated and Backlog (operator, 2026-10-30, sprint 6m).
-**Size:** M - estimated 90 minutes from the median of M builds: the pinned signers file keeps retired keys apart from
-those in force, across `app-base` and `app-project`, and the checker takes a revocation list; grew from S when planned.
+**Size:** L (operator, 2026-10-31) - grew from M (estimated 90 minutes from the median of M builds: the pinned signers
+file keeps retired keys apart from those in force, across `app-base` and `app-project`, and the checker takes a
+revocation list; grew from S when planned) with its readings beside [B335](README.md#b335)'s.
 
 **What must be true.** A key that leaves `signers` is kept in Git's allowed signers with `valid-before`, so the commits
 it signed while it was in force still verify when history is read. Git checks `valid-before` against the commit's time,

@@ -1,7 +1,7 @@
 # B340 — A Host Checks The Registry It Was Brought
 
 **Status:** Review.
-**Size:** M, proposed, operator confirms 2026-10-31 - grew from S (estimated 136 minutes from the median of S builds:
+**Size:** M (operator, 2026-10-31) - grew from S (estimated 136 minutes from the median of S builds:
 one verb over the registry rule, run as `verify` runs) when its security reading added the bundle boundary, the
 first-parent rule for `--since` and the checks of the access file's projects.
 

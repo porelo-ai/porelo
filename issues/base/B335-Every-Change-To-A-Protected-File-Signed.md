@@ -1,8 +1,9 @@
 # B335 — Every Change To A Protected File Signed
 
 **Status:** Review.
-**Size:** M - estimated 90 minutes from the median of M builds: the follow's check moves from the tip to each
-protecting commit, on both repositories, with its refusal, docs and an acceptance step.
+**Size:** L (operator, 2026-10-31) - grew from M (estimated 90 minutes from the median of M builds: the follow's
+check moves from the tip to each protecting commit, on both repositories, with its refusal, docs and an acceptance
+step) when its readings reached the live clone, shallow clones and the published copy.
 
 **What must be true.** A machine following a project applies a new `main` when every commit that changes a protected
 file is signed by a key in `signers` as the list stood before that commit; any other commit needs no signature. A
