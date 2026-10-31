@@ -19,27 +19,31 @@ Feature: A project takes its transports' settings only from an access file signe
             git init -q --initial-branch=main "$base/access"
             printf '%s\n' 'transports:' '  room: {homeserver: "https://chat.example.org"}' > "$base/access/access.yml"
             signed "$base/access" stranger 'access by a key the project does not hold'
+            stranger=$(git -C "$base/access" rev-parse HEAD)
             git init -q --initial-branch=main "$base/project"
             printf '%s\n' 'project:' "  name: \"$name\"" '  security_class: "guarded"' \
                 'image:' '  base_image: "ubuntu:24.04"' \
                 'mail:' '  peers:' '    reviewer: {address: "room:", trust: "external"}' \
                 'access:' "  repository: \"$base/access\"" > "$base/project/project.yml"
             signed "$base/project" project 'the project, naming its access file'
-            porelo project follow "$name" "$base/project" --signed-by "$key" >/dev/null 2>&1; echo "follow exit $?"
-            porelo project following | sed -n "/^$name /,/^[^ ]/p" | grep 'access ' | sed 's/^ */before: /'
+            porelo project follow "$name" "$base/project" --signed-by "$key" > "$base/before.out" 2>&1
+            echo "follow before exit $?"
+            grep -q "$stranger" "$base/before.out" && grep -q 'access.yml' "$base/before.out" \
+                && echo 'the access change is refused by commit and path'
             porelo talk admit "$name" host2-core --into "$base/admission.json" 2>&1 | sed 's/^/admit before: /'
             echo "admission written before: $(test -e "$base/admission.json" && echo yes || echo no)"
+            # The project's key signs the tree its commit holds, the access file in it included.
             signed "$base/access" project 'access by the project key'
-            porelo project follow "$name" "$base/project" >/dev/null 2>&1
+            porelo project follow "$name" "$base/project" --signed-by "$key" >/dev/null 2>&1; echo "follow after exit $?"
             porelo project following | sed -n "/^$name /,/^[^ ]/p" | grep 'access ' | sed 's/^ */after: /'
             porelo talk admit "$name" host2-core --into "$base/admission2.json" 2>&1 | sed 's/^/admit after: /'
             porelo project unfollow "$name" >/dev/null 2>&1
             """
-        Then its output contains "follow exit 0"
-        And its output contains "before: access     none in force  unknown_key"
-        And its output contains "admit before: porelo: the access file of"
-        And its output contains "is not applied (unknown_key)"
+        Then its output contains "follow before exit 70"
+        And its output contains "the access change is refused by commit and path"
+        And its output contains "admit before: porelo: no project '"
         And its output contains "admission written before: no"
+        And its output contains "follow after exit 0"
         And its output has a line matching "after: access     [0-9a-f]{12}  applied"
         And its output contains "admit after: porelo: no transport for 'room' is installed"
 
