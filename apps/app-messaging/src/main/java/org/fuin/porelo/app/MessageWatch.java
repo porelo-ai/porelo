@@ -38,6 +38,11 @@ import org.jspecify.annotations.Nullable;
  */
 public final class MessageWatch implements AutoCloseable {
 
+    /** Drops decrypted entries as soon as the daemon locks or clears its vault. */
+    public static void dropVaultCache() {
+        VaultCache.drop();
+    }
+
     /** How often to look, when nothing says otherwise. */
     public static final Duration DEFAULT_INTERVAL = Duration.ofSeconds(60);
 

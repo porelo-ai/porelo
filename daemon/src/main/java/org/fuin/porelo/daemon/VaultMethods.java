@@ -21,6 +21,80 @@ final class VaultMethods {
 
     private VaultMethods() {}
 
+    static boolean forgetHostVault(PoreloContext context, Map<String, Object> parameters) {
+        return ownsVault(context, parameters) && context.hostVault().forget();
+    }
+
+    static boolean ownsVault(PoreloContext context, Map<String, Object> parameters) {
+        try {
+            return resolvedVault(context, parameters);
+        } catch (org.fuin.porelo.vault.VaultException ex) {
+            return false;
+        }
+    }
+
+    private static boolean resolvedVault(PoreloContext context, Map<String, Object> parameters) {
+        try {
+            return vaultLocation(context.vault().path())
+                    .equals(vaultLocation(java.nio.file.Path.of(text(parameters, "vault"))));
+        } catch (java.io.IOException | java.nio.file.InvalidPathException ex) {
+            throw new org.fuin.porelo.vault.VaultException(
+                    "Cannot resolve the vault path; check PORELO_VAULT and retry 'porelo vault lock'",
+                    ex);
+        }
+    }
+
+    private static java.nio.file.Path vaultLocation(java.nio.file.Path path)
+            throws java.io.IOException {
+        final java.nio.file.Path absolute = path.toAbsolutePath().normalize();
+        if (java.nio.file.Files.exists(absolute)) return absolute.toRealPath();
+        final java.nio.file.Path parent = absolute.getParent();
+        if (parent == null) return absolute;
+        return vaultLocation(parent).resolve(absolute.getFileName());
+    }
+
+    static void requireOwnedVault(PoreloContext context, Map<String, Object> parameters) {
+        if (!ownsVault(context, parameters)) {
+            throw new org.fuin.porelo.vault.VaultException(
+                    "porelod owns a different vault; run it with the same PORELO_VAULT setting");
+        }
+    }
+
+    static void requireRequestedVault(PoreloContext context, Map<String, Object> parameters) {
+        if (parameters.get("vault") != null) {
+            requireOwnedVault(context, parameters);
+        }
+    }
+
+    static void keepHostVaultShare(PoreloContext context, Map<String, Object> parameters) {
+        requireOwnedVault(context, parameters);
+        final byte[] share;
+        try {
+            share = java.util.Base64.getDecoder().decode(text(parameters, "share"));
+        } catch (IllegalArgumentException ex) {
+            context.hostVault().forget();
+            throw new VarlinkException(
+                    INTERFACE + ".Failed", Map.of("message", "A share must be base64"));
+        }
+        try {
+            if (!context.vault().isHostVault()) {
+                throw new org.fuin.porelo.vault.NotAHostVaultException();
+            }
+            context.hostVault().keep(share);
+        } catch (org.fuin.porelo.vault.VaultException ex) {
+            context.hostVault().forget();
+            if (ex instanceof org.fuin.porelo.vault.NotAHostVaultException) {
+                throw new VarlinkException(INTERFACE + ".NotAHostVault", Map.of());
+            }
+            if (ex instanceof org.fuin.porelo.vault.OtherVaultKeyException) {
+                throw new VarlinkException(INTERFACE + ".OtherVaultKey", Map.of());
+            }
+            throw ex;
+        } finally {
+            java.util.Arrays.fill(share, (byte) 0);
+        }
+    }
+
     /**
      * Registers this area's methods.
      *
@@ -36,8 +110,42 @@ final class VaultMethods {
             TaskInventory inventory,
             TaskControl control) {
         server.method(
+                "HostVaultShare",
+                (parameters, replies) ->
+                        replies.last(
+                                Map.of(
+                                        "open",
+                                        ownsVault(context, parameters)
+                                                && context.hostVault().isOpen())));
+        server.method(
+                "KeepHostVaultShare",
+                (parameters, replies) -> {
+                    keepHostVaultShare(context, parameters);
+                    replies.last(Map.of());
+                });
+        server.method(
+                "ReadHostVaultShare",
+                (parameters, replies) -> {
+                    requireOwnedVault(context, parameters);
+                    final byte[] share = context.hostVault().share();
+                    try {
+                        replies.last(
+                                Map.of(
+                                        "share",
+                                        java.util.Base64.getEncoder().encodeToString(share)));
+                    } finally {
+                        java.util.Arrays.fill(share, (byte) 0);
+                    }
+                });
+        server.method(
+                "ForgetHostVaultShare",
+                (parameters, replies) ->
+                        replies.last(Map.of("wasHeld", forgetHostVault(context, parameters))));
+
+        server.method(
                 "VaultClear",
                 (parameters, replies) -> {
+                    requireRequestedVault(context, parameters);
                     final org.fuin.porelo.app.Clearing.Result result =
                             new org.fuin.porelo.app.VaultClearing(context)
                                     .clear(flag(parameters, "dryRun"), flag(parameters, "force"));
@@ -213,13 +321,19 @@ final class VaultMethods {
         server.method(
                 "UnlockWithShare",
                 (parameters, replies) -> {
-                    final org.fuin.porelo.app.Keyslots.Unlock result =
-                            new org.fuin.porelo.app.Keyslots(context)
-                                    .unlock(
-                                            text(parameters, "share"),
-                                            parameters.get("minutes") instanceof Number minutes
-                                                    ? minutes.intValue()
-                                                    : null);
+                    requireRequestedVault(context, parameters);
+                    final org.fuin.porelo.app.Keyslots.Unlock result;
+                    try {
+                        result =
+                                new org.fuin.porelo.app.Keyslots(context)
+                                        .unlock(
+                                                text(parameters, "share"),
+                                                parameters.get("minutes") instanceof Number minutes
+                                                        ? minutes.intValue()
+                                                        : null);
+                    } catch (org.fuin.porelo.vault.NotAHostVaultException ex) {
+                        throw new VarlinkException(INTERFACE + ".NotAHostVault", Map.of());
+                    }
                     final Map<String, Object> answer = new java.util.LinkedHashMap<>();
                     answer.put("outcome", result.outcome().name());
                     answer.put("until", result.until());

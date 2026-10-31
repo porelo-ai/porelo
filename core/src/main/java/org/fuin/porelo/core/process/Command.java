@@ -11,6 +11,7 @@ import org.jspecify.annotations.Nullable;
  * @param arguments Program and its arguments, never empty.
  * @param workingDirectory Directory to run in, or {@code null} for the current one.
  * @param environment Variables to add to the inherited environment.
+ * @param binaryInput Bytes borrowed until the runner returns; the caller clears them, or null.
  * @param input Text written to standard input, or {@code null} to write nothing.
  */
 public record Command(
@@ -18,7 +19,8 @@ public record Command(
         @Nullable Path workingDirectory,
         Map<String, String> environment,
         @Nullable String input,
-        boolean inheritsEnvironment) {
+        boolean inheritsEnvironment,
+        byte @Nullable [] binaryInput) {
 
     /**
      * Constructor with all data.
@@ -29,13 +31,27 @@ public record Command(
      *     inherited, the whole environment.
      * @param input Text written to standard input, or {@code null} to write nothing.
      * @param inheritsEnvironment Whether the caller's environment is inherited at all.
+     * @param binaryInput Bytes borrowed until the runner returns; the caller clears them, or null.
      */
     public Command {
         if (arguments.isEmpty()) {
             throw new IllegalArgumentException("A command needs at least a program name");
         }
+        if (input != null && binaryInput != null) {
+            throw new IllegalArgumentException("A command has either text or binary input");
+        }
         arguments = List.copyOf(arguments);
         environment = Map.copyOf(environment);
+    }
+
+    /** Creates a command with text input and the chosen inheritance policy. */
+    public Command(
+            List<String> arguments,
+            @Nullable Path workingDirectory,
+            Map<String, String> environment,
+            @Nullable String input,
+            boolean inheritsEnvironment) {
+        this(arguments, workingDirectory, environment, input, inheritsEnvironment, null);
     }
 
     /**
@@ -65,7 +81,7 @@ public record Command(
     public Command withChosenEnvironment(Map<String, String> base) {
         final Map<String, String> chosen = new java.util.LinkedHashMap<>(base);
         chosen.putAll(environment);
-        return new Command(arguments, workingDirectory, chosen, input, false);
+        return new Command(arguments, workingDirectory, chosen, input, false, binaryInput);
     }
 
     /**
@@ -86,6 +102,12 @@ public record Command(
      */
     public static Command of(List<String> arguments) {
         return new Command(arguments, null, Map.of(), null);
+    }
+
+    /** Returns a copy that writes bytes without text encoding. */
+    public Command withBinaryInput(byte[] bytes) {
+        return new Command(
+                arguments, workingDirectory, environment, null, inheritsEnvironment, bytes);
     }
 
     /**
@@ -110,7 +132,8 @@ public record Command(
     public Command withEnvironment(Map<String, String> variables) {
         final Map<String, String> merged = new java.util.LinkedHashMap<>(environment);
         merged.putAll(variables);
-        return new Command(arguments, workingDirectory, merged, input, inheritsEnvironment);
+        return new Command(
+                arguments, workingDirectory, merged, input, inheritsEnvironment, binaryInput);
     }
 
     /**
@@ -120,7 +143,8 @@ public record Command(
      * @return New command.
      */
     public Command in(Path directory) {
-        return new Command(arguments, directory, environment, input, inheritsEnvironment);
+        return new Command(
+                arguments, directory, environment, input, inheritsEnvironment, binaryInput);
     }
 
     /**
@@ -157,6 +181,7 @@ public record Command(
                         ? ""
                         : ", environment " + new java.util.TreeSet<>(environment.keySet()))
                 + (input == null ? "" : ", input of " + input.length() + " characters")
+                + (binaryInput == null ? "" : ", input of " + binaryInput.length + " bytes")
                 + "]";
     }
 }

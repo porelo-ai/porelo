@@ -140,6 +140,15 @@ public class VaultServeCommand implements Callable<Integer>, PoreloFactory.Conte
 
     private PoreloContext context = PoreloContext.real();
 
+    java.util.function.Supplier<java.net.http.HttpClient> tokenHttp =
+            () ->
+                    org.fuin.porelo.core.net.TrustedCertificates.builder(
+                                    org.fuin.porelo.core.net.TrustedCertificates.file(
+                                            context.paths().xdg()))
+                            .connectTimeout(Duration.ofSeconds(30))
+                            .followRedirects(java.net.http.HttpClient.Redirect.NEVER)
+                            .build();
+
     @Override
     public void setContext(PoreloContext context) {
         this.context = context;
@@ -249,7 +258,7 @@ public class VaultServeCommand implements Callable<Integer>, PoreloFactory.Conte
                     }
                     // A grant a person gave once: spent with its refresh token, kept hidden beside
                     // it.
-                    final org.fuin.porelo.supervisor.TokenPurchase granted;
+                    final org.fuin.porelo.supervisor.TokenSource granted;
                     try {
                         granted = granted(name, entry, err);
                     } catch (IllegalArgumentException ex) {
@@ -281,7 +290,7 @@ public class VaultServeCommand implements Callable<Integer>, PoreloFactory.Conte
                                         name,
                                         entry,
                                         context.vault(),
-                                        opener.get(),
+                                        context::requireOpener,
                                         org.fuin.porelo.core.net.TrustedCertificates.builder(
                                                         org.fuin.porelo.core.net.TrustedCertificates
                                                                 .file(context.paths().xdg()))
@@ -501,7 +510,7 @@ public class VaultServeCommand implements Callable<Integer>, PoreloFactory.Conte
      * @param err Where a problem is said.
      * @return The purchase, or {@code null}.
      */
-    private org.fuin.porelo.supervisor.@Nullable TokenPurchase granted(
+    org.fuin.porelo.supervisor.@Nullable TokenSource granted(
             String name, org.fuin.porelo.vault.VaultEntry entry, PrintWriter err) {
         final java.util.Optional<org.fuin.porelo.vault.VaultFile.Opener> opener = context.opener();
         if (opener.isEmpty()) {
@@ -512,47 +521,15 @@ public class VaultServeCommand implements Callable<Integer>, PoreloFactory.Conte
         if (grant == null) {
             return null;
         }
-        final org.fuin.porelo.supervisor.Grants.Service client =
-                org.fuin.porelo.supervisor.Grants.service(
-                        entry.type(), entry.value(), entry.settings());
-        return new org.fuin.porelo.supervisor.TokenPurchase(
-                new org.fuin.porelo.supervisor.TokenPurchase.Refresh(
-                        client.tokenUrl(),
-                        client.clientId(),
-                        client.clientSecret(),
-                        grant.value(),
-                        rotated -> {
-                            // The service replaced it: the vault keeps the one in force, with who
-                            // granted it and when.
-                            try {
-                                context.vault()
-                                        .update(
-                                                opener.get(),
-                                                all -> {
-                                                    all.put(
-                                                            TaskSecrets.GRANT_PREFIX + name,
-                                                            new org.fuin.porelo.vault.VaultEntry(
-                                                                    rotated,
-                                                                    grant.type(),
-                                                                    grant.settings()));
-                                                    return all;
-                                                });
-                            } catch (VaultException ex) {
-                                err.println(
-                                        "porelo: the grant for "
-                                                + name
-                                                + " was renewed and could not be kept: "
-                                                + ex.getMessage());
-                                err.flush();
-                            }
-                        }),
-                org.fuin.porelo.core.net.TrustedCertificates.builder(
-                                org.fuin.porelo.core.net.TrustedCertificates.file(
-                                        context.paths().xdg()))
-                        .connectTimeout(Duration.ofSeconds(30))
-                        .followRedirects(java.net.http.HttpClient.Redirect.NEVER)
-                        .build(),
-                java.time.Clock.systemUTC());
+        org.fuin.porelo.supervisor.Grants.service(entry.type(), entry.value(), entry.settings());
+        return new LoginRenewal(
+                name,
+                entry,
+                context.vault(),
+                context::requireOpener,
+                tokenHttp.get(),
+                java.time.Clock.systemUTC(),
+                err);
     }
 
     private Path routeTokenFile(String name) {

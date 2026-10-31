@@ -71,26 +71,16 @@ public class VaultPassphraseCommand implements Callable<Integer>, PoreloFactory.
         }
 
         final var runner = new ProcessCommandRunner();
-        char[] current = null;
         char[] fresh = null;
         char[] again = null;
         try {
-            current =
-                    new PassphraseTiers(
-                                    new CommandPassphrase(runner, passphraseCommand),
-                                    new ConsolePassphrase("Current vault passphrase: "))
-                            .require();
+            context.requirePassphraseSlot();
+            final org.fuin.porelo.vault.VaultFile.Opener current =
+                    context.requireOpener(new CommandPassphrase(runner, passphraseCommand));
 
             // Checked before anything else is asked for. Discovering the current one was wrong
             // after somebody has typed a new one twice wastes the part of this that is tedious.
-            if (!vault.accepts(current)) {
-                err.println(
-                        "porelo: that passphrase does not open "
-                                + vault.path()
-                                + " - nothing was changed");
-                err.flush();
-                return 70;
-            }
+            vault.read(current);
 
             if (newPassphraseCommand != null) {
                 fresh =
@@ -187,7 +177,7 @@ public class VaultPassphraseCommand implements Callable<Integer>, PoreloFactory.
             err.flush();
             return 70;
         } finally {
-            for (final char[] secret : new char[][] {current, fresh, again}) {
+            for (final char[] secret : new char[][] {fresh, again}) {
                 if (secret != null) {
                     Arrays.fill(secret, '\0');
                 }

@@ -35,7 +35,10 @@ public final class VaultShare {
      * @param share The device's share.
      * @param howLong How long the kernel should keep it.
      */
-    public static void keep(final PoreloPaths paths, final byte[] share, final Duration howLong) {
+    public static void keep(
+            final PoreloPaths paths,
+            final byte[] share,
+            final @org.jspecify.annotations.Nullable Duration howLong) {
         final char[] encoded = Base64.getEncoder().encodeToString(share).toCharArray();
         try {
             new KernelKeyring(paths.vault().vaultShareKeyringKey()).store(encoded, howLong);

@@ -624,7 +624,11 @@ public class VaultPutCommand implements Callable<Integer>, PoreloFactory.Context
 
         final boolean written;
         try {
-            written = put(context.vault(), context.requirePassphrase(), name, entry);
+            written =
+                    context.vault()
+                            .update(
+                                    context.requireOpener(),
+                                    entries -> replace(entries, name, entry));
         } catch (VaultException ex) {
             err.println("porelo: " + ex.getMessage());
             err.flush();

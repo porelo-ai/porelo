@@ -1,0 +1,2 @@
+title: Open a host vault with a local SSH agent key and keep its share in the daemon's locked native memory until lock or exit.
+type: added

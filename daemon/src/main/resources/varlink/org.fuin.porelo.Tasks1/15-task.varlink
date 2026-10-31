@@ -648,17 +648,14 @@ method Panic(
   journalled: string
 )
 
-# Drops the cached vault passphrase, so the next thing that needs it has to ask.
-#
-# The only call that changes the credential store. There is deliberately no Unlock: a daemon has
-# no terminal to take a passphrase at, so it can shut the vault and can never open it - unlocking
-# stays at the machine, with 'porelo vault unlock'.
-method Lock() -> (
-  # Whether the kernel keyring exists here at all. Without it nothing can be cached, so nothing
-  # ever was, and "locked" would claim a change that did not happen.
+# Drops the cached passphrase, device share and daemon-owned host share.
+method Lock(
+  # When supplied, must resolve to this daemon's vault.
+  vault: ?string
+) -> (
+  # Whether the kernel keyring exists. A host share uses the daemon's locked memory instead.
   keyring: bool,
-  # Whether a passphrase was cached and has now been dropped. False means it was already locked -
-  # which is the wanted state either way, so this is not a failure.
+  # Whether a cached way in was held and has now been dropped. False means it was already locked.
   wasCached: bool,
   # Running tasks whose credential proxy already read the credential and holds it in its own
   # memory, where locking cannot reach. Stopping them is what ends that. An interface reporting

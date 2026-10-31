@@ -113,7 +113,12 @@ public class SigningKey implements AgentKey {
         final Ed25519Signer signer = new Ed25519Signer();
         signer.init(true, privateKey);
         signer.update(data, 0, data.length);
-        return SshWire.ed25519SignatureBlob(signer.generateSignature());
+        final byte[] signature = signer.generateSignature();
+        try {
+            return SshWire.ed25519SignatureBlob(signature);
+        } finally {
+            java.util.Arrays.fill(signature, (byte) 0);
+        }
     }
 
     /**
@@ -159,29 +164,24 @@ public class SigningKey implements AgentKey {
                 return false;
             }
             final byte[] signature = SshWire.readString(signed);
-            // As ssh-keygen: nothing after the signature, so one signature has one encoding.
-            if (signed.hasRemaining()) {
-                return false;
+            try {
+                // As ssh-keygen: nothing after the signature, so one signature has one encoding.
+                if (signed.hasRemaining()) {
+                    return false;
+                }
+                final Ed25519Signer verifier = new Ed25519Signer();
+                verifier.init(false, new Ed25519PublicKeyParameters(material, 0));
+                verifier.update(data, 0, data.length);
+                return verifier.verifySignature(signature);
+            } finally {
+                java.util.Arrays.fill(signature, (byte) 0);
             }
-            final Ed25519Signer verifier = new Ed25519Signer();
-            verifier.init(false, new Ed25519PublicKeyParameters(material, 0));
-            verifier.update(data, 0, data.length);
-            return verifier.verifySignature(signature);
         } catch (final RuntimeException e) {
             return false;
         }
     }
 
     public boolean verify(byte[] data, byte[] signatureBlob) {
-        final java.nio.ByteBuffer buffer = java.nio.ByteBuffer.wrap(signatureBlob);
-        final byte[] algorithm = SshWire.readString(buffer);
-        if (!"ssh-ed25519".equals(new String(algorithm, java.nio.charset.StandardCharsets.UTF_8))) {
-            return false;
-        }
-        final byte[] signature = SshWire.readString(buffer);
-        final Ed25519Signer verifier = new Ed25519Signer();
-        verifier.init(false, publicKey);
-        verifier.update(data, 0, data.length);
-        return verifier.verifySignature(signature);
+        return verify(keyBlob(), data, signatureBlob);
     }
 }

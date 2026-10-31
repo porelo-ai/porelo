@@ -18,7 +18,8 @@ import picocli.CommandLine.Spec;
 @Command(
         name = "lock",
         mixinStandardHelpOptions = true,
-        description = "Drops the cached passphrase. The next command asks for it again.")
+        description =
+                "Drops the cached passphrase and shares; later vault openings need an unlock.")
 public class VaultLockCommand implements Callable<Integer>, PoreloFactory.ContextAware {
 
     @Spec private CommandSpec spec;
@@ -43,37 +44,14 @@ public class VaultLockCommand implements Callable<Integer>, PoreloFactory.Contex
      */
     static int lock(PoreloContext context, PrintWriter out) {
 
-        if (!KernelKeyring.available()) {
-            // Nothing can be cached without the keyring, so nothing is. Reporting "locked" would
-            // claim a change that did not happen.
-            out.println(
-                    "nothing is cached: "
-                            + KernelKeyring.unavailable()
-                            + ", so no passphrase is kept");
+        final KernelKeyring.Forgotten forgotten;
+        try {
+            forgotten = forget(context);
+        } catch (org.fuin.porelo.vault.VaultException ex) {
+            out.println("could not release the host vault share: " + ex.getMessage());
             out.flush();
-            return 0;
+            return 70;
         }
-
-        // Both ways in, not only the passphrase: a device's share held here opens the vault as
-        // well, and forgetting the passphrase must not silently keep a device's way in. Measured:
-        // with a share held, 'lock' said "locked" while every command still opened the vault. A
-        // keyring that did not answer is asked again before that is said: it most often answers the
-        // second time.
-        final KernelKeyring.Forgotten passphrase =
-                forgetRetried(
-                        () ->
-                                new KernelKeyring(context.paths().vault().vaultKeyringKey())
-                                        .forget());
-        final KernelKeyring.Forgotten share =
-                forgetRetried(() -> VaultShare.forget(context.paths()));
-        final KernelKeyring.Forgotten forgotten =
-                passphrase == KernelKeyring.Forgotten.UNKNOWN
-                                || share == KernelKeyring.Forgotten.UNKNOWN
-                        ? KernelKeyring.Forgotten.UNKNOWN
-                        : passphrase == KernelKeyring.Forgotten.CLEARED
-                                        || share == KernelKeyring.Forgotten.CLEARED
-                                ? KernelKeyring.Forgotten.CLEARED
-                                : KernelKeyring.Forgotten.NOTHING_CACHED;
         if (forgotten == KernelKeyring.Forgotten.UNKNOWN) {
             // Never reported as "nothing was cached": that is a claim about a secret nobody
             // checked, and the passphrase may still be sitting in the keyring.
@@ -86,12 +64,68 @@ public class VaultLockCommand implements Callable<Integer>, PoreloFactory.Contex
         }
         out.println(
                 forgotten == KernelKeyring.Forgotten.CLEARED
-                        ? "locked    the next command asks for the passphrase again"
+                        ? "locked    use 'porelo host unlock <host>' for a host vault, or unlock with the vault's passphrase or device"
                         : "nothing was cached");
 
         // Said only when it is true, and it changes what locking means: a running task's proxy read
         // its credential when it started and holds it in its own memory, where this cannot reach.
         // Stopping the task is what ends that.
+        running(context, out);
+        out.flush();
+        return 0;
+    }
+
+    /** Erases every cached way into this vault, including the daemon's host share. */
+    public static KernelKeyring.Forgotten forget(PoreloContext context) {
+        final boolean available = KernelKeyring.available();
+        return forget(
+                context,
+                () ->
+                        available
+                                ? new KernelKeyring(context.paths().vault().vaultKeyringKey())
+                                        .forget()
+                                : KernelKeyring.Forgotten.NOTHING_CACHED,
+                () ->
+                        available
+                                ? VaultShare.forget(context.paths())
+                                : KernelKeyring.Forgotten.NOTHING_CACHED);
+    }
+
+    static KernelKeyring.Forgotten forget(
+            PoreloContext context,
+            java.util.function.Supplier<KernelKeyring.Forgotten> passphraseForget,
+            java.util.function.Supplier<KernelKeyring.Forgotten> shareForget) {
+        boolean hostShare = false;
+        org.fuin.porelo.vault.VaultException unavailable = null;
+        final KernelKeyring.Forgotten passphrase = forgetRetried(passphraseForget);
+        final KernelKeyring.Forgotten share = forgetRetried(shareForget);
+        try {
+            hostShare = context.forgetHostVault();
+        } catch (org.fuin.porelo.vault.VaultException ex) {
+            unavailable = ex;
+        }
+        if (unavailable != null) {
+            throw new org.fuin.porelo.vault.VaultException(
+                    unavailable.getMessage()
+                            + "; local keyring passphrase: "
+                            + passphrase
+                            + ", device share: "
+                            + share
+                            + "; retry 'porelo vault lock'",
+                    unavailable);
+        }
+        if (passphrase == KernelKeyring.Forgotten.UNKNOWN
+                || share == KernelKeyring.Forgotten.UNKNOWN) {
+            return KernelKeyring.Forgotten.UNKNOWN;
+        }
+        return hostShare
+                        || passphrase == KernelKeyring.Forgotten.CLEARED
+                        || share == KernelKeyring.Forgotten.CLEARED
+                ? KernelKeyring.Forgotten.CLEARED
+                : KernelKeyring.Forgotten.NOTHING_CACHED;
+    }
+
+    private static void running(PoreloContext context, PrintWriter out) {
         final long running =
                 context.podman().poreloTasks().stream().filter(ContainerSummary::running).count();
         if (running > 0) {
@@ -102,8 +136,6 @@ public class VaultLockCommand implements Callable<Integer>, PoreloFactory.Contex
                             + (running == 1 ? "" : "s")
                             + " still hold the credential their proxy already read; stop them to end that");
         }
-        out.flush();
-        return 0;
     }
 
     @Override

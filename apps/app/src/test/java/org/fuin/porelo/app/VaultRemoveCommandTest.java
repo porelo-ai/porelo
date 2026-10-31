@@ -95,6 +95,29 @@ class VaultRemoveCommandTest {
     }
 
     @Test
+    void aPromptedOpenerStillSeesTheGrantThatRefusesRemoval(@TempDir final Path dir) {
+        final PoreloContext context = context(dir).asking(prompt -> PASSPHRASE.clone());
+        context.vault()
+                .write(
+                        Map.of(
+                                "forge",
+                                new VaultEntry("example-token", "oauth-device"),
+                                TaskSecrets.GRANT_PREFIX + "forge",
+                                new VaultEntry("example-grant", VaultAuthorizeCommand.HELD)),
+                        PASSPHRASE);
+        try {
+            assertThat(execute(context, "vault", "remove", "forge"))
+                    .as("a grant that cannot be revoked needs explicit consent to remove")
+                    .isEqualTo(1);
+            assertThat(context.vault().read(PASSPHRASE))
+                    .as("the grant and credential remain until consent is given")
+                    .containsKeys("forge", TaskSecrets.GRANT_PREFIX + "forge");
+        } finally {
+            PoreloContext.forgetAsked();
+        }
+    }
+
+    @Test
     void aGrantAPersonGaveIsRevokedAtTheServiceBeforeItIsRemovedHere(@TempDir Path dir)
             throws Exception {
         // Harm: a refresh token deleted here that the service still honours. A person's grant is

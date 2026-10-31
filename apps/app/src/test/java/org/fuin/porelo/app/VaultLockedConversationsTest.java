@@ -46,8 +46,7 @@ class VaultLockedConversationsTest {
                 .as("no vault at all: nothing to wait for")
                 .isEmpty();
 
-        Files.createDirectories(context.paths().vault().vaultFile().getParent());
-        Files.writeString(context.paths().vault().vaultFile(), "sealed");
+        context.vault().write(Map.of(), "fixture passphrase".toCharArray());
 
         assertThat(Conversations.vaultWait(context))
                 .contains("the vault is locked")

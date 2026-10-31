@@ -87,9 +87,7 @@ final class ServiceRegistration {
                             + (device ? CodeGrant.KIND : DeviceGrant.KIND)
                             + " instead");
         }
-        final VaultFile.Opener opener =
-                context.opener()
-                        .orElseGet(() -> VaultFile.Opener.passphrase(context.requirePassphrase()));
+        final VaultFile.Opener opener = context.requireOpener();
         final String[] said = {"read the endpoints of " + host(endpoints.issuer())};
         try {
             context.vault()

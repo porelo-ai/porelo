@@ -102,6 +102,7 @@ public final class VaultClearing {
             refused |= !force;
         }
         if (refused && !dryRun) {
+            hostShare(false, items);
             // A task holding a token is named first: --force does not get past it.
             return new Clearing.Result(
                     List.copyOf(items),
@@ -171,6 +172,7 @@ public final class VaultClearing {
             }
         }
         if (failed && !force) {
+            if (!dryRun) hostShare(false, items);
             // Without the vault nobody could clear that account later: its token goes with it.
             items.add(
                     new Clearing.Item(
@@ -183,6 +185,10 @@ public final class VaultClearing {
                     List.copyOf(items), List.copyOf(keys), "", true, Clearing.Kept.TRANSPORTS);
         }
 
+        if (!keyring(dryRun, items)) {
+            return new Clearing.Result(
+                    List.copyOf(items), List.copyOf(keys), "", true, Clearing.Kept.LOCKED);
+        }
         final boolean gone = files(vault, dryRun, items);
         for (final Clearing.Item item : held) {
             items.add(
@@ -198,7 +204,6 @@ public final class VaultClearing {
                                                     : Clearing.Status.NOT_REMOVED,
                                     dryRun || gone ? "" : "the vault file stays"));
         }
-        keyring(dryRun, items);
         // What the transports keep for the account, and its own homeserver, belong to the account's
         // own vault: a vault named by PORELO_VAULT clearing them left that one with accounts on a
         // server that was gone. Nothing is listed for them, so the clear still succeeds.
@@ -224,12 +229,9 @@ public final class VaultClearing {
 
     /** The vault's entries, or {@code null} when it is locked or cannot be read. */
     private @Nullable Map<String, VaultEntry> entries(final VaultFile vault) {
-        final Optional<VaultFile.Opener> opener = context.opener();
-        if (opener.isEmpty()) {
-            return null;
-        }
         try {
-            return vault.read(opener.get());
+            final Optional<VaultFile.Opener> opener = context.opener();
+            return opener.isEmpty() ? null : vault.read(opener.get());
         } catch (final VaultException ex) {
             // A wrong passphrase cached, or a damaged file: what it holds cannot be named either
             // way.
@@ -455,10 +457,37 @@ public final class VaultClearing {
         }
     }
 
-    /** Forgets the passphrase and the device's share the kernel keyring caches for this vault. */
-    private void keyring(final boolean dryRun, final List<Clearing.Item> items) {
+    /** Releases the host share even when the encrypted file cannot be read or removed. */
+    private boolean hostShare(final boolean dryRun, final List<Clearing.Item> items) {
+        boolean forgotten = true;
+        try {
+            final boolean held = dryRun ? context.hostVault().isOpen() : context.forgetHostVault();
+            if (held) {
+                items.add(
+                        new Clearing.Item(
+                                "host-vault",
+                                "the host vault share held by porelod",
+                                dryRun ? Clearing.Status.WOULD_REMOVE : Clearing.Status.REMOVED,
+                                ""));
+            }
+        } catch (VaultException ex) {
+            forgotten = false;
+            items.add(
+                    new Clearing.Item(
+                            "host-vault",
+                            "the host vault share held by porelod",
+                            Clearing.Status.NOT_REMOVED,
+                            String.valueOf(ex.getMessage())));
+        } finally {
+            if (!dryRun) VaultCache.drop();
+        }
+        return forgotten;
+    }
+
+    private boolean keyring(final boolean dryRun, final List<Clearing.Item> items) {
+        final boolean forgotten = hostShare(dryRun, items);
         if (!KernelKeyring.available()) {
-            return;
+            return forgotten;
         }
         final String passphrase = "the passphrase cached in the kernel keyring";
         final String share = "a device's share cached in the kernel keyring";
@@ -475,10 +504,11 @@ public final class VaultClearing {
             if (held.isPresent()) {
                 items.add(new Clearing.Item("keyring", share, Clearing.Status.WOULD_REMOVE, ""));
             }
-            return;
+            return forgotten;
         }
         forgotten(passphrase, cached.forget(), items);
         forgotten(share, VaultShare.forget(context.paths()), items);
+        return forgotten;
     }
 
     private static void forgotten(

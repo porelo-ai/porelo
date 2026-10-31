@@ -15,16 +15,16 @@ import org.fuin.porelo.runtime.HookInstaller;
  * @param runner Runs external programs.
  * @param paths Where files go.
  * @param exec Runs a command on this process's terminal and waits for it.
- * @param environment Reads an environment variable; the operator's terminal is the only thing taken
- *     from it.
+ * @param environment Reads an environment variable, including the terminal and local SSH agent.
  * @param recognizesTasks Whether a container is a task only by the id Porelo recorded when it made
  *     it. Always so for {@link #real()}, which is how every command and the daemon build their
  *     context; a test that builds one itself says whether it wants it.
  * @param prompt Who is asked for the vault passphrase when the vault is shut: the terminal for
  *     {@link #real()}, nobody for a context a test builds unless it says otherwise.
- * @param input This process's standard input, for a command that reads one line a program hands it:
- *     the real one for {@link #real()}, an empty one for a context a test builds unless it says
- *     otherwise.
+ * @param input This process's standard input, for a command that reads bytes or text a program
+ *     hands it: the real one for {@link #real()}, an empty one for a context a test builds unless
+ *     it says otherwise.
+ * @param hostVault The daemon owner of a share-only vault.
  * @param machineName The name this account goes by on a transport, throwing {@link
  *     IllegalArgumentException} when the host and account make none: {@code <host>-<account>} for
  *     {@link #real()}, {@link #TEST_MACHINE} for a context a test builds unless it says otherwise,
@@ -38,7 +38,88 @@ public record PoreloContext(
         boolean recognizesTasks,
         VaultPrompt prompt,
         StandardInput input,
-        java.util.function.Supplier<String> machineName) {
+        java.util.function.Supplier<String> machineName,
+        HostVaultAccess hostVault) {
+
+    /** Creates a context whose host vault is owned by the daemon at its socket. */
+    public PoreloContext(
+            CommandRunner runner,
+            PoreloPaths paths,
+            java.util.function.ToIntFunction<List<String>> exec,
+            java.util.function.UnaryOperator<String> environment,
+            boolean recognizesTasks,
+            VaultPrompt prompt,
+            StandardInput input,
+            java.util.function.Supplier<String> machineName) {
+        this(
+                runner,
+                paths,
+                exec,
+                environment,
+                recognizesTasks,
+                prompt,
+                input,
+                machineName,
+                new HostVaultConnection(paths.daemonSocket(), paths.vault().vaultFile()));
+    }
+
+    /** Returns this context using the given host vault owner. */
+    public PoreloContext withHostVault(HostVaultAccess owner) {
+        if (owner instanceof HostVaultOwner local) {
+            local.bind(vault());
+        }
+        return new PoreloContext(
+                runner,
+                paths,
+                exec,
+                environment,
+                recognizesTasks,
+                prompt,
+                input,
+                machineName,
+                owner);
+    }
+
+    /** Forgets the host share; an unreachable socket is empty only if this uid has no daemon. */
+    public boolean forgetHostVault() {
+        try {
+            return hostVault.forget();
+        } catch (HostVaultConnection.Unreachable ex) {
+            final org.fuin.porelo.core.process.CommandResult processes;
+            try {
+                processes =
+                        runner.run(
+                                org.fuin.porelo.core.process.Command.of(
+                                        "ps",
+                                        "-u",
+                                        Long.toString(
+                                                org.fuin.porelo.core.process.SocketPeer.ownUid()),
+                                        "-o",
+                                        "comm=",
+                                        "-o",
+                                        "args="));
+            } catch (RuntimeException failure) {
+                throw new org.fuin.porelo.vault.VaultException(
+                        "Cannot establish whether porelod is running for this uid; check "
+                                + paths.daemonSocket(),
+                        failure);
+            }
+            if (processes.exitCode() != 0
+                    || processes
+                            .standardOutput()
+                            .lines()
+                            .anyMatch(
+                                    line -> {
+                                        final String row = line.strip();
+                                        return row.equals("porelod")
+                                                || row.startsWith("porelod ")
+                                                || (row.startsWith("java ")
+                                                        && row.contains(
+                                                                "org.fuin.porelo.daemon.PoreloDaemon"));
+                                    })) throw ex;
+            return false;
+        }
+    }
 
     /** The name a context a test builds goes by on a transport. */
     public static final String TEST_MACHINE = "test-host-account";
@@ -157,7 +238,7 @@ public record PoreloContext(
      */
     public PoreloContext recognizingTasks() {
         return new PoreloContext(
-                runner, paths, exec, environment, true, prompt, input, machineName);
+                runner, paths, exec, environment, true, prompt, input, machineName, hostVault);
     }
 
     /**
@@ -168,7 +249,15 @@ public record PoreloContext(
      */
     public PoreloContext asking(final VaultPrompt asking) {
         return new PoreloContext(
-                runner, paths, exec, environment, recognizesTasks, asking, input, machineName);
+                runner,
+                paths,
+                exec,
+                environment,
+                recognizesTasks,
+                asking,
+                input,
+                machineName,
+                hostVault);
     }
 
     /**
@@ -179,7 +268,15 @@ public record PoreloContext(
      */
     public PoreloContext reading(final StandardInput reading) {
         return new PoreloContext(
-                runner, paths, exec, environment, recognizesTasks, prompt, reading, machineName);
+                runner,
+                paths,
+                exec,
+                environment,
+                recognizesTasks,
+                prompt,
+                reading,
+                machineName,
+                hostVault);
     }
 
     /**
@@ -190,7 +287,15 @@ public record PoreloContext(
      */
     public PoreloContext namedAs(final java.util.function.Supplier<String> naming) {
         return new PoreloContext(
-                runner, paths, exec, environment, recognizesTasks, prompt, input, naming);
+                runner,
+                paths,
+                exec,
+                environment,
+                recognizesTasks,
+                prompt,
+                input,
+                naming,
+                hostVault);
     }
 
     /**
@@ -297,31 +402,82 @@ public record PoreloContext(
     }
 
     /**
-     * Returns the vault passphrase, or fails saying what was tried.
+     * Refuses passphrase operations on a vault that has no passphrase slot.
      *
-     * @return The passphrase.
-     * @throws org.fuin.porelo.vault.VaultException If no tier produced one.
+     * @throws org.fuin.porelo.vault.VaultException If only shares can open it.
      */
-    public char[] requirePassphrase() {
-        final var runner = new ProcessCommandRunner();
-        return new org.fuin.porelo.vault.PassphraseTiers(
-                        org.fuin.porelo.vault.KernelKeyring.source(paths.vault().vaultKeyringKey()),
-                        new org.fuin.porelo.vault.ConsolePassphrase("Vault passphrase: "))
-                .require();
+    public void requirePassphraseSlot() {
+        if (vault().exists() && !vault().hasPassphrase()) {
+            throw new org.fuin.porelo.vault.VaultException(
+                    vault().isHostVault()
+                            ? "This vault has no passphrase slot; use 'porelo host unlock <host>'"
+                            : "This vault has no passphrase slot; unlock it with an enrolled device");
+        }
+    }
+
+    /**
+     * Returns a kept opener, then tries configured passphrase sources and the terminal.
+     *
+     * @param sources Additional sources, before the terminal.
+     * @return What opens the vault.
+     * @throws org.fuin.porelo.vault.VaultException If no opener is available.
+     */
+    public org.fuin.porelo.vault.VaultFile.Opener requireOpener(
+            final org.fuin.porelo.vault.PassphraseSource... sources) {
+        return opening(
+                        () -> {
+                            final java.util.List<org.fuin.porelo.vault.PassphraseSource> tiers =
+                                    new java.util.ArrayList<>(java.util.Arrays.asList(sources));
+                            tiers.add(
+                                    () ->
+                                            java.util.Optional.ofNullable(
+                                                    prompt.ask("Vault passphrase: ")));
+                            final char[] answer =
+                                    new org.fuin.porelo.vault.PassphraseTiers(tiers).require();
+                            final var opened =
+                                    org.fuin.porelo.vault.VaultFile.Opener.passphrase(answer);
+                            if (vault().exists()) {
+                                vault().read(opened);
+                                ASKED.put(
+                                        paths.vault().vaultFile().toAbsolutePath(), answer.clone());
+                            }
+                            return java.util.Optional.of(opened);
+                        })
+                .orElseThrow(
+                        () ->
+                                new org.fuin.porelo.vault.VaultException(
+                                        "No vault opener is available"));
+    }
+
+    private java.util.Optional<org.fuin.porelo.vault.VaultFile.Opener> opening(
+            final java.util.function.Supplier<
+                            java.util.Optional<org.fuin.porelo.vault.VaultFile.Opener>>
+                    ask) {
+        final var held = opener();
+        if (held.isPresent()) {
+            return held;
+        }
+        requirePassphraseSlot();
+        return ask.get();
     }
 
     /**
      * Returns whatever can open this vault without asking anybody.
      *
-     * <p>The passphrase first, because it is what most machines have; then a device's share, held
-     * in the keyring by an unlock that has not run out. Both are ways in with a timeout, and which
-     * one a machine has is not something a caller should have to know.
+     * <p>A share-only vault asks the daemon's owner. Other vaults try the passphrase first, then a
+     * device's share held in the keyring. A caller needs neither the share nor its storage policy.
      *
      * @return An opener, or empty when the vault is shut.
      */
     public java.util.Optional<org.fuin.porelo.vault.VaultFile.Opener> opener() {
+        if (vault().isHostVault()) {
+            return hostVault.isOpen()
+                    ? java.util.Optional.of(
+                            org.fuin.porelo.vault.VaultFile.Opener.keptShare(hostVault::share))
+                    : java.util.Optional.empty();
+        }
         final char[] asked = ASKED.get(paths.vault().vaultFile().toAbsolutePath());
-        if (asked != null) {
+        if (asked != null && (!vault().exists() || vault().hasPassphrase())) {
             return java.util.Optional.of(
                     org.fuin.porelo.vault.VaultFile.Opener.passphrase(asked.clone()));
         }
@@ -330,7 +486,7 @@ public record PoreloContext(
                                 org.fuin.porelo.vault.KernelKeyring.source(
                                         paths.vault().vaultKeyringKey()))
                         .passphrase();
-        if (passphrase.isPresent()) {
+        if (passphrase.isPresent() && (!vault().exists() || vault().hasPassphrase())) {
             return java.util.Optional.of(
                     org.fuin.porelo.vault.VaultFile.Opener.passphrase(passphrase.get()));
         }
@@ -353,10 +509,18 @@ public record PoreloContext(
      */
     public java.util.Optional<org.fuin.porelo.vault.VaultFile.Opener> openerAsking(
             final boolean unlock, final java.io.PrintWriter err) {
-        final java.util.Optional<org.fuin.porelo.vault.VaultFile.Opener> held = opener();
-        if (held.isPresent() || !vault().exists()) {
-            return held;
+        try {
+            return opening(
+                    () -> vault().exists() ? askOpener(unlock, err) : java.util.Optional.empty());
+        } catch (final org.fuin.porelo.vault.VaultException ex) {
+            err.println("porelo: " + ex.getMessage());
+            err.flush();
+            return java.util.Optional.empty();
         }
+    }
+
+    private java.util.Optional<org.fuin.porelo.vault.VaultFile.Opener> askOpener(
+            final boolean unlock, final java.io.PrintWriter err) {
         final String shown =
                 unlock
                         ? "Vault passphrase (unlocks it as 'porelo vault unlock' does): "

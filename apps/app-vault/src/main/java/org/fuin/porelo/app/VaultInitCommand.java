@@ -52,6 +52,17 @@ public class VaultInitCommand implements Callable<Integer>, PoreloFactory.Contex
                             + " over. Asked once, as with --passphrase-command. Not at a terminal.")
     private boolean passphraseStdin;
 
+    @Option(
+            names = "--share-stdin",
+            description =
+                    "Reads exactly 32 binary bytes then end of input; creates only an ssh-agent slot. Not at a terminal.")
+    private boolean shareStdin;
+
+    @Option(
+            names = "--json",
+            description = "Reports share initialization as one vault status object.")
+    private boolean json;
+
     @Spec private CommandSpec spec;
 
     private PoreloContext context = PoreloContext.real();
@@ -68,7 +79,8 @@ public class VaultInitCommand implements Callable<Integer>, PoreloFactory.Contex
         final VaultFile vault = context.vault();
 
         final String refused =
-                VaultStdin.refusal(context, passphraseStdin, passphraseCommand, null);
+                VaultStdin.shareRefusal(
+                        context, shareStdin, passphraseStdin, passphraseCommand, null);
         if (refused != null) {
             err.println("porelo: " + refused);
             err.flush();
@@ -84,6 +96,10 @@ public class VaultInitCommand implements Callable<Integer>, PoreloFactory.Contex
                             + " file aside if you mean to start over");
             err.flush();
             return 70;
+        }
+
+        if (shareStdin) {
+            return fromShare(out, err);
         }
 
         char[] chosen = null;
@@ -158,6 +174,35 @@ public class VaultInitCommand implements Callable<Integer>, PoreloFactory.Contex
             }
             if (again != null) {
                 Arrays.fill(again, '\0');
+            }
+        }
+    }
+
+    private int fromShare(final PrintWriter out, final PrintWriter err) {
+        byte[] share = null;
+        try {
+            share = VaultStdin.share(context);
+            context.vault().write(Map.of(), share);
+            context.hostVault().keep(share);
+            if (json) out.println(org.fuin.porelo.wire.Json.write(Map.of("vault", "open")));
+            else {
+                out.println("created " + context.vault().path() + " with only an ssh-agent slot");
+                out.println("unlocked  held in locked memory by porelod until lock or daemon exit");
+            }
+            out.flush();
+            err.flush();
+            return 0;
+        } catch (final IllegalArgumentException ex) {
+            err.println("porelo: " + ex.getMessage());
+            err.flush();
+            return 64;
+        } catch (final VaultException ex) {
+            err.println("porelo: " + ex.getMessage());
+            err.flush();
+            return 70;
+        } finally {
+            if (share != null) {
+                Arrays.fill(share, (byte) 0);
             }
         }
     }

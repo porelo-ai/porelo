@@ -18,6 +18,7 @@ import picocli.CommandLine.Command;
             VaultAgentCommand.class,
             VaultCredentialCommand.class,
             VaultUnlockCommand.class,
+            VaultRekeyCommand.class,
             VaultLockCommand.class,
             VaultStatusCommand.class,
             VaultPassphraseCommand.class,

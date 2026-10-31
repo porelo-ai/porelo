@@ -126,8 +126,9 @@ Each is reached through the broker, with the credential on the host and a stand-
 
 ![three ways a credential reaches the vault: an operator types an API key on standard input, an agent logs itself in and vault import copies the token out of its own config file, and an operator stores an ssh key seed the same way](images/auth-entry.svg)
 
-All of these happen on the host. When the vault is shut, Porelo asks for its passphrase at the terminal and
-carries on; a script, which has no terminal, runs `porelo vault unlock` first.
+All of these happen on the host. When a passphrase vault is shut, Porelo asks for its passphrase at the terminal and
+carries on; a script, which has no terminal, runs `porelo vault unlock` first. A host vault never asks for a
+passphrase: commands name `porelo host unlock <host>` as the action that needs the person's key.
 
 **For automation only, a program on another machine** that holds the passphrase in its own memory hands it over on
 standard input. An interface never feeds it from a form of its own: a person types the passphrase at a terminal, `ssh -t
@@ -137,8 +138,88 @@ side holds it in a file, and it is in no process's arguments. `--passphrase-comm
 command reads a pipe of Porelo's own, not the ssh channel. `--passphrase-stdin` is the only source when given, takes one
 line of at most 1024 bytes, and is refused at a terminal, where the passphrase would echo.
 
-**Where the kernel refuses the keyring**, as a container's default seccomp profile does, nothing can be cached: every
-vault command asks for the passphrase, and `porelo doctor` says the kernel refuses it rather than that a package is
+**A host vault with only SSH share slots** is made with `porelo vault init --share-stdin` and opened with
+`porelo vault unlock --share-stdin`. A caller supplies exactly 32 binary bytes followed by end of input; no newline,
+text encoding or base64 is added. Both commands refuse a terminal and any passphrase source beside the share. The
+share is supplied from outside Porelo; these two commands neither contact an SSH agent nor derive it. The daemon verifies
+the entire vault before retaining the share. It keeps it in native memory protected by `mlock`
+and, on Linux, `MADV_DONTDUMP`. A lock, clear, daemon exit or reboot erases that allocation before releasing it.
+There is no lifetime option for a host share: omit `--for`. The daemon must be running; failure to reach it or to
+protect the allocation is an error, and nothing falls back to the kernel keyring or a file. The daemon owns the
+vault it was configured with; a command naming another `PORELO_VAULT` cannot open or release that owner's share.
+Requests compare resolved vault paths. The held share also records the opening slot's wrapped-key digest, so a
+replacement vault at the same path is locked, releases the old share and invalidates cached entries as soon as it
+is noticed. Moving the original file back cannot reopen it. A failed unlock also releases any previously held
+share. A lock or forget that arrives during verification prevents that
+unlock from keeping a share afterwards.
+
+Every process of the account can read the held share, locally and over SSH, including through
+`porelo daemon connect`, just as it can ask the local agent for a signature. Agent confirmation with
+`ssh-add -c` is the person's way to narrow that access. All daemon methods require the connection's
+`SO_PEERCRED` uid to match the daemon's uid; its socket is bound inside a directory with mode `0700`.
+The connecting command checks the server's kernel uid before sending a share. Socket directory ownership is
+checked numerically without following a symlink, and a symlinked parent is refused.
+
+The daemon's background watches use its owner directly. Lock, forget and clear drop its decrypted conversation
+cache immediately. Clearing asks the owner to forget before deleting the encrypted vault, and refuses if that
+request fails. Lock still attempts to erase the local keyring's passphrase and device share when the daemon does
+not answer, then reports the failure with a nonzero exit status.
+Local keyring erasure precedes the owner request; that request times out after five seconds. Lock and clear
+forget by vault location even when the file is missing, moved or replaced. Replacing a held share closes the
+previous locked allocation before allocating the next one.
+An absent socket is reported explicitly. Lock and clear treat an unreachable owner as holding nothing only when
+the process inventory establishes that no porelod is running for this uid; otherwise they refuse and name the
+expected socket path. Lock never reads the encrypted file after forgetting.
+
+On the person's machine, `porelo host unlock example.org --host-key SHA256:... --login alice` derives this share
+using the local agent at `SSH_AUTH_SOCK`. Supply the host's verified Ed25519 fingerprint in place of `SHA256:...`.
+With several Ed25519 identities, select the person's key with `--key SHA256:...`. Porelo verifies the offered host
+key against that fingerprint and pins it for a fresh SSH connection. The host name or IPv4 address, fingerprint
+and login are explicit inputs; a host card is not read. A changed host key or login derives another share.
+
+The agent signs `host=<fingerprint> account=<login>` in the `porelo-vault` namespace; HKDF-SHA256 derives the
+32-byte share from that SSHSIG blob. Only the share travels over SSH's standard input, with no terminal or agent
+forwarding; the signature stays local. The remote command is `porelo` by default; `--remote-porelo '~/.local/bin/porelo'`
+selects an account installation. The remote unlock answers exit 66 with `{"vault":"absent"}` when there is no vault,
+so `host unlock` sends the share to `vault init --share-stdin` instead. An existing vault takes `vault unlock --share-stdin`.
+Neither share nor signature appears in the command line.
+
+A host vault keeps only `ssh-agent` slots. Device enrollment is refused. With the old key still available, run
+`porelo host unlock HOST --host-key SHA256:... --login ACCOUNT --key NEW_FP --previous-key OLD_FP`.
+It derives both shares locally and sends the old 32 bytes followed by the new 32 bytes, with nothing else, to
+`porelo vault rekey --share-stdin --json`. The host verifies the old share, wraps the opening key with the new
+share before replacing the previous slot, and keeps every entry. The replacement is atomic; the daemon then
+holds the new share. A previous key that does not open the vault exits 77 without changing the file, even with
+`--yes` on the person's command.
+Revocation never removes the last SSH share slot.
+
+The daemon's long-lived share is locked; temporary copies used by SSH, varlink and Java cryptography are not.
+Porelo clears the share and signature arrays it explicitly manages after use, including agent reply frames and
+parsed signature copies. Bouncy Castle's HKDF parameters and signing and verification state can retain library-owned
+copies. Armored signatures and their parsing use immutable Java strings.
+In particular, base64 shares in varlink JSON require immutable Java strings that cannot be zeroed; these copies
+can outlive lock. The locked allocation is not a claim that every transient copy is protected or erased.
+Host helpers ask the owner again when opening the vault; renewal keeps no independent share. Lock prevents later
+renewals, while a running broker can use the credential it already read until it ends.
+
+A share that opens no slot in a host vault exits 77; with `--json`, unlock prints `{"vault":"other-key"}`.
+A vault containing passphrase or other slots, including device-only and mixed vaults, exits 65 with
+`{"vault":"not-a-host-vault"}` and a diagnostic naming those slots. It is never reset by `host unlock`, with or
+without `--yes`. An unreadable or malformed file, or content that fails authentication after a slot opens,
+exits 70 instead. A damaged wrapped key can be
+indistinguishable from another share, so exit 77 alone never authorizes clearing a vault. `host unlock` asks for a
+yes on the terminal before clearing and recreating it with the new key. Scripts must explicitly pass `--yes`;
+without consent it leaves the vault intact and exits 77. After a reset every sign-in must be made once more.
+`vault unlock` itself removes nothing. Successful JSON unlock prints `{"vault":"open"}`.
+Share initialization also supports `--json` and answers `{"vault":"open"}` after the owner has accepted it.
+The person's command accepts only one JSON status line whose exit agrees: `open`/0, `absent`/66, `other-key`/77 or
+`not-a-host-vault`/65. Unexpected stdout or an inconsistent exit answers 70, displays the remote stderr with
+control characters removed, and sends no more shares or commands. Without local `--json`, it prints words.
+Before recreating a vault, it also verifies the remote clear command's JSON result and successful exit.
+An SSH share cannot open a mixed vault through the device-share API or enter the device keyring.
+
+**Where the kernel refuses the keyring**, as a container's default seccomp profile does, a passphrase cannot be cached:
+a passphrase vault command asks for it, and `porelo doctor` says the kernel refuses it rather than that a package is
 missing. Porelo asks the kernel once per command, for a key nobody made, so it knows before it tries to store one.
 
 | Command | What it does |
@@ -475,14 +556,16 @@ The vault is one AES-256-GCM file. Its master key is made once and stored only w
 credential that may open it. The whole header is authenticated, so nothing in it can be changed
 unnoticed. A file of another version is refused; create it again with `porelo vault init`.
 
-- **Keyslot 0 is the passphrase**, wrapped with Argon2id. It is the recovery credential, typed by a
-  person and stored nowhere. `porelo vault passphrase` changes it and asks for the current one; a
-  device cannot replace it. A change replaces one slot and every device keeps working.
-- **Every other slot is a device**, holding a 32-byte share in its own keystore. The host cannot
+- **A passphrase vault has a passphrase slot**, wrapped with Argon2id. `porelo vault passphrase` changes
+  that existing slot; every device keeps working.
+- **A vault made with `--share-stdin` has only an `ssh-agent` slot**, wrapped directly under the supplied
+  32-byte share. It has no passphrase or recovery slot, and passphrase operations cannot add one. Rotating
+  the share through the vault API keeps the entries and replaces the old share's way in.
+- **A device slot holds a 32-byte share** in its own keystore. The host cannot
   open a device slot by itself, so a copy of the machine is not a copy of the vault.
-- **An unlock keeps the share or the passphrase in the kernel keyring**, never the master key, so a
-  revoked slot stops working at once. The daemon opens the vault only with a device's share, never a
-  passphrase.
+- **A host share lives in the daemon's locked native memory.** Passphrases and device shares for passphrase vaults
+  use the kernel keyring. Neither cache keeps the master key, so a revoked slot stops working at once. The daemon
+  and later commands use what the account keeps.
 - **A slot's name, enrolment time and last use are readable while the vault is locked.** None of it
   is secret, and a device unused for months is easy to spot.
 

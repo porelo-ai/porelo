@@ -1,0 +1,2 @@
+title: Refuse SSH shares for mixed vaults, release held shares on invalid unlocks, verify remote clearing, and report device keyslots from the keyring.
+type: fixed

@@ -4,7 +4,6 @@ import java.io.PrintWriter;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.concurrent.Callable;
-import org.fuin.porelo.core.config.XdgPaths;
 import org.fuin.porelo.vault.SigningKey;
 import org.fuin.porelo.vault.SshAgentServer;
 import org.fuin.porelo.vault.VaultException;
@@ -26,7 +25,14 @@ import picocli.CommandLine.Spec;
         name = "agent",
         mixinStandardHelpOptions = true,
         description = "Runs an ssh-agent that signs with a key from the vault.")
-public class VaultAgentCommand implements Callable<Integer> {
+public class VaultAgentCommand implements Callable<Integer>, PoreloFactory.ContextAware {
+
+    private PoreloContext context = PoreloContext.real();
+
+    @Override
+    public void setContext(PoreloContext context) {
+        this.context = context;
+    }
 
     @Option(
             names = "--socket",
@@ -125,9 +131,8 @@ public class VaultAgentCommand implements Callable<Integer> {
     }
 
     private org.fuin.porelo.vault.AgentKey fromVault() {
-        final PoreloPaths paths = new PoreloPaths(XdgPaths.current(), Path.of(""));
-        final VaultFile vault = new VaultFile(paths.vault().vaultFile());
-        final var entry = vault.read(opener(paths)).get(keyName);
+        final VaultFile vault = context.vault();
+        final var entry = vault.read(opener()).get(keyName);
         if (entry == null) {
             throw new VaultException("The vault has no entry named '" + keyName + "'");
         }
@@ -135,26 +140,10 @@ public class VaultAgentCommand implements Callable<Integer> {
         return org.fuin.porelo.vault.StoredKey.of(entry.value(), keyName);
     }
 
-    private VaultFile.Opener opener(PoreloPaths paths) {
-        // A device's share counts here too: this runs per task, and a machine a device unlocked
-        // must serve a task exactly as one a person unlocked does.
-        final java.util.Optional<byte[]> share = VaultShare.held(paths);
-        if (share.isPresent()) {
-            return VaultFile.Opener.share(share.get());
-        }
+    private VaultFile.Opener opener() {
         final var runner = new org.fuin.porelo.core.process.ProcessCommandRunner();
-        return VaultFile.Opener.passphrase(
-                new org.fuin.porelo.vault.PassphraseTiers(
-                                // The keyring first here, unlike 'vault unlock': this runs per
-                                // task, and the whole point of the cache is that it answers without
-                                // asking anyone.
-                                org.fuin.porelo.vault.KernelKeyring.source(
-                                        paths.vault().vaultKeyringKey()),
-                                new org.fuin.porelo.vault.SystemdCredential(
-                                        runner, systemdCredential),
-                                new org.fuin.porelo.vault.CommandPassphrase(
-                                        runner, passphraseCommand),
-                                new org.fuin.porelo.vault.ConsolePassphrase("Vault passphrase: "))
-                        .require());
+        return context.requireOpener(
+                new org.fuin.porelo.vault.SystemdCredential(runner, systemdCredential),
+                new org.fuin.porelo.vault.CommandPassphrase(runner, passphraseCommand));
     }
 }

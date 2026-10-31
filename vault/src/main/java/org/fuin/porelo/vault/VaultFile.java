@@ -42,9 +42,9 @@ import org.jspecify.annotations.Nullable;
  *
  * <p><strong>The content is encrypted under a master key that no credential is.</strong> The master
  * key is generated once, when the vault is created, and stored only in wrapped form - once per
- * {@link Keyslot}. The passphrase is keyslot 0 and wraps it with Argon2id; a device's share wraps
- * it with HKDF. Adding a device adds a slot, removing one deletes a slot, and neither re-keys
- * anything or disturbs another device.
+ * {@link Keyslot}. A passphrase slot wraps it with Argon2id; a device's share wraps it with HKDF,
+ * and an ssh-agent slot uses the externally supplied share directly. Adding a device adds a slot,
+ * removing one deletes a slot, and neither re-keys anything or disturbs another device.
  */
 public class VaultFile {
 
@@ -124,6 +124,33 @@ public class VaultFile {
         return file;
     }
 
+    /** Returns the wrapped-key identity of the slot this share opens. */
+    public String shareIdentity(byte[] share) {
+        for (final VaultHeader.Slot slot : header().slots()) {
+            if (takes(slot, Opener.share(share))) {
+                return keyIdentity(slot);
+            }
+        }
+        throw new OtherVaultKeyException("No keyslot takes that share");
+    }
+
+    /** Whether this vault still contains the wrapped key verified when it was opened. */
+    public boolean hasKeyIdentity(String identity) {
+        return exists()
+                && header().slots().stream().anyMatch(slot -> keyIdentity(slot).equals(identity));
+    }
+
+    private static String keyIdentity(VaultHeader.Slot slot) {
+        try {
+            return java.util.HexFormat.of()
+                    .formatHex(
+                            java.security.MessageDigest.getInstance("SHA-256")
+                                    .digest(slot.wrapped()));
+        } catch (java.security.NoSuchAlgorithmException ex) {
+            throw new IllegalStateException("SHA-256 is unavailable", ex);
+        }
+    }
+
     /**
      * Tells whether the vault exists.
      *
@@ -145,9 +172,9 @@ public class VaultFile {
     }
 
     /**
-     * Reads and decrypts the vault with a device's share.
+     * Reads and decrypts the vault with a share.
      *
-     * @param share The 32 bytes that device keeps in its platform's keystore.
+     * @param share The 32 bytes supplied from outside the vault.
      * @return The entries, in the order they were written.
      * @throws VaultException If the file is unreadable, malformed, or no slot takes that share.
      */
@@ -183,6 +210,27 @@ public class VaultFile {
     }
 
     /**
+     * Says whether this vault has a passphrase way in, without opening it.
+     *
+     * @return Whether a passphrase slot exists.
+     */
+    public boolean hasPassphrase() {
+        return exists()
+                && header().slots().stream()
+                        .anyMatch(slot -> VaultHeader.PASSPHRASE_SLOT.equals(slot.kind()));
+    }
+
+    /** Says whether every slot is protected by a person's SSH key. */
+    public boolean isHostVault() {
+        return exists() && isHostVault(header());
+    }
+
+    private static boolean isHostVault(VaultHeader header) {
+        return header.slots().stream()
+                .allMatch(slot -> VaultHeader.SSH_AGENT_SLOT.equals(slot.kind()));
+    }
+
+    /**
      * Enrolls a device, so that its share opens this vault.
      *
      * <p><strong>The share arrives once and is discarded.</strong> The node derives a wrapping key
@@ -214,9 +262,13 @@ public class VaultFile {
     private Keyslot enrolled(Opener opener, byte[] share, String name, String storage) {
         final Opened opened = opened(opener);
         try {
+            if (opened.header().slots().stream()
+                    .anyMatch(slot -> VaultHeader.SSH_AGENT_SLOT.equals(slot.kind()))) {
+                throw new VaultException(
+                        "A host vault accepts only SSH shares during a change of key");
+            }
             for (final VaultHeader.Slot existing : opened.header().slots()) {
-                if (keyFor(existing, Opener.share(share)) != null
-                        && takes(existing, Opener.share(share))) {
+                if (takes(existing, Opener.share(share))) {
                     // Asked again after an answer was lost, most likely. Saying so beats making a
                     // second slot for one device, which would then need revoking twice.
                     throw new VaultException(
@@ -253,12 +305,48 @@ public class VaultFile {
             } finally {
                 Arrays.fill(key, (byte) 0);
             }
-            writeContent(read(opened(opener)), slots, opened.master());
+            writeContent(readContent(opened), slots, opened.master());
             return made;
         } finally {
             // A change that throws never reaches writeContent, which clears it otherwise.
             Arrays.fill(opened.master(), (byte) 0);
         }
+    }
+
+    /** Enrolls the next SSH share while a current share still opens the host vault. */
+    public Keyslot enrollHostShare(byte[] current, byte[] fresh) {
+        checkShare(current);
+        checkShare(fresh);
+        return locked(
+                () -> {
+                    final Opened opened = opened(Opener.share(current));
+                    try {
+                        if (!VaultHeader.SSH_AGENT_SLOT.equals(opened.slot().kind())
+                                || opened.header().slots().stream()
+                                        .anyMatch(
+                                                slot ->
+                                                        !VaultHeader.SSH_AGENT_SLOT.equals(
+                                                                slot.kind()))) {
+                            throw new VaultException(
+                                    "Only a current SSH share can enroll the next host key");
+                        }
+                        if (opened.header().slots().stream()
+                                .anyMatch(slot -> takes(slot, Opener.share(fresh)))) {
+                            throw new VaultException("That share is already enrolled");
+                        }
+                        final var slots = new java.util.ArrayList<>(opened.header().slots());
+                        final VaultHeader.Slot added =
+                                sshAgentSlot(
+                                        fresh,
+                                        opened.master(),
+                                        java.util.UUID.randomUUID().toString());
+                        slots.add(added);
+                        writeContent(readContent(opened), slots, opened.master());
+                        return added.slot();
+                    } finally {
+                        Arrays.fill(opened.master(), (byte) 0);
+                    }
+                });
     }
 
     /**
@@ -291,14 +379,22 @@ public class VaultFile {
             if (!found) {
                 throw new VaultException("No keyslot of " + file + " is called '" + id + "'");
             }
-            if (kept.isEmpty()) {
+            if (kept.isEmpty()
+                    || (opened.header().slots().stream()
+                                    .anyMatch(
+                                            slot -> VaultHeader.SSH_AGENT_SLOT.equals(slot.kind()))
+                            && kept.stream()
+                                    .noneMatch(
+                                            slot ->
+                                                    VaultHeader.SSH_AGENT_SLOT.equals(
+                                                            slot.kind())))) {
                 // A vault nothing can open is not a revoked device, it is a lost vault.
                 throw new VaultException(
                         "That is the last way into "
                                 + file
                                 + ", and removing it would leave the vault openable by nothing");
             }
-            writeContent(read(opened(opener)), kept, opened.master());
+            writeContent(readContent(opened), kept, opened.master());
             return kept.stream().map(VaultHeader.Slot::slot).toList();
         } finally {
             Arrays.fill(opened.master(), (byte) 0);
@@ -354,7 +450,7 @@ public class VaultFile {
             if (touched == null) {
                 throw new VaultException("No keyslot of " + file + " is called '" + id + "'");
             }
-            writeContent(read(opened(opener)), slots, opened.master());
+            writeContent(readContent(opened), slots, opened.master());
             return touched;
         } finally {
             Arrays.fill(opened.master(), (byte) 0);
@@ -391,7 +487,7 @@ public class VaultFile {
      * @return {@code true} when it opens.
      */
     private boolean takes(VaultHeader.Slot slot, Opener opener) {
-        final byte[] key = keyFor(slot, opener);
+        final byte[] key = keyFor(slot, opener, isHostVault());
         if (key == null) {
             return false;
         }
@@ -412,6 +508,14 @@ public class VaultFile {
 
     private Map<String, VaultEntry> read(Opened opened) {
         try {
+            return readContent(opened);
+        } finally {
+            Arrays.fill(opened.master(), (byte) 0);
+        }
+    }
+
+    private Map<String, VaultEntry> readContent(Opened opened) {
+        try {
             final Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
             cipher.init(
                     Cipher.DECRYPT_MODE,
@@ -421,7 +525,12 @@ public class VaultFile {
             final byte[] file = opened.file();
             final byte[] cipherText =
                     Arrays.copyOfRange(file, opened.header().contentAt(), file.length);
-            return parse(new String(cipher.doFinal(cipherText), StandardCharsets.UTF_8));
+            final byte[] plaintext = cipher.doFinal(cipherText);
+            try {
+                return parse(new String(plaintext, StandardCharsets.UTF_8));
+            } finally {
+                Arrays.fill(plaintext, (byte) 0);
+            }
         } catch (GeneralSecurityException ex) {
             // The slot's own tag already proved the key, so a failure here is the file having been
             // altered rather than a wrong credential - and the message says so.
@@ -430,8 +539,6 @@ public class VaultFile {
                             + file
                             + " - the credential opened a keyslot but the content does not match this"
                             + " vault's header. The file has been altered.");
-        } finally {
-            Arrays.fill(opened.master(), (byte) 0);
         }
     }
 
@@ -459,6 +566,91 @@ public class VaultFile {
      */
     public void write(Map<String, VaultEntry> entries, char[] passphrase) {
         write(entries, passphrase, false);
+    }
+
+    /**
+     * Creates a vault whose only slot takes an externally supplied share.
+     *
+     * @param entries What to store.
+     * @param share The 32-byte wrapping key.
+     */
+    public void write(Map<String, VaultEntry> entries, byte[] share) {
+        checkShare(share);
+        locked(
+                () -> {
+                    if (exists()) {
+                        throw new VaultException("There is already a vault at " + file);
+                    }
+                    final byte[] master = freshMaster();
+                    try {
+                        writeContent(
+                                entries, java.util.List.of(sshAgentSlot(share, master)), master);
+                    } finally {
+                        Arrays.fill(master, (byte) 0);
+                    }
+                    return true;
+                });
+    }
+
+    /**
+     * Rotates the share without losing entries or adding a passphrase slot.
+     *
+     * @param share What opens it now.
+     * @param fresh The new 32-byte wrapping key.
+     */
+    public void rekey(byte[] share, byte[] fresh) {
+        checkShare(share);
+        checkShare(fresh);
+        locked(
+                () -> {
+                    final Opened opened = opened(Opener.share(share));
+                    try {
+                        if (!VaultHeader.SSH_AGENT_SLOT.equals(opened.slot().kind())) {
+                            throw new VaultException("That share did not open an ssh-agent slot");
+                        }
+                        final java.util.List<VaultHeader.Slot> slots = new java.util.ArrayList<>();
+                        for (final VaultHeader.Slot slot : opened.header().slots()) {
+                            slots.add(
+                                    slot == opened.slot()
+                                            ? sshAgentSlot(fresh, opened.master(), slot.slot().id())
+                                            : slot);
+                        }
+                        writeContent(readContent(opened), slots, opened.master());
+                    } finally {
+                        Arrays.fill(opened.master(), (byte) 0);
+                    }
+                    return true;
+                });
+    }
+
+    private static void checkShare(byte[] share) {
+        if (share.length != KEY_LENGTH) {
+            throw new VaultException("A share is " + KEY_LENGTH + " bytes");
+        }
+    }
+
+    private VaultHeader.Slot sshAgentSlot(byte[] share, byte[] master) {
+        return sshAgentSlot(share, master, Keyslot.SSH_AGENT);
+    }
+
+    private VaultHeader.Slot sshAgentSlot(byte[] share, byte[] master, String id) {
+        final byte[] nonce = new byte[NONCE_LENGTH];
+        random.nextBytes(nonce);
+        return new VaultHeader.Slot(
+                VaultHeader.SSH_AGENT_SLOT,
+                new Keyslot(
+                        id,
+                        "ssh-agent",
+                        "USER_SCOPED",
+                        java.time.Instant.now().toString(),
+                        "",
+                        false),
+                new byte[0],
+                nonce,
+                wrap(share, nonce, master),
+                0,
+                0,
+                0);
     }
 
     /**
@@ -514,9 +706,24 @@ public class VaultFile {
 
         private final byte @Nullable [] share;
 
+        private final java.util.function.@Nullable Supplier<byte[]> keptShare;
+
         private Opener(char @Nullable [] passphrase, byte @Nullable [] share) {
+            this(passphrase, share, null);
+        }
+
+        private Opener(
+                char @Nullable [] passphrase,
+                byte @Nullable [] share,
+                java.util.function.@Nullable Supplier<byte[]> keptShare) {
             this.passphrase = passphrase;
             this.share = share;
+            this.keptShare = keptShare;
+        }
+
+        /** Asks the owner for a temporary share on each opening, erasing it afterwards. */
+        public static Opener keptShare(java.util.function.Supplier<byte[]> owner) {
+            return new Opener(null, null, owner);
         }
 
         /**
@@ -560,10 +767,18 @@ public class VaultFile {
      * @throws VaultException If no slot takes it.
      */
     private Opened opened(Opener opener) {
+        if (opener.keptShare != null) {
+            final byte[] share = opener.keptShare.get();
+            try {
+                return opened(Opener.share(share));
+            } finally {
+                Arrays.fill(share, (byte) 0);
+            }
+        }
         final byte[] content = bytes();
         final VaultHeader header = VaultHeader.read(content, file);
         for (final VaultHeader.Slot slot : header.slots()) {
-            final byte[] key = keyFor(slot, opener);
+            final byte[] key = keyFor(slot, opener, isHostVault(header));
             if (key == null) {
                 continue;
             }
@@ -586,7 +801,12 @@ public class VaultFile {
             }
         }
         if (opener.share != null) {
-            throw new VaultException(
+            if (!isHostVault(header)
+                    && header.slots().stream()
+                            .anyMatch(slot -> VaultHeader.SSH_AGENT_SLOT.equals(slot.kind()))) {
+                throw new NotAHostVaultException();
+            }
+            throw new OtherVaultKeyException(
                     "No keyslot in "
                             + file
                             + " takes that share."
@@ -607,7 +827,7 @@ public class VaultFile {
      * @param opener What was offered.
      * @return The slot key, or {@code null}.
      */
-    private byte @Nullable [] keyFor(VaultHeader.Slot slot, Opener opener) {
+    private byte @Nullable [] keyFor(VaultHeader.Slot slot, Opener opener, boolean hostVault) {
         if (VaultHeader.PASSPHRASE_SLOT.equals(slot.kind())) {
             if (opener.passphrase == null) {
                 return null;
@@ -620,7 +840,15 @@ public class VaultFile {
                     slot.memoryKib(),
                     slot.parallelism());
         }
-        return opener.share == null ? null : wrappingKey(opener.share, slot.salt());
+        if (opener.share == null) {
+            return null;
+        }
+        checkShare(opener.share);
+        return switch (slot.kind()) {
+            case VaultHeader.SHARE_SLOT -> wrappingKey(opener.share, slot.salt());
+            case VaultHeader.SSH_AGENT_SLOT -> hostVault ? opener.share.clone() : null;
+            default -> throw new VaultException("Unknown keyslot kind in " + file);
+        };
     }
 
     /**
@@ -699,6 +927,11 @@ public class VaultFile {
      * @param fresh The passphrase to use from now on.
      */
     private void writeRekeyed(Map<String, VaultEntry> entries, Opened opened, char[] fresh) {
+        if (opened.header().slots().stream()
+                .noneMatch(slot -> VaultHeader.PASSPHRASE_SLOT.equals(slot.kind()))) {
+            throw new VaultException(
+                    "This vault has no passphrase slot; use 'porelo host unlock <host>'");
+        }
         final java.util.List<VaultHeader.Slot> slots = new java.util.ArrayList<>();
         for (final VaultHeader.Slot slot : opened.header().slots()) {
             if (!VaultHeader.PASSPHRASE_SLOT.equals(slot.kind())) {
@@ -941,6 +1174,25 @@ public class VaultFile {
     }
 
     /**
+     * Changes an existing passphrase slot using any current way into the vault.
+     *
+     * @param opener What opens the vault now.
+     * @param fresh The new passphrase.
+     */
+    public void rekey(Opener opener, char[] fresh) {
+        locked(
+                () -> {
+                    final Opened opened = opened(opener);
+                    try {
+                        writeRekeyed(readContent(opened), opened, fresh);
+                    } finally {
+                        Arrays.fill(opened.master(), (byte) 0);
+                    }
+                    return true;
+                });
+    }
+
+    /**
      * Runs a read-modify-write cycle under an advisory lock.
      *
      * <p>The lock is held across the whole cycle, so two {@code porelo} processes storing different
@@ -984,7 +1236,7 @@ public class VaultFile {
                     final Opened opened = opened(opener);
                     try {
                         final Map<String, VaultEntry> current =
-                                new LinkedHashMap<>(read(opened(opener)));
+                                new LinkedHashMap<>(readContent(opened));
                         final Map<String, VaultEntry> before = new LinkedHashMap<>(current);
                         final Map<String, VaultEntry> next = change.apply(current);
                         if (unchanged(before, next)) {

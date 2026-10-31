@@ -37,6 +37,7 @@ class VaultLockCommandTest {
                         name ->
                                 switch (name) {
                                     case "XDG_DATA_HOME" -> dir.resolve("data").toString();
+                                    case "XDG_RUNTIME_DIR" -> dir.resolve("run").toString();
                                     default -> null;
                                 },
                         dir);

@@ -180,6 +180,7 @@ public class SetupCommand implements Callable<Integer>, PoreloFactory.ContextAwa
     private boolean vault(final PrintWriter out, final PrintWriter err) {
         if (context.vault().exists()) {
             out.println("vault     already there");
+            context.openerAsking(false, err);
             return true;
         }
         if (!terminal.getAsBoolean()) {

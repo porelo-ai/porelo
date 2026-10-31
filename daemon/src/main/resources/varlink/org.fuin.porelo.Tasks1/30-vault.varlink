@@ -275,8 +275,10 @@ method ImportCredential(
 # What can open this machine's vault.
 #
 # The vault's master key is stored only in wrapped form, once per credential allowed to open it.
-# Keyslot 0 is the passphrase and is recovery only; every other slot is one device, which keeps a
-# 32-byte share in its own platform's keystore. Adding a device adds a slot, removing one deletes a
+# A passphrase vault has a recovery slot. A vault created by 'vault init --share-stdin' has only an
+# ssh-agent slot and no passphrase recovery. Its supplied 32 bytes wrap the master key directly;
+# USER_SCOPED records that another process with access to the person's agent can obtain the share.
+# A device slot keeps a 32-byte share in its own platform's keystore. Adding a device adds a slot, removing one deletes a
 # slot, and neither re-keys anything nor disturbs another device.
 #
 # Readable while the vault is locked: a screen has to show which devices can open a vault before
@@ -334,22 +336,23 @@ method RevokeKeyslot(id: string) -> (
   detail: string
 )
 
-# Opens the vault with a device's share, for a while.
+# Opens the vault with a share.
 #
-# This is the one thing the daemon can do to the vault that it cannot do with a passphrase: a share
-# arrives from a device over this socket, where a passphrase would need a terminal the daemon does
-# not have.
-#
-# What is held afterwards is the share, in the kernel keyring, with the kernel enforcing the
-# timeout - not the unwrapped master key, which would be a secret on this machine that outlives
-# every revocation.
+# A device's share is held in the kernel keyring with a timeout. A host vault's share is held in
+# the daemon's locked memory until lock or exit, and refuses minutes. The unwrapped master key
+# is not retained, since it would outlive every revocation.
+# An SSH share for a vault containing other slot kinds is refused with NotAHostVault.
 method UnlockWithShare(
-  # The device's share, base64.
+  # When supplied, must resolve to this daemon's vault.
+  vault: ?string,
+  # The opening share, base64.
   share: string,
-  # How long, in minutes. Absent means eight hours.
+  # Device shares only: how long, in minutes. Absent means eight hours; omit for a host share.
   minutes: ?int
 ) -> (
   # UNLOCKED, SHARE_REJECTED, BAD_SHARE, VAULT_WITHOUT_KEYSLOTS or FAILED.
+  # SHARE_REJECTED means no slot takes the share; a malformed file or content authentication failure
+  # is FAILED. Rejection never authorizes clearing the vault.
   outcome: string,
   # When the unlock runs out, RFC 3339, or "".
   until: string,
@@ -432,6 +435,8 @@ error DestinationRefused(message: string)
 #
 # A running task that holds a token from the vault refuses it, force or not: stop the task first.
 method VaultClear(
+  # When supplied, must resolve to this daemon's vault.
+  vault: ?string,
   # Says what would go, and removes nothing.
   dryRun: ?bool,
   # Clears a locked vault unread, or one whose transport could not clear a project's account.
@@ -448,3 +453,18 @@ method VaultClear(
   # transports; "" when it did not.
   kept: string
 )
+
+# Internal host helpers use the account's owner-only socket; shares are transient base64 here.
+# Paths resolve to the daemon's vault, whose wrapped key must still match the held share.
+# Every method requires SO_PEERCRED's uid to match this daemon's, including SSH connections.
+# Forget compares the vault location without requiring the encrypted file to exist.
+method KeepHostVaultShare(vault: string, share: string) -> ()
+method HostVaultShare(vault: string) -> (open: bool)
+method ReadHostVaultShare(vault: string) -> (share: string)
+method ForgetHostVaultShare(vault: string) -> (wasHeld: bool)
+
+# The offered share opens no slot; the vault has not been cleared or changed.
+error OtherVaultKey()
+
+# The vault contains passphrase or other slots; host-key unlock and reset are refused.
+error NotAHostVault()

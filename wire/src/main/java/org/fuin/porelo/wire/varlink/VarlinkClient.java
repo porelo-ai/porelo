@@ -21,10 +21,21 @@ public class VarlinkClient implements AutoCloseable {
      * @throws VarlinkException If the socket cannot be reached.
      */
     public VarlinkClient(Path socket) {
+        this(socket, channel -> {});
+    }
+
+    /** Connects and verifies the kernel peer before any request bytes can be sent. */
+    public VarlinkClient(Path socket, java.util.function.Consumer<SocketChannel> verify) {
         try {
             final SocketChannel channel = SocketChannel.open(StandardProtocolFamily.UNIX);
-            channel.connect(UnixDomainSocketAddress.of(socket));
-            connection = new VarlinkConnection(channel);
+            try {
+                channel.connect(UnixDomainSocketAddress.of(socket));
+                verify.accept(channel);
+                connection = new VarlinkConnection(channel);
+            } catch (IOException | RuntimeException | Error ex) {
+                channel.close();
+                throw ex;
+            }
         } catch (IOException ex) {
             throw new VarlinkException("Cannot connect to " + socket, ex);
         }

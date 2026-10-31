@@ -42,12 +42,15 @@ final class VaultHeader {
     /** A slot a device's share opens. */
     static final String SHARE_SLOT = "share";
 
+    /** A slot wrapped directly under the share supplied by the person's key. */
+    static final String SSH_AGENT_SLOT = Keyslot.SSH_AGENT;
+
     /**
      * One slot's stored form: what it is, who it belongs to, and the master key wrapped for it.
      *
-     * @param kind {@link #PASSPHRASE_SLOT} or {@link #SHARE_SLOT}.
+     * @param kind {@link #PASSPHRASE_SLOT}, {@link #SHARE_SLOT} or {@link #SSH_AGENT_SLOT}.
      * @param slot What is shown about it while the vault is locked.
-     * @param salt Argon2id salt for a passphrase slot, HKDF salt for a share slot.
+     * @param salt Argon2id salt for a passphrase slot, HKDF salt for a device, empty for ssh-agent.
      * @param nonce The nonce the master key was wrapped under, for this slot alone.
      * @param wrapped The master key encrypted under this slot's key, with its tag.
      * @param iterations Argon2id iterations, for a passphrase slot. Zero otherwise.
@@ -183,7 +186,7 @@ final class VaultHeader {
         final byte[] json = new byte[length];
         buffer.get(json);
         final byte[] contentNonce = new byte[VaultFile.NONCE_LENGTH];
-        if (buffer.remaining() < contentNonce.length) {
+        if (buffer.remaining() < contentNonce.length + 16) {
             throw new VaultException(name + " has a malformed header");
         }
         buffer.get(contentNonce);
@@ -205,6 +208,8 @@ final class VaultHeader {
         for (final Object each : written) {
             if (each instanceof Map<?, ?> one) {
                 slots.add(slot(one, name));
+            } else {
+                throw new VaultException(name + " has a malformed keyslot");
             }
         }
         if (slots.isEmpty()) {
@@ -227,6 +232,14 @@ final class VaultHeader {
         final byte[] salt = decode(one.get("salt"), name);
         final byte[] nonce = decode(one.get("nonce"), name);
         final byte[] wrapped = decode(one.get("wrapped"), name);
+        if (!java.util.Set.of(PASSPHRASE_SLOT, SHARE_SLOT, SSH_AGENT_SLOT).contains(kind)) {
+            throw new VaultException(name + " has an unknown keyslot kind");
+        }
+        if (nonce.length != VaultFile.NONCE_LENGTH
+                || wrapped.length != 48
+                || salt.length != (SSH_AGENT_SLOT.equals(kind) ? 0 : 16)) {
+            throw new VaultException(name + " has a malformed keyslot");
+        }
         return new Slot(
                 kind,
                 keyslot,

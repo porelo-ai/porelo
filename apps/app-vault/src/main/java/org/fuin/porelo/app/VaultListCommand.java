@@ -36,7 +36,7 @@ public class VaultListCommand implements Callable<Integer>, PoreloFactory.Contex
                 return 0;
             }
             final var entries =
-                    TaskSecrets.credentialsOnly(context.vault().read(context.requirePassphrase()));
+                    TaskSecrets.credentialsOnly(context.vault().read(context.requireOpener()));
             if (entries.isEmpty()) {
                 out.println("the vault is empty");
             } else {

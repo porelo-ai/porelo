@@ -156,18 +156,19 @@ final class TaskMethods {
         server.method(
                 "Lock",
                 (parameters, replies) -> {
-                    // The one thing that mutates the credential store over the socket. Everything
-                    // else about the vault is read-only here on purpose: a daemon has no terminal,
-                    // so it can shut the vault but can never open it.
+                    VaultMethods.requireRequestedVault(context, parameters);
                     final Map<String, Object> answer = new LinkedHashMap<>();
                     final boolean keyring = org.fuin.porelo.vault.KernelKeyring.available();
                     answer.put("keyring", keyring);
                     final org.fuin.porelo.vault.KernelKeyring.Forgotten forgotten =
-                            keyring
-                                    ? new org.fuin.porelo.vault.KernelKeyring(
-                                                    context.paths().vault().vaultKeyringKey())
-                                            .forget()
-                                    : org.fuin.porelo.vault.KernelKeyring.Forgotten.NOTHING_CACHED;
+                            org.fuin.porelo.app.VaultLockCommand.forget(context);
+                    if (forgotten == org.fuin.porelo.vault.KernelKeyring.Forgotten.UNKNOWN) {
+                        throw new VarlinkException(
+                                INTERFACE + ".Failed",
+                                Map.of(
+                                        "message",
+                                        "The keyring did not answer; treat the vault as still unlocked and retry"));
+                    }
                     // Only a clearing counts as one. A keyring that could not answer must not read
                     // as "there was nothing", which is what a boolean made of it.
                     answer.put(

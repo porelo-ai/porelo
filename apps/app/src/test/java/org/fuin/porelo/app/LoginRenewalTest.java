@@ -111,7 +111,7 @@ class LoginRenewalTest {
                 "anthropic",
                 vault.read(PASSPHRASE).get("anthropic"),
                 vault,
-                VaultFile.Opener.passphrase(PASSPHRASE),
+                () -> VaultFile.Opener.passphrase(PASSPHRASE),
                 HttpClient.newHttpClient(),
                 Clock.fixed(at, ZoneOffset.UTC),
                 new PrintWriter(err));
@@ -304,7 +304,7 @@ class LoginRenewalTest {
                         "anthropic",
                         vault.read(PASSPHRASE).get("anthropic"),
                         vault,
-                        VaultFile.Opener.passphrase(PASSPHRASE),
+                        () -> VaultFile.Opener.passphrase(PASSPHRASE),
                         HttpClient.newHttpClient(),
                         clock,
                         new PrintWriter(err));

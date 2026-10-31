@@ -1,0 +1,2 @@
+title: Preserve non-host vaults during SSH unlock, validate remote outcomes and socket peers, release obsolete shares, and support key changes without losing entries.
+type: fixed

@@ -69,7 +69,9 @@ public class VaultRemoveCommand implements Callable<Integer>, PoreloFactory.Cont
 
         final String grantName = TaskSecrets.GRANT_PREFIX + name;
         final VaultEntry grant;
+        final org.fuin.porelo.vault.VaultFile.Opener opener;
         try {
+            opener = context.requireOpener();
             // Through the one view of grants: the credentials hide them, so a grant looked up there
             // was never found, and every removal deleted it here without telling the service.
             grant = context.readableGrants().map(grants -> grants.get(name)).orElse(null);
@@ -150,7 +152,7 @@ public class VaultRemoveCommand implements Callable<Integer>, PoreloFactory.Cont
         try {
             context.vault()
                     .update(
-                            context.requirePassphrase(),
+                            opener,
                             entries -> {
                                 removed[0] = entries.remove(name) != null;
                                 removed[0] |= entries.remove(grantName) != null;

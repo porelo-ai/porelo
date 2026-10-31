@@ -10,6 +10,7 @@ file are in [the project file](project-file.md).
 | [`build`](#build) | Asks a project's forge what a branch or a commit built. |
 | [`shield`](#shield) | Inspects and changes what a task may reach. |
 | [`vault`](#vault) | Manages stored credentials. |
+| [`host`](#host) | Opens a host vault with the person's local SSH key. |
 | [`credentials`](#credentials) | Records which credential each destination is connected to with. |
 | [`card`](#card) | Checks a person's card; makes and checks a host's. |
 | [`gate`](#gate) | Reviews and forwards what an agent pushed. |
@@ -48,6 +49,20 @@ terminal and carries on: for that command alone, or, for `task start`, `run` and
 and names `porelo vault unlock`. `porelo vault unlock --for 30m` caches the passphrase for a while (there
 is no default limit), `porelo vault lock` drops it, `porelo vault passphrase` changes it. To start
 over, `porelo vault clear --yes` removes it, and `porelo vault init` makes a new one.
+
+A share-only vault never prompts for a passphrase: commands name `porelo host unlock <host>`.
+`porelo vault init --share-stdin` creates one with only an `ssh-agent` slot, and
+`porelo vault unlock --share-stdin [--json]` opens it. Both take exactly 32 binary bytes then end of input,
+refuse a terminal and exclude passphrase sources. The daemon holds a host share in locked native memory until lock,
+daemon exit or reboot; omit `--for`. From the person's machine, use
+`porelo host unlock example.org --host-key SHA256:... --login alice` with the verified host fingerprint.
+A rejected share answers exit 77 and, with `--json`, `{"vault":"other-key"}`; successful JSON unlock answers
+`{"vault":"open"}`. Malformed files and content that fails authentication after opening a slot answer 70.
+`host unlock` initializes a new vault when the remote unlock answers exit 66 (`{"vault":"absent"}`). On exit 77
+it asks for a yes on the terminal; `--yes` authorizes clearing and recreating the vault with this key in scripts.
+Without consent it exits 77 and keeps every entry. A reset requires every sign-in again.
+The remote executable defaults to `porelo`; use `--remote-porelo '~/.local/bin/porelo'` for an account installation.
+`vault unlock` itself never resets a vault. See [credentials](credentials.md).
 
 **Start work.** In a checkout, `porelo task start` works in the project that names its repository,
 else in `default`, and names the task after the repository. In `default` the checkout is the source,
@@ -305,6 +320,30 @@ What a task may resolve and reach. See [the firewall](security.md) and [DNS](sec
 | `porelo shield watch` | Prompts for each blocked connection. Started per task. |
 | `porelo shield dns` | The task's resolver for allowed domains. Started per task. |
 
+## host
+
+| Command | What it does |
+|---|---|
+| `porelo host unlock <host> --host-key SHA256:... --login <account>` | Checks the host's Ed25519 key and sends a locally derived share over SSH to unlock or initialize its vault. `--previous-key FP` changes keys while keeping entries; `--remote-porelo PATH` selects the remote executable (default `porelo`); `--yes` authorizes a reset for another key; `--json` reports the outcome. |
+
+Run this on the person's machine with `SSH_AUTH_SOCK` pointing to their agent. With several Ed25519 keys,
+`--key SHA256:...` chooses the person's identity. Host name or IPv4 address, host key fingerprint and login are
+explicit; no host card is read. A missing agent exits 69; a mismatched host key refuses before asking the agent to
+sign. The SSH session has no terminal or agent forwarding, pins the host key and disables connection reuse.
+The share is standard input, never an argument; the signature stays local. A verified `absent` answer initializes
+the remote vault. A verified `other-key` answer exits 77 unless a terminal yes or `--yes` authorizes clearing and
+recreating it; all sign-ins must then be made once more. A passphrase vault or any vault containing other slots
+answers 65 with `{"vault":"not-a-host-vault"}` and is preserved even with `--yes`. The JSON answer and exit must
+agree: `open`/0, `absent`/66, `other-key`/77 or `not-a-host-vault`/65, as one JSON line with no other stdout.
+An unexpected answer exits 70, prints the remote stderr without control characters, and sends no further command.
+Reset verifies `vault clear --yes --force --json` before sending the share again to initialize the vault.
+Without local `--json`, the command prints words.
+
+When both keys are available, add `--key NEW_FP --previous-key OLD_FP`. Porelo derives both shares locally and sends
+exactly 64 bytes, old then new, to `vault rekey --share-stdin --json`. The new key replaces the previous opening
+share while every entry is kept. A previous share that does not open the vault exits 77 without changing it;
+`--yes` does not turn a failed rekey into a reset. See [credentials](credentials.md).
+
 ## vault
 
 Credentials, and the broker that lets a task use one without holding it. See
@@ -312,7 +351,8 @@ Credentials, and the broker that lets a task use one without holding it. See
 
 | Command | What it does |
 |---|---|
-| `porelo vault init` | Creates an empty vault; asks for its passphrase twice, or takes one line with `--passphrase-stdin`. |
+| `porelo vault init` | Creates an empty vault; asks for its passphrase twice, takes one line with `--passphrase-stdin`, or creates a share-only vault with `--share-stdin`. |
+| `porelo vault rekey --share-stdin [--json]` | Reads exactly 64 binary bytes, old share then new share and end of input; changes a host key while keeping entries. Refuses a terminal and non-host vaults. |
 | `porelo vault login [AGENT]` | Runs the agent's own login in a throwaway container and stores the result. An agent whose `login.flow` is `loopback` is refused over SSH, before anything is built or the vault asked, since the redirect would land on this machine; a refusal elsewhere never names this login for it. |
 | `porelo vault renew NAME` | Marks a sign-in due; the next task's first request renews it on the host. A running task keeps its token until it ends. |
 | `porelo vault import [AGENT]` | Copies a credential the agent already holds on this host. |
@@ -320,13 +360,13 @@ Credentials, and the broker that lets a task use one without holding it. See
 | `porelo vault authorize NAME` | Grants an OAuth authorization once in any browser and keeps it. |
 | `porelo vault list` | Lists the names held. Never the values. |
 | `porelo vault remove NAME [--without-revoking]` | Removes an entry, revoking a granted authorization first. If revoking fails, the entry is kept unless `--without-revoking`. |
-| `porelo vault unlock` | Caches the passphrase in the kernel's user keyring, where the daemon finds it too; `--for` bounds how long, `--passphrase-stdin` takes it from a program. |
-| `porelo vault lock` | Drops the cached passphrase. |
+| `porelo vault unlock` | Caches a passphrase in the kernel's user keyring, with `--for` optional; `--passphrase-stdin` takes a line. `--share-stdin` takes 32 binary bytes; a share-only vault's share goes into the daemon's locked memory until lock or exit. |
+| `porelo vault lock` | Drops the cached passphrase and share. |
 | `porelo vault status [--json]` | Says whether the vault is open, shut or not there, by its exit code: 0, 3 or 4. |
-| `porelo vault passphrase` | Re-encrypts the vault under a new passphrase. |
+| `porelo vault passphrase` | Changes an existing passphrase slot; refuses a share-only vault. |
 | `porelo vault devices` | Lists what can open the vault: the passphrase and each device. |
 | `porelo vault revoke ID` | Removes a device's way in. The last way in is never removed. |
-| `porelo vault clear [--yes] [--dry-run] [--force] [--json]` | Removes the vault, its backup and lock, and what the keyring caches of it, with what the transports keep in it. Lists it first; `--yes` clears it. |
+| `porelo vault clear [--yes] [--dry-run] [--force] [--json]` | Removes the vault, its backup and lock, the daemon-owned share and what the keyring caches of it, with what the transports keep in it. Lists it first; `--yes` clears it. |
 | `porelo vault serve` | The credential proxy a task's requests go through. Started per task. |
 | `porelo vault relay` | Forwards a port in a task's namespace to the proxy's socket. Started per task. |
 | `porelo vault agent` | An ssh-agent that signs with a key from the vault, for a command on the host. No task is given one. |
@@ -349,7 +389,11 @@ opens it, 4 when there is no vault, and 70 when the file is not a vault at all. 
 so a cached passphrase that no longer opens it answers 3. `--json` prints `{"exists", "open", "path"}`; those names
 are kept.
 
-**`vault lock`** answers one of three things: the passphrase was cleared, nothing was cached, or
+**`vault lock`** releases the daemon-owned host share as well as the kernel's cached passphrase and device shares.
+It never reads the vault file to forget, even when it has been replaced by malformed content. An unreachable
+socket counts as nothing held only after establishing that no porelod is running for this uid; otherwise lock and
+clear refuse and name the expected socket path.
+It answers whether something was cleared, nothing was cached, or
 whether one is cached could not be established. The last exits 70 and says what to check: treat the
 passphrase as still cached until the keyring answers. A cached passphrase that expired (`vault unlock
 --for`) or whose keyring was revoked counts as not cached. The cache is looked for in the user
@@ -361,7 +405,7 @@ one after the change.
 lists what would go and removes nothing, and each line says `removed`, `would go`, `not removed` with
 why, or `for you`. It names what the vault holds - credentials, grants, the accounts a transport keeps,
 stopped tasks' tokens - and removes the vault file with every device's keyslot, its `.old` backup and
-its `.lock`, and the passphrase and device shares cached in the kernel keyring. A deploy key made by
+its `.lock`, the daemon-owned host share, and the passphrase and device shares cached in the kernel keyring. A deploy key made by
 an earlier version is still forgotten here and named `for you` to remove at the forge.
 
 A transport's account goes with it. First, for each project whose `mail.transports.<scheme>` names

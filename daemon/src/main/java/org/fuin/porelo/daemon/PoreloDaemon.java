@@ -100,11 +100,30 @@ public final class PoreloDaemon {
      * @param socket Where to bind.
      * @return The server, not yet running.
      */
-    public static VarlinkServer serving(PoreloContext context, Path socket) {
+    public static VarlinkServer serving(PoreloContext supplied, Path socket) {
+        return serving(supplied, socket, org.fuin.porelo.core.process.SocketPeer::read);
+    }
+
+    /** Serves the same methods with an injectable kernel peer check. */
+    public static VarlinkServer serving(
+            PoreloContext supplied, Path socket, VarlinkServer.PeerReader peers) {
+        final PoreloContext context =
+                supplied.hostVault() instanceof org.fuin.porelo.app.HostVaultOwner
+                        ? supplied
+                        : ownedContext(supplied);
+        final org.fuin.porelo.app.HostVaultOwner owner =
+                (org.fuin.porelo.app.HostVaultOwner) context.hostVault();
         final VarlinkServer server =
-                new VarlinkServer(socket, INTERFACE)
-                        .describedBy(description())
-                        .reporting(org.fuin.porelo.app.PoreloVersion.version());
+                new VarlinkServer(socket, INTERFACE, peers) {
+                    @Override
+                    public void close() {
+                        try {
+                            super.close();
+                        } finally {
+                            owner.close();
+                        }
+                    }
+                }.describedBy(description()).reporting(org.fuin.porelo.app.PoreloVersion.version());
         // One for the daemon's life: what it derives about waiting for a person is read at a pace
         // that is cheap only when the same instance is asked again.
         final TaskInventory inventory = TaskInventory.deriving(context);
@@ -130,6 +149,43 @@ public final class PoreloDaemon {
         MachineMethods.register(server, context, inventory, control);
         EventMethods.register(server, context, inventory, control);
         return server;
+    }
+
+    static PoreloContext ownedContext(PoreloContext context) {
+        return context.withHostVault(
+                new org.fuin.porelo.app.HostVaultOwner(
+                        org.fuin.porelo.app.MessageWatch::dropVaultCache));
+    }
+
+    record Watches(
+            PoreloContext context,
+            org.fuin.porelo.app.UpstreamWatch upstream,
+            org.fuin.porelo.app.MessageWatch mail,
+            org.fuin.porelo.app.ConfigurationWatch configuration)
+            implements AutoCloseable {
+        @Override
+        public void close() {
+            try {
+                configuration.close();
+                mail.close();
+                upstream.close();
+            } finally {
+                ((org.fuin.porelo.app.HostVaultOwner) context.hostVault()).close();
+            }
+        }
+    }
+
+    static Watches watches(
+            PoreloContext supplied,
+            java.time.Duration every,
+            java.time.Duration messages,
+            java.time.Duration following) {
+        final PoreloContext context = ownedContext(supplied);
+        return new Watches(
+                context,
+                new org.fuin.porelo.app.UpstreamWatch(context, every),
+                new org.fuin.porelo.app.MessageWatch(context, messages),
+                new org.fuin.porelo.app.ConfigurationWatch(context, following));
     }
 
     /**
@@ -609,11 +665,18 @@ public final class PoreloDaemon {
     static Map<String, Object> slotAsMap(
             org.fuin.porelo.vault.Keyslot slot, PoreloContext context) {
         final java.util.Optional<byte[]> held =
-                org.fuin.porelo.app.VaultShare.held(context.paths());
-        final boolean self =
-                !slot.recovery()
-                        && held.isPresent()
-                        && context.vault().takes(slot.id(), held.get());
+                context.vault().isHostVault()
+                        ? context.hostVault().held()
+                        : org.fuin.porelo.app.VaultShare.held(context.paths());
+        final boolean self;
+        try {
+            self =
+                    !slot.recovery()
+                            && held.isPresent()
+                            && context.vault().takes(slot.id(), held.get());
+        } finally {
+            held.ifPresent(share -> java.util.Arrays.fill(share, (byte) 0));
+        }
         return Map.of(
                 "id",
                 slot.id(),
@@ -1083,8 +1146,6 @@ public final class PoreloDaemon {
             System.err.flush();
             System.exit(70);
         }
-        final PoreloContext context = PoreloContext.real();
-        final Path socket = context.paths().daemonSocket();
         // Started here and not in serving(): this is the one thing the daemon does that reaches the
         // network on its own, and nothing in a test should do that by existing.
         final java.time.Duration every = org.fuin.porelo.app.UpstreamWatch.interval(System::getenv);
@@ -1095,60 +1156,67 @@ public final class PoreloDaemon {
                 org.fuin.porelo.app.MessageWatch.interval(System::getenv);
         final java.time.Duration following =
                 org.fuin.porelo.app.ConfigurationWatch.interval(System::getenv);
-        try (VarlinkServer server = serving(context, socket);
-                org.fuin.porelo.app.UpstreamWatch upstream =
-                        new org.fuin.porelo.app.UpstreamWatch(context, every);
-                org.fuin.porelo.app.MessageWatch mail =
-                        new org.fuin.porelo.app.MessageWatch(context, messages);
-                org.fuin.porelo.app.ConfigurationWatch configuration =
-                        new org.fuin.porelo.app.ConfigurationWatch(context, following)) {
-            // try-with-resources does not run for a signal, and a signal is how a daemon normally
-            // ends - systemctl stop, a kill, a terminal closing. Without this the socket file
-            // outlived the process that bound it, and an interface met a name that answers nothing:
-            // it connects, is refused, and cannot tell that from a daemon still starting. SIGKILL
-            // still leaves it, and nothing can change that; the next start unlinks a socket it has
-            // proved nobody is listening on.
-            Runtime.getRuntime().addShutdownHook(new Thread(server::close, "porelod-shutdown"));
-            upstream.start();
-            mail.start();
-            // Both: the watch answers at once where a message is already on this machine, and the
-            // timer still goes and asks, because a watch can miss things and a transport that
-            // fetches from elsewhere has to be asked rather than waited on.
-            final boolean noticing = mail.startNotices();
-            configuration.start();
-            // An update replaces this binary and starts nothing: this notices, and has the
-            // account's own manager restart the daemon on the new one.
-            SelfReplacement.ofThisProcess(context.runner()).start();
-            System.out.println("porelod listening on " + socket);
-            System.out.println(
-                    messages.isZero() || messages.isNegative()
-                            ? "not moving messages ("
-                                    + org.fuin.porelo.app.MessageWatch.INTERVAL_VARIABLE
-                                    + "=0)"
-                            : "moving every mailbox along every "
-                                    + messages.toSeconds()
-                                    + " seconds"
-                                    + (noticing
-                                            ? ", and at once when one lands here"
-                                            : " (this machine cannot watch directories)"));
-            System.out.println(
-                    following.isZero() || following.isNegative()
-                            ? "not following project repositories ("
-                                    + org.fuin.porelo.app.ConfigurationWatch.INTERVAL_VARIABLE
-                                    + "=0)"
-                            : "following each project's repository every "
-                                    + following.toSeconds()
-                                    + " seconds");
-            System.out.println(
-                    every.isZero() || every.isNegative()
-                            ? "not measuring how far projects are behind upstream ("
-                                    + org.fuin.porelo.app.UpstreamWatch.INTERVAL_VARIABLE
-                                    + "=0)"
-                            : "measuring how far projects are behind upstream every "
-                                    + every.toMinutes()
-                                    + " minutes");
-            System.out.flush();
-            server.run();
+        final PoreloContext context = PoreloContext.real();
+        try (Watches watches = watches(context, every, messages, following)) {
+            final PoreloContext owned = watches.context();
+            final Path socket = owned.paths().daemonSocket();
+            final var upstream = watches.upstream();
+            final var mail = watches.mail();
+            final var configuration = watches.configuration();
+            try (VarlinkServer server = serving(owned, socket)) {
+                // try-with-resources does not run for a signal, and a signal is how a daemon
+                // normally
+                // ends - systemctl stop, a kill, a terminal closing. Without this the socket file
+                // outlived the process that bound it, and an interface met a name that answers
+                // nothing:
+                // it connects, is refused, and cannot tell that from a daemon still starting.
+                // SIGKILL
+                // still leaves it, and nothing can change that; the next start unlinks a socket it
+                // has
+                // proved nobody is listening on.
+                Runtime.getRuntime().addShutdownHook(new Thread(server::close, "porelod-shutdown"));
+                upstream.start();
+                mail.start();
+                // Both: the watch answers at once where a message is already on this machine, and
+                // the
+                // timer still goes and asks, because a watch can miss things and a transport that
+                // fetches from elsewhere has to be asked rather than waited on.
+                final boolean noticing = mail.startNotices();
+                configuration.start();
+                // An update replaces this binary and starts nothing: this notices, and has the
+                // account's own manager restart the daemon on the new one.
+                SelfReplacement.ofThisProcess(owned.runner()).start();
+                System.out.println("porelod listening on " + socket);
+                System.out.println(
+                        messages.isZero() || messages.isNegative()
+                                ? "not moving messages ("
+                                        + org.fuin.porelo.app.MessageWatch.INTERVAL_VARIABLE
+                                        + "=0)"
+                                : "moving every mailbox along every "
+                                        + messages.toSeconds()
+                                        + " seconds"
+                                        + (noticing
+                                                ? ", and at once when one lands here"
+                                                : " (this machine cannot watch directories)"));
+                System.out.println(
+                        following.isZero() || following.isNegative()
+                                ? "not following project repositories ("
+                                        + org.fuin.porelo.app.ConfigurationWatch.INTERVAL_VARIABLE
+                                        + "=0)"
+                                : "following each project's repository every "
+                                        + following.toSeconds()
+                                        + " seconds");
+                System.out.println(
+                        every.isZero() || every.isNegative()
+                                ? "not measuring how far projects are behind upstream ("
+                                        + org.fuin.porelo.app.UpstreamWatch.INTERVAL_VARIABLE
+                                        + "=0)"
+                                : "measuring how far projects are behind upstream every "
+                                        + every.toMinutes()
+                                        + " minutes");
+                System.out.flush();
+                server.run();
+            }
         } catch (RuntimeException ex) {
             System.err.println("porelod: " + ex.getMessage());
             System.err.flush();

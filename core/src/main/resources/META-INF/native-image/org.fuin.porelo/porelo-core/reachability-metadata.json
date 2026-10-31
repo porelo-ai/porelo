@@ -23,7 +23,39 @@
         "options": {
           "captureCallState": true
         }
+      },
+      {
+        "returnType": "jint",
+        "parameterTypes": [
+          "jint",
+          "jint",
+          "jint",
+          "void*",
+          "void*"
+        ]
+      },
+      {
+        "returnType": "jint",
+        "parameterTypes": []
       }
     ]
-  }
+  },
+  "reflection": [
+    {
+      "type": "sun.nio.ch.SocketChannelImpl",
+      "fields": [
+        {
+          "name": "fdVal"
+        }
+      ]
+    },
+    {
+      "type": "sun.misc.Unsafe",
+      "fields": [
+        {
+          "name": "theUnsafe"
+        }
+      ]
+    }
+  ]
 }

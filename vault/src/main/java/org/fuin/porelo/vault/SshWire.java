@@ -87,13 +87,12 @@ public final class SshWire {
      * @return Signature blob as OpenSSH encodes it.
      */
     public static byte[] ed25519SignatureBlob(byte[] signature) {
-        try {
-            final ByteArrayOutputStream out = new ByteArrayOutputStream();
-            writeString(out, "ssh-ed25519");
-            writeString(out, signature);
-            return out.toByteArray();
-        } catch (IOException ex) {
-            throw new SshProtocolException("Cannot build a signature blob: " + ex.getMessage());
-        }
+        final byte[] algorithm = "ssh-ed25519".getBytes(StandardCharsets.US_ASCII);
+        return ByteBuffer.allocate(8 + algorithm.length + signature.length)
+                .putInt(algorithm.length)
+                .put(algorithm)
+                .putInt(signature.length)
+                .put(signature)
+                .array();
     }
 }

@@ -11,7 +11,8 @@ import org.fuin.porelo.vault.VaultFile;
 import org.jspecify.annotations.Nullable;
 
 /**
- * Keeps an agent's sign-in working past its access token's end, on the host, for the broker.
+ * Keeps a sign-in or service grant working past its access token's end, on the host, for the
+ * broker.
  *
  * <p><strong>The stored token is used until shortly before it ends</strong>, so a task started
  * right after a sign-in renews nothing. Then the renewal happens <strong>inside one update of the
@@ -30,7 +31,7 @@ final class LoginRenewal implements org.fuin.porelo.supervisor.TokenSource {
 
     private final VaultFile vault;
 
-    private final VaultFile.Opener opener;
+    private final java.util.function.Supplier<VaultFile.Opener> opener;
 
     private final java.net.http.HttpClient http;
 
@@ -67,7 +68,7 @@ final class LoginRenewal implements org.fuin.porelo.supervisor.TokenSource {
             final String name,
             final VaultEntry entry,
             final VaultFile vault,
-            final VaultFile.Opener opener,
+            final java.util.function.Supplier<VaultFile.Opener> opener,
             final java.net.http.HttpClient http,
             final Clock clock,
             final PrintWriter err) {
@@ -77,7 +78,7 @@ final class LoginRenewal implements org.fuin.porelo.supervisor.TokenSource {
         this.http = http;
         this.clock = clock;
         this.err = err;
-        this.token = entry.value();
+        this.token = org.fuin.porelo.supervisor.Grants.isGrant(entry.type()) ? null : entry.value();
         this.good = goodUntil(entry);
     }
 
@@ -121,7 +122,7 @@ final class LoginRenewal implements org.fuin.porelo.supervisor.TokenSource {
     private void renew(final TokenPurchase.Refused[] refused) {
         final Instant[] renewedEnd = new Instant[1];
         vault.update(
-                opener,
+                opener.get(),
                 entries -> {
                     final VaultEntry entry = entries.get(name);
                     final VaultEntry refresh = entries.get(TaskSecrets.GRANT_PREFIX + name);
@@ -131,28 +132,36 @@ final class LoginRenewal implements org.fuin.porelo.supervisor.TokenSource {
                                         "the vault no longer holds '" + name + "'");
                         return entries;
                     }
-                    if (clock.instant().isBefore(goodUntil(entry))) {
+                    final boolean serviceGrant =
+                            org.fuin.porelo.supervisor.Grants.isGrant(entry.type());
+                    if (!serviceGrant && clock.instant().isBefore(goodUntil(entry))) {
                         // Renewed by another task's broker while this one waited for the lock: its
                         // token is good.
                         token = entry.value();
                         good = goodUntil(entry);
                         return entries;
                     }
-                    if (refresh == null || !LoginCredentials.renewable(entry)) {
+                    final String remedy =
+                            serviceGrant
+                                    ? "authorize again with 'porelo vault authorize " + name + "'"
+                                    : "sign in again with 'porelo vault login'";
+                    if (refresh == null || (!serviceGrant && !LoginCredentials.renewable(entry))) {
                         refused[0] =
                                 new TokenPurchase.Ended(
                                         "the sign-in for '"
                                                 + name
                                                 + "' has ended and nothing here can"
-                                                + " renew it; sign in again with 'porelo vault login'");
+                                                + " renew it; "
+                                                + remedy);
                         return entries;
                     }
                     final VaultEntry clientSecret =
                             entries.get(TaskSecrets.CLIENT_SECRET_PREFIX + name);
-                    final String[] rotated = {refresh.value()};
-                    final TokenPurchase purchase =
-                            new TokenPurchase(
-                                    new TokenPurchase.Refresh(
+                    final org.fuin.porelo.supervisor.Grants.Service client =
+                            serviceGrant
+                                    ? org.fuin.porelo.supervisor.Grants.service(
+                                            entry.type(), entry.value(), entry.settings())
+                                    : new org.fuin.porelo.supervisor.Grants.Service(
                                             java.util.Objects.requireNonNull(
                                                     entry.settings()
                                                             .get(LoginCredentials.TOKEN_URL)),
@@ -160,6 +169,14 @@ final class LoginRenewal implements org.fuin.porelo.supervisor.TokenSource {
                                                     entry.settings()
                                                             .get(LoginCredentials.CLIENT_ID)),
                                             clientSecret == null ? null : clientSecret.value(),
+                                            null);
+                    final String[] rotated = {refresh.value()};
+                    final TokenPurchase purchase =
+                            new TokenPurchase(
+                                    new TokenPurchase.Refresh(
+                                            client.tokenUrl(),
+                                            client.clientId(),
+                                            client.clientSecret(),
                                             refresh.value(),
                                             next -> rotated[0] = next),
                                     http,
@@ -173,7 +190,8 @@ final class LoginRenewal implements org.fuin.porelo.supervisor.TokenSource {
                                         "the sign-in for '"
                                                 + name
                                                 + "' was revoked or has expired at the"
-                                                + " service; sign in again with 'porelo vault login'");
+                                                + " service; "
+                                                + remedy);
                         return entries;
                     } catch (final TokenPurchase.Refused ex) {
                         refused[0] = ex;
@@ -182,7 +200,9 @@ final class LoginRenewal implements org.fuin.porelo.supervisor.TokenSource {
                     final Map<String, String> settings = new LinkedHashMap<>(entry.settings());
                     final Instant ends = purchase.goodUntil().plus(TokenPurchase.MARGIN);
                     settings.put(LoginCredentials.EXPIRES_AT, ends.toString());
-                    entries.put(name, new VaultEntry(renewed, entry.type(), settings));
+                    if (!serviceGrant) {
+                        entries.put(name, new VaultEntry(renewed, entry.type(), settings));
+                    }
                     entries.put(
                             TaskSecrets.GRANT_PREFIX + name,
                             new VaultEntry(rotated[0], refresh.type(), refresh.settings()));

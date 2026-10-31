@@ -34,8 +34,11 @@ public record Keyslot(
         String lastUsed,
         boolean recovery) {
 
-    /** The id of keyslot 0, which is the passphrase and is always present. */
+    /** The id of the passphrase slot, when the vault has one. */
     public static final String PASSPHRASE = "passphrase";
+
+    /** The id and kind of a slot opened by an externally supplied wrapping key. */
+    public static final String SSH_AGENT = "ssh-agent";
 
     /** How a device may say it stores its share. */
     public static final java.util.Set<String> STORAGE =

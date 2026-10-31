@@ -46,7 +46,7 @@ public class ProcessCommandRunner implements CommandRunner {
 
         try {
 
-            final Process process = builder.start();
+            final Process process = start(builder);
 
             final Drain out = new Drain(process.getInputStream());
             final Drain err = new Drain(process.getErrorStream());
@@ -56,7 +56,7 @@ public class ProcessCommandRunner implements CommandRunner {
             // Written on a thread of its own, so the limit runs from the start: written first, a
             // child that did not read it blocked the caller unbounded, and one that exited without
             // reading it failed a command that had succeeded.
-            Thread.ofVirtual().start(() -> writeInput(process, command));
+            final Thread inputThread = Thread.ofVirtual().start(() -> writeInput(process, command));
 
             try {
                 if (!process.waitFor(timeout.toMillis(), TimeUnit.MILLISECONDS)) {
@@ -73,11 +73,18 @@ public class ProcessCommandRunner implements CommandRunner {
                 end(process);
                 Thread.currentThread().interrupt();
                 throw new CommandException(command, ex);
+            } finally {
+                joinInput(inputThread);
             }
 
         } catch (IOException ex) {
             throw new CommandException(command, ex);
         }
+    }
+
+    /** Starts the child; replaceable for tests of pipe shutdown ordering. */
+    protected Process start(ProcessBuilder builder) throws IOException {
+        return builder.start();
     }
 
     /**
@@ -90,6 +97,20 @@ public class ProcessCommandRunner implements CommandRunner {
     private static void end(Process process) {
         process.descendants().forEach(ProcessHandle::destroyForcibly);
         process.destroyForcibly();
+    }
+
+    private static void joinInput(Thread thread) {
+        boolean interrupted = false;
+        while (thread.isAlive()) {
+            try {
+                thread.join();
+            } catch (InterruptedException ex) {
+                interrupted = true;
+            }
+        }
+        if (interrupted) {
+            Thread.currentThread().interrupt();
+        }
     }
 
     /**
@@ -105,7 +126,9 @@ public class ProcessCommandRunner implements CommandRunner {
 
     private static void writeInput(Process process, Command command) {
         try (OutputStream in = process.getOutputStream()) {
-            if (command.input() != null) {
+            if (command.binaryInput() != null) {
+                in.write(command.binaryInput());
+            } else if (command.input() != null) {
                 in.write(command.input().getBytes(StandardCharsets.UTF_8));
             }
         } catch (IOException ex) {

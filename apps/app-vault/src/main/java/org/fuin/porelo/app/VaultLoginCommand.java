@@ -110,6 +110,19 @@ public class VaultLoginCommand implements Callable<Integer>, PoreloFactory.Conte
         final PrintWriter out = spec.commandLine().getOut();
         final PrintWriter err = spec.commandLine().getErr();
 
+        try {
+            if (!dryRun
+                    && context.vault().exists()
+                    && !context.vault().hasPassphrase()
+                    && context.openerAsking(true, err).isEmpty()) {
+                return 69;
+            }
+        } catch (final org.fuin.porelo.vault.VaultException ex) {
+            err.println("porelo: " + ex.getMessage());
+            err.flush();
+            return 70;
+        }
+
         if (tokenUrl != null || credentialsFrom != null) {
             return fromDirectory(out, err);
         }

@@ -58,7 +58,11 @@ public class VaultClearCommand implements Callable<Integer>, PoreloFactory.Conte
 
     @Override
     public Integer call() {
-        context.openIfShut(true, false, spec.commandLine().getErr());
+        try {
+            context.openIfShut(true, false, spec.commandLine().getErr());
+        } catch (org.fuin.porelo.vault.VaultException ex) {
+            // Clearing reports unreadable content and must still erase cached keys.
+        }
         final boolean listOnly = dryRun || !yes;
         final PrintWriter out = spec.commandLine().getOut();
         final Clearing.Result result = new VaultClearing(context).clear(listOnly, force);

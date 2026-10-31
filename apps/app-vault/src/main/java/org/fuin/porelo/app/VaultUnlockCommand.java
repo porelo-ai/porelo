@@ -50,6 +50,14 @@ public class VaultUnlockCommand implements Callable<Integer>, PoreloFactory.Cont
     private boolean passphraseStdin;
 
     @Option(
+            names = "--share-stdin",
+            description = "Reads exactly 32 binary bytes then end of input. Not at a terminal.")
+    private boolean shareStdin;
+
+    @Option(names = "--json", description = "Prints a share unlock outcome as a JSON object.")
+    private boolean json;
+
+    @Option(
             names = "--systemd-credential",
             paramLabel = "<file>",
             description = "systemd-creds encrypted file holding the passphrase.")
@@ -123,6 +131,7 @@ public class VaultUnlockCommand implements Callable<Integer>, PoreloFactory.Cont
         }
 
         if (!context.vault().exists()
+                && !shareStdin
                 && asker != Offer.Asker.NOBODY
                 && new Offer(asker, false, false, err)
                         .resolve(
@@ -147,7 +156,7 @@ public class VaultUnlockCommand implements Callable<Integer>, PoreloFactory.Cont
             out.flush();
             return 0;
         }
-        if (!context.vault().exists()) {
+        if (!context.vault().exists() && !shareStdin) {
             // Refused before anything is asked: a passphrase cached for a vault that does not exist
             // opens nothing, and the first 'vault put' then made the vault with it - typed once, so
             // a typo became the passphrase with nothing to compare it against. 'vault init' asks
@@ -165,11 +174,24 @@ public class VaultUnlockCommand implements Callable<Integer>, PoreloFactory.Cont
         // A command given wrongly is said so first, as 'vault init' does: in a container whose
         // keyring is refused, the 69 below hid the 64 of a passphrase typed at a terminal.
         final String refused =
-                VaultStdin.refusal(context, passphraseStdin, passphraseCommand, systemdCredential);
+                VaultStdin.shareRefusal(
+                        context, shareStdin, passphraseStdin, passphraseCommand, systemdCredential);
         if (refused != null) {
             err.println("porelo: " + refused);
             err.flush();
             return 64;
+        }
+
+        if (shareStdin) {
+            return fromShare(out, err);
+        }
+
+        try {
+            context.requirePassphraseSlot();
+        } catch (final VaultException ex) {
+            err.println("porelo: " + ex.getMessage());
+            err.flush();
+            return 70;
         }
 
         if (!KernelKeyring.available()) {
@@ -237,6 +259,70 @@ public class VaultUnlockCommand implements Callable<Integer>, PoreloFactory.Cont
             err.println("porelo: " + ex.getMessage());
             err.flush();
             return 70;
+        }
+    }
+
+    private int fromShare(final PrintWriter out, final PrintWriter err) {
+        byte[] share = null;
+        try {
+            share = VaultStdin.share(context);
+            if (!context.vault().exists()) {
+                if (json)
+                    out.println(
+                            org.fuin.porelo.wire.Json.write(java.util.Map.of("vault", "absent")));
+                else
+                    err.println("porelo: there is no vault; run 'porelo vault init --share-stdin'");
+                out.flush();
+                err.flush();
+                return 66;
+            }
+            final java.time.Duration bound = duration(keepFor);
+            if (!context.vault().isHostVault()) {
+                throw new org.fuin.porelo.vault.NotAHostVaultException();
+            }
+            if (bound != null) {
+                throw new IllegalArgumentException(
+                        "A host share is held until lock or daemon exit; omit --for");
+            }
+            context.hostVault().keep(share);
+            out.println(
+                    json
+                            ? org.fuin.porelo.wire.Json.write(java.util.Map.of("vault", "open"))
+                            : "unlocked  held by this account's vault owner");
+            out.flush();
+            return 0;
+        } catch (final org.fuin.porelo.vault.NotAHostVaultException ex) {
+            if (json) {
+                out.println(
+                        org.fuin.porelo.wire.Json.write(
+                                java.util.Map.of("vault", "not-a-host-vault")));
+                out.flush();
+            }
+            err.println("porelo: " + ex.getMessage());
+            err.flush();
+            return 65;
+        } catch (final org.fuin.porelo.vault.OtherVaultKeyException ex) {
+            if (json) {
+                out.println(
+                        org.fuin.porelo.wire.Json.write(java.util.Map.of("vault", "other-key")));
+                out.flush();
+            } else {
+                err.println("porelo: " + ex.getMessage() + " Nothing was changed or cleared.");
+                err.flush();
+            }
+            return 77;
+        } catch (final IllegalArgumentException ex) {
+            err.println("porelo: " + ex.getMessage());
+            err.flush();
+            return 64;
+        } catch (final VaultException ex) {
+            err.println("porelo: " + ex.getMessage());
+            err.flush();
+            return 70;
+        } finally {
+            if (share != null) {
+                java.util.Arrays.fill(share, (byte) 0);
+            }
         }
     }
 

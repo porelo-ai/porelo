@@ -249,12 +249,21 @@ public final class Keyslots {
         try {
             // Opened first, so a share that opens nothing is refused before anything is held: an
             // unlock that cached a useless share would report success and change nothing.
-            context.vault().read(bytes);
             final Duration howLong =
                     minutes == null || minutes <= 0
                             ? VaultShare.DEFAULT
                             : Duration.ofMinutes(minutes);
-            VaultShare.keep(context.paths(), bytes, howLong);
+            final boolean hostVault = context.vault().isHostVault();
+            if (!hostVault) {
+                context.vault().read(bytes);
+                VaultShare.keep(context.paths(), bytes, howLong);
+            } else {
+                if (minutes != null) {
+                    throw new VaultException(
+                            "A host share is held until lock or daemon exit; omit minutes");
+                }
+                context.hostVault().keep(bytes);
+            }
             final Keyslot opened = slotFor(bytes);
             // Written down now, while the share is in hand: "last used" is how an operator spots a
             // device that has not been near this machine in months. The vault is open whether or
@@ -270,9 +279,16 @@ public final class Keyslots {
                 detail = "unlocked; when it was last used could not be written: " + ex.getMessage();
             }
             return new Unlock(
-                    Unlocked.UNLOCKED, Instant.now().plus(howLong).toString(), recorded, detail);
-        } catch (final VaultException ex) {
+                    Unlocked.UNLOCKED,
+                    !hostVault ? Instant.now().plus(howLong).toString() : "",
+                    recorded,
+                    detail);
+        } catch (final org.fuin.porelo.vault.NotAHostVaultException ex) {
+            throw ex;
+        } catch (final org.fuin.porelo.vault.OtherVaultKeyException ex) {
             return new Unlock(Unlocked.SHARE_REJECTED, "", null, String.valueOf(ex.getMessage()));
+        } catch (final VaultException ex) {
+            return new Unlock(Unlocked.FAILED, "", null, String.valueOf(ex.getMessage()));
         } catch (final RuntimeException ex) {
             return new Unlock(Unlocked.FAILED, "", null, String.valueOf(ex.getMessage()));
         } finally {
@@ -298,9 +314,17 @@ public final class Keyslots {
     private static byte @org.jspecify.annotations.Nullable [] decode(final String share) {
         try {
             final byte[] bytes = Base64.getDecoder().decode(share);
-            return bytes.length == SHARE_BYTES ? bytes : null;
+            return decoded(bytes);
         } catch (final IllegalArgumentException | NullPointerException ex) {
             return null;
         }
+    }
+
+    static byte @org.jspecify.annotations.Nullable [] decoded(byte[] bytes) {
+        if (bytes.length == SHARE_BYTES) {
+            return bytes;
+        }
+        java.util.Arrays.fill(bytes, (byte) 0);
+        return null;
     }
 }

@@ -8,6 +8,121 @@ import org.junit.jupiter.api.Test;
 
 /** Tests for {@link ProcessCommandRunner}. */
 class ProcessCommandRunnerTest {
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"exit", "timeout", "interrupt"})
+    @org.junit.jupiter.api.Timeout(15)
+    void waitsForTheInputWriterOnEveryReturnPath(String path) throws Exception {
+        final var writing = new java.util.concurrent.CountDownLatch(1);
+        final var waited = new java.util.concurrent.CountDownLatch(1);
+        final var release = new java.util.concurrent.CountDownLatch(1);
+        final var returned = new java.util.concurrent.CountDownLatch(1);
+        final var interrupted = new java.util.concurrent.atomic.AtomicBoolean();
+        final Process child =
+                new Process() {
+                    public java.io.OutputStream getOutputStream() {
+                        return new java.io.OutputStream() {
+                            public void write(int value) {
+                                throw new AssertionError("binary write expected");
+                            }
+
+                            @Override
+                            public void write(byte[] value) throws java.io.IOException {
+                                writing.countDown();
+                                try {
+                                    release.await();
+                                } catch (InterruptedException ex) {
+                                    throw new java.io.IOException(ex);
+                                }
+                            }
+                        };
+                    }
+
+                    public java.io.InputStream getInputStream() {
+                        return java.io.InputStream.nullInputStream();
+                    }
+
+                    public java.io.InputStream getErrorStream() {
+                        return java.io.InputStream.nullInputStream();
+                    }
+
+                    public int waitFor() {
+                        return 0;
+                    }
+
+                    @Override
+                    public boolean waitFor(long timeout, java.util.concurrent.TimeUnit unit)
+                            throws InterruptedException {
+                        writing.await();
+                        waited.countDown();
+                        if (path.equals("interrupt")) {
+                            throw new InterruptedException("interrupted child wait");
+                        }
+                        return !path.equals("timeout");
+                    }
+
+                    public int exitValue() {
+                        return 0;
+                    }
+
+                    public void destroy() {}
+
+                    @Override
+                    public Process destroyForcibly() {
+                        return this;
+                    }
+
+                    @Override
+                    public java.util.stream.Stream<ProcessHandle> descendants() {
+                        return java.util.stream.Stream.empty();
+                    }
+                };
+        final var runner =
+                new ProcessCommandRunner(Duration.ofMillis(1)) {
+                    @Override
+                    protected Process start(ProcessBuilder builder) {
+                        return child;
+                    }
+                };
+        final var failure = new java.util.concurrent.atomic.AtomicReference<Throwable>();
+        final Thread caller =
+                Thread.ofPlatform()
+                        .start(
+                                () -> {
+                                    try {
+                                        runner.run(
+                                                Command.of("unused").withBinaryInput(new byte[32]));
+                                    } catch (Throwable ex) {
+                                        failure.set(ex);
+                                    } finally {
+                                        interrupted.set(Thread.currentThread().isInterrupted());
+                                        returned.countDown();
+                                    }
+                                });
+        try {
+            assertThat(waited.await(5, java.util.concurrent.TimeUnit.SECONDS))
+                    .as("the child has ended while its writer still owns the input")
+                    .isTrue();
+            assertThat(
+                            returned.await(
+                                    path.equals("exit") ? 2500 : 200,
+                                    java.util.concurrent.TimeUnit.MILLISECONDS))
+                    .as("%s cannot return while the caller's input is still being written", path)
+                    .isFalse();
+        } finally {
+            release.countDown();
+            caller.join();
+        }
+        if (path.equals("exit")) {
+            assertThat(failure.get()).as("normal exit still succeeds").isNull();
+        } else {
+            assertThat(failure.get())
+                    .as("timeout and interruption are reported")
+                    .isInstanceOf(CommandException.class);
+        }
+        assertThat(interrupted.get())
+                .as("interruption survives the uninterruptible cleanup")
+                .isEqualTo(path.equals("interrupt"));
+    }
 
     private final CommandRunner runner = new ProcessCommandRunner(Duration.ofSeconds(20));
 
@@ -28,6 +143,18 @@ class ProcessCommandRunnerTest {
         assertThat(result.exitCode()).isEqualTo(3);
         assertThat(result.standardError()).contains("boom");
         assertThat(result.successful()).isFalse();
+    }
+
+    @Test
+    void writesBinaryInputWithoutEncodingItAsText() {
+        final Command command =
+                Command.of("od", "-An", "-t", "u1")
+                        .withBinaryInput(new byte[] {0, 10, 13, (byte) 255});
+        final CommandResult result = runner.run(command);
+        assertThat(result.standardOutput().trim().split("\\s+"))
+                .as("stdin keeps every byte, including NUL and invalid UTF-8")
+                .containsExactly("0", "10", "13", "255");
+        assertThat(command.toString()).as("diagnostics never expose input").doesNotContain("255");
     }
 
     @Test

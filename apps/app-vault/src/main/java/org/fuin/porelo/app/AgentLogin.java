@@ -695,15 +695,8 @@ public final class AgentLogin {
 
             // Whatever already opens the vault - a cached passphrase or a device's share - and only
             // then a prompt. Storing a credential needs the vault open, not the passphrase.
-            java.util.Optional<org.fuin.porelo.vault.VaultFile.Opener> way = context.opener();
-            if (way.isEmpty()) {
-                way =
-                        new org.fuin.porelo.vault.PassphraseTiers(
-                                        new org.fuin.porelo.vault.ConsolePassphrase(
-                                                "Vault passphrase: "))
-                                .passphrase()
-                                .map(org.fuin.porelo.vault.VaultFile.Opener::passphrase);
-            }
+            final java.util.Optional<org.fuin.porelo.vault.VaultFile.Opener> way =
+                    context.openerAsking(false, out);
             if (way.isEmpty()) {
                 return failed(
                         Outcome.VAULT_LOCKED,

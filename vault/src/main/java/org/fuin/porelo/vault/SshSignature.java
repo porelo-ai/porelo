@@ -49,20 +49,48 @@ public final class SshSignature {
      *     a signature over a message cannot be replayed as a signature over something else.
      * @return The armored signature, as {@code ssh-keygen -Y sign} writes it.
      */
-    public static String sign(final SigningKey key, final byte[] message, final String namespace) {
-        final byte[] signature = key.sign(preimage(message, namespace));
+    public static String sign(final AgentKey key, final byte[] message, final String namespace) {
+        final byte[] blob = signBlob(key, message, namespace);
         try {
-            final ByteArrayOutputStream blob = new ByteArrayOutputStream();
-            blob.write(MAGIC);
-            writeInt(blob, VERSION);
-            SshWire.writeString(blob, key.keyBlob());
-            SshWire.writeString(blob, namespace);
-            SshWire.writeString(blob, new byte[0]);
-            SshWire.writeString(blob, HASH);
-            SshWire.writeString(blob, signature);
-            return armor(blob.toByteArray());
-        } catch (final IOException e) {
-            throw new UncheckedIOException("Cannot write the signature", e);
+            return armor(blob);
+        } finally {
+            Arrays.fill(blob, (byte) 0);
+        }
+    }
+
+    /**
+     * Signs a message without armoring the SSHSIG blob.
+     *
+     * @param key Local or agent-backed signing key.
+     * @param message The exact bytes to sign.
+     * @param namespace What the signature is for.
+     * @return The binary SSHSIG blob, including its magic and version.
+     */
+    public static byte[] signBlob(
+            final AgentKey key, final byte[] message, final String namespace) {
+        final byte[] keyBlob = ed25519(key);
+        final byte[] signature = key.sign(preimage(message, namespace), 0);
+        try {
+            final byte[] scope = namespace.getBytes(StandardCharsets.UTF_8);
+            final byte[] hash = HASH.getBytes(StandardCharsets.US_ASCII);
+            final ByteBuffer blob =
+                    ByteBuffer.allocate(
+                            MAGIC.length
+                                    + 4
+                                    + 5 * 4
+                                    + keyBlob.length
+                                    + scope.length
+                                    + hash.length
+                                    + signature.length);
+            blob.put(MAGIC).putInt(VERSION);
+            blob.putInt(keyBlob.length).put(keyBlob);
+            blob.putInt(scope.length).put(scope);
+            blob.putInt(0);
+            blob.putInt(hash.length).put(hash);
+            blob.putInt(signature.length).put(signature);
+            return blob.array();
+        } finally {
+            Arrays.fill(signature, (byte) 0);
         }
     }
 
@@ -80,15 +108,63 @@ public final class SshSignature {
             final String armored,
             final byte[] keyBlob,
             final String namespace) {
-        final Parsed parsed = parse(armored);
-        if (parsed == null
-                || !Arrays.equals(parsed.keyBlob(), keyBlob)
-                || !namespace.equals(parsed.namespace())
-                || !HASH.equals(parsed.hash())) {
-            return false;
+        try (Parsed parsed = parse(armored)) {
+            return verifies(message, parsed, keyBlob, namespace);
         }
-        return SigningKey.verify(
-                parsed.keyBlob(), preimage(message, namespace), parsed.signature());
+    }
+
+    /**
+     * Verifies a signature as {@link #signBlob} returns it, without armoring it into a string that
+     * nobody can clear.
+     *
+     * @param message The exact bytes that were signed.
+     * @param blob The binary SSHSIG.
+     * @param keyBlob The OpenSSH public key blob the signature must carry and verify against.
+     * @param namespace The namespace the signature must carry.
+     * @return {@code true} when the signature is this key's, over these bytes, in this namespace.
+     */
+    static boolean verifyBlob(
+            final byte[] message, final byte[] blob, final byte[] keyBlob, final String namespace) {
+        try (Parsed parsed = parseBlob(blob)) {
+            return verifies(message, parsed, keyBlob, namespace);
+        }
+    }
+
+    private static boolean verifies(
+            byte[] message, @Nullable Parsed parsed, byte[] keyBlob, String namespace) {
+        return parsed != null
+                && Arrays.equals(parsed.keyBlob(), keyBlob)
+                && namespace.equals(parsed.namespace())
+                && HASH.equals(parsed.hash())
+                && SigningKey.verify(
+                        parsed.keyBlob(), preimage(message, namespace), parsed.signature());
+    }
+
+    /**
+     * Returns a key's blob when it is exactly an Ed25519 key, as OpenSSH writes one.
+     *
+     * <p>Exactly: a blob with a byte more still verifies here, while {@code ssh-keygen} refuses it,
+     * and a signature over it is not the one an honest agent makes.
+     *
+     * @param key The key.
+     * @return Its blob.
+     * @throws VaultException If it is another kind of key or not in OpenSSH's form.
+     */
+    static byte[] ed25519(final AgentKey key) {
+        final byte[] blob = key.keyBlob();
+        try {
+            final ByteBuffer buffer = ByteBuffer.wrap(blob);
+            final byte[] type = SshWire.readString(buffer);
+            final byte[] point = SshWire.readString(buffer);
+            if ("ssh-ed25519".equals(new String(type, StandardCharsets.US_ASCII))
+                    && point.length == 32
+                    && !buffer.hasRemaining()) {
+                return blob;
+            }
+        } catch (final RuntimeException ex) {
+            // Falls through to the refusal: a blob that cannot be read is no Ed25519 key.
+        }
+        throw new VaultException("An SSH signature needs an Ed25519 key in OpenSSH's form");
     }
 
     /**
@@ -99,8 +175,9 @@ public final class SshSignature {
      * @return The OpenSSH public key blob, or {@code null} when this is not a signature.
      */
     public static byte @Nullable [] signerOf(final String armored) {
-        final Parsed parsed = parse(armored);
-        return parsed == null ? null : parsed.keyBlob();
+        try (Parsed parsed = parse(armored)) {
+            return parsed == null ? null : parsed.keyBlob();
+        }
     }
 
     private static byte[] preimage(final byte[] message, final String namespace) {
@@ -136,15 +213,25 @@ public final class SshSignature {
         } catch (final IllegalArgumentException e) {
             return null;
         }
-        // Padded and canonical, as ssh-keygen reads it: no other spelling of the same bytes.
-        if (!Base64.getEncoder().encodeToString(blob).equals(body)) {
-            return null;
+        try {
+            // Padded and canonical, as ssh-keygen reads it: no other spelling of the same bytes.
+            if (!Base64.getEncoder().encodeToString(blob).equals(body)) {
+                return null;
+            }
+            return parseBlob(blob);
+        } finally {
+            Arrays.fill(blob, (byte) 0);
         }
+    }
+
+    private static @Nullable Parsed parseBlob(final byte[] blob) {
         if (blob.length < MAGIC.length + 4
                 || !Arrays.equals(Arrays.copyOf(blob, MAGIC.length), MAGIC)) {
             return null;
         }
         final ByteBuffer buffer = ByteBuffer.wrap(blob, MAGIC.length, blob.length - MAGIC.length);
+        byte[] signature = null;
+        boolean returned = false;
         try {
             if (buffer.getInt() != VERSION) {
                 return null;
@@ -153,29 +240,33 @@ public final class SshSignature {
             final byte[] namespace = SshWire.readString(buffer);
             final byte[] reserved = SshWire.readString(buffer);
             final byte[] hash = SshWire.readString(buffer);
-            final byte[] signature = SshWire.readString(buffer);
+            signature = SshWire.readString(buffer);
             // As ssh-keygen -Y verify: nothing reserved, and nothing after the signature.
             if (reserved.length > 0 || buffer.hasRemaining()) {
                 return null;
             }
-            return new Parsed(
-                    key,
-                    new String(namespace, StandardCharsets.UTF_8),
-                    new String(hash, StandardCharsets.UTF_8),
-                    signature);
+            final Parsed parsed =
+                    new Parsed(
+                            key,
+                            new String(namespace, StandardCharsets.UTF_8),
+                            new String(hash, StandardCharsets.UTF_8),
+                            signature);
+            returned = true;
+            return parsed;
         } catch (final RuntimeException e) {
             // A truncated or malformed signature is not a signature. It is never an exception to
             // the caller, because "this did not verify" is the only answer that matters.
             return null;
+        } finally {
+            if (!returned && signature != null) Arrays.fill(signature, (byte) 0);
         }
     }
 
-    private static void writeInt(final ByteArrayOutputStream out, final int value) {
-        out.write(value >>> 24);
-        out.write(value >>> 16);
-        out.write(value >>> 8);
-        out.write(value);
+    private record Parsed(byte[] keyBlob, String namespace, String hash, byte[] signature)
+            implements AutoCloseable {
+        @Override
+        public void close() {
+            Arrays.fill(signature, (byte) 0);
+        }
     }
-
-    private record Parsed(byte[] keyBlob, String namespace, String hash, byte[] signature) {}
 }

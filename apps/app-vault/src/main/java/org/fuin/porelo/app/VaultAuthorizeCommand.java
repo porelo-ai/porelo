@@ -458,12 +458,7 @@ public class VaultAuthorizeCommand implements Callable<Integer>, PoreloFactory.C
                                 Instant.now().toString()));
         // Whatever opens it without asking first - the daemon's way in is often a device's share -
         // then the prompt.
-        final org.fuin.porelo.vault.VaultFile.Opener opener =
-                context.opener()
-                        .orElseGet(
-                                () ->
-                                        org.fuin.porelo.vault.VaultFile.Opener.passphrase(
-                                                context.requirePassphrase()));
+        final org.fuin.porelo.vault.VaultFile.Opener opener = context.requireOpener();
         context.vault()
                 .update(
                         opener,

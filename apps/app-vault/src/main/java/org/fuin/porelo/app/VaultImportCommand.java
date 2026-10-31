@@ -2,7 +2,6 @@ package org.fuin.porelo.app;
 
 import java.io.PrintWriter;
 import java.nio.file.Path;
-import java.util.Optional;
 import java.util.concurrent.Callable;
 import org.jspecify.annotations.Nullable;
 import picocli.CommandLine.Command;
@@ -63,29 +62,6 @@ public class VaultImportCommand implements Callable<Integer>, PoreloFactory.Cont
         return rest.isEmpty() ? home : home.resolve(rest);
     }
 
-    /**
-     * Caches the passphrase that was just typed, so the next command does not ask again.
-     *
-     * <p>Importing is normally the first thing an operator does, and being asked twice in a row for
-     * the same secret reads as something having gone wrong.
-     *
-     * @param passphrase The passphrase.
-     * @param out Where to report.
-     */
-    private void cache(char[] passphrase, PrintWriter out) {
-        if (!org.fuin.porelo.vault.KernelKeyring.available()) {
-            return;
-        }
-        try {
-            new org.fuin.porelo.vault.KernelKeyring(context.paths().vault().vaultKeyringKey())
-                    .store(passphrase);
-            out.println("unlocked  cached in this account's keyring, where the daemon finds it");
-        } catch (RuntimeException ex) {
-            // Not being able to cache is not a reason for the import to have failed.
-            return;
-        }
-    }
-
     @Override
     public Integer call() {
 
@@ -96,21 +72,9 @@ public class VaultImportCommand implements Callable<Integer>, PoreloFactory.Cont
         // there is a terminal to ask at, so a vault that nothing already opens is a prompt rather
         // than a refusal. What already opens it - a cached passphrase, or a device's share - is
         // used first, so somebody at the machine is not asked for something they do not need.
-        final char[][] typed = new char[1][];
         final CredentialImport.Result result =
                 CredentialImport.run(
-                        context,
-                        agentName,
-                        configDirectory,
-                        () ->
-                                context.opener()
-                                        .or(
-                                                () -> {
-                                                    typed[0] = context.requirePassphrase();
-                                                    return Optional.of(
-                                                            org.fuin.porelo.vault.VaultFile.Opener
-                                                                    .passphrase(typed[0]));
-                                                }));
+                        context, agentName, configDirectory, () -> context.openerAsking(true, err));
 
         if (result.outcome() == CredentialImport.Outcome.NOTHING_TO_IMPORT
                 && agentName != null
@@ -131,9 +95,6 @@ public class VaultImportCommand implements Callable<Integer>, PoreloFactory.Cont
             return result.outcome() == CredentialImport.Outcome.FAILED ? 70 : 69;
         }
 
-        if (typed[0] != null) {
-            cache(typed[0], out);
-        }
         // The value is never echoed: what is useful is that it arrived and which kind it is.
         out.println(
                 "imported  "
