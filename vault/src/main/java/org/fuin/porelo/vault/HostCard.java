@@ -169,8 +169,10 @@ public record HostCard(
      * @param forgeWebPort The port of the forge's web interface.
      * @param forgeGitPort The port of the forge's git over ssh.
      * @param matrixPort The port of its Matrix server.
-     * @param key The host admin's key, which signs.
+     * @param key The host admin's key, which signs: from its file or held by their ssh-agent, which
+     *     makes the same signature, Ed25519 being deterministic.
      * @return The file's content.
+     * @throws VaultException If the key is no Ed25519 key or an agent does not sign.
      */
     public static String write(
             final String host,
@@ -180,7 +182,7 @@ public record HostCard(
             final int forgeWebPort,
             final int forgeGitPort,
             final int matrixPort,
-            final SigningKey key) {
+            final AgentKey key) {
         final StringBuilder body = new StringBuilder();
         body.append("host: ").append(quoted(host)).append('\n');
         body.append("address: ").append(quoted(address)).append('\n');

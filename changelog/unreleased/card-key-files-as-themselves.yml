@@ -1,0 +1,2 @@
+title: "`porelo card make-host` reads its key files, `--key`, `--ssh-host-key` and `--agent-key`'s `.pub`, only as regular files of at most 16 KiB named themselves, never through a symbolic link"
+type: security

@@ -18,6 +18,7 @@ import org.fuin.porelo.vault.HostCard;
 import org.fuin.porelo.vault.PersonCard;
 import org.fuin.porelo.vault.SigningKey;
 import org.fuin.porelo.wire.Json;
+import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import picocli.CommandLine;
@@ -40,6 +41,9 @@ class CardHostCommandTest {
 
     @TempDir Path dir;
 
+    /** What {@code SSH_AUTH_SOCK} says to the command, or {@code null} for no agent at all. */
+    private @Nullable String agentSocket;
+
     private PoreloContext context() {
         final XdgPaths xdg =
                 XdgPaths.of(
@@ -53,7 +57,10 @@ class CardHostCommandTest {
                                 },
                         dir);
         return new PoreloContext(
-                new ProcessCommandRunner(), new PoreloPaths(xdg, dir.resolve("bin")), args -> 0);
+                new ProcessCommandRunner(),
+                new PoreloPaths(xdg, dir.resolve("bin")),
+                args -> 0,
+                name -> "SSH_AUTH_SOCK".equals(name) ? agentSocket : System.getenv(name));
     }
 
     private int card(final String... args) {
@@ -101,24 +108,58 @@ class CardHostCommandTest {
     }
 
     private List<String> makeHost(final String host, final Path key, final Path hostKeyFile) {
-        return List.of(
-                "make-host",
-                "--host",
-                host,
-                "--address",
-                "walk-9.example.org",
-                "--ssh-port",
-                "2201",
-                "--ssh-host-key",
-                hostKeyFile.toString(),
-                "--forge-web-port",
-                "3000",
-                "--forge-git-port",
-                "2222",
-                "--matrix-port",
-                "8448",
-                "--key",
-                key.toString());
+        return makeHost(host, hostKeyFile, "--key", key.toString());
+    }
+
+    private List<String> makeHost(
+            final String host, final Path hostKeyFile, final String... signing) {
+        final List<String> args =
+                new ArrayList<>(
+                        List.of(
+                                "make-host",
+                                "--host",
+                                host,
+                                "--address",
+                                "walk-9.example.org",
+                                "--ssh-port",
+                                "2201",
+                                "--ssh-host-key",
+                                hostKeyFile.toString(),
+                                "--forge-web-port",
+                                "3000",
+                                "--forge-git-port",
+                                "2222",
+                                "--matrix-port",
+                                "8448"));
+        args.addAll(List.of(signing));
+        return args;
+    }
+
+    /** Runs a real {@code ssh-agent} holding the given keys, which are then deleted from disk. */
+    private Process agent(final Path... keys) throws Exception {
+        final Path socket = dir.resolve("agent.sock");
+        final Process agent =
+                new ProcessBuilder("ssh-agent", "-D", "-a", socket.toString())
+                        .redirectErrorStream(true)
+                        .redirectOutput(ProcessBuilder.Redirect.DISCARD)
+                        .start();
+        for (int i = 0; i < 100 && !Files.exists(socket); i++) {
+            Thread.sleep(20);
+        }
+        for (final Path key : keys) {
+            final ProcessBuilder add = new ProcessBuilder("ssh-add", "-q", key.toString());
+            add.environment().put("SSH_AUTH_SOCK", socket.toString());
+            assertThat(
+                            add.redirectErrorStream(true)
+                                    .redirectOutput(ProcessBuilder.Redirect.DISCARD)
+                                    .start()
+                                    .waitFor())
+                    .isZero();
+            // Gone from disk: only the agent holds it now.
+            Files.delete(key);
+        }
+        agentSocket = socket.toString();
+        return agent;
     }
 
     @Test
@@ -397,5 +438,202 @@ class CardHostCommandTest {
                 .isEqualTo(66);
         assertThat(err.toString()).contains("cannot read the host key '" + dir.resolve("none.pub"));
         assertThat(out.toString()).isEmpty();
+    }
+
+    @Test
+    void make_host_signs_through_the_agent_the_same_card_a_key_file_signs() throws Exception {
+        // Harm guarded: a host admin whose key lives only in their agent writes it to disk to sign.
+        final Path key = keygen("admin", "");
+        final Path pub = Path.of(key + ".pub");
+        final Path hostKeyFile = file("host.pub", hostKey + "\n");
+        assertThat(card(makeHost("walk-9", key, hostKeyFile).toArray(String[]::new))).isZero();
+        final String fromFile = out.toString();
+        final Process agent = agent(key);
+        try {
+            assertThat(
+                            card(
+                                    makeHost("walk-9", hostKeyFile, "--agent-key", pinOf(key))
+                                            .toArray(String[]::new)))
+                    .as(err.toString())
+                    .isZero();
+            final String byFingerprint = out.toString();
+            assertThat(
+                            card(
+                                    makeHost("walk-9", hostKeyFile, "--agent-key", pub.toString())
+                                            .toArray(String[]::new)))
+                    .as(err.toString())
+                    .isZero();
+            assertThat(out.toString()).isEqualTo(byFingerprint);
+            assertThat(byFingerprint).isEqualTo(fromFile);
+
+            final Path made = file("walk-9.card", byFingerprint);
+            assertThat(card("verify-host", made.toString(), "--signer", pinOf(key)))
+                    .as(err.toString())
+                    .isZero();
+        } finally {
+            agent.destroy();
+        }
+    }
+
+    @Test
+    void make_host_refuses_with_65_naming_the_key_an_agent_does_not_hold() throws Exception {
+        // Harm guarded: a card signed by whichever key the agent holds, not the one named.
+        final Path other = keygen("other", "");
+        final Path key = keygen("admin", "");
+        final Path hostKeyFile = file("host.pub", hostKey + "\n");
+        final Process agent = agent(other);
+        try {
+            assertThat(
+                            card(
+                                    makeHost("walk-9", hostKeyFile, "--agent-key", pinOf(key))
+                                            .toArray(String[]::new)))
+                    .isEqualTo(65);
+            assertThat(err.toString())
+                    .contains("the ssh agent does not hold the key " + pinOf(key));
+            assertThat(out.toString()).isEmpty();
+        } finally {
+            agent.destroy();
+        }
+    }
+
+    @Test
+    void make_host_refuses_with_65_naming_the_key_when_no_agent_answers() throws Exception {
+        // Harm guarded: an absent agent read as a key refused, or a card written unsigned.
+        final Path key = keygen("admin", "");
+        final Path hostKeyFile = file("host.pub", hostKey + "\n");
+        final String[] args =
+                makeHost("walk-9", hostKeyFile, "--agent-key", pinOf(key)).toArray(String[]::new);
+
+        agentSocket = null;
+        assertThat(card(args)).isEqualTo(65);
+        assertThat(err.toString())
+                .contains("no ssh agent answers for " + pinOf(key))
+                .contains("SSH_AUTH_SOCK is not set");
+        assertThat(out.toString()).isEmpty();
+
+        agentSocket = dir.resolve("no-agent.sock").toString();
+        assertThat(card(args)).isEqualTo(65);
+        assertThat(err.toString()).contains("no ssh agent answers for " + pinOf(key));
+        assertThat(out.toString()).isEmpty();
+    }
+
+    @Test
+    void make_host_takes_exactly_one_of_key_and_agent_key_else_64() throws Exception {
+        // Harm guarded: one of two keys signing silently, or a card asked for with no key at all.
+        final Path key = keygen("admin", "");
+        final Path hostKeyFile = file("host.pub", hostKey + "\n");
+
+        assertThat(
+                        card(
+                                makeHost(
+                                                "walk-9",
+                                                hostKeyFile,
+                                                "--key",
+                                                key.toString(),
+                                                "--agent-key",
+                                                pinOf(key))
+                                        .toArray(String[]::new)))
+                .isEqualTo(64);
+        assertThat(err.toString()).contains("exactly one of --key FILE and --agent-key");
+        assertThat(out.toString()).isEmpty();
+
+        assertThat(card(makeHost("walk-9", hostKeyFile).toArray(String[]::new))).isEqualTo(64);
+        assertThat(err.toString()).contains("exactly one of --key FILE and --agent-key");
+        assertThat(out.toString()).isEmpty();
+    }
+
+    @Test
+    void make_host_answers_66_for_an_agent_key_file_it_cannot_read() throws Exception {
+        // Harm guarded: a mistyped .pub path taken for a key the agent lacks, sending the admin
+        // to look for a key where the file is the fault.
+        final Path hostKeyFile = file("host.pub", hostKey + "\n");
+        final Path none = dir.resolve("admin.pub");
+
+        assertThat(
+                        card(
+                                makeHost("walk-9", hostKeyFile, "--agent-key", none.toString())
+                                        .toArray(String[]::new)))
+                .isEqualTo(66);
+        assertThat(err.toString()).contains("cannot read the public key '" + none + "'");
+        assertThat(out.toString()).isEmpty();
+    }
+
+    @Test
+    void a_card_made_goes_out_only_when_it_verifies_as_its_signers() throws Exception {
+        // Harm guarded: an agent answering with another key's signature, or with bytes that verify
+        // as nothing, and the card printed as if the admin had signed it.
+        final Path key = keygen("admin", "");
+        final Path other = keygen("other", "");
+        final Path hostKeyFile = file("host.pub", hostKey + "\n");
+
+        assertThat(card(makeHost("walk-9", key, hostKeyFile).toArray(String[]::new))).isZero();
+        final String made = out.toString();
+
+        final String otherPin = pinOf(other);
+        assertThat(CardMakeHostCommand.unverified(made, pinOf(key))).isEmpty();
+        assertThat(CardMakeHostCommand.unverified(made, otherPin))
+                .hasValueSatisfying(
+                        why ->
+                                assertThat(why)
+                                        .contains("does not verify as signed by " + otherPin));
+    }
+
+    @Test
+    void make_host_takes_an_agent_key_file_only_as_itself_never_through_a_link() throws Exception {
+        // Harm guarded: a link named as the admin's .pub picking another key the agent holds.
+        final Path hostKeyFile = file("host.pub", hostKey + "\n");
+        final Path real = file("real.pub", PersonCard.keyLine(admin) + "\n");
+        final Path link = dir.resolve("link.pub");
+        Files.createSymbolicLink(link, real);
+
+        assertThat(
+                        card(
+                                makeHost("walk-9", hostKeyFile, "--agent-key", link.toString())
+                                        .toArray(String[]::new)))
+                .isEqualTo(66);
+        assertThat(err.toString()).contains("no regular file");
+        assertThat(out.toString()).isEmpty();
+    }
+
+    @Test
+    void make_host_reads_a_signing_key_or_host_key_only_as_itself_never_through_a_link()
+            throws Exception {
+        // Harm guarded: a link named as a key file signing with, or signing in, another key.
+        final Path key = keygen("admin", "");
+        final Path keyLink = dir.resolve("admin-link");
+        Files.createSymbolicLink(keyLink, key);
+        final Path hostKeyFile = file("host.pub", hostKey + "\n");
+        final Path hostLink = dir.resolve("host-link.pub");
+        Files.createSymbolicLink(hostLink, hostKeyFile);
+
+        assertThat(card(makeHost("walk-9", keyLink, hostKeyFile).toArray(String[]::new)))
+                .isEqualTo(66);
+        assertThat(err.toString()).contains("'" + keyLink + "'").contains("no regular file");
+        assertThat(out.toString()).isEmpty();
+        assertThat(card(makeHost("walk-9", key, hostLink).toArray(String[]::new))).isEqualTo(66);
+        assertThat(err.toString()).contains("'" + hostLink + "'").contains("no regular file");
+        assertThat(out.toString()).isEmpty();
+    }
+
+    @Test
+    void make_host_answers_65_for_a_key_file_too_large_to_be_a_key() throws Exception {
+        // Harm guarded: a readable file that is no key told as one that cannot be read.
+        final Path key = keygen("admin", "");
+        final Path large = file("large.pub", hostKey + "\n" + "#".repeat(16 * 1024) + "\n");
+
+        assertThat(card(makeHost("walk-9", key, large).toArray(String[]::new))).isEqualTo(65);
+        assertThat(err.toString()).contains("'" + large + "' is not a public key's text");
+        assertThat(out.toString()).isEmpty();
+    }
+
+    @Test
+    void make_host_shows_a_refusals_file_name_without_its_controls() throws Exception {
+        // Harm guarded: a file name's escape sequence rewriting the admin's terminal.
+        final Path hostKeyFile = file("host.pub", hostKey + "\n");
+        final Path none = dir.resolve("key\u001b[2J");
+
+        assertThat(card(makeHost("walk-9", none, hostKeyFile).toArray(String[]::new)))
+                .isEqualTo(66);
+        assertThat(err.toString()).doesNotContain("\u001b").contains("key?[2J");
     }
 }

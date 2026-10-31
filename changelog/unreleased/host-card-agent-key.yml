@@ -1,0 +1,2 @@
+title: "`porelo card make-host --agent-key FINGERPRINT|PUBFILE` signs a host card through the ssh-agent with the host admin's Ed25519 key, so a key kept only in the agent, KeePassXC's included, is never written to disk"
+type: added
