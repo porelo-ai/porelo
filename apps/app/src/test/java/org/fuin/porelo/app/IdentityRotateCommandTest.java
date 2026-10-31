@@ -39,6 +39,9 @@ class IdentityRotateCommandTest {
     private final StringWriter out = new StringWriter();
     private final StringWriter err = new StringWriter();
 
+    /** The stand-in KeePassXC, once a test makes one. */
+    private KeePassXcStandIn standIn;
+
     @BeforeEach
     void checkout() throws Exception {
         registry = new RegistryCheckout(dir);
@@ -110,9 +113,21 @@ class IdentityRotateCommandTest {
         ((IdentityRotateCommand) verbs.get("rotate").getCommand()).remotes = remotes;
         ((IdentityPublishCommand) verbs.get("publish").getCommand()).forges = forges;
         ((IdentityPublishCommand) verbs.get("publish").getCommand()).remotes = remotes;
+        if (standIn != null) {
+            final KeePassXcKey store = standIn.store(java.time.Duration.ofMillis(800));
+            ((IdentityRotateCommand) verbs.get("rotate").getCommand()).store = store;
+            ((IdentityRevokeCommand) verbs.get("revoke").getCommand()).store = store;
+        }
         final List<String> all = new ArrayList<>(List.of("identity"));
         all.addAll(List.of(args));
         return cli.execute(all.toArray(String[]::new));
+    }
+
+    /** The stand-in KeePassXC the verbs run, on a terminal, giving keys to the test's agent. */
+    private KeePassXcStandIn keepass(final KeePassXcStandIn.Mode mode) throws Exception {
+        registry.terminal = true;
+        standIn = new KeePassXcStandIn(dir, mode, registry.environment().apply("SSH_AUTH_SOCK"));
+        return standIn;
     }
 
     /** Takes a login's key out of the agent, as a lost or locked key leaves it. */
@@ -293,18 +308,9 @@ class IdentityRotateCommandTest {
         assertThat(ops()).doesNotExist();
     }
 
-    /** KeePassXC's way waits for its own issue; it must not fall back to a key file. */
+    /** Both ways at once, an entry without KeePassXC, or a bad id, is wrong use. */
     @Test
-    void keepassxc_is_refused_until_it_lands_and_both_ways_at_once_are_wrong_use()
-            throws Exception {
-        assertThat(identity("rotate", "--keepassxc", "db.kdbx", "--json")).isEqualTo(65);
-        assertThat(answer())
-                .isEqualTo(
-                        Map.of(
-                                "reason",
-                                "key-store-missing",
-                                "words",
-                                "waits for making a new key into KeePassXC"));
+    void both_ways_at_once_or_an_entry_alone_is_wrong_use() throws Exception {
         assertThat(
                         identity(
                                 "revoke",
@@ -314,7 +320,145 @@ class IdentityRotateCommandTest {
                                 "--key",
                                 registry.pin("alice")))
                 .isEqualTo(64);
+        assertThat(identity("rotate", "--key", registry.pin("alice"), "--entry", "a/b"))
+                .isEqualTo(64);
         assertThat(identity("rotate", "--key", registry.pin("alice"), "--id", "a/b")).isEqualTo(64);
+    }
+
+    /** A rotation into KeePassXC signs with the new key once the agent serves it, and the old. */
+    @Test
+    void a_rotation_into_keepassxc_signs_with_the_key_the_agent_serves_and_the_old_one()
+            throws Exception {
+        registry.agent("alice");
+        filed();
+        final KeePassXcStandIn keepass = keepass(KeePassXcStandIn.Mode.SERVES);
+
+        assertThat(
+                        identity(
+                                "rotate",
+                                "--keepassxc",
+                                keepass.database.toString(),
+                                "--entry",
+                                "alice-2",
+                                "--json"))
+                .as(err.toString())
+                .isZero();
+        final Map<?, ?> answer = answer();
+        assertThat(answer.get("action")).isEqualTo("rotate");
+        assertThat(answer.get("entry")).isEqualTo("alice-2");
+        assertThat(answer.get("agent")).isEqualTo("holds");
+        assertThat(answer.get("predecessor")).isEqualTo(registry.pin("alice"));
+        final PersonCard card = kept();
+        assertThat(card.fingerprint()).isEqualTo(answer.get("fingerprint"));
+        assertThat(card.predecessor()).isEqualTo(registry.key("alice"));
+        assertThat(card.signedAsItMustBe()).isTrue();
+        assertThat(keepass.calls()).isEqualTo(keepass.madeInto("alice-2"));
+        assertThat(keepass.holding(card.key())).isEmpty();
+    }
+
+    /** Not served in time: the entry is kept, no card made and no operation begun. */
+    @Test
+    void a_rotation_whose_key_is_not_served_makes_no_card_and_begins_nothing() throws Exception {
+        registry.agent("alice");
+        final String filed = filed();
+        final KeePassXcStandIn keepass = keepass(KeePassXcStandIn.Mode.HOLDS);
+
+        assertThat(
+                        identity(
+                                "rotate",
+                                "--keepassxc",
+                                keepass.database.toString(),
+                                "--entry",
+                                "alice-2",
+                                "--json"))
+                .isEqualTo(65);
+        assertThat(answer().get("reason")).isEqualTo("key-not-served");
+        assertThat(answer().get("entry")).isEqualTo("alice-2");
+        assertThat(kept().body()).isEqualTo(PersonCard.read(filed, "filed").body());
+        assertThat(ops()).doesNotExist();
+    }
+
+    /** An old key the agent does not serve could not sign: no entry is made for it. */
+    @Test
+    void a_rotation_whose_old_key_is_not_served_makes_no_keepassxc_entry() throws Exception {
+        registry.agent("alice");
+        filed();
+        forget("alice");
+        final KeePassXcStandIn keepass = keepass(KeePassXcStandIn.Mode.SERVES);
+
+        assertThat(identity("rotate", "--keepassxc", keepass.database.toString(), "--json"))
+                .isEqualTo(65);
+        assertThat(answer().get("reason")).isEqualTo("key-not-in-agent");
+        assertThat(keepass.calls()).isEmpty();
+    }
+
+    /** Without a terminal no rotation asks KeePassXC, and nothing is begun. */
+    @Test
+    void a_rotation_without_a_terminal_is_refused_64() throws Exception {
+        registry.agent("alice");
+        filed();
+        final KeePassXcStandIn keepass = keepass(KeePassXcStandIn.Mode.SERVES);
+        registry.terminal = false;
+
+        assertThat(identity("rotate", "--keepassxc", keepass.database.toString(), "--json"))
+                .isEqualTo(64);
+        assertThat(answer().get("reason")).isEqualTo("no-terminal");
+        assertThat(keepass.calls()).isEmpty();
+        assertThat(ops()).doesNotExist();
+    }
+
+    /** A replacement into KeePassXC answers its places as one with --key does. */
+    @Test
+    void a_lost_key_replaced_into_keepassxc_waits_at_every_place() throws Exception {
+        registry.agent("alice", "hank");
+        filed();
+        host();
+        forget("alice");
+        final KeePassXcStandIn keepass = keepass(KeePassXcStandIn.Mode.SERVES);
+
+        assertThat(
+                        identity(
+                                "revoke",
+                                "--lost",
+                                "--keepassxc",
+                                keepass.database.toString(),
+                                "--entry",
+                                "alice-new",
+                                "--json"))
+                .as(err.toString())
+                .isZero();
+        final Map<?, ?> answer = answer();
+        assertThat(answer.get("action")).isEqualTo("revoke-lost");
+        assertThat(answer.get("entry")).isEqualTo("alice-new");
+        assertThat(answer.get("agent")).isEqualTo("holds");
+        for (Object each : (List<?>) answer.get("published")) {
+            assertThat(((Map<?, ?>) each).get("status")).isEqualTo("pending");
+        }
+        final PersonCard card = kept();
+        assertThat(card.fingerprint()).isEqualTo(answer.get("fingerprint"));
+        assertThat(card.predecessor()).isEmpty();
+        assertThat(card.signedAsItMustBe()).isTrue();
+        assertThat(keepass.calls()).isEqualTo(keepass.madeInto("alice-new"));
+    }
+
+    /** A refused password replaces nothing. */
+    @Test
+    void a_replacement_keepassxc_refuses_is_key_store_refused() throws Exception {
+        registry.agent("alice");
+        filed();
+        forget("alice");
+        final KeePassXcStandIn keepass = keepass(KeePassXcStandIn.Mode.REFUSES);
+
+        assertThat(
+                        identity(
+                                "revoke",
+                                "--lost",
+                                "--keepassxc",
+                                keepass.database.toString(),
+                                "--json"))
+                .isEqualTo(65);
+        assertThat(answer().get("reason")).isEqualTo("key-store-refused");
+        assertThat(ops()).doesNotExist();
     }
 
     /**

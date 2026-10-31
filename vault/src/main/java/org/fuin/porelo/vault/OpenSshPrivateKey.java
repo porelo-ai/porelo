@@ -238,6 +238,70 @@ public final class OpenSshPrivateKey {
                 .encodeToString(java.util.Arrays.copyOfRange(privateHalf, 0, SEED_LENGTH));
     }
 
+    /**
+     * Writes an unencrypted Ed25519 key as {@code ssh-keygen} writes its private key file.
+     *
+     * <p>Unencrypted on purpose: it is handed to a store that encrypts it, such as a KeePassXC
+     * database, and never written anywhere by itself.
+     *
+     * @param seed The 32-byte seed.
+     * @param publicKey The raw 32-byte public half.
+     * @param comment What the key is called.
+     * @return The file's text as ASCII bytes, which the caller clears once it has handed them on.
+     */
+    public static byte[] write(final byte[] seed, final byte[] publicKey, final String comment) {
+        if (seed.length != SEED_LENGTH || publicKey.length != SEED_LENGTH) {
+            throw new VaultException("An Ed25519 key is a 32-byte seed and a 32-byte public half.");
+        }
+        final byte[] blob = SshWire.ed25519KeyBlob(publicKey);
+        final byte[] secret = new byte[2 * SEED_LENGTH];
+        System.arraycopy(seed, 0, secret, 0, SEED_LENGTH);
+        System.arraycopy(publicKey, 0, secret, SEED_LENGTH, SEED_LENGTH);
+        final java.io.ByteArrayOutputStream inner = new java.io.ByteArrayOutputStream();
+        final java.io.ByteArrayOutputStream outer = new java.io.ByteArrayOutputStream();
+        byte[] innerBytes = new byte[0];
+        byte[] outerBytes = new byte[0];
+        try {
+            final int check = new java.security.SecureRandom().nextInt();
+            final byte[] checks =
+                    java.nio.ByteBuffer.allocate(8).putInt(check).putInt(check).array();
+            inner.write(checks);
+            SshWire.writeString(inner, "ssh-ed25519");
+            SshWire.writeString(inner, publicKey);
+            SshWire.writeString(inner, secret);
+            SshWire.writeString(inner, comment);
+            // Padded to the cipher's block size, 8 for "none", with the bytes 1, 2, 3 ...
+            for (int pad = 1; inner.size() % 8 != 0; pad++) {
+                inner.write(pad);
+            }
+            innerBytes = inner.toByteArray();
+            outer.write(MAGIC);
+            SshWire.writeString(outer, "none");
+            SshWire.writeString(outer, "none");
+            SshWire.writeString(outer, new byte[0]);
+            outer.write(java.nio.ByteBuffer.allocate(4).putInt(1).array());
+            SshWire.writeString(outer, blob);
+            SshWire.writeString(outer, innerBytes);
+            outerBytes = outer.toByteArray();
+            final byte[] body = Base64.getMimeEncoder(70, new byte[] {'\n'}).encode(outerBytes);
+            try {
+                final java.io.ByteArrayOutputStream text = new java.io.ByteArrayOutputStream();
+                text.writeBytes((BEGIN + "\n").getBytes(StandardCharsets.US_ASCII));
+                text.writeBytes(body);
+                text.writeBytes(("\n" + END + "\n").getBytes(StandardCharsets.US_ASCII));
+                return text.toByteArray();
+            } finally {
+                java.util.Arrays.fill(body, (byte) 0);
+            }
+        } catch (final java.io.IOException ex) {
+            throw new VaultException("Cannot write the key: " + ex.getMessage());
+        } finally {
+            java.util.Arrays.fill(secret, (byte) 0);
+            java.util.Arrays.fill(innerBytes, (byte) 0);
+            java.util.Arrays.fill(outerBytes, (byte) 0);
+        }
+    }
+
     /** Reads the length-prefixed fields an OpenSSH key is made of. */
     private static final class Reader {
 

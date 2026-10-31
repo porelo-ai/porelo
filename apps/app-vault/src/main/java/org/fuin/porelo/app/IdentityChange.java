@@ -199,16 +199,16 @@ final class IdentityChange {
     }
 
     /**
-     * Refuses {@code --keepassxc} and {@code --key} together or neither, and {@code --keepassxc} at
-     * all until making a key into KeePassXC lands.
+     * Refuses {@code --keepassxc} and {@code --key} together or neither, and {@code --entry}
+     * without {@code --keepassxc}.
      *
      * @param key The {@code --key} given, or {@code null}.
      * @param keepassxc The {@code --keepassxc} given, or {@code null}.
      * @param entry The {@code --entry} given, or {@code null}.
-     * @return The {@code --key}.
-     * @throws Refused 64 for wrong use, 65 {@code key-store-missing} for KeePassXC.
+     * @return The {@code --key}, or {@code null} when a new key is made into KeePassXC.
+     * @throws Refused 64 for wrong use.
      */
-    static String keyChosen(
+    static @Nullable String keyChosen(
             final @Nullable String key,
             final @Nullable Path keepassxc,
             final @Nullable String entry)
@@ -219,10 +219,41 @@ final class IdentityChange {
         if (entry != null && keepassxc == null) {
             throw new Refused(64, null, "--entry goes with --keepassxc");
         }
-        if (keepassxc != null) {
-            throw new Refused(65, "key-store-missing", "waits for making a new key into KeePassXC");
+        return key;
+    }
+
+    /**
+     * Prints an operation's answer with the KeePassXC entry its new key was made into.
+     *
+     * @param spec The command's spec.
+     * @param json Whether JSON was asked for.
+     * @param operation The operation.
+     * @param made The key made into KeePassXC, or {@code null} for a key named with {@code --key}.
+     */
+    static void print(
+            final picocli.CommandLine.Model.CommandSpec spec,
+            final boolean json,
+            final IdentityOperation operation,
+            final KeePassXcKey.@Nullable Made made) {
+        if (made == null || !json) {
+            print(spec, json, operation);
+            if (made != null) {
+                spec.commandLine()
+                        .getOut()
+                        .println(
+                                "entry "
+                                        + RegistryVerifyCommand.printable(made.entry())
+                                        + ", served by the agent");
+                spec.commandLine().getOut().flush();
+            }
+            return;
         }
-        return java.util.Objects.requireNonNull(key, "either --key or --keepassxc is given");
+        final Map<String, @Nullable Object> answer = new LinkedHashMap<>(operation.answer());
+        answer.put("entry", made.entry());
+        answer.put("agent", "holds");
+        final var out = spec.commandLine().getOut();
+        out.println(Json.write(RegistryVerifyCommand.printable(answer)));
+        out.flush();
     }
 
     /**

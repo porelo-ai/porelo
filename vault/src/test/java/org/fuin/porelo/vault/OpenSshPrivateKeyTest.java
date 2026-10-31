@@ -117,4 +117,37 @@ class OpenSshPrivateKeyTest {
                 .isTrue();
         assertThat(OpenSshPrivateKey.looksLikeOne("ghp_averyordinarylookingtoken")).isFalse();
     }
+
+    /** A key written here that ssh-keygen cannot read would be stored and never serve. */
+    @Test
+    void aKeyWrittenHereIsOneSshKeygenReadsWithItsPublicHalf() throws Exception {
+        final SigningKey key = SigningKey.generate("alice");
+        final byte[] text = key.openSshPrivateKey();
+
+        final Process process =
+                new ProcessBuilder("ssh-keygen", "-y", "-f", "/dev/stdin")
+                        .redirectError(ProcessBuilder.Redirect.DISCARD)
+                        .start();
+        try (var in = process.getOutputStream()) {
+            in.write(text);
+        }
+        final String printed =
+                new String(
+                        process.getInputStream().readAllBytes(),
+                        java.nio.charset.StandardCharsets.US_ASCII);
+        assertThat(process.waitFor()).as("ssh-keygen -y reads it").isZero();
+        assertThat(printed.strip())
+                .as("the public half ssh-keygen derives is the key's")
+                .isEqualTo(key.authorizedKeysLine());
+        assertThat(
+                        OpenSshPrivateKey.seedBase64(
+                                new String(text, java.nio.charset.StandardCharsets.US_ASCII)))
+                .as("read back, the seed is the key's own")
+                .isEqualTo(key.seedBase64());
+        assertThat(
+                        OpenSshPrivateKey.describe(
+                                new String(text, java.nio.charset.StandardCharsets.US_ASCII)))
+                .as("unencrypted Ed25519, as a store that encrypts it takes it")
+                .isEqualTo(new OpenSshPrivateKey.Described("ssh-ed25519", false));
+    }
 }

@@ -70,7 +70,8 @@ public class IdentityCreateCommand implements Callable<Integer>, PoreloFactory.C
     @Option(
             names = "--keepassxc",
             paramLabel = "DATABASE",
-            description = "Makes a new key into this KeePassXC database; not built yet.")
+            description =
+                    "Makes a new key into this KeePassXC database, which hands it to the agent.")
     private @Nullable Path keepassxc;
 
     @Option(
@@ -85,6 +86,9 @@ public class IdentityCreateCommand implements Callable<Integer>, PoreloFactory.C
     @Spec private CommandSpec spec;
 
     private @Nullable PoreloContext context;
+
+    /** Replaced by a test, which runs a stand-in keepassxc-cli and waits less. */
+    KeePassXcKey store = KeePassXcKey.real();
 
     /** Replaced by a test, which has no forge to ask. */
     RegistryReadCommand.Forges forges =
@@ -181,14 +185,11 @@ public class IdentityCreateCommand implements Callable<Integer>, PoreloFactory.C
                     "identity-exists",
                     "a card is kept here already; change its key with porelo identity rotate");
         }
-        if (given == null) {
-            throw new Refused(
-                    65,
-                    "key-store-missing",
-                    "making a new key in KeePassXC is not built yet; name a key your agent serves"
-                            + " with --key");
-        }
-        final String fingerprint = fingerprint(given);
+        final KeePassXcKey.Made made = given == null ? made(machine) : null;
+        final String fingerprint =
+                made != null
+                        ? made.fingerprint()
+                        : fingerprint(java.util.Objects.requireNonNull(given, "--key is given"));
         final AgentKey own = served(machine, fingerprint);
         final List<IdentityFacts.Registry> registries = IdentityFacts.registries(machine);
         final String line = PersonCard.keyLine(own);
@@ -241,9 +242,41 @@ public class IdentityCreateCommand implements Callable<Integer>, PoreloFactory.C
         answer.put("key", line);
         answer.put("card", card);
         answer.put("agent", "holds");
+        if (made != null) {
+            answer.put("entry", made.entry());
+        }
         answer.put("forge", IdentityFacts.forgeAnswer(forges, registries, login, fingerprint));
         answer.put("next", List.of("file-card"));
         return answer;
+    }
+
+    /** Makes a new key into the KeePassXC database and waits for the agent to serve it. */
+    private KeePassXcKey.Made made(final PoreloContext machine) throws Refused {
+        final String socket = machine.environment().apply(IdentityChange.AGENT);
+        try {
+            if (socket == null || socket.isEmpty()) {
+                throw new IdentityChange.Refused(
+                        65,
+                        "key-not-in-agent",
+                        "no ssh-agent is reachable (SSH_AUTH_SOCK is not set), so KeePassXC could"
+                                + " not give it the key");
+            }
+            return store.make(
+                    machine,
+                    java.util.Objects.requireNonNull(keepassxc, "--keepassxc is given"),
+                    entry,
+                    login,
+                    socket);
+        } catch (IdentityChange.Refused ex) {
+            final Map<String, @Nullable Object> typed = ex.answer();
+            if (typed == null) {
+                throw new IllegalArgumentException(ex.words(), ex);
+            }
+            final Map<String, @Nullable Object> more = new LinkedHashMap<>(typed);
+            more.remove("reason");
+            more.remove("words");
+            throw new Refused(ex.code(), String.valueOf(ex.reason()), ex.words(), more);
+        }
     }
 
     /** Refuses a login, name or email a card does not take, before the agent is asked. */

@@ -37,7 +37,9 @@ public class IdentityRotateCommand implements Callable<Integer>, PoreloFactory.C
     @Option(
             names = "--keepassxc",
             paramLabel = "DATABASE",
-            description = "Makes the new key into KeePassXC; not available yet.")
+            description =
+                    "Makes the new key into this KeePassXC database, which hands it to the"
+                            + " agent.")
     private @Nullable Path keepassxc;
 
     @Option(
@@ -58,6 +60,9 @@ public class IdentityRotateCommand implements Callable<Integer>, PoreloFactory.C
     @Spec private CommandSpec spec;
 
     private @Nullable PoreloContext context;
+
+    /** Replaced by a test, which runs a stand-in keepassxc-cli and waits less. */
+    KeePassXcKey store = KeePassXcKey.real();
 
     /** Replaced by a test, which has no forge to ask. */
     RegistryReadCommand.Forges forges =
@@ -83,7 +88,7 @@ public class IdentityRotateCommand implements Callable<Integer>, PoreloFactory.C
                 java.util.Objects.requireNonNull(context, "picocli's factory sets the context");
         try {
             IdentityChange.checkId(id);
-            final String named = IdentityChange.keyChosen(key, keepassxc, entry);
+            final @Nullable String named = IdentityChange.keyChosen(key, keepassxc, entry);
             final IdentityOperation again =
                     IdentityChange.kept(machine, id, IdentityOperation.ROTATE);
             if (again != null) {
@@ -103,13 +108,31 @@ public class IdentityRotateCommand implements Callable<Integer>, PoreloFactory.C
                         Map.of("who_may", IdentityChange.answers(change.owners())));
             }
             final String socket = change.socket();
-            final AgentKey successor = change.successor(named, card.login(), socket);
+            // Asked before a key is made, so a KeePassXC entry is never made for a rotation that
+            // cannot be signed by the old key.
+            final AgentKey old = IdentityChange.servedKey(card.fingerprint(), socket);
+            final KeePassXcKey.Made made =
+                    named != null
+                            ? null
+                            : store.make(
+                                    machine,
+                                    java.util.Objects.requireNonNull(
+                                            keepassxc, "either --key or --keepassxc is given"),
+                                    entry,
+                                    card.login(),
+                                    socket);
+            final AgentKey successor =
+                    change.successor(
+                            made == null
+                                    ? java.util.Objects.requireNonNull(named, "--key is given")
+                                    : made.fingerprint(),
+                            card.login(),
+                            socket);
             final String fingerprint = PersonCard.fingerprint(PersonCard.keyLine(successor));
             if (fingerprint.equals(card.fingerprint())) {
                 throw new IdentityChange.Refused(
                         64, null, "the key " + fingerprint + " is the card's own key already");
             }
-            final AgentKey old = IdentityChange.servedKey(card.fingerprint(), socket);
             final String text =
                     IdentityChange.signed(
                             card.login(),
@@ -136,7 +159,7 @@ public class IdentityRotateCommand implements Callable<Integer>, PoreloFactory.C
                 operation = operation.publishedTo(change.publish(operation, card.login()));
                 operation.keep(machine);
             }
-            IdentityChange.print(spec, json, operation);
+            IdentityChange.print(spec, json, operation, made);
             return 0;
         } catch (IdentityChange.Refused ex) {
             return IdentityChange.refuse(spec, json, ex);

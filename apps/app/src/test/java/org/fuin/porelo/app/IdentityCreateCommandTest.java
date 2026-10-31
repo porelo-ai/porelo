@@ -199,16 +199,6 @@ class IdentityCreateCommandTest {
         assertThat(cardFile()).doesNotExist();
     }
 
-    /** Making a new key is not built; it must say so, never fall back to a key file. */
-    @Test
-    void keepassxc_is_refused_key_store_missing_and_writes_nothing() throws Exception {
-        assertThat(create("--keepassxc", dir.resolve("db.kdbx").toString(), "--json"))
-                .isEqualTo(65);
-        assertThat(reason()).isEqualTo("key-store-missing");
-        assertThat(cardFile()).doesNotExist();
-        assertThat(cardFile().getParent()).doesNotExist();
-    }
-
     /** Wrong use is told apart from a refusal. */
     @Test
     void both_ways_or_neither_or_an_entry_alone_is_wrong_use() {

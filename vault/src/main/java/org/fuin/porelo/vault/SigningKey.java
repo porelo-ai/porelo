@@ -62,6 +62,20 @@ public class SigningKey implements AgentKey {
     }
 
     /**
+     * Returns this key as an unencrypted OpenSSH private key file, for a store that encrypts it.
+     *
+     * @return The file's text as ASCII bytes, which the caller clears once it has handed them on.
+     */
+    public byte[] openSshPrivateKey() {
+        final byte[] seed = privateKey.getEncoded();
+        try {
+            return OpenSshPrivateKey.write(seed, publicKey.getEncoded(), comment);
+        } finally {
+            java.util.Arrays.fill(seed, (byte) 0);
+        }
+    }
+
+    /**
      * Returns the comment.
      *
      * @return Comment.

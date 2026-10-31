@@ -263,8 +263,18 @@ final class RegistryCheckout implements AutoCloseable {
         return name -> name.equals("SSH_AUTH_SOCK") && held != null ? held.toString() : null;
     }
 
+    /** Whether the context's standard input is a terminal a person types into. */
+    boolean terminal;
+
     PoreloContext context() {
-        return new PoreloContext(runner, paths, args -> 0, environment());
+        return new PoreloContext(
+                runner,
+                paths,
+                args -> 0,
+                environment(),
+                false,
+                VaultPrompt.NOBODY,
+                new StandardInput(java.io.InputStream.nullInputStream(), terminal));
     }
 
     /** The machine, running what it would run on the person's terminal through this instead. */

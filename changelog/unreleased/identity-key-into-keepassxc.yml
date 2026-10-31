@@ -1,0 +1,2 @@
+title: "`identity create`, `rotate` and `revoke --lost` take `--keepassxc DATABASE [--entry GROUP/NAME]`: a new Ed25519 key made in memory goes into the KeePassXC database over a pipe, and the card is signed once KeePassXC's agent serves it"
+type: added

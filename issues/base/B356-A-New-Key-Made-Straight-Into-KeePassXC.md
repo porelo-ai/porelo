@@ -1,6 +1,6 @@
 # B356 — A New Key Made Straight Into KeePassXC
 
-**Status:** Backlog (operator, 2026-10-31), sprint 6m.
+**Status:** Review.
 **Size:** S, proposed - one option on three verbs: the key's OpenSSH form in memory, two attachments handed to
 `keepassxc-cli` over pipes, and a wait for the agent to serve the key.
 
@@ -33,3 +33,31 @@ the agent socket under `/run/user`. The person's interface opens the terminal, a
 - Without a terminal, with the database not open in KeePassXC, or with a refused password, the answer is the typed
   refusal above, and no card is made.
 - Seen to fail first: `identity create --keepassxc` answers `key-store-missing` until this is built.
+
+## Done
+
+- `--keepassxc DATABASE [--entry GROUP/NAME]` on `identity create`, `rotate` and `revoke --lost` (`KeePassXcKey`),
+  as `doc/commands.md` says it. The key is made in memory (`SigningKey.generate`) and written in OpenSSH's
+  unencrypted private form in Java (`OpenSshPrivateKey.write`, read back by `ssh-keygen -y` in its test).
+- `keepassxc-cli` reads the master password from its standard input, and a second attachment on `/dev/stdin` is
+  lost in its buffer (measured with keepassxc-cli 2.7.10 on a throwaway database), so each attachment goes over
+  its own pipe: Porelo runs `sh -c 'exec 3<&0 <"$1" >>"$2" 2>&1; shift 2; exec "$@"'` with the bytes on the
+  shell's standard input, which the shell moves to descriptor 3; it then reopens Porelo's own terminal
+  (`/proc/<pid>/fd/0`) as standard input and its error output (`/proc/<pid>/fd/2`) for both outputs, and execs
+  `keepassxc-cli attachment-import DATABASE ENTRY id_ed25519 /dev/fd/3`. No file holds the key and no argument
+  carries it. `keepassxc-cli` runs three times (`add`, then each attachment), so the password is asked three
+  times. The agent settings are UTF-16 with its byte order mark, as KeePassXC writes them: allowed, added at
+  open, removed at close, from the attachment, `SaveAttachmentToTempFile` false.
+- The terminal and the agent are asked before anything is made; a refusal of `add` hands no key over. The wait
+  polls the agent every 250 ms and is a field of `KeePassXcKey`, which the tests set. `key-not-served` also
+  answers `entry` and `fingerprint`, so a retry names the key with `--key` and makes no second one; a
+  `keepassxc-cli` that is not found is `key-store-missing`, and an entry path with an empty part or a leading `-`
+  is 64. `revoke --lost --dry-run --keepassxc` makes no key and answers the places.
+- Tests with a stand-in `keepassxc-cli` and a real `ssh-agent` (`IdentityKeePassXcTest`, `IdentityRotateCommandTest`):
+  the stand-in notes its arguments, whether each attachment is a pipe, and while it holds the key looks for a
+  private key file of it under home, config, state, data, runtime and the JVM's temporary directory; it then
+  gives the key to the agent at once, a second later or never, or refuses the password.
+- Not claimed: no run against a real KeePassXC; whether KeePassXC serves a key added by `keepassxc-cli` while it
+  has the database open without a lock and unlock is not measured. The entry `add` made stays when an attachment
+  is refused afterwards; the words say to remove it. A private key held in a Java array is cleared after the hand
+  over, the `SigningKey` and the stream buffers are only dropped.

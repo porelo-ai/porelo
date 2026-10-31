@@ -42,7 +42,9 @@ public class IdentityRevokeCommand implements Callable<Integer>, PoreloFactory.C
     @Option(
             names = "--keepassxc",
             paramLabel = "DATABASE",
-            description = "Makes the new key into KeePassXC; not available yet.")
+            description =
+                    "Makes the new key into this KeePassXC database, which hands it to the"
+                            + " agent.")
     private @Nullable Path keepassxc;
 
     @Option(
@@ -69,6 +71,9 @@ public class IdentityRevokeCommand implements Callable<Integer>, PoreloFactory.C
 
     private @Nullable PoreloContext context;
 
+    /** Replaced by a test, which runs a stand-in keepassxc-cli and waits less. */
+    KeePassXcKey store = KeePassXcKey.real();
+
     @Override
     public void setContext(PoreloContext context) {
         this.context = context;
@@ -88,7 +93,7 @@ public class IdentityRevokeCommand implements Callable<Integer>, PoreloFactory.C
                 throw new IdentityChange.Refused(
                         64, null, "--dry-run keeps nothing, so it takes no --id");
             }
-            final String named = IdentityChange.keyChosen(key, keepassxc, entry);
+            final @Nullable String named = IdentityChange.keyChosen(key, keepassxc, entry);
             final IdentityOperation again =
                     IdentityChange.kept(machine, id, IdentityOperation.REVOKE_LOST);
             if (again != null) {
@@ -99,7 +104,28 @@ public class IdentityRevokeCommand implements Callable<Integer>, PoreloFactory.C
             final IdentityChange change = new IdentityChange(machine, IdentityChange.NO_FORGE);
             final PersonCard card = change.card();
             final String socket = change.socket();
-            final AgentKey successor = change.successor(named, card.login(), socket);
+            if (dryRun && named == null) {
+                // A key made into KeePassXC is new, so nothing about it changes the places.
+                dryRun(change.places(card.login(), IdentityOperation.REVOKE_LOST, "planned"));
+                return 0;
+            }
+            final KeePassXcKey.Made made =
+                    named != null
+                            ? null
+                            : store.make(
+                                    machine,
+                                    java.util.Objects.requireNonNull(
+                                            keepassxc, "either --key or --keepassxc is given"),
+                                    entry,
+                                    card.login(),
+                                    socket);
+            final AgentKey successor =
+                    change.successor(
+                            made == null
+                                    ? java.util.Objects.requireNonNull(named, "--key is given")
+                                    : made.fingerprint(),
+                            card.login(),
+                            socket);
             final String fingerprint = PersonCard.fingerprint(PersonCard.keyLine(successor));
             if (fingerprint.equals(card.fingerprint())) {
                 throw new IdentityChange.Refused(
@@ -132,7 +158,7 @@ public class IdentityRevokeCommand implements Callable<Integer>, PoreloFactory.C
                                             places,
                                             false))
                             .operation();
-            IdentityChange.print(spec, json, operation);
+            IdentityChange.print(spec, json, operation, made);
             return 0;
         } catch (IdentityChange.Refused ex) {
             return IdentityChange.refuse(spec, json, ex);
