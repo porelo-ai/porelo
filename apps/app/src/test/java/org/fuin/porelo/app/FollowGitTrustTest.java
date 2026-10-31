@@ -187,6 +187,7 @@ class FollowGitTrustTest {
                 "environment",
                 "vault-missing",
                 "vault-closed",
+                "vault-typed",
                 "vault-token"
             })
     void everyCredentialSourceKeepsTheHttpsDestinationsTrust(String source, @TempDir Path dir)
@@ -205,18 +206,30 @@ class FollowGitTrustTest {
                         : source.startsWith("file")
                                 ? Credential.Source.FILE
                                 : Credential.Source.VAULT;
+        // A vault git's helper opens is one the keyring holds the passphrase of; one typed here
+        // opens for this process alone, and the helper git starts finds it shut.
+        final org.fuin.porelo.vault.KernelKeyring keyring =
+                new org.fuin.porelo.vault.KernelKeyring(context.paths().vault().vaultKeyringKey());
+        if (source.equals("vault-token")) {
+            org.junit.jupiter.api.Assumptions.assumeTrue(
+                    org.fuin.porelo.vault.KernelKeyring.available(),
+                    "no kernel keyring here: libkeyutils is missing or the kernel refuses it");
+        }
         try {
-            if (source.equals("vault-token") || source.equals("vault-closed")) {
+            if (source.startsWith("vault-") && !source.equals("vault-missing")) {
                 context =
                         context.asking(
                                 prompt ->
-                                        source.equals("vault-token")
+                                        source.equals("vault-typed")
                                                 ? "test-passphrase".toCharArray()
                                                 : null);
                 context.vault()
                         .write(
                                 Map.of(id, org.fuin.porelo.vault.VaultEntry.of("test-token")),
                                 "test-passphrase".toCharArray());
+                if (source.equals("vault-token")) {
+                    keyring.store("test-passphrase".toCharArray());
+                }
             }
             final Credential offered =
                     new Credential(
@@ -237,10 +250,13 @@ class FollowGitTrustTest {
                         .isEqualTo(source.equals("environment") || source.equals("vault-token"));
                 assertThat(credential.vaultShut())
                         .as("the closed vault is distinct from an absent credential")
-                        .isEqualTo(source.equals("vault-closed"));
+                        .isEqualTo(source.equals("vault-closed") || source.equals("vault-typed"));
             }
         } finally {
             PoreloContext.forgetAsked();
+            if (source.equals("vault-token")) {
+                keyring.forget();
+            }
         }
     }
 
@@ -325,8 +341,12 @@ class FollowGitTrustTest {
                         dir.resolve("state with ' quotes"),
                         dir.resolve("run"),
                         dir);
+        // The one variable a credential here names, as the machine's environment gives it.
         return new PoreloContext(
-                new FakeCommandRunner(), new PoreloPaths(xdg, dir.resolve("bin")), arguments -> 0);
+                new FakeCommandRunner(),
+                new PoreloPaths(xdg, dir.resolve("bin")),
+                arguments -> 0,
+                name -> name.equals("PATH") ? System.getenv(name) : null);
     }
 
     private static String url(HttpsServer server) {

@@ -12,9 +12,11 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.Callable;
+import org.fuin.porelo.core.credential.Credential;
 import org.fuin.porelo.core.process.CommandException;
 import org.fuin.porelo.core.project.Access;
 import org.fuin.porelo.core.project.AccessFile;
+import org.fuin.porelo.core.project.AddressForm;
 import org.fuin.porelo.vault.AccessPersons;
 import org.fuin.porelo.vault.CardException;
 import org.fuin.porelo.vault.HttpForgeDirectory;
@@ -104,7 +106,9 @@ public class RegistryJoinableCommand implements Callable<Integer>, PoreloFactory
         } catch (CardException | CommandException ex) {
             return refuse(65, String.valueOf(ex.getMessage()));
         }
-        if (state.revision() == null) {
+        // Owners are never empty once an owners.yml was accepted: a card accepted without one
+        // names no project anybody may join.
+        if (state.revision() == null || state.owners().isEmpty()) {
             return refuse(65, unaccepted(state));
         }
         final Path scratch;
@@ -213,8 +217,9 @@ public class RegistryJoinableCommand implements Callable<Integer>, PoreloFactory
             Files.createDirectories(place);
             final Path signers = place.resolve("signers");
             Files.writeString(signers, project.name() + " " + key + "\n", StandardCharsets.UTF_8);
+            final Path home = Files.createDirectory(place.resolve("home"));
             checked =
-                    new Reconcile(sealed(machine), signers)
+                    new Reconcile(sealed(machine, home), signers)
                             .accessAlone(project.name(), url, place.resolve("access"));
         } catch (IOException ex) {
             refused.add(refusal(state, host, project, "cannot check it: " + ex.getMessage()));
@@ -239,6 +244,21 @@ public class RegistryJoinableCommand implements Callable<Integer>, PoreloFactory
                     refusal(state, host, project, "the access file names no project repository"));
             return null;
         }
+        final Object homeserver =
+                file.transports().get("matrix") instanceof Map<?, ?> matrix
+                        ? matrix.get("homeserver")
+                        : null;
+        if (homeserver != null
+                && !(homeserver instanceof String named && AddressForm.isHttps(named))) {
+            refused.add(
+                    refusal(
+                            state,
+                            host,
+                            project,
+                            "the access file's transports.matrix.homeserver is not an https://"
+                                    + " URL with a host"));
+            return null;
+        }
         final boolean admitted =
                 checked.persons().stream()
                         .anyMatch(
@@ -259,7 +279,7 @@ public class RegistryJoinableCommand implements Callable<Integer>, PoreloFactory
                 "host_card",
                 card.answer(host.host()),
                 "homeserver",
-                homeserver(file),
+                homeserver == null ? null : withoutUserinfo((String) homeserver),
                 "source",
                 withoutUserinfo(source),
                 "access_repository",
@@ -276,53 +296,22 @@ public class RegistryJoinableCommand implements Callable<Integer>, PoreloFactory
                         .toList());
     }
 
-    /** The homeserver the verified access file names for its Matrix transport, or none. */
-    private static @Nullable String homeserver(final AccessFile file) {
-        return file.transports().get("matrix") instanceof Map<?, ?> matrix
-                        && matrix.get("homeserver") instanceof String homeserver
-                ? withoutUserinfo(homeserver, false)
-                : null;
-    }
-
-    /** A scheme an address or a homeserver begins with. */
-    private static final java.util.regex.Pattern SCHEME =
-            java.util.regex.Pattern.compile("[A-Za-z][A-Za-z0-9+.-]*://");
-
-    /** An ssh user as git hands it to ssh: never a secret, and kept. */
-    private static final String SSH_USER = "[A-Za-z0-9._-]+";
-
     /**
-     * An address as the answer prints it: of a URL, everything between its scheme and its last
-     * {@code @} left out but an ssh user; {@code user@host:path} as written, since its user holds
-     * no {@code :} or {@code @}.
-     *
-     * <p>Stricter than {@link RepositoryAddress#withoutCredential}, which keeps the address a
-     * project is fetched from and so cuts at the first {@code @}: a token holding an {@code @} or a
-     * {@code /}, or an ssh password, is still a credential here, and this address is never fetched.
+     * An address as the answer prints it: of a URL, its authority up to its last {@code @} left out
+     * but an ssh user, as {@link AddressForm#withoutUserinfo} cuts it for every address Porelo
+     * keeps or prints; this one is never fetched.
      */
     private static String withoutUserinfo(final String address) {
-        return withoutUserinfo(address, true);
+        return AddressForm.withoutUserinfo(address);
     }
 
-    private static String withoutUserinfo(final String address, final boolean scpForm) {
-        final java.util.regex.Matcher scheme = SCHEME.matcher(address);
-        final int at = address.lastIndexOf('@');
-        if (!scheme.lookingAt()) {
-            return scpForm || at < 0 ? address : address.substring(at + 1);
-        }
-        if (at < scheme.end()) {
-            return address;
-        }
-        final String user = address.substring(scheme.end(), at);
-        final int colon = user.indexOf(':');
-        final String name = colon < 0 ? user : user.substring(0, colon);
-        final boolean kept = scheme.group().equalsIgnoreCase("ssh://") && name.matches(SSH_USER);
-        return scheme.group() + (kept ? name + "@" : "") + address.substring(at + 1);
-    }
-
-    /** Why a registry that accepted no commit answers no project. */
+    /** Why a registry that accepted no commit, or no owners.yml, answers no project. */
     private static String unaccepted(final RegistryState state) {
-        final RegistryState.@Nullable Refusal refused = state.lastInForce();
+        final RegistryState.@Nullable Refusal refused =
+                state.refusals().stream()
+                        .filter(refusal -> refusal.path().equals("owners.yml"))
+                        .reduce((first, last) -> last)
+                        .orElse(state.lastInForce());
         final String why =
                 refused != null
                         ? refused.commit() + " " + refused.path() + ": " + refused.why()
@@ -330,7 +319,11 @@ public class RegistryJoinableCommand implements Callable<Integer>, PoreloFactory
                                 ? "nothing was accepted"
                                 : String.join("; ", state.warnings());
         return Userinfo.leftOutOf(
-                "the registry accepted no commit, so it names no project to join: " + why);
+                (state.revision() == null
+                                ? "the registry accepted no commit"
+                                : "the registry accepted no owners.yml")
+                        + ", so it names no project to join: "
+                        + why);
     }
 
     /** A host's access file in the registry, by the host's label. */
@@ -374,15 +367,21 @@ public class RegistryJoinableCommand implements Callable<Integer>, PoreloFactory
 
     /**
      * The machine as this check runs it: every command in a chosen environment, git with none of
-     * the caller's configuration, repository or replacements, and ssh's agent, the proxy and what
-     * the fetch is lent all kept, so the forge is reached as a follow reaches it.
+     * the caller's configuration, repository or replacements, and ssh's agent, the proxy, what the
+     * fetch is lent and the variables of the account's git tokens kept, so the forge is reached as
+     * a follow reaches it.
      *
      * <p>Each clone is made by the check's own {@code git init} without that configuration, so it
-     * holds no hook, monitor or helper of anybody else's.
+     * holds no hook, monitor or helper of anybody else's. Its home is an empty directory: libcurl
+     * answers a forge from {@code $HOME/.netrc}, and from the password database's home without one,
+     * and git reads attributes under it; the vault's helper is told the account's own.
      */
-    static PoreloContext sealed(final PoreloContext machine) {
+    static PoreloContext sealed(final PoreloContext machine, final Path home) {
         final Map<String, String> base = new LinkedHashMap<>(RegistryGit.ENVIRONMENT);
-        for (String name : PASSED) {
+        base.put("HOME", home.toString());
+        final List<String> passed = new ArrayList<>(PASSED);
+        passed.addAll(credentialVariables(machine));
+        for (String name : passed) {
             final String value = machine.environment().apply(name);
             if (value != null) {
                 base.put(name, value);
@@ -402,7 +401,32 @@ public class RegistryJoinableCommand implements Callable<Integer>, PoreloFactory
     }
 
     /**
-     * What of the caller's environment the fetch needs to reach the forge, and nothing of git's.
+     * The variables the account's git tokens name, which {@code porelo vault credential} reads when
+     * git starts it; never one git, libcurl, ssh, the loader, the shell or the JVM acts on.
+     */
+    private static List<String> credentialVariables(final PoreloContext machine) {
+        return machine.credentialRegistry().all().stream()
+                .filter(credential -> credential.source() == Credential.Source.ENVIRONMENT)
+                .filter(credential -> credential.kind() != Credential.Kind.SSH_KEY)
+                .filter(credential -> credential.serves("git"))
+                .map(Credential::id)
+                .filter(name -> name.matches("[A-Za-z_][A-Za-z0-9_]*"))
+                .filter(name -> !ACTED_ON.matcher(name).matches())
+                .toList();
+    }
+
+    /** Variables a program the fetch starts acts on, whatever a credential calls them. */
+    private static final java.util.regex.Pattern ACTED_ON =
+            java.util.regex.Pattern.compile(
+                    "(?i)(?:GIT_|LD_|SSL|CURL_|SSH_|XDG_|LC_|MALLOC_|OPENSSL|GNUTLS|NSS_|KRB5"
+                            + "|BASH_|JAVA_|JDK_|_JAVA_|GLIBC_)\\w*|\\w*_PROXY"
+                            + "|PATH|HOME|PORELO_VAULT|IFS|ENV|SHELLOPTS|BASHOPTS|CDPATH|PS4|TMPDIR|LANG"
+                            + "|LANGUAGE|TZ|TERM|NETRC|GCONV_PATH|LOCPATH|NLSPATH|HOSTALIASES"
+                            + "|RES_OPTIONS|LOCALDOMAIN");
+
+    /**
+     * What of the caller's environment the fetch needs to reach the forge; nothing of git's, whose
+     * global and system configuration stay unread, and nothing of the account's directories.
      */
     private static final List<String> PASSED =
             List.of(

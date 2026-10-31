@@ -72,6 +72,31 @@ class FollowCredentialTest {
                                                 Map.of())),
                         passphrase);
         context.openerAsking(false, new PrintWriter(new StringWriter()));
+        // git's helper is a process of its own: a token is read from a vault the keyring opens,
+        // as after 'porelo vault unlock'; an ssh key is served from this process.
+        final org.fuin.porelo.vault.KernelKeyring keyring =
+                new org.fuin.porelo.vault.KernelKeyring(context.paths().vault().vaultKeyringKey());
+        if (token) {
+            org.junit.jupiter.api.Assumptions.assumeTrue(
+                    org.fuin.porelo.vault.KernelKeyring.available(),
+                    "no kernel keyring here: libkeyutils is missing or the kernel refuses it");
+            keyring.store(passphrase.clone());
+        }
+        try {
+            lendsAfterForgetting(context, upstream, entry, token);
+        } finally {
+            if (token) {
+                keyring.forget();
+            }
+        }
+    }
+
+    private static void lendsAfterForgetting(
+            final PoreloContext context,
+            final String upstream,
+            final String entry,
+            final boolean token)
+            throws Exception {
         final CredentialDeclarations declarations = new CredentialDeclarations(context);
         final String oldUpstream = "ssh://git@forge.example/team/repo.git";
         declarations.declare(

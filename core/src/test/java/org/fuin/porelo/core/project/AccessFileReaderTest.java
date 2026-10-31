@@ -73,7 +73,7 @@ class AccessFileReaderTest {
 
     /**
      * Kept as written, a trailing blank reached git as part of the address; an {@code @} after the
-     * host made a user part read as the host.
+     * host made a user part read as the host; a credential is the vault's, never the file's.
      */
     @ParameterizedTest
     @ValueSource(
@@ -83,7 +83,11 @@ class AccessFileReaderTest {
                 "source: \"git@example.org:acme/demo.git\\n\"",
                 "source: \"https://example.org/acme/demo.git\\u00a0\"",
                 "source: ' https://example.org/acme/demo.git'",
-                "source: 'https://example.org/x/@github.com/acme/demo.git'"
+                "source: 'https://example.org/x/@github.com/acme/demo.git'",
+                "source: 'https://bob:tok-4711%40example.org/acme/demo.git'",
+                "source: 'https://tok-4711?x@example.org/acme/demo.git'",
+                "source: 'https://bob:tok-4711@example.org/acme/demo.git'",
+                "source: 'ssh://git:tok-4711@example.org/acme/demo.git'"
             })
     void a_projects_repository_with_a_blank_anywhere_or_an_at_after_its_host_is_refused(
             final String yaml) {

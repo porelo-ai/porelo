@@ -388,7 +388,7 @@ anything from the vault.
 | `unreadable` | The commit or the repository could not be read. | Read `detail`. |
 | `rewritten` | The tip is not a descendant of the commit in force. | Only if you know somebody with the key rewrote the history: follow again with `--accept-rewrite`. |
 | `unreachable` | The repository could not be reached. | Look at the network or the URL. It may answer on the next try by itself. |
-| `vault_locked` | This account's vault is shut, so the credential a private repository needs is out of reach. | `porelo vault unlock`. Nothing is wrong with the network or the URL. Reported only where a vault exists. |
+| `vault_locked` | This account's vault is shut, so the credential a private repository needs is out of reach; a vault opened only by a passphrase typed for this command counts as shut for a token, since git's credential helper is a process of its own. | `porelo vault unlock`. Nothing is wrong with the network or the URL. Reported only where a vault exists. |
 | `no_credential` | The vault is open and holds no key for a repository that needs one. | Store the credential the detail names. |
 | `unusable` | The commit verifies, and its `project.yml` does not read as a project, or names an egress set this machine does not have. | Fix the file and commit again. |
 
@@ -564,10 +564,16 @@ transports:
 ```
 
 - **`source` is the project's own repository**, the address `porelo project follow` takes, written `ssh://`,
-  `https://` or `user@host:path`; an option, a remote helper's `transport::`, a path, `file://`, a value with
-  whitespace or a control character anywhere, or a URL with an `@` after its host is refused. A person learns
-  from it, through `porelo registry joinable`, which repository to follow; an access file without it answers its
-  project as refused there. A change Porelo writes with `project access` keeps it.
+  `https://` or `user@host:path`, with a real host and no credential: an `https://` address has no user part, and an
+  ssh one at most a plain user (no `:`, `%` or `@`, not starting with `-`), since the token comes from the vault. An
+  option, a remote helper's `transport::`, a path, `file://`, a value with whitespace or a control character of any
+  script anywhere, an `https://` address with `?`, `#` or `%40` where git reads a token as its host, and an `@` after
+  the host are refused. A person learns from it, through `porelo registry joinable`, which repository to follow; an
+  access file without it answers its project as refused there. A change Porelo writes with `project access` keeps
+  it.
+- **`transports.matrix.homeserver` is an `https://` base URL with a real host** (the scheme in either case), and no
+  user part, query, fragment, blank or control character; `porelo registry joinable` answers a project whose file
+  names any other value as refused.
 - **Public keys and addresses only.** No signers - those are the project file's - and nothing
   secret; a value holding a private key is refused.
 - **Persons are checked by their cards.** Each `cards/<login>.card` lies beside `access.yml` in the

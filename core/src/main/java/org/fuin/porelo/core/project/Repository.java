@@ -249,17 +249,14 @@ public record Repository(
     /**
      * Says whether an address is written in a form a registry or an access file takes: {@code
      * ssh://}, {@code https://} or {@code user@host:path}, and no remote helper's {@code
-     * transport::}. A URL holds an {@code @} only in its authority: one after the first slash would
-     * make what follows it look like the host, while git reads the host before that slash, and so
-     * name a user part as one.
+     * transport::}; the rule is {@link AddressForm#isRepository}.
      *
      * @param address The address.
      * @return Whether it has that form; whether git would read it as an option is asked by {@link
      *     #refuseAsOption}.
      */
     public static boolean isAddress(String address) {
-        return !address.matches("[^:]+::[\\s\\S]*")
-                && address.matches("(?:ssh|https)://[^/]+(?:/[^@]*)?|[^@/:]+@[^/:]+:.+");
+        return AddressForm.isRepository(address);
     }
 
     /**

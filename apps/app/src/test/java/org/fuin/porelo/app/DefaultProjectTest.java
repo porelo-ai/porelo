@@ -233,6 +233,33 @@ class DefaultProjectTest {
                 .isEqualTo("git@github.com:you/app.git");
     }
 
+    /**
+     * What a checkout's origin is kept and printed as holds no part of a user part git or ssh reads
+     * as a credential: not a token holding an at sign, an ssh password, a user spelt with {@code %}
+     * or a host part spelt so its end does not show; every address that holds none is kept as
+     * given, so what is fetched from it stays the same.
+     */
+    @ParameterizedTest
+    @CsvSource({
+        "https://bob:tok@4711@example.org/you/app.git, https://example.org/you/app.git",
+        "https://bob:tok-4711%40example.org/you/app.git, https:///you/app.git",
+        "https://tok-4711?x@example.org/you/app.git, https://example.org/you/app.git",
+        "ssh://git:tok-4711@example.org/you/app.git, ssh://git@example.org/you/app.git",
+        "ssh://tok-4711?x@example.org/you/app.git, ssh://example.org/you/app.git",
+        "bob@tok-4711@example.org:you/app.git, example.org:you/app.git",
+        "bob%3Atok-4711@example.org:you/app.git, example.org:you/app.git",
+        "git@github.com:you/app.git, git@github.com:you/app.git",
+        "git@[2001:db8::1]:you/app.git, git@[2001:db8::1]:you/app.git",
+        "ssh://git@github.com:2222/you/app.git, ssh://git@github.com:2222/you/app.git",
+        "https://github.com/you/app.git, https://github.com/you/app.git",
+        "https://example.org/you/app.git?x=a@b, https://example.org/you/app.git?x=a@b",
+        "file:///srv/git/app.git, file:///srv/git/app.git",
+        "/srv/git/app@2.git, /srv/git/app@2.git"
+    })
+    void anOriginIsKeptWithoutAnySpellingOfACredential(final String origin, final String kept) {
+        assertThat(RepositoryAddress.withoutCredential(origin)).as(origin).isEqualTo(kept);
+    }
+
     @Test
     void aCheckoutNoFollowedProjectNamesGoesIntoDefault() throws Exception {
         final PoreloContext context = context();

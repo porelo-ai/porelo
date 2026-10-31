@@ -283,7 +283,9 @@ public final class FollowCredential implements AutoCloseable {
 
     private static FollowCredential fromEnvironment(
             final PoreloContext context, final Credential credential) {
-        if (System.getenv(credential.id()) == null) {
+        // Asked of the machine: the helper git starts reads the same variable, which a caller
+        // running git in an environment of its own passes on.
+        if (context.environment().apply(credential.id()) == null) {
             return new FollowCredential(Map.of(), null, null, false);
         }
         if (credential.kind() == Credential.Kind.SSH_KEY) {
@@ -308,7 +310,11 @@ public final class FollowCredential implements AutoCloseable {
             return new FollowCredential(Map.of(), null, null, false);
         }
         if (credential.kind() != Credential.Kind.SSH_KEY) {
-            return helper(context, credential, "--entry", credential.id());
+            // git starts the helper as a process of its own, which a passphrase typed here does
+            // not reach: lent, the fetch failed for no reason anybody was told.
+            return opensOnlyHere(context)
+                    ? new FollowCredential(Map.of(), null, null, true)
+                    : helper(context, credential, "--entry", credential.id());
         }
         final org.fuin.porelo.vault.AgentKey key;
         try {
@@ -337,6 +343,28 @@ public final class FollowCredential implements AutoCloseable {
     }
 
     /**
+     * Says whether the vault opens in this process alone: by a passphrase typed here, with nothing
+     * in the keyring and no device share another process would find.
+     */
+    private static boolean opensOnlyHere(final PoreloContext context) {
+        if (context.vault().isHostVault()) {
+            return false;
+        }
+        final java.util.Optional<char[]> kept =
+                new org.fuin.porelo.vault.PassphraseTiers(
+                                org.fuin.porelo.vault.KernelKeyring.source(
+                                        context.paths().vault().vaultKeyringKey()))
+                        .passphrase();
+        if (kept.isPresent()) {
+            java.util.Arrays.fill(kept.get(), '\0');
+            return false;
+        }
+        final java.util.Optional<byte[]> share = VaultShare.held(context.paths());
+        share.ifPresent(held -> java.util.Arrays.fill(held, (byte) 0));
+        return share.isEmpty();
+    }
+
+    /**
      * Points git at the helper that answers its credential protocol.
      *
      * <p>What travels as an argument is where the value lives, never the value: {@code
@@ -347,6 +375,10 @@ public final class FollowCredential implements AutoCloseable {
      * names a {@code git credential-<name>} command. The quoted path was the third kind, so git
      * never ran it and no token reached a forge over https (found on the sprint-5 host,
      * 2026-10-27).
+     *
+     * <p><strong>The helper is told where the account is.</strong> It reads the vault this command
+     * checked, whatever environment git runs in: a check that runs git without the account's home,
+     * so that libcurl reads no {@code .netrc} of it, still lends the account's token.
      */
     private static FollowCredential helper(
             final PoreloContext context,
@@ -363,15 +395,18 @@ public final class FollowCredential implements AutoCloseable {
                         "credential.https://"
                                 + host
                                 + ".helper=!"
+                                + account(context)
                                 + word(PoreloBinary.path().toString())
                                 + " vault credential "
                                 + option
                                 + " "
                                 + word(where)
-                                + (userOf(credential) == null
+                                + (userOf(context, credential) == null
                                         ? ""
                                         : " --username "
-                                                + word(String.valueOf(userOf(credential))))),
+                                                + word(
+                                                        String.valueOf(
+                                                                userOf(context, credential))))),
                 null,
                 null,
                 false);
@@ -471,6 +506,29 @@ public final class FollowCredential implements AutoCloseable {
                         : " -i " + word(identityFile) + " -o IdentitiesOnly=yes");
     }
 
+    /**
+     * The account's directories and vault as variables before the helper's name: paths, never a
+     * secret, so they may stand on git's command line.
+     */
+    private static String account(final PoreloContext context) {
+        final org.fuin.porelo.core.config.XdgPaths xdg = context.paths().xdg();
+        return "HOME="
+                + word(xdg.home().toString())
+                + " XDG_CONFIG_HOME="
+                + word(String.valueOf(xdg.config().getParent()))
+                + " XDG_DATA_HOME="
+                + word(String.valueOf(xdg.data().getParent()))
+                + " XDG_STATE_HOME="
+                + word(String.valueOf(xdg.state().getParent()))
+                + " XDG_RUNTIME_DIR="
+                + word(String.valueOf(xdg.runtime().getParent()))
+                + " "
+                + PoreloPaths.VAULT_VARIABLE
+                + "="
+                + word(context.vault().path().toAbsolutePath().toString())
+                + " ";
+    }
+
     /** One shell word, whatever it holds. */
     private static String word(final String value) {
         return "'" + value.replace("'", "'\\''") + "'";
@@ -497,10 +555,12 @@ public final class FollowCredential implements AutoCloseable {
      * on a CI runner it arrives the same way the token does - and a second field for it would be
      * one more thing to keep in step.
      *
+     * @param context The machine, whose environment a variable is read from.
      * @param credential The record.
      * @return The username, or {@code null} when there is none or the variable is not set.
      */
-    private static @Nullable String userOf(final Credential credential) {
+    private static @Nullable String userOf(
+            final PoreloContext context, final Credential credential) {
         final String said = credential.user();
         if (said == null || said.isBlank()) {
             return null;
@@ -508,7 +568,7 @@ public final class FollowCredential implements AutoCloseable {
         if (!said.startsWith("$")) {
             return said;
         }
-        final String value = System.getenv(said.substring(1));
+        final String value = context.environment().apply(said.substring(1));
         return value == null || value.isBlank() ? null : value;
     }
 

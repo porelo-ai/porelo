@@ -1,6 +1,7 @@
 package org.fuin.porelo.app;
 
 import java.util.Locale;
+import org.fuin.porelo.core.project.AddressForm;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -100,26 +101,18 @@ final class RepositoryAddress {
     }
 
     /**
-     * An http(s) address with something before an '@' in its authority: a user, and often a token
-     * with it.
-     */
-    private static final java.util.regex.Pattern CARRIES_CREDENTIAL =
-            java.util.regex.Pattern.compile(
-                    "^(https?://)[^/@]+@(.*)$", java.util.regex.Pattern.CASE_INSENSITIVE);
-
-    /**
      * Returns an address without the credential it may carry.
      *
      * <p>{@code https://user:token@host/owner/repo.git} is what cloning with a token leaves as a
      * checkout's {@code origin}. Kept as it is, it would be written into what Porelo keeps and
      * printed in what it says - a secret in a file and in scrollback. The user of an ssh address
-     * ({@code git@host:...}) is not a secret and stays.
+     * ({@code git@host:...}) is not a secret and stays; an address that carries none is kept as
+     * given, so what is fetched from it does not change.
      *
      * @param address The address.
-     * @return It without the user information of an http(s) address; otherwise unchanged.
+     * @return It, stripped, as {@link AddressForm#withoutUserinfo} cuts it.
      */
     static String withoutCredential(final String address) {
-        final java.util.regex.Matcher found = CARRIES_CREDENTIAL.matcher(address.strip());
-        return found.matches() ? found.group(1) + found.group(2) : address.strip();
+        return AddressForm.withoutUserinfo(address.strip());
     }
 }
