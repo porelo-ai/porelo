@@ -103,7 +103,7 @@ final class ProjectBackupKey implements IdentityBackupKeyCommand.Projects {
             final String made = madeBefore(fetched, base, id, digest);
             final String backs = own.fingerprint();
             if (made != null) {
-                final String filed = backupOf(fetched, made, backs);
+                final String filed = filedBy(fetched, made, own);
                 if (filed.isEmpty()) {
                     throw new IdentityChange.Refused(
                             65,
@@ -184,11 +184,18 @@ final class ProjectBackupKey implements IdentityBackupKeyCommand.Projects {
                             next.fingerprint());
             final String made = madeBefore(fetched, base, id, digest);
             if (made != null) {
-                final String backed = backed(fetched, parent(fetched, made), backupKey);
-                final String by = backed(fetched, made, backupKey);
+                final String parent = parent(fetched, made);
+                final String backed = backed(fetched, parent, backupKey);
                 if (backed == null
-                        || by == null
-                        || !ProjectSigners.fingerprint(by).equals(next.fingerprint())) {
+                        || ProjectSigners.fingerprint(backed).equals(next.fingerprint())
+                        || !signedBy(fetched, made, backupKey)
+                        || !text(fetched, made)
+                                .equals(
+                                        replacing(
+                                                text(fetched, parent),
+                                                backed,
+                                                next.key(),
+                                                backupKey))) {
                     throw new IdentityChange.Refused(
                             65,
                             null,
@@ -267,6 +274,54 @@ final class ProjectBackupKey implements IdentityBackupKeyCommand.Projects {
             }
         }
         return null;
+    }
+
+    /**
+     * The fingerprint of the backup key an earlier commit filed for the person's own key, or ""
+     * when it is not that change: signed by that key, onto a parent naming no backup key for it,
+     * and adding the backup key's entry alone. A commit at or before the first follow was never
+     * checked, so its trailers alone say nothing.
+     */
+    private String filedBy(final Fetched fetched, final String made, final PersonCard own)
+            throws IdentityChange.Refused {
+        final String parent = parent(fetched, made);
+        final String backs = own.fingerprint();
+        if (!backupOf(fetched, parent, backs).isEmpty() || !signedBy(fetched, made, own.key())) {
+            return "";
+        }
+        final String before = text(fetched, parent);
+        for (final ProjectSigners.Signer backup :
+                ProjectSigners.backups(entries(text(fetched, made)))) {
+            if (backup.backs().equals(backs)
+                    && text(fetched, made)
+                            .equals(
+                                    ProjectSigners.withBackup(
+                                            before, backup.key(), backs, backup.since()))) {
+                return backup.fingerprint();
+            }
+        }
+        return "";
+    }
+
+    /** The project file with the key replaced, or "" when it cannot be replaced as text. */
+    private static String replacing(
+            final String text, final String old, final String next, final String backupKey) {
+        try {
+            return ProjectSigners.replacing(text, old, next, backupKey);
+        } catch (final ProjectException ex) {
+            return "";
+        }
+    }
+
+    /** Whether a commit's signature verifies with this key alone. */
+    private boolean signedBy(final Fetched fetched, final String commit, final String key) {
+        final Path krl = fetched.context().paths().projects().revocations();
+        return new SignerHandover(
+                        command -> run(fetched.context(), command),
+                        fetched.context().paths().projects().configurationSigners(),
+                        Files.notExists(krl, LinkOption.NOFOLLOW_LINKS) ? null : krl)
+                .verify(fetched.repository(), fetched.project(), List.of(key), commit)
+                .mayApply();
     }
 
     /** The fingerprint of the backup key that backs a key at a commit, or "". */

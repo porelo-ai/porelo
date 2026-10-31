@@ -451,6 +451,142 @@ class ProjectBackupKeyTest {
         assertThat(ProjectSigners.backups(entriesAtHead())).isEmpty();
     }
 
+    private static String digest(final String... parts) throws Exception {
+        return "sha256:"
+                + java.util.HexFormat.of()
+                        .formatHex(
+                                java.security.MessageDigest.getInstance("SHA-256")
+                                        .digest(
+                                                String.join("\n", parts)
+                                                        .getBytes(
+                                                                java.nio.charset.StandardCharsets
+                                                                        .UTF_8)));
+    }
+
+    /**
+     * A project "early" whose first commit, signed by the first signer, names the first signers;
+     * whose second, unsigned and before the first follow, makes the change an id names; and whose
+     * tip, signed by the tip's signer, only changes the description. The first follow takes the tip
+     * signed by that signer, and checks no commit before it.
+     */
+    private Path early(
+            final String first,
+            final String firstSigner,
+            final String planted,
+            final String message,
+            final String tipSigner)
+            throws Exception {
+        final Path repository = dir.resolve("early.git");
+        final Path forger = dir.resolve("early-forger");
+        git(dir, "init", "-q", "--bare", "-b", "main", repository.toString());
+        git(dir, "init", "-q", "-b", "main", forger.toString());
+        git(forger, "config", "user.name", "Forger");
+        git(forger, "config", "user.email", "forger@example.org");
+        git(forger, "config", "gpg.format", "ssh");
+        Files.writeString(forger.resolve("project.yml"), first);
+        git(forger, "add", "project.yml");
+        git(
+                forger,
+                "-c",
+                "user.signingkey=" + keys.keyFiles.get(firstSigner),
+                "commit",
+                "-q",
+                "-S",
+                "-m",
+                "first");
+        Files.writeString(forger.resolve("project.yml"), planted);
+        git(forger, "add", "project.yml");
+        git(forger, "commit", "-q", "-m", message);
+        Files.writeString(
+                forger.resolve("project.yml"),
+                planted.replace("description: early", "description: followed"));
+        git(forger, "add", "project.yml");
+        git(
+                forger,
+                "-c",
+                "user.signingkey=" + keys.keyFiles.get(tipSigner),
+                "commit",
+                "-q",
+                "-S",
+                "-m",
+                "the tip the first follow takes");
+        git(forger, "push", "-q", repository.toString(), "HEAD:main");
+        final Reconcile.Result followed =
+                new FollowSignedBy(keys.context())
+                        .follow("early", repository.toString(), keys.key(tipSigner), false, false)
+                        .result();
+        assertThat(followed.outcome()).as(followed.detail()).isEqualTo(Reconcile.Outcome.APPLIED);
+        return repository;
+    }
+
+    private String early(final String signers) {
+        return file("early", signers).replace("name: demo", "name: early");
+    }
+
+    @Test
+    void an_id_on_a_commit_before_the_first_follow_answers_no_backup_key() throws Exception {
+        final String backup =
+                "    - key: \"%s\"\n      backup: true\n      backs: \"%s\"\n      since: \"2026-01-01\"\n"
+                        .formatted(keys.key("bob"), keys.pin("michael"));
+        early(
+                early("    - \"" + keys.key("michael") + "\"\n"),
+                "michael",
+                early("    - \"" + keys.key("michael") + "\"\n" + backup),
+                "unsigned\n\nPorelo-Change-Id: bk-1\nPorelo-Change-Digest: "
+                        + digest("make", "early", keys.pin("michael")),
+                "michael");
+        IdentityRun.keep(keys, keys.card("michael", "michael"));
+        keys.agent("michael");
+        final Path file = dir.resolve("backup");
+
+        final int code =
+                backupKey("--project", "early", "--out", file.toString(), "--id", "bk-1", "--json");
+
+        assertThat(code)
+                .as("an unsigned commit never checked files no backup key: " + keys.out)
+                .isEqualTo(65);
+        assertThat(file).doesNotExist();
+    }
+
+    @Test
+    void an_id_on_a_commit_before_the_first_follow_answers_no_replacement() throws Exception {
+        final String backup =
+                "    - key: \"%s\"\n      backup: true\n      backs: \"%s\"\n      since: \"2026-01-01\"\n";
+        final String first =
+                early(
+                        "    - \""
+                                + keys.key("michael")
+                                + "\"\n"
+                                + backup.formatted(keys.key("bob"), keys.pin("michael")));
+        early(
+                first,
+                "michael",
+                ProjectSigners.replacing(
+                        first, keys.key("michael"), keys.key("alice-new"), keys.key("bob")),
+                "unsigned\n\nPorelo-Change-Id: lost-1\nPorelo-Change-Digest: "
+                        + digest("replace", "early", keys.pin("bob"), keys.pin("alice-new")),
+                "alice-new");
+        IdentityRun.keep(keys, keys.card("michael", "michael"));
+        final Path card =
+                Files.writeString(dir.resolve("new.card"), keys.card("michael", "alice-new"));
+
+        final int code =
+                backupKey(
+                        "--project",
+                        "early",
+                        "--use",
+                        keys.keyFiles.get("bob").toString(),
+                        "--card",
+                        card.toString(),
+                        "--id",
+                        "lost-1",
+                        "--json");
+
+        assertThat(code)
+                .as("an unsigned commit never checked replaced no key: " + keys.out)
+                .isEqualTo(65);
+    }
+
     private List<ProjectSigners.Signer> entriesAtHead() {
         return ProjectSigners.entries(git(origin, "show", "main:project.yml"), "project.yml");
     }
@@ -533,7 +669,7 @@ class ProjectBackupKeyTest {
         final Path file = made();
         final String backupKey =
                 org.fuin.porelo.vault.OpenSshPrivateKey.publicKey(Files.readString(file));
-        revokedByRegistry(file, backupKey);
+        revokedInRegistry(file, "bob");
         final String inForce = head();
         final String tip =
                 commitText(
@@ -558,11 +694,135 @@ class ProjectBackupKeyTest {
                 .containsExactly(keys.key("michael"));
     }
 
+    @Test
+    void a_rewrite_takes_no_backup_key_from_the_commit_in_force_before_it() throws Exception {
+        final Path file = made();
+        final String backupKey =
+                org.fuin.porelo.vault.OpenSshPrivateKey.publicKey(Files.readString(file));
+        final String backed = git(origin, "show", "main:project.yml");
+        final String first = git(origin, "rev-parse", "main^");
+        // An unsigned parent nobody checks adds bob; the tip, signed by the backup key, only
+        // replaces michael against that parent.
+        final String parent =
+                backed.replace("description: first", "description: rewritten")
+                        .replace(
+                                "    - \"" + keys.key("michael") + "\"\n",
+                                "    - \""
+                                        + keys.key("michael")
+                                        + "\"\n    - \""
+                                        + keys.key("bob")
+                                        + "\"\n");
+        git(work, "fetch", "-q", origin.toString(), "main");
+        git(work, "reset", "-q", "--hard", first);
+        Files.writeString(work.resolve("project.yml"), parent);
+        git(work, "add", "project.yml");
+        git(work, "commit", "-q", "-m", "unsigned, so nobody vouches for it");
+        Files.writeString(
+                work.resolve("project.yml"),
+                ProjectSigners.replacing(
+                        parent, keys.key("michael"), keys.key("alice-new"), backupKey));
+        git(work, "add", "project.yml");
+        git(work, "-c", "user.signingkey=" + file, "commit", "-q", "-S", "-m", "rewritten");
+        git(work, "push", "-q", "--force", origin.toString(), "HEAD:main");
+
+        final Reconcile.Result refused =
+                new FollowSignedBy(keys.context())
+                        .follow("demo", origin.toString(), null, false, true)
+                        .result();
+
+        assertThat(refused.outcome())
+                .as("a rewrite is signed by an ordinary signer: " + refused.detail())
+                .isNotEqualTo(Reconcile.Outcome.APPLIED);
+        assertThat(
+                        new SignerHandover(
+                                        keys.runner, keys.paths.projects().configurationSigners())
+                                .pinned("demo"))
+                .as("the key the unchecked parent adds is never pinned")
+                .containsExactly(keys.key("michael"));
+    }
+
+    @Test
+    void the_follow_refuses_a_backup_key_that_puts_a_key_a_registry_revoked_in_place()
+            throws Exception {
+        final Path file = made();
+        final String backupKey =
+                org.fuin.porelo.vault.OpenSshPrivateKey.publicKey(Files.readString(file));
+        revokedInRegistry(keys.keyFiles.get("alice-new"), "bob");
+        final String inForce = head();
+        final String tip =
+                commitText(
+                        ProjectSigners.replacing(
+                                git(origin, "show", "main:project.yml"),
+                                keys.key("michael"),
+                                keys.key("alice-new"),
+                                backupKey),
+                        file);
+
+        final Reconcile.Result refused = follow(null);
+
+        assertThat(refused.outcome()).as(refused.detail()).isEqualTo(Reconcile.Outcome.UNKNOWN_KEY);
+        assertThat(refused.commit()).as("the commit in force stays").isEqualTo(inForce);
+        assertThat(refused.refused()).isEqualTo(tip);
+        assertThat(
+                        new SignerHandover(
+                                        keys.runner, keys.paths.projects().configurationSigners())
+                                .pinned("demo"))
+                .as("the revoked key is never pinned, and michael's is not retired")
+                .containsExactly(keys.key("michael"));
+    }
+
+    @Test
+    void the_follow_refuses_a_backup_key_that_puts_a_key_the_revocation_list_names_in_place()
+            throws Exception {
+        final Path file = made();
+        final String backupKey =
+                org.fuin.porelo.vault.OpenSshPrivateKey.publicKey(Files.readString(file));
+        IdentityRun.revoke(keys, "alice-new");
+        final String tip =
+                commitText(
+                        ProjectSigners.replacing(
+                                git(origin, "show", "main:project.yml"),
+                                keys.key("michael"),
+                                keys.key("alice-new"),
+                                backupKey),
+                        file);
+
+        final Reconcile.Result refused = follow(null);
+
+        assertThat(refused.outcome()).as(refused.detail()).isEqualTo(Reconcile.Outcome.UNKNOWN_KEY);
+        assertThat(refused.refused()).isEqualTo(tip);
+        assertThat(
+                        new SignerHandover(
+                                        keys.runner, keys.paths.projects().configurationSigners())
+                                .pinned("demo"))
+                .as("michael's key is not retired for a revoked one")
+                .containsExactly(keys.key("michael"));
+    }
+
+    @Test
+    void the_follow_refuses_a_signer_a_registry_read_here_revoked() throws Exception {
+        final String signers =
+                "    - \"" + keys.key("michael") + "\"\n    - \"" + keys.key("bob") + "\"\n";
+        final String inForce = commit("two signers", "michael", signers);
+        assertThat(follow(null).outcome()).isEqualTo(Reconcile.Outcome.APPLIED);
+        revokedInRegistry(keys.keyFiles.get("bob"), "alice");
+        final String tip = commit("changed by a revoked key", "bob", signers);
+
+        final Reconcile.Result refused = follow(null);
+
+        assertThat(refused.outcome()).as(refused.detail()).isEqualTo(Reconcile.Outcome.UNKNOWN_KEY);
+        assertThat(refused.commit()).as("the commit in force stays").isEqualTo(inForce);
+        assertThat(refused.refused()).isEqualTo(tip);
+        assertThat(refused.detail()).contains("revoked by a registry");
+    }
+
     /**
-     * Revokes the backup key in the registry this machine reads, as a registry revokes a key: its
-     * login's card replaced by an owner.
+     * Revokes the key of a file in the registry this machine reads, as a registry revokes a key:
+     * its login's card replaced by an owner, with a card carrying the replacement login's key.
      */
-    private void revokedByRegistry(final Path file, final String backupKey) throws Exception {
+    private void revokedInRegistry(final Path file, final String replacement) throws Exception {
+        final String backupKey =
+                org.fuin.porelo.vault.OpenSshPrivateKey.publicKey(Files.readString(file));
         keys.founded();
         final org.fuin.porelo.vault.SigningKey lost =
                 new org.fuin.porelo.vault.SigningKey(
@@ -584,9 +844,9 @@ class ProjectBackupKeyTest {
                         null));
         keys.keyFiles.put("kept", file);
         keys.commit("kept");
-        keys.write("people/kept.card", keys.card("kept", "bob"));
+        keys.write("people/kept.card", keys.card("kept", replacement));
         keys.commit("michael");
-        keys.forge.keys.put("kept", List.of(backupKey, keys.key("bob")));
+        keys.forge.keys.put("kept", List.of(backupKey, keys.key(replacement)));
         assertThat(keys.registry("read", keys.repo.toString(), "--json"))
                 .as(keys.err.toString())
                 .isZero();
@@ -595,7 +855,7 @@ class ProjectBackupKeyTest {
                                 .getFirst()
                                 .state()
                                 .revoked())
-                .as("the registry read here revokes the backup key")
+                .as("the registry read here revokes the key")
                 .contains(ProjectSigners.fingerprint(backupKey));
     }
 

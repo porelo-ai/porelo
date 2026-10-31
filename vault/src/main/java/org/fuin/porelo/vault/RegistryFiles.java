@@ -221,6 +221,23 @@ public final class RegistryFiles {
                         .toList();
     }
 
+    /**
+     * The admins an owners file names for each host.
+     *
+     * @param text The owners file.
+     * @param origin Where it came from, for messages.
+     * @return Them, by host label in order, each host's in the file's order.
+     * @throws CardException If it is not an owners file.
+     */
+    public static java.util.Map<String, List<RegistryState.Owner>> hostAdmins(
+            String text, String origin) {
+        final java.util.Map<String, List<RegistryState.Owner>> hosts = new java.util.TreeMap<>();
+        for (String host : RegistryOwners.read(text, origin).hostAdmins().keySet()) {
+            hosts.put(host, entries(text, origin, host));
+        }
+        return hosts;
+    }
+
     private static void checkAdmins(String host, List<RegistryState.Owner> admins) {
         if (!RegistryOwners.HOST.matcher(host).matches()) {
             throw new IllegalArgumentException(

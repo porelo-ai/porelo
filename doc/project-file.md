@@ -455,8 +455,10 @@ A backup key is no signer: it is never pinned, signs no access file and certifie
 signs is taken only when it changes `project.yml` alone, and there only replaces the key it backs by one
 new key and points `backs` at it; the follow retires the old key as at any handover. Anything else it signs
 is refused and named. Each key has one backup key at most, and `backs` names a key of the list. A backup key
-counts only when the commit in force names it, so the first follow takes none, and never once a registry
-read here, or the revocation list, revokes it.
+counts only when the commit in force on this machine names it, so neither the first follow nor a follow with
+`--accept-rewrite` takes one: a rewritten history is taken only when an ordinary signer signs it. Nor does it
+count once a registry read here, or the revocation list, revokes it, and the key it puts in place must be
+revoked by neither. Any signer a registry read here revokes signs nothing the follow takes.
 
 A commit declares its `project.signers` list, or no declaration when the file or key is absent;
 no declaration differs from an empty list. Any change leaves exactly the new list in force and

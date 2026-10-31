@@ -416,6 +416,194 @@ class IdentityBackupKeyCommandTest {
     }
 
     @Test
+    void an_id_answers_only_the_backup_key_it_filed_on_the_base_it_names() throws Exception {
+        IdentityRun.keep(registry, registry.card("michael", "michael"));
+        registry.agent("michael");
+        assertThat(backupKey("--registry", "--out", dir.resolve("r1").toString(), "--id", "bk-r"))
+                .as(registry.err.toString())
+                .isZero();
+        final String filed = registry.head();
+        final Path again = dir.resolve("r2");
+        assertThat(
+                        backupKey(
+                                "--registry",
+                                "--out",
+                                again.toString(),
+                                "--id",
+                                "bk-r",
+                                "--base",
+                                filed,
+                                "--json"))
+                .as("bk-r was filed on the commit before " + filed + ", not on it")
+                .isEqualTo(65);
+        assertThat(registry.registry("read", registry.repo.toString())).isZero();
+        IdentityRun.keep(registry, registry.card("hank", "hank"));
+        assertThat(
+                        backupKey(
+                                "--host",
+                                "walk6m",
+                                "--out",
+                                dir.resolve("h").toString(),
+                                "--id",
+                                "op-1"))
+                .as(registry.err.toString())
+                .isZero();
+        IdentityRun.keep(registry, registry.card("michael", "michael"));
+
+        assertThat(backupKey("--registry", "--out", again.toString(), "--id", "op-1", "--json"))
+                .as("op-1 filed hank's key for walk6m, not michael's for the registry")
+                .isEqualTo(65);
+        assertThat(again).doesNotExist();
+    }
+
+    @Test
+    void an_id_answers_only_the_key_it_replaced_on_the_base_it_names() throws Exception {
+        IdentityRun.keep(registry, registry.card("michael", "michael"));
+        registry.agent("michael");
+        final Path file = dir.resolve("r1");
+        assertThat(backupKey("--registry", "--out", file.toString())).isZero();
+        assertThat(registry.registry("read", registry.repo.toString())).isZero();
+        IdentityRun.keep(registry, registry.card("hank", "hank"));
+        final Path host = dir.resolve("h");
+        assertThat(backupKey("--host", "walk6m", "--out", host.toString())).isZero();
+        assertThat(registry.registry("read", registry.repo.toString())).isZero();
+        registry.close();
+        IdentityRun.keep(registry, registry.card("michael", "michael"));
+        final Path card =
+                Files.writeString(dir.resolve("new.card"), registry.card("michael", "alice-new"));
+        final String[] use = {
+            "--registry", "--use", file.toString(), "--card", card.toString(), "--id", "lost-1"
+        };
+        assertThat(backupKey(use)).as(registry.err.toString()).isZero();
+        final String replaced = registry.head();
+        final List<String> moved = new ArrayList<>(List.of(use));
+        moved.addAll(List.of("--base", replaced, "--json"));
+        assertThat(backupKey(moved.toArray(String[]::new)))
+                .as("lost-1 was filed on the commit before " + replaced + ", not on it")
+                .isEqualTo(65);
+
+        assertThat(registry.registry("read", registry.repo.toString())).isZero();
+        IdentityRun.keep(registry, registry.card("hank", "hank"));
+        final Path hanks =
+                Files.writeString(dir.resolve("hank-new.card"), registry.card("hank", "bob"));
+        assertThat(
+                        backupKey(
+                                "--host",
+                                "walk6m",
+                                "--use",
+                                host.toString(),
+                                "--card",
+                                hanks.toString(),
+                                "--id",
+                                "op-2"))
+                .as(registry.err.toString())
+                .isZero();
+        IdentityRun.keep(registry, registry.card("michael", "michael"));
+        final int code =
+                backupKey(
+                        "--registry",
+                        "--use",
+                        file.toString(),
+                        "--card",
+                        card.toString(),
+                        "--id",
+                        "op-2",
+                        "--json");
+
+        assertThat(code)
+                .as("op-2 replaced hank's key for walk6m, not michael's: " + registry.out)
+                .isEqualTo(65);
+    }
+
+    @Test
+    void a_checkout_whose_origin_moved_is_not_read_as_another_registry() throws Exception {
+        IdentityRun.keep(registry, registry.card("michael", "michael"));
+        registry.agent("michael");
+        final Path records = registry.record().getParent();
+        final List<Path> before;
+        try (var listed = Files.list(records)) {
+            before = listed.sorted().toList();
+        }
+        registry.git("remote", "set-url", "origin", "https://forge.example.org/other/registry.git");
+        final Path file = dir.resolve("backup");
+
+        assertThat(backupKey("--registry", "--out", file.toString(), "--json")).isEqualTo(65);
+
+        try (var listed = Files.list(records)) {
+            assertThat(listed.sorted().toList())
+                    .as("no trust record is written for the other address")
+                    .isEqualTo(before);
+        }
+        assertThat(file).doesNotExist();
+        assertThat(ran).isEmpty();
+    }
+
+    @Test
+    void a_read_the_history_refuses_ends_in_a_refusal() throws Exception {
+        IdentityRun.keep(registry, registry.card("michael", "michael"));
+        registry.agent("michael");
+        // A shallow checkout cannot prove its history, which the read refuses.
+        Files.writeString(registry.repo.resolve(".git/shallow"), registry.head() + "\n");
+        final Path file = dir.resolve("backup");
+
+        final int code = backupKey("--registry", "--out", file.toString(), "--json");
+
+        assertThat(code).as(registry.err.toString()).isEqualTo(65);
+        assertThat(dir.resolve("state/porelo/failures.log"))
+                .as("a refusal, not an unhandled failure")
+                .doesNotExist();
+        assertThat(file).doesNotExist();
+    }
+
+    @Test
+    void an_owner_whose_own_key_the_revocation_list_names_makes_no_backup_key() throws Exception {
+        IdentityRun.keep(registry, registry.card("michael", "michael"));
+        registry.agent("michael");
+        IdentityRun.revoke(registry, "michael");
+        final String before = registry.head();
+        final Path file = dir.resolve("backup");
+
+        assertThat(backupKey("--registry", "--out", file.toString(), "--json")).isEqualTo(65);
+
+        assertThat(registry.answer().get("reason")).isEqualTo("revoked");
+        assertThat(ran).as("no key is made").isEmpty();
+        assertThat(file).doesNotExist();
+        assertThat(registry.head()).isEqualTo(before);
+    }
+
+    @Test
+    void a_public_half_already_there_is_neither_overwritten_nor_removed() throws Exception {
+        IdentityRun.keep(registry, registry.card("michael", "michael"));
+        registry.agent("michael");
+        final Path file = dir.resolve("backup");
+        final Path pub = Files.writeString(dir.resolve("backup.pub"), "mine\n");
+
+        assertThat(backupKey("--registry", "--out", file.toString(), "--json")).isEqualTo(65);
+
+        assertThat(registry.answer().get("reason")).isEqualTo("file-exists");
+        assertThat(ran).as("no key is made").isEmpty();
+        assertThat(pub).hasContent("mine");
+        assertThat(file).doesNotExist();
+    }
+
+    @Test
+    void a_key_filed_before_the_checkout_refused_its_work_tree_is_kept() throws Exception {
+        IdentityRun.keep(registry, registry.card("michael", "michael"));
+        registry.agent("michael");
+        final String before = registry.head();
+        final Path owners = registry.repo.resolve("owners.yml");
+        Files.setPosixFilePermissions(owners, PosixFilePermissions.fromString("r--r--r--"));
+        final Path file = dir.resolve("backup");
+
+        final int code = backupKey("--registry", "--out", file.toString(), "--json");
+
+        Files.setPosixFilePermissions(owners, PosixFilePermissions.fromString("rw-r--r--"));
+        assertThat(code).as("the work tree's owners.yml could not be written").isNotZero();
+        assertThat(registry.head()).as("the commit was made").isNotEqualTo(before);
+        assertThat(file).as("the key its commit files is the person's to keep").exists();
+    }
+
+    @Test
     void a_refused_make_keeps_no_key_file_and_names_only_what_refused() throws Exception {
         IdentityRun.keep(registry, registry.card("michael", "michael"));
         registry.agent("alice");

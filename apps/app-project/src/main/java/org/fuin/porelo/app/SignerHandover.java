@@ -192,13 +192,10 @@ final class SignerHandover {
                                     ? at(rewrite.repository(), rewrite.commit())
                                     : inForce.isEmpty() ? before(clone, tip) : at(clone, inForce);
             // A backup key signs only the change that replaces the key it backs, judged below, and
-            // only one a commit in force names: nothing vouches for the commit before a first tip.
+            // only one a commit in force on this clone names: nothing vouches for the commit before
+            // a first tip, nor for a rewritten tip's parent, so a rewrite takes an ordinary signer.
             List<String> backups =
-                    access
-                            ? List.of()
-                            : rewrite != null
-                                    ? backupsAt(rewrite.repository(), rewrite.commit())
-                                    : inForce.isEmpty() ? List.of() : backupsAt(clone, inForce);
+                    access || inForce.isEmpty() ? List.of() : backupsAt(clone, inForce);
             final List<String> commits =
                     inForce.isEmpty() ? List.of(tip) : between(clone, inForce, tip);
             ConfigurationGate.Verdict tipVerdict = null;
@@ -268,16 +265,37 @@ final class SignerHandover {
                             file,
                             List.of());
                 }
+                final String signingKey = SignedBy.keyOf(runner, clone, commit);
+                final String fingerprint =
+                        signingKey == null ? null : SignedBy.fingerprintOf(signingKey);
+                // The revocation list the signature was checked against may not hold what a
+                // registry read here revokes, so every signer is asked of the registries too.
+                if (fingerprint != null && revokedByRegistry.test(fingerprint)) {
+                    return new Handed(
+                            keys,
+                            false,
+                            null,
+                            new ConfigurationGate.Verdict(
+                                    ConfigurationGate.Outcome.UNKNOWN_KEY,
+                                    commit,
+                                    verdict.signer(),
+                                    commit
+                                            + " ("
+                                            + file
+                                            + ") is signed by "
+                                            + fingerprint
+                                            + ", which is revoked by a registry this machine"
+                                            + " reads"),
+                            file,
+                            List.of());
+                }
                 if (!access) {
-                    final String signingKey = SignedBy.keyOf(runner, clone, commit);
-                    final String fingerprint =
-                            signingKey == null ? null : SignedBy.fingerprintOf(signingKey);
                     if (signingKey != null
                             && backups.contains(signingKey)
                             && !keys.contains(signingKey)) {
                         final String why =
-                                fingerprint == null || revokedByRegistry.test(fingerprint)
-                                        ? "it is revoked by a registry this machine reads"
+                                fingerprint == null
+                                        ? "its key cannot be read"
                                         : backedOnly(clone, parents, commit, signingKey);
                         if (why != null) {
                             return new Handed(
@@ -382,7 +400,57 @@ final class SignerHandover {
             return "it adds or removes " + FILE;
         }
         final String why = ProjectSigners.backedOnly(before, after, key);
-        return why == null ? null : "it " + why;
+        if (why != null) {
+            return "it " + why;
+        }
+        final List<String> was = at(clone, parent);
+        for (final String added : java.util.Objects.requireNonNull(at(clone, commit))) {
+            if ((was == null || !was.contains(added)) && revoked(added)) {
+                return "it puts "
+                        + SignedBy.fingerprintOf(added)
+                        + " in place, which is revoked here or by a registry this machine reads";
+            }
+        }
+        return null;
+    }
+
+    /** Whether a registry read here or the revocation list revokes a key. */
+    private boolean revoked(final String key) {
+        final String fingerprint = SignedBy.fingerprintOf(key);
+        if (fingerprint == null || revokedByRegistry.test(fingerprint)) {
+            return true;
+        }
+        if (krl == null) {
+            return false;
+        }
+        Path file = null;
+        try {
+            file = Files.createTempFile("porelo-replacement-", ".pub");
+            Files.writeString(file, key + "\n");
+            final CommandResult checked =
+                    runner.run(
+                            Command.of(
+                                    "ssh-keygen",
+                                    "-Q",
+                                    "-f",
+                                    krl.toAbsolutePath().toString(),
+                                    file.toString()));
+            // ssh-keygen says 0 for a key not revoked and 1 for one that is.
+            if (checked.exitCode() != 0 && checked.exitCode() != 1) {
+                throw new ProjectException("cannot read the revocation list " + krl);
+            }
+            return checked.exitCode() == 1;
+        } catch (final IOException ex) {
+            throw new ProjectException("cannot check the revocation list: " + ex.getMessage(), ex);
+        } finally {
+            try {
+                if (file != null) {
+                    Files.deleteIfExists(file);
+                }
+            } catch (final IOException ignored) {
+                // A temporary file of a public key; nothing secret is left.
+            }
+        }
     }
 
     /** The backup keys the project file at a commit names. */

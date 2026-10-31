@@ -242,12 +242,13 @@ public class IdentityBackupKeyCommand implements Callable<Integer>, PoreloFactor
                 return use == null ? makeForProject(machine, own) : replaceForProject(machine, own);
             }
             final IdentityFacts.Registry registry = registry(machine);
+            requireOrigin(machine, registry);
             final String login = own.login();
             final String head = head(machine, registry);
             final String[] earlier = id == null ? null : earlier(machine, registry, head);
             if (earlier != null) {
                 return use == null
-                        ? madeEarlier(machine, registry, login, earlier[0])
+                        ? madeEarlier(machine, registry, login, earlier[0], earlier[1])
                         : replacedEarlier(machine, registry, login, earlier[0], earlier[1]);
             }
             final String against = base != null ? base : String.valueOf(registry.state().commit());
@@ -273,10 +274,15 @@ public class IdentityBackupKeyCommand implements Callable<Integer>, PoreloFactor
                             .state();
             final List<RegistryState.Owner> entries = inScope(state);
             return use == null
-                    ? make(machine, registry, state, entries, login, head)
+                    ? make(machine, registry, state, entries, own, head)
                     : replace(machine, registry, state, entries, login, head);
         } catch (IdentityChange.Refused ex) {
             return IdentityChange.refuse(spec, json, ex);
+        } catch (CardException | IllegalArgumentException ex) {
+            return IdentityChange.refuse(
+                    spec,
+                    json,
+                    new IdentityChange.Refused(65, null, String.valueOf(ex.getMessage())));
         } catch (IOException ex) {
             return IdentityChange.refuse(
                     spec,
@@ -286,6 +292,33 @@ public class IdentityBackupKeyCommand implements Callable<Integer>, PoreloFactor
             if (written && !kept) {
                 forgetUnfiled();
             }
+        }
+    }
+
+    /**
+     * Refuses a checkout whose origin is no longer the address the registry was read from: read
+     * there, it would be the first read of another registry, trusted as this one.
+     */
+    private static void requireOrigin(
+            final PoreloContext machine, final IdentityFacts.Registry registry)
+            throws IdentityChange.Refused {
+        final String origin;
+        try {
+            origin = RegistryReadCommand.origin(machine.runner(), registry.known().checkout());
+        } catch (IOException | IllegalArgumentException ex) {
+            throw new IdentityChange.Refused(
+                    65,
+                    IdentityChange.CHECKOUT_MOVED,
+                    "the registry checkout read last cannot be read as it was: "
+                            + ex.getMessage()
+                            + "; read the registry again");
+        }
+        if (!origin.equals(registry.known().origin())) {
+            throw new IdentityChange.Refused(
+                    65,
+                    IdentityChange.ORIGIN_MOVED,
+                    "the registry checkout's origin is no longer the address this registry was"
+                            + " read from; read the registry again");
         }
     }
 
@@ -356,31 +389,44 @@ public class IdentityBackupKeyCommand implements Callable<Integer>, PoreloFactor
         return null;
     }
 
-    /** Answers the backup key an earlier call filed under this id, as that call answered it. */
+    /**
+     * Answers the backup key an earlier call filed under this id, as that call answered it: only
+     * when the commit is its parent's owners file with this login's one backup key added in this
+     * scope, and nothing else changed.
+     */
     private int madeEarlier(
             final PoreloContext machine,
             final IdentityFacts.Registry registry,
             final String login,
-            final String commit)
+            final String commit,
+            final String parent)
             throws IdentityChange.Refused, IOException {
         final String text = ownersAt(machine, registry, commit);
-        // Filed again under the same id with the same file, the registry answers that commit.
-        final String revision = file(machine, registry, text, null, null);
+        final String before = ownersAt(machine, registry, parent);
+        final List<RegistryState.Owner> was = filedEntries(before);
         final RegistryState.Owner backup =
                 filedEntries(text).stream()
                         .filter(entry -> entry.backup() && entry.login().equals(login))
                         .findFirst()
-                        .orElseThrow(
-                                () ->
-                                        new IdentityChange.Refused(
-                                                65,
-                                                null,
-                                                "--id "
-                                                        + id
-                                                        + " names "
-                                                        + commit
-                                                        + ", which files no backup key of "
-                                                        + login));
+                        .orElse(null);
+        if (backup == null
+                || was.stream().anyMatch(entry -> entry.backup() && entry.login().equals(login))
+                || !canonical(text).equals(with(before, was, backup, null))) {
+            throw new IdentityChange.Refused(
+                    65,
+                    null,
+                    "--id "
+                            + id
+                            + " names "
+                            + commit
+                            + ", which files no backup key of "
+                            + login
+                            + " for "
+                            + where()
+                            + " alone");
+        }
+        // Filed again under the same id with the same file, the registry answers that commit.
+        final String revision = file(machine, registry, text, null, base);
         kept = true;
         return made(backup.fingerprint(), revision, false);
     }
@@ -393,27 +439,59 @@ public class IdentityBackupKeyCommand implements Callable<Integer>, PoreloFactor
             final String commit,
             final String parent)
             throws IdentityChange.Refused, IOException {
+        final Path file = java.util.Objects.requireNonNull(use);
         final String text = ownersAt(machine, registry, commit);
-        final String revision =
-                file(machine, registry, text, java.util.Objects.requireNonNull(use), null);
+        final String before = ownersAt(machine, registry, parent);
+        final List<RegistryState.Owner> was = filedEntries(before);
         final PersonCard next = next(login);
-        final String old = ownKey(filedEntries(ownersAt(machine, registry, parent)), login);
-        final String by = ownKey(filedEntries(text), login);
-        if (old.isEmpty() || !by.equals(next.fingerprint())) {
+        final String backup = PersonCard.fingerprint(backupKey(file));
+        final RegistryState.Owner old =
+                was.stream()
+                        .filter(entry -> !entry.backup() && entry.login().equals(login))
+                        .findFirst()
+                        .orElse(null);
+        if (old == null
+                || old.fingerprint().equals(next.fingerprint())
+                || was.stream()
+                        .noneMatch(
+                                entry ->
+                                        entry.backup()
+                                                && entry.login().equals(login)
+                                                && entry.fingerprint().equals(backup))
+                || !canonical(text)
+                        .equals(
+                                with(
+                                        before,
+                                        was,
+                                        new RegistryState.Owner(
+                                                login, next.key(), next.fingerprint(), false),
+                                        old))) {
             throw new IdentityChange.Refused(
                     65,
                     null,
-                    "--id " + id + " names " + commit + ", which replaces no key by this card's");
+                    "--id "
+                            + id
+                            + " names "
+                            + commit
+                            + ", which replaces no key of "
+                            + login
+                            + " for "
+                            + where()
+                            + " by this card's with this backup key");
         }
-        return replaced(old, by, revision, false);
+        final String revision = file(machine, registry, text, file, base);
+        return replaced(old.fingerprint(), next.fingerprint(), revision, false);
     }
 
-    private static String ownKey(final List<RegistryState.Owner> entries, final String login) {
-        return entries.stream()
-                .filter(entry -> !entry.backup() && entry.login().equals(login))
-                .map(RegistryState.Owner::fingerprint)
-                .findFirst()
-                .orElse("");
+    /** The owners file as it is written, so two that name the same entries read alike. */
+    private static String canonical(final String text) throws IdentityChange.Refused {
+        try {
+            return RegistryState.ownersFile(
+                    org.fuin.porelo.vault.RegistryFiles.entries(text, "owners.yml", null),
+                    org.fuin.porelo.vault.RegistryFiles.hostAdmins(text, "owners.yml"));
+        } catch (CardException ex) {
+            throw new IdentityChange.Refused(65, null, String.valueOf(ex.getMessage()));
+        }
     }
 
     private List<RegistryState.Owner> filedEntries(final String text)
@@ -455,9 +533,15 @@ public class IdentityBackupKeyCommand implements Callable<Integer>, PoreloFactor
             final IdentityFacts.Registry registry,
             final RegistryState state,
             final List<RegistryState.Owner> entries,
-            final String login,
+            final PersonCard own,
             final String head)
             throws IdentityChange.Refused, IOException {
+        final String login = own.login();
+        if (state.revoked().contains(own.fingerprint())
+                || IdentityFacts.revoked(machine, List.of(registry), own.key())) {
+            throw new IdentityChange.Refused(
+                    65, "revoked", "your card's key " + own.fingerprint() + " is revoked");
+        }
         if (entries.stream().anyMatch(entry -> entry.backup() && entry.login().equals(login))) {
             throw new IdentityChange.Refused(
                     65, "backup-exists", login + " has a backup key for " + where() + " already");
@@ -481,8 +565,19 @@ public class IdentityBackupKeyCommand implements Callable<Integer>, PoreloFactor
         final String key = keygen(machine, login);
         final RegistryState.Owner backup =
                 new RegistryState.Owner(login, key, PersonCard.fingerprint(key), true);
-        final String revision =
-                file(machine, registry, with(state, entries, backup, null), null, head);
+        final String revision;
+        try {
+            revision =
+                    file(
+                            machine,
+                            registry,
+                            with(state.owners(), state.hostAdmins(), entries, backup, null),
+                            null,
+                            head);
+        } finally {
+            // Once HEAD moved, the commit may file the key though the filing failed after it.
+            kept = kept || !head.equals(headOrNone(machine, registry));
+        }
         kept = true;
         return made(backup.fingerprint(), revision, false);
     }
@@ -541,8 +636,11 @@ public class IdentityBackupKeyCommand implements Callable<Integer>, PoreloFactor
     private String keygen(final PoreloContext machine, final String login)
             throws IdentityChange.Refused, IOException {
         final Path file = java.util.Objects.requireNonNull(out).toAbsolutePath();
-        if (Files.exists(file, java.nio.file.LinkOption.NOFOLLOW_LINKS)) {
-            throw new IdentityChange.Refused(65, "file-exists", file + " exists already");
+        // ssh-keygen writes both halves, and the public one is removed once read.
+        for (final Path half : List.of(file, Path.of(file + ".pub"))) {
+            if (Files.exists(half, java.nio.file.LinkOption.NOFOLLOW_LINKS)) {
+                throw new IdentityChange.Refused(65, "file-exists", half + " exists already");
+            }
         }
         if (!terminal.getAsBoolean()) {
             throw new IdentityChange.Refused(
@@ -675,15 +773,52 @@ public class IdentityBackupKeyCommand implements Callable<Integer>, PoreloFactor
         final RegistryState.Owner replacement =
                 new RegistryState.Owner(login, next.key(), next.fingerprint(), false);
         final String revision =
-                file(machine, registry, with(state, entries, replacement, old), file, head);
+                file(
+                        machine,
+                        registry,
+                        with(state.owners(), state.hostAdmins(), entries, replacement, old),
+                        file,
+                        head);
         return replaced(old.fingerprint(), next.fingerprint(), revision, false);
+    }
+
+    /** The commit HEAD names, or "" when it cannot be read. */
+    private static String headOrNone(
+            final PoreloContext machine, final IdentityFacts.Registry registry) {
+        try {
+            return head(machine, registry);
+        } catch (IdentityChange.Refused ex) {
+            return "";
+        }
+    }
+
+    /**
+     * That owners file with the entry put in, in place of the one given, or after the backed one.
+     */
+    private String with(
+            final String text,
+            final List<RegistryState.Owner> entries,
+            final RegistryState.Owner entry,
+            final RegistryState.@Nullable Owner instead)
+            throws IdentityChange.Refused {
+        try {
+            return with(
+                    org.fuin.porelo.vault.RegistryFiles.entries(text, "owners.yml", null),
+                    org.fuin.porelo.vault.RegistryFiles.hostAdmins(text, "owners.yml"),
+                    entries,
+                    entry,
+                    instead);
+        } catch (CardException ex) {
+            throw new IdentityChange.Refused(65, null, String.valueOf(ex.getMessage()));
+        }
     }
 
     /**
      * The owners file with the entry put in, in place of the one given, or after the backed one.
      */
     private String with(
-            final RegistryState state,
+            final List<RegistryState.Owner> owners,
+            final Map<String, List<RegistryState.Owner>> hostAdmins,
             final List<RegistryState.Owner> entries,
             final RegistryState.Owner entry,
             final RegistryState.@Nullable Owner instead) {
@@ -695,12 +830,11 @@ public class IdentityBackupKeyCommand implements Callable<Integer>, PoreloFactor
             }
         }
         if (scope.registry) {
-            return RegistryState.ownersFile(changed, state.hostAdmins());
+            return RegistryState.ownersFile(changed, hostAdmins);
         }
-        final Map<String, List<RegistryState.Owner>> hosts =
-                new LinkedHashMap<>(state.hostAdmins());
+        final Map<String, List<RegistryState.Owner>> hosts = new LinkedHashMap<>(hostAdmins);
         hosts.put(java.util.Objects.requireNonNull(scope.host), changed);
-        return RegistryState.ownersFile(state.owners(), hosts);
+        return RegistryState.ownersFile(owners, hosts);
     }
 
     /** Files the owners file as {@code registry file owners} does, and answers its commit. */
