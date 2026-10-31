@@ -140,6 +140,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b372"></a>[B372](B372-A-Test-Leaves-No-Watcher-Running.md) | S | - | A run of the suite leaves no `shield watch` of its own running: no test starts a real watcher it does not stop |
 | <a id="b371"></a>[B371](B371-A-History-Judged-Under-The-Rules-Of-Its-Time.md) | M | [B363](README.md#b363) | A history mode of `porelo commit verify`: each commit judged by the keys and certificates in force at its own time, for a migrated history before the hook is armed |
 | <a id="b370"></a>[B370](B370-A-Backup-Key-That-Can-Do-Nothing-Else.md) | M | [B346](README.md#b346) | A backup key replaces only the key it backs on a rewrite too, never with a revoked key; a repeated `--id` answers only its own change; no key file removed that the command did not write |
 | <a id="b369"></a>[B369](B369-A-Message-Sender-Named-As-Its-Key-Names-It.md) | S | [B344](README.md#b344) | A message is held only when it names another sender than its key traces to, in either form; `people` and `person` are no task names; `mail.peers` names a task of another project |
