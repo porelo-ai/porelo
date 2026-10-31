@@ -11,6 +11,7 @@ import org.fuin.porelo.core.process.CommandException;
 import org.fuin.porelo.core.process.CommandRunner;
 import org.fuin.porelo.core.process.ProcessCommandRunner;
 import org.fuin.porelo.vault.CardException;
+import org.fuin.porelo.vault.RegistryText;
 import org.fuin.porelo.vault.RegistryVerifier;
 import org.fuin.porelo.wire.Json;
 import org.jspecify.annotations.Nullable;
@@ -116,31 +117,27 @@ public class RegistryVerifyCommand implements Callable<Integer>, PoreloFactory.C
         return code;
     }
 
-    private static Object printable(Object value) {
+    /**
+     * Replaces what could move a terminal's cursor or hide text in every string of an answer.
+     *
+     * @param value Text, or lists and maps of it; {@code null} stays {@code null}.
+     * @return The same shape, every string printable.
+     */
+    static @Nullable Object printable(@Nullable Object value) {
         return switch (value) {
-            case String text -> text.replaceAll("[\\p{Cc}\\p{Cf}\\p{Zl}\\p{Zp}]", "?");
-            case List<?> values ->
-                    values.stream()
-                            .map(
-                                    item ->
-                                            printable(
-                                                    Objects.requireNonNull(
-                                                            item,
-                                                            "registry lists contain no null values")))
-                            .toList();
+            case null -> null;
+            case String text -> RegistryText.printable(text);
+            case List<?> values -> values.stream().map(RegistryVerifyCommand::printable).toList();
             case Map<?, ?> values -> {
-                final Map<String, Object> safe = new LinkedHashMap<>();
+                final Map<String, @Nullable Object> safe = new LinkedHashMap<>();
                 for (var entry : values.entrySet()) {
                     safe.put(
-                            printable(
+                            String.valueOf(
+                                    printable(
                                             Objects.requireNonNull(
                                                     entry.getKey(),
-                                                    "registry keys are nonnull text"))
-                                    .toString(),
-                            printable(
-                                    Objects.requireNonNull(
-                                            entry.getValue(),
-                                            "registry fields contain no null values")));
+                                                    "registry keys are nonnull text"))),
+                            printable(entry.getValue()));
                 }
                 yield safe;
             }

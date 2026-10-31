@@ -272,7 +272,7 @@ public record HostCard(
         return Integer.parseInt(port.value());
     }
 
-    private static void hostKey(final String line, final String what) {
+    static void hostKey(final String line, final String what) {
         // Exactly, not stripped: a person's machine writes the line as it stands into known_hosts.
         final Matcher matcher = HOST_KEY.matcher(line);
         if (!matcher.matches()) {
@@ -541,7 +541,7 @@ public record HostCard(
     }
 
     private static String printable(final String value) {
-        return value.replaceAll("\\p{Cntrl}", "?");
+        return RegistryText.printable(value);
     }
 
     /** A value as written, and whether it was plain, which a port must be. */

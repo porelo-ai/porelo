@@ -86,6 +86,7 @@ would change the answer.
 | A credential is entered only in a terminal | no daemon method takes a provider credential or passphrase; only a device's keyslot share crosses the socket | [entry](#a-credential-is-entered-only-in-a-terminal) |
 | A credential with no expiry is stored and named | accepted, never refused; the store says so and the list marks it (not yet built) | [entry](#a-credential-with-no-expiry-is-stored-and-named) |
 | A storage class Porelo cannot prove is shown as user-scoped | stronger only by a slot the node enrolled or evidence it checks; a client's claim is recorded and shown as user-scoped (not yet built) | [entry](#a-storage-class-porelo-cannot-prove-is-shown-as-user-scoped) |
+| A registry's trust record is checked, not hardened against whoever writes the state directory | accepted: a record that fails a check is discarded and the registry walked again from its founding commit; a writer of `$XDG_STATE_HOME` can change Porelo's config and binaries too | [entry](#a-registrys-trust-record-is-checked-not-hardened-against-whoever-writes-the-state-directory) |
 | **Projects and following** | | |
 | One agent works in one repository | a task holds one repository, so an agent that spans several is one per repository, its commits authored by the name it goes by | [entry](#one-agent-works-in-one-repository) |
 | A project file describes constraints, not instructions | no prompt or standing instruction belongs in `project.yml` | [entry](#a-project-file-describes-constraints-not-instructions) |
@@ -1093,6 +1094,25 @@ evidence such as a TPM2 attestation the node checks. A claim a client merely sen
 and the interface show it exactly like a user-scoped slot: a label that reads stronger than it is does more harm than
 an honest weaker one. **Not yet built:** `EnrollDevice` and `vault devices` still record and display the storage class
 a client claims without proof instead of showing unproven claims as user-scoped.
+
+## A registry's trust record is checked, not hardened against whoever writes the state directory
+
+`porelo registry read` keeps the state a walk of the registry ended with as a trust record in the person's
+`$XDG_STATE_HOME/porelo/registry/`, owner-only, and the next read walks only the commits after it. Before that, the
+record is checked whole: every field as a walk writes it, each file it names read again from the blob it names and
+judged as the walk judges it, each change on the first-parent line, touching its path and signed by the signer named.
+A record that fails any check, or does not read, is discarded, said so in one warning naming why, and the registry is
+walked again from its founding commit; the fresh state replaces it. Slower, never weaker. A head that does not continue
+the record's commit still refuses the read, since then the history, not the record, is what is wrong.
+**The exposure:** the check is not a proof. What the walk knew at the time, such as which keys owned the registry
+when an owner replaced a card, or what the forge said, is not in the history, so a hand-edited record can still pass
+in ways a walk would not: one is the signer of an owners or access file, which the record check does not judge
+against the owners before it. **Why it stays:** who can write the state directory can change the person's Porelo
+configuration and binaries too, so a record hardened against them protects nothing they could not take another way;
+the check is there against a damaged or stale record, and further ways a hand-edited record could pass are recorded as
+Ideas, not fixed one by one. **What would change the answer:** a record that crosses a boundary the state directory
+does not, such as one shared between machines or people, which would then have to be signed or proven against the
+history in full.
 
 ## What a build runs beside its secrets is fixed by its content
 

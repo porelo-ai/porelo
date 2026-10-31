@@ -191,6 +191,17 @@ class HostCardTest {
     }
 
     @Test
+    void a_message_shows_no_bidirectional_control_a_card_holds() {
+        // A host name that turns text around would reorder what a person reads in the message.
+        final String turned = card().replace("host: \"walk-9\"", "host: \"walk\u202e-9\"");
+
+        assertThatThrownBy(() -> HostCard.read(turned, "test"))
+                .isInstanceOf(CardException.class)
+                .hasMessageContaining("'walk?-9' is not a host name")
+                .hasMessageNotContaining("\u202e");
+    }
+
+    @Test
     void accepts_a_host_key_of_another_kind_that_names_its_own_type() {
         // As ssh-keygen -t ecdsa wrote it, without the comment.
         final String ecdsa =

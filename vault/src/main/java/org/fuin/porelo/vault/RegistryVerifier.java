@@ -4,7 +4,6 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
-import java.util.Base64;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -173,44 +172,18 @@ public final class RegistryVerifier {
             RegistryRepository repository, String commit, String path, String pinned)
             throws IOException {
         final String raw = repository.require("cat-file", "commit", commit);
-        final StringBuilder signature = new StringBuilder();
-        boolean collecting = false;
-        for (String line : raw.lines().toList()) {
-            if (line.isEmpty()) {
-                break;
-            }
-            if (line.startsWith("gpgsig ")) {
-                collecting = true;
-                signature.append(line.substring(7)).append('\n');
-            } else if (collecting && line.startsWith(" ")) {
-                signature.append(line.substring(1)).append('\n');
-            } else {
-                collecting = false;
-            }
-        }
-        final byte[] blob = SshSignature.signerOf(signature.toString());
-        if (blob == null) {
-            throw new CardException(commit + " " + path + ": commit has no readable SSH signature");
-        }
-        final String key = "ssh-ed25519 " + Base64.getEncoder().encodeToString(blob);
-        final String signer;
+        final String key;
         try {
-            signer = PersonCard.fingerprint(key);
+            key = CommitSigner.claimedKey(raw);
         } catch (CardException ex) {
             throw new CardException(commit + " " + path + ": " + ex.getMessage());
         }
+        final String signer = PersonCard.fingerprint(key);
         if (!signer.equals(pinned)) {
             throw new CardException(
                     commit + " " + path + ": commit signed by " + signer + ", expected " + pinned);
         }
-        Files.writeString(repository.signers(), "host-admin namespaces=\"git\" " + key + "\n");
-        if (!repository
-                .git(
-                        "-c",
-                        "gpg.ssh.allowedSignersFile=" + repository.signers(),
-                        "verify-commit",
-                        commit)
-                .successful()) {
+        if (!CommitSigner.verifies(repository, commit, key)) {
             throw new CardException(
                     commit
                             + " "
@@ -236,20 +209,7 @@ public final class RegistryVerifier {
     }
 
     private static Map<String, Object> hostAnswer(HostCard card, String signer) {
-        final Map<String, Object> answer = new LinkedHashMap<>();
-        answer.put("host", card.host());
-        answer.put("address", card.address());
-        answer.put("ssh_port", card.sshPort());
-        answer.put("ssh_host_key", card.sshHostKey());
-        answer.put(
-                "services",
-                Map.of(
-                        "forge",
-                        Map.of("web_port", card.forgeWebPort(), "git_port", card.forgeGitPort()),
-                        "matrix",
-                        Map.of("port", card.matrixPort())));
-        answer.put("signed_by", signer);
-        return answer;
+        return RegistryState.Card.of(card, signer).answer(card.host());
     }
 
     private static Map<String, Object> person(

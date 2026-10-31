@@ -1,0 +1,2 @@
+title: "`porelo registry read` reads a registry checkout path by path as its signers were allowed to write it, checking first cards against the keys the forge lists, and `porelo registry file` commits a card or a host's access file, or removes a host's card, signed through your ssh-agent and answered the same commit when asked again by its `--id`"
+type: added

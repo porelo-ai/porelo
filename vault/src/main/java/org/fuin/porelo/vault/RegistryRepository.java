@@ -62,6 +62,66 @@ final class RegistryRepository implements AutoCloseable {
                                 + "': expected a v2 or v3 Git bundle");
             }
         }
+        cloneBare(bundle, source);
+    }
+
+    /**
+     * Fetches the commit a person's checkout has checked out, and its history. Only objects come
+     * over: the checkout's configuration, hooks, grafts and shallow boundary stay there, so nothing
+     * there changes what this clone reads, and a shallow checkout stays shallow, which the reader
+     * refuses.
+     *
+     * @return The commit the checkout's {@code HEAD} names, on a branch or detached.
+     */
+    String cloneCheckout(Path checkout) throws IOException {
+        if (!Files.isDirectory(checkout, LinkOption.NOFOLLOW_LINKS)) {
+            throw new IOException(
+                    "cannot read registry checkout '"
+                            + RegistryText.printable(checkout.toString())
+                            + "': expected a directory, not a symlink");
+        }
+        // An absolute path, so a colon in it is never read as a host.
+        final Path from = checkout.toAbsolutePath().normalize();
+        // Exactly what is checked out: a clone's own HEAD is a guess, which may name another
+        // branch than the one the person reads, or none.
+        final CommandResult head =
+                git("-C", from.toString(), "rev-parse", "--verify", "HEAD^{commit}");
+        if (!head.successful() || !head.trimmedOutput().matches("[0-9a-f]{40}|[0-9a-f]{64}")) {
+            throw new CardException("the registry checkout has no commit checked out");
+        }
+        final String commit = head.trimmedOutput();
+        final Path template = Files.createDirectory(scratch.resolve("empty-template"));
+        final CommandResult init =
+                git("init", "-q", "--bare", "--template=" + template, repository.toString());
+        if (!init.successful()) {
+            throw new IOException(
+                    "cannot read registry '"
+                            + RegistryText.printable(checkout.toString())
+                            + "': "
+                            + RegistryText.printable(init.standardError().strip()));
+        }
+        final CommandResult fetched =
+                git(
+                        "fetch",
+                        "-q",
+                        "--no-tags",
+                        "--no-recurse-submodules",
+                        "--no-write-fetch-head",
+                        "--update-shallow",
+                        "--",
+                        from.toString(),
+                        commit + ":refs/heads/checkout");
+        if (!fetched.successful()) {
+            throw new IOException(
+                    "cannot read registry '"
+                            + RegistryText.printable(checkout.toString())
+                            + "': "
+                            + RegistryText.printable(fetched.standardError().strip()));
+        }
+        return commit;
+    }
+
+    private void cloneBare(Path from, Path source) throws IOException {
         final Path template = Files.createDirectory(scratch.resolve("empty-template"));
         final CommandResult result =
                 git(
@@ -72,11 +132,14 @@ final class RegistryRepository implements AutoCloseable {
                         "--no-recurse-submodules",
                         "--template=" + template,
                         "--",
-                        bundle.toString(),
+                        from.toString(),
                         repository.toString());
         if (!result.successful()) {
             throw new IOException(
-                    "cannot read registry '" + source + "': " + result.standardError().strip());
+                    "cannot read registry '"
+                            + RegistryText.printable(source.toString())
+                            + "': "
+                            + RegistryText.printable(result.standardError().strip()));
         }
     }
 
@@ -109,7 +172,8 @@ final class RegistryRepository implements AutoCloseable {
         final CommandResult result = git(args);
         if (!result.successful()) {
             throw new CardException(
-                    "cannot read registry history: " + result.standardError().strip());
+                    "cannot read registry history: "
+                            + RegistryText.printable(result.standardError().strip()));
         }
         return result.standardOutput();
     }
@@ -123,23 +187,33 @@ final class RegistryRepository implements AutoCloseable {
     }
 
     Optional<String> read(String commit, String path) {
-        final String entry = require("ls-tree", "-z", commit, "--", path);
+        return object(commit, path).map(object -> blob(object, commit + " " + path));
+    }
+
+    /** The blob a regular file at this path is, or empty when the commit has no such path. */
+    Optional<String> object(String commit, String path) {
+        final String entry = require("ls-tree", "-z", "--end-of-options", commit, "--", path);
         if (entry.isEmpty()) {
             return Optional.empty();
         }
         if (!entry.startsWith("100644 blob ") && !entry.startsWith("100755 blob ")) {
             throw new CardException(commit + " " + path + ": expected a regular file");
         }
-        final String object = entry.substring(entry.indexOf("blob ") + 5, entry.indexOf('\t'));
-        final long size = Long.parseLong(require("cat-file", "-s", object).strip());
+        return Optional.of(entry.substring(entry.indexOf("blob ") + 5, entry.indexOf('\t')));
+    }
+
+    /** A blob's text, bounded and UTF-8; the origin names it in a refusal. */
+    String blob(String object, String origin) {
+        final long size =
+                Long.parseLong(require("cat-file", "-s", "--end-of-options", object).strip());
         if (size > 1024 * 1024) {
-            throw new CardException(commit + " " + path + ": file exceeds 1 MiB");
+            throw new CardException(origin + ": file exceeds 1 MiB");
         }
-        final String text = require("cat-file", "blob", object);
+        final String text = require("cat-file", "blob", "--end-of-options", object);
         if (text.indexOf('\uFFFD') >= 0) {
-            throw new CardException(commit + " " + path + ": file is not UTF-8 text");
+            throw new CardException(origin + ": file is not UTF-8 text");
         }
-        return Optional.of(text);
+        return text;
     }
 
     String readRequired(String commit, String path) {

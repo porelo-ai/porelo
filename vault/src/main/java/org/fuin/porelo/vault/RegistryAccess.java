@@ -9,6 +9,8 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.util.regex.Pattern;
+import org.fuin.porelo.core.project.ProjectException;
 import org.fuin.porelo.core.project.Repository;
 import org.yaml.snakeyaml.LoaderOptions;
 import org.yaml.snakeyaml.Yaml;
@@ -26,6 +28,35 @@ record RegistryAccess(Map<String, String> admins, List<Project> projects) {
 
     /** One project and the admin responsible for its access repository. */
     record Project(String name, String admin, String accessRepository) {}
+
+    /** A project's name. */
+    static final Pattern NAME = Pattern.compile("[a-z0-9][a-z0-9-]{0,62}");
+
+    /** An admin's pinned key. */
+    static final Pattern FINGERPRINT = Pattern.compile("SHA256:[A-Za-z0-9+/]{43}");
+
+    /**
+     * Whether an access repository is an address this file accepts: one git reads as an address,
+     * never as an option or a command, written {@code ssh://}, {@code https://} or {@code
+     * user@host:path}.
+     */
+    static boolean accessRepository(String repository) {
+        if (repository.isBlank()) {
+            return false;
+        }
+        try {
+            Repository.refuseAsOption(repository, "access_repository");
+        } catch (ProjectException ex) {
+            return false;
+        }
+        return addressForm(repository);
+    }
+
+    /** Whether an address is written in a form this file accepts, and no transport helper's. */
+    private static boolean addressForm(String repository) {
+        return !repository.matches("[^:]+::[\\s\\S]*")
+                && repository.matches("(?:ssh|https)://[^/]+(?:/.*)?|[^@/:]+@[^/:]+:.+");
+    }
 
     static RegistryAccess read(String text, String origin) {
         try {
@@ -96,13 +127,11 @@ record RegistryAccess(Map<String, String> admins, List<Project> projects) {
             expect(Event.ID.MappingStart);
             while (!next(Event.ID.MappingEnd)) {
                 final String login = scalar();
-                if (!login.matches("[a-z][a-z0-9-]{0,31}")
-                        || login.equals("porelo")
-                        || login.startsWith("porelo-")) {
+                if (!RegistryOwners.login(login)) {
                     throw bad("'" + login + "' is not a person's login");
                 }
                 final String fingerprint = scalar();
-                if (!fingerprint.matches("SHA256:[A-Za-z0-9+/]{43}")) {
+                if (!FINGERPRINT.matcher(fingerprint).matches()) {
                     throw bad("'" + login + "' needs a SHA256 fingerprint");
                 }
                 if (admins.putIfAbsent(login, fingerprint) != null) {
@@ -128,7 +157,7 @@ record RegistryAccess(Map<String, String> admins, List<Project> projects) {
                     throw bad("a project requires name, admin and access_repository");
                 }
                 final String name = fields.getOrDefault("name", "");
-                if (!name.matches("[a-z0-9][a-z0-9-]{0,62}")) {
+                if (!NAME.matcher(name).matches()) {
                     throw bad("invalid project name: '" + name + "'");
                 }
                 if (!names.add(name.toLowerCase(Locale.ROOT))) {
@@ -139,8 +168,7 @@ record RegistryAccess(Map<String, String> admins, List<Project> projects) {
                     throw bad("project '" + name + "' needs access_repository");
                 }
                 Repository.refuseAsOption(repository, "access_repository");
-                if (repository.matches("[^:]+::[\\s\\S]*")
-                        || !repository.matches("(?:ssh|https)://[^/]+(?:/.*)?|[^@/:]+@[^/:]+:.+")) {
+                if (!addressForm(repository)) {
                     throw bad(
                             "project '"
                                     + name
