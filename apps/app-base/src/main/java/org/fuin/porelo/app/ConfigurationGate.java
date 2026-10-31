@@ -200,23 +200,56 @@ public final class ConfigurationGate {
             return;
         }
         try {
-            if (!Files.isRegularFile(krl)) {
-                throw new java.io.IOException("not a regular file");
-            }
-            try (var input = Files.newInputStream(krl)) {
-                if (input.readNBytes(1).length == 0) {
-                    throw new java.io.IOException("empty KRL");
-                }
-            }
-            final CommandResult checked =
-                    runner.run(
-                            Command.of("ssh-keygen", "-Q", "-f", krl.toAbsolutePath().toString()));
-            if (checked.exitCode() != 0 && checked.exitCode() != 1) {
-                throw new java.io.IOException("invalid KRL: " + checked.standardError().strip());
-            }
+            requireRevocation(runner, krl, null);
         } catch (final java.io.IOException | RuntimeException ex) {
             throw new java.io.IOException(
                     "the revocation list cannot be read: " + krl + ": " + ex.getMessage(), ex);
+        }
+    }
+
+    /**
+     * Refuses a revocation list that cannot be read, asking ssh-keygen in a chosen environment.
+     *
+     * @param runner Runs ssh-keygen.
+     * @param krl The revocation list, or {@code null} when none is named.
+     * @param environment All ssh-keygen gets of the environment.
+     * @throws java.io.IOException If the list is missing, empty or no KRL.
+     * @throws org.fuin.porelo.core.process.CommandException If ssh-keygen cannot be run.
+     */
+    static void requireRevocations(
+            final CommandRunner runner,
+            final @org.jspecify.annotations.Nullable Path krl,
+            final java.util.Map<String, String> environment)
+            throws java.io.IOException {
+        if (krl == null) {
+            return;
+        }
+        try {
+            requireRevocation(runner, krl, environment);
+        } catch (final java.io.IOException ex) {
+            throw new java.io.IOException(
+                    "the revocation list cannot be read: " + krl + ": " + ex.getMessage(), ex);
+        }
+    }
+
+    private static void requireRevocation(
+            final CommandRunner runner,
+            final Path krl,
+            final java.util.@org.jspecify.annotations.Nullable Map<String, String> environment)
+            throws java.io.IOException {
+        if (!Files.isRegularFile(krl)) {
+            throw new java.io.IOException("not a regular file");
+        }
+        try (var input = Files.newInputStream(krl)) {
+            if (input.readNBytes(1).length == 0) {
+                throw new java.io.IOException("empty KRL");
+            }
+        }
+        final Command asked = Command.of("ssh-keygen", "-Q", "-f", krl.toAbsolutePath().toString());
+        final CommandResult checked =
+                runner.run(environment == null ? asked : asked.withChosenEnvironment(environment));
+        if (checked.exitCode() != 0 && checked.exitCode() != 1) {
+            throw new java.io.IOException("invalid KRL: " + checked.standardError().strip());
         }
     }
 

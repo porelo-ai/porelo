@@ -20,6 +20,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b363"></a>[B363](B363-A-Push-Judged-By-Porelo-When-It-Arrives.md) | M | [B341](README.md#b341), [B342](README.md#b342), [B343](README.md#b343) | The host forge's pre-receive hook has Porelo judge every new commit at its arrival against the signers in force, the certifiers, the recorded task certificates and the KRL |
 | <a id="b338"></a>[B338](B338-An-Identity-Made-Changed-And-Replaced.md) | L | [B339](README.md#b339), [B342](README.md#b342), [B345](README.md#b345) | `identity create`, `rotate` and `revoke --lost`, publishing the card to the registry and each host with `published[]` |
 | <a id="b339"></a>[B339](B339-The-Registry-Read-And-Written-By-Its-Signers.md) | M | [B337](README.md#b337), [B341](README.md#b341), [B349](README.md#b349) | The organisation's registry checked path by path against each path's own signer, `owners.yml` naming owners and host admins, a new card trusted only when the forge lists its key for that login; `registry read --json` and `registry file` |
 | <a id="b351"></a>[B351](B351-A-Host-Card-Signed-Through-The-SSH-Agent.md) | S | - | `porelo card make-host` signs through `ssh-agent`, KeePassXC included, so a host admin's key never lies on disk to sign their host's card |
@@ -118,7 +119,6 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
-| <a id="b363"></a>[B363](B363-A-Push-Judged-By-Porelo-When-It-Arrives.md) | M | [B341](README.md#b341), [B342](README.md#b342), [B343](README.md#b343) | The host forge's pre-receive hook has Porelo judge every new commit at its arrival against the signers in force, the certifiers, the recorded task certificates and the KRL |
 | <a id="b362"></a>[B362](B362-A-Host-Checks-A-Task-Certificate-Before-It-Records-It.md) | S | [B343](README.md#b343) | The host's helper has Porelo check a task's certificate as signed by the person's key in force for that task before it records it; the start's caller contract written down |
 | <a id="b361"></a>[B361](B361-An-Agent-Starts-Only-The-Subagents-Its-Task-Allows.md) | M | - | Porelo's agent interface carries how many subagents an agent may start in a task, default none, and refuses a value the agent cannot enforce |
 | <a id="b358"></a>[B358](B358-A-Task-Reviews-A-Pull-Request-On-The-Central-Forge.md) | - | [B172](README.md#b172) | A reviewer task also takes any existing pull request on the central forge by its URL, in a project or without one; read and commented with the person's own account, comments only, each released |

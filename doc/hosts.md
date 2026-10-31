@@ -148,6 +148,33 @@ The answer, alone on standard output, for the newest commits that hold:
   option has no use, or a setting has no form in JSON; 66 when a path is not there. A repository without a
   `project.yml` at its tip is named so, before any signature is looked at.
 
+## A push judged when it arrives
+
+The pre-receive hook of the host's forge has Porelo judge every commit a push brings, rather than a checker of its
+own, so the rules that decide which signatures count are Porelo's alone. It runs in the hook's environment, without a
+home, a vault or the network, against the files the host applied, and writes only the scratch files ssh-keygen reads,
+under `TMPDIR`, removed before it answers:
+
+```
+porelo commit verify --repository <git-dir> --signers signers --certifiers certifiers \
+    --krl revoked.krl --certificates certificates --json < pre-receive input
+```
+
+- **`--signers`** are the project's keys in force, as `project verify` answers `signers` (no `valid-before` line
+  signs a new commit); **`--certifiers`** its `certifiers` lines, of which only those in force at the arrival count
+  (no `valid-before`, any `valid-after` passed, the `git` namespace admitted); **`--krl`** the revocation list in force;
+  **`--certificates`** the host's recorded task certificates, one `porelo-host-person task --show` answer per line.
+- **Each new commit, merges included, must carry an SSH signature that holds now**, however the commit is dated: a
+  person's by a key in force, a task's through its certificate from a certifier, valid now, for
+  `task:<project>:<task>`, or a task's plain key whose recorded certificate would itself be accepted; nothing the KRL
+  revokes. Anything else is refused, and a deleted ref judges nothing.
+- **The pushed objects are read through the quarantine git gives the hook**; no other git configuration, hook or
+  proxy of the account takes effect.
+- **Exit 0 lets the push in; 65 refuses it**, with one line per refused commit on standard error, `<commit>
+  <reason>`, which the hook may show the pusher. Every commit is judged, so all refusals are named at once. The JSON
+  answer on standard output is every verdict with its signer, for the host to record; its fields are in
+  [Commands](commands.md#commit).
+
 ## The answers a second run reads
 
 A playbook changes only what differs, so a second `up` on a host that is up changes nothing. It asks:

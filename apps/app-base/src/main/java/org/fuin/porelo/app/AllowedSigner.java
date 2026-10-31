@@ -44,8 +44,66 @@ record AllowedSigner(String principal, String key, List<String> options) {
                 match.group(1), match.group(3).replaceAll("\\s+", " "), List.copyOf(options));
     }
 
-    static List<String> read(final CommandRunner runner, final Path file) throws IOException {
+    /**
+     * Reads an allowed-signers file and has ssh-keygen check it, in a chosen environment, its
+     * scratch file in a directory of the caller's.
+     *
+     * @param runner Runs ssh-keygen.
+     * @param file The file.
+     * @param environment All ssh-keygen gets of the environment.
+     * @param directory Where the scratch file ssh-keygen reads is written, and removed from.
+     * @return The file's lines.
+     * @throws IOException If the file cannot be read or is no allowed-signers file.
+     * @throws java.io.UncheckedIOException If the scratch file cannot be written or removed.
+     * @throws org.fuin.porelo.core.process.CommandException If ssh-keygen cannot be run.
+     */
+    static List<String> read(
+            final CommandRunner runner,
+            final Path file,
+            final java.util.Map<String, String> environment,
+            final Path directory)
+            throws IOException {
         final List<String> lines = Files.readAllLines(file);
+        final List<String> entries = entries(lines);
+        if (entries.isEmpty()) {
+            return lines;
+        }
+        final Path check;
+        try {
+            check = Files.createTempFile(directory, "signers-check-", "");
+            Files.write(check, entries);
+        } catch (final IOException ex) {
+            throw new java.io.UncheckedIOException(
+                    "the scratch file ssh-keygen reads cannot be written", ex);
+        }
+        try {
+            final var result =
+                    runner.run(
+                            Command.of(
+                                            "ssh-keygen",
+                                            "-Y",
+                                            "match-principals",
+                                            "-I",
+                                            "porelo",
+                                            "-f",
+                                            check.toString())
+                                    .withChosenEnvironment(environment));
+            if (!result.successful() || !result.standardError().isBlank()) {
+                throw new IOException(
+                        "invalid allowed-signers file: " + result.standardError().strip());
+            }
+        } finally {
+            try {
+                Files.deleteIfExists(check);
+            } catch (final IOException ex) {
+                throw new java.io.UncheckedIOException(
+                        "the scratch file ssh-keygen read cannot be removed", ex);
+            }
+        }
+        return lines;
+    }
+
+    private static List<String> entries(final List<String> lines) throws IOException {
         final List<String> entries = new ArrayList<>();
         for (final String line : lines) {
             if (line.isBlank() || line.strip().startsWith("#")) {
@@ -57,6 +115,12 @@ record AllowedSigner(String principal, String key, List<String> options) {
             }
             entries.add("porelo" + line.strip().substring(parsed.principal().length()));
         }
+        return entries;
+    }
+
+    static List<String> read(final CommandRunner runner, final Path file) throws IOException {
+        final List<String> lines = Files.readAllLines(file);
+        final List<String> entries = entries(lines);
         if (entries.isEmpty()) {
             return lines;
         }

@@ -25,6 +25,7 @@ import picocli.CommandLine.Spec;
             CardCommand.class,
             IdentityCommand.class,
             RegistryCommand.class,
+            CommitCommand.class,
             HostCommand.class,
             CredentialsCommand.class,
             GateCommand.class,

@@ -1,0 +1,2 @@
+title: "`porelo commit verify` judges every commit a push brings to a host's forge from its pre-receive hook, by an SSH signature that holds at its arrival: a person's key in force, a task's certificate from a certifier, or a task key whose recorded certificate is accepted, none revoked by the KRL"
+type: added

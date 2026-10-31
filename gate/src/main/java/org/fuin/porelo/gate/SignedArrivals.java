@@ -202,7 +202,7 @@ public final class SignedArrivals {
      * @param payload The commit without its {@code gpgsig} header.
      * @param signature The armored signature.
      */
-    record Signed(byte[] payload, byte[] signature) {
+    public record Signed(byte[] payload, byte[] signature) {
 
         /**
          * Splits a raw commit.
@@ -210,7 +210,19 @@ public final class SignedArrivals {
          * @param raw The commit, as {@code git cat-file commit} answers it.
          * @return The parts, or {@code null} when it carries no signature of its own.
          */
-        static @Nullable Signed of(byte[] raw) {
+        public static @Nullable Signed of(byte[] raw) {
+            return of(raw, "gpgsig");
+        }
+
+        /**
+         * Splits a raw commit by the signature header its repository's object format names.
+         *
+         * @param raw The commit, as {@code git cat-file commit} answers it.
+         * @param header {@code gpgsig} in a SHA-1 repository, {@code gpgsig-sha256} in a SHA-256
+         *     one.
+         * @return The parts, or {@code null} when it carries no signature of its own.
+         */
+        public static @Nullable Signed of(byte[] raw, String header) {
             final String text = new String(raw, StandardCharsets.UTF_8);
             final int end = text.indexOf("\n\n");
             final String headers = end < 0 ? text : text.substring(0, end + 1);
@@ -229,10 +241,10 @@ public final class SignedArrivals {
                 }
                 inSignature = false;
                 // Only the commit's own signature header: a mergetag's signature is the tag's.
-                if (line.startsWith("gpgsig ") && !found) {
+                if (line.startsWith(header + " ") && !found) {
                     found = true;
                     inSignature = true;
-                    signature.append(line.substring("gpgsig ".length())).append('\n');
+                    signature.append(line.substring(header.length() + 1)).append('\n');
                     continue;
                 }
                 payload.append(line).append('\n');
