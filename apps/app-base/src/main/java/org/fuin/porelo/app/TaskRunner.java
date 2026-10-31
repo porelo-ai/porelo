@@ -752,7 +752,14 @@ public class TaskRunner {
      */
     private void runOrFail(List<String> arguments, @Nullable Path stdin, String failure)
             throws IOException {
-        final ProcessBuilder builder = new ProcessBuilder(arguments);
+        // The stand-in a test names, as Podman.execute takes it: without it, a unit test ran the
+        // machine's own podman against whatever container has the task's name.
+        final List<String> started = new java.util.ArrayList<>(arguments);
+        final String named = System.getProperty(Podman.NAMED);
+        if (named != null && !named.isBlank()) {
+            started.set(0, named);
+        }
+        final ProcessBuilder builder = new ProcessBuilder(started);
         if (stdin != null) {
             builder.redirectInput(stdin.toFile());
         }

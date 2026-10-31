@@ -433,6 +433,9 @@ public final class StartCheck {
             Map<String, org.fuin.porelo.core.project.Parameters.Given> parameters,
             @Nullable String branch) {
 
+        // One repository for its agent and its limits, as Start settles one for both.
+        final org.fuin.porelo.core.project.Repository settled =
+                limitsFrom(projectFile, repository, needsRepository);
         final Result checked =
                 checkEverythingElse(
                         context,
@@ -441,8 +444,7 @@ public final class StartCheck {
                         agentName,
                         providerName,
                         credentialType,
-                        needsRepository ? namedRepository(projectFile, repository) : null,
-                        limitsFrom(projectFile, repository, needsRepository));
+                        settled);
         final Result valued = withParameters(checked, projectFile, parameters);
         final Result rest =
                 needsRepository
@@ -488,6 +490,7 @@ public final class StartCheck {
                 || rest.outcome() == Outcome.BAD_TASK_NAME
                 || rest.outcome() == Outcome.PARAMETER_REFUSED
                 || rest.outcome() == Outcome.UNKNOWN_DESTINATION
+                || rest.outcome() == Outcome.UNKNOWN_REPOSITORY
                 || projectFile == null) {
             return rest;
         }
@@ -1029,7 +1032,16 @@ public final class StartCheck {
             @Nullable String repository,
             boolean needsRepository) {
 
-        if (rest.outcome() != Outcome.READY || projectFile == null || !needsRepository) {
+        // A named repository is refused with or without a gate, and before its agent, its provider
+        // and its credential, as Start refuses it; only what Start says before it stays. One not
+        // named is asked last, so the choice never hides another refusal.
+        final boolean named = repository != null && !repository.isBlank();
+        if (projectFile == null
+                || !named && (!needsRepository || rest.outcome() != Outcome.READY)
+                || rest.outcome() == Outcome.NO_PROJECT_FILE
+                || rest.outcome() == Outcome.BAD_TASK_NAME
+                || rest.outcome() == Outcome.PARAMETER_REFUSED
+                || rest.outcome() == Outcome.UNKNOWN_DESTINATION) {
             return rest;
         }
         final org.fuin.porelo.core.project.Project project;
@@ -1081,7 +1093,8 @@ public final class StartCheck {
      * @param projectFile The project file, or {@code null}.
      * @param repository The name given, or {@code null}.
      * @return The repository, or {@code null} when there is none to find; a file that cannot be
-     *     read or a name it does not have is the other checks' to say.
+     *     read, a name it does not have or a project's own repository it refuses work in is the
+     *     other checks' to say.
      */
     private static org.fuin.porelo.core.project.@Nullable Repository namedRepository(
             @Nullable Path projectFile, @Nullable String repository) {
@@ -1089,8 +1102,11 @@ public final class StartCheck {
             return null;
         }
         try {
-            return org.fuin.porelo.core.project.ProjectReader.read(projectFile)
-                    .repository(repository);
+            final org.fuin.porelo.core.project.Project project =
+                    org.fuin.porelo.core.project.ProjectReader.read(projectFile);
+            return OwnRepository.refused(project, repository)
+                    ? null
+                    : project.repository(repository);
         } catch (RuntimeException ex) {
             return null;
         }
@@ -1161,9 +1177,7 @@ public final class StartCheck {
      * @param providerName Provider to route through, or {@code null}.
      * @param credentialType Credential kind override, or {@code null}.
      * @param repository The repository the task is for, whose agent is taken without {@code
-     *     agentName}, or {@code null}.
-     * @param limitsFrom The repository whose limits the start takes, or {@code null} when there is
-     *     none to take yet.
+     *     agentName} and whose limits the start takes, or {@code null} when there is none yet.
      * @return What was found.
      */
     private static Result checkEverythingElse(
@@ -1173,8 +1187,7 @@ public final class StartCheck {
             @Nullable String agentName,
             @Nullable String providerName,
             @Nullable String credentialType,
-            org.fuin.porelo.core.project.@Nullable Repository repository,
-            org.fuin.porelo.core.project.@Nullable Repository limitsFrom) {
+            org.fuin.porelo.core.project.@Nullable Repository repository) {
 
         if (projectFile != null && !Files.isRegularFile(projectFile)) {
             return refused(Outcome.NO_PROJECT_FILE, "no project file at " + projectFile);
@@ -1225,9 +1238,9 @@ public final class StartCheck {
             }
             // Before the provider and the credential, as Start refuses it.
             final String tooMany =
-                    projectFile == null || limitsFrom == null
+                    projectFile == null || repository == null
                             ? null
-                            : subagentsRefused(agent, projectFile, limitsFrom);
+                            : subagentsRefused(agent, projectFile, repository);
             if (tooMany != null) {
                 return new Result(Outcome.SUBAGENTS_REFUSED, agent.name(), "", "", tooMany);
             }

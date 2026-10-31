@@ -493,6 +493,57 @@ class PoreloDaemonTest {
     }
 
     @Test
+    void aNumberOfSubagentsThatIsNoWholeNumberIsRefusedBeforeAHostOrATaskIsAsked(@TempDir Path dir)
+            throws Exception {
+
+        // Wrong use is answered before anything: a host never met was scanned over the network,
+        // and a start naming no task listed the runtime's containers for a name, both for a start
+        // that was going to be refused.
+        final PoreloContext context = hooked(dir);
+        projectFile(dir);
+        runner.answering("podman version", "5.8.1");
+
+        servingContext(
+                context,
+                dir,
+                socket -> {
+                    try (VarlinkClient client = new VarlinkClient(socket)) {
+                        final Map<String, Object> reply =
+                                client.call(
+                                        PoreloDaemon.INTERFACE + ".Start",
+                                        Map.of(
+                                                "project",
+                                                PROJECT,
+                                                "repository",
+                                                "uc",
+                                                "upstream",
+                                                "ssh://git@forge.example.org/uc.git",
+                                                "subagents",
+                                                2.7));
+                        assertThat(((Number) reply.get("exitCode")).intValue())
+                                .as("refused as wrong use: %s", reply)
+                                .isEqualTo(64);
+                        final Map<String, Object> unnamed =
+                                client.call(
+                                        PoreloDaemon.INTERFACE + ".Start",
+                                        Map.of(
+                                                "project",
+                                                PROJECT,
+                                                "repository",
+                                                "uc",
+                                                "subagents",
+                                                2.7));
+                        assertThat(((Number) unnamed.get("exitCode")).intValue())
+                                .as("refused as wrong use without its host: %s", unnamed)
+                                .isEqualTo(64);
+                    }
+                });
+        assertThat(runner.lines())
+                .as("neither the host nor the runtime is asked: %s", runner.lines())
+                .noneMatch(line -> line.contains("ssh-keyscan") || line.contains("podman ps"));
+    }
+
+    @Test
     void aValueTheProjectDoesNotAllowIsRefusedByCanStartAndStartAlike(@TempDir Path dir)
             throws Exception {
 

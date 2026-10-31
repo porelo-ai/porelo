@@ -787,7 +787,8 @@ method CanStart(
   project: ?string,
   # Which of the project's repositories the task would be for, exactly as Start takes it.
   # Omitted with a project given, the answer is NO_REPOSITORY_CHOSEN - because that is what Start
-  # would do. Pass noGate when the run would have no gate: such a run works on no repository.
+  # would do. Pass noGate when the run would have no gate: such a run needs none, and one named is
+  # still refused as Start refuses it, before anything about its agent.
   repository: ?string,
   # Whether the run would have no workspace and no git gate, as Start takes it.
   noGate: ?bool,

@@ -109,13 +109,26 @@ class TaskRunCommandTest {
                             } catch (IOException ex) {
                                 throw new java.io.UncheckedIOException(ex);
                             }
-                            replies.last(java.util.Map.of("files", List.of()));
+                            replies.last(
+                                    java.util.Map.of(
+                                            "files",
+                                            Files.exists(Path.of(args[0] + ".places"))
+                                                    ? List.of(
+                                                            placed("/home/agent/.preview.json"),
+                                                            placed(
+                                                                    parameters.get("workspace")
+                                                                            + "/.preview/settings.json"))
+                                                    : List.of()));
                         });
                 System.out.println("ready " + args[2]);
                 System.out.flush();
                 server.run();
             }
         }
+    }
+
+    private static java.util.Map<String, Object> placed(String path) {
+        return java.util.Map.of("path", path, "content", "{}", "ownerOnly", Boolean.FALSE);
     }
 
     private static String told(java.util.Map<String, Object> parameters) {
@@ -997,8 +1010,13 @@ class TaskRunCommandTest {
 
     private void recordSubagents(PoreloContext context, String agent, int subagents)
             throws IOException {
-        final Path state =
-                Files.createDirectories(context.paths().tasks().containerState("porelo-uc-shell"));
+        recordSubagents(
+                context.paths().tasks().containerState("porelo-uc-shell"), agent, subagents);
+    }
+
+    private static void recordSubagents(Path directory, String agent, int subagents)
+            throws IOException {
+        final Path state = Files.createDirectories(directory);
         new org.fuin.porelo.wire.TaskProfile(
                         org.fuin.porelo.wire.TaskProfile.VERSION,
                         agent,
@@ -1098,6 +1116,241 @@ class TaskRunCommandTest {
     }
 
     @Test
+    void aKeptTaskWhoseAgentSetupFailsIsStoppedWithItsHelpers(@TempDir Path dir)
+            throws IOException {
+
+        // Kept, as every start without --rm is: left up, its container, broker, relay and gate ran
+        // on while the start answered that it had failed. The helper stands for the broker, which
+        // runs before the container does; its container runs too, so nothing reaps it as an
+        // orphan.
+        final PoreloContext context = countingContext(dir);
+        Files.writeString(
+                context.paths().xdg().data().resolve("agents/preview.yaml.setup-fails"), "");
+        runner.answering("{{.State.Pid}}", "4242");
+        final Path state =
+                Files.createDirectories(context.paths().tasks().containerState("porelo-uc-shell"));
+        final Process helper = new ProcessBuilder("sleep", "60").start();
+        try {
+            org.fuin.porelo.wire.HelperPid.record(state.resolve("vault.pid"), helper.toHandle());
+
+            final int started =
+                    execute(
+                            context,
+                            "task",
+                            "start",
+                            "-p",
+                            projectFile(dir, MINIMAL),
+                            "--agent",
+                            "preview",
+                            "--no-gate");
+
+            assertThat(started).as("refused: %s", err).isEqualTo(70);
+            assertThat(helper.waitFor(5, java.util.concurrent.TimeUnit.SECONDS))
+                    .as("its helper is stopped with it: %s", out)
+                    .isTrue();
+            assertThat(runner.lines())
+                    .as("the container it started is stopped: %s", runner.lines())
+                    .anyMatch(line -> line.contains("podman stop"));
+            assertThat(out.toString())
+                    .as("and kept, stopped, for a look: %s", out)
+                    .contains("kept      porelo-uc-shell - it failed");
+        } catch (InterruptedException ex) {
+            Thread.currentThread().interrupt();
+            throw new AssertionError(ex);
+        } finally {
+            helper.destroyForcibly();
+        }
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest(name = "with --rm: {0}")
+    @org.junit.jupiter.params.provider.ValueSource(booleans = {false, true})
+    void aStartThatFailsBeforeItsContainerLeavesItsConversationAndRecords(
+            boolean removed, @TempDir Path dir) throws IOException {
+
+        // Failed before podman made the container, kept or not, the start removed a container
+        // that never was: its account at the transport, the secret that retires it, its mailbox
+        // and its state stayed, with no recorded task a removal could reach them by.
+        final char[] passphrase = "test-passphrase".toCharArray();
+        final PoreloContext context = countingContext(dir).asking(shown -> passphrase.clone());
+        try {
+            Files.createDirectories(context.vault().path().getParent());
+            context.vault().write(java.util.Map.of(), passphrase.clone());
+            context.openerAsking(false, new PrintWriter(new StringWriter()));
+            final Path adapters =
+                    context.paths().messaging().transportDirectory().locations().getFirst();
+            Files.createDirectories(adapters);
+            final Path adapter = adapters.resolve(TransportDirectory.PREFIX + "room");
+            Files.writeString(adapter, "#!/bin/sh\n");
+            adapter.toFile().setExecutable(true);
+            runner.answering(
+                    "describe",
+                    "{\"scheme\":\"room\",\"lifecycle\":[\"setup\",\"enroll\",\"retire\"]}");
+            runner.answering(
+                    " setup ", "{\"conversation\":\"!room\",\"reaches\":[\"127.0.0.1:18008\"]}");
+            runner.answering(" enroll ", "{\"secrets\":{\"TASK\":\"t-1\"}}");
+            runner.answering(" retire ", "{}");
+            runner.failing("podman build", 125, "the image does not build");
+            final List<String> arguments =
+                    new ArrayList<>(
+                            List.of(
+                                    "task",
+                                    "start",
+                                    "-p",
+                                    projectFile(
+                                            dir,
+                                            MINIMAL
+                                                    + "mail:\n  transports:\n    room: {}\n"
+                                                    + "  peers:\n    reviewer: { address: 'room:',"
+                                                    + " trust: vouched }\n"),
+                                    "--agent",
+                                    "preview",
+                                    "--no-gate"));
+            if (removed) {
+                arguments.add("--rm");
+            }
+
+            final int started = execute(context, arguments.toArray(String[]::new));
+
+            assertThat(started).as("it failed: %s", err).isNotZero();
+            assertThat(runner.lines())
+                    .as("it joined the project's conversation first: %s", runner.lines())
+                    .anyMatch(line -> line.contains(" enroll "));
+            assertThat(runner.lines())
+                    .as("and leaves it: %s", err)
+                    .anyMatch(line -> line.contains(" retire "));
+            assertThat(
+                            new TransportLifecycle(
+                                            context,
+                                            context.paths().messaging().transportDirectory())
+                                    .secrets("room", "task/porelo-uc-shell"))
+                    .as("nothing is kept to retire it by")
+                    .isEmpty();
+            assertThat(context.paths().messaging().mailbox("porelo-uc-shell"))
+                    .as("its mailbox goes")
+                    .doesNotExist();
+            assertThat(context.paths().tasks().containerState("porelo-uc-shell"))
+                    .as("and its state")
+                    .doesNotExist();
+        } finally {
+            PoreloContext.forgetAsked();
+        }
+    }
+
+    @Test
+    void aKeptTaskWhoseStartFailsAfterItsContainerIsUpIsStopped(@TempDir Path dir)
+            throws IOException {
+
+        // Any start that fails once its container is up, not only one whose setup failed: kept, it
+        // was left running with its helpers while the start answered that it had failed.
+        final PoreloContext context = countingContext(dir);
+        runner.timingOut("{{.State.Pid}}");
+
+        final int started =
+                execute(
+                        context,
+                        "task",
+                        "start",
+                        "-p",
+                        projectFile(dir, MINIMAL),
+                        "--agent",
+                        "preview",
+                        "--no-gate");
+
+        assertThat(started).as("failed: %s", err).isEqualTo(70);
+        assertThat(runner.lines())
+                .as("the container it started is stopped: %s", runner.lines())
+                .anyMatch(line -> line.contains("podman stop"));
+    }
+
+    @Test
+    void aGatedTaskWhoseAgentSetupFailsStartsNothingAfterItsContainer(@TempDir Path dir)
+            throws IOException {
+
+        // Set up after its gate, a host's forge token had been taken for it, right before the gate,
+        // and nothing recorded that a removal would retire it by. The host's helper is at a fixed
+        // root-owned path no unit test has, so the gate stands for what follows the container.
+        final PoreloContext context = countingContext(dir);
+        Files.writeString(
+                context.paths().xdg().data().resolve("agents/preview.yaml.setup-fails"), "");
+
+        final int started =
+                execute(
+                        context,
+                        "task",
+                        "start",
+                        "-p",
+                        projectFile(dir, MINIMAL),
+                        "--agent",
+                        "preview");
+
+        assertThat(started).as("refused: %s", err).isEqualTo(70);
+        assertThat(out.toString())
+                .as("its gate is never started: %s", out)
+                .contains("started   yes")
+                .doesNotContain("gate      http");
+        assertThat(err.toString())
+                .as("nor its workspace prepared: %s", err)
+                .contains("could not prepare the agent's files")
+                .doesNotContain("workspace");
+    }
+
+    @Test
+    void anAgentsFileInTheWorkspaceIsPlacedOnlyOnceTheWorkspaceIsCheckedOut(@TempDir Path dir)
+            throws IOException {
+
+        // Placed first, a file the repository also tracks stopped the workspace's checkout, which
+        // refuses to overwrite it, and the workspace was left without the push that reaches the
+        // gate. What goes elsewhere is still placed before the gate.
+        final PoreloContext context = countingContext(dir);
+        Files.writeString(context.paths().xdg().data().resolve("agents/preview.yaml.places"), "");
+        // What goes into the container, the files and the checkout alike, in the order it went.
+        final Path said = dir.resolve("podman.said");
+        final Path podman = dir.resolve("logging-podman");
+        Files.writeString(
+                podman,
+                "#!/bin/sh\nprintf '%s\\n' \"$*\" >> " + shellArgument(said.toString()) + "\n");
+        Files.setPosixFilePermissions(
+                podman, java.nio.file.attribute.PosixFilePermissions.fromString("rwx------"));
+        final String standIn = System.getProperty(org.fuin.porelo.runtime.Podman.NAMED);
+        System.setProperty(org.fuin.porelo.runtime.Podman.NAMED, podman.toString());
+        final int started;
+        try {
+            started =
+                    execute(
+                            context,
+                            "task",
+                            "start",
+                            "-p",
+                            projectFile(dir, MINIMAL),
+                            "--agent",
+                            "preview");
+        } finally {
+            System.setProperty(org.fuin.porelo.runtime.Podman.NAMED, standIn);
+        }
+
+        assertThat(started).as("started: %s", err).isZero();
+        final List<String> lines = Files.readAllLines(said);
+        final int checkout = indexOf(lines, "git init -q");
+        assertThat(checkout).as("the workspace is checked out: %s", lines).isNotNegative();
+        assertThat(indexOf(lines, "tee " + TaskWorkspace.MOUNT + "/.preview/settings.json"))
+                .as("the file in the workspace is placed after its checkout: %s", lines)
+                .isGreaterThan(checkout);
+        assertThat(indexOf(lines, "tee /home/agent/.preview.json"))
+                .as("the agent's own file before it: %s", lines)
+                .isNotNegative()
+                .isLessThan(checkout);
+    }
+
+    private static int indexOf(List<String> lines, String part) {
+        for (int i = 0; i < lines.size(); i++) {
+            if (lines.get(i).contains(part)) {
+                return i;
+            }
+        }
+        return -1;
+    }
+
+    @Test
     void aShellTaskWhoseAgentSetupFailsStillStarts(@TempDir Path dir) throws IOException {
 
         // Porelo starts no agent in a shell, so the failure is said and the shell comes up.
@@ -1175,6 +1428,62 @@ class TaskRunCommandTest {
         assertThat(runner.lines().subList(before, runner.lines().size()))
                 .as("brought back with its own number: its container is asked for")
                 .anyMatch(line -> line.contains("container inspect"));
+    }
+
+    @Test
+    void aTaskBroughtBackAfterARebootReadsItsNumberFromItsDurableRecord(@TempDir Path dir)
+            throws IOException {
+
+        // A reboot clears the runtime directory, and its records are put back only by the resume
+        // the check comes before: read from there alone, the task's own number was refused and
+        // none taken, while its agent was still told the kept one.
+        final PoreloContext context = context(dir, true);
+        runner.answering(
+                "ps",
+                "porelo-uc-shell\tExited (0) 4 minutes ago\t1700000000\t1700000100\tuc\tguarded\tuc\t\n");
+        recordSubagents(context.paths().tasks().taskRecord("porelo-uc-shell"), "preview", 2);
+        // The container a reboot leaves, under the id its durable record keeps.
+        org.fuin.porelo.wire.Sidecar.recordId(
+                context.paths().tasks().taskRecord("porelo-uc-shell"), "0123456789abcdef");
+        runner.answering("{{.Id}}", "0123456789abcdef");
+
+        final int none =
+                execute(
+                        context,
+                        "task",
+                        "start",
+                        "shell",
+                        "-p",
+                        projectFile(dir, MINIMAL),
+                        "--subagents",
+                        "0",
+                        "--detach");
+
+        assertThat(none).as(err.toString()).isEqualTo(64);
+        assertThat(err.toString())
+                .as("the refusal names the number its durable record keeps")
+                .contains("was started with --subagents 2");
+
+        err.getBuffer().setLength(0);
+        final int own =
+                execute(
+                        context,
+                        "task",
+                        "start",
+                        "shell",
+                        "-p",
+                        projectFile(dir, MINIMAL),
+                        "--subagents",
+                        "2",
+                        "--detach");
+
+        assertThat(own).as("brought back with its own number: %s", err).isZero();
+        assertThat(err.toString())
+                .as("its own number is taken")
+                .doesNotContain("was started with --subagents");
+        assertThat(runner.lines())
+                .as("and it is brought back: %s", runner.lines())
+                .anyMatch(line -> line.contains("podman start"));
     }
 
     @Test
@@ -1477,6 +1786,199 @@ class TaskRunCommandTest {
                 .as("in the words Start refuses with, naming the repository's key")
                 .contains("repository backend's limits.subagents 2");
         assertThat(err.toString()).contains("porelo: " + checked.detail());
+    }
+
+    @Test
+    void canStartRefusesTheOwnRepositoryOfAProjectWithOthersAsStartRefusesIt(@TempDir Path dir)
+            throws IOException {
+
+        // Answered for its number, an interface showed a refusal of subagents where Start refuses
+        // the repository, and the person changed the number to no avail.
+        final PoreloContext context = previewContext(dir);
+        previewAgent(context, "preview", "subagents: off\n");
+        final String project =
+                projectFile(
+                        dir,
+                        MINIMAL
+                                + "limits:\n  subagents: 1\n"
+                                + "repositories:\n  backend:\n    limits:\n      subagents: 0\n");
+
+        final StartCheck.Result checked =
+                StartCheck.check(
+                        context,
+                        dir.resolve("project.yml"),
+                        "shell",
+                        "preview",
+                        null,
+                        null,
+                        "uc",
+                        true,
+                        java.util.Map.of(),
+                        java.util.Map.of(),
+                        null);
+        final int started =
+                execute(
+                        context,
+                        "task",
+                        "start",
+                        "-p",
+                        project,
+                        "--repository",
+                        "uc",
+                        "--agent",
+                        "preview",
+                        "--dry-run");
+
+        assertThat(started).as("Start refuses it: %s", err).isEqualTo(64);
+        assertThat(err.toString())
+                .as("for its repository: %s", err)
+                .doesNotContain("subagents off");
+        assertThat(checked.outcome())
+                .as("CanStart refuses the repository as Start does: %s", checked.detail())
+                .isEqualTo(StartCheck.Outcome.UNKNOWN_REPOSITORY);
+        assertThat(err.toString()).contains(checked.detail());
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest(name = "repository {0}")
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"nosuch", "uc"})
+    void canStartRefusesARepositoryStartRefusesWithoutAGateToo(String named, @TempDir Path dir)
+            throws IOException {
+
+        // Answered ready, an interface offered a start that Start then refused for its repository;
+        // its host services, which Start says only after the repository, were said instead.
+        final PoreloContext context = countingContext(dir);
+        final String project =
+                projectFile(
+                        dir,
+                        MINIMAL
+                                + "egress:\n  host_services: [\"forge.internal.example\"]\n"
+                                + "repositories:\n  backend:\n    agent: preview\n");
+
+        final StartCheck.Result checked =
+                StartCheck.check(
+                        context,
+                        dir.resolve("project.yml"),
+                        "shell",
+                        "preview",
+                        null,
+                        null,
+                        named,
+                        false,
+                        java.util.Map.of(),
+                        java.util.Map.of(),
+                        null);
+        final int started =
+                execute(
+                        context,
+                        "task",
+                        "start",
+                        "-p",
+                        project,
+                        "--repository",
+                        named,
+                        "--agent",
+                        "preview",
+                        "--no-gate",
+                        "--dry-run");
+
+        assertThat(started).as("Start refuses it: %s", err).isEqualTo(64);
+        assertThat(checked.outcome())
+                .as("CanStart refuses it as Start does: %s", checked.detail())
+                .isEqualTo(StartCheck.Outcome.UNKNOWN_REPOSITORY);
+    }
+
+    @Test
+    void canStartRefusesARepositoryBeforeItAsksWhichAgentAsStartDoes(@TempDir Path dir)
+            throws IOException {
+
+        // Told to choose an agent, a person chose one and was then refused for the repository,
+        // which Start had named first.
+        final PoreloContext context = countingContext(dir);
+        previewAgent(context, "other");
+        final String project = projectFile(dir, MINIMAL);
+
+        final StartCheck.Result checked =
+                StartCheck.check(
+                        context,
+                        dir.resolve("project.yml"),
+                        "shell",
+                        null,
+                        null,
+                        null,
+                        "nosuch",
+                        true,
+                        java.util.Map.of(),
+                        java.util.Map.of(),
+                        null);
+        final int started =
+                execute(
+                        context,
+                        "task",
+                        "start",
+                        "-p",
+                        project,
+                        "--repository",
+                        "nosuch",
+                        "--dry-run");
+
+        assertThat(started).as("Start refuses it: %s", err).isEqualTo(64);
+        assertThat(err.toString()).as("for its repository").contains("has no repository");
+        assertThat(checked.outcome())
+                .as("CanStart refuses the repository first, as Start does: %s", checked.detail())
+                .isEqualTo(StartCheck.Outcome.UNKNOWN_REPOSITORY);
+    }
+
+    @Test
+    void canStartTakesTheAgentANamedRepositoryNamesWithoutAGateAsStartTakesIt(@TempDir Path dir)
+            throws IOException {
+
+        // Asked without the repository, CanStart said several agents are installed while Start
+        // took the repository's own and its number.
+        final PoreloContext context = countingContext(dir);
+        previewAgent(context, "other", "subagents: off\n");
+        final Path other = context.paths().xdg().data().resolve("agents/other.yaml");
+        final String declared = Files.readString(other);
+        Files.writeString(
+                other,
+                declared.substring(0, declared.indexOf("provider:"))
+                        + declared.substring(declared.indexOf("subagents:")));
+        final String project =
+                projectFile(
+                        dir,
+                        MINIMAL
+                                + "repositories:\n  backend:\n    agent: preview\n"
+                                + "    limits:\n      subagents: 2\n");
+
+        final StartCheck.Result checked =
+                StartCheck.check(
+                        context,
+                        dir.resolve("project.yml"),
+                        "shell",
+                        null,
+                        null,
+                        null,
+                        "backend",
+                        false,
+                        java.util.Map.of(),
+                        java.util.Map.of(),
+                        null);
+        final int started =
+                execute(
+                        context,
+                        "task",
+                        "start",
+                        "-p",
+                        project,
+                        "--repository",
+                        "backend",
+                        "--no-gate",
+                        "--dry-run");
+
+        assertThat(started).as("Start takes it: %s", err).isZero();
+        assertThat(checked.outcome())
+                .as("CanStart takes it too: %s", checked.detail())
+                .isEqualTo(StartCheck.Outcome.READY);
+        assertThat(checked.agent()).as("the repository's agent").isEqualTo("preview");
     }
 
     @Test

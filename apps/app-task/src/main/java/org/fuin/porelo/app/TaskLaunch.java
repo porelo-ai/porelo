@@ -842,9 +842,15 @@ public final class TaskLaunch {
      * @return The number; 0 for a task whose record does not say, which is what it was told.
      */
     private int keptSubagents(String container) {
-        final org.fuin.porelo.wire.TaskProfile profile =
+        org.fuin.porelo.wire.TaskProfile profile =
                 org.fuin.porelo.wire.TaskProfile.readFrom(
                         context.paths().tasks().containerState(container));
+        if (profile == null) {
+            // After a reboot, before the resume puts the runtime directory's records back.
+            profile =
+                    org.fuin.porelo.wire.TaskProfile.readFrom(
+                            context.paths().tasks().taskRecord(container));
+        }
         return profile == null ? 0 : profile.subagents();
     }
 
@@ -1460,6 +1466,9 @@ public final class TaskLaunch {
 
         final TaskRunner runner = context.tasks();
         final String container = runner.containerName(project, request.task());
+        // Until the task is handed on, a failure is a start that failed, which leaves nothing
+        // running whether or not the task was to be kept.
+        boolean handedOver = false;
 
         try (org.fuin.porelo.agent.api.InstalledAgents agents = context.agents()) {
 
@@ -1879,6 +1888,7 @@ public final class TaskLaunch {
                 err.flush();
                 return 69;
             }
+            enrolledIn = project;
 
             // The state directory has to exist before anything writes into it. start() also creates
             // it, but the credential proxy needs it first: it writes its socket, its token and its
@@ -2088,15 +2098,18 @@ public final class TaskLaunch {
                                                     : ", named by the project"));
                         }
                     });
+            // Before anything else is started for it: a setup that fails then leaves no relay or
+            // gate behind, only the container and its broker, which stopping it ends.
+            final java.util.List<org.fuin.porelo.agent.api.ContainerFile> inWorkspace =
+                    placeAgentFiles(runner, selected, container, environmentCache, out, err);
+            if (inWorkspace == null) {
+                return cleanUp(runner, container, 70, false, out, err);
+            }
             steps.started(StartStep.Step.HELPERS);
             if (needsRelay && plumbing != null) {
                 wiring().startRelay(runner, container, plumbing.socket(), out, err);
             }
 
-            final String forgeToken =
-                    workspace != null && issued != null && host.present()
-                            ? host.start(request.task(), issued.certificate().line())
-                            : "";
             if (workspace != null) {
                 gate().startGate(
                                 runner,
@@ -2117,10 +2130,10 @@ public final class TaskLaunch {
                 workspace()
                         .prepareWorkspace(runner, workspace, container, environmentCache, out, err);
             }
-
-            if (!placeAgentFiles(runner, selected, container, environmentCache, out, err)) {
-                return cleanUp(runner, container, 70, out, err);
+            if (!placeWorkspaceFiles(runner, selected, container, inWorkspace, out, err)) {
+                return cleanUp(runner, container, 70, false, out, err);
             }
+
             out.println();
 
             clearance().startClearance(runner, project, container, out, err);
@@ -2157,11 +2170,24 @@ public final class TaskLaunch {
                 if (!unsigned.isEmpty()) {
                     out.println("signing   " + unsigned);
                 }
-                if (!forgeToken.isEmpty()) {
-                    final String unkeptToken =
-                            new TaskSecrets(context).keepForgeToken(container, forgeToken);
-                    if (!unkeptToken.isEmpty()) {
-                        out.println("forge     " + unkeptToken);
+                // Taken only once its key is kept, which is what has a removal end it: taken
+                // earlier, a start that failed on the way left it live until its certificate ran
+                // out.
+                if (workspace != null && host.present()) {
+                    if (!unsigned.isEmpty()) {
+                        throw new TaskCertification.Refused(
+                                "this host makes a task's forge token only when the task's key is"
+                                        + " kept, which is how its removal ends the token: "
+                                        + unsigned);
+                    }
+                    final String forgeToken =
+                            host.start(request.task(), issued.certificate().line());
+                    if (!forgeToken.isEmpty()) {
+                        final String unkeptToken =
+                                new TaskSecrets(context).keepForgeToken(container, forgeToken);
+                        if (!unkeptToken.isEmpty()) {
+                            out.println("forge     " + unkeptToken);
+                        }
                     }
                 }
                 // Kept past the task, so a signature by its plain key is traced to whoever vouched.
@@ -2181,6 +2207,7 @@ public final class TaskLaunch {
             // installed agents are a resource this owns, and the paths that follow a start use
             // them.
             steps.done(StartStep.Step.HELPERS);
+            handedOver = true;
             return after.started(
                     new Running(
                             runner,
@@ -2194,30 +2221,36 @@ public final class TaskLaunch {
         } catch (HostPerson.Refused ex) {
             err.println("porelo: " + ex.getMessage());
             err.flush();
-            return cleanUp(runner, container, ex.code() == 69 ? 69 : 65, out, err);
+            return cleanUp(
+                    runner,
+                    container,
+                    ex.code() == 69 ? 69 : 65,
+                    handedOver && request.keep(),
+                    out,
+                    err);
         } catch (TaskCertification.Refused ex) {
             err.println("porelo: " + ex.getMessage());
             err.flush();
-            return cleanUp(runner, container, 65, out, err);
+            return cleanUp(runner, container, 65, handedOver && request.keep(), out, err);
         } catch (TaskCertificates.Refused ex) {
             err.println("porelo: " + ex.getMessage());
             err.flush();
-            return cleanUp(runner, container, 70, out, err);
+            return cleanUp(runner, container, 70, handedOver && request.keep(), out, err);
         } catch (CommandException ex) {
             steps.dependencyFailed(ex.standardError());
             err.println("porelo: " + ex.getMessage());
             err.flush();
-            return cleanUp(runner, container, 70, out, err);
+            return cleanUp(runner, container, 70, handedOver && request.keep(), out, err);
         } catch (org.fuin.porelo.agent.api.AgentException ex) {
             // "Several agents are installed" is a sentence for a person. Printed as an object it
             // reached an interface as a Java class name, which says nothing about what to do.
             err.println("porelo: " + ex.getMessage());
             err.flush();
-            return cleanUp(runner, container, 69, out, err);
+            return cleanUp(runner, container, 69, handedOver && request.keep(), out, err);
         } catch (Exception ex) {
             err.println("porelo: " + ex);
             err.flush();
-            return cleanUp(runner, container, 70, out, err);
+            return cleanUp(runner, container, 70, handedOver && request.keep(), out, err);
         }
     }
 
@@ -2714,25 +2747,33 @@ public final class TaskLaunch {
      * container, so the tool stops and asks a person. The agent says what to write; this writes it,
      * understanding none of it.
      *
+     * <p>A file in the workspace waits for its checkout, which refuses to overwrite a file its
+     * repository tracks: placed before, it stopped the checkout, and the workspace was left without
+     * the push that reaches the gate.
+     *
      * @param runner Runs the container.
      * @param agent The selected agent, or {@code null}.
      * @param container Container name.
      * @param environment Variables already prepared for the task.
      * @param out Where progress is reported.
      * @param err Where problems are reported.
-     * @return {@code false} when the files could not be placed for an agent started attended, whose
-     *     setup is the only place it hears its number of subagents; the task must not start then.
+     * @return The files in the workspace, still to be placed once it is checked out; {@code null}
+     *     when the files could not be placed for an agent started attended, whose setup is the only
+     *     place it hears its number of subagents, and the task must not start then.
      */
-    private boolean placeAgentFiles(
-            TaskRunner runner,
-            org.fuin.porelo.agent.api.@org.jspecify.annotations.Nullable InstalledAgent agent,
-            String container,
-            java.util.Map<String, String> environment,
-            PrintWriter out,
-            PrintWriter err) {
+    private java.util.@org.jspecify.annotations.Nullable List<
+                    org.fuin.porelo.agent.api.ContainerFile>
+            placeAgentFiles(
+                    TaskRunner runner,
+                    org.fuin.porelo.agent.api.@org.jspecify.annotations.Nullable InstalledAgent
+                            agent,
+                    String container,
+                    java.util.Map<String, String> environment,
+                    PrintWriter out,
+                    PrintWriter err) {
 
         if (agent == null) {
-            return true;
+            return java.util.List.of();
         }
         final String variable = credentials().tokenVariable(agent);
         final String named = variable == null ? null : environment.get(variable);
@@ -2754,38 +2795,95 @@ public final class TaskLaunch {
                                     wiring().endpointFor(agent, environment),
                                     selection == null ? "" : selection.name(),
                                     subagents));
+            final java.util.List<org.fuin.porelo.agent.api.ContainerFile> inWorkspace =
+                    files.stream()
+                            .filter(file -> file.path().startsWith(TaskWorkspace.MOUNT + "/"))
+                            .toList();
             for (final var file : files) {
-                runner.place(container, file);
+                if (!inWorkspace.contains(file)) {
+                    runner.place(container, file);
+                }
             }
-            if (!files.isEmpty()) {
+            if (files.size() > inWorkspace.size()) {
                 out.println(
                         "prepared  "
-                                + files.size()
+                                + (files.size() - inWorkspace.size())
                                 + " file(s) the agent needs to start"
                                 + " without being asked");
             }
+            return inWorkspace;
+        } catch (java.io.IOException | RuntimeException ex) {
+            return agentFilesFailed(agent, ex, err) ? null : java.util.List.of();
+        }
+    }
+
+    /**
+     * Writes the agent's files in the workspace, once it is checked out.
+     *
+     * @param runner Runs the container.
+     * @param agent The selected agent, or {@code null}.
+     * @param container Container name.
+     * @param files What {@link #placeAgentFiles} left for the workspace.
+     * @param out Where progress is reported.
+     * @param err Where problems are reported.
+     * @return {@code false} when they could not be placed and the task must not start, as {@link
+     *     #placeAgentFiles} answers it.
+     */
+    private boolean placeWorkspaceFiles(
+            TaskRunner runner,
+            org.fuin.porelo.agent.api.@org.jspecify.annotations.Nullable InstalledAgent agent,
+            String container,
+            java.util.List<org.fuin.porelo.agent.api.ContainerFile> files,
+            PrintWriter out,
+            PrintWriter err) {
+        if (agent == null || files.isEmpty()) {
+            return true;
+        }
+        try {
+            for (final var file : files) {
+                runner.place(container, file);
+            }
+            out.println(
+                    "prepared  "
+                            + files.size()
+                            + " file(s) in the workspace the agent needs to start"
+                            + " without being asked");
             return true;
         } catch (java.io.IOException | RuntimeException ex) {
-            err.println("porelo: could not prepare the agent's files: " + ex.getMessage());
-            if (request.mode() == org.fuin.porelo.wire.TaskMode.AGENT) {
-                // Started attended, its agent has no run request: without its setup it would run
-                // with its subagents as its own default has them, not as the task asks.
-                err.println(
-                        "porelo: "
-                                + agent.name()
-                                + " is started attended and hears how many subagents it may run ("
-                                + (subagents == 0 ? "none" : subagents + " at the same time")
-                                + ") only from these files, so the task is not started without"
-                                + " them");
-                err.flush();
-                return false;
-            }
-            // Otherwise not fatal: the run request carries the number, and the agent only asks the
-            // questions this would have answered. Saying so beats a task that looks wired up and
-            // then stops for input.
+            return !agentFilesFailed(agent, ex, err);
+        }
+    }
+
+    /**
+     * Says that the agent's files could not be placed.
+     *
+     * @param agent The selected agent.
+     * @param ex What went wrong.
+     * @param err Where it is said.
+     * @return Whether the task must not start: an agent started attended hears its number of
+     *     subagents only from these files.
+     */
+    private boolean agentFilesFailed(
+            org.fuin.porelo.agent.api.InstalledAgent agent, Exception ex, PrintWriter err) {
+        err.println("porelo: could not prepare the agent's files: " + ex.getMessage());
+        if (request.mode() == org.fuin.porelo.wire.TaskMode.AGENT) {
+            // Started attended, its agent has no run request: without its setup it would run
+            // with its subagents as its own default has them, not as the task asks.
+            err.println(
+                    "porelo: "
+                            + agent.name()
+                            + " is started attended and hears how many subagents it may run ("
+                            + (subagents == 0 ? "none" : subagents + " at the same time")
+                            + ") only from these files, so the task is not started without"
+                            + " them");
             err.flush();
             return true;
         }
+        // Otherwise not fatal: the run request carries the number, and the agent only asks the
+        // questions this would have answered. Saying so beats a task that looks wired up and
+        // then stops for input.
+        err.flush();
+        return false;
     }
 
     /**
@@ -3314,6 +3412,9 @@ public final class TaskLaunch {
      */
     private String verifiedAt = "";
 
+    /** The project whose conversations this start took the task into, or {@code null}. */
+    private @Nullable Project enrolledIn;
+
     /** What this run started on the host, written out so a later start can bring them back. */
     private final java.util.List<TaskHelpers.Helper> startedHelpers = new java.util.ArrayList<>();
 
@@ -3384,8 +3485,30 @@ public final class TaskLaunch {
      */
     private int cleanUp(
             TaskRunner runner, String container, int code, PrintWriter out, PrintWriter err) {
+        return cleanUp(runner, container, code, request.keep(), out, err);
+    }
+
+    /**
+     * Removes a task that finished, and holds one that failed, as {@link #cleanUp(TaskRunner,
+     * String, int, PrintWriter, PrintWriter)} does.
+     *
+     * @param runner Runs the container.
+     * @param container Container name.
+     * @param code Exit code of the run.
+     * @param keep Whether the container is left as it is; a start that failed never is.
+     * @param out Where the decision is reported.
+     * @param err Where survivors are reported.
+     * @return The run's failure, or 70 if cleanup of a successful run failed.
+     */
+    private int cleanUp(
+            TaskRunner runner,
+            String container,
+            int code,
+            boolean keep,
+            PrintWriter out,
+            PrintWriter err) {
         try {
-            return cleanUpOrFail(runner, container, code, out, err);
+            return cleanUpOrFail(runner, container, code, keep, out, err);
         } catch (final RuntimeException ex) {
             // Said, never in its place: what failed while cleaning up replaced the refusal that
             // caused the clean-up, and a start refused for its agent answered over the socket that
@@ -3404,8 +3527,50 @@ public final class TaskLaunch {
         return stopped.clean();
     }
 
+    /**
+     * Ends what a start made for a container podman never made: its place in the project's
+     * conversations, its mailbox, its guide and its state, as {@code task remove} ends them for a
+     * task. Without a recorded container, no removal reached them, and the account stayed at the
+     * transport until a prune forgot the only secret that could retire it.
+     *
+     * @param container Container name.
+     * @param err Where what could not be ended is said.
+     */
+    private void forgetUnmade(String container, PrintWriter err) {
+        final Project enrolled = enrolledIn;
+        if (enrolled == null) {
+            // Refused before it joined anything: nothing of it was made.
+            return;
+        }
+        new TaskConversations(context).retire(enrolled, container, err);
+        try {
+            new Mailbox(context.paths().messaging().mailbox(container)).delete();
+            new TaskGuide(context.paths(), container).delete();
+        } catch (java.io.IOException ex) {
+            err.println("porelo: could not delete the mailbox of " + container + ": " + ex);
+        }
+        final java.nio.file.Path state = context.paths().tasks().containerState(container);
+        if (java.nio.file.Files.isDirectory(state)) {
+            try (java.util.stream.Stream<java.nio.file.Path> paths =
+                    java.nio.file.Files.walk(state)) {
+                for (final java.nio.file.Path path :
+                        paths.sorted(java.util.Comparator.reverseOrder()).toList()) {
+                    java.nio.file.Files.deleteIfExists(path);
+                }
+            } catch (java.io.IOException ex) {
+                err.println("porelo: could not delete the state of " + container + ": " + ex);
+            }
+        }
+        err.flush();
+    }
+
     private int cleanUpOrFail(
-            TaskRunner runner, String container, int code, PrintWriter out, PrintWriter err) {
+            TaskRunner runner,
+            String container,
+            int code,
+            boolean keep,
+            PrintWriter out,
+            PrintWriter err) {
 
         final String recorded = context.recordedId(container);
         final boolean exists =
@@ -3413,8 +3578,9 @@ public final class TaskLaunch {
                         ? context.podman().idOf(container).isPresent()
                         : context.podman().stateOf(recorded)
                                 != org.fuin.porelo.runtime.Podman.ContainerState.ABSENT;
+        boolean unmade = false;
 
-        if (code != 0 && exists && !request.keep()) {
+        if (code != 0 && exists && !keep) {
             final TaskControl.Stopped held = new TaskControl(context).stop(container);
             if (!reportStop(held, err)) return code == 0 ? 70 : code;
             out.println("kept      " + container + " - it failed, so nothing was removed");
@@ -3429,7 +3595,7 @@ public final class TaskLaunch {
             out.println("          - which offers to start it again -");
             out.println("          discard with 'porelo task remove " + container + "'");
             out.flush();
-        } else if (!request.keep()) {
+        } else if (!keep) {
             // The same question 'task remove' asks before it removes anything. A workspace is in
             // the container's own writable layer, so this remove destroys it - and asking there but
             // not here was the difference between refusing to discard unreviewed work and
@@ -3450,6 +3616,7 @@ public final class TaskLaunch {
                     if (!reportStop(removed, err)) return code == 0 ? 70 : code;
                 } else {
                     runner.remove(container);
+                    unmade = true;
                 }
             } else {
                 // Stopped rather than left up, for the reason the failed branch is: a task nobody
@@ -3482,6 +3649,10 @@ public final class TaskLaunch {
         }
         // Only reaps when no container is running: a start that failed fires no poststop hook.
         runner.reapOrphans(container);
+        if (unmade) {
+            // After the reaping, which finds the helpers by the pid files in its state.
+            forgetUnmade(container, err);
+        }
         return code;
     }
 

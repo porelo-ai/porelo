@@ -272,14 +272,18 @@ layer and before the snippet and agent layers; it does not become an image envir
 `limits.subagents` is how many subagents a task's agent may run at the same time inside the task: 0, the default, for
 none, and 1 or more for that many at once, not over the whole task. `porelo task start --subagents N` wins over the
 file, and a repository's `limits.subagents` over the project's. The number is fixed when the task is created and kept
-with it: a stopped task brought back hands its agent the same number again, takes `--subagents` with that number and
-refuses another with exit code 64. The agent's adapter turns it into the agent's own switch, and its definition says
-what it can enforce: a task asking for more than that, such as any subagent of an agent that can only switch them
-off, is refused with exit code 64 before anything is made, naming the agent and what it can enforce, and the daemon's
-`CanStart` answers `SUBAGENTS_REFUSED` in the same words. A number below 0 or one that is not whole is refused too.
-An agent started attended hears its number only from the files its adapter writes into the container, so a task
-whose agent's files cannot be written is not started; a shell or an unattended run starts and says so, since a
-shell starts no agent and an unattended run carries the number in its own request.
+with it: a stopped task brought back, after a reboot too, hands its agent the same number again, takes `--subagents`
+with that number and refuses another with exit code 64. The agent's adapter turns it into the agent's own switch, and
+its definition says what it can enforce: a task asking for more than that, such as any subagent of an agent that can
+only switch them off, is refused with exit code 64 before anything is made, naming the agent and what it can enforce,
+and the daemon's `CanStart` answers `SUBAGENTS_REFUSED` in the same words. A number below 0 or one that is not whole is
+refused too. An agent started attended hears its number only from the files its adapter writes into the container, so a
+task whose agent's files cannot be written is not started; a shell or an unattended run starts and says so, since a
+shell starts no agent and an unattended run carries the number in its own request. The files are written as soon as the
+container is up, before its relay, gate and workspace, so a task that is not started is stopped, kept or not; a file in
+the workspace is written once the workspace is checked out, which refuses to overwrite a file its repository tracks. On
+a host, the task's forge token is taken last, once the task's key is kept, which is how `porelo task remove` ends the
+token; a start whose key cannot be kept takes none and is refused with exit code 65.
 
 ## Services on this host
 

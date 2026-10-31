@@ -619,6 +619,38 @@ final class TaskMethods {
         server.method(
                 "Start",
                 (parameters, replies) -> {
+                    final StartReplies progress =
+                            new StartReplies(replies, flag(parameters, "steps"));
+                    final java.io.StringWriter collected = new java.io.StringWriter();
+                    final PrintWriter sink =
+                            replies.streaming()
+                                    // Streamed as it happens: building an image takes minutes, and
+                                    // an interface showing nothing for that long is
+                                    // indistinguishable from one that hung.
+                                    ? new PrintWriter(progress.stream(), true)
+                                    : new PrintWriter(collected, true);
+                    // Wrong use, as at the command line, before anything is asked or made: a value
+                    // read as a lower number, or dropped, would bound the agent to something nobody
+                    // asked for, and a host or a task looked up for it reached the network and the
+                    // runtime for a start that was going to be refused.
+                    final String badSubagents = PoreloDaemon.subagentsRefused(parameters);
+                    if (badSubagents != null) {
+                        sink.println("porelo: " + badSubagents);
+                        sink.println("porelo: nothing was created");
+                        sink.flush();
+                        System.out.println(startLine(text(parameters, "task"), "", 64));
+                        final Map<String, Object> reply = new LinkedHashMap<>();
+                        reply.put("container", "");
+                        reply.put("exitCode", 64);
+                        reply.put(
+                                "output",
+                                replies.streaming()
+                                        ? List.of()
+                                        : List.of(collected.toString().split("\n", -1)));
+                        progress.finish(reply);
+                        replies.last(reply);
+                        return;
+                    }
                     // Refused as itself before anything is launched: a destination nobody declared
                     // is a typed answer an interface can show, not a launch line among others. A
                     // host never met is a typed refusal, before anything is made: it went ahead
@@ -662,47 +694,22 @@ final class TaskMethods {
                     // name, because running the command was the only way to start a task. Now the
                     // CLI and this call the same object, so neither can grow a behavior the other
                     // lacks - and there is because the name comes back as a value.
-                    final StartReplies progress =
-                            new StartReplies(replies, flag(parameters, "steps"));
-                    final java.io.StringWriter collected = new java.io.StringWriter();
-                    final PrintWriter sink =
-                            replies.streaming()
-                                    // Streamed as it happens: building an image takes minutes, and
-                                    // an interface showing nothing for that long is
-                                    // indistinguishable from one that hung.
-                                    ? new PrintWriter(progress.stream(), true)
-                                    : new PrintWriter(collected, true);
-
                     final java.util.concurrent.atomic.AtomicReference<String> started =
                             new java.util.concurrent.atomic.AtomicReference<>("");
-                    // Wrong use, as at the command line, before anything is asked or made: a value
-                    // read as a lower number, or dropped, would bound the agent to something nobody
-                    // asked for.
-                    final String badSubagents = PoreloDaemon.subagentsRefused(parameters);
                     final TaskLaunch launch =
                             new TaskLaunch(
                                     context,
-                                    badSubagents == null
-                                            ? request(parameters, context)
-                                            : request(withoutSubagents(parameters), context),
+                                    request(parameters, context),
                                     new org.fuin.porelo.app.StartSteps(progress, sink));
                     // A task that already exists is brought back, not created again - the same call
                     // the CLI makes first, so a stopped task answers the same over the socket as at
                     // a terminal.
-                    final TaskLaunch.Existing existing =
-                            badSubagents == null ? launch.startExisting(sink, sink) : null;
+                    final TaskLaunch.Existing existing = launch.startExisting(sink, sink);
                     final int code;
                     // What Start did, or the refusal it answered with - on the final reply, as the
                     // contract says.
-                    final String action =
-                            badSubagents != null
-                                    ? null
-                                    : existing == null ? "CREATE" : existing.action();
-                    if (badSubagents != null) {
-                        sink.println("porelo: " + badSubagents);
-                        sink.println("porelo: nothing was created");
-                        code = 64;
-                    } else if (existing != null) {
+                    final String action = existing == null ? "CREATE" : existing.action();
+                    if (existing != null) {
                         started.set(existing.container());
                         // Brought back with a prompt, it runs - continuing its session where the
                         // agent can - as a new task with a prompt does. A start that ignored it
@@ -858,13 +865,6 @@ final class TaskMethods {
             throw new VarlinkException(INTERFACE + ".NotRunning", Map.of("task", task));
         }
         return task;
-    }
-
-    /** The call's parameters without its number of subagents, which it refuses itself. */
-    private static Map<String, Object> withoutSubagents(final Map<String, Object> parameters) {
-        final Map<String, Object> rest = new LinkedHashMap<>(parameters);
-        rest.remove("subagents");
-        return rest;
     }
 
     private static long number(final Map<String, Object> parameters, final String name) {
