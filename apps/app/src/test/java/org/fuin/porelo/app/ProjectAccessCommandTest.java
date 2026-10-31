@@ -688,6 +688,35 @@ class ProjectAccessCommandTest {
     }
 
     @Test
+    void theOnlySignerNoRegistryReadHereRevokesSigns() throws Exception {
+        // The follow asks each signer of the registries read here too, and refuses after the push.
+        final Path second = key("second");
+        agentAdds(second);
+        Files.writeString(
+                context().paths().projects().configurationSigners(),
+                "demo " + publicKey(signer) + "\ndemo " + publicKey(second) + "\n");
+        registryRevokes(SignedBy.fingerprintOf(publicKey(signer)));
+
+        final String first = init();
+
+        final Path allowed = dir.resolve("allowed");
+        Files.writeString(allowed, "demo " + publicKey(second) + "\n");
+        assertThat(
+                        runner.run(
+                                        Command.of(
+                                                "git",
+                                                "-C",
+                                                remote.toString(),
+                                                "-c",
+                                                "gpg.ssh.allowedSignersFile=" + allowed,
+                                                "verify-commit",
+                                                first))
+                                .exitCode())
+                .as("signed by the key no registry revokes")
+                .isZero();
+    }
+
+    @Test
     void aBranchRewoundSinceTheReadIsNotWrittenOnto() throws Exception {
         // Taken as a fast-forward, the push would restore a commit somebody took back.
         final String first = init();
@@ -1560,6 +1589,24 @@ class ProjectAccessCommandTest {
         assertThat(head()).isEqualTo(added);
     }
 
+    /**
+     * Keeps the trust record of a registry read here that revokes the key, as a walk that accepted
+     * nothing yet leaves it, which its own checks take.
+     */
+    private Path registryRevokes(final String fingerprint) throws IOException {
+        final String origin = "https://forge.example.org/acme/registry.git";
+        final Path record =
+                org.fuin.porelo.vault.TrustRecords.file(context().paths().xdg().state(), origin);
+        Files.createDirectories(record.getParent());
+        Files.writeString(
+                record.resolveSibling(
+                        record.getFileName().toString().replace(".json", ".where.json")),
+                org.fuin.porelo.wire.Json.write(
+                        Map.of("origin", origin, "checkout", dir.resolve("co").toString())));
+        Files.writeString(record, trustRecord(false, List.of(fingerprint)));
+        return record;
+    }
+
     /** A trust record naming these keys revoked, firm or not, with nothing else in it. */
     private static String trustRecord(final boolean firm, final List<String> revoked) {
         return new org.fuin.porelo.vault.RegistryState(
@@ -1584,19 +1631,10 @@ class ProjectAccessCommandTest {
         // A registry this machine reads names the key lost; the project must not pin it anyway.
         final String added = withBob();
         final SigningKey next = SigningKey.generate("bob");
-        final String origin = "https://forge.example.org/acme/registry.git";
-        final Path record =
-                org.fuin.porelo.vault.TrustRecords.file(context().paths().xdg().state(), origin);
-        Files.createDirectories(record.getParent());
+        final Path record = registryRevokes(fingerprint(next));
         final Path where =
                 record.resolveSibling(
                         record.getFileName().toString().replace(".json", ".where.json"));
-        Files.writeString(
-                where,
-                org.fuin.porelo.wire.Json.write(
-                        Map.of("origin", origin, "checkout", dir.resolve("co").toString())));
-        // As a walk that accepted nothing yet leaves it, which its own checks take.
-        Files.writeString(record, trustRecord(false, List.of(fingerprint(next))));
 
         assertThat(
                         access(

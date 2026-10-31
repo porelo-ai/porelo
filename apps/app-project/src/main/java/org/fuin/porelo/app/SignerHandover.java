@@ -196,6 +196,11 @@ final class SignerHandover {
             // a first tip, nor for a rewritten tip's parent, so a rewrite takes an ordinary signer.
             List<String> backups =
                     access || inForce.isEmpty() ? List.of() : backupsAt(clone, inForce);
+            // A key the project declares a backup key stays one when a person names it too.
+            final List<String> declared =
+                    access || rewrite == null
+                            ? List.of()
+                            : backupsAt(rewrite.repository(), rewrite.commit());
             final List<String> commits =
                     inForce.isEmpty() ? List.of(tip) : between(clone, inForce, tip);
             ConfigurationGate.Verdict tipVerdict = null;
@@ -291,12 +296,17 @@ final class SignerHandover {
                 }
                 if (!access) {
                     if (signingKey != null
-                            && backups.contains(signingKey)
-                            && !keys.contains(signingKey)) {
+                            && (backups.contains(signingKey)
+                                    || declared.contains(signingKey)
+                                    || !parents.isEmpty()
+                                            && backupsAt(clone, parents.getFirst())
+                                                    .contains(signingKey))) {
                         final String why =
                                 fingerprint == null
                                         ? "its key cannot be read"
-                                        : backedOnly(clone, parents, commit, signingKey);
+                                        : !backups.contains(signingKey)
+                                                ? "no commit in force here names it a backup key"
+                                                : backedOnly(clone, parents, commit, signingKey);
                         if (why != null) {
                             return new Handed(
                                     keys,
@@ -356,6 +366,11 @@ final class SignerHandover {
             if (commits.isEmpty()) {
                 final ConfigurationGate.Verdict verdict = verify(clone, project, keys, tip);
                 tipVerdict = verdict.mayApply() ? verdict : null;
+            }
+            if (!access) {
+                // A person may name a backup key at the follow; it is never pinned all the same.
+                final List<String> backupsAtTip = backupsAt(clone, tip);
+                keys = keys.stream().filter(key -> !backupsAtTip.contains(key)).toList();
             }
             return new Handed(
                     keys,

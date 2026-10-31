@@ -365,7 +365,10 @@ public final class RegistryHistory {
                 return false;
             }
             final Set<String> owning = new java.util.HashSet<>();
-            named.forEach(owner -> owning.add(owner.fingerprint()));
+            // A backup key is no owner here either, as the walk's owner() has it.
+            named.stream()
+                    .filter(owner -> !owner.backup())
+                    .forEach(owner -> owning.add(owner.fingerprint()));
             for (RegistryState.Person person : trusted.people()) {
                 final String path = "people/" + person.login() + ".card";
                 final PersonCard card =

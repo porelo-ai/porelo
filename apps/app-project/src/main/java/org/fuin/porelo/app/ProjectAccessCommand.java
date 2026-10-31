@@ -278,7 +278,11 @@ public class ProjectAccessCommand implements Callable<Integer>, PoreloFactory.Co
         final Path repository = scratch.resolve("access");
         final SignerHandover handover =
                 new SignerHandover(
-                        this::run, context.paths().projects().configurationSigners(), krl());
+                        this::run,
+                        context.paths().projects().configurationSigners(),
+                        krl(),
+                        ignored -> {},
+                        registryRevocations()::contains);
         final Remote remote = fetch(scratch, repository, url);
         followable(handover, repository, inForce, remote.head());
         final String made = madeBefore(handover, repository, remote.head(), digest);
@@ -799,16 +803,20 @@ public class ProjectAccessCommand implements Callable<Integer>, PoreloFactory.Co
      * refuse, as one of them may be the one that does.
      */
     private boolean revokedByRegistry(final String fingerprint) throws Refused {
+        return registryRevocations().contains(fingerprint);
+    }
+
+    /** The keys the registries this machine read revoke, by fingerprint. */
+    private Set<String> registryRevocations() throws Refused {
+        final Set<String> revoked = new java.util.HashSet<>();
         try {
             for (final TrustRecords.Read read : TrustRecords.read(context.paths().xdg().state())) {
-                if (read.state().revoked().contains(fingerprint)) {
-                    return true;
-                }
+                revoked.addAll(read.state().revoked());
             }
         } catch (final IOException ex) {
             throw new Refused(66, "cannot read the registries read here: " + ex.getMessage());
         }
-        return false;
+        return revoked;
     }
 
     /**
@@ -876,16 +884,19 @@ public class ProjectAccessCommand implements Callable<Integer>, PoreloFactory.Co
 
     /**
      * The keys an access commit may be signed by, as the follow takes them from the pinned file:
-     * those of this project's principal alone, not retired and not in the revocation list. What a
-     * line's options allow is not judged here; the commit made is checked by the follow's own
-     * check, which judges them as the follow does, before it is pushed.
+     * those of this project's principal alone, not retired, not in the revocation list and revoked
+     * by no registry read here. What a line's options allow is not judged here; the commit made is
+     * checked by the follow's own check, which judges them as the follow does, before it is pushed.
      */
     private List<String> signers(final SignerHandover handover, final Path scratch) throws Refused {
         final List<String> keys = new ArrayList<>();
         try {
             ConfigurationGate.requireRevocations(this::run, krl());
             for (final String key : handover.pinned(projectName)) {
-                if (!keys.contains(key) && !revoked(scratch, key)) {
+                final String fingerprint = SignedBy.fingerprintOf(key);
+                if (!keys.contains(key)
+                        && !revoked(scratch, key)
+                        && (fingerprint == null || !revokedByRegistry(fingerprint))) {
                     keys.add(key);
                 }
             }

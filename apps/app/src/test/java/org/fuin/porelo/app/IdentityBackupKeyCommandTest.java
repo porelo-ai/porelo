@@ -34,6 +34,9 @@ class IdentityBackupKeyCommandTest {
 
     private boolean terminal = true;
 
+    /** What happens while ssh-keygen asks the passphrase, as another process might act then. */
+    private Runnable whileAsked = () -> {};
+
     @BeforeEach
     void checkout() throws Exception {
         registry = new RegistryCheckout(dir);
@@ -61,7 +64,10 @@ class IdentityBackupKeyCommandTest {
                                     ran.add(command);
                                     final List<String> keygen = new ArrayList<>(command);
                                     keygen.addAll(List.of("-N", ""));
-                                    return registry.runner.run(Command.of(keygen)).exitCode();
+                                    final int made =
+                                            registry.runner.run(Command.of(keygen)).exitCode();
+                                    whileAsked.run();
+                                    return made;
                                 }));
         cli.setOut(new PrintWriter(registry.out));
         cli.setErr(new PrintWriter(registry.err));
@@ -539,6 +545,21 @@ class IdentityBackupKeyCommandTest {
     }
 
     @Test
+    void a_checkout_that_lost_its_origin_is_refused_as_an_origin_that_moved() throws Exception {
+        IdentityRun.keep(registry, registry.card("michael", "michael"));
+        registry.agent("michael");
+        registry.git("remote", "remove", "origin");
+        final Path file = dir.resolve("backup");
+
+        assertThat(backupKey("--registry", "--out", file.toString(), "--json")).isEqualTo(65);
+
+        assertThat(registry.answer().get("reason"))
+                .as("the checkout is still a Git directory of its own; its origin is gone")
+                .isEqualTo("origin-moved");
+        assertThat(ran).isEmpty();
+    }
+
+    @Test
     void a_read_the_history_refuses_ends_in_a_refusal() throws Exception {
         IdentityRun.keep(registry, registry.card("michael", "michael"));
         registry.agent("michael");
@@ -601,6 +622,25 @@ class IdentityBackupKeyCommandTest {
         assertThat(code).as("the work tree's owners.yml could not be written").isNotZero();
         assertThat(registry.head()).as("the commit was made").isNotEqualTo(before);
         assertThat(file).as("the key its commit files is the person's to keep").exists();
+    }
+
+    @Test
+    void a_key_whose_filing_found_head_moved_by_another_is_not_kept() throws Exception {
+        IdentityRun.keep(registry, registry.card("michael", "michael"));
+        registry.agent("michael");
+        final String before = registry.head();
+        whileAsked = () -> registry.commit("michael", "committed by another while asked");
+        final Path file = dir.resolve("backup");
+
+        assertThat(backupKey("--registry", "--out", file.toString(), "--json")).isEqualTo(65);
+
+        assertThat(registry.answer().get("reason")).isEqualTo("base-moved");
+        assertThat(registry.head()).as("another moved HEAD").isNotEqualTo(before);
+        assertThat(registry.git("show", "HEAD:owners.yml"))
+                .as("nothing filed the key")
+                .isEqualTo(registry.git("show", before + ":owners.yml"));
+        assertThat(file).as("a key no commit files is not kept").doesNotExist();
+        assertThat(Path.of(file + ".pub")).doesNotExist();
     }
 
     @Test

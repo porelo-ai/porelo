@@ -1653,6 +1653,63 @@ class RegistryHistoryTest {
     }
 
     /**
+     * An owner's backup key places no person's card in the walk, so a record naming a card it
+     * placed must not bring that card in either.
+     */
+    @Test
+    void a_trust_record_holding_a_card_an_owners_backup_key_placed_is_discarded() throws Exception {
+        forge.owners.put("michael", true);
+        forge.keys.put("michael", List.of(key("michael")));
+        forge.keys.put("alice", List.of(key("alice")));
+        write("owners.yml", backedOwners("michael", "hank"));
+        commit("michael");
+        write("people/alice.card", card("alice", "alice", null, "Alice"));
+        commit("alice");
+        write("people/alice.card", card("alice", "alice", null, "Alicia"));
+        final String placedAt = commit("carol");
+        final RegistryState walked = read(null);
+        assertThat(walked.refusals())
+                .as("the walk refuses a card michael's backup key placed")
+                .anyMatch(refusal -> refusal.commit().equals(placedAt));
+        final RegistryState.Change change = new RegistryState.Change(placedAt, pin("carol"));
+        final String blob = git("rev-parse", placedAt + ":people/alice.card");
+        final RegistryState.Person alice = person(walked, "alice");
+        final Map<String, String> blobs = new HashMap<>(walked.blobs());
+        blobs.put("people/alice.card", blob);
+        final Map<String, RegistryState.Change> changes = new HashMap<>(walked.changes());
+        changes.put("people/alice.card", change);
+        final RegistryState record =
+                new RegistryState(
+                        walked.commit(),
+                        walked.accepted(),
+                        walked.firm(),
+                        walked.owners(),
+                        walked.hostAdmins(),
+                        List.of(
+                                new RegistryState.Person(
+                                        "alice",
+                                        "Alicia",
+                                        "",
+                                        alice.key(),
+                                        alice.fingerprint(),
+                                        RegistryState.TRUSTED,
+                                        "",
+                                        List.of(),
+                                        "",
+                                        blob,
+                                        change)),
+                        walked.hosts(),
+                        walked.revoked(),
+                        blobs,
+                        changes,
+                        List.of(),
+                        List.of(),
+                        List.of());
+        RegistryState.fromJson(record.toJson());
+        readAfresh(read(record), "does not match the registry's history");
+    }
+
+    /**
      * A record must hold a host's card only as the walk would take it: naming its own host and
      * signed by the admin who committed it. Otherwise one host's card answers for another.
      */

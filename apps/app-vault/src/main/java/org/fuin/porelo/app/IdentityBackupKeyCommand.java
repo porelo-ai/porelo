@@ -305,11 +305,18 @@ public class IdentityBackupKeyCommand implements Callable<Integer>, PoreloFactor
         final String origin;
         try {
             origin = RegistryReadCommand.origin(machine.runner(), registry.known().checkout());
-        } catch (IOException | IllegalArgumentException ex) {
+        } catch (IOException ex) {
             throw new IdentityChange.Refused(
                     65,
                     IdentityChange.CHECKOUT_MOVED,
                     "the registry checkout read last cannot be read as it was: "
+                            + ex.getMessage()
+                            + "; read the registry again");
+        } catch (IllegalArgumentException ex) {
+            throw new IdentityChange.Refused(
+                    65,
+                    IdentityChange.ORIGIN_MOVED,
+                    "the registry checkout no longer names one origin git does not rewrite: "
                             + ex.getMessage()
                             + "; read the registry again");
         }
@@ -575,8 +582,8 @@ public class IdentityBackupKeyCommand implements Callable<Integer>, PoreloFactor
                             null,
                             head);
         } finally {
-            // Once HEAD moved, the commit may file the key though the filing failed after it.
-            kept = kept || !head.equals(headOrNone(machine, registry));
+            // The filing may fail after its commit, which files the key: then the file is kept.
+            kept = kept || filedAtHead(machine, registry, key);
         }
         kept = true;
         return made(backup.fingerprint(), revision, false);
@@ -585,6 +592,10 @@ public class IdentityBackupKeyCommand implements Callable<Integer>, PoreloFactor
     /** Files a backup key among a followed project's signers. */
     private int makeForProject(final PoreloContext machine, final PersonCard own)
             throws IdentityChange.Refused, IOException {
+        if (IdentityFacts.revoked(machine, IdentityFacts.registries(machine), own.key())) {
+            throw new IdentityChange.Refused(
+                    65, "revoked", "your card's key " + own.fingerprint() + " is revoked");
+        }
         final Filed filed =
                 projects()
                         .make(
@@ -782,13 +793,16 @@ public class IdentityBackupKeyCommand implements Callable<Integer>, PoreloFactor
         return replaced(old.fingerprint(), next.fingerprint(), revision, false);
     }
 
-    /** The commit HEAD names, or "" when it cannot be read. */
-    private static String headOrNone(
-            final PoreloContext machine, final IdentityFacts.Registry registry) {
+    /**
+     * Whether the owners file at the checkout's {@code HEAD} names the key, or cannot be read, so
+     * that the key may be filed and its file is not removed.
+     */
+    private static boolean filedAtHead(
+            final PoreloContext machine, final IdentityFacts.Registry registry, final String key) {
         try {
-            return head(machine, registry);
+            return ownersAt(machine, registry, head(machine, registry)).contains(key);
         } catch (IdentityChange.Refused ex) {
-            return "";
+            return true;
         }
     }
 

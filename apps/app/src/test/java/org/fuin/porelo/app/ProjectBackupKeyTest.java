@@ -524,7 +524,8 @@ class ProjectBackupKeyTest {
     }
 
     @Test
-    void an_id_on_a_commit_before_the_first_follow_answers_no_backup_key() throws Exception {
+    void an_id_on_an_unsigned_commit_before_the_first_follow_answers_no_backup_key()
+            throws Exception {
         final String backup =
                 "    - key: \"%s\"\n      backup: true\n      backs: \"%s\"\n      since: \"2026-01-01\"\n"
                         .formatted(keys.key("bob"), keys.pin("michael"));
@@ -549,7 +550,8 @@ class ProjectBackupKeyTest {
     }
 
     @Test
-    void an_id_on_a_commit_before_the_first_follow_answers_no_replacement() throws Exception {
+    void an_id_on_an_unsigned_commit_before_the_first_follow_answers_no_replacement()
+            throws Exception {
         final String backup =
                 "    - key: \"%s\"\n      backup: true\n      backs: \"%s\"\n      since: \"2026-01-01\"\n";
         final String first =
@@ -966,5 +968,92 @@ class ProjectBackupKeyTest {
         assertThat(refused.outcome()).as(refused.detail()).isEqualTo(Reconcile.Outcome.UNKNOWN_KEY);
         assertThat(refused.refused()).isEqualTo(tip);
         assertThat(refused.detail()).contains("beyond replacing");
+    }
+
+    private List<String> pinned() {
+        return new SignerHandover(keys.runner, keys.paths.projects().configurationSigners())
+                .pinned("demo");
+    }
+
+    @Test
+    void a_backup_key_a_person_names_at_the_follow_signs_only_what_a_backup_key_may()
+            throws Exception {
+        final Path file = made();
+        final String backupKey =
+                org.fuin.porelo.vault.OpenSshPrivateKey.publicKey(Files.readString(file));
+        final String inForce = head();
+        final String tip =
+                commitText(
+                        git(origin, "show", "main:project.yml")
+                                .replace("description: first", "description: other"),
+                        file);
+
+        final Reconcile.Result refused = follow(backupKey);
+
+        assertThat(refused.outcome())
+                .as(
+                        "named or not, a backup key changes nothing but the key it backs: "
+                                + refused.detail())
+                .isEqualTo(Reconcile.Outcome.UNKNOWN_KEY);
+        assertThat(refused.commit()).as("the commit in force stays").isEqualTo(inForce);
+        assertThat(refused.refused()).isEqualTo(tip);
+        assertThat(pinned())
+                .as("the backup key is never pinned")
+                .containsExactly(keys.key("michael"));
+    }
+
+    @Test
+    void a_backup_key_a_person_names_at_the_follow_is_never_pinned() throws Exception {
+        final Path file = made();
+        final String backupKey =
+                org.fuin.porelo.vault.OpenSshPrivateKey.publicKey(Files.readString(file));
+        commitText(
+                git(origin, "show", "main:project.yml")
+                        .replace("description: first", "description: other"),
+                keys.keyFiles.get("michael"));
+
+        final Reconcile.Result applied = follow(backupKey);
+
+        assertThat(applied.outcome()).as(applied.detail()).isEqualTo(Reconcile.Outcome.APPLIED);
+        assertThat(pinned())
+                .as("pinned, the backup key would sign any later change and the access file")
+                .containsExactly(keys.key("michael"));
+    }
+
+    @Test
+    void a_signer_whose_own_key_is_revoked_makes_no_backup_key() throws Exception {
+        IdentityRun.keep(keys, keys.card("michael", "michael"));
+        keys.agent("michael");
+        IdentityRun.revoke(keys, "michael");
+        final String before = head();
+        final Path file = dir.resolve("backup");
+
+        assertThat(backupKey("--project", "demo", "--out", file.toString(), "--json"))
+                .as(keys.err.toString())
+                .isEqualTo(65);
+
+        assertThat(keys.answer().get("reason")).isEqualTo("revoked");
+        assertThat(keygens).as("no key is made").isZero();
+        assertThat(file).doesNotExist();
+        assertThat(head()).isEqualTo(before);
+    }
+
+    @Test
+    void a_trust_record_that_cannot_be_read_ends_a_make_for_a_project_in_66() throws Exception {
+        IdentityRun.keep(keys, keys.card("michael", "michael"));
+        keys.agent("michael");
+        final Path record =
+                org.fuin.porelo.vault.TrustRecords.file(
+                        keys.paths.xdg().state(), "https://forge.example.org/acme/registry.git");
+        Files.createDirectories(record.getParent());
+        Files.writeString(record, "{");
+        final Path file = dir.resolve("backup");
+
+        assertThat(backupKey("--project", "demo", "--out", file.toString(), "--json"))
+                .as(keys.err.toString())
+                .isEqualTo(66);
+
+        assertThat(keygens).as("no key is made").isZero();
+        assertThat(file).doesNotExist();
     }
 }

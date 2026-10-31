@@ -42,14 +42,21 @@ Each is answered by a test that fails today.
   trust record is written for another address; a read the history refuses is a refusal (65) instead of an unhandled
   failure (70, its trace in `failures.log` rather than on the terminal).
 - A project's repeated `--id` answers an earlier commit only when it verifies with the person's own key (making) or
-  the backup key (using) and is exactly the change asked for on its parent, so an unchecked commit before the first
-  follow answers nothing.
+  the backup key (using) and is exactly the change asked for on its parent, so the trailers of a commit nothing
+  checked answer nothing.
 - Making a registry or host backup key refuses `revoked` when the caller's own card key is revoked by the registry or
   by `revoked.krl`.
 - `--out` refuses `file-exists` when `FILE.pub` exists too, so ssh-keygen never overwrites it and the command never
   removes it.
-- When filing fails after the checkout's `HEAD` moved, the private key file is kept, since the commit files its
-  public half.
+- When filing fails after the checkout's `HEAD` moved, the private key file is kept only when the owners file at
+  `HEAD` names its public half, so a `HEAD` another moved while the passphrase was asked keeps no key nothing filed.
+- A key the project names a backup key is judged as one, and never pinned, when a person names it with
+  `--signed-by` too, so it changes nothing but the key it backs and signs no access file.
+- A trust record's people are checked against the owners it names without their backup keys, as the walk checks
+  them, so a card a backup key placed does not come back in through a record.
+- `project access` signs only with a pinned key no registry read here revokes, as the follow checks every signer.
+- A checkout whose `origin` is gone or rewritten is refused `origin-moved`, and making a project's backup key
+  refuses `revoked` before `ssh-keygen` runs, and 66 for a trust record that cannot be read.
 
 Each has a test that failed on the code before and a mutant of its fix that turned that test red; existing follows in
 the tests were unchanged by the wider registry check.
