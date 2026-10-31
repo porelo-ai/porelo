@@ -3,7 +3,6 @@ package org.fuin.porelo.app;
 import java.time.Instant;
 import java.util.Base64;
 import java.util.List;
-import org.fuin.porelo.core.project.Mail;
 import org.fuin.porelo.core.project.Project;
 import org.fuin.porelo.runtime.ContainerName;
 import org.fuin.porelo.vault.CardException;
@@ -102,20 +101,33 @@ public final class MessageSigners implements MessageDelivery.Signers {
      *
      * @param peer The peer it speaks for: the task's name in its own project, else its whole
      *     principal; "" when it is not believed.
+     * @param principal The whole principal its certificate names, {@code task:<project>:<task>},
+     *     which names it in any project; "" when it is not believed.
      * @param refusal Why it is not believed, naming the key, or "" when it is.
      * @param waits Whether it cannot be judged now, so the message waits where it arrived rather
      *     than being held.
      */
-    public record Traced(String peer, String refusal, boolean waits) {
+    public record Traced(String peer, String principal, String refusal, boolean waits) {
 
         /**
-         * Constructor for a key that was judged.
+         * Constructor for a key that was judged, known by one name.
          *
          * @param peer The peer it speaks for, or "" when it is not believed.
          * @param refusal Why it is not believed, or "" when it is.
          */
         public Traced(final String peer, final String refusal) {
-            this(peer, refusal, false);
+            this(peer, peer, refusal, false);
+        }
+
+        /**
+         * Says whether a message's {@code metadata.from} names this sender: by the peer's name or
+         * by its whole principal, so one name passes in its own project and in every other.
+         *
+         * @param from What the message says it is from.
+         * @return {@code true} when it names this sender.
+         */
+        public boolean named(final String from) {
+            return from.equals(peer) || !principal.isEmpty() && from.equals(principal);
         }
 
         /**
@@ -132,7 +144,7 @@ public final class MessageSigners implements MessageDelivery.Signers {
         }
 
         private static Traced waiting(final String why) {
-            return new Traced("", why, true);
+            return new Traced("", "", why, true);
         }
     }
 
@@ -340,7 +352,7 @@ public final class MessageSigners implements MessageDelivery.Signers {
                             + ", and it arrived at "
                             + arrived);
         }
-        return new Traced(parts[1].equals(project) ? parts[2] : principal, "");
+        return new Traced(parts[1].equals(project) ? parts[2] : principal, principal, "", false);
     }
 
     /**
@@ -379,11 +391,10 @@ public final class MessageSigners implements MessageDelivery.Signers {
         return parts.length == 3
                 && "task".equals(parts[0])
                 && PROJECT_NAME.matcher(parts[1]).matches()
-                && !Mail.PEOPLE.equals(parts[2])
                 && ContainerName.refusal(parts[1], parts[2]).isEmpty();
     }
 
     /** A project's name, as a project file may give it. */
     private static final java.util.regex.Pattern PROJECT_NAME =
-            java.util.regex.Pattern.compile("[a-z0-9][a-z0-9-]{0,62}");
+            java.util.regex.Pattern.compile(Project.NAME_PATTERN);
 }

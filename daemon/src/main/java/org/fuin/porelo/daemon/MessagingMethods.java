@@ -263,71 +263,11 @@ final class MessagingMethods {
         // Answered once: the login is in this reply and nowhere else, never kept.
         server.method(
                 "SetUpMessages",
-                (parameters, replies) -> {
-                    final org.fuin.porelo.core.project.Project project =
-                            conversational(context, text(parameters, "project"));
-                    try {
-                        replies.last(
-                                Map.of(
-                                        "messages",
-                                        org.fuin.porelo.app.Conversations.setUp(context, project)));
-                    } catch (org.fuin.porelo.app.Conversations.Refused ex) {
-                        throw new VarlinkException(
-                                INTERFACE + ".ConversationRefused",
-                                Map.of(
-                                        "message",
-                                        String.valueOf(ex.getMessage()),
-                                        "code",
-                                        ex.code()));
-                    }
-                });
+                (parameters, replies) -> replies.last(setUpMessages(context, parameters)));
 
         server.method(
                 "JoinMessages",
-                (parameters, replies) -> {
-                    final org.fuin.porelo.core.project.Project project =
-                            conversational(context, text(parameters, "project"));
-                    final Map<?, ?> said;
-                    try {
-                        said =
-                                org.fuin.porelo.app.Conversations.join(
-                                        context,
-                                        project,
-                                        text(parameters, "person"),
-                                        flag(parameters, "reset"));
-                    } catch (org.fuin.porelo.app.Conversations.Refused ex) {
-                        if (ex.exists() != null) {
-                            throw new VarlinkException(
-                                    INTERFACE + ".MemberExists",
-                                    Map.of(
-                                            "person",
-                                            text(parameters, "person"),
-                                            "user",
-                                            ex.exists()));
-                        }
-                        throw new VarlinkException(
-                                INTERFACE + ".ConversationRefused",
-                                Map.of(
-                                        "message",
-                                        String.valueOf(ex.getMessage()),
-                                        "code",
-                                        ex.code()));
-                    }
-                    final Map<String, String> login = new LinkedHashMap<>();
-                    if (said.get("login") instanceof Map<?, ?> given) {
-                        given.forEach(
-                                (key, value) ->
-                                        login.put(String.valueOf(key), String.valueOf(value)));
-                    }
-                    replies.last(
-                            Map.of(
-                                    "transport",
-                                    project.mail().conversations().iterator().next(),
-                                    "login",
-                                    login,
-                                    "shown",
-                                    said.get("shown") instanceof String shown ? shown : ""));
-                });
+                (parameters, replies) -> replies.last(joinMessages(context, parameters)));
 
         // Answered once: the admitted machine's secret is in this reply and nowhere else.
         server.method(
@@ -407,6 +347,67 @@ final class MessagingMethods {
                                     "held",
                                     change.peer().held()));
                 });
+    }
+
+    /**
+     * Sets up a project's conversation, answering what the transport made.
+     *
+     * @param context The machine.
+     * @param parameters {@code project}.
+     * @return {@code messages}.
+     */
+    static Map<String, Object> setUpMessages(
+            PoreloContext context, Map<String, Object> parameters) {
+        final org.fuin.porelo.core.project.Project project =
+                conversational(context, text(parameters, "project"));
+        try {
+            return Map.of("messages", org.fuin.porelo.app.Conversations.setUp(context, project));
+        } catch (org.fuin.porelo.app.Conversations.Refused ex) {
+            throw new VarlinkException(
+                    INTERFACE + ".ConversationRefused",
+                    Map.of("message", String.valueOf(ex.getMessage()), "code", ex.code()));
+        }
+    }
+
+    /**
+     * Joins a person to a project's conversation, answering the login made for them once.
+     *
+     * @param context The machine.
+     * @param parameters {@code project}, {@code person}, {@code reset}.
+     * @return {@code transport}, {@code login} and {@code shown}.
+     */
+    static Map<String, Object> joinMessages(PoreloContext context, Map<String, Object> parameters) {
+        final org.fuin.porelo.core.project.Project project =
+                conversational(context, text(parameters, "project"));
+        final Map<?, ?> said;
+        try {
+            said =
+                    org.fuin.porelo.app.Conversations.join(
+                            context,
+                            project,
+                            text(parameters, "person"),
+                            flag(parameters, "reset"));
+        } catch (org.fuin.porelo.app.Conversations.Refused ex) {
+            if (ex.exists() != null) {
+                throw new VarlinkException(
+                        INTERFACE + ".MemberExists",
+                        Map.of("person", text(parameters, "person"), "user", ex.exists()));
+            }
+            throw new VarlinkException(
+                    INTERFACE + ".ConversationRefused",
+                    Map.of("message", String.valueOf(ex.getMessage()), "code", ex.code()));
+        }
+        final Map<String, String> login = new LinkedHashMap<>();
+        if (said.get("login") instanceof Map<?, ?> given) {
+            given.forEach((key, value) -> login.put(String.valueOf(key), String.valueOf(value)));
+        }
+        return Map.of(
+                "transport",
+                project.mail().conversations().iterator().next(),
+                "login",
+                login,
+                "shown",
+                said.get("shown") instanceof String shown ? shown : "");
     }
 
     /** Returns the removal outcome or the same transport refusal as joining. */

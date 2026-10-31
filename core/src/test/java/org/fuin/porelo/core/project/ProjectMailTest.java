@@ -48,6 +48,71 @@ class ProjectMailTest {
         assertThat(project.mail().peer("nobody")).isNull();
     }
 
+    @Test
+    void names_a_task_of_another_project_as_its_whole_principal() {
+        // That is how a message from it traces, so a peer that cannot be named so cannot be
+        // addressed, trusted or held by its name.
+        final Project project =
+                read(
+                        HEAD
+                                + """
+                mail:
+                  peers:
+                    "task:other:build":
+                      address: "room:"
+                      trust: "vouched"
+                    "task:default:review-2":
+                      address: "room:"
+                """);
+
+        assertThat(project.mail().peer("task:other:build"))
+                .as("another project's task")
+                .isNotNull();
+        assertThat(project.mail().peer("task:default:review-2"))
+                .as("a task without a project")
+                .isNotNull();
+    }
+
+    @Test
+    void takes_a_colon_in_a_peer_name_only_as_a_tasks_whole_principal() {
+        // Anything else with a colon would read as a principal of a task that cannot exist, or as
+        // a nested one.
+        for (final String name :
+                new String[] {
+                    "task:other",
+                    "task::build",
+                    "task:other:",
+                    "task:Other:build",
+                    "task:other:Build",
+                    "task:other:build-",
+                    "task:-other:build",
+                    "task:other:build:x",
+                    "task:other:task:q:build",
+                    "person:other:build",
+                    "alice:bob",
+                    ":alice",
+                    "task:other:people",
+                    "task:other:person",
+                    "task:other:123",
+                    "task:utils4j:" + "a".repeat(50)
+                }) {
+            assertThatThrownBy(() -> new Mail.Peer(name, "room:", Mail.Peer.EXTERNAL))
+                    .as(name)
+                    .isInstanceOf(ProjectException.class);
+        }
+        for (final String name :
+                new String[] {
+                    "task:other:people-2", "task:utils4j:" + "a".repeat(49), "task:o:b1"
+                }) {
+            assertThat(new Mail.Peer(name, "room:", Mail.Peer.EXTERNAL).name())
+                    .as("a task a start makes")
+                    .isEqualTo(name);
+        }
+        assertThat(new Mail.Peer("porelo@host-1.example", "room:", Mail.Peer.EXTERNAL).name())
+                .as("the names a peer had before")
+                .isEqualTo("porelo@host-1.example");
+    }
+
     /**
      * Vouched is the narrower promise - it is what skips the check on the way in - so leaving the
      * trust out has to give the wider answer rather than the convenient one.

@@ -1084,9 +1084,12 @@ final class TransportLifecycle {
     /** What a transport that takes this account's login lists in its {@code takes}. */
     static final String LOGIN = "login";
 
-    /** What a login looks like: never an option, never blank, and no dot. */
+    /**
+     * What a login looks like, as every other login rule of Porelo and the transports' own take it:
+     * never an option, never blank, no dot and no upper case.
+     */
     private static final java.util.regex.Pattern LOGIN_NAME =
-            java.util.regex.Pattern.compile("[A-Za-z0-9][A-Za-z0-9_-]{0,31}");
+            java.util.regex.Pattern.compile("[a-z][a-z0-9-]{0,31}");
 
     /**
      * Returns this account's login on this host, which is the person's, as a transport that takes
@@ -1096,13 +1099,23 @@ final class TransportLifecycle {
      * @throws Refused If it is no name a transport takes.
      */
     static String login() throws Refused {
-        final String login = System.getProperty("user.name", "");
+        return login(System.getProperty("user.name", ""));
+    }
+
+    /**
+     * Returns a login as a transport is given it.
+     *
+     * @param login The account's login.
+     * @return The login.
+     * @throws Refused If it is no name a transport takes.
+     */
+    static String login(final String login) throws Refused {
         if (!LOGIN_NAME.matcher(login).matches()) {
             throw new Refused(
                     "'"
                             + login.replaceAll("\\p{Cntrl}", "?")
-                            + "' is no login a transport takes: a letter or digit, then letters,"
-                            + " digits, '_' or '-', at most 32",
+                            + "' is no login a transport takes: a lowercase letter, then lowercase"
+                            + " letters, digits or '-', at most 32",
                     78);
         }
         return login;

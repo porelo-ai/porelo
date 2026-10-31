@@ -420,7 +420,7 @@ public final class MessageWatch implements AutoCloseable {
                         if (running) {
                             waiting(
                                     context.paths().messaging().transportDirectory(),
-                                    members(mailboxes(), new java.util.LinkedHashMap<>()));
+                                    members(mailboxes(), new java.util.LinkedHashMap<>(), null));
                         }
                     } catch (final InterruptedException ex) {
                         Thread.currentThread().interrupt();
@@ -635,10 +635,24 @@ public final class MessageWatch implements AutoCloseable {
      * @return What the conversations could not do.
      */
     List<String> conversations(final MessagePass pass, final List<Path> mailboxes) {
+        return conversations(pass, mailboxes, null);
+    }
+
+    /**
+     * Runs the conversations as {@link #conversations(MessagePass, List)} does, for the mailboxes
+     * of one project that was named, never one derived again from a container's name.
+     *
+     * @param pass The pass that follows.
+     * @param mailboxes The mailboxes it moves along, each of a task of {@code given}.
+     * @param given Their project, or {@code null} to take each one's from its container.
+     * @return What the conversations could not do.
+     */
+    List<String> conversations(
+            final MessagePass pass, final List<Path> mailboxes, final @Nullable Project given) {
         final TransportConversations conversations =
                 new TransportConversations(context, pass.transports());
         final java.util.Map<String, String> projects = new java.util.LinkedHashMap<>();
-        final List<TransportConversations.Member> members = members(mailboxes, projects);
+        final List<TransportConversations.Member> members = members(mailboxes, projects, given);
         waiting(pass.transports(), members);
         final List<String> failures = new ArrayList<>(conversations.pass(members).failures());
         new java.util.LinkedHashSet<>(projects.values())
@@ -672,11 +686,17 @@ public final class MessageWatch implements AutoCloseable {
      * @return Each task once per conversation it takes part in.
      */
     private List<TransportConversations.Member> members(
-            final List<Path> mailboxes, final java.util.Map<String, String> projects) {
+            final List<Path> mailboxes,
+            final java.util.Map<String, String> projects,
+            final @Nullable Project given) {
         final List<TransportConversations.Member> members = new ArrayList<>();
+        final java.util.Set<String> named = new java.util.HashSet<>();
         for (final Path mailbox : mailboxes) {
             final String container = mailbox.getFileName().toString();
-            final String project = projectOf(container);
+            final String project = given != null ? given.name() : projectOf(container);
+            if (given != null) {
+                named.add(container);
+            }
             if (project != null) {
                 projects.put(container, project);
             }
@@ -702,13 +722,15 @@ public final class MessageWatch implements AutoCloseable {
         final java.util.Map<String, String> withheld = new java.util.HashMap<>();
         for (final Path mailbox : taking) {
             final String container = mailbox.getFileName().toString();
-            final String project = projectOf(container);
+            final Project own = given != null && named.contains(container) ? given : null;
+            final String project = own != null ? own.name() : projectOf(container);
             if (project == null || withheld.computeIfAbsent(project, this::withheld).length() > 0) {
                 // No send and no poll for a project whose access file is not applied: the
                 // transport's account was set up from settings no longer in force.
                 continue;
             }
-            for (final String scheme : peersOf(container).conversations()) {
+            final Mail peers = own != null ? withSiblings(own, container) : peersOf(container);
+            for (final String scheme : peers.conversations()) {
                 members.add(
                         new TransportConversations.Member(
                                 container, new Mailbox(mailbox), project, scheme));

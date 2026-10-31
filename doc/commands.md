@@ -169,7 +169,8 @@ At a terminal a shut vault asks for its passphrase; a script must unlock it firs
 **`task start`**
 - `-p PROJECT`: without it, the project that names the checkout you stand in, else `default`.
 - `-r REPOSITORY`: which of the project's repositories to work on (see [names](#completion)).
-- Without a name, the task is named after its repository, or the next free name (`my-first-2`).
+- Without a name, the task is named after its repository, or the next free name (`my-first-2`); a repository
+  named `people` or `person` gives `work`.
 - By default you get the agent's session. `--attach shell` gives a shell, `-P`/`--prompt` runs the
   agent unattended, `--detach` hands over nothing, `--now` returns before the image is built.
 - `--rm` removes the container when you leave. By default it is kept. A start that fails leaves nothing running
@@ -614,7 +615,7 @@ A task's mailbox. Each command names the task by its container name.
 | `porelo talk hold TASK PEER [--release] [-p PROJECT]` | Holds a peer's messages for every task of the project, or releases them. How closely a peer is watched is set in [`project.yml`](project-file.md) (`mail.rules`), not here. |
 | `porelo talk say TASK PEER [--kind=KIND] [--context=ID]` | Writes your own message to a peer, from standard input. |
 | `porelo talk tell TASK` | Writes your own words into the task's inbox, from standard input. |
-| `porelo talk pass TASK` | Moves the messages along once, without waiting for the daemon. |
+| `porelo talk pass TASK [--project NAME]` | Moves the messages along once, without waiting for the daemon. With `--project`, `TASK` is that project's task, by its name or its container's, never another project's task of the same name, and is refused (66) when a running container of that name belongs to another project; what arrives is judged by that project's certifiers, and its conversation, peers and holds apply, whatever the task's name says. |
 | `porelo talk log TASK` | What happened to each message, never its text. |
 | `porelo talk verify TASK` | Names the first entry of the message record that does not check out: a message changed after it arrived, or one signed by a key whose task certificate this machine and its host no longer keep. |
 | `porelo talk machine` | Prints the name this account goes by on a transport, its login, as a transport that takes it is given it with `--login`, which a project admin lists to let it into a conversation. |
@@ -935,5 +936,6 @@ that would work.
   `-p`, name it with `--repository`, even if the project has only one. The project's own repository
   (holding `project.yml`) is named after the project and can be chosen for planning work.
 - A task name is lowercase letters, digits and hyphens, starts and ends with a letter or digit, is not
-  only digits, and `porelo-<project>-<task>` is at most 64 characters. A container name such as
+  only digits, is neither `people` nor `person` (the names a message gives the room's people and a person's own
+  note), and `porelo-<project>-<task>` is at most 64 characters. A container name such as
   `porelo-myproject-backend` is taken as the task `backend`.

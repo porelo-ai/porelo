@@ -44,10 +44,44 @@ public class TalkPassCommand implements Callable<Integer>, PoreloFactory.Context
 
     @Override
     public Integer call() throws Exception {
-        // By the container's name or the task's own, as every task command takes it.
-        container = TaskTarget.spelled(context, container);
         final PrintWriter out = spec.commandLine().getOut();
         final PrintWriter err = spec.commandLine().getErr();
+        // By the container's name or the task's own, as every task command takes it; with the
+        // project given, that project's task, never another one's of the same task name.
+        if (projectName == null) {
+            container = TaskTarget.spelled(context, container);
+        } else {
+            if (!projectName.matches(org.fuin.porelo.core.project.Project.NAME_PATTERN)) {
+                // It names the mailbox's directory, so nothing else may stand where it does.
+                err.println("porelo: the project given is no project name");
+                err.flush();
+                return 64;
+            }
+            final String given = container;
+            container =
+                    org.fuin.porelo.runtime.ContainerName.PREFIX
+                            + projectName
+                            + "-"
+                            + org.fuin.porelo.runtime.ContainerName.taskFrom(projectName, given);
+            final String named = container;
+            final String owner =
+                    context.podman().poreloTasks().stream()
+                            .filter(task -> task.name().equals(named) && task.project() != null)
+                            .map(org.fuin.porelo.runtime.ContainerSummary::project)
+                            .findFirst()
+                            .orElse(projectName);
+            if (!projectName.equals(owner)) {
+                err.println(
+                        "porelo: "
+                                + container
+                                + " is no task of project "
+                                + projectName
+                                + " but of "
+                                + owner);
+                err.flush();
+                return 66;
+            }
+        }
         final Mailbox mailbox = new Mailbox(context.paths().messaging().mailbox(container));
         if (!mailbox.exists()) {
             err.println("porelo: " + container + " has no mailbox");
@@ -81,7 +115,9 @@ public class TalkPassCommand implements Callable<Integer>, PoreloFactory.Context
         // its peers, and sending as the task - so a pass by hand and one by the timer cannot
         // disagree. Read first, so a project whose file is gone stops here and is named, rather
         // than passing with no peers.
-        GateSupport.byName(context, project);
+        // The project given, never one derived again from the container's name, which may name
+        // none: a removed task of a project whose name begins another's, say.
+        final org.fuin.porelo.core.project.Project resolved = GateSupport.byName(context, project);
         final MessageWatch watch = new MessageWatch(context, java.time.Duration.ZERO);
         final String withheld = watch.withheld(project);
         if (!withheld.isEmpty()) {
@@ -89,16 +125,16 @@ public class TalkPassCommand implements Callable<Integer>, PoreloFactory.Context
             err.flush();
             return 78;
         }
-        watch.conversations(pass, java.util.List.of(mailbox.root()))
+        watch.conversations(pass, java.util.List.of(mailbox.root()), resolved)
                 .forEach(failure -> err.println("porelo: " + TalkReadCommand.shown(failure)));
-        final MessageSigners keys = watch.keysOf(container);
+        final MessageSigners keys = MessageSigners.of(context, container, resolved);
         final MessagePass.Report report =
                 pass.run(
                         mailbox,
-                        watch.peersOf(container),
+                        watch.withSiblings(resolved, container),
                         keys::own,
                         keys,
-                        watch.moderationOf(container));
+                        Moderation.of(context, resolved));
 
         report.polled()
                 .failures()

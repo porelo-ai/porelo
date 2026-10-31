@@ -717,7 +717,7 @@ public record Project(
         if (name.isBlank()) {
             throw new ProjectException("The project name is required");
         }
-        if (!name.matches("[a-z0-9][a-z0-9-]{0,62}")) {
+        if (!name.matches(NAME_PATTERN)) {
             // The name ends up in image tags, container names and nftables set names, all of which
             // are stricter than YAML. Rejecting here beats a confusing failure three layers down.
             throw new ProjectException(
@@ -1024,6 +1024,16 @@ public record Project(
      * project {@code a--b} or the repository {@code b} of {@code a}.
      */
     public static final String IMAGE_VARIANT = "_";
+
+    /** What a project's name looks like. */
+    public static final String NAME_PATTERN = "[a-z0-9][a-z0-9-]{0,62}";
+
+    /**
+     * What a task's name looks like: the project names' alphabet, starting and ending with a letter
+     * or digit. A task is also a container name, a git ref and the last part of its key's
+     * principal.
+     */
+    public static final String TASK_NAME_PATTERN = "[a-z0-9]([a-z0-9-]*[a-z0-9])?";
 
     /**
      * Returns the project an image of Porelo's belongs to.

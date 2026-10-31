@@ -99,8 +99,8 @@ takes its secrets on its input, and goes in a change of its own.
 - **`--login LOGIN`** is added to `setup`, `enroll`, `retire`, `join` and `clear` for a transport that `takes`
   it; `admit` and `dismiss` carry the other machine's name instead, and no login is added. `LOGIN` is this account's
   login on the host, which is the person's, always, never the `login` a `setup` answered; Porelo refuses (78) before
-  running the transport when it is not a letter or digit followed by at most 31 letters, digits, `_` or `-`. No
-  verb is given this machine's name.
+  running the transport when it is not a lowercase letter followed by at most 31 lowercase letters, digits or `-`
+  (`[a-z][a-z0-9-]{0,31}`), the rule of every other login of Porelo. No verb is given this machine's name.
 - **`part` never receives `--login`**, even when the transport announces it. A successful part (exit 0)
   removes the person from Porelo's members list, including when the account stays for the reason in `why`,
   or nothing remains. A failure leaves the list unchanged: 75 temporary, 77 refused, 78 configuration

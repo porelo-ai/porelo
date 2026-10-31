@@ -1,6 +1,6 @@
 # B369 — A Message Sender Named As Its Key Names It
 
-**Status:** Idea.
+**Status:** Review.
 **Size:** S, proposed - two reserved task names, one comparison of the sender a message names, one peer name rule and
 one command's project, each with its test.
 
@@ -24,3 +24,32 @@ another; no task can be started under a name Porelo reserves for a person or the
 - `MessagingMethodsTest` never checks that `join` or `setup` is given `--login`, only that `part` is not.
 
 Each is answered by a test that fails today.
+
+## Done
+
+- `people` and `person` are no task names: a start refuses them before anything is built, an unnamed start on a
+  repository of either name is named `work`, and a key certified for `task:<project>:people` or
+  `task:<project>:person` is held as certified for no one task, by the same rule.
+- `porelo talk pass --project` takes that project's task, by its task name or its container's, never another
+  project's task of the same name, and refuses (66) a running container of that name another project's label names;
+  it takes that project's certifiers, conversation, peers and holds, never ones derived again from the container's
+  name.
+- A message whose `metadata.from` is `null` names nobody, as one without it does.
+- A message's `metadata.from` passes when it is the peer its key traced to or that key's whole principal,
+  `task:<project>:<task>`, so the principal passes in its own project and in every other; anything else is held.
+- A peer name in `mail.peers` is what it was, or exactly `task:`, a project name, `:` and a task name a start can
+  make: not `people`, `person` or only digits, and with `porelo-<project>-<task>` at most 64 characters. It is one
+  regular expression, `Mail.Peer.NAME_PATTERN`, which another filter can copy as it is, and a test holds it to the
+  task start's own refusal over every boundary. The project and task name rules are one constant each, shared by the
+  project file, the task start and the certificate check.
+- A transport is given a login of `[a-z][a-z0-9-]{0,31}` only, as every other login rule of Porelo; another is refused
+  with 78 before any transport runs.
+- The daemon's `SetUpMessages` and `JoinMessages` are tested as the daemon answers them: each gives the transport
+  `--login` with this account's login.
+- The tests of `talk pass --project` deliver a certified message of the built-in project, whose certifier is who
+  certified the task's own key, through a filter that accepts as the real one does; they leave another project's
+  live mailbox as it was and ask the given project's conversation.
+- Not claimed: a named project's certifiers need a verified access commit the unit tests do not build, so the
+  certifiers of a named project given to `talk pass` are not held by a test of their own; neither are the peers and
+  holds it takes. A task already named `people` or `person` before this change is not renamed; its messages are held
+  as before.

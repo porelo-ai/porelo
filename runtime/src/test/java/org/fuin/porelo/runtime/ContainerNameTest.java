@@ -82,6 +82,78 @@ class ContainerNameTest {
     }
 
     @Test
+    void refusesTheNamesAMessageGivesTheRoomsPeopleAndAPerson() {
+
+        // Its key would be certified for a sender the reader holds, or one that passes as a
+        // person's own note.
+        for (final String reserved : new String[] {"people", "person"}) {
+            assertThat(ContainerName.refusal("p", reserved))
+                    .as(reserved)
+                    .get()
+                    .asString()
+                    .contains("not a task name");
+        }
+        assertThat(ContainerName.refusal("p", "people-2"))
+                .as("only the names themselves")
+                .isEmpty();
+    }
+
+    @Test
+    void aPeerNamesATaskOfAnotherProjectExactlyWhenAStartCouldMakeThatTask() {
+
+        // A peer no task start can make is one whose every message is held, and Agent Sluice's
+        // filter copies the peer rule: both must take what a start takes and nothing else.
+        final java.util.regex.Pattern peer =
+                java.util.regex.Pattern.compile(
+                        org.fuin.porelo.core.project.Mail.Peer.NAME_PATTERN);
+        final String[] projects = {"p", "web-app", "a--b", "9", "x".repeat(55), "x".repeat(56)};
+        final String[] tasks = {
+            "build",
+            "b",
+            "7",
+            "123",
+            "people",
+            "person",
+            "people-2",
+            "person1",
+            "a1",
+            "-a",
+            "a-",
+            "A",
+            "a".repeat(48),
+            "a".repeat(49),
+            "a".repeat(50),
+            "a".repeat(54),
+            "a".repeat(55)
+        };
+        int taken = 0;
+        int refused = 0;
+        for (final String project : projects) {
+            for (final String task : tasks) {
+                final boolean starts =
+                        project.matches(org.fuin.porelo.core.project.Project.NAME_PATTERN)
+                                && ContainerName.refusal(project, task).isEmpty();
+                assertThat(peer.matcher("task:" + project + ":" + task).matches())
+                        .as(
+                                "task:"
+                                        + project
+                                        + ":"
+                                        + task
+                                        + ", which a start "
+                                        + (starts ? "makes" : "refuses"))
+                        .isEqualTo(starts);
+                if (starts) {
+                    taken++;
+                } else {
+                    refused++;
+                }
+            }
+        }
+        assertThat(taken).as("names a start makes, checked").isGreaterThan(10);
+        assertThat(refused).as("names a start refuses, checked").isGreaterThan(10);
+    }
+
+    @Test
     void refusesATaskNameWhoseContainerNameWouldNotFitASocketPath() {
 
         // 'porelo-' + 'utils4j' + '-' is 15 characters, so 49 more make exactly 64.

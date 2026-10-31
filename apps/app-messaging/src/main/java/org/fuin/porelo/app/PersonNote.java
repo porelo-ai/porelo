@@ -31,7 +31,7 @@ import org.jspecify.annotations.Nullable;
 public final class PersonNote {
 
     /** Where a note says it came from. */
-    public static final String FROM = "person";
+    public static final String FROM = org.fuin.porelo.core.project.Mail.PERSON;
 
     private static final DateTimeFormatter FILE_TIME =
             DateTimeFormatter.ofPattern("yyyyMMdd'T'HHmmssSSS").withZone(ZoneOffset.UTC);

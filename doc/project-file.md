@@ -164,6 +164,10 @@ limits:
 # without being listed either.
 mail:
   peers:
+    # A peer's name is letters, digits, '-', '_', '.' and '@', starting with a letter or digit; a task
+    # of another project is its whole principal, "task:<project>:<task>", the one form a ':' takes,
+    # and only for a task a start can make: not 'people', 'person' or only digits, and with
+    # 'porelo-<project>-<task>' at most 64 characters.
     reviewer:
       # Required. <transport>:<address>; '<transport>:' is the project's conversation there.
       address: "matrix:"

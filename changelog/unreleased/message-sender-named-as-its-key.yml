@@ -1,0 +1,2 @@
+title: "A task's message is held only when its `metadata.from` names another sender than its key, by task name or by the whole principal `task:<project>:<task>`, which `mail.peers` may now name, and a `null` one names nobody; `talk pass --project` judges by the project given, no task may be named `people` or `person`, and a transport is given only a login of lowercase letters, digits and `-`"
+type: fixed

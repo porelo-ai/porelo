@@ -60,6 +60,38 @@ class MessagingMethodsTest {
     }
 
     @Test
+    void aJoinAndTheSetupBeforeItAreGivenThisAccountsLogin() throws Exception {
+        // A transport suffixes every account it makes with the login: without it, two persons'
+        // tasks of one name would share an account on a shared homeserver.
+        final PoreloContext context = context(false);
+
+        final Map<String, Object> joined =
+                MessagingMethods.joinMessages(
+                        context, Map.of("project", "p", "person", "alice", "reset", false));
+
+        assertThat(joined.get("login"))
+                .as("the daemon answers the transport's login")
+                .isEqualTo(Map.of("user", "@alice"));
+        for (final String verb : new String[] {" setup ", " join "}) {
+            assertThat(runner.only(verb).arguments())
+                    .as(verb.strip() + " names the person's login")
+                    .containsSubsequence("--login", System.getProperty("user.name"));
+        }
+    }
+
+    @Test
+    void aSetUpByTheDaemonIsGivenThisAccountsLogin() throws Exception {
+        // As a join's: an account set up without the login is shared by two persons' projects.
+        final PoreloContext context = context(false);
+
+        MessagingMethods.setUpMessages(context, Map.of("project", "p"));
+
+        assertThat(runner.only(" setup ").arguments())
+                .as("setup names the person's login")
+                .containsSubsequence("--login", System.getProperty("user.name"));
+    }
+
+    @Test
     void removingAnUnknownMemberReturnsNoSuchMemberWithoutRunningATransport() throws Exception {
         // An unknown name is a distinct outcome clients can act on without parsing sentences.
         final PoreloContext context = context();
@@ -151,6 +183,10 @@ class MessagingMethodsTest {
     }
 
     private PoreloContext context() throws Exception {
+        return context(true);
+    }
+
+    private PoreloContext context(final boolean joined) throws Exception {
         final XdgPaths xdg =
                 XdgPaths.of(
                         name ->
@@ -189,7 +225,9 @@ class MessagingMethodsTest {
         Files.createDirectories(context.paths().projects().projectRegistry());
         Files.writeString(
                 context.paths().projects().projectRegistry().resolve("p"), project + "\n");
-        Conversations.join(context, ProjectReader.read(project), "alice", false);
+        if (joined) {
+            Conversations.join(context, ProjectReader.read(project), "alice", false);
+        }
         return context;
     }
 }

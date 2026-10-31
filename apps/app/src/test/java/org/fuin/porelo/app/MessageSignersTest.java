@@ -161,7 +161,13 @@ class MessageSignersTest {
 
     @org.junit.jupiter.params.ParameterizedTest
     @org.junit.jupiter.params.provider.ValueSource(
-            strings = {"task:p:*", "task::build", "task:p:people", "task:p:task:other:build"})
+            strings = {
+                "task:p:*",
+                "task::build",
+                "task:p:people",
+                "task:p:person",
+                "task:p:task:other:build"
+            })
     void aCertificateForNoOneTaskIsHeldWhoeverIssuedIt(final String principal) throws IOException {
         // A pattern, a missing project, a reserved peer or a nested principal would pass one key
         // off as another sender: as the room's people, say, or as a task of another project.
@@ -214,6 +220,87 @@ class MessageSignersTest {
                 .as("one that names its own sender")
                 .singleElement()
                 .satisfies(delivered -> assertThat(delivered.message()).isEqualTo("m-2.json"));
+    }
+
+    @Test
+    void aMessageWhoseSenderIsJsonNullNamesNobodyAndIsDelivered() throws IOException {
+        // A serializer writes a field that was never set as null; held, a task's every message
+        // would be.
+        final CertifiedTaskKeys keys = new CertifiedTaskKeys(dir);
+        final SigningKey build = keys.task("p", "build");
+        final Mailbox mailbox = mailbox();
+        arrive(
+                mailbox,
+                build,
+                "m-1",
+                "{\"messageId\":\"m-1\",\"role\":\"ROLE_AGENT\","
+                        + "\"metadata\":{\"from\":null,\"to\":\"review\"}}");
+
+        final MessageDelivery.Outcome outcome =
+                new MessageDelivery().deliver(mailbox, keys.signers("p", keys.task("p", "review")));
+
+        assertThat(outcome.held()).as("nothing held").isEmpty();
+        assertThat(outcome.delivered())
+                .singleElement()
+                .satisfies(delivered -> assertThat(delivered.peer()).isEqualTo("build"));
+    }
+
+    @Test
+    void aSenderNamedByItsWholePrincipalPassesInItsOwnProjectAndInAnother() throws IOException {
+        // A task cannot know which project a message ends in: its whole principal must pass in
+        // both, and its plain name passes only where it is that peer's name.
+        final CertifiedTaskKeys keys = new CertifiedTaskKeys(dir);
+        final SigningKey build = keys.task("p", "build");
+        final Mailbox own = mailbox();
+        final Mailbox other = new Mailbox(dir.resolve("mail").resolve("porelo-q-review"));
+        other.create();
+        for (final Mailbox mailbox : java.util.List.of(own, other)) {
+            arrive(mailbox, build, "m-1", sent("m-1", "task:p:build"));
+            arrive(mailbox, build, "m-2", sent("m-2", "build"));
+        }
+
+        final MessageDelivery.Outcome sibling =
+                new MessageDelivery().deliver(own, keys.signers("p", keys.task("p", "review")));
+        final MessageDelivery.Outcome stranger =
+                new MessageDelivery().deliver(other, keys.signers("q", keys.task("q", "review")));
+
+        assertThat(sibling.held()).as("held by a task of its own project").isEmpty();
+        assertThat(sibling.delivered()).as("delivered in its own project").hasSize(2);
+        assertThat(stranger.delivered())
+                .as("in another project, by its whole principal")
+                .singleElement()
+                .satisfies(
+                        delivered -> {
+                            assertThat(delivered.message()).isEqualTo("m-1.json");
+                            assertThat(delivered.peer()).isEqualTo("task:p:build");
+                        });
+        assertThat(stranger.held())
+                .as("its plain name would pass it off as that project's own task")
+                .singleElement()
+                .satisfies(held -> assertThat(held.message()).isEqualTo("m-2.json"));
+    }
+
+    @Test
+    void aSenderNamedByAnotherTasksPrincipalIsHeld() throws IOException {
+        final CertifiedTaskKeys keys = new CertifiedTaskKeys(dir);
+        final SigningKey build = keys.task("p", "build");
+        final Mailbox mailbox = mailbox();
+        arrive(mailbox, build, "m-1", sent("m-1", "task:p:test"));
+        arrive(mailbox, build, "m-2", sent("m-2", "task:q:build"));
+
+        final MessageDelivery.Outcome outcome =
+                new MessageDelivery().deliver(mailbox, keys.signers("p", keys.task("p", "review")));
+
+        assertThat(outcome.delivered()).as("delivered").isEmpty();
+        assertThat(outcome.held()).as("both held").hasSize(2);
+    }
+
+    private static String sent(final String id, final String from) {
+        return "{\"messageId\":\""
+                + id
+                + "\",\"role\":\"ROLE_AGENT\",\"metadata\":{\"from\":\""
+                + from
+                + "\",\"to\":\"review\"}}";
     }
 
     @Test

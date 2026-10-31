@@ -239,6 +239,14 @@ class TaskLifecycleCommandsTest {
                 .isEqualTo("my-first-3");
         // A name neither a container nor a peer may start with.
         assertThat(TaskNames.fromRepository(context, "default", ".github")).isEqualTo("github");
+        // A repository named like the room's people or a person: a task of that name would have
+        // its every message held, or pass as a person's.
+        assertThat(TaskNames.fromRepository(context, "default", "people"))
+                .as("the people's name")
+                .isEqualTo("work");
+        assertThat(TaskNames.fromRepository(context, "default", "person"))
+                .as("a person's name")
+                .isEqualTo("work");
     }
 
     @Test

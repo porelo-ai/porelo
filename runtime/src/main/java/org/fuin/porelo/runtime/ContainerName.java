@@ -1,5 +1,6 @@
 package org.fuin.porelo.runtime;
 
+import org.fuin.porelo.core.project.Mail;
 import org.fuin.porelo.core.project.Project;
 
 /**
@@ -50,7 +51,19 @@ public final class ContainerName {
 
     /** A task name: the project names' alphabet, starting and ending with a letter or digit. */
     private static final java.util.regex.Pattern TASK =
-            java.util.regex.Pattern.compile("[a-z0-9]([a-z0-9-]*[a-z0-9])?");
+            java.util.regex.Pattern.compile(Project.TASK_NAME_PATTERN);
+
+    /**
+     * Tells whether a task name is one a message names somebody else by: the room's people, or a
+     * person's own note. A task of that name would have its every message held, or pass as a
+     * person's.
+     *
+     * @param task Task name.
+     * @return {@code true} when no task may have it.
+     */
+    public static boolean reserved(String task) {
+        return Mail.PEOPLE.equals(task) || Mail.PERSON.equals(task);
+    }
 
     /**
      * Returns why a task name cannot be used, or empty when it can.
@@ -88,6 +101,13 @@ public final class ContainerName {
                             + task
                             + "' is not a task name: it needs a letter,"
                             + " because a name of only digits is what marks a login container");
+        }
+        if (reserved(task)) {
+            return java.util.Optional.of(
+                    "'"
+                            + task
+                            + "' is not a task name: a message names the room's people or a"
+                            + " person by it");
         }
         final String container = PREFIX + project + "-" + task;
         if (!project.isEmpty() && container.length() > MAX_LENGTH) {

@@ -299,7 +299,7 @@ public final class MessageDelivery {
             // The agent reads who wrote a message from its metadata, which the sender wrote: a
             // name other than the key's would pass one task off as another, or as a person.
             final String from = from(bytes);
-            if (from != null && !from.equals(peer.peer())) {
+            if (from != null && !peer.named(from)) {
                 hold(mailbox, message, signature);
                 held.add(
                         new Held(
@@ -404,7 +404,8 @@ public final class MessageDelivery {
         }
         if (!(parsed instanceof java.util.Map<?, ?> document)
                 || !(document.get("metadata") instanceof java.util.Map<?, ?> metadata)
-                || !metadata.containsKey("from")) {
+                || metadata.get("from") == null) {
+            // JSON's null names nobody, as a serializer writes a field that was never set.
             return null;
         }
         return metadata.get("from") instanceof String name ? name : "";

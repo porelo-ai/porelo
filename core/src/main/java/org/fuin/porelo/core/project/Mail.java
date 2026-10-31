@@ -50,6 +50,9 @@ public record Mail(
      */
     public static final String PEOPLE = "people";
 
+    /** Who a person's own note to a task is from, as {@code metadata.from} names it. */
+    public static final String PERSON = "person";
+
     /** The setting under {@code mail} that holds the rules. */
     public static final String RULES = "rules";
 
@@ -238,7 +241,28 @@ public record Mail(
         // Measured on the VM, where the obvious path produced an identity nobody could address. It
         // reaches no file name and no argument list, only 'metadata.to' and a key in the moderation
         // file, so the dot and the at sign cost nothing.
-        private static final Pattern NAME = Pattern.compile("[a-zA-Z0-9][a-zA-Z0-9_.@-]*");
+
+        /**
+         * What a peer's name looks like: one of the names above, or a task of another project as
+         * its key's whole principal, {@code task:<project>:<task>}, which is how a message from it
+         * traces. A colon is taken in that form only, so no other name reads as one.
+         *
+         * <p>The second form takes exactly the tasks a start can make, in one expression another
+         * filter can copy: at most 57 characters after {@code task:}, since the container name
+         * {@code porelo-<project>-<task>} has at most 64, and no task named {@value #PEOPLE},
+         * {@value #PERSON} or only digits.
+         */
+        public static final String NAME_PATTERN =
+                "[a-zA-Z0-9][a-zA-Z0-9_.@-]*|task:(?=[a-z0-9:-]{3,57}\\z)"
+                        + Project.NAME_PATTERN
+                        + ":(?!(?:"
+                        + PEOPLE
+                        + "|"
+                        + PERSON
+                        + "|[0-9]+)\\z)"
+                        + Project.TASK_NAME_PATTERN;
+
+        private static final Pattern NAME = Pattern.compile(NAME_PATTERN);
 
         // The transport's name reaches a file name and an argument list, so it is as narrow as a
         // peer name. The rest of an address is whatever that transport understands.
@@ -260,7 +284,8 @@ public record Mail(
             if (name == null || !NAME.matcher(name).matches()) {
                 throw new ProjectException(
                         "A peer name is letters, digits, dash, underscore, dot"
-                                + " and at sign, starting with a letter or digit: "
+                                + " and at sign, starting with a letter or digit, or a task of"
+                                + " another project as 'task:<project>:<task>': "
                                 + name);
             }
             if (address == null

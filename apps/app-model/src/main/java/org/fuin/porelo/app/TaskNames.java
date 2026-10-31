@@ -26,7 +26,8 @@ public final class TaskNames {
             final PoreloContext context, final String project, final String repository) {
         // A leading '.' or '_' (GitHub's '.github') is neither a container name nor a peer name.
         String base = repository.replaceFirst("^[._]+", "");
-        if (base.isEmpty()) {
+        // A repository named like the room's people or a person names no task.
+        if (base.isEmpty() || org.fuin.porelo.runtime.ContainerName.reserved(base)) {
             base = "work";
         }
         final java.util.Set<String> taken = new java.util.HashSet<>();

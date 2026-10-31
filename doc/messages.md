@@ -92,9 +92,11 @@ A transport is a package on the host; [writing a transport](transports.md) says 
 
 - **Trust is a property of the peer.** A message from a `vouched` peer is delivered once its key traces to a
   certificate as above; the peer is the task's name for a task of the same project, and its whole principal,
-  `task:<project>:<task>`, for one of another project. A message whose `metadata.from` names anyone else is
-  held. One from an `external` peer, or one the project does not list, is also put through the filter on the way
-  in.
+  `task:<project>:<task>`, for one of another project, which is also how `mail.peers` names it. A message's
+  `metadata.from` may name its sender either way: by that peer name, or by the whole principal, which passes in
+  every project; one that is absent or `null` names nobody. A message whose `metadata.from` names anyone else is
+  held. No task is named `people` or `person`, the names the room's people and a person's own note go by. One
+  from an `external` peer, or one the project does not list, is also put through the filter on the way in.
 - **No order is promised, and nothing is delivered twice**: a message whose id already reached a mailbox is
   dropped and logged.
 - **The mailbox lives exactly as long as the task**: a stop, a start or a reboot leave it as it was, and the
