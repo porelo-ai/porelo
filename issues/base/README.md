@@ -21,7 +21,7 @@ from its side, as *blocked by*.
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
 | <a id="b342"></a>[B342](B342-Persons-In-The-Access-File-By-Their-Cards.md) | M | [B337](README.md#b337), [B334](README.md#b334) | The access file names persons by login and pinned key fingerprint with their cards beside it; `verify --json` answers `persons` and every admitted person's key as a task certifier; WireGuard fields, `ca_sha256` and laptops go |
-| <a id="b340"></a>[B340](B340-A-Host-Checks-The-Registry-It-Was-Brought.md) | M | [B339](README.md#b339), [B349](README.md#b349) | `registry verify --repository <bundle> --host --pinned --json` for root's sync, no network, no home |
+| <a id="b340"></a>[B340](B340-A-Host-Checks-The-Registry-It-Was-Brought.md) | M | [B337](README.md#b337), [B349](README.md#b349) | `registry verify --repository <bundle> --host --pinned --json` for root's sync, no network, no home |
 | <a id="b349"></a>[B349](B349-A-Host-Card-Signed-By-Its-Host-Admin.md) | S | - | A host card - host, address, SSH host key, the forge's web and Git ports and the homeserver's port - signed by its host admin on their own machine; `card make-host` and `card verify-host --signer --json` |
 | <a id="b347"></a>[B347](B347-An-Agent-Says-How-It-Signs-In.md) | M | - | `login.flow` is `paste-code`, `device-code` or `loopback` in an agent's definition; a loopback sign-in over SSH is refused before it starts |
 | <a id="b334"></a>[B334](B334-A-Person-Kept-In-The-Project-Room.md) | M | - | Every developer of the applied access file is a person in the project's room under their host account, kept with the machines by the transport's `members --persons` and heard by the host account it names, and one dropped from the file leaves the room |
@@ -130,6 +130,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b354"></a>[B354](B354-A-Task-Named-By-Its-Key.md) | S | [B343](README.md#b343) | A task's name carries a short suffix from its key's fingerprint, unique per login, so a name names one task key |
 | <a id="b353"></a>[B353](B353-The-Projects-A-Person-May-Join.md) | M | [B339](README.md#b339), [B342](README.md#b342) | `porelo registry joinable <checkout> --login L --json`: the projects a person may join, with each one's host card, verified access revision, signers and admins, and every unreadable access repository named |
 | <a id="b352"></a>[B352](B352-A-Persons-Access-Written-By-Porelo.md) | M | [B338](README.md#b338), [B342](README.md#b342) | `porelo project access init\|add\|remove\|lock\|unlock --base --id --json`: the admin's Porelo writes the access file and the cards and signs the commit through their agent, idempotent by id |
 | <a id="b351"></a>[B351](B351-A-Host-Card-Signed-Through-The-SSH-Agent.md) | - | - | `porelo card make-host` signs through `ssh-agent`, KeePassXC included, so a host admin's key never lies on disk to sign their host's card |
