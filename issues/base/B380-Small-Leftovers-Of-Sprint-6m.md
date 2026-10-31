@@ -10,3 +10,8 @@ or lends a credential, trusts a key wrongly or loses data. Each one placed is sp
 - An scp address without a user, `host:a@b:c`, is cut like `user:password@host:path` to `b:c`, though git connects to
   `host` with the path `a@b:c`; the two spellings cannot be told apart from the address alone. Found by the fix of
   [B375](README.md#b375).
+- Low: if `podman create` succeeds but recording its id fails, the container Porelo made stays without a record;
+  `task remove` cannot reach it and the name stays taken. Found while fixing [B378](README.md#b378).
+- Low: with `--no-gate`, `/workspace` is never a git checkout, so a stopped no-gate task's census reads as unknown
+  and `task remove` needs `--force` (read in `UnhandedWork.CENSUS`, not measured). Found while fixing
+  [B378](README.md#b378).
