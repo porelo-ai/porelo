@@ -16,7 +16,8 @@ online pushes, not a daemon PR watcher. `Builds` has `forge`, `credential`, `api
 builds outside online projects. `ReviewReader`, `Review1`, `ReviewWatch`, reviewer lists and release settings are
 additions. `InboundCheck` filters external peer messages; forge input needs its own authenticated inbound route.
 
-1. Add `ReviewReader` and `org.fuin.porelo.Review1.varlink` beside `Build2` in `builds/api`; dispatch through
+1. Add `ReviewReader` and `org.fuin.porelo.Review1.varlink` in the published artifact `porelo-review-api`, beside the
+   review profile, not in `builds/api` (operator, 2026-10-31); dispatch through
    `BuildMain`/`BuildServer` only when implemented, with capabilities in `Describe`. Extend `builds/stub/StubReader`.
    Read PR state and paged SARIF logs; write explicit create, reply, edit, delete, resolve, unresolve and verdict
    operations, each with exact target, native IDs, commit and released content. A SARIF snapshot is never a command.

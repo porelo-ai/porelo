@@ -1,6 +1,8 @@
 # B351 — A Host Card Signed Through The SSH Agent
 
-**Status:** Idea.
+**Status:** Backlog (operator, 2026-10-31), sprint 6m.
+**Size:** S, proposed - one option on `card make-host` naming the agent's key by fingerprint, and the card signed
+through the agent as a person card is.
 
 **What must be true.** `porelo card make-host` signs a host card through `ssh-agent` with the host admin's key, as
 `ssh-keygen -Y sign` does with a key the agent holds: KeePassXC's agent included. No private key file is read and

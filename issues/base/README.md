@@ -50,6 +50,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b351"></a>[B351](B351-A-Host-Card-Signed-Through-The-SSH-Agent.md) | S | - | `porelo card make-host` signs through `ssh-agent`, KeePassXC included, so a host admin's key never lies on disk to sign their host's card |
 | <a id="b353"></a>[B353](B353-The-Projects-A-Person-May-Join.md) | M | [B339](README.md#b339), [B342](README.md#b342) | `porelo registry joinable <checkout> --login L --json`: the projects a person may join, with each one's host card, verified access revision, signers and admins, and every unreadable access repository named |
 | <a id="b356"></a>[B356](B356-A-New-Key-Made-Straight-Into-KeePassXC.md) | S | [B338](README.md#b338) | `--keepassxc DATABASE` on `identity create`, `rotate` and `revoke --lost`: a new key made in memory and handed to `keepassxc-cli` over a pipe, no key file anywhere, the card signed once the agent serves it |
 | <a id="b14"></a>[B14](B14-Talking-Between-Tasks.md) | XL | `porelo` [B86](README.md#b86) | Talking between tasks, built on one machine; splits into groups (M), trust confirmed once with fingerprints (M), two machines on one homeserver (L). |
@@ -134,8 +135,8 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b357"></a>[B357](B357-Build2-Waits-60-Seconds-When-The-Forge-Names-No-Wait.md) | S | - | When a forge names no wait, `Build2.RateLimited` answers `retryAfter: 60`, as `Review1` does, not 0 |
 | <a id="b354"></a>[B354](B354-A-Task-Named-By-Its-Key.md) | S | [B343](README.md#b343) | A task's name carries a short suffix from its key's fingerprint, unique per login, so a name names one task key |
-| <a id="b351"></a>[B351](B351-A-Host-Card-Signed-Through-The-SSH-Agent.md) | - | - | `porelo card make-host` signs through `ssh-agent`, KeePassXC included, so a host admin's key never lies on disk to sign their host's card |
 | <a id="b350"></a>[B350](B350-A-Loopback-Sign-In-Over-SSH-Names-Its-Forward.md) | - | [B347](README.md#b347) | A `loopback` sign-in over SSH runs: Porelo names the callback port and the interface shows the one `ssh -L` line to open first |
 | <a id="b330"></a>[B330](B330-A-Snippet-File-Is-Read-From-The-Commit-Being-Applied.md) | - | - | A follow reads `image.snippet_file` from the commit it judges, not from the working tree before it moves, so a first follow of a project with a snippet file is not refused |
 | <a id="b328"></a>[B328](B328-An-Inbox-Message-Ends-With-A-Newline.md) | - | - | A message delivered into a task's inbox ends with a newline, so `cat` of it leaves the prompt on its own line |
