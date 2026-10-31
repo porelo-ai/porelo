@@ -518,7 +518,7 @@ porelo project follow NAME URL|FILE [--signed-by=<key> | --unverified] [--access
 porelo project following [--json]
 porelo project inventory --machine-file FILE
 porelo project verify --repository PATH --signed-by KEY... [--project NAME] [--since COMMIT]
-                      [--access-repository PATH] [--access-since COMMIT] [--json]
+                      [--access-repository PATH] [--access-since COMMIT] [--krl FILE] [--json]
 porelo project refresh [NAME]
 porelo project list
 porelo project unfollow NAME [--dry-run] [--force]
@@ -528,7 +528,14 @@ porelo project enroll PROJECT [--remove] [--as=PRINCIPAL]
 ```
 
 - **`follow`** takes the project's configuration from its repository, checked against the
-  `--signed-by` key. `--unverified` skips the check, and Porelo says so wherever the project is shown.
+  `--signed-by` key. Every protected-file change in the first-parent range is checked against the
+  keys in force before it; an unsigned document tip passes. A refusal keeps the commit in force and
+  names the offending commit and path. New protected changes exclude retired keys and check
+  `~/.config/porelo/revoked.krl` when present; retired keys stay in the pinned file only for history.
+  `--unverified` skips the check, and Porelo says so wherever the project is shown.
+  Switching to verified checks both tips as a first follow, including unchanged tips. Shallow
+  repositories are refused. A named fingerprint must match a protected commit in the checked range,
+  and a refusal publishes no clone, key or followed-state changes.
   From an address (`https://`, `file://`, `git@host:`), it is fetched again in the background. From a
   file - a bundle of the repository, or a directory on this machine - it is read once and never fetched;
   following it again from a newer file is how its settings change. An offline project is followed only
@@ -544,6 +551,9 @@ porelo project enroll PROJECT [--remove] [--as=PRINCIPAL]
   machine defines is refused - and needs no home or network. It checks against the keys named alone, each the key
   itself (`ssh-ed25519 AAAA...`), never a fingerprint as `follow` takes; they are the keys in force at `--since`
   (or the ones pinned at the project's registration), and a handover after it is walked as `follow` walks it.
+  `--krl FILE` supplies a revocation list explicitly; a configured list that cannot be read refuses.
+  `signers` contains only keys in force, and retired keys never authorize a new protected change,
+  even when its commit is backdated.
   `--since` and `--access-since` are full commit hashes taken as in force: a newer one must descend from them, or
   it is refused as a rewrite. The name checked is `--project`, or the one the commit at `--since` gives, or else
   the tip's; a file under another name is refused. A project naming an access repository needs

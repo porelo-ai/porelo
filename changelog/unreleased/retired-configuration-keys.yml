@@ -1,0 +1,2 @@
+title: Retired project keys remain available for verifying history with valid-before, while new protected changes exclude them and check the account revocation list or the verifier input --krl.
+type: fixed

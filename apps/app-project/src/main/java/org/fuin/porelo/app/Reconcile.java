@@ -1,9 +1,11 @@
 package org.fuin.porelo.app;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
 import org.fuin.porelo.core.process.Command;
 import org.fuin.porelo.core.process.CommandResult;
@@ -35,26 +37,26 @@ public final class Reconcile {
     /** What one attempt did. */
     public enum Outcome {
 
-        /** The clone now holds a verified commit, and the project points at its file. */
+        /** The clone holds the accepted tip, verified unless followed unverified. */
         APPLIED,
 
-        /**
-         * It already held that commit. Nothing was fetched into the working tree, nothing moved.
-         */
+        /** The tip is the recorded commit; a missing clone or one at another HEAD is restored. */
         UNCHANGED,
 
         /** The project was unfollowed before this attempt acquired its clone lock. */
         NOT_FOLLOWED,
 
-        /** The fetched commit carries no signature at all. Usually somebody forgot to sign. */
+        /**
+         * A commit requiring verification carries no signature. Usually somebody forgot to sign.
+         */
         NOT_SIGNED,
 
         /**
-         * A good signature by a key this machine was never given.
+         * The signature is not authorized by the keys in force and the revocation policy.
          *
          * <p>Its own outcome rather than one refusal with the others, because the two are different
-         * events with different cures: a key that has moved, or somebody putting a project file
-         * past the machine. Only this one is worth a person's attention as a possible attempt.
+         * events with different cures: a key that has moved, retired or been revoked, or somebody
+         * putting a project file past the machine.
          */
         UNKNOWN_KEY,
 
@@ -124,8 +126,8 @@ public final class Reconcile {
         UNUSABLE,
 
         /**
-         * The verified commit is not a descendant of the one in force: the history moved sideways
-         * or backwards. Not applied, and waiting for a person.
+         * The fetched tip is not a descendant of the one in force: the history moved sideways or
+         * backwards. Not applied, and waiting for a person.
          */
         REWRITTEN,
 
@@ -147,6 +149,9 @@ public final class Reconcile {
      *     fingerprint, which is not a secret.
      * @param accessCommit The access commit in force, or "" when none is.
      * @param accessOutcome The last access attempt's outcome name, or "" when none was tried.
+     * @param refusedFile The protected project path refused, or "".
+     * @param accessRefused The access commit refused, or "".
+     * @param accessRefusedFile The protected access path refused, or "".
      */
     public record Result(
             Outcome outcome,
@@ -155,7 +160,32 @@ public final class Reconcile {
             String refused,
             String signer,
             String accessCommit,
-            String accessOutcome) {
+            String accessOutcome,
+            String refusedFile,
+            String accessRefused,
+            String accessRefusedFile) {
+
+        /**
+         * Constructor for an attempt without protected-path refusal information.
+         *
+         * @param outcome What happened.
+         * @param commit The commit in force.
+         * @param detail What to tell an operator.
+         * @param refused The commit refused, or "".
+         * @param signer Its signer's fingerprint, or "".
+         * @param accessCommit The access commit in force, or "".
+         * @param accessOutcome The access outcome, or "".
+         */
+        public Result(
+                Outcome outcome,
+                String commit,
+                String detail,
+                String refused,
+                String signer,
+                String accessCommit,
+                String accessOutcome) {
+            this(outcome, commit, detail, refused, signer, accessCommit, accessOutcome, "", "", "");
+        }
 
         /**
          * Constructor for an attempt with no access result.
@@ -197,6 +227,7 @@ public final class Reconcile {
                 case "UNKNOWN_KEY",
                         "NOT_SIGNED",
                         "NO_ANCHOR",
+                        "UNREADABLE",
                         "REWRITTEN",
                         "UNUSABLE",
                         "VAULT_LOCKED",
@@ -212,11 +243,13 @@ public final class Reconcile {
 
     private final PoreloContext context;
 
-    private final ConfigurationGate gate;
-
     private final SignerHandover handover;
 
     private final Path signers;
+
+    private final boolean acceptRewrite;
+
+    private final @org.jspecify.annotations.Nullable Path krl;
 
     /**
      * Where a check takes the access repository from instead of the URL the project names, or
@@ -257,11 +290,58 @@ public final class Reconcile {
             final PoreloContext context,
             final Path signers,
             final @org.jspecify.annotations.Nullable String accessFrom) {
+        this(context, signers, accessFrom, revocations(context));
+    }
+
+    /**
+     * Constructor for a check with an explicit revocation list.
+     *
+     * @param context The machine or isolated checker.
+     * @param signers The pinned allowed-signers file.
+     * @param accessFrom The access source, or {@code null} to fetch the declared URL.
+     * @param krl The revocation list, or {@code null} when none is configured.
+     */
+    public Reconcile(
+            final PoreloContext context,
+            final Path signers,
+            final @org.jspecify.annotations.Nullable String accessFrom,
+            final @org.jspecify.annotations.Nullable Path krl) {
+        this(context, signers, accessFrom, krl, false);
+    }
+
+    private Reconcile(
+            final PoreloContext context,
+            final Path signers,
+            final @org.jspecify.annotations.Nullable String accessFrom,
+            final @org.jspecify.annotations.Nullable Path krl,
+            final boolean acceptRewrite) {
+        this(context, signers, accessFrom, krl, acceptRewrite, ignored -> {});
+    }
+
+    private Reconcile(
+            final PoreloContext context,
+            final Path signers,
+            final @org.jspecify.annotations.Nullable String accessFrom,
+            final @org.jspecify.annotations.Nullable Path krl,
+            final boolean acceptRewrite,
+            final java.util.function.Consumer<String> verifiedSigner) {
+        this.krl = krl;
         this.context = context;
         this.signers = signers;
         this.accessFrom = accessFrom;
-        this.gate = new ConfigurationGate(context.runner(), signers);
-        this.handover = new SignerHandover(context.runner(), signers);
+        this.acceptRewrite = acceptRewrite;
+        this.handover = new SignerHandover(context.runner(), signers, krl, verifiedSigner);
+    }
+
+    /** Accepts replacement tips while preserving the previous declaration. */
+    Reconcile acceptingRewrite(final boolean accept) {
+        return new Reconcile(context, signers, accessFrom, krl, accept);
+    }
+
+    private static @org.jspecify.annotations.Nullable Path revocations(
+            final PoreloContext context) {
+        final Path file = context.paths().projects().revocations();
+        return Files.notExists(file, java.nio.file.LinkOption.NOFOLLOW_LINKS) ? null : file;
     }
 
     /**
@@ -279,6 +359,7 @@ public final class Reconcile {
      * @param project The project file read at that commit, its snippets from that commit, or {@code
      *     null} unless the check found that commit good to apply.
      * @param persons The access commit's card-verified persons, read before the scratch clone goes.
+     * @param verifiedSigners Fingerprints that verified protected project commits in this range.
      */
     public record Checked(
             Result result,
@@ -287,7 +368,8 @@ public final class Reconcile {
             @org.jspecify.annotations.Nullable String accessFile,
             List<String> signers,
             org.fuin.porelo.core.project.@org.jspecify.annotations.Nullable Project project,
-            List<org.fuin.porelo.vault.AccessPersons.Person> persons) {
+            List<org.fuin.porelo.vault.AccessPersons.Person> persons,
+            List<String> verifiedSigners) {
 
         /**
          * Constructor for a check that kept no access file.
@@ -300,7 +382,7 @@ public final class Reconcile {
                 final Result result,
                 final @org.jspecify.annotations.Nullable String key,
                 final @org.jspecify.annotations.Nullable String projectFile) {
-            this(result, key, projectFile, null, List.of(), null, List.of());
+            this(result, key, projectFile, null, List.of(), null, List.of(), List.of());
         }
 
         /**
@@ -321,7 +403,6 @@ public final class Reconcile {
      * @return What this attempt did.
      */
     public Result run(final FollowedProjects.Followed followed) {
-        final Path clone = context.paths().projects().followedClone(followed.name());
         final Path lock = context.paths().projects().followedCloneLock(followed.name());
         // One at a time per project, across the daemon's watch and a follow at the terminal:
         // unlocked, the watch checked descent against the commit it had read, and reset the clone
@@ -343,16 +424,44 @@ public final class Reconcile {
                                                                 "",
                                                                 "this account no longer follows "
                                                                         + followed.name()))
-                                        : run(
-                                                current,
-                                                clone,
-                                                context.paths()
-                                                        .projects()
-                                                        .followedAccessClone(current.name()));
+                                        : reconcilePrepared(current);
                             });
             return result;
         } catch (final java.io.IOException ex) {
             throw new java.io.UncheckedIOException(ex);
+        }
+    }
+
+    private Result reconcilePrepared(final FollowedProjects.Followed followed) {
+        try (final Prepared prepared = prepare(followed, null)) {
+            final Result result = prepared.checked().result();
+            if (result.outcome() == Outcome.APPLIED || result.outcome() == Outcome.UNCHANGED) {
+                if (prepared.checked().project() == null) {
+                    return new Result(
+                            Outcome.UNREADABLE,
+                            followed.commit(),
+                            "cannot read the prepared project before publication");
+                }
+                final boolean changed =
+                        Files.exists(signers)
+                                ? Files.mismatch(signers, prepared.signers()) != -1
+                                : Files.size(prepared.signers()) > 0;
+                try (final SignerHandover.Staged staged =
+                        changed
+                                ? prepared.stageKeys(context.runner(), signers, followed.name())
+                                : null) {
+                    prepared.publishClones(context, followed.name());
+                    if (staged != null) {
+                        staged.publish();
+                    }
+                }
+            }
+            return result;
+        } catch (final IOException ex) {
+            return new Result(
+                    Outcome.UNREADABLE,
+                    followed.commit(),
+                    "cannot prepare or publish the followed project: " + ex.getMessage());
         }
     }
 
@@ -368,8 +477,7 @@ public final class Reconcile {
      * <p>Asked before anything is written, because a follow that cannot apply used to leave a
      * half-made project behind - one was met, with no way to want it gone.
      *
-     * @param followed What would be followed. Its commit is ignored: a check answers "would this
-     *     work", not "would this be a change".
+     * @param followed What would be followed, including the commits already in force.
      * @return What a follow would do.
      */
     public Result check(final FollowedProjects.Followed followed) {
@@ -387,17 +495,20 @@ public final class Reconcile {
      * @return What a follow would do, and the key.
      */
     public Checked checked(final FollowedProjects.Followed followed) {
-        return scratchCheck(
-                new FollowedProjects.Followed(
-                        followed.name(),
-                        followed.url(),
-                        "",
-                        followed.at(),
-                        followed.outcome(),
-                        followed.detail(),
-                        followed.refused(),
-                        followed.signer(),
-                        followed.unverified()));
+        // On a copy of the live clones, as the follow prepares itself: a check on an empty clone
+        // said "ready" where the follow refused a shallow one, and refused a bundle the follow
+        // took on top of what it had.
+        // A check records nothing, not even the follow directory: its copy lives in the temp dir.
+        try (Prepared prepared = prepare(followed, null, false)) {
+            return prepared.checked();
+        } catch (final IOException ex) {
+            return new Checked(
+                    new Result(
+                            Outcome.UNREADABLE,
+                            followed.commit(),
+                            "cannot prepare the check: " + ex.getMessage()),
+                    null);
+        }
     }
 
     /**
@@ -420,51 +531,287 @@ public final class Reconcile {
             // A handover a check walks pins into a copy; with no file there is nothing to pin, and
             // the refusal names the file a person must write.
             final Path checkSigners =
-                    Files.exists(signers)
-                            ? Files.copy(signers, scratch.resolve("signers"))
-                            : signers;
+                    Files.notExists(signers, java.nio.file.LinkOption.NOFOLLOW_LINKS)
+                            ? signers
+                            : Files.copy(signers, scratch.resolve("signers"));
+            final java.util.Set<String> verifiedSigners = new java.util.LinkedHashSet<>();
             final Result result =
-                    new Reconcile(context, checkSigners, accessFrom)
+                    new Reconcile(
+                                    context,
+                                    checkSigners,
+                                    accessFrom,
+                                    krl,
+                                    acceptRewrite,
+                                    verifiedSigners::add)
                             .run(followed, clone, scratch.resolve("access"));
-            // Read whatever the gate said: with no key pinned here it verifies nothing and names no
-            // signer.
-            final String projectFile = projectFile(clone, result);
-            final String accessText = accessFile(clone, scratch.resolve("access"), result);
-            final org.fuin.porelo.core.project.Project project =
-                    projectFile == null ? null : project(clone, result.commit());
-            final List<org.fuin.porelo.vault.AccessPersons.Person> persons =
-                    accessText == null || project == null
-                            ? List.of()
-                            : org.fuin.porelo.vault.AccessPersons.read(
-                                    context.runner(),
-                                    project.access()
-                                                    instanceof
-                                                    org.fuin.porelo.core.project.Access.InRepository
-                                            ? scratch.resolve("access")
-                                            : clone,
-                                    result.accessCommit(),
-                                    AccessFile.read(
-                                            new java.io.StringReader(accessText), Access.FILE));
-            return new Checked(
+            return checkedResult(
+                    clone,
+                    scratch.resolve("access"),
+                    checkSigners,
+                    followed,
                     result,
-                    SignedBy.keyOf(context.runner(), clone, "FETCH_HEAD"),
-                    projectFile,
-                    accessText,
-                    projectFile == null
-                            ? List.of()
-                            : new SignerHandover(context.runner(), checkSigners)
-                                    .pinned(followed.name()),
-                    project,
-                    persons);
+                    List.copyOf(verifiedSigners));
         } catch (final IOException ex) {
             return new Checked(
                     new Result(
-                            Outcome.FAILED,
+                            Outcome.UNREADABLE,
                             followed.commit(),
                             "cannot make a scratch clone to check with: " + ex.getMessage()),
                     null);
         } finally {
             if (scratch != null) {
+                deleteTree(scratch);
+            }
+        }
+    }
+
+    private Checked checkedResult(
+            final Path clone,
+            final Path accessClone,
+            final Path checkSigners,
+            final FollowedProjects.Followed followed,
+            final Result result,
+            final List<String> verifiedSigners) {
+        final String projectFile = projectFile(clone, result);
+        final String accessText = accessFile(clone, accessClone, result);
+        final org.fuin.porelo.core.project.Project project =
+                projectFile == null ? null : project(clone, result.commit());
+        // Read before the scratch clone goes, from the clone the access file came from.
+        final List<org.fuin.porelo.vault.AccessPersons.Person> persons =
+                accessText == null || project == null
+                        ? List.of()
+                        : org.fuin.porelo.vault.AccessPersons.read(
+                                context.runner(),
+                                project.access()
+                                                instanceof
+                                                org.fuin.porelo.core.project.Access.InRepository
+                                        ? accessClone
+                                        : clone,
+                                result.accessCommit(),
+                                AccessFile.read(new java.io.StringReader(accessText), Access.FILE));
+        return new Checked(
+                result,
+                result.refused().isEmpty()
+                        ? result.signer().isEmpty()
+                                ? null
+                                : SignedBy.keyOf(context.runner(), clone, result.commit())
+                        : SignedBy.keyOf(context.runner(), clone, result.refused()),
+                projectFile,
+                accessText,
+                projectFile == null
+                        ? List.of()
+                        : new SignerHandover(context.runner(), checkSigners)
+                                .pinned(followed.name()),
+                project,
+                persons,
+                verifiedSigners);
+    }
+
+    /** A checked snapshot retained until the caller accepts or refuses publication. */
+    record Prepared(
+            Path directory, Path repository, Path accessClone, Path signers, Checked checked)
+            implements AutoCloseable {
+        void publishClones(final PoreloContext context, final String name) throws IOException {
+            final ProjectPaths paths = context.paths().projects();
+            if (checked.result().outcome() == Outcome.APPLIED
+                    || checked.result().outcome() == Outcome.UNCHANGED
+                            && !atCommit(
+                                    context.runner(),
+                                    paths.followedClone(name),
+                                    checked.result().commit())) {
+                replace(
+                        repository,
+                        paths.followedClone(name),
+                        directory.resolve("previous-project"));
+            }
+            if ((Outcome.APPLIED.name().equals(checked.result().accessOutcome())
+                            || Outcome.UNCHANGED.name().equals(checked.result().accessOutcome())
+                                    && !atCommit(
+                                            context.runner(),
+                                            paths.followedAccessClone(name),
+                                            checked.result().accessCommit()))
+                    && Files.isDirectory(accessClone)) {
+                replace(
+                        accessClone,
+                        paths.followedAccessClone(name),
+                        directory.resolve("previous-access"));
+            }
+        }
+
+        SignerHandover.Staged stageKeys(
+                final CommandRunner runner, final Path destination, final String name)
+                throws IOException {
+            final List<String> lines =
+                    Files.notExists(destination, java.nio.file.LinkOption.NOFOLLOW_LINKS)
+                            ? new ArrayList<>()
+                            : new ArrayList<>(AllowedSigner.read(runner, destination));
+            lines.removeIf(line -> name.equals(principalOf(line)));
+            AllowedSigner.read(runner, signers).stream()
+                    .filter(line -> name.equals(principalOf(line)))
+                    .forEach(lines::add);
+            Files.createDirectories(destination.getParent());
+            final Path staged =
+                    Files.createTempFile(destination.getParent(), ".project-signers-", "");
+            try {
+                Files.write(staged, lines, StandardCharsets.UTF_8);
+                AllowedSigner.read(runner, staged);
+                return new SignerHandover.Staged(staged, destination, "");
+            } catch (final IOException | RuntimeException ex) {
+                Files.deleteIfExists(staged);
+                throw ex;
+            }
+        }
+
+        private static String principalOf(final String line) {
+            final String[] fields = line.strip().split("\\s+", 2);
+            return fields[0];
+        }
+
+        private static boolean atCommit(
+                final CommandRunner runner, final Path clone, final String commit) {
+            // A bare or linked clone answers HEAD too, and is no work tree to keep.
+            if (!holdsRepository(clone)) {
+                return false;
+            }
+            final CommandResult head =
+                    runner.run(
+                            Command.of(
+                                    "git",
+                                    "-C",
+                                    clone.toString(),
+                                    "rev-parse",
+                                    "--verify",
+                                    "HEAD"));
+            return head.successful() && head.standardOutput().strip().equals(commit);
+        }
+
+        private static void replace(final Path source, final Path destination, final Path backup)
+                throws IOException {
+            // A link, dangling or not, is moved aside as itself, never followed.
+            final boolean existed =
+                    Files.exists(destination, java.nio.file.LinkOption.NOFOLLOW_LINKS);
+            if (existed) {
+                Files.move(destination, backup, java.nio.file.StandardCopyOption.ATOMIC_MOVE);
+            }
+            try {
+                Files.move(source, destination, java.nio.file.StandardCopyOption.ATOMIC_MOVE);
+            } catch (final IOException ex) {
+                if (existed) {
+                    Files.move(backup, destination, java.nio.file.StandardCopyOption.ATOMIC_MOVE);
+                }
+                throw ex;
+            }
+        }
+
+        @Override
+        public void close() {
+            deleteTree(directory);
+        }
+    }
+
+    /**
+     * Prepares as {@link #prepare(FollowedProjects.Followed, String)} for a check only, in the temp
+     * directory, so it records nothing, not even the follow directory.
+     */
+    Prepared prepareCheck(
+            final FollowedProjects.Followed followed,
+            final @org.jspecify.annotations.Nullable String fingerprint)
+            throws IOException {
+        return prepare(followed, fingerprint, false);
+    }
+
+    /** Fetches once and checks only that snapshot, keeping all changes private until accepted. */
+    Prepared prepare(
+            final FollowedProjects.Followed followed,
+            final @org.jspecify.annotations.Nullable String fingerprint)
+            throws IOException {
+        return prepare(followed, fingerprint, true);
+    }
+
+    /**
+     * Prepares as {@link #prepare(FollowedProjects.Followed, String)}, beside the live clones when
+     * they are to be replaced by it, else in the temp directory.
+     */
+    private Prepared prepare(
+            final FollowedProjects.Followed followed,
+            final @org.jspecify.annotations.Nullable String fingerprint,
+            final boolean toPublish)
+            throws IOException {
+        final Path scratch;
+        if (toPublish) {
+            final Path parent =
+                    context.paths().projects().followedClone(followed.name()).getParent();
+            Files.createDirectories(parent);
+            scratch = Files.createTempDirectory(parent, ".follow-prepared-");
+        } else {
+            scratch = Files.createTempDirectory("porelo-follow-check-");
+        }
+        boolean prepared = false;
+        try {
+            final Path clone = scratch.resolve("clone");
+            final Path accessClone = scratch.resolve("access");
+            copyClone(context.paths().projects().followedClone(followed.name()), clone);
+            copyClone(context.paths().projects().followedAccessClone(followed.name()), accessClone);
+            final Path checkSigners = scratch.resolve("signers");
+            if (Files.notExists(signers, java.nio.file.LinkOption.NOFOLLOW_LINKS)) {
+                Files.writeString(checkSigners, "");
+            } else {
+                Files.copy(signers, checkSigners);
+            }
+            final java.util.Set<String> verifiedSigners = new java.util.LinkedHashSet<>();
+            final Reconcile staged =
+                    new Reconcile(
+                            context,
+                            checkSigners,
+                            accessFrom,
+                            krl,
+                            acceptRewrite,
+                            verifiedSigners::add);
+            final Result failed = staged.fetch(followed, clone);
+            final Result result;
+            if (failed != null) {
+                result = failed;
+            } else {
+                final Result first = staged.run(followed, clone, accessClone, true);
+                if (fingerprint != null
+                        && (first.outcome() == Outcome.UNKNOWN_KEY
+                                || first.outcome() == Outcome.NO_ANCHOR)) {
+                    final String key =
+                            SignedBy.keyOf(
+                                    context.runner(),
+                                    clone,
+                                    first.refused().isEmpty()
+                                            ? headOf(context.runner(), clone)
+                                            : first.refused());
+                    if (key != null && fingerprint.equals(SignedBy.fingerprintOf(key))) {
+                        final List<String> lines =
+                                new java.util.ArrayList<>(Files.readAllLines(checkSigners));
+                        final String line = followed.name() + " " + key;
+                        if (!lines.contains(line)) {
+                            lines.add(line);
+                            Files.write(checkSigners, lines);
+                        }
+                        verifiedSigners.clear();
+                        result = staged.run(followed, clone, accessClone, true);
+                    } else {
+                        result = first;
+                    }
+                } else {
+                    result = first;
+                }
+            }
+            final Checked checked =
+                    staged.checkedResult(
+                            clone,
+                            accessClone,
+                            checkSigners,
+                            followed,
+                            result,
+                            List.copyOf(verifiedSigners));
+            prepared = true;
+            return new Prepared(scratch, clone, accessClone, checkSigners, checked);
+        } finally {
+            if (!prepared) {
                 deleteTree(scratch);
             }
         }
@@ -552,6 +899,42 @@ public final class Reconcile {
         }
     }
 
+    private static void copyClone(final Path source, final Path destination) throws IOException {
+        if (!holdsRepository(source)) {
+            return;
+        }
+        try (final var paths = Files.walk(source)) {
+            for (final Path path : paths.toList()) {
+                final Path copy = destination.resolve(source.relativize(path));
+                if (Files.isDirectory(path, java.nio.file.LinkOption.NOFOLLOW_LINKS)) {
+                    Files.createDirectories(copy);
+                } else {
+                    Files.copy(
+                            path,
+                            copy,
+                            java.nio.file.LinkOption.NOFOLLOW_LINKS,
+                            java.nio.file.StandardCopyOption.COPY_ATTRIBUTES);
+                }
+            }
+        }
+    }
+
+    /**
+     * Whether a clone directory holds what a follow keeps there: a work tree with its own {@code
+     * .git} directory holding its HEAD, objects and refs. A link is not followed, and a bare
+     * repository, a {@code .git} file or one left half deleted is not one: each is made again
+     * rather than fetched into.
+     */
+    private static boolean holdsRepository(final Path clone) {
+        final java.nio.file.LinkOption noFollow = java.nio.file.LinkOption.NOFOLLOW_LINKS;
+        final Path git = clone.resolve(".git");
+        return !Files.isSymbolicLink(clone)
+                && Files.isDirectory(git, noFollow)
+                && Files.isRegularFile(git.resolve("HEAD"), noFollow)
+                && Files.isDirectory(git.resolve("objects"), noFollow)
+                && Files.isDirectory(git.resolve("refs"), noFollow);
+    }
+
     private static void deleteTree(final Path root) {
         try (java.util.stream.Stream<Path> entries = Files.walk(root)) {
             entries.sorted(java.util.Comparator.reverseOrder())
@@ -573,7 +956,15 @@ public final class Reconcile {
 
     private Result run(
             final FollowedProjects.Followed followed, final Path clone, final Path accessClone) {
-        final Result project = reconcileProject(followed, clone);
+        return run(followed, clone, accessClone, false);
+    }
+
+    private Result run(
+            final FollowedProjects.Followed followed,
+            final Path clone,
+            final Path accessClone,
+            final boolean projectFetched) {
+        final Result project = reconcileProject(followed, clone, projectFetched);
         if (project.outcome() != Outcome.APPLIED && project.outcome() != Outcome.UNCHANGED) {
             return new Result(
                     project.outcome(),
@@ -582,9 +973,12 @@ public final class Reconcile {
                     project.refused(),
                     project.signer(),
                     followed.accessCommit(),
-                    followed.accessOutcome());
+                    followed.accessOutcome(),
+                    project.refusedFile(),
+                    followed.accessRefused(),
+                    followed.accessRefusedFile());
         }
-        String inForce = followed.accessCommit();
+        String inForce = acceptRewrite ? "" : followed.accessCommit();
         try {
             // The verified commit alone may select a source of access settings.
             final Access access =
@@ -653,7 +1047,10 @@ public final class Reconcile {
                 project.refused(),
                 project.signer(),
                 access.commit(),
-                access.outcome().name());
+                access.outcome().name(),
+                project.refusedFile(),
+                access.refused(),
+                access.refusedFile());
     }
 
     private Result reconcileAccess(
@@ -673,13 +1070,7 @@ public final class Reconcile {
                             + (access.commit().isEmpty() ? "(none)" : access.commit()));
         }
         try {
-            final ConfigurationGate.Verdict verdict =
-                    gate.verify(clone, "FETCH_HEAD", followed.name());
-            if (!followed.unverified() && !verdict.mayApply()) {
-                return refused(access, verdict);
-            }
-            final String commit =
-                    verdict.commit().isEmpty() ? headOf(context.runner(), clone) : verdict.commit();
+            final String commit = headOf(context.runner(), clone);
             if (!access.commit().isEmpty() && !descends(clone, access.commit(), commit)) {
                 return new Result(
                         Outcome.REWRITTEN,
@@ -687,14 +1078,24 @@ public final class Reconcile {
                         commit
                                 + " is not a descendant of access commit "
                                 + access.commit()
-                                + ", which is in force. Accept the rewrite with 'porelo projects follow "
+                                + ", which is in force. Accept the rewrite with 'porelo projects"
+                                + " follow "
                                 + followed.name()
                                 + " "
                                 + followed.url()
-                                + " --accept-rewrite'.");
+                                + " --accept-rewrite'.",
+                        commit,
+                        "");
+            }
+            if (!followed.unverified()) {
+                final SignerHandover.Handed checked =
+                        handover.access(clone, followed.name(), inForce, commit);
+                if (checked.refused() != null) {
+                    return refused(access, checked.refused(), checked.refusedFile());
+                }
             }
             final Result read = readAccess(clone, commit, access.commit());
-            if (read.outcome() != Outcome.APPLIED) {
+            if (read.outcome() != Outcome.APPLIED && read.outcome() != Outcome.UNCHANGED) {
                 return read;
             }
             // A signature and a readable access file must both precede the working tree's move.
@@ -743,7 +1144,14 @@ public final class Reconcile {
                                 + " at "
                                 + commit
                                 + ": "
-                                + shown.standardError().strip());
+                                + shown.standardError().strip(),
+                        commit,
+                        "",
+                        "",
+                        "",
+                        Access.FILE,
+                        "",
+                        "");
             }
             AccessFile.read(
                     new java.io.StringReader(shown.standardOutput()),
@@ -758,12 +1166,21 @@ public final class Reconcile {
                             + " at "
                             + commit
                             + " does not read as an access file: "
-                            + ex.getMessage());
+                            + ex.getMessage(),
+                    commit,
+                    "",
+                    "",
+                    "",
+                    Access.FILE,
+                    "",
+                    "");
         }
     }
 
     private static Result refused(
-            final FollowedProjects.Followed followed, final ConfigurationGate.Verdict verdict) {
+            final FollowedProjects.Followed followed,
+            final ConfigurationGate.Verdict verdict,
+            final String file) {
         return new Result(
                 switch (verdict.outcome()) {
                     case NOT_SIGNED -> Outcome.NOT_SIGNED;
@@ -774,14 +1191,21 @@ public final class Reconcile {
                 followed.commit(),
                 verdict.detail(),
                 verdict.commit(),
-                verdict.signer());
+                verdict.signer(),
+                "",
+                "",
+                file,
+                "",
+                "");
     }
 
     private @org.jspecify.annotations.Nullable Result fetch(
             final FollowedProjects.Followed followed, final Path clone) {
         final CommandRunner runner = context.runner();
         try {
-            if (!Files.isDirectory(clone.resolve("HEAD")) && !Files.isDirectory(clone)) {
+            if (!holdsRepository(clone)) {
+                // A directory left empty, or with its .git gone, is made again rather than fetched
+                // into: git would look upwards for a repository and fetch into whatever it finds.
                 Files.createDirectories(clone.getParent());
                 final CommandResult made =
                         runner.run(Command.of("git", "init", "-q", clone.toString()));
@@ -821,6 +1245,16 @@ public final class Reconcile {
                                                 credential.environmentFor(
                                                         context, followed.url())));
             }
+            // The source first: a shallow source makes the clone shallow, and the refusal names
+            // what a person must fix, not the scratch copy.
+            final Path source =
+                    followed.url().startsWith("file:")
+                            ? fileSource(followed.url())
+                            : Path.of(followed.url());
+            if (Files.isDirectory(source)) {
+                SignerHandover.requireFullHistory(runner, source);
+            }
+            SignerHandover.requireFullHistory(runner, clone);
             if (!fetched.successful()) {
                 // Unreachable is not a fault of the project's and not a reason to stop: what was
                 // verified before is still what this machine runs.
@@ -893,101 +1327,105 @@ public final class Reconcile {
                                 + fetched.standardError().strip()
                                 + identityHint(followed.url()));
             }
-
             return null;
+        } catch (final ProjectException ex) {
+            return new Result(
+                    Outcome.UNREADABLE, followed.commit(), String.valueOf(ex.getMessage()));
         } catch (final IOException | RuntimeException ex) {
             return new Result(Outcome.FAILED, followed.commit(), String.valueOf(ex.getMessage()));
         }
     }
 
-    private Result reconcileProject(final FollowedProjects.Followed followed, final Path clone) {
+    private static Path fileSource(final String url) {
+        try {
+            return Path.of(java.net.URI.create(url));
+        } catch (final IllegalArgumentException ex) {
+            throw new ProjectException("cannot read local repository " + url, ex);
+        }
+    }
+
+    private Result reconcileProject(
+            final FollowedProjects.Followed followed, final Path clone, final boolean fetched) {
         final CommandRunner runner = context.runner();
-        final Result failed = fetch(followed, clone);
+        final Result failed = fetched ? null : fetch(followed, clone);
         if (failed != null) {
             return failed;
         }
         try {
-            final SignerHandover.Handed handed =
-                    followed.unverified()
-                            ? null
-                            : handover.walk(
-                                    clone,
-                                    followed.name(),
-                                    followed.commit(),
-                                    headOf(runner, clone));
-            final ConfigurationGate.Verdict verdict;
-            if (handed != null && handed.refused() != null) {
-                verdict = handed.refused();
-            } else if (handed != null && handed.tip() != null) {
-                verdict = handed.tip();
-            } else if (handed != null && handed.changed()) {
-                verdict = handover.verify(clone, followed.name(), handed.keys(), "FETCH_HEAD");
-            } else {
-                verdict = gate.verify(clone, "FETCH_HEAD", followed.name());
-            }
+            final String tip = headOf(runner, clone);
             if (followed.unverified()) {
-                // Followed without an anchor, on purpose. Nothing is checked, and the state says so
-                // everywhere this project is shown - the refusal is skipped, not the reporting.
-                return applied(
-                        runner,
-                        clone,
-                        followed,
-                        verdict.commit().isEmpty() ? headOf(runner, clone) : verdict.commit());
+                return applied(runner, clone, followed, tip);
             }
-            if (!verdict.mayApply()) {
-                // The gate already tells these apart; collapsing them into one refusal was throwing
-                // away the only thing that says which of them happened - and the commit that was
-                // turned away with it.
-                return refused(followed, verdict);
-            }
-            // Which key signed what is in force, once the signature is verified: a person who
-            // pinned it compares it with the one they were given, and an answer without it leaves
-            // them nothing to compare.
-            final String signer = signerOf(runner, clone);
-            if (verdict.commit().equals(followed.commit())) {
-                return new Result(Outcome.UNCHANGED, followed.commit(), "", "", signer);
-            }
-            if (!followed.commit().isEmpty()
-                    && !descends(clone, followed.commit(), verdict.commit())) {
-                // A properly signed commit that is not a descendant of the one in force. Somebody
-                // with the key may have rebased - and somebody without it may be serving an older
-                // signed configuration to put a rule back that was taken away, which needs no key
-                // at all, only control of the route. The two look identical from here, so this
-                // stops and asks rather than choosing.
+            if (!acceptRewrite
+                    && !followed.commit().isEmpty()
+                    && !descends(clone, followed.commit(), tip)) {
                 return new Result(
                         Outcome.REWRITTEN,
                         followed.commit(),
-                        verdict.commit()
-                                + " is signed and is not a descendant of "
+                        tip
+                                + " is not a descendant of "
                                 + followed.commit()
-                                + ", which is in force. The history was"
-                                + " rewritten, or an older configuration is being served."
-                                + " Accept it with 'porelo projects follow "
+                                + ", which is in force. The history was rewritten, or an older"
+                                + " configuration is being served. Accept it with 'porelo projects"
+                                + " follow "
                                 + followed.name()
                                 + " "
                                 + followed.url()
                                 + " --accept-rewrite'.");
             }
-
-            final Result applied = applied(runner, clone, followed, verdict.commit());
-            if (applied.outcome() != Outcome.APPLIED && applied.outcome() != Outcome.UNCHANGED) {
-                return applied;
+            final SignerHandover.Handed handed =
+                    handover.walk(
+                            clone,
+                            followed.name(),
+                            acceptRewrite ? "" : followed.commit(),
+                            tip,
+                            acceptRewrite && !followed.commit().isEmpty()
+                                    ? new SignerHandover.Rewrite(
+                                            context.paths()
+                                                    .projects()
+                                                    .followedClone(followed.name()),
+                                            followed.commit())
+                                    : null);
+            if (handed.refused() != null) {
+                return refused(followed, handed.refused(), handed.refusedFile());
             }
-            // The keys are taken with the file that names them, never before: a commit that is not
-            // applied pins nothing.
-            final String pinned =
-                    handed != null && handed.changed()
-                            ? handover.pin(followed.name(), handed.keys())
-                            : "";
-            return new Result(
-                    applied.outcome(),
-                    applied.commit(),
-                    applied.detail().isEmpty() || pinned.isEmpty()
-                            ? applied.detail() + pinned
-                            : applied.detail() + "; " + pinned,
-                    applied.refused(),
-                    signer);
-        } catch (final IOException | RuntimeException ex) {
+            final String signer =
+                    handed.tip() == null ? "" : signerOf(runner, clone, handed.tip().commit());
+            if (tip.equals(followed.commit())) {
+                return new Result(Outcome.UNCHANGED, followed.commit(), "", "", signer);
+            }
+            try (final SignerHandover.Staged staged =
+                    handed.changed() ? handover.stage(followed.name(), handed) : null) {
+                final Result applied = applied(runner, clone, followed, tip);
+                if (applied.outcome() != Outcome.APPLIED
+                        && applied.outcome() != Outcome.UNCHANGED) {
+                    return applied;
+                }
+                // Validation precedes the checkout; publication waits until the configuration
+                // applies.
+                final String pinned = staged == null ? "" : staged.publish();
+                return new Result(
+                        applied.outcome(),
+                        applied.commit(),
+                        applied.detail().isEmpty() || pinned.isEmpty()
+                                ? applied.detail() + pinned
+                                : applied.detail() + "; " + pinned,
+                        applied.refused(),
+                        signer);
+            } catch (final IOException ex) {
+                return refused(
+                        followed,
+                        new ConfigurationGate.Verdict(
+                                ConfigurationGate.Outcome.UNREADABLE,
+                                tip,
+                                signer,
+                                "cannot record the signer handover at "
+                                        + tip
+                                        + ": "
+                                        + ex.getMessage()),
+                        "project.yml");
+            }
+        } catch (final RuntimeException ex) {
             return new Result(Outcome.FAILED, followed.commit(), String.valueOf(ex.getMessage()));
         }
     }
@@ -1053,7 +1491,16 @@ public final class Reconcile {
                 case null ->
                         throw new IllegalStateException("an applied access commit has a source");
             }
-            final String signer = signerOf(context.runner(), repository, result.accessCommit());
+            final ConfigurationGate.Verdict verdict =
+                    new ConfigurationGate(
+                                    context.runner(),
+                                    context.paths().projects().configurationSigners(),
+                                    revocations(context))
+                            .verify(repository, result.accessCommit(), followed.name());
+            final String signer =
+                    verdict.mayApply()
+                            ? signerOf(context.runner(), repository, verdict.commit())
+                            : "";
             EventLog.record(
                     context,
                     EventLog.PROJECT_APPLIED,
@@ -1188,9 +1635,9 @@ public final class Reconcile {
                     Outcome.OFFLINE_FROM_A_URL,
                     followed.commit(),
                     followed.name()
-                            + " is offline, and an"
-                            + " offline project never connects, not even to fetch its own settings: follow it from a file, a"
-                            + " bundle of its repository or a directory on this machine, 'porelo project follow "
+                            + " is offline, and an offline project never connects, not even to"
+                            + " fetch its own settings: follow it from a file, a bundle of its"
+                            + " repository or a directory on this machine, 'porelo project follow "
                             + followed.name()
                             + " <file>'");
         }
@@ -1327,8 +1774,63 @@ public final class Reconcile {
                             + ": "
                             + shown.standardError().strip());
         }
-        return ProjectReader.read(
-                new java.io.StringReader(shown.standardOutput()), file.toAbsolutePath().toString());
+        Path scratch = null;
+        try {
+            scratch = Files.createTempDirectory("porelo-project-read-");
+            for (final String path : ProtectedFiles.at(runner, clone, commit)) {
+                final CommandResult mode =
+                        runner.run(
+                                Command.of(
+                                        "git",
+                                        "-C",
+                                        clone.toString(),
+                                        "ls-tree",
+                                        commit,
+                                        "--",
+                                        ":(literal)" + path));
+                if (mode.successful()
+                        && mode.standardOutput().isEmpty()
+                        && (path.equals("machine-signers")
+                                || path.equals("access.yml")
+                                || path.equals("porelo.yml")
+                                || Path.of(path)
+                                        .getFileName()
+                                        .toString()
+                                        .equals(".gitattributes"))) {
+                    continue;
+                }
+                if (!mode.successful()
+                        || !(mode.standardOutput().startsWith("100644 ")
+                                || mode.standardOutput().startsWith("100755 "))) {
+                    throw new ProjectException(
+                            "protected input must be a regular committed file: " + path);
+                }
+                final CommandResult snippet =
+                        runner.run(
+                                Command.of(
+                                        "git",
+                                        "-C",
+                                        clone.toString(),
+                                        "show",
+                                        commit + ":" + path));
+                if (!snippet.successful()) {
+                    throw new ProjectException(
+                            "cannot read image snippet " + path + " at " + commit);
+                }
+                final Path target = scratch.resolve(path);
+                Files.createDirectories(target.getParent());
+                Files.writeString(target, snippet.standardOutput());
+            }
+            return ProjectReader.read(
+                    new java.io.StringReader(shown.standardOutput()),
+                    scratch.resolve("project.yml").toString());
+        } catch (final IOException ex) {
+            throw new ProjectException("cannot read " + file + " at " + commit, ex);
+        } finally {
+            if (scratch != null) {
+                deleteTree(scratch);
+            }
+        }
     }
 
     /**
@@ -1386,7 +1888,7 @@ public final class Reconcile {
      *
      * @param clone The repository.
      * @param older The commit in force.
-     * @param newer The commit that was verified.
+     * @param newer The fetched tip.
      * @return {@code true} when moving from one to the other only goes forwards. An older commit
      *     this clone no longer has counts as not descending - the safe answer.
      */
@@ -1433,6 +1935,9 @@ public final class Reconcile {
                 result.signer(),
                 followed.unverified(),
                 result.accessCommit(),
-                result.accessOutcome());
+                result.accessOutcome(),
+                result.refusedFile(),
+                result.accessRefused(),
+                result.accessRefusedFile());
     }
 }

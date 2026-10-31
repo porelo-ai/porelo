@@ -118,22 +118,23 @@ public final class SignedBy {
      */
     private static @Nullable String armoredIn(final String commit) {
         final StringBuilder body = new StringBuilder();
-        boolean inside = false;
+        boolean signature = false;
         for (final String line : commit.split("\n", -1)) {
-            final String stripped = line.startsWith(" ") ? line.substring(1) : line;
-            // 'contains', not 'startsWith': the first line of the header is "gpgsig -----BEGIN SSH
-            // SIGNATURE-----", and the armor only begins after the key's own name. Found by the
-            // test rather than by reading the format.
-            if (stripped.contains("-----BEGIN SSH SIGNATURE-----")) {
-                inside = true;
+            if (line.isEmpty()) {
+                break;
+            }
+            if (!signature) {
+                signature = line.equals("gpgsig -----BEGIN SSH SIGNATURE-----");
                 continue;
             }
-            if (stripped.contains("-----END SSH SIGNATURE-----")) {
+            if (!line.startsWith(" ")) {
+                return null;
+            }
+            final String continued = line.substring(1);
+            if (continued.equals("-----END SSH SIGNATURE-----")) {
                 return body.isEmpty() ? null : body.toString();
             }
-            if (inside) {
-                body.append(stripped.strip());
-            }
+            body.append(continued);
         }
         return null;
     }

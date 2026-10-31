@@ -6,6 +6,8 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import org.fuin.porelo.core.project.Access;
+import org.fuin.porelo.core.project.Project;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -31,9 +33,30 @@ public final class FollowSignedBy {
      * @param pinned The fingerprint pinned by this call, or "" when none was.
      * @param signers With several keys, each one's fingerprint in the order given - pinned by a
      *     follow, the ones a check would pin. Empty otherwise.
+     * @param refusedRepository The repository whose refusal needs recovery, or "" for the project.
      */
     public record Answer(
-            Reconcile.Result result, boolean recorded, String pinned, List<String> signers) {
+            Reconcile.Result result,
+            boolean recorded,
+            String pinned,
+            List<String> signers,
+            String refusedRepository) {
+
+        /**
+         * Constructor for a result whose recovery concerns the project's repository.
+         *
+         * @param result What the reconcile found.
+         * @param recorded Whether anything was written.
+         * @param pinned The fingerprint pinned, or "".
+         * @param signers Every fingerprint pinned or proposed, in order.
+         */
+        public Answer(
+                final Reconcile.Result result,
+                final boolean recorded,
+                final String pinned,
+                final List<String> signers) {
+            this(result, recorded, pinned, signers, "");
+        }
 
         /**
          * Constructor for one key or none.
@@ -111,23 +134,69 @@ public final class FollowSignedBy {
             final @Nullable String signedBy,
             final boolean unverified)
             throws Refused {
+        return check(name, url, signedBy, unverified, false);
+    }
+
+    /**
+     * Previews a follow with the same explicit rewrite decision, recording nothing.
+     *
+     * @param name The project's name.
+     * @param url Its repository.
+     * @param signedBy The key or fingerprint, or {@code null}.
+     * @param unverified Whether to follow without an anchor.
+     * @param acceptRewrite Whether to accept a replacement history for this check.
+     * @return What the follow would do.
+     * @throws Refused If the request contradicts itself or the named key did not sign it.
+     */
+    public Answer check(
+            final String name,
+            final String url,
+            final @Nullable String signedBy,
+            final boolean unverified,
+            final boolean acceptRewrite)
+            throws Refused {
         refuseReserved(name);
         refuseBoth(signedBy, unverified);
-        final FollowedProjects.Followed followed =
-                new FollowedProjects.Followed(name, url, "", "", "", "", "", "", unverified);
+        final FollowedProjects.Followed followed;
+        try {
+            followed = baseline(name, url, unverified);
+        } catch (final IOException ex) {
+            return new Answer(
+                    new Reconcile.Result(
+                            Reconcile.Outcome.UNREADABLE,
+                            "",
+                            "cannot read the followed project: " + ex.getMessage()),
+                    false,
+                    "");
+        }
         if (signedBy == null) {
-            return new Answer(reconcile().check(followed), false, "");
+            return checkedAnswer(
+                    reconcile().acceptingRewrite(acceptRewrite).checked(followed), followed);
         }
         if (!SignedBy.isFingerprint(signedBy)) {
-            return new Answer(withKey(name, line(name, signedBy), followed).result(), false, "");
+            return checkedAnswer(
+                    withKeys(
+                            name,
+                            List.of(line(name, signedBy)),
+                            followed,
+                            accessFrom,
+                            acceptRewrite),
+                    followed);
         }
         final String named = signedBy.strip();
-        final Reconcile.Checked first = reconcile().checked(followed);
-        final String key = keyNamed(named, first);
-        if (key == null) {
-            return new Answer(first.result(), false, "");
+        try (final Reconcile.Prepared prepared =
+                reconcile().acceptingRewrite(acceptRewrite).prepareCheck(followed, named)) {
+            keyNamed(named, prepared.checked());
+            return checkedAnswer(prepared.checked(), followed);
+        } catch (final IOException ex) {
+            return new Answer(
+                    new Reconcile.Result(
+                            Reconcile.Outcome.UNREADABLE,
+                            followed.commit(),
+                            "cannot prepare the follow: " + ex.getMessage()),
+                    false,
+                    "");
         }
-        return new Answer(withKey(name, line(name, key), followed).result(), false, "");
     }
 
     /**
@@ -184,6 +253,31 @@ public final class FollowSignedBy {
             final String accessRepository,
             final String accessSince)
             throws Refused {
+        return verified(name, repository, keys, since, accessRepository, accessSince, null);
+    }
+
+    /**
+     * Checks local repositories with an explicit revocation list and no account policy.
+     *
+     * @param name The project name.
+     * @param repository Its local repository or bundle.
+     * @param keys The keys in force at the baseline.
+     * @param since The project commit in force, or "".
+     * @param accessRepository The local access repository or bundle, or "".
+     * @param accessSince The access commit in force, or "".
+     * @param krl The revocation list, or {@code null} for none.
+     * @return What following would do.
+     * @throws Refused If the name or a key is unusable.
+     */
+    public Reconcile.Checked verified(
+            final String name,
+            final String repository,
+            final List<String> keys,
+            final String since,
+            final String accessRepository,
+            final String accessSince,
+            final @Nullable Path krl)
+            throws Refused {
         refuseReserved(name);
         // The name becomes the principal of each line the gate trusts: one with a space in it would
         // write a key of its own choosing there.
@@ -199,7 +293,8 @@ public final class FollowSignedBy {
                 throw new Refused(
                         "'"
                                 + key
-                                + "' is a fingerprint; a check names the key itself, 'ssh-ed25519 AAAA...'");
+                                + "' is a fingerprint; a check names the key itself, 'ssh-ed25519"
+                                + " AAAA...'");
             }
             lines.add(line(name, key));
         }
@@ -207,7 +302,7 @@ public final class FollowSignedBy {
         try {
             scratch = Files.createTempFile("porelo-verify-signers-", "");
             Files.write(scratch, lines, StandardCharsets.UTF_8);
-            return new Reconcile(context, scratch, accessRepository)
+            return new Reconcile(context, scratch, accessRepository, krl)
                     .verified(
                             new FollowedProjects.Followed(
                                     name,
@@ -243,7 +338,7 @@ public final class FollowSignedBy {
      * Follows, pinning the named key, and reconciles once.
      *
      * <p>A first follow that cannot apply leaves nothing behind; a project already followed keeps
-     * its record, because that record is where the reason lives.
+     * its existing record unchanged.
      *
      * @param name The project's name.
      * @param url Its repository.
@@ -264,16 +359,10 @@ public final class FollowSignedBy {
             throws Refused, IOException {
         refuseReserved(name);
         refuseBoth(signedBy, unverified);
-        return pinnedOnlyIfApplied(name, url, List.of(), signedBy, unverified, acceptRewrite);
+        return preparedFollow(name, url, List.of(), signedBy, unverified, acceptRewrite);
     }
 
-    /**
-     * Pins the given lines, follows, and puts this project's keys back as they were unless the
-     * follow ended applied: pinned first and left, a key the person was told "nothing was recorded"
-     * about stayed trusted on this machine. Only this project's lines are put back, so what the
-     * daemon's pass pinned for another project in the meantime stays.
-     */
-    private Answer pinnedOnlyIfApplied(
+    private Answer preparedFollow(
             final String name,
             final String url,
             final List<String> lines,
@@ -281,102 +370,156 @@ public final class FollowSignedBy {
             final boolean unverified,
             final boolean acceptRewrite)
             throws Refused, IOException {
-        final List<String> before = pinnedLines(name);
+        final FollowedProjects projects =
+                new FollowedProjects(context.paths().projects().followed());
         try {
-            for (final String line : lines) {
-                pin(line);
+            projects.proposed(name, url, unverified);
+        } catch (final IllegalArgumentException ex) {
+            throw new Refused(String.valueOf(ex.getMessage()));
+        }
+        try {
+            return FileLocks.holding(
+                    context.paths().projects().followedCloneLock(name),
+                    () -> {
+                        final FileLocks.Locked<Answer> publish =
+                                () -> {
+                                    try {
+                                        return prepareAndPublish(
+                                                projects,
+                                                name,
+                                                url,
+                                                lines,
+                                                signedBy,
+                                                unverified,
+                                                acceptRewrite);
+                                    } catch (final Refused ex) {
+                                        throw new IOException(
+                                                "follow refused before publication", ex);
+                                    }
+                                };
+                        return projects.find(name) == null
+                                ? FileLocks.holdingThenRemoving(
+                                        context.paths().projects().followedCloneLock(name), publish)
+                                : publish.run();
+                    });
+        } catch (final IOException ex) {
+            if (ex.getCause() instanceof Refused refused) {
+                throw refused;
             }
-            return followPinned(name, url, signedBy, unverified, acceptRewrite, before);
-        } catch (final Refused | IOException | RuntimeException ex) {
-            restore(name, before);
             throw ex;
         }
     }
 
-    private Answer followPinned(
+    private Answer prepareAndPublish(
+            final FollowedProjects projects,
             final String name,
             final String url,
+            final List<String> lines,
             final @Nullable String signedBy,
             final boolean unverified,
-            final boolean acceptRewrite,
-            final List<String> before)
+            final boolean acceptRewrite)
             throws Refused, IOException {
-        String pinned = "";
-        if (signedBy != null && !SignedBy.isFingerprint(signedBy)) {
-            final String line = line(name, signedBy);
-            pin(line);
-            pinned = String.valueOf(SignedBy.fingerprintOf(line.substring(line.indexOf(' ') + 1)));
-        }
-        final FollowedProjects projects =
-                new FollowedProjects(context.paths().projects().followed());
-        final boolean followedBefore = projects.find(name) != null;
+        final FollowedProjects.Followed proposed;
         try {
-            projects.follow(name, url, unverified);
+            proposed = projects.proposed(name, url, unverified);
         } catch (final IllegalArgumentException ex) {
             throw new Refused(String.valueOf(ex.getMessage()));
         }
-        if (acceptRewrite) {
-            // Forgetting what is in force is the whole of accepting: the next reconcile then has
-            // nothing to descend from and applies what it verifies.
-            projects.write(projects.require(name).forgettingWhatIsInForce());
+        final List<String> additions = new ArrayList<>(lines);
+        final @Nullable String fingerprint;
+        if (signedBy != null && !SignedBy.isFingerprint(signedBy)) {
+            final String line = line(name, signedBy);
+            additions.add(line);
+            fingerprint =
+                    String.valueOf(SignedBy.fingerprintOf(line.substring(line.indexOf(' ') + 1)));
+        } else {
+            fingerprint = signedBy == null ? null : signedBy.strip();
         }
-        Reconcile.Result result = reconcile().run(projects.require(name));
-        if (signedBy != null && SignedBy.isFingerprint(signedBy)) {
-            final String named = signedBy.strip();
-            final String key;
+        final Path scratch = Files.createTempFile("porelo-follow-signers-", "");
+        try {
+            final Path signers = context.paths().projects().configurationSigners();
+            final List<String> keys;
             try {
-                key =
-                        keyNamed(
-                                named,
-                                new Reconcile.Checked(
-                                        result,
-                                        SignedBy.keyOf(
-                                                context.runner(),
-                                                context.paths().projects().followedClone(name),
-                                                "FETCH_HEAD")));
-            } catch (final Refused ex) {
-                // A first follow the named key did not sign leaves nothing behind either. One
-                // followed before stays at what its own key verified, applied all the same.
-                if (!followedBefore) {
-                    forgetFirstFollow(projects, name);
-                } else {
-                    Reconcile.recordApplied(context, projects.require(name), result);
+                keys =
+                        Files.notExists(signers, java.nio.file.LinkOption.NOFOLLOW_LINKS)
+                                ? new ArrayList<>()
+                                : new ArrayList<>(AllowedSigner.read(context.runner(), signers));
+            } catch (final IOException ex) {
+                return new Answer(
+                        new Reconcile.Result(
+                                Reconcile.Outcome.UNREADABLE,
+                                proposed.commit(),
+                                "the pinned keys could not be read: " + ex.getMessage(),
+                                "",
+                                "",
+                                proposed.accessCommit(),
+                                proposed.accessOutcome(),
+                                "",
+                                proposed.accessRefused(),
+                                proposed.accessRefusedFile()),
+                        false,
+                        "");
+            }
+            for (final String addition : additions) {
+                if (!keys.contains(addition)) {
+                    keys.add(addition);
                 }
-                throw ex;
             }
-            if (key != null) {
-                pin(line(name, key));
-                pinned = named;
-                result = reconcile().run(projects.require(name));
+            Files.write(scratch, keys, StandardCharsets.UTF_8);
+            try (final Reconcile.Prepared prepared =
+                    new Reconcile(context, scratch, accessFrom)
+                            .acceptingRewrite(acceptRewrite)
+                            .prepare(
+                                    proposed,
+                                    signedBy != null && SignedBy.isFingerprint(signedBy)
+                                            ? fingerprint
+                                            : null)) {
+                final Reconcile.Checked checked = prepared.checked();
+                if (signedBy != null && SignedBy.isFingerprint(signedBy)) {
+                    keyNamed(
+                            java.util.Objects.requireNonNull(
+                                    fingerprint, "a named fingerprint was read from signedBy"),
+                            checked);
+                }
+                final Reconcile.Result result = checked.result();
+                if (!mayPublish(result)) {
+                    return checkedAnswer(checked, proposed);
+                }
+                if (checked.project() == null) {
+                    return new Answer(
+                            new Reconcile.Result(
+                                    Reconcile.Outcome.UNREADABLE,
+                                    proposed.commit(),
+                                    "cannot read the prepared project before publication"),
+                            false,
+                            "");
+                }
+                try (final SignerHandover.Staged staged =
+                        prepared.stageKeys(
+                                context.runner(),
+                                context.paths().projects().configurationSigners(),
+                                name)) {
+                    prepared.publishClones(context, name);
+                    staged.publish();
+                    projects.write(Reconcile.after(proposed, result));
+                    Reconcile.recordApplied(context, proposed, result);
+                }
+                return new Answer(result, true, fingerprint == null ? "" : fingerprint);
             }
+        } finally {
+            Files.deleteIfExists(scratch);
         }
-        final boolean applied =
-                result.outcome() == Reconcile.Outcome.APPLIED
-                        || result.outcome() == Reconcile.Outcome.UNCHANGED;
-        if (!applied) {
-            restore(name, before);
-        }
-        if (!followedBefore && !applied) {
-            forgetFirstFollow(projects, name);
-            return new Answer(result, false, pinned);
-        }
-        final FollowedProjects.Followed beforeApply = projects.require(name);
-        projects.write(Reconcile.after(beforeApply, result));
-        // Only once the follow stands: a first follow refused for its key was applied and taken
-        // back, and is no event.
-        Reconcile.recordApplied(context, beforeApply, result);
-        return new Answer(result, true, pinned);
     }
 
-    private void forgetFirstFollow(FollowedProjects projects, String name) throws IOException {
-        FileLocks.holdingThenRemoving(
-                context.paths().projects().followedCloneLock(name),
-                () -> {
-                    projects.unfollow(name);
-                    FollowedProjects.forget(context.paths().projects().followedClone(name));
-                    FollowedProjects.forget(context.paths().projects().followedAccessClone(name));
-                    return true;
-                });
+    private FollowedProjects.Followed baseline(
+            final String name, final String url, final boolean unverified)
+            throws IOException, Refused {
+        try {
+            return new FollowedProjects(context.paths().projects().followed())
+                    .proposed(name, url, unverified);
+        } catch (final IllegalArgumentException ex) {
+            throw new Refused(String.valueOf(ex.getMessage()));
+        }
     }
 
     /**
@@ -390,11 +533,101 @@ public final class FollowSignedBy {
      */
     public Answer check(final String name, final String url, final List<String> signers)
             throws Refused {
+        return checkWithSigners(name, url, signers, false);
+    }
+
+    /**
+     * Previews a follow with several keys and an explicit rewrite decision.
+     *
+     * @param name The project's name.
+     * @param url Its repository.
+     * @param signers Whole public keys.
+     * @param acceptRewrite Whether to accept a replacement history for this check.
+     * @return What the follow would do, without recording it.
+     * @throws Refused If a key is not a whole public key.
+     */
+    public Answer checkWithSigners(
+            final String name,
+            final String url,
+            final List<String> signers,
+            final boolean acceptRewrite)
+            throws Refused {
         refuseReserved(name);
         final List<String> lines = lines(name, signers);
-        final FollowedProjects.Followed followed =
-                new FollowedProjects.Followed(name, url, "", "", "", "", "", "", false);
-        return new Answer(withKeys(name, lines, followed).result(), false, "", fingerprints(lines));
+        final FollowedProjects.Followed followed;
+        try {
+            followed = baseline(name, url, false);
+        } catch (final IOException ex) {
+            return new Answer(
+                    new Reconcile.Result(
+                            Reconcile.Outcome.UNREADABLE,
+                            "",
+                            "cannot read the followed project: " + ex.getMessage()),
+                    false,
+                    "");
+        }
+        final Answer checked =
+                checkedAnswer(withKeys(name, lines, followed, accessFrom, acceptRewrite), followed);
+        return new Answer(
+                checked.result(),
+                false,
+                "",
+                mayPublish(checked.result()) ? fingerprints(lines) : List.of(),
+                checked.refusedRepository());
+    }
+
+    private Answer checkedAnswer(
+            final Reconcile.Checked checked, final FollowedProjects.Followed followed) {
+        final Reconcile.Result result = checked.result();
+        String repository = "";
+        if (!mayPublish(result)
+                && (result.outcome() == Reconcile.Outcome.APPLIED
+                        || result.outcome() == Reconcile.Outcome.UNCHANGED)) {
+            final Project project = checked.project();
+            repository =
+                    project != null && project.access() instanceof Access.InRepository access
+                            ? accessFrom == null ? access.url() : accessFrom
+                            : followed.url();
+        }
+        return new Answer(publicationResult(result, followed), false, "", List.of(), repository);
+    }
+
+    /**
+     * Whether both repositories passed every check required to publish a follow.
+     *
+     * @param result The checked snapshot.
+     * @return Whether a real follow can publish it.
+     */
+    public static boolean mayPublish(final Reconcile.Result result) {
+        return (result.outcome() == Reconcile.Outcome.APPLIED
+                        || result.outcome() == Reconcile.Outcome.UNCHANGED)
+                && (result.accessOutcome().isEmpty()
+                        || result.accessOutcome().equals(Reconcile.Outcome.APPLIED.name())
+                        || result.accessOutcome().equals(Reconcile.Outcome.UNCHANGED.name()));
+    }
+
+    /**
+     * A refused access range leaves both recorded baselines in force and refuses the whole
+     * snapshot.
+     */
+    private static Reconcile.Result publicationResult(
+            final Reconcile.Result result, final FollowedProjects.Followed followed) {
+        if (mayPublish(result)
+                || result.outcome() != Reconcile.Outcome.APPLIED
+                        && result.outcome() != Reconcile.Outcome.UNCHANGED) {
+            return result;
+        }
+        return new Reconcile.Result(
+                Reconcile.Outcome.valueOf(result.accessOutcome()),
+                followed.commit(),
+                result.detail(),
+                result.accessRefused().isEmpty() ? result.commit() : result.accessRefused(),
+                "",
+                followed.accessCommit(),
+                result.accessOutcome(),
+                result.accessRefusedFile(),
+                result.accessRefused(),
+                result.accessRefusedFile());
     }
 
     /**
@@ -417,8 +650,13 @@ public final class FollowSignedBy {
         refuseReserved(name);
         // Every key is read before any is pinned, so a list with one bad key pins nothing.
         final List<String> lines = lines(name, signers);
-        final Answer one = pinnedOnlyIfApplied(name, url, lines, null, false, acceptRewrite);
-        return new Answer(one.result(), one.recorded(), "", fingerprints(lines));
+        final Answer one = preparedFollow(name, url, lines, null, false, acceptRewrite);
+        return new Answer(
+                one.result(),
+                one.recorded(),
+                "",
+                one.recorded() ? fingerprints(lines) : List.of(),
+                one.refusedRepository());
     }
 
     /**
@@ -453,7 +691,8 @@ public final class FollowSignedBy {
                         "'"
                                 + key.strip()
                                 + "' is a fingerprint; with several keys, give each whole key"
-                                + " ('ssh-ed25519 AAAA...'). A fingerprint names one key, read from the commit turned away.");
+                                + " ('ssh-ed25519 AAAA...'). A fingerprint names one key, read from"
+                                + " the commit turned away.");
             }
         }
     }
@@ -520,21 +759,14 @@ public final class FollowSignedBy {
             }
             return key;
         }
-        if (!result.signer().isEmpty() && !result.signer().equals(named)) {
+        if ((result.outcome() == Reconcile.Outcome.APPLIED
+                        || result.outcome() == Reconcile.Outcome.UNCHANGED)
+                && !found.verifiedSigners().contains(named)) {
             throw new Refused(
-                    "signed by " + result.signer() + ", not by " + named + ". Nothing was pinned.");
+                    named
+                            + " signed no protected commit in the checked range. Nothing was pinned.");
         }
         return null;
-    }
-
-    private Reconcile.Checked withKey(
-            final String name, final String line, final FollowedProjects.Followed followed) {
-        return withKeys(name, List.of(line), followed);
-    }
-
-    private Reconcile.Checked withKeys(
-            final String name, final List<String> added, final FollowedProjects.Followed followed) {
-        return withKeys(name, added, followed, accessFrom);
     }
 
     private Reconcile.Checked withKeys(
@@ -542,21 +774,32 @@ public final class FollowSignedBy {
             final List<String> added,
             final FollowedProjects.Followed followed,
             final @Nullable String accessFrom) {
+        return withKeys(name, added, followed, accessFrom, false);
+    }
+
+    private Reconcile.Checked withKeys(
+            final String name,
+            final List<String> added,
+            final FollowedProjects.Followed followed,
+            final @Nullable String accessFrom,
+            final boolean acceptRewrite) {
         Path scratch = null;
         try {
             scratch = Files.createTempFile("porelo-follow-signers-", "");
             final Path signers = context.paths().projects().configurationSigners();
             final List<String> lines =
-                    Files.isRegularFile(signers)
-                            ? new ArrayList<>(Files.readAllLines(signers, StandardCharsets.UTF_8))
-                            : new ArrayList<>();
+                    Files.notExists(signers, java.nio.file.LinkOption.NOFOLLOW_LINKS)
+                            ? new ArrayList<>()
+                            : new ArrayList<>(AllowedSigner.read(context.runner(), signers));
             lines.addAll(added);
             Files.write(scratch, lines, StandardCharsets.UTF_8);
-            return new Reconcile(context, scratch, accessFrom).checked(followed);
+            return new Reconcile(context, scratch, accessFrom)
+                    .acceptingRewrite(acceptRewrite)
+                    .checked(followed);
         } catch (final IOException ex) {
             return new Reconcile.Checked(
                     new Reconcile.Result(
-                            Reconcile.Outcome.FAILED,
+                            Reconcile.Outcome.UNREADABLE,
                             "",
                             "cannot hold the named key for "
                                     + name
@@ -588,59 +831,5 @@ public final class FollowSignedBy {
             throw new Refused("'" + key + "' is not a public key: expected 'ssh-ed25519 AAAA...'");
         }
         return principal + " " + fields[0] + " " + fields[1];
-    }
-
-    /** This project's lines among the pinned signers, as they are now. */
-    private List<String> pinnedLines(final String name) throws IOException {
-        final Path signers = context.paths().projects().configurationSigners();
-        if (!Files.exists(signers)) {
-            return List.of();
-        }
-        return Files.readAllLines(signers, StandardCharsets.UTF_8).stream()
-                .filter(line -> name.equals(principalOf(line)))
-                .toList();
-    }
-
-    private static String principalOf(final String line) {
-        final String[] fields = line.strip().split("\\s+", 2);
-        return fields[0];
-    }
-
-    /**
-     * Puts this project's pinned keys back as they were, leaving every other project's as they are
-     * now; a file left with no line is removed.
-     */
-    private void restore(final String name, final List<String> before) throws IOException {
-        final Path signers = context.paths().projects().configurationSigners();
-        final List<String> lines =
-                Files.exists(signers)
-                        ? new ArrayList<>(Files.readAllLines(signers, StandardCharsets.UTF_8))
-                        : new ArrayList<>();
-        lines.removeIf(line -> name.equals(principalOf(line)));
-        lines.addAll(before);
-        lines.removeIf(String::isBlank);
-        if (lines.isEmpty()) {
-            Files.deleteIfExists(signers);
-        } else {
-            Files.writeString(signers, String.join("\n", lines) + "\n");
-        }
-    }
-
-    /**
-     * Writes one line into this machine's pinned signers. Appended rather than replacing the file:
-     * a machine follows several projects and they need not share a key. A line already there is not
-     * written twice.
-     */
-    private void pin(final String line) throws IOException {
-        final Path signers = context.paths().projects().configurationSigners();
-        Files.createDirectories(signers.getParent());
-        final List<String> lines =
-                Files.exists(signers)
-                        ? new ArrayList<>(Files.readAllLines(signers, StandardCharsets.UTF_8))
-                        : new ArrayList<>();
-        if (!lines.contains(line)) {
-            lines.add(line);
-        }
-        Files.writeString(signers, String.join("\n", lines) + "\n");
     }
 }

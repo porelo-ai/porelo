@@ -32,7 +32,7 @@ public final class FollowedProjects {
      *
      * @param name The project's name, which is also its directory and its container prefix.
      * @param url Where its repository is.
-     * @param commit The last commit this machine verified and applied, or "" when none ever was.
+     * @param commit The last tip this machine accepted and applied, or "" when none ever was.
      * @param at When it last tried, RFC 3339, or "" when it never has.
      * @param outcome What that attempt was, or "" when it never has.
      * @param detail What to tell an operator about that attempt, or "".
@@ -48,6 +48,9 @@ public final class FollowedProjects {
      *     project is.
      * @param accessCommit The access commit in force, or "" when none is.
      * @param accessOutcome The last access attempt's outcome, or "" when none was tried.
+     * @param refusedFile The protected project path refused, or "".
+     * @param accessRefused The access commit refused, or "".
+     * @param accessRefusedFile The protected access path refused, or "".
      */
     public record Followed(
             String name,
@@ -60,7 +63,54 @@ public final class FollowedProjects {
             String signer,
             boolean unverified,
             String accessCommit,
-            String accessOutcome) {
+            String accessOutcome,
+            String refusedFile,
+            String accessRefused,
+            String accessRefusedFile) {
+
+        /**
+         * Constructor for a record without protected-path refusal information.
+         *
+         * @param name Project name.
+         * @param url Its repository.
+         * @param commit The commit in force, or "".
+         * @param at When it last tried, or "".
+         * @param outcome What happened.
+         * @param detail What to tell an operator.
+         * @param refused The commit refused, or "".
+         * @param signer Its signer's fingerprint, or "".
+         * @param unverified Whether it is followed without an anchor.
+         * @param accessCommit The access commit in force, or "".
+         * @param accessOutcome The access outcome, or "".
+         */
+        public Followed(
+                String name,
+                String url,
+                String commit,
+                String at,
+                String outcome,
+                String detail,
+                String refused,
+                String signer,
+                boolean unverified,
+                String accessCommit,
+                String accessOutcome) {
+            this(
+                    name,
+                    url,
+                    commit,
+                    at,
+                    outcome,
+                    detail,
+                    refused,
+                    signer,
+                    unverified,
+                    accessCommit,
+                    accessOutcome,
+                    "",
+                    "",
+                    "");
+        }
 
         /**
          * Constructor for a record from before access files were followed.
@@ -123,6 +173,7 @@ public final class FollowedProjects {
                 case "NOT_SIGNED",
                         "UNKNOWN_KEY",
                         "NO_ANCHOR",
+                        "UNREADABLE",
                         "REWRITTEN",
                         "UNUSABLE",
                         "VAULT_LOCKED" ->
@@ -158,13 +209,8 @@ public final class FollowedProjects {
         /**
          * Returns this record with nothing in force any more.
          *
-         * <p>What accepting a rewrite is: the next reconcile has nothing to descend from and
-         * applies what it verifies. Everything else about the follow is kept - <strong>including
-         * whether it was taken without an anchor</strong>, which is the field this used to lose.
-         * Both callers rebuilt the record by hand through a constructor that defaults the flag, so
-         * accepting a rewrite quietly turned an unverified follow into one that claims a signature
-         * was checked. A method, so the next field that is added cannot be forgotten in two places
-         * at once.
+         * <p>The trust mode and refusal information survive clearing the applied commits. Accepting
+         * a rewrite instead keeps the applied commit as the signer declaration's baseline.
          *
          * @return A copy with no commit in force.
          */
@@ -180,7 +226,10 @@ public final class FollowedProjects {
                     signer,
                     unverified,
                     "",
-                    accessOutcome);
+                    accessOutcome,
+                    refusedFile,
+                    accessRefused,
+                    accessRefusedFile);
         }
     }
 
@@ -212,8 +261,9 @@ public final class FollowedProjects {
     static final String RESERVED =
             "'"
                     + DefaultProject.NAME
-                    + "' is the project every machine has for work on a"
-                    + " repository no followed project names; no followed project may be called that. Name it differently.";
+                    + "' is the project every machine has for work on a repository no followed"
+                    + " project names; no followed project may be called that. Name it"
+                    + " differently.";
 
     /**
      * Starts following a project, with or without an anchor.
@@ -226,6 +276,23 @@ public final class FollowedProjects {
      * @throws IllegalArgumentException If the name is not one a project may have.
      */
     public Followed follow(final String name, final String url, final boolean unverified)
+            throws IOException {
+        final Followed followed = proposed(name, url, unverified);
+        write(followed);
+        return followed;
+    }
+
+    /**
+     * Validates a follow request and returns its proposed record without writing it.
+     *
+     * @param name The project's name.
+     * @param url Its repository.
+     * @param unverified Whether to apply without an anchor.
+     * @return The record to reconcile before publication.
+     * @throws IOException If the existing record cannot be read.
+     * @throws IllegalArgumentException If the request cannot be followed.
+     */
+    public Followed proposed(final String name, final String url, final boolean unverified)
             throws IOException {
         if (!NAME.matcher(name).matches()) {
             throw new IllegalArgumentException(
@@ -260,6 +327,9 @@ public final class FollowedProjects {
                             + existing.url()
                             + ". Stop following it first if you mean to point it somewhere else.");
         }
+        if (existing != null && existing.unverified() && !unverified) {
+            return new Followed(name, url, "", "", "", "", "", "", false);
+        }
         final Followed followed =
                 existing != null
                         ? new Followed(
@@ -273,9 +343,11 @@ public final class FollowedProjects {
                                 existing.signer(),
                                 unverified,
                                 existing.accessCommit(),
-                                existing.accessOutcome())
+                                existing.accessOutcome(),
+                                existing.refusedFile(),
+                                existing.accessRefused(),
+                                existing.accessRefusedFile())
                         : new Followed(name, url, "", "", "", "", "", "", unverified);
-        write(followed);
         return followed;
     }
 
@@ -397,6 +469,9 @@ public final class FollowedProjects {
         document.put("unverified", followed.unverified());
         document.put("accessCommit", followed.accessCommit());
         document.put("accessOutcome", followed.accessOutcome());
+        document.put("refusedFile", followed.refusedFile());
+        document.put("accessRefused", followed.accessRefused());
+        document.put("accessRefusedFile", followed.accessRefusedFile());
         Files.createDirectories(directory);
         final Path file = directory.resolve(followed.name() + ".json");
         final Path staged = directory.resolve("." + followed.name() + ".json.tmp");
@@ -544,7 +619,10 @@ public final class FollowedProjects {
                 text(document, "signer"),
                 Boolean.TRUE.equals(document.get("unverified")),
                 text(document, "accessCommit"),
-                text(document, "accessOutcome"));
+                text(document, "accessOutcome"),
+                text(document, "refusedFile"),
+                text(document, "accessRefused"),
+                text(document, "accessRefusedFile"));
     }
 
     private static String text(final Map<?, ?> document, final String key) {

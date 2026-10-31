@@ -127,13 +127,22 @@ The answer, alone on standard output, for the newest commits that hold:
   role, limited to `namespaces="git"` and principal `task:<project>:*`, the form a task certificate
   carries. **`transports`** is the access file's settings, or the project file's for a project
   naming none, when `access_commit` is "". The persons, admins and certifiers are then empty lists.
-- **`signer`** is the key that signed the project commit. **`signers`** are the keys in force after it, a handover
+- **`signer`** is the verified key of the project tip, or `""` when no signature was checked at the tip.
+  **`signers`** are the keys in force after it, a handover
   walked: a handover commit is signed by the key before it and hands on to its successors, so `signers` is what a
   caller pins and names with `--signed-by` next time, with `commit` and `access_commit` as `--since` and
   `--access-since`.
 - **The name** is the one at `--since`, so a later commit renaming the project is refused as a follow refuses it.
   A first check has no `--since`; a caller that knows the project names it with `--project`, or another project's
   bundles signed with the same key would pass under their own name.
+- **`--krl FILE`** supplies the SSH revocation list explicitly. The verifier reads no account's
+  `revoked.krl`; following reads `~/.config/porelo/revoked.krl` when present. A configured list that
+  is empty, malformed, or unreadable refuses, even when no commit needs a signature. New protected
+  changes use only keys in force, excluding every
+  `valid-before` entry, even for a backdated commit. Retired keys remain available for historical
+  verification and never appear in `signers` or `following --json`'s `signed_by`.
+- Every protected-file change since `--since` is checked against the keys in force before it;
+  unsigned document commits pass. A refusal names the offending commit and protected path on stderr.
 - **Refusals**, with nothing on standard output: 65 when a check fails, naming the outcome a follow would give
   (`unknown_key`, `not_signed`, `rewritten`, ...), a key, name or commit is not one, a path is a URL, an access
   option has no use, or a setting has no form in JSON; 66 when a path is not there. A repository without a
@@ -145,7 +154,7 @@ A playbook changes only what differs, so a second `up` on a host that is up chan
 
 | Command | Answer |
 |---|---|
-| `porelo project following --json` | `{"follows": [...]}`, each with `name`, `url`, `commit`, `outcome`, `verified`, `signed_by` (the keys pinned for it), `detail`, `refused`, and `access_commit` and `access_outcome` (the project's access file in force and how its last try ended, both "" for a project naming none). The play follows a project again where its `url` or key differs, or where the followed `commit` is none of the uploaded bundle's heads. |
+| `porelo project following --json` | `{"follows": [...]}`, each with `name`, `url`, `commit`, `outcome`, `verified`, `signed_by` (the keys pinned for it), `detail`, `refused`, `refused_file`, `access_refused`, `access_refused_file` (the offending commits and paths, `""` when absent), and `access_commit` and `access_outcome` (the project's access file in force and how its last try ended, both "" for a project naming none). The play follows a project again where its `url` or key differs, or where the followed `commit` is none of the uploaded bundle's heads. |
 | `porelo agents --json` | `{"vault": "open"\|"shut"\|"none", "agents": [...]}`, each with `name`, `found_by` (the description or executable that named it), `credential` (the vault entry it signs in under: its default provider's, or its own name when it is not brokered), `flow` (how its sign-in works, as its definition's `login.flow` says: `paste-code`, `device-code` or `loopback`, and "" when it does not say) and `signed_in`. `signed_in` is given only while the vault is open, and is false for a sign-in lacking what its provider sends beside the token; `credential` and `signed_in` are both left out for an agent whose default provider cannot be used (none named, none declared, or a dialect it does not serve), since its start is refused whatever the vault holds; `name`, `found_by` and `flow` are always given. No value is printed. |
 | `porelo task stop --all` | Stops every running task of the account and its helpers, and removes nothing. Exit 0 when nothing of the account runs any more, nothing having run included; 70 when something survived, each named on standard error as `porelo: still running: …`. `down` runs it before `vault clear` and stops on 70. Standard output is for a person. |
 | `porelo vault clear --yes --force` | Clears the account's vault, locked or open, and what the keyring caches of it, without asking and without a terminal. Exit 0 when the vault is gone; 1 when anything was not removed, a running task holding a token from it among them, each named. `--json` gives the same as values. |

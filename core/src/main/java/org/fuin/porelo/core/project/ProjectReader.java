@@ -292,14 +292,7 @@ public final class ProjectReader {
      * @throws ProjectException If the file does not parse or an entry is no public key.
      */
     public static java.util.@Nullable List<String> signers(final String text, final String origin) {
-        final LoaderOptions options = new LoaderOptions();
-        options.setAllowDuplicateKeys(false);
-        final Object loaded;
-        try {
-            loaded = new Yaml(new SafeConstructor(options)).load(text);
-        } catch (RuntimeException ex) {
-            throw new ProjectException("Cannot parse " + origin + ": " + ex.getMessage(), ex);
-        }
+        final Object loaded = load(new java.io.StringReader(text), origin);
         return loaded instanceof Map<?, ?> root && root.get("project") instanceof Map<?, ?> project
                 ? signers(project, origin)
                 : null;

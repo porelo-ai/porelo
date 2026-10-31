@@ -21,7 +21,7 @@ public final class PinnedSigners {
     private PinnedSigners() {}
 
     /**
-     * Returns the fingerprints pinned for each project.
+     * Returns the fingerprints in force for each project, excluding retired entries.
      *
      * @param file The pinned signers file, which need not exist.
      * @return Project name to its fingerprints, in the order they were pinned. Empty when nothing
@@ -41,16 +41,16 @@ public final class PinnedSigners {
             return found;
         }
         for (final String line : lines) {
-            final String[] fields = line.strip().split("\\s+");
-            if (fields.length < 3 || fields[0].startsWith("#")) {
+            final AllowedSigner signer = AllowedSigner.parse(line);
+            if (signer == null || signer.retired()) {
                 continue;
             }
-            final String fingerprint = SignedBy.fingerprintOf(fields[1] + " " + fields[2]);
+            final String fingerprint = SignedBy.fingerprintOf(signer.key());
             if (fingerprint == null) {
                 continue;
             }
             final List<String> mine =
-                    found.computeIfAbsent(fields[0], ignored -> new ArrayList<>());
+                    found.computeIfAbsent(signer.principal(), ignored -> new ArrayList<>());
             if (!mine.contains(fingerprint)) {
                 mine.add(fingerprint);
             }

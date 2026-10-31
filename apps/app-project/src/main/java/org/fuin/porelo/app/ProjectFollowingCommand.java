@@ -76,7 +76,15 @@ public class ProjectFollowingCommand implements Callable<Integer>, PoreloFactory
                 out.println(
                         "    refused    "
                                 + one.refused()
+                                + (one.refusedFile().isEmpty() ? "" : "  " + one.refusedFile())
                                 + (one.signer().isEmpty() ? "" : "  signed by " + one.signer()));
+            }
+            if (!one.accessRefused().isEmpty()) {
+                out.println(
+                        "    access refused  "
+                                + one.accessRefused()
+                                + "  "
+                                + one.accessRefusedFile());
             }
             if (!one.accessOutcome().isEmpty()) {
                 // Its own line: no transport runs for the project until this commit is set.
@@ -119,6 +127,9 @@ public class ProjectFollowingCommand implements Callable<Integer>, PoreloFactory
             entry.put("signed_by", signers.getOrDefault(one.name(), java.util.List.of()));
             entry.put("detail", one.detail());
             entry.put("refused", one.refused());
+            entry.put("refused_file", one.refusedFile());
+            entry.put("access_refused", one.accessRefused());
+            entry.put("access_refused_file", one.accessRefusedFile());
             entry.put("access_commit", one.accessCommit());
             entry.put("access_outcome", one.accessOutcome().toLowerCase(java.util.Locale.ROOT));
             follows.add(entry);

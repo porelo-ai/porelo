@@ -334,191 +334,7 @@ final class ProjectMethods {
                                                     .toList()));
                 });
 
-        server.method(
-                "Follow",
-                (parameters, replies) -> {
-                    final String name = text(parameters, "name");
-                    final String url = address(parameters, "url");
-                    final @Nullable String signedBy =
-                            parameters.get("signedBy") instanceof String said && !said.isBlank()
-                                    ? said
-                                    : null;
-                    // The same class the command line follows with: a follow over the socket took
-                    // signedBy and never read it, and refused what the same follow at the terminal
-                    // applied.
-                    final org.fuin.porelo.app.FollowSignedBy following =
-                            new org.fuin.porelo.app.FollowSignedBy(context);
-                    final java.util.List<String> signers =
-                            parameters.get("signers") instanceof java.util.List<?> given
-                                    ? given.stream()
-                                            .map(String::valueOf)
-                                            .filter(each -> !each.isBlank())
-                                            .toList()
-                                    : java.util.List.of();
-                    try {
-                        org.fuin.porelo.app.FollowSignedBy.refuseConflicting(
-                                signedBy, signers, flag(parameters, "unverified"));
-                    } catch (org.fuin.porelo.app.FollowSignedBy.Refused ex) {
-                        throw new VarlinkException(
-                                INTERFACE + ".Failed",
-                                Map.of("message", String.valueOf(ex.getMessage())));
-                    }
-                    if (flag(parameters, "dryRun")) {
-                        // Records nothing, not even the named key: the whole point is the question
-                        // asked BEFORE a project exists here. READY where a real follow would have
-                        // applied, and otherwise the same named reason it would have given.
-                        final org.fuin.porelo.app.Reconcile.Result would;
-                        final java.util.List<String> wouldPin;
-                        try {
-                            final org.fuin.porelo.app.FollowSignedBy.Answer checked =
-                                    signers.isEmpty()
-                                            ? following.check(
-                                                    name,
-                                                    url,
-                                                    signedBy,
-                                                    flag(parameters, "unverified"))
-                                            : following.check(name, url, signers);
-                            would = checked.result();
-                            final @Nullable String one =
-                                    signedBy == null
-                                                    || org.fuin.porelo.app.SignedBy.isFingerprint(
-                                                            signedBy)
-                                            ? null
-                                            : org.fuin.porelo.app.SignedBy.fingerprintOf(signedBy);
-                            wouldPin =
-                                    !checked.signers().isEmpty()
-                                            ? checked.signers()
-                                            : one == null
-                                                    ? java.util.List.of()
-                                                    : java.util.List.of(one);
-                        } catch (org.fuin.porelo.app.FollowSignedBy.Refused ex) {
-                            throw new VarlinkException(
-                                    INTERFACE + ".Failed",
-                                    Map.of("message", String.valueOf(ex.getMessage())));
-                        }
-                        final boolean ready =
-                                would.outcome() == org.fuin.porelo.app.Reconcile.Outcome.APPLIED
-                                        || would.outcome()
-                                                == org.fuin.porelo.app.Reconcile.Outcome.UNCHANGED;
-                        replies.last(
-                                Map.of(
-                                        "outcome",
-                                        ready ? "READY" : would.outcome().name(),
-                                        "commit",
-                                        would.commit(),
-                                        "detail",
-                                        would.detail(),
-                                        "refused",
-                                        would.refused(),
-                                        "signer",
-                                        would.signer(),
-                                        "needsAPerson",
-                                        would.needsAPerson(),
-                                        // What to type to store the credential this machine would
-                                        // need. Named by the machine, because which entry a follow
-                                        // reads is the machine's knowledge and a client must never
-                                        // guess it - nor ever carry the secret.
-                                        "storeCommand",
-                                        would.outcome()
-                                                        == org.fuin.porelo.app.Reconcile.Outcome
-                                                                .NO_CREDENTIAL
-                                                ? org.fuin.porelo.app.FollowCredential.storeCommand(
-                                                        url)
-                                                : "",
-                                        "recorded",
-                                        false,
-                                        "pinned",
-                                        wouldPin));
-                        return;
-                    }
-                    final org.fuin.porelo.app.FollowSignedBy.Answer answer;
-                    try {
-                        // Once, now: somebody who asked for this wants to know whether it works,
-                        // and a refusal at the next tick is one nobody connects to what they did.
-                        answer =
-                                signers.isEmpty()
-                                        ? following.follow(
-                                                name,
-                                                url,
-                                                signedBy,
-                                                flag(parameters, "unverified"),
-                                                flag(parameters, "acceptRewrite"))
-                                        : following.follow(
-                                                name,
-                                                url,
-                                                signers,
-                                                flag(parameters, "acceptRewrite"));
-                    } catch (org.fuin.porelo.app.FollowSignedBy.Refused ex) {
-                        throw new VarlinkException(
-                                INTERFACE + ".Failed",
-                                Map.of("message", String.valueOf(ex.getMessage())));
-                    }
-                    final org.fuin.porelo.app.Reconcile.Result result = answer.result();
-                    // When the host's key is what stopped it, what it offered goes with the
-                    // refusal: a person cannot confirm a fingerprint they have not been shown, and
-                    // asking them to run a command to see it would be making them fetch what we
-                    // already have.
-                    final boolean aboutTheHost =
-                            result.outcome()
-                                            == org.fuin.porelo.app.Reconcile.Outcome
-                                                    .UNKNOWN_HOST_KEY
-                                    || result.outcome()
-                                            == org.fuin.porelo.app.Reconcile.Outcome
-                                                    .HOST_KEY_CHANGED;
-                    // The host is answered rather than left to be read off the address again: a
-                    // client that re-parsed it would have to know about 'user@host:path', a port,
-                    // and an alias in somebody's ssh config - three readings of one thing, two of
-                    // them ours already.
-                    final String host =
-                            aboutTheHost ? org.fuin.porelo.app.HostKeys.nameOf(url) : "";
-                    final java.util.List<Map<String, Object>> offered =
-                            aboutTheHost
-                                    ? org.fuin.porelo.app.HostKeys.offeredBy(context, host).stream()
-                                            .map(org.fuin.porelo.app.HostKeys.Offered::asMap)
-                                            .toList()
-                                    : java.util.List.of();
-                    final Map<String, Object> reply =
-                            new java.util.LinkedHashMap<>(
-                                    Map.of(
-                                            "outcome",
-                                            result.outcome().name(),
-                                            "commit",
-                                            result.commit(),
-                                            "detail",
-                                            result.detail(),
-                                            "refused",
-                                            result.refused(),
-                                            "host",
-                                            host,
-                                            "hostKeys",
-                                            offered,
-                                            "signer",
-                                            result.signer(),
-                                            "needsAPerson",
-                                            result.needsAPerson(),
-                                            "storeCommand",
-                                            result.outcome()
-                                                            == org.fuin.porelo.app.Reconcile.Outcome
-                                                                    .NO_CREDENTIAL
-                                                    ? org.fuin.porelo.app.FollowCredential
-                                                            .storeCommand(url)
-                                                    : "",
-                                            // Whether anything was written. False for a first
-                                            // follow that was refused: the machine is exactly as it
-                                            // was.
-                                            "recorded",
-                                            answer.recorded()));
-                    // Every key this call pinned, by fingerprint, so the interface can tell them in
-                    // one place.
-                    reply.put(
-                            "pinned",
-                            !answer.signers().isEmpty()
-                                    ? answer.signers()
-                                    : answer.pinned().isEmpty()
-                                            ? java.util.List.of()
-                                            : java.util.List.of(answer.pinned()));
-                    replies.last(reply);
-                });
+        server.method("Follow", follow(context));
 
         server.method(
                 "HostKeys",
@@ -782,6 +598,190 @@ final class ProjectMethods {
             throw new VarlinkException(
                     "org.varlink.service.InvalidParameter", Map.of("parameter", "host"));
         }
+    }
+
+    /** Handles Follow with the same parameters over a socket or in a direct call. */
+    static VarlinkServer.Method follow(final PoreloContext context) {
+        return (parameters, replies) -> {
+            final String name = text(parameters, "name");
+            final String url = address(parameters, "url");
+            final @Nullable String signedBy =
+                    parameters.get("signedBy") instanceof String said && !said.isBlank()
+                            ? said
+                            : null;
+            // The same class the command line follows with: a follow over the socket took
+            // signedBy and never read it, and refused what the same follow at the terminal
+            // applied.
+            final org.fuin.porelo.app.FollowSignedBy following =
+                    new org.fuin.porelo.app.FollowSignedBy(context);
+            final java.util.List<String> signers =
+                    parameters.get("signers") instanceof java.util.List<?> given
+                            ? given.stream()
+                                    .map(String::valueOf)
+                                    .filter(each -> !each.isBlank())
+                                    .toList()
+                            : java.util.List.of();
+            try {
+                org.fuin.porelo.app.FollowSignedBy.refuseConflicting(
+                        signedBy, signers, flag(parameters, "unverified"));
+            } catch (org.fuin.porelo.app.FollowSignedBy.Refused ex) {
+                throw new VarlinkException(
+                        INTERFACE + ".Failed", Map.of("message", String.valueOf(ex.getMessage())));
+            }
+            if (flag(parameters, "dryRun")) {
+                // Records nothing, not even the named key: the whole point is the question
+                // asked BEFORE a project exists here. READY where a real follow would have
+                // applied, and otherwise the same named reason it would have given.
+                final org.fuin.porelo.app.Reconcile.Result would;
+                final java.util.List<String> wouldPin;
+                final String wouldRecover;
+                try {
+                    final org.fuin.porelo.app.FollowSignedBy.Answer checked =
+                            signers.isEmpty()
+                                    ? following.check(
+                                            name,
+                                            url,
+                                            signedBy,
+                                            flag(parameters, "unverified"),
+                                            flag(parameters, "acceptRewrite"))
+                                    : following.checkWithSigners(
+                                            name, url, signers, flag(parameters, "acceptRewrite"));
+                    would = checked.result();
+                    wouldRecover =
+                            checked.refusedRepository().isEmpty()
+                                    ? url
+                                    : checked.refusedRepository();
+                    final @Nullable String one =
+                            signedBy == null || org.fuin.porelo.app.SignedBy.isFingerprint(signedBy)
+                                    ? null
+                                    : org.fuin.porelo.app.SignedBy.fingerprintOf(signedBy);
+                    wouldPin =
+                            !org.fuin.porelo.app.FollowSignedBy.mayPublish(would)
+                                    ? java.util.List.of()
+                                    : !checked.signers().isEmpty()
+                                            ? checked.signers()
+                                            : one == null
+                                                    ? java.util.List.of()
+                                                    : java.util.List.of(one);
+                } catch (org.fuin.porelo.app.FollowSignedBy.Refused ex) {
+                    throw new VarlinkException(
+                            INTERFACE + ".Failed",
+                            Map.of("message", String.valueOf(ex.getMessage())));
+                }
+                final boolean ready = org.fuin.porelo.app.FollowSignedBy.mayPublish(would);
+                replies.last(
+                        Map.of(
+                                "outcome",
+                                ready ? "READY" : would.outcome().name(),
+                                "commit",
+                                would.commit(),
+                                "detail",
+                                would.detail(),
+                                "refused",
+                                would.refused(),
+                                "signer",
+                                would.signer(),
+                                "needsAPerson",
+                                would.needsAPerson(),
+                                // What to type to store the credential this machine would
+                                // need. Named by the machine, because which entry a follow
+                                // reads is the machine's knowledge and a client must never
+                                // guess it - nor ever carry the secret.
+                                "storeCommand",
+                                would.outcome()
+                                                == org.fuin.porelo.app.Reconcile.Outcome
+                                                        .NO_CREDENTIAL
+                                        ? org.fuin.porelo.app.FollowCredential.storeCommand(
+                                                wouldRecover)
+                                        : "",
+                                "recorded",
+                                false,
+                                "pinned",
+                                wouldPin));
+                return;
+            }
+            final org.fuin.porelo.app.FollowSignedBy.Answer answer;
+            try {
+                // Once, now: somebody who asked for this wants to know whether it works,
+                // and a refusal at the next tick is one nobody connects to what they did.
+                answer =
+                        signers.isEmpty()
+                                ? following.follow(
+                                        name,
+                                        url,
+                                        signedBy,
+                                        flag(parameters, "unverified"),
+                                        flag(parameters, "acceptRewrite"))
+                                : following.follow(
+                                        name, url, signers, flag(parameters, "acceptRewrite"));
+            } catch (org.fuin.porelo.app.FollowSignedBy.Refused ex) {
+                throw new VarlinkException(
+                        INTERFACE + ".Failed", Map.of("message", String.valueOf(ex.getMessage())));
+            }
+            final org.fuin.porelo.app.Reconcile.Result result = answer.result();
+            final String recover =
+                    answer.refusedRepository().isEmpty() ? url : answer.refusedRepository();
+            // When the host's key is what stopped it, what it offered goes with the
+            // refusal: a person cannot confirm a fingerprint they have not been shown, and
+            // asking them to run a command to see it would be making them fetch what we
+            // already have.
+            final boolean aboutTheHost =
+                    result.outcome() == org.fuin.porelo.app.Reconcile.Outcome.UNKNOWN_HOST_KEY
+                            || result.outcome()
+                                    == org.fuin.porelo.app.Reconcile.Outcome.HOST_KEY_CHANGED;
+            // The host is answered rather than left to be read off the address again: a
+            // client that re-parsed it would have to know about 'user@host:path', a port,
+            // and an alias in somebody's ssh config - three readings of one thing, two of
+            // them ours already.
+            final String host = aboutTheHost ? org.fuin.porelo.app.HostKeys.nameOf(recover) : "";
+            final java.util.List<Map<String, Object>> offered =
+                    aboutTheHost
+                            ? org.fuin.porelo.app.HostKeys.offeredBy(context, host).stream()
+                                    .map(org.fuin.porelo.app.HostKeys.Offered::asMap)
+                                    .toList()
+                            : java.util.List.of();
+            final Map<String, Object> reply =
+                    new java.util.LinkedHashMap<>(
+                            Map.of(
+                                    "outcome",
+                                    result.outcome().name(),
+                                    "commit",
+                                    result.commit(),
+                                    "detail",
+                                    result.detail(),
+                                    "refused",
+                                    result.refused(),
+                                    "host",
+                                    host,
+                                    "hostKeys",
+                                    offered,
+                                    "signer",
+                                    result.signer(),
+                                    "needsAPerson",
+                                    result.needsAPerson(),
+                                    "storeCommand",
+                                    result.outcome()
+                                                    == org.fuin.porelo.app.Reconcile.Outcome
+                                                            .NO_CREDENTIAL
+                                            ? org.fuin.porelo.app.FollowCredential.storeCommand(
+                                                    recover)
+                                            : "",
+                                    // Whether anything was written. False for a first
+                                    // follow that was refused: the machine is exactly as it
+                                    // was.
+                                    "recorded",
+                                    answer.recorded()));
+            // Every key this call pinned, by fingerprint, so the interface can tell them in
+            // one place.
+            reply.put(
+                    "pinned",
+                    !answer.signers().isEmpty()
+                            ? answer.signers()
+                            : answer.pinned().isEmpty()
+                                    ? java.util.List.of()
+                                    : java.util.List.of(answer.pinned()));
+            replies.last(reply);
+        };
     }
 
     /** Removes a followed project only when every task removal succeeded. */

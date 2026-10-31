@@ -1,0 +1,2 @@
+title: Every commit changing a protected project or access file is checked against the keys in force before it, while unsigned document commits are applied and refusals name the offending commit and path.
+type: fixed

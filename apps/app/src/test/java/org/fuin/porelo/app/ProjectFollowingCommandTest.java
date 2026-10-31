@@ -68,6 +68,49 @@ class ProjectFollowingCommandTest {
                                 + "\"url\":\"git@github.com:porelo-ai/porelo-project.git\","
                                 + "\"commit\":\"\",\"outcome\":\"\",\"verified\":false,"
                                 + "\"signed_by\":[],\"detail\":\"\",\"refused\":\"\","
+                                + "\"refused_file\":\"\",\"access_refused\":\"\",\"access_refused_file\":\"\","
                                 + "\"access_commit\":\"\",\"access_outcome\":\"\"}]}");
+    }
+
+    @Test
+    void refusals_keep_the_offending_commits_and_paths(@TempDir final Path dir) throws Exception {
+        // Programs must be able to distinguish the commits in force from refused changes.
+        final PoreloContext context = context(dir);
+        final FollowedProjects follows =
+                new FollowedProjects(context.paths().projects().followed());
+        follows.write(
+                new FollowedProjects.Followed(
+                        "demo",
+                        "https://example.org/project.git",
+                        "a".repeat(40),
+                        "",
+                        "NOT_SIGNED",
+                        "",
+                        "b".repeat(40),
+                        "",
+                        false,
+                        "c".repeat(40),
+                        "NOT_SIGNED",
+                        "project.yml",
+                        "d".repeat(40),
+                        "access.yml"));
+        follows.follow("demo", "https://example.org/project.git");
+
+        assertThat(execute(context, "project", "following", "--json")).isZero();
+        assertThat(out.toString())
+                .contains("\"refused_file\":\"project.yml\"")
+                .contains("\"refused\":\"" + "b".repeat(40) + "\"")
+                .contains("\"access_refused\":\"" + "d".repeat(40) + "\"")
+                .contains("\"access_refused_file\":\"access.yml\"");
+        final FollowedProjects.Followed recorded = follows.require("demo");
+        assertThat(ProjectInventory.followAsMap(recorded, java.util.List.of()))
+                .containsEntry("refusedFile", "project.yml")
+                .containsEntry("accessRefused", "d".repeat(40))
+                .containsEntry("accessRefusedFile", "access.yml");
+        out.getBuffer().setLength(0);
+        assertThat(execute(context, "project", "following")).isZero();
+        assertThat(out.toString())
+                .contains("b".repeat(40) + "  project.yml")
+                .contains("d".repeat(40) + "  access.yml");
     }
 }

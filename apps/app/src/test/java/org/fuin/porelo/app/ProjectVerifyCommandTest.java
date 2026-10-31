@@ -70,7 +70,11 @@ class ProjectVerifyCommandTest {
     }
 
     private int verify(final String... args) {
-        final CommandLine cmd = PoreloCli.commandLine(context());
+        return verifyWith(context(), args);
+    }
+
+    private int verifyWith(final PoreloContext selected, final String... args) {
+        final CommandLine cmd = PoreloCli.commandLine(selected);
         cmd.setOut(new PrintWriter(out));
         cmd.setErr(new PrintWriter(err));
         final List<String> all = new ArrayList<>(List.of("project", "verify"));
@@ -140,6 +144,47 @@ class ProjectVerifyCommandTest {
         assertThat(err.toString().lines().toList())
                 .as("git's newlines cannot forge another line")
                 .hasSize(1);
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(booleans = {false, true})
+    void a_shallow_checkout_cannot_hide_the_declaration_before_its_tip(final boolean fetchFailed)
+            throws Exception {
+        // Verification must not accept a tip by treating a hidden parent as absent.
+        final Path key = key("operator");
+        final Path project = project(null, key);
+        Files.writeString(project.resolve("README.md"), "another commit\n");
+        commit(project, key);
+        final Path shallow = dir.resolve("shallow");
+        git(dir, "clone", "-q", "--depth=1", project.toUri().toString(), shallow.toString());
+
+        final PoreloContext base = context();
+        final PoreloContext selected =
+                new PoreloContext(
+                        command -> {
+                            final var result = base.runner().run(command);
+                            return fetchFailed && command.arguments().contains("fetch")
+                                    ? new CommandResult(
+                                            command,
+                                            1,
+                                            result.standardOutput(),
+                                            "fetch failed after receiving objects")
+                                    : result;
+                        },
+                        base.paths(),
+                        args -> 0);
+        final int code =
+                verifyWith(
+                        selected,
+                        "--repository",
+                        shallow.toString(),
+                        "--signed-by",
+                        publicKey(key));
+
+        assertThat(code).as("incomplete verification refuses: " + err).isEqualTo(65);
+        assertThat(err.toString())
+                .as("the shallow repository is named")
+                .contains("cannot judge in shallow repository or unreadable repository " + shallow);
     }
 
     @Test
@@ -403,6 +448,204 @@ class ProjectVerifyCommandTest {
         assertThat(answer.get("persons")).as("no identity is invented").isEqualTo(List.of());
     }
 
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(booleans = {false, true})
+    void unsignedDocumentsPassButCannotCoverAProtectedChange(final boolean protectedChange)
+            throws Exception {
+        // The isolated verifier must enforce the same range rule as a following machine.
+        final Path key = key("operator");
+        final Path project = project(null, key);
+        final String first = git(project, "rev-parse", "HEAD");
+        if (protectedChange) {
+            Files.writeString(
+                    project.resolve("project.yml"),
+                    Files.readString(project.resolve("project.yml")) + "# unsigned change\n");
+        } else {
+            Files.writeString(project.resolve("notes.md"), "unsigned notes\n");
+        }
+        git(project, "add", "--all");
+        git(project, "commit", "-q", "--no-gpg-sign", "-m", "unsigned change");
+        final String unsigned = git(project, "rev-parse", "HEAD");
+        if (protectedChange) {
+            Files.writeString(project.resolve("notes.md"), "signed notes\n");
+            commit(project, key);
+        }
+
+        final int code =
+                verify(
+                        "--repository",
+                        project.toString(),
+                        "--signed-by",
+                        publicKey(key),
+                        "--since",
+                        first,
+                        "--json");
+
+        assertThat(code).as(err.toString()).isEqualTo(protectedChange ? 65 : 0);
+        if (protectedChange) {
+            assertThat(out.toString()).isEmpty();
+            assertThat(err.toString()).contains(unsigned).contains("project.yml");
+        } else {
+            assertThat(out.toString())
+                    .contains("\"commit\":\"" + unsigned + "\"")
+                    .contains("\"signer\":\"\"");
+        }
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(booleans = {false, true})
+    void an_explicit_krl_rejects_new_project_and_access_commits(final boolean accessChange)
+            throws Exception {
+        // The checker without a home must use the caller's policy on both repositories.
+        final Path key = key("operator");
+        final Path access = access(key);
+        final Path project = project(accessChange ? ACCESS_URL : null, key);
+        final String first = git(project, "rev-parse", "HEAD");
+        final String accessFirst = git(access, "rev-parse", "HEAD");
+        final Path changed = accessChange ? access : project;
+        final String file = accessChange ? "access.yml" : "project.yml";
+        Files.writeString(
+                changed.resolve(file), Files.readString(changed.resolve(file)) + "# change\n");
+        commit(changed, key);
+        final String refused = git(changed, "rev-parse", "HEAD");
+        final Path krl = dir.resolve("revoked.krl");
+        final var made =
+                runner.run(
+                        Command.of("ssh-keygen", "-q", "-k", "-f", krl.toString(), key + ".pub"));
+        assertThat(made.successful()).as(made.standardError()).isTrue();
+        final List<String> args =
+                new ArrayList<>(
+                        List.of(
+                                "--repository",
+                                project.toString(),
+                                "--signed-by",
+                                publicKey(key),
+                                "--since",
+                                first,
+                                "--krl",
+                                krl.toString(),
+                                "--json"));
+        if (accessChange) {
+            args.addAll(
+                    List.of(
+                            "--access-repository",
+                            access.toString(),
+                            "--access-since",
+                            accessFirst));
+        }
+
+        final int code = verify(args.toArray(String[]::new));
+
+        assertThat(code).as(err.toString()).isEqualTo(65);
+        assertThat(out.toString()).isEmpty();
+        assertThat(err.toString()).contains(refused).contains(file);
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(booleans = {false, true})
+    void a_missing_explicit_krl_is_refused_instead_of_ignored(final boolean unchanged)
+            throws Exception {
+        // The caller must not receive a successful check with its revocation policy missing.
+        final Path key = key("operator");
+        final Path project = project(null, key);
+        final int code =
+                verify(
+                        "--repository",
+                        project.toString(),
+                        "--signed-by",
+                        publicKey(key),
+                        "--since",
+                        unchanged ? git(project, "rev-parse", "HEAD") : "",
+                        "--krl",
+                        dir.resolve("missing.krl").toString(),
+                        "--json");
+        assertThat(code).isEqualTo(65);
+        assertThat(out.toString()).isEmpty();
+        assertThat(err.toString()).contains("revocation list");
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource({
+        "empty,false",
+        "corrupt,false",
+        "empty,true",
+        "corrupt,true"
+    })
+    void a_damaged_explicit_krl_refuses_a_document_range(
+            final String damage, final boolean unchanged) throws Exception {
+        // A checker without a home must validate policy even if no signature needs checking.
+        final Path key = key("operator");
+        final Path project = project(null, key);
+        final String first = git(project, "rev-parse", "HEAD");
+        if (!unchanged) {
+            Files.writeString(project.resolve("notes.md"), "notes\n");
+            git(project, "add", "notes.md");
+            git(project, "commit", "-q", "--no-gpg-sign", "-m", "notes");
+        }
+        final Path krl = dir.resolve("damaged.krl");
+        Files.writeString(krl, damage.equals("empty") ? "" : "corrupt\n");
+
+        final int code =
+                verify(
+                        "--repository",
+                        project.toString(),
+                        "--signed-by",
+                        publicKey(key),
+                        "--since",
+                        first,
+                        "--krl",
+                        krl.toString(),
+                        "--json");
+
+        assertThat(code).as("broken policy cannot yield verified settings: " + err).isEqualTo(65);
+        assertThat(out.toString()).as("no settings escape the refusal").isEmpty();
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(booleans = {false, true})
+    void a_document_tip_has_no_unverified_signer(final boolean signed) throws Exception {
+        // A document's header must not claim the configuration signer's authority.
+        final Path key = key("operator");
+        final Path project = project(null, key);
+        final String first = git(project, "rev-parse", "HEAD");
+        Files.writeString(project.resolve("notes.md"), "notes\n");
+        git(project, "add", "notes.md");
+        if (signed) {
+            commit(project, key);
+        } else {
+            git(project, "commit", "-q", "--no-gpg-sign", "-m", "notes");
+        }
+
+        final int code =
+                verify(
+                        "--repository",
+                        project.toString(),
+                        "--signed-by",
+                        publicKey(key),
+                        "--since",
+                        first,
+                        "--json");
+
+        assertThat(code).as(err.toString()).isZero();
+        assertThat(out.toString())
+                .as("only a checked signature names a signer")
+                .contains("\"signer\":\"\"");
+        out.getBuffer().setLength(0);
+        assertThat(
+                        verify(
+                                "--repository",
+                                project.toString(),
+                                "--signed-by",
+                                publicKey(key),
+                                "--since",
+                                first))
+                .as(err.toString())
+                .isZero();
+        assertThat(out.toString())
+                .as("human output makes no unverified signing claim")
+                .doesNotContain("signed by");
+    }
+
     @Test
     void theKeysInForceAfterAHandoverAreTheOnesTheNextCheckNames() throws Exception {
         final Path key = key("operator");
@@ -502,7 +745,8 @@ class ProjectVerifyCommandTest {
                                 "--signed-by", publicKey(key),
                                 "--since", git(project, "rev-parse", "HEAD")))
                 .as(
-                        "refused as well when the commit is the one in force, which is not applied again")
+                        "refused as well when the commit is the one in force, which is not applied"
+                                + " again")
                 .isEqualTo(65);
     }
 

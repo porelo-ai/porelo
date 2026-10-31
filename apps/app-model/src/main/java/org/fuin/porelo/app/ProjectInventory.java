@@ -833,6 +833,9 @@ public final class ProjectInventory {
         map.put("outcome", followed.outcome());
         map.put("detail", followed.detail());
         map.put("refused", followed.refused());
+        map.put("refusedFile", followed.refusedFile());
+        map.put("accessRefused", followed.accessRefused());
+        map.put("accessRefusedFile", followed.accessRefusedFile());
         map.put("signer", followed.signer());
         // Every key a commit of it may be signed by, so the keys are told in one place.
         map.put("signers", List.copyOf(signers));

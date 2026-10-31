@@ -344,7 +344,16 @@ follow their own.
 - **`follow` is synchronous.** When it returns 0, a task can be started for the project at once. It
   takes a local path or `file://` as well as a forge URL, so a repository on the same machine is
   enough, and a project followed `--unverified` starts tasks like any other.
-- **Only what is signed by the key given at the follow is applied**, and a signed commit that does not
+- **Every change to a protected file is signed by a key in force before that commit.** The first-parent
+  range from the commit in force to the fetched tip is checked commit by commit, each against its first
+  parent, including merges, deletions and both ends of a rename. Protected files are `project.yml`,
+  `access.yml` when named beside it, `machine-signers`, `porelo.yml` in the project's own repository,
+  and every `image.snippet_file` named by the project, a repository, or that `porelo.yml`, read from
+  the committed YAML. The `.gitattributes` files at the root and
+  in their ancestor directories are protected too, since Git can transform the checked-out files
+  through them. Unsigned document-only commits are applied;
+  a later signed commit cannot cover an earlier unsigned protected change. The first follow and an
+  accepted rewrite still check the tip against the anchor given. A tip that does not
   descend from the one in force waits for `project follow ... --accept-rewrite`: a rebase by somebody
   with the key looks the same from here as an older signed file served again to put back a rule that
   was taken away. Say it only when you know why the history moved.
@@ -366,18 +375,18 @@ follow their own.
 ### When a machine does not apply a commit
 
 `porelo project following` lists each followed project with the commit in force and how its last try
-ended. A commit that was turned away is named on a line of its own, `refused <commit> signed by
+ended. A commit that was turned away is named on a line of its own, `refused <commit> <file> signed by
 <fingerprint>`, beside the commit still in force: the project goes on running what it had, and what
 was rejected is a separate question from what is running. Only a key's fingerprint is shown, never
 anything from the vault.
 
 | Outcome | What happened | What to do |
 |---|---|---|
-| `not_signed` | The commit carries no signature. | Usually a forgotten signature: sign the commit and push again. |
-| `unknown_key` | A good signature, by a key this machine was not given. | Compare the fingerprint with the key you meant to pin. Either the key moved, or somebody is putting a project file past the machine. |
+| `not_signed` | A commit requiring verification carries no signature. | Sign the offending commit and push the corrected range. A signed commit on top cannot cover it. |
+| `unknown_key` | The signature is not authorized by the keys in force and the revocation policy. | Compare the fingerprint with the key meant to sign. It may be unknown, retired or revoked, or its signature did not verify. |
 | `no_anchor` | No key is pinned for this project. | Follow again with `--signed-by`, or with `--unverified`. |
 | `unreadable` | The commit or the repository could not be read. | Read `detail`. |
-| `rewritten` | Signed, but not a descendant of the commit in force. | Only if you know somebody with the key rewrote the history: follow again with `--accept-rewrite`. |
+| `rewritten` | The tip is not a descendant of the commit in force. | Only if you know somebody with the key rewrote the history: follow again with `--accept-rewrite`. |
 | `unreachable` | The repository could not be reached. | Look at the network or the URL. It may answer on the next try by itself. |
 | `vault_locked` | This account's vault is shut, so the credential a private repository needs is out of reach. | `porelo vault unlock`. Nothing is wrong with the network or the URL. Reported only where a vault exists. |
 | `no_credential` | The vault is open and holds no key for a repository that needs one. | Store the credential the detail names. |
@@ -413,12 +422,47 @@ comes from you: the repository supplies the bytes, you supply which key they mus
 The key named at the follow hands on through the file itself. **Commit the new key under
 `project.signers` beside the old one, signed with the old key:** every machine following the project
 checks it against the old key and pins the new one. **Then commit a list with only the new key, signed
-with the new key:** the old one is unpinned. A commit that changes the list counts only when it is
+with the new key:** the old one loses authority for new protected changes. It stays in `project-signers`
+with `valid-before="YYYYMMDDHHMMSSZ"`, at the handover commit's committer time in UTC, so old
+commits still verify when history is read. Git includes the cutoff instant and uses the committer
+time, which the signer controls; a backdated new commit by that key is therefore checked only
+against keys in force, with every `valid-before` line excluded. Several handovers fetched at once
+keep every retirement, even if the final keys equal the starting keys. Historical verification
+still follows commit dates: a handover dated before an older commit cuts that commit off.
+A commit that changes the list counts only when it is
 signed by a key in force before it, so a key never vouches for the commit that adds it. Every commit
 that changes the list between the one in force and the one fetched is checked in order, along the
 first parent, so the hand-on and the commit signed only by the new key may arrive in one fetch. Keys
-are pinned only with a commit that is applied, never before. A file that names no `signers` keeps the
-keys pinned at the follow. `project follow` says which keys it pinned and unpinned, by fingerprint.
+are pinned only with a commit that is applied, never before. `project follow` says which keys it
+pinned and unpinned, by fingerprint.
+
+A commit declares its `project.signers` list, or no declaration when the file or key is absent;
+no declaration differs from an empty list. Any change leaves exactly the new list in force and
+retires every omitted key at that commit's time, including out-of-band keys, the signer and keys
+given with `--signed-by` on that command. Extra pins survive only while the declaration stays the
+same. Once a list exists, empty included, removing the key or `project.yml` refuses the new `main`
+and names the removal commit and file; change the signers instead of dropping them.
+
+A first follow compares the tip with its first parent's declaration; a parentless tip follows no
+declaration. When the parent declares a list, the tip's signer must be both named there and given
+with `--signed-by`, so a key already retired by that history cannot start a follow. With no prior
+list, the given keys authorize the tip, and a first declaration still retires every key it omits.
+An accepted rewrite compares its new tip with the declaration previously in force. All checks,
+including matching a requested fingerprint, finish before a follow publishes the clone, pinned
+keys, followed record or event.
+
+Every follow fetches full history and refuses a shallow source or clone, naming the repository.
+A missing parent or an unreadable declaration baseline refuses the check; it never counts as no
+declaration. Switching from `--unverified` to verified starts both repositories as a first follow:
+their tips must verify, even when unchanged, and no unchecked commit supplies a baseline. A named
+fingerprint must have signed a protected commit in the checked range; an earlier handover counts
+even when a successor signed the tip. A range with only document changes cannot match it.
+
+Following also checks new protected changes against `~/.config/porelo/revoked.krl` when present
+(`$XDG_CONFIG_HOME/porelo/revoked.krl` with that variable set), as Git's `gpg.ssh.revocationFile`.
+An empty, malformed, or unreadable KRL refuses the range, even when no commit needs a signature. The retained historical keys never
+appear as authority in `following --json`'s `signed_by` or `verify --json`'s `signers`. A commit
+already in force is not accepted again and stays unchanged after its signer retires.
 
 ## A key Porelo does not know
 
@@ -439,7 +483,8 @@ Porelo still runs on an older one. Porelo does not check the names under `creden
 
 The public keys a project's machines sign messages with live in `machine-signers`, next to
 `project.yml`. **Secrets never travel; public keys travel through the project's repository**, which
-every machine verifies: each commit must be signed by the pinned key and descend from the one in force,
+every machine verifies: each commit changing that file must be signed by a key in force, and the
+tip must descend from the commit in force,
 so a removed signer cannot be restored by replaying an older commit.
 
 - `porelo project enroll PROJECT` puts this machine's key up for review in the project's gate
@@ -454,9 +499,10 @@ On each machine the same two kinds of key are kept apart by name, in `~/.config/
 `project-signers` the keys pinned with `--signed-by`, whose commits a followed project's configuration
 is taken from. A person's key is never a machine's, and the other way round.
 
-In `project-signers` the name before each key is a label, not a check: any key in the file verifies,
-whatever name it is written under. The file therefore means *these keys may sign configuration*. Write
-the signer's email there all the same; it is what `git log --show-signature` prints.
+In `project-signers` only active lines named for the project being checked authorize new protected
+changes. Git prints that project name as the principal. Retired lines serve historical verification.
+Protected inputs must be regular committed files: a symbolic link could let an unsigned change to
+its target alter what the following machine reads.
 
 <a id="deploy-keys"></a>
 
@@ -488,7 +534,9 @@ conversation server's settings - goes into a second file, `access.yml`, which
   not find out whether a repository is public; the choice is the project's.
 
 The access file is checked against the project's own signers in either place: a commit of the
-access repository must be signed by a key the project's chain has in force, and must descend from
+access repository that changes `access.yml` must be signed by a key the project's chain has in force.
+Every such commit in the first-parent range is checked; other commits need no signature. Its tip
+must descend from
 the access commit in force, or it waits for `--accept-rewrite` as a project commit does. Beside
 `project.yml`, it is read from the verified project commit and from nothing else. A second
 repository is for confidentiality, never for trust. Once the project file names another place, the

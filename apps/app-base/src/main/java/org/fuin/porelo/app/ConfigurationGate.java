@@ -36,7 +36,7 @@ public final class ConfigurationGate {
         /** No signature at all. */
         NOT_SIGNED,
 
-        /** A good signature, by a key that is not one of the pinned ones. */
+        /** The signature is not authorized by the keys in force and the revocation policy. */
         UNKNOWN_KEY,
 
         /** Nothing is pinned here, so nothing can be verified and nothing may be applied. */
@@ -70,6 +70,8 @@ public final class ConfigurationGate {
 
     private final Path signers;
 
+    private final @org.jspecify.annotations.Nullable Path krl;
+
     /**
      * Constructor.
      *
@@ -77,17 +79,25 @@ public final class ConfigurationGate {
      * @param signers The pinned {@code allowed_signers} file.
      */
     public ConfigurationGate(final CommandRunner runner, final Path signers) {
+        this(runner, signers, null);
+    }
+
+    /**
+     * Constructor with an explicit revocation list.
+     *
+     * @param runner How commands are run.
+     * @param signers The pinned allowed-signers file.
+     * @param krl The revocation list, or {@code null} when none is configured.
+     */
+    public ConfigurationGate(
+            final CommandRunner runner,
+            final Path signers,
+            final @org.jspecify.annotations.Nullable Path krl) {
+        this.krl = krl;
         this.runner = runner;
         this.signers = signers;
     }
 
-    /**
-     * Checks one commit of a repository this machine follows.
-     *
-     * @param repository A clone on this machine.
-     * @param ref What to check, usually {@code HEAD}.
-     * @return What was decided.
-     */
     /**
      * Checks one commit of a project against the keys pinned for that project alone.
      *
@@ -101,42 +111,116 @@ public final class ConfigurationGate {
      * @return What was decided.
      */
     public Verdict verify(final Path repository, final String ref, final String project) {
-        if (!Files.isRegularFile(signers)) {
-            return verify(repository, ref);
-        }
-        final Path own;
+        return active(repository, ref, project, true);
+    }
+
+    /**
+     * Checks a new commit against all active principals in the file.
+     *
+     * @param repository The clone.
+     * @param ref The commit to check.
+     * @return The verdict; retired entries never authorize a new commit.
+     */
+    public Verdict verify(final Path repository, final String ref) {
+        return active(repository, ref, null, true);
+    }
+
+    /** Checks with the revocation policy already validated by the range walker. */
+    Verdict verifyAfterRevocations(final Path repository, final String ref) {
+        return active(repository, ref, null, false);
+    }
+
+    private Verdict active(
+            final Path repository,
+            final String ref,
+            final @org.jspecify.annotations.Nullable String project,
+            final boolean checkRevocations) {
+        final String commit = commitOf(repository, ref);
         try {
-            own = Files.createTempFile("porelo-signers-", "");
-            try {
-                Files.write(
-                        own,
-                        Files.readAllLines(signers).stream()
-                                .filter(line -> line.startsWith(project + " "))
-                                .toList());
-                return new ConfigurationGate(runner, own).verify(repository, ref);
-            } finally {
-                Files.deleteIfExists(own);
+            if (checkRevocations) {
+                requireRevocations(runner, krl);
             }
         } catch (final java.io.IOException ex) {
             return new Verdict(
                     Outcome.UNREADABLE,
+                    commit,
                     "",
-                    "",
-                    "the pinned keys could not be read: " + ex.getMessage());
+                    java.util.Objects.requireNonNull(
+                            ex.getMessage(), "revocation input failures carry their reason"));
         }
-    }
-
-    public Verdict verify(final Path repository, final String ref) {
-        if (!Files.isRegularFile(signers)) {
+        if (Files.notExists(signers, java.nio.file.LinkOption.NOFOLLOW_LINKS)) {
             return new Verdict(
                     Outcome.NO_ANCHOR,
-                    "",
+                    commit,
                     "",
                     "no key is pinned in "
                             + signers
-                            + ", so no configuration can be applied here."
-                            + " Pin the key this project's configuration is signed with.");
+                            + ", so no configuration can be applied here. Pin the project's key.");
         }
+        Path own = null;
+        try {
+            final java.util.List<String> lines = new java.util.ArrayList<>();
+            for (final String line : AllowedSigner.read(runner, signers)) {
+                if (line.isBlank() || line.strip().startsWith("#")) {
+                    continue;
+                }
+                final AllowedSigner signer = AllowedSigner.parse(line);
+                if (signer == null) {
+                    throw new java.io.IOException("invalid allowed-signers line");
+                }
+                if (!signer.retired() && (project == null || signer.principal().equals(project))) {
+                    lines.add(line);
+                }
+            }
+            own = Files.createTempFile("porelo-signers-", "");
+            Files.write(own, lines);
+            return verifyWith(repository, ref, own);
+        } catch (final java.io.IOException ex) {
+            return new Verdict(
+                    Outcome.UNREADABLE,
+                    commit,
+                    "",
+                    "the pinned keys could not be read: " + ex.getMessage());
+        } finally {
+            if (own != null) {
+                try {
+                    Files.deleteIfExists(own);
+                } catch (final java.io.IOException ignored) {
+                    // Only public keys remain in a temporary file.
+                }
+            }
+        }
+    }
+
+    /** Refuses a configured policy input that cannot be read, even when no signature is needed. */
+    static void requireRevocations(
+            final CommandRunner runner, final @org.jspecify.annotations.Nullable Path krl)
+            throws java.io.IOException {
+        if (krl == null) {
+            return;
+        }
+        try {
+            if (!Files.isRegularFile(krl)) {
+                throw new java.io.IOException("not a regular file");
+            }
+            try (var input = Files.newInputStream(krl)) {
+                if (input.readNBytes(1).length == 0) {
+                    throw new java.io.IOException("empty KRL");
+                }
+            }
+            final CommandResult checked =
+                    runner.run(
+                            Command.of("ssh-keygen", "-Q", "-f", krl.toAbsolutePath().toString()));
+            if (checked.exitCode() != 0 && checked.exitCode() != 1) {
+                throw new java.io.IOException("invalid KRL: " + checked.standardError().strip());
+            }
+        } catch (final java.io.IOException | RuntimeException ex) {
+            throw new java.io.IOException(
+                    "the revocation list cannot be read: " + krl + ": " + ex.getMessage(), ex);
+        }
+    }
+
+    private Verdict verifyWith(final Path repository, final String ref, final Path active) {
         final String commit = commitOf(repository, ref);
         final CommandResult result;
         try {
@@ -151,7 +235,10 @@ public final class ConfigurationGate {
                                     "-c",
                                     "gpg.format=ssh",
                                     "-c",
-                                    "gpg.ssh.allowedSignersFile=" + signers.toAbsolutePath(),
+                                    "gpg.ssh.allowedSignersFile=" + active.toAbsolutePath(),
+                                    "-c",
+                                    "gpg.ssh.revocationFile="
+                                            + (krl == null ? "" : krl.toAbsolutePath()),
                                     "verify-commit",
                                     commit.isEmpty() ? ref : commit));
         } catch (final RuntimeException ex) {
@@ -184,6 +271,17 @@ public final class ConfigurationGate {
                     fingerprint,
                     "signed by a key that is not pinned on this machine, so it is not applied"
                             + (fingerprint.isEmpty() ? "" : ": " + fingerprint));
+        }
+        final String key = SignedBy.keyOf(runner, repository, commit);
+        if (key != null) {
+            final String fingerprint = SignedBy.fingerprintOf(key);
+            return new Verdict(
+                    Outcome.UNKNOWN_KEY,
+                    commit,
+                    fingerprint == null ? "" : fingerprint,
+                    "the signature did not verify against the keys in force and the revocation"
+                            + " list, so it is not applied: "
+                            + said);
         }
         return new Verdict(
                 Outcome.NOT_SIGNED, commit, "", "carries no signature, so it is not applied");

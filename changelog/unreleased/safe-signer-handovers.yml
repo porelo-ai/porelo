@@ -1,0 +1,2 @@
+title: Project follows reject incomplete history, verify previously unchecked tips, match fingerprints across protected changes, and publish trust and followed state only after all checks pass.
+type: fixed

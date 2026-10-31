@@ -70,6 +70,37 @@ class SignedByTest {
                         .strip()
                         .split("\\s+")[1];
         assertThat(SignedBy.fingerprintOf(key)).isEqualTo(expected);
+
+        // An unrelated header or a copied signature in the message must not identify a signer.
+        final String object =
+                runner.runOrFail(
+                                Command.of(
+                                        "git", "-C", repo.toString(), "cat-file", "commit", "HEAD"))
+                        .standardOutput();
+        final String signature =
+                object.substring(object.indexOf("\ngpgsig ") + 1, object.indexOf("\n\n"));
+        for (final String misplaced :
+                List.of(
+                        object.replace("\ngpgsig ", "\nother "),
+                        object.replace(signature + "\n", "") + "\n" + signature + "\n")) {
+            final String ref =
+                    runner.runOrFail(
+                                    Command.of(
+                                                    "git",
+                                                    "-C",
+                                                    repo.toString(),
+                                                    "hash-object",
+                                                    "-w",
+                                                    "-t",
+                                                    "commit",
+                                                    "--stdin")
+                                            .withInput(misplaced))
+                            .standardOutput()
+                            .strip();
+            assertThat(SignedBy.keyOf(runner, repo, ref))
+                    .as("a signature outside the commit's own gpgsig header conveys no authority")
+                    .isNull();
+        }
     }
 
     @Test

@@ -84,6 +84,15 @@ public record ProjectPaths(PoreloPaths paths) {
         return paths.xdg().config().resolve("project-signers");
     }
 
+    /**
+     * Returns the account's SSH key revocation list for new configuration commits.
+     *
+     * @return The file, which need not exist.
+     */
+    public Path revocations() {
+        return paths.xdg().config().resolve("revoked.krl");
+    }
+
     public Path projectRegistry() {
         return paths.xdg().data().resolve("projects");
     }

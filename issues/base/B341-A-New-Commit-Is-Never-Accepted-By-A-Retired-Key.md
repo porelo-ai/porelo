@@ -1,6 +1,6 @@
 # B341 — A New Commit Is Never Accepted By A Retired Key
 
-**Status:** Implementing. Estimated and Backlog (operator, 2026-10-30, sprint 6m).
+**Status:** Review. Estimated and Backlog (operator, 2026-10-30, sprint 6m).
 **Size:** M - estimated 90 minutes from the median of M builds: the pinned signers file keeps retired keys apart from
 those in force, across `app-base` and `app-project`, and the checker takes a revocation list; grew from S when planned.
 
@@ -42,3 +42,35 @@ SSH key per person, the state signed in Git, everything between a person and a h
 - A new commit signed by that retired key and dated before its `valid-before` is refused and named.
 - A new commit signed by a key in the revocation list is refused and named.
 - Seen to fail first: today a retired key is dropped from the pinned list, so its old commits no longer verify.
+
+## Done
+
+- Retired keys remain in the historical trust file with their handover cutoff, while only active keys and the
+  configured revocation policy can authorize new protected changes, including backdated commits.
+- A declaration change leaves exactly its new list active and retires every omitted key, including its signer,
+  out-of-band pins and keys supplied on the same request. Unchanged declarations preserve extra pins; a declared
+  list, empty included, cannot be removed.
+- First follows compare the tip with its first parent's declaration. A parent declaring a list must name the
+  operator-pinned signer of the tip; a parentless tip begins with none. Accepted rewrites retain the declaration
+  previously in force, and an unreadable recorded baseline refuses with that commit named.
+- Complete history is required before judging authority. Raw commit parents cannot be hidden by shallow metadata,
+  and missing parent objects refuse. Switching away from unverified mode starts verification afresh for the project
+  and its access repository, with no unchecked baseline carried forward.
+- Every request checks a prepared snapshot before publishing either clone, signer changes, followed state or an
+  event. A refusal requires no restoration and preserves the shared file exactly, including other projects'
+  lines and blank lines. Retirement times and staged OpenSSH options are validated before publication.
+- Fingerprint matching retains evidence from all verified protected project commits, so a key that signed an earlier
+  handover can match after retirement. An unmatched fingerprint refuses, a document-only range supplies no match,
+  and every refused request or preview answers no pinned keys, with one whole key or several.
+- Signer identity comes only from the commit's own continued signature header, before its message. A signed tag
+  embedded in a merge and signature text in another header or the message cannot name or pin the commit's signer.
+- Shallow verification is refused before a fetch error can obscure the history guard, and an unsupported local
+  file authority is reported as unreadable with its URL named. A shallow source is named before the shallow clone it
+  makes, and an unverified follow refuses a shallow live clone, too.
+- Not covered by a test of its own: in `project verify`, the scratch clone's shallow guard. A local path is refused by
+  the source's guard first, and Git 2.53 never makes the scratch clone shallow from a `file:` URL; the guard stays
+  for older protocols.
+- A project file whose signers do not parse is named by its file, line and column only: no excerpt of it reaches a
+  diagnostic, the same as `project verify` without `--project`.
+- Tests: `ProjectVerifyCommandTest` (49), `ProjectReaderTest` (34), `FollowedProjectsAccessTest` (10),
+  `ProjectFollowingCommandTest` (3) and the retired-key cases of `ReconcileTest`; the whole suite 4193 green.

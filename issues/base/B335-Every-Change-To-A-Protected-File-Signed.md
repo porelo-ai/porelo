@@ -1,6 +1,6 @@
 # B335 — Every Change To A Protected File Signed
 
-**Status:** Implementing.
+**Status:** Review.
 **Size:** M - estimated 90 minutes from the median of M builds: the follow's check moves from the tip to each
 protecting commit, on both repositories, with its refusal, docs and an acceptance step.
 
@@ -76,3 +76,29 @@ signed one either.
   [B344](README.md#b344) lands, and the access repository's `cards/` join them, a change of a person's own card by a
   valid change of key excepted ([B337](README.md#b337)). The same check, a signer per path, serves the registry
   ([B339](README.md#b339)).
+
+## Done
+
+- Both repositories check every protected change on the first-parent path with the keys in force before it;
+  unsigned document changes can advance a verified baseline, and refusals identify the commit and protected file.
+- Follows fetch full history and refuse shallow sources or clones. Parent relationships come from commit objects;
+  missing parents, commits, trees or declaration reads refuse instead of erasing the declaration.
+- Changing an unverified follow to verified checks both tips as a first follow. Neither unchecked commit is an
+  applied baseline, even when the tip has not moved, and the switch needs an explicit or already pinned anchor.
+- Every follow prepares its clones and trust changes before publication, including requests without a new key.
+  Refusals preserve live refs and objects, shared signer bytes, followed records and existing events. Successful
+  unchanged follows recover missing, unborn or misplaced project and access clones by their recorded HEADs.
+  Background reconciliation prepares private copies too, so it cannot leave a newly initialized live clone empty.
+  A live clone that is no work tree of its own (empty, bare, a link, dangling or not, or with its `.git` gone,
+  empty or half deleted) is made again, never fetched into and never followed; publication moves a link aside as
+  itself. Keeping a live clone at its recorded commit asks for a work tree too: a bare clone at that commit is made again.
+- Terminal and socket previews make the same publication decision as real follows, including every access refusal.
+  They check a private copy of the live clones, in the temp directory, as the follow does: a shallow live clone or
+  an incremental bundle gets the same answer from both, and a preview records nothing, not even the follow folder;
+  refusals report their outcome and rejected snapshot, preserve existing records and claim no pinned keys.
+  Host trust and credential recovery identify the access repository when it is the source that refused.
+- A fingerprint can match any verified protected project commit in the range, including an earlier handover.
+  A fingerprint matching none refuses before publication; refused multi-key follows and previews claim no pins.
+- Tests: `ReconcileTest` (192), `AccessReconcileTest` (32), `ConfigurationGateTest` (16),
+  `ProjectFollowAccessBundleTest` (4) and `SignedByTest` (3); the whole suite 4193 green. Nine rounds of narrow
+  readings by agy Gemini; each fix's test was seen red first.

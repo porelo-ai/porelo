@@ -59,7 +59,8 @@ public class ProjectVerifyCommand implements Callable<Integer>, PoreloFactory.Co
             required = true,
             paramLabel = "KEY",
             description =
-                    "A key the project must be signed with, 'ssh-ed25519 AAAA...'; repeat for more.")
+                    "A key the project must be signed with, 'ssh-ed25519 AAAA...'; repeat for"
+                            + " more.")
     private List<String> signedBy = new ArrayList<>();
 
     @Option(
@@ -79,6 +80,12 @@ public class ProjectVerifyCommand implements Callable<Integer>, PoreloFactory.Co
             paramLabel = "COMMIT",
             description = "The access commit taken as in force; a newer one must descend from it.")
     private String accessSince = "";
+
+    @Option(
+            names = "--krl",
+            paramLabel = "FILE",
+            description = "The SSH key revocation list to check new commits against.")
+    private @Nullable Path krl;
 
     @Option(names = "--json", description = "Answers in JSON, for a program.")
     private boolean json;
@@ -183,7 +190,13 @@ public class ProjectVerifyCommand implements Callable<Integer>, PoreloFactory.Co
             checked =
                     new FollowSignedBy(isolated)
                             .verified(
-                                    name, repositoryPath, signedBy, since, accessPath, accessSince);
+                                    name,
+                                    repositoryPath,
+                                    signedBy,
+                                    since,
+                                    accessPath,
+                                    accessSince,
+                                    krl);
         } catch (final FollowSignedBy.Refused ex) {
             return refuse(err, 65, String.valueOf(ex.getMessage()));
         }
@@ -256,7 +269,9 @@ public class ProjectVerifyCommand implements Callable<Integer>, PoreloFactory.Co
             if (access != null) {
                 out.println("access    " + result.accessCommit());
             }
-            out.println("signed by " + checked.key());
+            if (checked.key() != null) {
+                out.println("signed by " + checked.key());
+            }
             checked.signers().forEach(key -> out.println("in force  " + key));
         }
         out.flush();
@@ -394,6 +409,10 @@ public class ProjectVerifyCommand implements Callable<Integer>, PoreloFactory.Co
                                                     path,
                                                     "HEAD"))
                             : made;
+            if (Files.isDirectory(Path.of(path))) {
+                SignerHandover.requireFullHistory(context.runner(), Path.of(path));
+            }
+            SignerHandover.requireFullHistory(context.runner(), scratch);
             if (!fetched.successful()) {
                 throw new ProjectException(
                         "cannot read " + path + ": " + fetched.standardError().strip());

@@ -149,13 +149,17 @@ public class ProjectFollowCommand implements Callable<Integer>, PoreloFactory.Co
             if (dryRun) {
                 // Nothing is written, not even the named key: it is checked against a copy.
                 if (!several.isEmpty()) {
-                    final FollowSignedBy.Answer would = following.check(name, url, several);
+                    final FollowSignedBy.Answer would =
+                            following.checkWithSigners(name, url, several, acceptRewrite);
                     for (final String fingerprint : would.signers()) {
                         out.println("would pin  " + fingerprint);
                     }
                     return checked(would.result(), out, err);
                 }
-                return checked(following.check(name, url, signedBy, unverified).result(), out, err);
+                return checked(
+                        following.check(name, url, signedBy, unverified, acceptRewrite).result(),
+                        out,
+                        err);
             }
             // Once, now, rather than at the next tick: somebody who typed this wants to know
             // whether it works, and a refusal an hour later is one nobody connects to what they
@@ -181,14 +185,18 @@ public class ProjectFollowCommand implements Callable<Integer>, PoreloFactory.Co
             out.println("pinned     " + fingerprint);
         }
         if (!answer.recorded()) {
-            // A first follow that cannot apply leaves nothing behind. The refusal is the whole
-            // answer.
-            err.println("not following  " + name);
+            final FollowedProjects.Followed existing =
+                    new FollowedProjects(context.paths().projects().followed()).find(name);
+            err.println((existing == null ? "not following  " : "follow refused  ") + name);
             err.println("           " + result.detail());
             if (!result.refused().isEmpty()) {
                 err.println("           refused    " + result.refused());
             }
-            err.println("           nothing was recorded; " + name + " is not followed here");
+            err.println(
+                    existing == null
+                            ? "           nothing was recorded; " + name + " is not followed here"
+                            : "           nothing was recorded; keeping the existing follow at "
+                                    + existing.commit());
             err.flush();
             out.flush();
             return 70;
@@ -264,29 +272,25 @@ public class ProjectFollowCommand implements Callable<Integer>, PoreloFactory.Co
      */
     private Integer checked(
             final Reconcile.Result result, final PrintWriter out, final PrintWriter err) {
-        switch (result.outcome()) {
-            case APPLIED, UNCHANGED -> {
-                out.println("ready      following " + name + " from " + url + " would work");
-                out.println("           " + result.commit() + " is what it would put in force");
-                if (!result.detail().isEmpty()) {
-                    out.println("           " + result.detail());
-                }
-                out.flush();
-                return 0;
+        if (FollowSignedBy.mayPublish(result)) {
+            out.println("ready      following " + name + " from " + url + " would work");
+            out.println("           " + result.commit() + " is what it would put in force");
+            if (!result.detail().isEmpty()) {
+                out.println("           " + result.detail());
             }
-            default -> {
-                err.println(
-                        result.outcome().name().toLowerCase(java.util.Locale.ROOT)
-                                + "    "
-                                + result.detail());
-                if (!result.refused().isEmpty()) {
-                    err.println("           refused    " + result.refused());
-                }
-                err.println("           nothing was recorded");
-                err.flush();
-                return 70;
-            }
+            out.flush();
+            return 0;
         }
+        err.println(
+                result.outcome().name().toLowerCase(java.util.Locale.ROOT)
+                        + "    "
+                        + result.detail());
+        if (!result.refused().isEmpty()) {
+            err.println("           refused    " + result.refused());
+        }
+        err.println("           nothing was recorded");
+        err.flush();
+        return 70;
     }
 
     /**

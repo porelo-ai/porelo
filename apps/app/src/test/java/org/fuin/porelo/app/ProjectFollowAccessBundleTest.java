@@ -110,22 +110,24 @@ class ProjectFollowAccessBundleTest {
         final Path access = bundle(access(key("stranger")), "access.bundle");
         final Path project = bundle(project(ACCESS_URL, key), "project.bundle");
 
-        porelo(
-                "project",
-                "follow",
-                "demo",
-                project.toString(),
-                "--signed-by",
-                publicKey(key),
-                "--access-repository",
-                access.toString());
+        final int code =
+                porelo(
+                        "project",
+                        "follow",
+                        "demo",
+                        project.toString(),
+                        "--signed-by",
+                        publicKey(key),
+                        "--access-repository",
+                        access.toString());
 
-        final FollowedProjects.Followed followed =
-                new FollowedProjects(context().paths().projects().followed()).require("demo");
-        assertThat(followed.accessOutcome())
-                .as("refused as a fetched one is")
-                .isEqualTo("UNKNOWN_KEY");
-        assertThat(followed.accessCommit()).as("nothing in force").isEmpty();
+        assertThat(code).as("an access refusal refuses the whole follow").isNotZero();
+        assertThat(new FollowedProjects(context().paths().projects().followed()).find("demo"))
+                .as("no partially verified follow is published")
+                .isNull();
+        assertThat(context().paths().projects().configurationSigners())
+                .as("the refused follow pins no key")
+                .doesNotExist();
     }
 
     @Test
@@ -134,20 +136,22 @@ class ProjectFollowAccessBundleTest {
         final Path access = bundle(access(key("stranger")), "access.bundle");
         final Path project = bundle(project(ACCESS_URL, key), "project.bundle");
 
-        porelo(
-                "project",
-                "follow",
-                "demo",
-                project.toString(),
-                "--signed-by",
-                publicKey(key),
-                "--access-repository",
-                access.toString(),
-                "--dry-run");
+        final int code =
+                porelo(
+                        "project",
+                        "follow",
+                        "demo",
+                        project.toString(),
+                        "--signed-by",
+                        publicKey(key),
+                        "--access-repository",
+                        access.toString(),
+                        "--dry-run");
 
+        assertThat(code).as("a refused access preview cannot authorize a follow").isEqualTo(70);
         assertThat(out.toString() + err)
                 .as("the bundle's access file was checked, not the URL fetched")
-                .contains("access file: signed by a key that is not pinned");
+                .contains("(access.yml) changes access.yml: signed by a key that is not pinned");
         assertThat(context().paths().projects().followed()).as("nothing recorded").doesNotExist();
     }
 

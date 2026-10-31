@@ -467,7 +467,7 @@ type Followed (
   name: string,
   # Where its repository is.
   url: string,
-  # The last commit this machine verified and applied, or "" when none ever was. WHAT IS RUNNING.
+  # The last tip this machine accepted and applied, or "" when none ever was. WHAT IS RUNNING.
   commit: string,
   # When it last tried, RFC 3339, or "".
   at: string,
@@ -477,13 +477,12 @@ type Followed (
   #   APPLIED       the commit below is in force
   #   UNCHANGED     it already held that commit
   #   NOT_FOLLOWED  it was unfollowed before reconciliation acquired its clone lock
-  #   NOT_SIGNED    the fetched commit carries no signature. Usually somebody forgot to sign
-  #   UNKNOWN_KEY   a GOOD signature by a key this machine was never given. Either a key that has
-  #                 moved or somebody putting a project file past the machine - this is the one
-  #                 that belongs in front of a person as a possible attempt
+  #   NOT_SIGNED    a commit requiring verification carries no signature
+  #   UNKNOWN_KEY   the signature is not authorized by the keys in force and revocation policy:
+  #                 a key that is unknown, retired or revoked, or a signature that did not verify
   #   NO_ANCHOR     nothing is pinned here, so nothing can be verified
   #   UNREADABLE    the commit or the repository could not be read
-  #   REWRITTEN     verified, and not a descendant of what is in force. Waits for acceptRewrite
+  #   REWRITTEN     the tip is not a descendant of what is in force. Waits for acceptRewrite
   #   UNREACHABLE   the repository could not be reached. Look at the network or the URL
   #   VAULT_LOCKED  this account's vault is shut, so the credential a private repository needs is
   #                 out of reach. NOT the same as UNREACHABLE: the action is to unlock, and
@@ -526,7 +525,13 @@ type Followed (
   accessCommit: ?string,
   # How the last attempt at the access file ended, with the values of 'outcome'; "" when the project
   # names no access file. 'needsAPerson' counts it too.
-  accessOutcome: ?string
+  accessOutcome: ?string,
+  # The protected project path refused, or "".
+  refusedFile: ?string,
+  # The access commit turned away, or "".
+  accessRefused: ?string,
+  # The protected access path refused, or "".
+  accessRefusedFile: ?string
 )
 
 # Starts following a project's repository, and reconciles once, now.
@@ -583,8 +588,7 @@ method Follow(
   #
   # A project this account was NOT already following and that does not end in APPLIED or UNCHANGED
   # is NOT recorded: the refusal is the whole answer and the machine is as it was. 'recorded' says
-  # so. A project it was already following keeps its record whatever happens, because that record
-  # is where the reason lives - see Following().
+  # so. A refused request for a project already followed leaves its existing record unchanged.
   #
   # REWRITTEN is the one that needs a person: 'detail' says what was found, and the only way past
   # it is calling again with acceptRewrite. Do not treat it as a transient failure.
@@ -593,14 +597,15 @@ method Follow(
   outcome: string,
   commit: string,
   detail: string,
-  # The commit turned away, or "". Never the same as 'commit'.
+  # The project or access commit turned away, or "" when none was read. If access yielded no commit,
+  # this names the project snapshot whose follow was refused.
   refused: string,
   # With UNKNOWN_HOST_KEY and HOST_KEY_CHANGED: the host, spelled exactly as TrustHostKey wants
   # it - with its port off port 22 - so a client passes it back unchanged. Answered rather than left to be read off the address
   # again - 'user@host:path', a port, and an alias in somebody's ssh config are three readings of
   # one thing. "" otherwise.
   #
-  # It is the host the ADDRESS names. An alias in ~/.ssh/config that points somewhere else is
+  # It is the host of the repository that refused. An alias in ~/.ssh/config that points elsewhere is
   # resolved by ssh and not by this, so on a machine that uses one, what ssh records and what this
   # reports can differ - the one case where this name is not the last word.
   host: string,
@@ -612,8 +617,7 @@ method Follow(
   # "" otherwise. Named by the machine: which vault entry a follow reads is the machine's
   # knowledge, and the secret itself must never travel over this socket.
   storeCommand: string,
-  # Whether anything was written. False for a dry run, and false for a first follow that was
-  # refused - nothing of that project is here.
+  # Whether anything was written. False for a dry run and for every refused follow.
   recorded: bool,
   # The fingerprints of the keys this call pinned - with dryRun, the ones it would pin - in the
   # order given. Empty when it pinned none.

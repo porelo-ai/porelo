@@ -29,7 +29,10 @@ class FollowedProjectsAccessTest {
                         "",
                         false,
                         "access-commit",
-                        "UNKNOWN_KEY");
+                        "UNKNOWN_KEY",
+                        "project.yml",
+                        "access-refused",
+                        "access.yml");
         new FollowedProjects(dir).write(before);
 
         final FollowedProjects reread = new FollowedProjects(dir);
@@ -44,6 +47,9 @@ class FollowedProjectsAccessTest {
         assertThat(new FollowedProjects(dir).require("demo").accessOutcome())
                 .as("following again retains the last access refusal")
                 .isEqualTo("UNKNOWN_KEY");
+        assertThat(reread.require("demo").refusedFile()).isEqualTo("project.yml");
+        assertThat(reread.require("demo").accessRefused()).isEqualTo("access-refused");
+        assertThat(reread.require("demo").accessRefusedFile()).isEqualTo("access.yml");
     }
 
     @Test
@@ -58,6 +64,9 @@ class FollowedProjectsAccessTest {
 
         final FollowedProjects.Followed old = new FollowedProjects(dir).require("demo");
 
+        assertThat(old.refusedFile()).isEmpty();
+        assertThat(old.accessRefused()).isEmpty();
+        assertThat(old.accessRefusedFile()).isEmpty();
         assertThat(old.accessCommit()).as("an old record has applied no access commit").isEmpty();
         assertThat(old.accessOutcome())
                 .as("an old record has attempted no access reconcile")
@@ -102,6 +111,7 @@ class FollowedProjectsAccessTest {
                 "NOT_SIGNED",
                 "UNKNOWN_KEY",
                 "NO_ANCHOR",
+                "UNREADABLE",
                 "REWRITTEN",
                 "UNUSABLE",
                 "VAULT_LOCKED"
