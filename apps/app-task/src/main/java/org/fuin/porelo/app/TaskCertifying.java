@@ -35,14 +35,46 @@ final class TaskCertifying {
             return List.of();
         }
         try {
-            return ProjectAccess.persons(context, project).stream()
-                    .filter(org.fuin.porelo.vault.AccessPersons.Person::admitted)
-                    .map(org.fuin.porelo.vault.AccessPersons.Person::ssh)
-                    .filter(key -> !key.isBlank())
-                    .toList();
+            return certifiers(
+                    ProjectAccess.persons(context, project).stream()
+                            .filter(org.fuin.porelo.vault.AccessPersons.Person::admitted)
+                            .map(org.fuin.porelo.vault.AccessPersons.Person::ssh)
+                            .toList(),
+                    backups(context, project.name()));
         } catch (ProjectAccess.Withheld ex) {
             return List.of();
+        } catch (IOException ex) {
+            // The follows cannot be read, so which keys are backup keys is not known.
+            return List.of();
         }
+    }
+
+    /**
+     * Returns the keys allowed to certify, of the admitted persons' keys: never a backup key of the
+     * project's signers, which signs no change but the one that replaces the key it backs.
+     *
+     * @param admitted The admitted persons' keys.
+     * @param backups The project's backup keys.
+     * @return The certifiers' keys.
+     */
+    static List<String> certifiers(List<String> admitted, List<String> backups) {
+        return admitted.stream()
+                .filter(key -> !key.isBlank())
+                .filter(key -> !backups.contains(key))
+                .toList();
+    }
+
+    /** The backup keys among the signers of the project followed under this name. */
+    private static List<String> backups(PoreloContext context, String project) throws IOException {
+        final FollowedProjects.@Nullable Followed followed =
+                new FollowedProjects(context.paths().projects().followed()).find(project);
+        final List<org.fuin.porelo.core.project.ProjectSigners.Signer> entries =
+                followed == null ? null : FollowedSigners.inForce(context, followed);
+        return entries == null
+                ? List.of()
+                : org.fuin.porelo.core.project.ProjectSigners.backups(entries).stream()
+                        .map(org.fuin.porelo.core.project.ProjectSigners.Signer::key)
+                        .toList();
     }
 
     /**

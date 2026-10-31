@@ -219,7 +219,9 @@ class ProjectVerifyCommandTest {
                         "persons",
                         "admins",
                         "certifiers",
-                        "transports")
+                        "transports",
+                        "backups",
+                        "warnings")
                 .containsEntry("project", "demo")
                 .containsEntry("commit", git(project, "rev-parse", "HEAD"))
                 .containsEntry("access_commit", git(access, "rev-parse", "HEAD"))
@@ -232,6 +234,83 @@ class ProjectVerifyCommandTest {
                 .contains("https://chat.example.org");
         assertThat(dir.resolve("state")).as("nothing is recorded").doesNotExist();
         assertThat(dir.resolve("config")).as("no key is pinned").doesNotExist();
+    }
+
+    @Test
+    void aSingleSignerWithoutABackupKeyIsWarnedOfAndABackupKeyIsNamed() throws Exception {
+        final Path key = key("operator");
+        final Path backup = key("backup");
+        final Path project = repository("project");
+        final String text =
+                """
+                project:
+                  name: "demo"
+                  security_class: guarded
+                  signers:
+                    - "%s"
+                image:
+                  base_image: ubuntu:24.04
+                """
+                        .formatted(publicKey(key));
+        Files.writeString(project.resolve("project.yml"), text);
+        commit(project, key);
+
+        assertThat(
+                        verify(
+                                "--repository",
+                                project.toString(),
+                                "--signed-by",
+                                publicKey(key),
+                                "--json"))
+                .as(err.toString())
+                .isZero();
+        Map<?, ?> answer = (Map<?, ?>) org.fuin.porelo.wire.Json.parse(out.toString().strip());
+        assertThat((List<?>) answer.get("warnings"))
+                .singleElement()
+                .asString()
+                .contains("only signer of demo", "identity backup-key --project demo");
+        assertThat(err.toString()).contains("porelo: warning: project.signers names");
+        assertThat((List<?>) answer.get("backups")).isEmpty();
+
+        Files.writeString(
+                project.resolve("project.yml"),
+                org.fuin.porelo.core.project.ProjectSigners.withBackup(
+                        text,
+                        publicKey(backup),
+                        SignedBy.fingerprintOf(publicKey(key)),
+                        "2026-10-31"));
+        commit(project, key);
+        out.getBuffer().setLength(0);
+        err.getBuffer().setLength(0);
+        assertThat(
+                        verify(
+                                "--repository",
+                                project.toString(),
+                                "--signed-by",
+                                publicKey(key),
+                                "--json"))
+                .as(err.toString())
+                .isZero();
+        answer = (Map<?, ?>) org.fuin.porelo.wire.Json.parse(out.toString().strip());
+        assertThat((List<?>) answer.get("warnings")).isEmpty();
+        assertThat(err.toString()).doesNotContain("warning");
+        assertThat((List<?>) answer.get("backups"))
+                .singleElement()
+                .isEqualTo(
+                        Map.of(
+                                "key",
+                                publicKey(backup),
+                                "fingerprint",
+                                SignedBy.fingerprintOf(publicKey(backup)),
+                                "backup",
+                                true,
+                                "backs",
+                                SignedBy.fingerprintOf(publicKey(key)),
+                                "since",
+                                "2026-10-31"));
+        assertThat(answer.get("signers"))
+                .as("a backup key is no signer in force")
+                .isEqualTo(List.of(publicKey(key)));
     }
 
     @Test
@@ -915,6 +994,51 @@ class ProjectVerifyCommandTest {
                 .as("task principals and git namespace only")
                 .isEqualTo(List.of(certifier(bob), certifier(alice)));
         assertThat(answer.containsKey("developers")).as("the retired answer is absent").isFalse();
+    }
+
+    // Harm guarded: a backup key kept offline for one change must not certify a project's tasks.
+    @Test
+    void aBackupKeyOfTheSignersCertifiesNoTaskEvenWhereTheAccessFileAdmitsIt() throws Exception {
+        final Path key = key("operator");
+        final SigningKey alice = SigningKey.generate("alice");
+        final SigningKey bob = SigningKey.generate("bob");
+        final Path access = repository("access");
+        writeCard(access, "alice", alice, null);
+        writeCard(access, "bob", bob, null);
+        Files.writeString(
+                access.resolve("access.yml"),
+                "persons:\n"
+                        + person("alice", alice, "admin", false)
+                        + person("bob", bob, "developer", false));
+        commit(access, key);
+        final Path project = repository("project");
+        Files.writeString(
+                project.resolve("project.yml"),
+                """
+                project:
+                  name: "demo"
+                  security_class: guarded
+                  signers:
+                    - "%s"
+                    - key: "%s"
+                      backup: true
+                      backs: "%s"
+                image:
+                  base_image: ubuntu:24.04
+                access: {repository: "%s"}
+                """
+                        .formatted(
+                                publicKey(key),
+                                PersonCard.keyLine(bob),
+                                SignedBy.fingerprintOf(publicKey(key)),
+                                ACCESS_URL));
+        commit(project, key);
+
+        final Map<?, ?> answer = verifyPersons(project, access, key);
+
+        assertThat(answer.get("certifiers"))
+                .as("bob's key is the signers' backup key, so it certifies nothing")
+                .isEqualTo(List.of(certifier(alice)));
     }
 
     @Test

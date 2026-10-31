@@ -330,7 +330,13 @@ public final class Reconcile {
         this.signers = signers;
         this.accessFrom = accessFrom;
         this.acceptRewrite = acceptRewrite;
-        this.handover = new SignerHandover(context.runner(), signers, krl, verifiedSigner);
+        this.handover =
+                new SignerHandover(
+                        context.runner(),
+                        signers,
+                        krl,
+                        verifiedSigner,
+                        SignerHandover.revokedByRegistries(context));
     }
 
     /** Accepts replacement tips while preserving the previous declaration. */

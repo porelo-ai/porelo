@@ -283,7 +283,9 @@ final class ProjectSchema {
                             "signers",
                             "The public keys of the people whose signed commits change this file. A"
                                     + " commit signed by a key a machine has pinned that adds or removes one here makes it pin or"
-                                    + " unpin it; a key never counts for the commit that adds it.",
+                                    + " unpin it; a key never counts for the commit that adds it. An entry"
+                                    + " {key, backup: true, backs, since} is a backup key, which signs only the"
+                                    + " change that replaces the key it backs.",
                             "list",
                             "",
                             false),

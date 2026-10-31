@@ -14,6 +14,7 @@ import org.fuin.porelo.core.process.CommandResult;
 import org.fuin.porelo.core.process.CommandRunner;
 import org.fuin.porelo.core.project.ProjectException;
 import org.fuin.porelo.core.project.ProjectReader;
+import org.fuin.porelo.core.project.ProjectSigners;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -25,7 +26,8 @@ import org.jspecify.annotations.Nullable;
  * ones it names - and a key never vouches for the commit that adds it. Every commit since the one
  * in force that changes the list is checked in order, so a key added and removed again in between
  * is followed through. A missing list differs from an empty list and cannot replace a declared
- * list.
+ * list. A backup key the list names before a commit counts for it only when the commit changes
+ * {@code project.yml} alone and there replaces the key it backs; a backup key is never pinned.
  */
 final class SignerHandover {
 
@@ -65,6 +67,8 @@ final class SignerHandover {
 
     private final java.util.function.Consumer<String> verifiedSigner;
 
+    private final java.util.function.Predicate<String> revokedByRegistry;
+
     /**
      * Constructor.
      *
@@ -86,10 +90,48 @@ final class SignerHandover {
             final Path signers,
             final @Nullable Path krl,
             final java.util.function.Consumer<String> verifiedSigner) {
+        this(runner, signers, krl, verifiedSigner, ignored -> false);
+    }
+
+    /**
+     * Also refuses a backup key a registry this machine reads has revoked, by its fingerprint: a
+     * backup key is on no card, so the follow's revocation list may not name it.
+     */
+    SignerHandover(
+            final CommandRunner runner,
+            final Path signers,
+            final @Nullable Path krl,
+            final java.util.function.Consumer<String> verifiedSigner,
+            final java.util.function.Predicate<String> revokedByRegistry) {
         this.runner = runner;
         this.signers = signers;
         this.krl = krl;
         this.verifiedSigner = verifiedSigner;
+        this.revokedByRegistry = revokedByRegistry;
+    }
+
+    /**
+     * Whether a registry this machine read names a key revoked, by its fingerprint. Trust records
+     * that do not read throw, as one of them may be the one that does.
+     *
+     * @param context The machine.
+     * @return The question.
+     */
+    static java.util.function.Predicate<String> revokedByRegistries(final PoreloContext context) {
+        return fingerprint -> {
+            try {
+                for (final org.fuin.porelo.vault.TrustRecords.Read read :
+                        org.fuin.porelo.vault.TrustRecords.read(context.paths().xdg().state())) {
+                    if (read.state().revoked().contains(fingerprint)) {
+                        return true;
+                    }
+                }
+                return false;
+            } catch (final IOException ex) {
+                throw new ProjectException(
+                        "cannot read the registries read here: " + ex.getMessage(), ex);
+            }
+        };
     }
 
     /**
@@ -149,6 +191,14 @@ final class SignerHandover {
                             : rewrite != null
                                     ? at(rewrite.repository(), rewrite.commit())
                                     : inForce.isEmpty() ? before(clone, tip) : at(clone, inForce);
+            // A backup key signs only the change that replaces the key it backs, judged below, and
+            // only one a commit in force names: nothing vouches for the commit before a first tip.
+            List<String> backups =
+                    access
+                            ? List.of()
+                            : rewrite != null
+                                    ? backupsAt(rewrite.repository(), rewrite.commit())
+                                    : inForce.isEmpty() ? List.of() : backupsAt(clone, inForce);
             final List<String> commits =
                     inForce.isEmpty() ? List.of(tip) : between(clone, inForce, tip);
             ConfigurationGate.Verdict tipVerdict = null;
@@ -190,9 +240,13 @@ final class SignerHandover {
                             "project.signers cannot be removed; change its list instead");
                 }
                 final List<String> verificationKeys =
-                        !access && inForce.isEmpty() && rewrite == null && last != null
-                                ? keys.stream().filter(last::contains).toList()
-                                : keys;
+                        new ArrayList<>(
+                                !access && inForce.isEmpty() && rewrite == null && last != null
+                                        ? keys.stream().filter(last::contains).toList()
+                                        : keys);
+                backups.stream()
+                        .filter(key -> !verificationKeys.contains(key))
+                        .forEach(verificationKeys::add);
                 final ConfigurationGate.Verdict verdict =
                         verify(clone, project, verificationKeys, commit);
                 if (!verdict.mayApply()) {
@@ -218,6 +272,34 @@ final class SignerHandover {
                     final String signingKey = SignedBy.keyOf(runner, clone, commit);
                     final String fingerprint =
                             signingKey == null ? null : SignedBy.fingerprintOf(signingKey);
+                    if (signingKey != null
+                            && backups.contains(signingKey)
+                            && !keys.contains(signingKey)) {
+                        final String why =
+                                fingerprint == null || revokedByRegistry.test(fingerprint)
+                                        ? "it is revoked by a registry this machine reads"
+                                        : backedOnly(clone, parents, commit, signingKey);
+                        if (why != null) {
+                            return new Handed(
+                                    keys,
+                                    false,
+                                    null,
+                                    new ConfigurationGate.Verdict(
+                                            ConfigurationGate.Outcome.UNKNOWN_KEY,
+                                            commit,
+                                            verdict.signer(),
+                                            commit
+                                                    + " ("
+                                                    + FILE
+                                                    + ") is signed by the backup key "
+                                                    + fingerprint
+                                                    + ", which may only replace the key it backs"
+                                                    + " in project.signers, and "
+                                                    + why),
+                                    FILE,
+                                    List.of());
+                        }
+                    }
                     if (fingerprint != null) {
                         verifiedSigner.accept(fingerprint);
                     }
@@ -247,6 +329,7 @@ final class SignerHandover {
                         keys = List.copyOf(next);
                     }
                     last = named;
+                    backups = named == null ? List.of() : backupsAt(clone, commit);
                 }
                 if (commit.equals(tip)) {
                     tipVerdict = verdict;
@@ -277,6 +360,39 @@ final class SignerHandover {
                     file,
                     List.of());
         }
+    }
+
+    /**
+     * Why a commit signed by a backup key changes more than the key it backs, or {@code null} when
+     * it replaces that key by one new key and points itself at that one, and changes nothing else.
+     */
+    private @Nullable String backedOnly(
+            final Path clone, final List<String> parents, final String commit, final String key) {
+        if (parents.isEmpty()) {
+            return "it has no parent to compare with";
+        }
+        final String parent = parents.getFirst();
+        final Set<String> changed = changed(clone, parent, commit);
+        if (!changed.equals(Set.of(FILE))) {
+            return "it changes " + String.join(", ", new java.util.TreeSet<>(changed));
+        }
+        final String before = text(clone, parent);
+        final String after = text(clone, commit);
+        if (before == null || after == null) {
+            return "it adds or removes " + FILE;
+        }
+        final String why = ProjectSigners.backedOnly(before, after, key);
+        return why == null ? null : "it " + why;
+    }
+
+    /** The backup keys the project file at a commit names. */
+    private List<String> backupsAt(final Path clone, final String commit) {
+        final String text = text(clone, commit);
+        final List<ProjectSigners.Signer> entries =
+                text == null ? null : ProjectSigners.entries(text, FILE + " at " + commit);
+        return entries == null
+                ? List.of()
+                : ProjectSigners.backups(entries).stream().map(ProjectSigners.Signer::key).toList();
     }
 
     private @Nullable List<String> before(final Path clone, final String tip) {
@@ -642,6 +758,12 @@ final class SignerHandover {
     }
 
     private @Nullable List<String> at(final Path clone, final String commit) {
+        final String text = text(clone, commit);
+        return text == null ? null : ProjectReader.signers(text, FILE + " at " + commit);
+    }
+
+    /** The project file at a commit, or {@code null} when it holds none. */
+    private @Nullable String text(final Path clone, final String commit) {
         requireCommit(clone, commit);
         final CommandResult listed =
                 runner.run(
@@ -665,6 +787,6 @@ final class SignerHandover {
         if (!shown.successful()) {
             throw new ProjectException("cannot read " + FILE + " at " + commit + " in " + clone);
         }
-        return ProjectReader.signers(shown.standardOutput(), FILE + " at " + commit);
+        return shown.standardOutput();
     }
 }

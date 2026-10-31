@@ -75,7 +75,7 @@ public final class ProjectReader {
     }
 
     /** Parser excerpts can disclose private content even before a signature is checked. */
-    private static @Nullable Object load(final Reader reader, final String origin) {
+    static @Nullable Object load(final Reader reader, final String origin) {
         final LoaderOptions options = new LoaderOptions();
         options.setAllowDuplicateKeys(false);
         final String text;
@@ -280,7 +280,8 @@ public final class ProjectReader {
 
     /**
      * Returns the keys a project file names under {@code project.signers}, each as its type and
-     * key.
+     * key, without its backup keys, which sign no change but the one {@link
+     * ProjectSigners#backedOnly} allows.
      *
      * <p>Read on its own, because a followed project's keys are read from a commit before anything
      * else in the file is taken: whether the commit may change them is decided by the keys in force
@@ -300,36 +301,8 @@ public final class ProjectReader {
 
     private static java.util.@Nullable List<String> signers(
             final Map<?, ?> project, final String origin) {
-        final Object value = project.get("signers");
-        if (value == null) {
-            return null;
-        }
-        if (!(value instanceof java.util.List<?> entries)) {
-            throw new ProjectException(origin + ": 'project.signers' is a list of public keys");
-        }
-        final java.util.List<String> keys = new java.util.ArrayList<>();
-        for (int i = 0; i < entries.size(); i++) {
-            final String[] fields = text(entries.get(i)).strip().split("\\s+");
-            String key = null;
-            for (int f = 0; f + 1 < fields.length && key == null; f++) {
-                if (fields[f].matches(
-                                "ssh-(ed25519|rsa)|ecdsa-sha2-nistp(256|384|521)|sk-[a-z0-9@.-]+")
-                        && fields[f + 1].matches("[A-Za-z0-9+/]+={0,2}")) {
-                    key = fields[f] + " " + fields[f + 1];
-                }
-            }
-            if (key == null) {
-                throw new ProjectException(
-                        origin
-                                + ": 'project.signers' entry "
-                                + (i + 1)
-                                + " is not a public key; write it as ssh-keygen prints it, such as 'ssh-ed25519 AAAA...'");
-            }
-            if (!keys.contains(key)) {
-                keys.add(key);
-            }
-        }
-        return keys;
+        final java.util.List<ProjectSigners.Signer> entries = ProjectSigners.read(project, origin);
+        return entries == null ? null : ProjectSigners.keys(entries);
     }
 
     /**

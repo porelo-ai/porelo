@@ -436,6 +436,28 @@ first parent, so the hand-on and the commit signed only by the new key may arriv
 are pinned only with a commit that is applied, never before. `project follow` says which keys it
 pinned and unpinned, by fingerprint.
 
+### A backup key for the one signer
+
+A project with one signer keeps a second, offline key behind it, made by
+`porelo identity backup-key --project NAME --out FILE` and filed beside the key it backs:
+
+```yaml
+project:
+  signers:
+    - "ssh-ed25519 AAAA... you@example.org"
+    - key: "ssh-ed25519 BBBB..."
+      backup: true
+      backs: "SHA256:..."
+      since: "2026-10-31"
+```
+
+A backup key is no signer: it is never pinned, signs no access file and certifies no task. A commit it
+signs is taken only when it changes `project.yml` alone, and there only replaces the key it backs by one
+new key and points `backs` at it; the follow retires the old key as at any handover. Anything else it signs
+is refused and named. Each key has one backup key at most, and `backs` names a key of the list. A backup key
+counts only when the commit in force names it, so the first follow takes none, and never once a registry
+read here, or the revocation list, revokes it.
+
 A commit declares its `project.signers` list, or no declaration when the file or key is absent;
 no declaration differs from an empty list. Any change leaves exactly the new list in force and
 retires every omitted key at that commit's time, including out-of-band keys, the signer and keys

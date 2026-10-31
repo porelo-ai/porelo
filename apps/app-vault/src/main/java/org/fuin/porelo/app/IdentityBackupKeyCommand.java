@@ -27,10 +27,11 @@ import picocli.CommandLine.Option;
 import picocli.CommandLine.Spec;
 
 /**
- * A second, offline key for the one owner of a registry or the one admin of a host: made once into
- * a file the person keeps away from their daily agent, and filed into {@code owners.yml} beside the
- * key it backs. With {@code --use} the file signs the one change it may make, the key it backs
- * replaced by a new card's.
+ * A second, offline key for the one owner of a registry, the one admin of a host or the one signer
+ * of a followed project: made once into a file the person keeps away from their daily agent, and
+ * filed into {@code owners.yml}, or among the project's signers, beside the key it backs. With
+ * {@code --use} the file signs the one change it may make, the key it backs replaced by a new
+ * card's.
  *
  * <p>Neither the key's secret half nor its passphrase passes through Porelo: {@code ssh-keygen}
  * makes the file on the person's terminal, and git signs with it through {@code ssh-keygen}, which
@@ -41,8 +42,8 @@ import picocli.CommandLine.Spec;
         mixinStandardHelpOptions = true,
         exitCodeOnInvalidInput = 64,
         description =
-                "Makes an offline backup key for a registry or host you alone hold, or uses one to"
-                        + " replace the key it backs.")
+                "Makes an offline backup key for a registry, host or project you alone hold, or"
+                        + " uses one to replace the key it backs.")
 public class IdentityBackupKeyCommand implements Callable<Integer>, PoreloFactory.ContextAware {
 
     private static final String COMMIT = "[0-9a-f]{40}|[0-9a-f]{64}";
@@ -50,12 +51,90 @@ public class IdentityBackupKeyCommand implements Callable<Integer>, PoreloFactor
     /** How far back an id is looked for. */
     private static final int SEARCHED = 1000;
 
+    /**
+     * A project's side of the verb: the project's signers are its area's, which this area does not
+     * depend on, so it is set where the command line is assembled.
+     */
+    interface Projects {
+
+        /**
+         * Files a backup key for the person's key among the project's signers, signed through the
+         * agent by that key, and pushes it; the key is made only once nothing refuses.
+         *
+         * @param machine The machine.
+         * @param project The followed project.
+         * @param own The person's card.
+         * @param keys Makes the backup key and answers its public half.
+         * @param base The commit the change is made against, or {@code null} for the one in force.
+         * @param id Names the change, or {@code null}.
+         * @return What was filed.
+         * @throws IdentityChange.Refused With the contract's code and reason.
+         * @throws IOException If a scratch file cannot be written.
+         */
+        Filed make(
+                PoreloContext machine,
+                String project,
+                PersonCard own,
+                KeyMaker keys,
+                @Nullable String base,
+                @Nullable String id)
+                throws IdentityChange.Refused, IOException;
+
+        /**
+         * Replaces the key a backup key backs among the project's signers by the new card's, signed
+         * with the backup key's file, and pushes it.
+         *
+         * @param machine The machine.
+         * @param project The followed project.
+         * @param file The backup key's file.
+         * @param backupKey Its public half.
+         * @param next The card whose key replaces the one backed.
+         * @param base The commit the change is made against, or {@code null} for the one in force.
+         * @param id Names the change.
+         * @return What was replaced.
+         * @throws IdentityChange.Refused With the contract's code and reason.
+         * @throws IOException If a scratch file cannot be written.
+         */
+        Replaced replace(
+                PoreloContext machine,
+                String project,
+                Path file,
+                String backupKey,
+                PersonCard next,
+                @Nullable String base,
+                String id)
+                throws IdentityChange.Refused, IOException;
+    }
+
+    /** Makes the backup key's file and answers its public half. */
+    @FunctionalInterface
+    interface KeyMaker {
+        String make() throws IdentityChange.Refused, IOException;
+    }
+
+    /**
+     * A backup key filed.
+     *
+     * @param fingerprint Its fingerprint.
+     * @param revision The commit that filed it.
+     */
+    record Filed(String fingerprint, String revision) {}
+
+    /**
+     * A key replaced by the backup key.
+     *
+     * @param replaced The key it backed.
+     * @param by The new card's key.
+     * @param revision The commit that replaced it.
+     */
+    record Replaced(String replaced, String by, String revision) {}
+
     /** Where the backup key goes: exactly one. */
     static final class Scope {
         @Option(
                 names = "--project",
                 paramLabel = "PROJECT",
-                description = "A project you are the one admin of.")
+                description = "A followed project whose one signer you are.")
         @Nullable String project;
 
         @Option(
@@ -127,6 +206,9 @@ public class IdentityBackupKeyCommand implements Callable<Integer>, PoreloFactor
     /** Whether a terminal is there to ask the passphrase on; replaced by a test. */
     BooleanSupplier terminal = () -> System.console() != null;
 
+    /** The project's side, set where the command line is assembled. */
+    @Nullable Projects projects;
+
     @Override
     public void setContext(PoreloContext context) {
         this.context = context;
@@ -155,14 +237,10 @@ public class IdentityBackupKeyCommand implements Callable<Integer>, PoreloFactor
             if (use != null && id == null) {
                 throw new IdentityChange.Refused(64, null, "--use needs --id");
             }
-            if (scope.project != null) {
-                throw new IdentityChange.Refused(
-                        65,
-                        "not-in-this-release",
-                        "a project's backup key is not made here yet; a project admin's key is"
-                                + " replaced by another admin with project access replace");
-            }
             final PersonCard own = new IdentityChange(machine, forges, IdentityChange.FORGE).card();
+            if (scope.project != null) {
+                return use == null ? makeForProject(machine, own) : replaceForProject(machine, own);
+            }
             final IdentityFacts.Registry registry = registry(machine);
             final String login = own.login();
             final String head = head(machine, registry);
@@ -407,6 +485,53 @@ public class IdentityBackupKeyCommand implements Callable<Integer>, PoreloFactor
                 file(machine, registry, with(state, entries, backup, null), null, head);
         kept = true;
         return made(backup.fingerprint(), revision, false);
+    }
+
+    /** Files a backup key among a followed project's signers. */
+    private int makeForProject(final PoreloContext machine, final PersonCard own)
+            throws IdentityChange.Refused, IOException {
+        final Filed filed =
+                projects()
+                        .make(
+                                machine,
+                                java.util.Objects.requireNonNull(scope.project),
+                                own,
+                                () -> keygen(machine, own.login()),
+                                base,
+                                id);
+        kept = true;
+        return made(filed.fingerprint(), filed.revision(), true);
+    }
+
+    /** Replaces the key a project's backup key backs. */
+    private int replaceForProject(final PoreloContext machine, final PersonCard own)
+            throws IdentityChange.Refused, IOException {
+        final Path file = java.util.Objects.requireNonNull(use);
+        final String key = backupKey(file);
+        final PersonCard next = next(own.login());
+        final List<IdentityFacts.Registry> registries = IdentityFacts.registries(machine);
+        for (final String each : List.of(key, next.key())) {
+            if (IdentityFacts.revoked(machine, registries, each)) {
+                throw new IdentityChange.Refused(
+                        65, "revoked", "the key " + PersonCard.fingerprint(each) + " is revoked");
+            }
+        }
+        final Replaced replaced =
+                projects()
+                        .replace(
+                                machine,
+                                java.util.Objects.requireNonNull(scope.project),
+                                file,
+                                key,
+                                next,
+                                base,
+                                java.util.Objects.requireNonNull(id));
+        return replaced(replaced.replaced(), replaced.by(), replaced.revision(), true);
+    }
+
+    private Projects projects() {
+        return java.util.Objects.requireNonNull(
+                projects, "the command line is assembled with the project area");
     }
 
     /**
@@ -665,8 +790,9 @@ public class IdentityBackupKeyCommand implements Callable<Integer>, PoreloFactor
 
     private Map<String, @Nullable Object> scope() {
         final Map<String, @Nullable Object> named = new LinkedHashMap<>();
-        named.put("kind", scope.registry ? "registry" : "host");
-        named.put("name", scope.registry ? null : scope.host);
+        named.put("kind", scope.registry ? "registry" : scope.project != null ? "project" : "host");
+        named.put(
+                "name", scope.registry ? null : scope.project != null ? scope.project : scope.host);
         return named;
     }
 

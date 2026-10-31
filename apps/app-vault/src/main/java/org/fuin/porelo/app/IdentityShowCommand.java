@@ -12,6 +12,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.Callable;
+import org.fuin.porelo.core.project.ProjectSigners;
 import org.fuin.porelo.vault.AgentKey;
 import org.fuin.porelo.vault.CardException;
 import org.fuin.porelo.vault.HttpForgeDirectory;
@@ -130,7 +131,9 @@ public class IdentityShowCommand implements Callable<Integer>, PoreloFactory.Con
                 "forge",
                 IdentityFacts.forgeAnswer(forges, registries, card.login(), card.fingerprint()));
         answer.put("pending", pending(machine));
-        answer.put("sole_without_backup", sole(registries, card.login()));
+        final List<Map<String, Object>> sole = sole(registries, card.login());
+        sole.addAll(soleInProjects(machine, card));
+        answer.put("sole_without_backup", sole);
         return answer;
     }
 
@@ -158,6 +161,27 @@ public class IdentityShowCommand implements Callable<Integer>, PoreloFactory.Con
                                                     ? java.util.Objects.requireNonNull(one.host())
                                                     : registry.known().origin())));
                 }
+            }
+        }
+        return sole;
+    }
+
+    /**
+     * Each followed project whose signers in force are the person's key alone, with no backup key
+     * behind it.
+     */
+    private static List<Map<String, Object>> soleInProjects(
+            final PoreloContext machine, final PersonCard card) throws IOException {
+        final List<Map<String, Object>> sole = new ArrayList<>();
+        for (final FollowedSigners.Signers signers : FollowedSigners.all(machine)) {
+            final String key = ProjectSigners.soleWithoutBackup(signers.entries());
+            if (key != null && ProjectSigners.fingerprint(key).equals(card.fingerprint())) {
+                sole.add(
+                        Map.of(
+                                "role",
+                                "project-admin",
+                                "scope",
+                                Map.of("kind", "project", "name", signers.project())));
             }
         }
         return sole;

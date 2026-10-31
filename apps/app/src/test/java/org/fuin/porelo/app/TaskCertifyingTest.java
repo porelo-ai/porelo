@@ -147,6 +147,54 @@ class TaskCertifyingTest {
         }
     }
 
+    @Test
+    void aKeyGivenAsABackupKeyIsNoCertifierAndACertificateItIssuedIsRefused() throws Exception {
+        final String person = keygen("person");
+        final String backup = keygen("backup");
+        final List<String> certifiers =
+                TaskCertifying.certifiers(List.of(person, backup), List.of(backup));
+        assertThat(certifiers)
+                .as("even a backup key an access file admits certifies nothing")
+                .containsExactly(person);
+        final Path socket = dir.resolve("agent.sock");
+        final Process agent =
+                new ProcessBuilder("ssh-agent", "-D", "-a", socket.toString())
+                        .redirectErrorStream(true)
+                        .redirectOutput(ProcessBuilder.Redirect.DISCARD)
+                        .start();
+        try {
+            for (int i = 0; i < 100 && !Files.exists(socket); i++) {
+                Thread.sleep(20);
+            }
+            final ProcessBuilder add =
+                    new ProcessBuilder("ssh-add", "-q", dir.resolve("backup").toString());
+            add.environment().put("SSH_AUTH_SOCK", socket.toString());
+            assertThat(
+                            add.redirectErrorStream(true)
+                                    .redirectOutput(ProcessBuilder.Redirect.DISCARD)
+                                    .start()
+                                    .waitFor())
+                    .isZero();
+            assertThat(
+                            org.assertj.core.api.Assertions.catchThrowable(
+                                    () ->
+                                            TaskCertifying.atStart(
+                                                    "demo",
+                                                    "fix",
+                                                    "alice",
+                                                    certifiers,
+                                                    new AgentCertifier(backup, socket),
+                                                    null,
+                                                    Clock.systemUTC())))
+                    .as("a certificate the backup key issued")
+                    .isInstanceOf(TaskCertification.Refused.class)
+                    .hasMessageContaining("not a certifier");
+        } finally {
+            agent.destroy();
+            agent.waitFor(5, TimeUnit.SECONDS);
+        }
+    }
+
     private String keygen(String name) throws Exception {
         assertThat(
                         new ProcessBuilder(

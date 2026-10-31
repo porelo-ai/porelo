@@ -18,6 +18,7 @@ import org.fuin.porelo.core.project.Access;
 import org.fuin.porelo.core.project.AccessFile;
 import org.fuin.porelo.core.project.Project;
 import org.fuin.porelo.core.project.ProjectException;
+import org.fuin.porelo.core.project.ProjectSigners;
 import org.jspecify.annotations.Nullable;
 import picocli.CommandLine.Model.CommandSpec;
 import picocli.CommandLine.Option;
@@ -244,6 +245,18 @@ public class ProjectVerifyCommand implements Callable<Integer>, PoreloFactory.Co
                 diagnostic(err, person.login() + " revoked: " + person.refusal());
             }
         }
+        final List<ProjectSigners.Signer> entries;
+        try {
+            final List<ProjectSigners.Signer> read =
+                    checked.projectFile() == null
+                            ? null
+                            : ProjectSigners.entries(checked.projectFile(), "project.yml");
+            entries = read == null ? List.of() : read;
+        } catch (final ProjectException ex) {
+            return refuse(err, 65, String.valueOf(ex.getMessage()));
+        }
+        final List<String> warnings = warnings(name, entries);
+        warnings.forEach(warning -> diagnostic(err, "porelo: warning: " + warning));
         err.flush();
         final Map<String, Object> answer =
                 answer(
@@ -252,7 +265,10 @@ public class ProjectVerifyCommand implements Callable<Integer>, PoreloFactory.Co
                         checked.key(),
                         checked.signers(),
                         access,
-                        checked.persons());
+                        checked.persons(),
+                        ProjectSigners.backups(entries));
+        answer.put("backups", backups(entries));
+        answer.put("warnings", warnings);
         final String written;
         try {
             written = org.fuin.porelo.wire.Json.write(answer);
@@ -273,6 +289,17 @@ public class ProjectVerifyCommand implements Callable<Integer>, PoreloFactory.Co
                 out.println("signed by " + checked.key());
             }
             checked.signers().forEach(key -> out.println("in force  " + key));
+            ProjectSigners.backups(entries)
+                    .forEach(
+                            backup ->
+                                    out.println(
+                                            "backup    "
+                                                    + backup.key()
+                                                    + " backs "
+                                                    + backup.backs()
+                                                    + (backup.since().isEmpty()
+                                                            ? ""
+                                                            : " since " + backup.since())));
         }
         out.flush();
         return 0;
@@ -298,14 +325,58 @@ public class ProjectVerifyCommand implements Callable<Integer>, PoreloFactory.Co
         return null;
     }
 
-    /** The answer a program reads; its names are kept. */
+    /**
+     * What the check warns of: a project whose one signer has no backup key, so that losing the key
+     * leaves nobody who may sign its next change.
+     */
+    private static List<String> warnings(
+            final String name, final List<ProjectSigners.Signer> entries) {
+        final List<String> warnings = new ArrayList<>();
+        final String sole = ProjectSigners.soleWithoutBackup(entries);
+        if (sole != null) {
+            warnings.add(
+                    "project.signers names "
+                            + ProjectSigners.fingerprint(sole)
+                            + " as the only signer of "
+                            + name
+                            + ", without a backup key; make one with porelo identity backup-key"
+                            + " --project "
+                            + name);
+        }
+        return warnings;
+    }
+
+    /** The backup keys among the signers, each named {@code backup: true}. */
+    private static List<Map<String, Object>> backups(final List<ProjectSigners.Signer> entries) {
+        final List<Map<String, Object>> backups = new ArrayList<>();
+        for (final ProjectSigners.Signer backup : ProjectSigners.backups(entries)) {
+            final Map<String, Object> named = new LinkedHashMap<>();
+            named.put("key", backup.key());
+            named.put("fingerprint", backup.fingerprint());
+            named.put("backup", true);
+            named.put("backs", backup.backs());
+            named.put("since", backup.since());
+            backups.add(named);
+        }
+        return backups;
+    }
+
+    /**
+     * The answer a program reads; its names are kept. A backup key of the signers certifies no
+     * task, even where the access file admits it.
+     */
     private static Map<String, Object> answer(
             final Project project,
             final Reconcile.Result result,
             final @Nullable String key,
             final List<String> signers,
             final @Nullable AccessFile access,
-            final List<org.fuin.porelo.vault.AccessPersons.Person> persons) {
+            final List<org.fuin.porelo.vault.AccessPersons.Person> persons,
+            final List<ProjectSigners.Signer> backups) {
+        final java.util.Set<String> backupKeys =
+                backups.stream()
+                        .map(ProjectSigners.Signer::fingerprint)
+                        .collect(java.util.stream.Collectors.toSet());
         final Map<String, Object> answer = new LinkedHashMap<>();
         answer.put("project", project.name());
         answer.put("commit", result.commit());
@@ -325,6 +396,10 @@ public class ProjectVerifyCommand implements Callable<Integer>, PoreloFactory.Co
                 "certifiers",
                 persons.stream()
                         .filter(org.fuin.porelo.vault.AccessPersons.Person::admitted)
+                        .filter(
+                                person ->
+                                        !backupKeys.contains(
+                                                ProjectSigners.fingerprint(person.ssh())))
                         .map(
                                 person ->
                                         "task:"

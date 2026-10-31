@@ -84,6 +84,17 @@ public class PoreloCli implements Callable<Integer> {
         java.util.Objects.requireNonNull(
                         line.getSubcommands().get("host"), "the host group is named above")
                 .addSubcommand(HostWhoamiCommand.class);
+        // A project's backup key is filed among its signers, which are the project area's.
+        final CommandLine identity =
+                java.util.Objects.requireNonNull(
+                        line.getSubcommands().get("identity"), "the identity group is named above");
+        ((IdentityBackupKeyCommand)
+                                java.util.Objects.requireNonNull(
+                                                identity.getSubcommands().get("backup-key"),
+                                                "backup-key is an identity verb")
+                                        .getCommand())
+                        .projects =
+                new ProjectBackupKey();
         return line.setParameterExceptionHandler(CliErrors.handler())
                 .setExecutionExceptionHandler(CliErrors.failures(context.paths()));
     }

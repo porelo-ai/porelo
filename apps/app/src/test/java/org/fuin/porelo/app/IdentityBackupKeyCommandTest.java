@@ -440,11 +440,4 @@ class IdentityBackupKeyCommandTest {
                 .as("a --base that is no commit's full hash")
                 .isEqualTo(64);
     }
-
-    @Test
-    void a_project_backup_key_is_not_made_yet() {
-        assertThat(backupKey("--project", "demo", "--out", dir.resolve("p").toString(), "--json"))
-                .isEqualTo(65);
-        assertThat(registry.answer().get("reason")).isEqualTo("not-in-this-release");
-    }
 }
