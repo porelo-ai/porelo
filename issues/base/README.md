@@ -37,6 +37,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b343"></a>[B343](B343-Each-Task-Signs-With-Its-Own-Certified-Key.md) | M | [B342](README.md#b342) | Each task's own key, held outside its container and certified at start by the person's agent on their machine, recorded and served by fingerprint, signs its commits; judged at arrival |
 | <a id="b335"></a>[B335](B335-Every-Change-To-A-Protected-File-Signed.md) | M | - | A follow checks every commit along the first parent that changes a protected file - `project.yml`, `access.yml`, `machine-signers`, a named snippet file, the access repository's file - signed by `signers` as they stood before it, instead of the tip alone; the refusal names commit and file |
 | <a id="b341"></a>[B341](B341-A-New-Commit-Is-Never-Accepted-By-A-Retired-Key.md) | M | [B335](README.md#b335) | A retired key stays for reading history with `valid-before`, while a new commit is checked against the signers without such keys and against the revocation list |
 | <a id="b345"></a>[B345](B345-A-Host-Vault-Opened-By-The-Persons-Key.md) | L | - | A host account's vault has one keyslot, a share derived on the person's machine from their SSH signature and kept in locked memory on the host; a lost key means a new vault, answered `other-key` |
@@ -112,7 +113,6 @@ from its side, as *blocked by*.
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
 | <a id="b339"></a>[B339](B339-The-Registry-Read-And-Written-By-Its-Signers.md) | M | [B337](README.md#b337), [B341](README.md#b341), [B349](README.md#b349) | The organisation's registry checked path by path against each path's own signer, `owners.yml` naming owners and host admins, a new card trusted only when the forge lists its key for that login; `registry read --json` and `registry file` |
-| <a id="b343"></a>[B343](B343-Each-Task-Signs-With-Its-Own-Certified-Key.md) | M | [B342](README.md#b342) | Each task's own key, held outside its container and certified at start by the person's agent on their machine, recorded and served by fingerprint, signs its commits; judged at arrival |
 | <a id="b344"></a>[B344](B344-Messages-Signed-By-A-Tasks-Key.md) | M | [B343](README.md#b343), [B334](README.md#b334) | Messages signed by the plain task key and checked through its certificate; the machine key, `project enroll`, `machine-signers` and `--machines` go, a transport is given `login` |
 | <a id="b338"></a>[B338](B338-An-Identity-Made-Changed-And-Replaced.md) | L | [B339](README.md#b339), [B342](README.md#b342), [B345](README.md#b345) | `identity create`, `rotate` and `revoke --lost`, publishing the card to the registry and each host with `published[]` |
 | <a id="b346"></a>[B346](B346-A-Backup-Key-For-A-Single-Admin.md) | S | [B338](README.md#b338), [B342](README.md#b342), [B343](README.md#b343) | An offline backup key for a single project admin, host admin or registry owner, allowed to change only the signers and to certify nothing |

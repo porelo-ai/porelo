@@ -1,6 +1,6 @@
 # B343 — Each Task Signs With Its Own Certified Key
 
-**Status:** Accepted.
+**Status:** Implementing.
 **Size:** M - estimated 90 minutes from the median of M builds: task keys held outside the container, their
 certificates, the start's handshake and the gate's check.
 
