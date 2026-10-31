@@ -20,6 +20,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b338"></a>[B338](B338-An-Identity-Made-Changed-And-Replaced.md) | L | [B339](README.md#b339), [B342](README.md#b342), [B345](README.md#b345) | `identity create`, `rotate` and `revoke --lost`, publishing the card to the registry and each host with `published[]` |
 | <a id="b339"></a>[B339](B339-The-Registry-Read-And-Written-By-Its-Signers.md) | M | [B337](README.md#b337), [B341](README.md#b341), [B349](README.md#b349) | The organisation's registry checked path by path against each path's own signer, `owners.yml` naming owners and host admins, a new card trusted only when the forge lists its key for that login; `registry read --json` and `registry file` |
 | <a id="b351"></a>[B351](B351-A-Host-Card-Signed-Through-The-SSH-Agent.md) | S | - | `porelo card make-host` signs through `ssh-agent`, KeePassXC included, so a host admin's key never lies on disk to sign their host's card |
 | <a id="b345"></a>[B345](B345-A-Host-Vault-Opened-By-The-Persons-Key.md) | L | - | A host account's vault has one keyslot, a share derived on the person's machine from their SSH signature and kept in locked memory on the host; a lost key means a new vault, answered `other-key` |
@@ -123,7 +124,6 @@ from its side, as *blocked by*.
 | <a id="b358"></a>[B358](B358-A-Task-Reviews-A-Pull-Request-On-The-Central-Forge.md) | - | [B172](README.md#b172) | A reviewer task also takes any existing pull request on the central forge by its URL, in a project or without one; read and commented with the person's own account, comments only, each released |
 | <a id="b355"></a>[B355](B355-No-Switch-That-Turns-Every-Check-Off.md) | S | - | No `--insecure` that turns every check off; instead an `unsigned`/`unverified` mark in `task list`, the interface and the gate's verdicts, for what already runs so |
 | <a id="b344"></a>[B344](B344-Messages-Signed-By-A-Tasks-Key.md) | M | [B343](README.md#b343), [B334](README.md#b334) | Messages signed by the plain task key and checked through its certificate; the machine key, `project enroll`, `machine-signers` and `--machines` go, a transport is given `login` |
-| <a id="b338"></a>[B338](B338-An-Identity-Made-Changed-And-Replaced.md) | L | [B339](README.md#b339), [B342](README.md#b342), [B345](README.md#b345) | `identity create`, `rotate` and `revoke --lost`, publishing the card to the registry and each host with `published[]` |
 | <a id="b346"></a>[B346](B346-A-Backup-Key-For-A-Single-Admin.md) | S | [B338](README.md#b338), [B342](README.md#b342), [B343](README.md#b343) | An offline backup key for a single project admin, host admin or registry owner, allowed to change only the signers and to certify nothing |
 | <a id="b274"></a>[B274](B274-A-Room-Line-Wakes-Only-The-Tasks-It-Mentions.md) | S | - | A person's room line wakes only the tasks it mentions, and every task on `@room`; an unaddressed line is delivered but wakes none, read at the next wake; a reply to a task's message stays a mention |
 | <a id="b270"></a>[B270](B270-A-Forge-Token-Stored-By-The-Forges-Own-Login.md) | - | - | A person gets their forge token into a machine's vault as `git.token.<host>` by the forge's own device-code login in a terminal there, never by pasting a token made by hand; Porelo's OAuth App by default, a person's own if named, `repo` scope |
@@ -139,6 +139,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b360"></a>[B360](B360-The-Persons-Own-Files-Read-Only-As-Themselves.md) | M | [B338](README.md#b338) | Every file Porelo keeps in the person's configuration and state directories is read and written only as itself, never through a link or another account's directory |
 | <a id="b359"></a>[B359](B359-A-Trust-Record-That-Keeps-Who-Could-Sign-When.md) | M | [B339](README.md#b339) | The registry's trust record keeps who could sign at each change, so its check judges every signer as the walk does |
 | <a id="b357"></a>[B357](B357-Build2-Waits-60-Seconds-When-The-Forge-Names-No-Wait.md) | S | - | When a forge names no wait, `Build2.RateLimited` answers `retryAfter: 60`, as `Review1` does, not 0 |
 | <a id="b354"></a>[B354](B354-A-Task-Named-By-Its-Key.md) | S | [B343](README.md#b343) | A task's name carries a short suffix from its key's fingerprint, unique per login, so a name names one task key |

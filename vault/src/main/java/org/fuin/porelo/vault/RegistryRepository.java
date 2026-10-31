@@ -37,6 +37,9 @@ final class RegistryRepository implements AutoCloseable {
                         "GIT_CONFIG_GLOBAL", "/dev/null",
                         "GIT_ATTR_NOSYSTEM", "1",
                         "GIT_NO_REPLACE_OBJECTS", "1",
+                        // A partial checkout would fetch a missing object from its promisor
+                        // remote, by whatever program its configuration names.
+                        "GIT_NO_LAZY_FETCH", "1",
                         "GIT_ALLOW_PROTOCOL", "file",
                         "GIT_PROTOCOL_FROM_USER", "0",
                         "GIT_TERMINAL_PROMPT", "0");
@@ -151,6 +154,12 @@ final class RegistryRepository implements AutoCloseable {
                                 "--no-replace-objects",
                                 "-c",
                                 "core.hooksPath=/dev/null",
+                                "-c",
+                                "core.fsmonitor=false",
+                                "-c",
+                                "core.sshCommand=ssh",
+                                "-c",
+                                "credential.helper=",
                                 "-c",
                                 "protocol.allow=never",
                                 "-c",

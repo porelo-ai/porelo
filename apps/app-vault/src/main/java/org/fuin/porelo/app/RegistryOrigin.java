@@ -65,8 +65,30 @@ record RegistryOrigin(String url, URI forge, String organisation, int port) {
         }
         throw new IllegalArgumentException(
                 "the checkout's origin '"
-                        + RegistryVerifyCommand.printable(url)
+                        + RegistryVerifyCommand.printable(withoutUserinfo(url))
                         + "' is not https://HOST/ORG/REPO, git@HOST:ORG/REPO or"
                         + " ssh://git@HOST/ORG/REPO");
+    }
+
+    /**
+     * A URL as words may name it: as {@link org.fuin.porelo.vault.Userinfo#leftOutOf} leaves it,
+     * all up to its last {@code @} left out but for its scheme.
+     *
+     * @param url The URL.
+     * @return It, any user information left out.
+     */
+    static String withoutUserinfo(final String url) {
+        return org.fuin.porelo.vault.Userinfo.leftOutOf(url);
+    }
+
+    /**
+     * Text as it may be printed or kept, as {@link org.fuin.porelo.vault.Userinfo#leftOutOf} leaves
+     * it: no URL in it keeping its user part.
+     *
+     * @param text The text.
+     * @return It, each user part left out.
+     */
+    static String withoutUserinfoIn(final String text) {
+        return org.fuin.porelo.vault.Userinfo.leftOutOf(text);
     }
 }

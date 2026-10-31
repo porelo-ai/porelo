@@ -237,6 +237,14 @@ class RegistryReadCommandTest {
     void a_discarded_record_is_deleted_when_the_fresh_read_reaches_no_commit() throws Exception {
         registry.founded();
         assertThat(registry.registry("read", registry.repo.toString())).isZero();
+        final Path where =
+                registry.record()
+                        .resolveSibling(
+                                registry.record()
+                                        .getFileName()
+                                        .toString()
+                                        .replace(".json", ".where.json"));
+        assertThat(where).as("the origin is kept beside the record").exists();
         Files.writeString(registry.record(), "{\"commit\": \"damaged\"");
         // The forge cannot say any more whether the founder owns the organisation.
         registry.forge.owners.clear();
@@ -245,6 +253,7 @@ class RegistryReadCommandTest {
         assertThat(registry.err.toString())
                 .contains("porelo: warning: the registry trust record was discarded");
         assertThat(registry.record()).doesNotExist();
+        assertThat(where).as("never left without its record").doesNotExist();
     }
 
     /** The origin names the forge asked; another form could make it a host git never fetches. */
@@ -359,6 +368,22 @@ class RegistryReadCommandTest {
                                 org.fuin.porelo.core.credential.CredentialRegistry.read(file),
                                 RegistryOrigin.of(origin)))
                 .isEqualTo(expected);
+    }
+
+    /** A token in the origin's URL is a secret; the refusal names the host and path alone. */
+    @Test
+    void an_origin_with_a_token_is_refused_without_it() throws Exception {
+        registry.git(
+                "remote",
+                "set-url",
+                "origin",
+                "https://alice:tok3n@forge.example.org/acme/registry.git");
+        registry.founded();
+        assertThat(registry.registry("read", registry.repo.toString())).isEqualTo(64);
+        assertThat(registry.err.toString())
+                .contains("https://forge.example.org/acme/registry.git")
+                .doesNotContain("tok3n")
+                .doesNotContain("alice");
     }
 
     @Test

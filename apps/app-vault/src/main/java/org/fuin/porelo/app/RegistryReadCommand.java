@@ -172,12 +172,84 @@ public class RegistryReadCommand implements Callable<Integer>, PoreloFactory.Con
                                 forge(context, origin, forges, err),
                                 origin.organisation());
         keep(record, state);
+        if (state.commit() != null) {
+            write(
+                    known(record),
+                    Json.write(
+                            Map.of(
+                                    "origin",
+                                    url,
+                                    "checkout",
+                                    checkout.toAbsolutePath().normalize().toString())));
+        }
         // Whichever command read it: a warning, such as a record discarded, is never lost.
         for (String warning : state.warnings()) {
             err.println("porelo: warning: " + RegistryVerifyCommand.printable(warning));
         }
         err.flush();
         return new Read(origin, state);
+    }
+
+    /**
+     * A registry this machine has read: its origin exactly as the checkout names it, the checkout
+     * it was read from last, and the trust record that read left.
+     *
+     * @param origin The checkout's {@code origin} URL, as {@code git remote get-url} answers it.
+     * @param checkout The checkout read last for that origin.
+     * @param record The trust record.
+     */
+    record Known(String origin, Path checkout, Path record) {}
+
+    /**
+     * The registries this machine has read, one per origin, the latest read of each.
+     *
+     * @param context The machine.
+     * @return Each, in the order of their records' names; none when nothing was read.
+     * @throws IOException When the registry directory cannot be listed.
+     */
+    static List<Known> known(final PoreloContext context) throws IOException {
+        final Path directory = context.paths().xdg().state().resolve("registry");
+        if (!Files.isDirectory(directory, LinkOption.NOFOLLOW_LINKS)) {
+            return List.of();
+        }
+        final List<Known> known = new java.util.ArrayList<>();
+        try (var listed = Files.list(directory)) {
+            for (final Path where :
+                    listed.filter(path -> path.getFileName().toString().endsWith(".where.json"))
+                            .sorted()
+                            .toList()) {
+                if (!Files.isRegularFile(where, LinkOption.NOFOLLOW_LINKS)) {
+                    continue;
+                }
+                final Object read;
+                try {
+                    read = Json.parse(Files.readString(where, StandardCharsets.UTF_8));
+                } catch (RuntimeException ex) {
+                    // Half a file or none of this shape is no registry this machine read.
+                    continue;
+                }
+                // A record of another origin's name would answer for an address it is not.
+                if (read instanceof Map<?, ?> map
+                        && map.get("origin") instanceof String origin
+                        && map.get("checkout") instanceof String checkout
+                        && trustRecord(context, origin).equals(record(where))) {
+                    known.add(new Known(origin, Path.of(checkout), record(where)));
+                }
+            }
+        }
+        return List.copyOf(known);
+    }
+
+    private static Path known(final Path record) {
+        final String name = record.getFileName().toString();
+        return record.resolveSibling(
+                name.substring(0, name.length() - ".json".length()) + ".where.json");
+    }
+
+    private static Path record(final Path where) {
+        final String name = where.getFileName().toString();
+        return where.resolveSibling(
+                name.substring(0, name.length() - ".where.json".length()) + ".json");
     }
 
     /**
@@ -274,9 +346,16 @@ public class RegistryReadCommand implements Callable<Integer>, PoreloFactory.Con
      */
     private static void keep(final Path record, final RegistryState state) throws IOException {
         if (state.commit() == null) {
+            // The record and the origin it was read from go together, so neither is left alone.
             Files.deleteIfExists(record);
+            Files.deleteIfExists(known(record));
             return;
         }
+        write(record, state.toJson());
+    }
+
+    /** Writes a file of the registry directory, owner-only and whole. */
+    private static void write(final Path record, final String text) throws IOException {
         final Path directory =
                 java.util.Objects.requireNonNull(
                         record.getParent(), "a trust record lies in the registry directory");
@@ -298,7 +377,7 @@ public class RegistryReadCommand implements Callable<Integer>, PoreloFactory.Con
                         PosixFilePermissions.asFileAttribute(
                                 PosixFilePermissions.fromString("rw-------")));
         try {
-            Files.writeString(staged, state.toJson(), StandardCharsets.UTF_8);
+            Files.writeString(staged, text, StandardCharsets.UTF_8);
             Files.move(
                     staged,
                     record,

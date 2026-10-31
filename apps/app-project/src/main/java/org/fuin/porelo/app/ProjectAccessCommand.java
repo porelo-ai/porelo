@@ -35,8 +35,10 @@ import org.fuin.porelo.core.project.AccessFile;
 import org.fuin.porelo.core.project.BranchScheme;
 import org.fuin.porelo.core.project.Project;
 import org.fuin.porelo.core.project.ProjectException;
+import org.fuin.porelo.vault.AccessPersons;
 import org.fuin.porelo.vault.CardException;
 import org.fuin.porelo.vault.PersonCard;
+import org.fuin.porelo.vault.TrustRecords;
 import org.jspecify.annotations.Nullable;
 import org.yaml.snakeyaml.DumperOptions;
 import org.yaml.snakeyaml.Yaml;
@@ -89,6 +91,9 @@ public class ProjectAccessCommand implements Callable<Integer>, PoreloFactory.Co
     /** An access file of thousands of persons is still far under this. */
     private static final int ACCESS_LIMIT = 1024 * 1024;
 
+    /** How many versions of a card are read back: more changes of key than any person makes. */
+    private static final int VERSIONS = 64;
+
     /**
      * The branch a clone of an empty repository is left on when the remote does not say which one
      * its HEAD names: a name no remote is asked for.
@@ -120,7 +125,7 @@ public class ProjectAccessCommand implements Callable<Integer>, PoreloFactory.Co
     @Parameters(
             index = "0",
             paramLabel = "ACTION",
-            description = "init, add, remove, lock or unlock.")
+            description = "init, add, remove, lock, unlock or replace.")
     private String action = "";
 
     @Option(
@@ -150,7 +155,8 @@ public class ProjectAccessCommand implements Callable<Integer>, PoreloFactory.Co
             paramLabel = "FILE",
             description =
                     "The person's card; required by init, and by add unless the person is in and"
-                            + " the repository's card of theirs carries the key access.yml pins.")
+                            + " the repository's card of theirs carries the key access.yml pins;"
+                            + " required by replace, as the person's card of their new key.")
     private @Nullable Path card;
 
     @Option(
@@ -231,13 +237,13 @@ public class ProjectAccessCommand implements Callable<Integer>, PoreloFactory.Co
             out.flush();
             return 0;
         } catch (final Refused refused) {
-            err.println(printable("porelo: " + refused.getMessage()));
+            err.println(said("porelo: " + refused.getMessage()));
             err.flush();
             return refused.code;
         } catch (final CommandException ex) {
             // A program that could not be run, or was stopped, says what it had read: that may be
             // anything the remote sent.
-            err.println(printable("porelo: " + ex.getMessage()));
+            err.println(said("porelo: " + ex.getMessage()));
             err.flush();
             return 70;
         }
@@ -325,10 +331,22 @@ public class ProjectAccessCommand implements Callable<Integer>, PoreloFactory.Co
         if (cardAfter != null) {
             unrevoked(before, cardAfter.parsed());
         }
+        final Set<String> chain =
+                action.equals("replace")
+                        ? replacing(
+                                handover,
+                                scratch,
+                                repository,
+                                remote.head(),
+                                before,
+                                required(cardAfter))
+                        : Set.of();
         final Map<String, AccessFile.Person> persons = changed(before, cardAfter);
-        final String text = write(before, persons);
+        final List<String> revoked = revokedAfter(before, cardAfter, chain);
+        final String text = write(before, persons, revoked);
+        final AccessFile written;
         try {
-            AccessFile.read(new StringReader(text), Access.FILE);
+            written = AccessFile.read(new StringReader(text), Access.FILE);
         } catch (final ProjectException ex) {
             throw new Refused(65, "the changed access file would not read: " + ex.getMessage());
         }
@@ -336,7 +354,9 @@ public class ProjectAccessCommand implements Callable<Integer>, PoreloFactory.Co
         // worth a commit that only reformats it.
         final @Nullable String cardWritten =
                 given == null || given.text().equals(cardBefore) ? null : given.text();
-        if (persons.equals(new TreeMap<>(before.persons())) && cardWritten == null) {
+        if (persons.equals(new TreeMap<>(before.persons()))
+                && revoked.equals(before.revoked())
+                && cardWritten == null) {
             throw new Refused(65, "nothing to change: " + said());
         }
         final String commit =
@@ -347,6 +367,9 @@ public class ProjectAccessCommand implements Callable<Integer>, PoreloFactory.Co
         verifiable(handover, repository, "", commit);
         if (!inForce.isEmpty()) {
             verifiable(handover, repository, inForce, commit);
+        }
+        if (action.equals("replace")) {
+            admitted(repository, commit, written);
         }
         push(repository, url, remote, commit);
         return commit;
@@ -368,14 +391,35 @@ public class ProjectAccessCommand implements Callable<Integer>, PoreloFactory.Co
         }
     }
 
+    /**
+     * Refuses a replaced key the follow would not take for the person at the commit made, checked
+     * as the follow checks each person's card, so a replacement that leaves them revoked is never
+     * pushed.
+     */
+    private void admitted(final Path repository, final String commit, final AccessFile written)
+            throws Refused {
+        for (final AccessPersons.Person checked :
+                AccessPersons.read(this::run, repository, commit, written)) {
+            if (checked.login().equals(person) && checked.revoked()) {
+                throw new Refused(
+                        65,
+                        "the follow would answer "
+                                + person
+                                + " revoked at the access commit made, so nothing was pushed: "
+                                + checked.refusal());
+            }
+        }
+    }
+
     /** Refuses a use the action has no meaning for, before anything is read or fetched. */
     private void checkUse() throws Refused {
-        if (!Set.of("init", "add", "remove", "lock", "unlock").contains(action)) {
+        if (!Set.of("init", "add", "remove", "lock", "unlock", "replace").contains(action)) {
             throw new Refused(
                     64,
                     "'"
                             + action
-                            + "' is not an action; expected init, add, remove, lock or unlock");
+                            + "' is not an action; expected init, add, remove, lock, unlock or"
+                            + " replace");
         }
         if (!id.matches(ID)) {
             throw new Refused(64, "--id '" + id + "' does not match " + ID);
@@ -415,7 +459,15 @@ public class ProjectAccessCommand implements Callable<Integer>, PoreloFactory.Co
         if (init && role != null) {
             throw new Refused(64, "init takes no --role: its person is the project's admin");
         }
-        if (!init && !action.equals("add") && (card != null || role != null)) {
+        final boolean replace = action.equals("replace");
+        if (replace && card == null) {
+            throw new Refused(64, "replace needs --card, the person's card of their new key");
+        }
+        if (replace && (host != null || role != null)) {
+            throw new Refused(
+                    64, "replace takes neither --host nor --role: the person keeps theirs");
+        }
+        if (!init && !action.equals("add") && !replace && (card != null || role != null)) {
             throw new Refused(64, action + " takes neither --card nor --role");
         }
         if ((action.equals("lock") || action.equals("unlock")) && host != null) {
@@ -511,6 +563,252 @@ public class ProjectAccessCommand implements Callable<Integer>, PoreloFactory.Co
                                 + " lists under revoked");
             }
         }
+    }
+
+    /**
+     * Refuses a replacement the follow would take but should not: of a person the access file
+     * already answers revoked, to a key another person holds or held, or to or from a key revoked
+     * here or by a registry this machine reads.
+     *
+     * @return The keys of the person's chain at the base: the key pinned, and each key and
+     *     predecessor of each version of their card, which a lost key's replacement revokes.
+     */
+    private Set<String> replacing(
+            final SignerHandover handover,
+            final Path scratch,
+            final Path repository,
+            final String base,
+            final AccessFile before,
+            final Card card)
+            throws Refused {
+        final PersonCard next = card.parsed();
+        final AccessFile.@Nullable Person was = before.persons().get(person);
+        if (was == null) {
+            throw new Refused(65, person + " is not a person of " + projectName);
+        }
+        // A rotation from a key in a revoked chain would pin its successor, and the follow then
+        // looks no further back than the key pinned.
+        for (final AccessPersons.Person checked :
+                AccessPersons.read(this::run, repository, base, before)) {
+            if (checked.login().equals(person) && checked.revoked()) {
+                throw new Refused(
+                        65,
+                        person
+                                + " is revoked at --base "
+                                + base
+                                + " ("
+                                + checked.refusal()
+                                + "); a replacement does not take them back in");
+            }
+        }
+        final List<String> keys = new ArrayList<>(List.of(next.key()));
+        if (!next.predecessor().isEmpty()) {
+            keys.add(next.predecessor());
+        }
+        for (final String key : keys) {
+            final String fingerprint = PersonCard.fingerprint(key);
+            if (revoked(scratch, key) || revokedByRegistry(fingerprint)) {
+                throw new Refused(
+                        65,
+                        "the card of "
+                                + person
+                                + " carries "
+                                + fingerprint
+                                + ", which is revoked here or by a registry this machine reads");
+            }
+        }
+        final Map<String, Set<String>> pins = pins(handover, repository, base);
+        for (final AccessFile.Person other : before.persons().values()) {
+            if (!other.login().equals(person)
+                    && chain(repository, base, other, pins, false).contains(next.fingerprint())) {
+                // One key under two logins lets its holder work as either.
+                throw new Refused(
+                        65,
+                        next.fingerprint()
+                                + " is a key of "
+                                + other.login()
+                                + ", pinned, on their card or in its history; a key is one"
+                                + " person's");
+            }
+        }
+        return chain(repository, base, was, pins, true);
+    }
+
+    /**
+     * Each key the access file has pinned for each login along the first-parent line to the commit,
+     * the last {@value #SEARCHED} versions of it. A version pins only when its commit is signed as
+     * the follow checks a signature: anybody who can push may have left an unsigned one naming
+     * another person's key under this login. One that does not read pins nothing.
+     */
+    private Map<String, Set<String>> pins(
+            final SignerHandover handover, final Path repository, final String commit)
+            throws Refused {
+        final Map<String, Set<String>> pins = new TreeMap<>();
+        for (final String version : versions(repository, commit, Access.FILE, SEARCHED, true)) {
+            if (!signed(handover, repository, version)) {
+                continue;
+            }
+            final String text = historical(repository, version, Access.FILE, ACCESS_LIMIT);
+            if (text == null) {
+                continue;
+            }
+            final AccessFile file;
+            try {
+                file = AccessFile.read(new StringReader(text), Access.FILE);
+            } catch (final ProjectException ex) {
+                continue;
+            }
+            for (final AccessFile.Person pinned : file.persons().values()) {
+                pins.computeIfAbsent(pinned.login(), login -> new java.util.LinkedHashSet<>())
+                        .add(pinned.fingerprint());
+            }
+        }
+        return pins;
+    }
+
+    /**
+     * The keys of a person's chain at the commit: each key the access file has pinned for them, and
+     * each key a version of their card hands on to from one. A version counts only when it reads,
+     * is signed as a card must be, is the person's, and its predecessor is a key of the chain
+     * already: anybody who can push may have put a card there, and one that is not the person's own
+     * change of key names no key of theirs. A version that is no regular file, too large or
+     * unreadable names none either.
+     *
+     * @param strict Whether more versions than are read back refuse, as for the person replaced,
+     *     whose chain a lost key's replacement revokes whole; another person's chain is read from
+     *     their latest versions.
+     */
+    private Set<String> chain(
+            final Path repository,
+            final String commit,
+            final AccessFile.Person who,
+            final Map<String, Set<String>> pins,
+            final boolean strict)
+            throws Refused {
+        final Set<String> keys = new java.util.LinkedHashSet<>();
+        keys.add(who.fingerprint());
+        keys.addAll(pins.getOrDefault(who.login(), Set.of()));
+        final List<PersonCard> changes = new ArrayList<>();
+        final String path = "cards/" + who.login() + ".card";
+        List<String> versions = versions(repository, commit, path, VERSIONS + 1, false);
+        if (versions.size() > VERSIONS) {
+            if (strict) {
+                throw new Refused(
+                        65,
+                        path
+                                + " has more than "
+                                + VERSIONS
+                                + " versions at "
+                                + commit
+                                + ", the most a replacement of "
+                                + who.login()
+                                + " reads back");
+            }
+            versions = versions.subList(0, VERSIONS);
+        }
+        for (final String version : versions) {
+            final String text = historical(repository, version, path, CARD_LIMIT);
+            if (text == null) {
+                continue;
+            }
+            try {
+                final PersonCard card = PersonCard.read(text, path);
+                if (card.login().equals(who.login())
+                        && !card.predecessor().isEmpty()
+                        && card.signedAsItMustBe()) {
+                    changes.add(card);
+                }
+            } catch (final CardException ex) {
+                // A version that does not read as a card names no key.
+            }
+        }
+        // Walked forward from the pins until no change of key adds one; each pass adds a key or
+        // ends, so it ends within as many passes as there are versions.
+        boolean grew = true;
+        while (grew) {
+            grew = false;
+            for (final PersonCard change : changes) {
+                if (keys.contains(PersonCard.fingerprint(change.predecessor()))
+                        && keys.add(change.fingerprint())) {
+                    grew = true;
+                }
+            }
+        }
+        return keys;
+    }
+
+    /** The commits, newest first and at most so many, that changed a path up to the commit. */
+    private List<String> versions(
+            final Path repository,
+            final String commit,
+            final String path,
+            final int most,
+            final boolean firstParent)
+            throws Refused {
+        final List<String> arguments =
+                new ArrayList<>(List.of("log", "--max-count=" + most, "--format=%H"));
+        arguments.add(firstParent ? "--first-parent" : "--full-history");
+        arguments.addAll(List.of(commit, "--", ":(literal)" + path));
+        final List<String> versions =
+                local(repository, arguments.toArray(String[]::new))
+                        .lines()
+                        .filter(line -> !line.isEmpty())
+                        .toList();
+        for (final String version : versions) {
+            if (!version.matches(COMMIT)) {
+                throw new Refused(70, "git log named no commit in the scratch clone");
+            }
+        }
+        return versions;
+    }
+
+    /**
+     * A file at a past commit when it is a regular file there, no larger than the limit, and reads;
+     * otherwise none, since a past version refuses nothing now.
+     */
+    private @Nullable String historical(
+            final Path repository, final String commit, final String path, final int limit) {
+        final CommandResult entry =
+                run(
+                        Command.of(
+                                "git",
+                                "-C",
+                                repository.toString(),
+                                "ls-tree",
+                                "-z",
+                                "--long",
+                                commit,
+                                "--",
+                                ":(literal)" + path));
+        final String[] fields = entry.standardOutput().split("[ \\t]+", 5);
+        if (!entry.successful()
+                || fields.length < 5
+                || !(fields[0].equals("100644") || fields[0].equals("100755"))
+                || !fields[1].equals("blob")
+                || !fields[3].matches("[0-9]{1,18}")
+                || Long.parseLong(fields[3]) > limit) {
+            return null;
+        }
+        final CommandResult shown =
+                run(Command.of("git", "-C", repository.toString(), "cat-file", "blob", fields[2]));
+        return shown.successful() ? shown.standardOutput() : null;
+    }
+
+    /**
+     * Whether a registry this machine read names the key revoked. Trust records that do not read
+     * refuse, as one of them may be the one that does.
+     */
+    private boolean revokedByRegistry(final String fingerprint) throws Refused {
+        try {
+            for (final TrustRecords.Read read : TrustRecords.read(context.paths().xdg().state())) {
+                if (read.state().revoked().contains(fingerprint)) {
+                    return true;
+                }
+            }
+        } catch (final IOException ex) {
+            throw new Refused(66, "cannot read the registries read here: " + ex.getMessage());
+        }
+        return false;
     }
 
     /**
@@ -1067,6 +1365,19 @@ public class ProjectAccessCommand implements Callable<Integer>, PoreloFactory.Co
                                     present.locked()));
                 }
             }
+            case "replace" -> {
+                final AccessFile.Person present = present(was);
+                final PersonCard next = required(card).parsed();
+                replaceable(persons, present, next);
+                persons.put(
+                        person,
+                        new AccessFile.Person(
+                                person,
+                                next.fingerprint(),
+                                present.role(),
+                                present.hosts(),
+                                present.locked()));
+            }
             default -> {
                 final AccessFile.Person present = present(was);
                 persons.put(
@@ -1082,6 +1393,73 @@ public class ProjectAccessCommand implements Callable<Integer>, PoreloFactory.Co
         return persons;
     }
 
+    /**
+     * Refuses a card that is no replacement of the key pinned: the same key, a change of key from
+     * another one, or a key another person is pinned to.
+     */
+    private void replaceable(
+            final Map<String, AccessFile.Person> persons,
+            final AccessFile.Person present,
+            final PersonCard next)
+            throws Refused {
+        if (next.fingerprint().equals(present.fingerprint())) {
+            throw new Refused(
+                    65,
+                    person
+                            + " is pinned to "
+                            + present.fingerprint()
+                            + " already; replace takes a card of a new key, add a renewed card of"
+                            + " the same one");
+        }
+        if (!next.predecessor().isEmpty()
+                && !PersonCard.fingerprint(next.predecessor()).equals(present.fingerprint())) {
+            throw new Refused(
+                    65,
+                    "the card of "
+                            + person
+                            + " replaces "
+                            + PersonCard.fingerprint(next.predecessor())
+                            + ", and "
+                            + Access.FILE
+                            + " pins "
+                            + present.fingerprint()
+                            + " for them");
+        }
+        for (final AccessFile.Person other : persons.values()) {
+            if (!other.login().equals(person) && other.fingerprint().equals(next.fingerprint())) {
+                // One key under two logins lets its holder work as either.
+                throw new Refused(
+                        65,
+                        Access.FILE
+                                + " pins "
+                                + next.fingerprint()
+                                + " for "
+                                + other.login()
+                                + "; a key is one person's");
+            }
+        }
+    }
+
+    /**
+     * The revoked keys after the change. A lost key's replacement, a card with no predecessor, puts
+     * every key of the person's chain under them: the key pinned, and the key of the card held and
+     * those it replaced, any of which the finder of the lost one may hold. A change of key leaves
+     * the old one out: the new card names it as its predecessor, and the follow revokes a person
+     * whose card's predecessor is revoked.
+     */
+    private List<String> revokedAfter(
+            final AccessFile before, final @Nullable Card card, final Set<String> chain) {
+        final List<String> revoked = new ArrayList<>(before.revoked());
+        if (action.equals("replace") && card != null && card.parsed().predecessor().isEmpty()) {
+            for (final String key : chain) {
+                if (!revoked.contains(key)) {
+                    revoked.add(key);
+                }
+            }
+        }
+        return revoked;
+    }
+
     private AccessFile.Person present(final AccessFile.@Nullable Person was) throws Refused {
         if (was == null) {
             throw new Refused(65, person + " is not a person of " + projectName);
@@ -1090,15 +1468,19 @@ public class ProjectAccessCommand implements Callable<Integer>, PoreloFactory.Co
     }
 
     private static Card required(final @Nullable Card card) {
-        return java.util.Objects.requireNonNull(card, "init and add are always given a card");
+        return java.util.Objects.requireNonNull(
+                card, "init, add and replace are always given a card");
     }
 
     /**
      * The file as this writes it: the blocks in the documented order, persons by login, each
-     * person's keys in the documented order; the host, revoked keys and transports as they read.
+     * person's keys in the documented order; the host and transports as they read, the revoked keys
+     * as the change leaves them.
      */
     private static String write(
-            final AccessFile before, final Map<String, AccessFile.Person> persons) {
+            final AccessFile before,
+            final Map<String, AccessFile.Person> persons,
+            final List<String> revoked) {
         final Map<String, Object> root = new LinkedHashMap<>();
         final AccessFile.Host was = before.host();
         if (was != null) {
@@ -1119,8 +1501,8 @@ public class ProjectAccessCommand implements Callable<Integer>, PoreloFactory.Co
             named.put(person.login(), written);
         }
         root.put("persons", named);
-        if (!before.revoked().isEmpty()) {
-            root.put("revoked", before.revoked());
+        if (!revoked.isEmpty()) {
+            root.put("revoked", revoked);
         }
         if (!before.transports().isEmpty()) {
             root.put("transports", before.transports());
@@ -1242,6 +1624,7 @@ public class ProjectAccessCommand implements Callable<Integer>, PoreloFactory.Co
             case "add" -> "add " + person + " on " + host;
             case "remove" ->
                     "remove " + person + (host == null ? " from every host" : " from " + host);
+            case "replace" -> "replace the key of " + person;
             default -> action + " " + person;
         };
     }
@@ -1427,6 +1810,14 @@ public class ProjectAccessCommand implements Callable<Integer>, PoreloFactory.Co
     }
 
     /** A value as a message may show it: one line, whatever it held. */
+    /**
+     * A refusal as it is printed: a URL in it, or in what git said, without its user part, and
+     * printable.
+     */
+    private static String said(final String message) {
+        return printable(org.fuin.porelo.vault.Userinfo.leftOutOf(message));
+    }
+
     private static String printable(final String value) {
         return value.replaceAll("[\\p{Cc}\\p{Cf}\\p{Zl}\\p{Zp}]", "?");
     }

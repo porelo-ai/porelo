@@ -143,7 +143,7 @@ public record PersonCard(
      * @param login The person's login.
      * @param name What they are called.
      * @param email How to reach them, or "".
-     * @param own The card's key, which signs first.
+     * @param own The card's key, which signs first: a key held here or one an agent serves.
      * @param created The day it is made.
      * @param expires The day it ends.
      * @param predecessor The key it replaces, which signs second, or {@code null} for a first card.
@@ -153,10 +153,10 @@ public record PersonCard(
             final String login,
             final String name,
             final String email,
-            final SigningKey own,
+            final AgentKey own,
             final LocalDate created,
             final LocalDate expires,
-            final @Nullable SigningKey predecessor) {
+            final @Nullable AgentKey predecessor) {
         final StringBuilder body = new StringBuilder();
         body.append("login: ").append(quoted(login)).append('\n');
         body.append("name: ").append(quoted(name)).append('\n');
@@ -233,7 +233,7 @@ public record PersonCard(
      * @param key The key.
      * @return {@code ssh-ed25519 AAAA...}, with no comment.
      */
-    public static String keyLine(final SigningKey key) {
+    public static String keyLine(final AgentKey key) {
         return "ssh-ed25519 " + Base64.getEncoder().encodeToString(key.keyBlob());
     }
 

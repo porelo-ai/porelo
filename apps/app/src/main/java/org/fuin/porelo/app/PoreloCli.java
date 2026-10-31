@@ -23,6 +23,7 @@ import picocli.CommandLine.Spec;
             ShieldCommand.class,
             VaultCommand.class,
             CardCommand.class,
+            IdentityCommand.class,
             RegistryCommand.class,
             HostCommand.class,
             CredentialsCommand.class,

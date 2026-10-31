@@ -826,6 +826,26 @@ class ProjectAccessCommandTest {
     }
 
     @Test
+    void aTokenInTheAccessRepositorysAddressIsNeverPrinted() throws Exception {
+        // Git says the address it could not reach, and the refusal says it again.
+        inForceNaming("https://alice:tok3n@127.0.0.1:9/a/access.git");
+
+        assertThat(
+                        access(
+                                "init",
+                                "--person",
+                                "alice",
+                                "--host",
+                                "h1",
+                                "--card",
+                                card("alice", alice),
+                                "--id",
+                                "first"))
+                .isNotZero();
+        assertThat(err.toString()).contains("127.0.0.1:9").doesNotContain("tok3n", "alice:");
+    }
+
+    @Test
     void anUnbornHeadBesideOtherRefsIsRefused() throws Exception {
         // Probed with a clone, a tag beside the unborn HEAD was fetched whole, whatever its size,
         // and the access file begun on a branch beside commits no follow reads.
@@ -1058,6 +1078,730 @@ class ProjectAccessCommandTest {
         assertThat(head()).isEqualTo(first);
     }
 
+    @Test
+    void replaceWithARotationCardPinsTheNewKeyAndLeavesTheOldOneUnrevoked() throws Exception {
+        // Left pinned to the old key, a person who changed theirs is shut out; with the old key
+        // under revoked, the new card's predecessor revokes them at every follow.
+        final String added = withBob();
+        final SigningKey next = SigningKey.generate("bob");
+        final Path rotation = Path.of(card("bob", next, bob));
+
+        final String replaced =
+                change(
+                        "replace",
+                        "--person",
+                        "bob",
+                        "--card",
+                        rotation.toString(),
+                        "--base",
+                        added,
+                        "--id",
+                        "rot-bob");
+
+        assertThat(replaced).isEqualTo(head());
+        assertThat(verified().get("persons"))
+                .as("bob is on his new key, with his role and hosts")
+                .isEqualTo(
+                        List.of(
+                                person("alice", alice, "admin", List.of("h1"), false),
+                                person("bob", next, "developer", List.of("h1"), false)));
+        assertThat(git(remote, "show", replaced + ":cards/bob.card"))
+                .as("the repository holds the new card")
+                .isEqualTo(Files.readString(rotation).strip());
+        assertThat(git(remote, "show", replaced + ":access.yml"))
+                .as("the new key is pinned, the old one not revoked")
+                .contains("fingerprint: " + PersonCard.fingerprint(PersonCard.keyLine(next)))
+                .doesNotContain("revoked");
+        assertThat(
+                        change(
+                                "replace",
+                                "--person",
+                                "bob",
+                                "--card",
+                                rotation.toString(),
+                                "--base",
+                                added,
+                                "--id",
+                                "rot-bob"))
+                .as("asked again, the same commit")
+                .isEqualTo(replaced);
+        assertThat(head()).isEqualTo(replaced);
+    }
+
+    @Test
+    void replaceWithALostKeyCardRevokesTheOldKeyAndNeverTakesItBack() throws Exception {
+        // Not revoked, the lost key is a way back in for whoever found it.
+        final String added = withBob();
+        final SigningKey next = SigningKey.generate("bob");
+        final String old = PersonCard.fingerprint(PersonCard.keyLine(bob));
+
+        final String replaced =
+                change(
+                        "replace",
+                        "--person",
+                        "bob",
+                        "--card",
+                        card("bob", next),
+                        "--base",
+                        added,
+                        "--id",
+                        "lost-bob");
+
+        assertThat(verified().get("persons"))
+                .isEqualTo(
+                        List.of(
+                                person("alice", alice, "admin", List.of("h1"), false),
+                                person("bob", next, "developer", List.of("h1"), false)));
+        assertThat(git(remote, "show", replaced + ":access.yml"))
+                .as("the old key is revoked")
+                .contains("revoked:", "- " + old);
+        assertThat(
+                        access(
+                                "replace",
+                                "--person",
+                                "bob",
+                                "--card",
+                                card("bob", bob, "2026-11-01"),
+                                "--base",
+                                replaced,
+                                "--id",
+                                "back"))
+                .isEqualTo(65);
+        assertThat(err.toString()).contains(old, "lists under revoked");
+        assertThat(head()).as("nothing was pushed").isEqualTo(replaced);
+    }
+
+    private static String fingerprint(final SigningKey key) {
+        return PersonCard.fingerprint(PersonCard.keyLine(key));
+    }
+
+    /** The card file as a commit by somebody else puts it into the repository. */
+    private String pushedCard(final String login, final String card) throws IOException {
+        final String text = Files.readString(Path.of(card));
+        return pushed(
+                true,
+                "card",
+                tree -> Files.writeString(tree.resolve("cards/" + login + ".card"), text));
+    }
+
+    @Test
+    void aPersonRevokedAtTheBaseIsNotTakenBackInByARotation() throws Exception {
+        // Pinned, the rotation's new key would let the follow look no further back than it, past
+        // the revoked key that shut bob out.
+        final String added = withBob();
+        final SigningKey second = SigningKey.generate("bob");
+        final String rotated =
+                change(
+                        "replace",
+                        "--person",
+                        "bob",
+                        "--card",
+                        card("bob", second, bob),
+                        "--base",
+                        added,
+                        "--id",
+                        "rot-1");
+        final String revoked =
+                pushed(
+                        true,
+                        "revoke",
+                        tree ->
+                                Files.writeString(
+                                        tree.resolve("access.yml"),
+                                        "revoked:\n- " + fingerprint(bob) + "\n",
+                                        java.nio.file.StandardOpenOption.APPEND));
+        assertThat(rotated).isNotEqualTo(revoked);
+
+        assertThat(
+                        access(
+                                "replace",
+                                "--person",
+                                "bob",
+                                "--card",
+                                card("bob", SigningKey.generate("bob"), second),
+                                "--base",
+                                revoked,
+                                "--id",
+                                "rot-2"))
+                .isEqualTo(65);
+        assertThat(err.toString()).contains("bob is revoked at --base");
+        assertThat(head()).as("nothing was pushed").isEqualTo(revoked);
+    }
+
+    @Test
+    void aLostKeyReplacementRevokesTheKeyOfTheCardHeldToo() throws Exception {
+        // The card held may carry a key the access file never pinned; its finder holds it too.
+        final String added = withBob();
+        final SigningKey second = SigningKey.generate("bob");
+        final String carried = pushedCard("bob", card("bob", second, bob));
+        assertThat(carried).isNotEqualTo(added);
+
+        final String replaced =
+                change(
+                        "replace",
+                        "--person",
+                        "bob",
+                        "--card",
+                        card("bob", SigningKey.generate("bob")),
+                        "--base",
+                        carried,
+                        "--id",
+                        "lost-1");
+        assertThat(git(remote, "show", replaced + ":access.yml"))
+                .contains("- " + fingerprint(bob), "- " + fingerprint(second));
+    }
+
+    @Test
+    void aLostKeyReplacementRevokesEveryKeyThePersonWasPinned() throws Exception {
+        // Rotated from the first key, bob's card names it only as the predecessor of the second:
+        // walked forward from the pin, the first key is no key of his, and its finder keeps it.
+        final String added = withBob();
+        final SigningKey second = SigningKey.generate("bob");
+        final String rotated =
+                change(
+                        "replace",
+                        "--person",
+                        "bob",
+                        "--card",
+                        card("bob", second, bob),
+                        "--base",
+                        added,
+                        "--id",
+                        "rot-1");
+
+        assertThat(
+                        access(
+                                "replace",
+                                "--person",
+                                "alice",
+                                "--card",
+                                card("alice", bob),
+                                "--base",
+                                rotated,
+                                "--id",
+                                "claim"))
+                .as("a key bob was pinned is bob's")
+                .isEqualTo(65);
+        assertThat(err.toString()).contains(fingerprint(bob) + " is a key of bob");
+        assertThat(head()).isEqualTo(rotated);
+
+        final String replaced =
+                change(
+                        "replace",
+                        "--person",
+                        "bob",
+                        "--card",
+                        card("bob", SigningKey.generate("bob")),
+                        "--base",
+                        rotated,
+                        "--id",
+                        "lost-1");
+        assertThat(git(remote, "show", replaced + ":access.yml"))
+                .contains("- " + fingerprint(bob), "- " + fingerprint(second));
+    }
+
+    @Test
+    void anUnsignedAccessFileBeforeTheOneInForcePinsNoKeyOfAChain() throws Exception {
+        // Anybody who can push may have left such a version below the commit in force, which the
+        // follow never checked; taken as a pin, it would make alice's keys bob's.
+        final String added = withBob();
+        final SigningKey next = SigningKey.generate("alice");
+        final String original = git(remote, "show", added + ":access.yml") + "\n";
+        pushed(false, "alice under bob", tree -> pinnedForBob(tree, original, alice));
+        pushed(false, "next under bob", tree -> pinnedForBob(tree, original, next));
+        final String restored =
+                pushed(
+                        true,
+                        "restored",
+                        tree -> Files.writeString(tree.resolve("access.yml"), original));
+        accessInForce(restored);
+
+        final String rotated =
+                change(
+                        "replace",
+                        "--person",
+                        "alice",
+                        "--card",
+                        card("alice", next, alice),
+                        "--base",
+                        restored,
+                        "--id",
+                        "rot-alice");
+        final String replaced =
+                change(
+                        "replace",
+                        "--person",
+                        "bob",
+                        "--card",
+                        card("bob", SigningKey.generate("bob")),
+                        "--base",
+                        rotated,
+                        "--id",
+                        "lost-bob");
+        assertThat(git(remote, "show", replaced + ":access.yml"))
+                .contains("- " + fingerprint(bob))
+                .doesNotContain("- " + fingerprint(alice), "- " + fingerprint(next));
+    }
+
+    /** The access file with the key pinned for bob instead of his own. */
+    private void pinnedForBob(final Path tree, final String original, final SigningKey key)
+            throws IOException {
+        Files.writeString(
+                tree.resolve("access.yml"), original.replace(fingerprint(bob), fingerprint(key)));
+    }
+
+    /** Takes the access commit as the one in force here, as a follow that checked it would. */
+    private void accessInForce(final String commit) throws IOException {
+        final FollowedProjects projects =
+                new FollowedProjects(context().paths().projects().followed());
+        final FollowedProjects.Followed was = projects.require("demo");
+        projects.write(
+                new FollowedProjects.Followed(
+                        was.name(),
+                        was.url(),
+                        was.commit(),
+                        was.at(),
+                        was.outcome(),
+                        was.detail(),
+                        was.refused(),
+                        was.signer(),
+                        was.unverified(),
+                        commit,
+                        was.accessOutcome(),
+                        was.refusedFile(),
+                        was.accessRefused(),
+                        was.accessRefusedFile()));
+    }
+
+    @Test
+    void aPastCardVersionThatIsNoCardFileRefusesNoReplacement() throws Exception {
+        // A version long replaced refuses nothing now; refused, anybody who once pushed a link or
+        // a large file there would keep the person from replacing a lost key.
+        final String added = withBob();
+        final String carried =
+                pushed(
+                        true,
+                        "card back",
+                        tree -> {
+                            final Path file = tree.resolve("cards/bob.card");
+                            final String text = Files.readString(file);
+                            Files.delete(file);
+                            Files.createSymbolicLink(file, Path.of("../access.yml"));
+                            committed(tree, "a link");
+                            Files.delete(file);
+                            Files.writeString(file, "x".repeat(128 * 1024));
+                            committed(tree, "too large");
+                            Files.writeString(file, text);
+                        });
+        assertThat(carried).isNotEqualTo(added);
+
+        final String replaced =
+                change(
+                        "replace",
+                        "--person",
+                        "bob",
+                        "--card",
+                        card("bob", SigningKey.generate("bob")),
+                        "--base",
+                        carried,
+                        "--id",
+                        "lost-1");
+        assertThat(git(remote, "show", replaced + ":access.yml")).contains("- " + fingerprint(bob));
+    }
+
+    @Test
+    void tooManyCardVersionsRefuseOnlyTheReplacementOfTheirPerson() throws Exception {
+        // Read back from the latest, another person's long history still answers which keys are
+        // theirs; the person replaced is refused, as a lost key's replacement revokes their chain.
+        final String added = withBob();
+        final String many = pushed(true, "many alice", tree -> versions(tree, "alice"));
+        assertThat(many).isNotEqualTo(added);
+        final SigningKey second = SigningKey.generate("bob");
+        final String rotated =
+                change(
+                        "replace",
+                        "--person",
+                        "bob",
+                        "--card",
+                        card("bob", second, bob),
+                        "--base",
+                        many,
+                        "--id",
+                        "rot-1");
+
+        final String more = pushed(true, "many bob", tree -> versions(tree, "bob"));
+        assertThat(
+                        access(
+                                "replace",
+                                "--person",
+                                "bob",
+                                "--card",
+                                card("bob", SigningKey.generate("bob")),
+                                "--base",
+                                more,
+                                "--id",
+                                "lost-1"))
+                .isEqualTo(65);
+        assertThat(err.toString())
+                .contains("cards/bob.card has more than 64 versions", "replacement of bob");
+        assertThat(head()).isEqualTo(more);
+        assertThat(rotated).isNotEqualTo(more);
+    }
+
+    /** More versions of a person's card than are read back, the one held last restored. */
+    private void versions(final Path tree, final String login) throws IOException {
+        final Path file = tree.resolve("cards/" + login + ".card");
+        final String text = Files.readString(file);
+        for (int i = 0; i < 65; i++) {
+            Files.writeString(file, "version " + i + "\n");
+            committed(tree, "version " + i);
+        }
+        Files.writeString(file, text);
+    }
+
+    /** A commit in a clone, unsigned, of everything in its tree. */
+    private void committed(final Path tree, final String message) {
+        git(tree, "add", "--all");
+        git(
+                tree,
+                "-c",
+                "user.name=O",
+                "-c",
+                "user.email=o@example.org",
+                "commit",
+                "-q",
+                "--no-gpg-sign",
+                "-m",
+                message);
+    }
+
+    @Test
+    void aKeyOnAnotherPersonsCardIsRefused() throws Exception {
+        // Pinned for bob, alice's rotated key would let her work as either.
+        final String added = withBob();
+        final SigningKey rotated = SigningKey.generate("alice");
+        final String carried = pushedCard("alice", card("alice", rotated, alice));
+
+        assertThat(
+                        access(
+                                "replace",
+                                "--person",
+                                "bob",
+                                "--card",
+                                card("bob", rotated),
+                                "--base",
+                                carried,
+                                "--id",
+                                "steal"))
+                .isEqualTo(65);
+        assertThat(err.toString()).contains(fingerprint(rotated) + " is a key of alice");
+        assertThat(head()).as("nothing was pushed").isEqualTo(carried);
+        assertThat(added).isNotEqualTo(carried);
+    }
+
+    @Test
+    void aNewKeyInTheRevocationListIsRefused() throws Exception {
+        // The list is this machine's word that the key is lost; pinned, it would let its finder in.
+        final String added = withBob();
+        final SigningKey next = SigningKey.generate("bob");
+        final Path pub = dir.resolve("next.pub");
+        Files.writeString(pub, PersonCard.keyLine(next) + "\n");
+        final Path krl = context().paths().projects().revocations();
+        Files.createDirectories(krl.getParent());
+        final CommandResult made =
+                new ProcessCommandRunner()
+                        .run(
+                                Command.of(
+                                        "ssh-keygen",
+                                        "-q",
+                                        "-k",
+                                        "-f",
+                                        krl.toString(),
+                                        pub.toString()));
+        assertThat(made.successful()).isTrue();
+
+        assertThat(
+                        access(
+                                "replace",
+                                "--person",
+                                "bob",
+                                "--card",
+                                card("bob", next, bob),
+                                "--base",
+                                added,
+                                "--id",
+                                "r"))
+                .isEqualTo(65);
+        assertThat(err.toString()).contains(fingerprint(next), "revoked here");
+        assertThat(head()).isEqualTo(added);
+    }
+
+    /** A trust record naming these keys revoked, firm or not, with nothing else in it. */
+    private static String trustRecord(final boolean firm, final List<String> revoked) {
+        return new org.fuin.porelo.vault.RegistryState(
+                        "1".repeat(40),
+                        false,
+                        firm,
+                        List.of(),
+                        Map.of(),
+                        List.of(),
+                        List.of(),
+                        revoked,
+                        Map.of(),
+                        Map.of(),
+                        List.of(),
+                        List.of(),
+                        List.of())
+                .toJson();
+    }
+
+    @Test
+    void aNewKeyARegistryRevokesIsRefused() throws Exception {
+        // A registry this machine reads names the key lost; the project must not pin it anyway.
+        final String added = withBob();
+        final SigningKey next = SigningKey.generate("bob");
+        final String origin = "https://forge.example.org/acme/registry.git";
+        final Path record =
+                org.fuin.porelo.vault.TrustRecords.file(context().paths().xdg().state(), origin);
+        Files.createDirectories(record.getParent());
+        final Path where =
+                record.resolveSibling(
+                        record.getFileName().toString().replace(".json", ".where.json"));
+        Files.writeString(
+                where,
+                org.fuin.porelo.wire.Json.write(
+                        Map.of("origin", origin, "checkout", dir.resolve("co").toString())));
+        // As a walk that accepted nothing yet leaves it, which its own checks take.
+        Files.writeString(record, trustRecord(false, List.of(fingerprint(next))));
+
+        assertThat(
+                        access(
+                                "replace",
+                                "--person",
+                                "bob",
+                                "--card",
+                                card("bob", next),
+                                "--base",
+                                added,
+                                "--id",
+                                "r"))
+                .isEqualTo(65);
+        assertThat(err.toString()).contains(fingerprint(next), "registry");
+        Files.writeString(record, "{");
+        assertThat(
+                        access(
+                                "replace",
+                                "--person",
+                                "bob",
+                                "--card",
+                                card("bob", next),
+                                "--base",
+                                added,
+                                "--id",
+                                "r"))
+                .as("a trust record that does not read may be the one revoking it")
+                .isEqualTo(66);
+        assertThat(head()).isEqualTo(added);
+        Files.writeString(record, trustRecord(true, List.of(fingerprint(next))));
+        assertThat(
+                        access(
+                                "replace",
+                                "--person",
+                                "bob",
+                                "--card",
+                                card("bob", next),
+                                "--base",
+                                added,
+                                "--id",
+                                "r"))
+                .as("a record no walk could have left, firm with nothing accepted, is no answer")
+                .isEqualTo(66);
+        assertThat(head()).isEqualTo(added);
+        Files.delete(where);
+        Files.writeString(record, "{}");
+        assertThat(
+                        access(
+                                "replace",
+                                "--person",
+                                "bob",
+                                "--card",
+                                card("bob", next),
+                                "--base",
+                                added,
+                                "--id",
+                                "r"))
+                .as("a record without where it was read is no record of a registry read")
+                .isEqualTo(66);
+        Files.delete(record);
+        final Path registries = record.getParent();
+        final Path elsewhere = dir.resolve("elsewhere-registry");
+        Files.move(registries, elsewhere);
+        Files.createSymbolicLink(registries, elsewhere);
+        assertThat(
+                        access(
+                                "replace",
+                                "--person",
+                                "bob",
+                                "--card",
+                                card("bob", next),
+                                "--base",
+                                added,
+                                "--id",
+                                "r"))
+                .as("records read through a link are anybody's")
+                .isEqualTo(66);
+        assertThat(head()).isEqualTo(added);
+    }
+
+    @Test
+    void aCardPushedOnceThatIsNoChangeOfKeyOfThePersonsIsNoKeyOfTheirs() throws Exception {
+        // Anybody who can push may leave such a card in the history; taken for bob's chain, his
+        // lost key's replacement would revoke alice.
+        final String added = withBob();
+        final String held = git(remote, "show", added + ":cards/bob.card") + "\n";
+        final SigningKey stranger = SigningKey.generate("x");
+        pushedCard("bob", card("bob", alice, stranger));
+        final String restored =
+                pushed(
+                        true,
+                        "card",
+                        tree -> Files.writeString(tree.resolve("cards/bob.card"), held));
+
+        final String replaced =
+                change(
+                        "replace",
+                        "--person",
+                        "bob",
+                        "--card",
+                        card("bob", SigningKey.generate("bob")),
+                        "--base",
+                        restored,
+                        "--id",
+                        "lost-1");
+        assertThat(git(remote, "show", replaced + ":access.yml"))
+                .contains("- " + fingerprint(bob))
+                .doesNotContain("- " + fingerprint(alice));
+    }
+
+    @Test
+    void aCardPushedOnceThatIsNotSignedAsACardMustBeIsNoKeyOfTheirs() throws Exception {
+        // Its body names bob's pinned key as the one it replaces, but neither key signed that.
+        final String added = withBob();
+        final String held = git(remote, "show", added + ":cards/bob.card") + "\n";
+        final SigningKey next = SigningKey.generate("bob");
+        final String forged =
+                Files.readString(Path.of(card("bob", next, bob)))
+                        .replace(PersonCard.keyLine(next), PersonCard.keyLine(alice));
+        pushed(true, "card", tree -> Files.writeString(tree.resolve("cards/bob.card"), forged));
+        final String restored =
+                pushed(
+                        true,
+                        "card",
+                        tree -> Files.writeString(tree.resolve("cards/bob.card"), held));
+
+        final String replaced =
+                change(
+                        "replace",
+                        "--person",
+                        "bob",
+                        "--card",
+                        card("bob", SigningKey.generate("bob")),
+                        "--base",
+                        restored,
+                        "--id",
+                        "lost-1");
+        assertThat(git(remote, "show", replaced + ":access.yml"))
+                .doesNotContain("- " + fingerprint(alice));
+    }
+
+    @Test
+    void aCardThatIsNoReplacementOfThePinnedKeyIsRefused() throws Exception {
+        // Taken, bob would be pinned to a key that never was his, or to another person's.
+        final String added = withBob();
+        final SigningKey next = SigningKey.generate("bob");
+        final Map<String, String> refusals =
+                Map.of(
+                        card("bob", bob, "2026-11-01"),
+                        "bob is pinned to " + PersonCard.fingerprint(PersonCard.keyLine(bob)),
+                        card("bob", next, alice),
+                        "replaces " + PersonCard.fingerprint(PersonCard.keyLine(alice)),
+                        card("bob", alice),
+                        PersonCard.fingerprint(PersonCard.keyLine(alice)) + " is a key of alice");
+        int n = 0;
+        for (final Map.Entry<String, String> refusal : refusals.entrySet()) {
+            assertThat(
+                            access(
+                                    "replace",
+                                    "--person",
+                                    "bob",
+                                    "--card",
+                                    refusal.getKey(),
+                                    "--base",
+                                    added,
+                                    "--id",
+                                    "r" + n++))
+                    .as(refusal.getValue())
+                    .isEqualTo(65);
+            assertThat(err.toString()).contains(refusal.getValue());
+        }
+        assertThat(
+                        access(
+                                "replace",
+                                "--person",
+                                "carol",
+                                "--card",
+                                card("carol", next),
+                                "--base",
+                                added,
+                                "--id",
+                                "c"))
+                .isEqualTo(65);
+        assertThat(err.toString()).contains("carol is not a person of demo");
+        assertThat(head()).as("nothing was pushed").isEqualTo(added);
+    }
+
+    @Test
+    void replaceNeedsACardAndTakesNoHostOrRole() throws Exception {
+        // A replacement without the new card has nothing to pin; one with a host reads as an add.
+        final String added = withBob();
+
+        assertThat(access("replace", "--person", "bob", "--base", added, "--id", "r"))
+                .isEqualTo(64);
+        assertThat(err.toString()).contains("replace needs --card");
+        assertThat(
+                        access(
+                                "replace",
+                                "--person",
+                                "bob",
+                                "--host",
+                                "h1",
+                                "--card",
+                                card("bob", SigningKey.generate("bob")),
+                                "--base",
+                                added,
+                                "--id",
+                                "r"))
+                .isEqualTo(64);
+        assertThat(err.toString()).contains("replace takes neither --host nor --role");
+        assertThat(head()).isEqualTo(added);
+    }
+
+    /** Alice as admin, then bob as developer on h1; answers the commit that added him. */
+    private String withBob() throws IOException {
+        return change(
+                "add",
+                "--person",
+                "bob",
+                "--host",
+                "h1",
+                "--card",
+                card("bob", bob),
+                "--base",
+                init(),
+                "--id",
+                "add-bob");
+    }
+
     private static List<Path> scratches() throws IOException {
         try (var entries = Files.list(Path.of(System.getProperty("java.io.tmpdir")))) {
             return entries.filter(
@@ -1262,6 +2006,21 @@ class ProjectAccessCommandTest {
     /** A card of the key, issued on the day given and valid for a year. */
     private String card(final String login, final SigningKey key, final String issued)
             throws IOException {
+        return card(login, key, issued, null);
+    }
+
+    /** A card changing the person's key from the predecessor to the key, signed by both. */
+    private String card(final String login, final SigningKey key, final SigningKey predecessor)
+            throws IOException {
+        return card(login, key, "2026-10-30", predecessor);
+    }
+
+    private String card(
+            final String login,
+            final SigningKey key,
+            final String issued,
+            final @Nullable SigningKey predecessor)
+            throws IOException {
         final Path file = dir.resolve(login + "-" + System.nanoTime() + ".card");
         Files.writeString(
                 file,
@@ -1272,7 +2031,7 @@ class ProjectAccessCommandTest {
                         key,
                         LocalDate.parse(issued),
                         LocalDate.parse(issued).plusYears(1),
-                        null));
+                        predecessor));
         return file.toString();
     }
 
