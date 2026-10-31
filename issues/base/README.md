@@ -140,6 +140,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b374"></a>[B374](B374-A-Registry-Commit-Split-As-Git-Splits-It.md) | S | [B366](README.md#b366) | A registry commit's signature is checked over the bytes git checks: every header starting with `gpgsig` left out |
 | <a id="b373"></a>[B373](B373-A-Token-Lent-To-A-Forge-On-Its-Own-Port.md) | S | [B368](README.md#b368) | A vault token is lent to an `https://` repository on a port of its own: the helper's key names the port |
 | <a id="b372"></a>[B372](B372-A-Test-Leaves-No-Watcher-Running.md) | S | - | A run of the suite leaves no `shield watch` of its own running: no test starts a real watcher it does not stop |
 | <a id="b371"></a>[B371](B371-A-History-Judged-Under-The-Rules-Of-Its-Time.md) | M | [B363](README.md#b363) | A history mode of `porelo commit verify`: each commit judged by the keys and certificates in force at its own time, for a migrated history before the hook is armed |
