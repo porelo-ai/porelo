@@ -79,6 +79,19 @@ public final class RegistryVerifier {
             for (var admin : access.admins().entrySet()) {
                 persons.add(person(repository, head, admin.getKey(), admin.getValue()));
             }
+            // Every other filed card that verifies, anchored at its own first key: a project's
+            // developer has no pin here, and the host's sync matches each person's key against the
+            // one their project's access file pins, refusing the person where they differ. One that
+            // does not verify is left out, never answered revoked: the host keeps a revoked login
+            // revoked for good, and a card filed wrongly once must not lock its person out.
+            for (String login : filed(repository, head)) {
+                if (!access.admins().containsKey(login)) {
+                    final Map<String, Object> filed = person(repository, head, login, null);
+                    if (Boolean.FALSE.equals(filed.get("revoked"))) {
+                        persons.add(filed);
+                    }
+                }
+            }
             answer.put("persons", List.copyOf(persons));
             return answer;
         }
@@ -212,8 +225,27 @@ public final class RegistryVerifier {
         return RegistryState.Card.of(card, signer).answer(card.host());
     }
 
+    /** The most cards read beside the admins', so a registry cannot make the answer unbounded. */
+    private static final int MAX_FILED = 1024;
+
+    /** The logins with a card under {@code people/} at the head, in name order. */
+    private static List<String> filed(RegistryRepository repository, String head) {
+        final List<String> logins = new ArrayList<>();
+        for (String name :
+                repository.require("ls-tree", "--name-only", head, "people/").lines().toList()) {
+            final String file = name.substring(name.lastIndexOf('/') + 1);
+            if (file.matches("[a-z][a-z0-9-]{0,31}\\.card") && logins.size() < MAX_FILED) {
+                logins.add(file.substring(0, file.length() - ".card".length()));
+            }
+        }
+        return logins;
+    }
+
     private static Map<String, Object> person(
-            RegistryRepository repository, String head, String login, String pinned) {
+            RegistryRepository repository,
+            String head,
+            String login,
+            @org.jspecify.annotations.Nullable String pinned) {
         final Map<String, Object> answer = new LinkedHashMap<>();
         answer.put("login", login);
         answer.put("ssh", "");
@@ -256,7 +288,14 @@ public final class RegistryVerifier {
                     // An unusable older card grants no link in the chain.
                 }
             }
-            PersonCardChain.check(card, earlier, pinned);
+            // Unpinned, the card's chain leads back to the first key filed for the login.
+            final String anchor =
+                    pinned != null
+                            ? pinned
+                            : earlier.isEmpty()
+                                    ? card.fingerprint()
+                                    : earlier.getLast().fingerprint();
+            PersonCardChain.check(card, earlier, anchor);
             answer.put("ssh", card.key());
             answer.put("expires", card.expires().toString());
             answer.put("revoked", false);

@@ -662,6 +662,56 @@ class RegistryVerifyCommandTest {
     }
 
     @Test
+    void answers_a_developers_card_no_host_access_file_pins() throws Exception {
+        final SigningKey developer = key(keygen("bob"));
+        write(
+                "people/bob.card",
+                PersonCard.write(
+                        "bob",
+                        "Bob",
+                        "",
+                        developer,
+                        LocalDate.of(2026, 1, 1),
+                        LocalDate.of(2030, 1, 1),
+                        null));
+        write(
+                "people/carol.card",
+                PersonCard.write(
+                                "carol",
+                                "Carol",
+                                "",
+                                key(keygen("carol")),
+                                LocalDate.of(2026, 1, 1),
+                                LocalDate.of(2030, 1, 1),
+                                null)
+                        .replace("Carol", "Forged"));
+        write("people/mallory.card", card(person, null).replace("Alice", "Forged"));
+        commit(adminFile);
+
+        assertThat(verify(bundle("--all"))).as(err.toString()).isZero();
+
+        // The host's sync admits a project's developer only by a person the registry names, and
+        // matches their key against the one the project's access file pins.
+        final List<?> persons = (List<?>) answer().get("persons");
+        assertThat(persons.stream().map(entry -> ((Map<?, ?>) entry).get("login")).toList())
+                .as(
+                        "the admin, then every other filed card that verifies; one that does not is"
+                                + " left out, since the host keeps a login answered revoked revoked for good")
+                .isEqualTo(List.of("alice", "bob"));
+        assertThat(persons.get(1))
+                .isEqualTo(
+                        Map.of(
+                                "login",
+                                "bob",
+                                "ssh",
+                                PersonCard.keyLine(developer),
+                                "expires",
+                                "2030-01-01",
+                                "revoked",
+                                false));
+    }
+
+    @Test
     void accepts_a_bundle_of_main() {
         assertThat(verify(bundle("main"))).as(err.toString()).isZero();
     }

@@ -34,4 +34,9 @@ lent says which key it was.
   mutant). A project with an access file names its conversation with a peer at `matrix:` in `project.yml`
   (documented); left: whether such a project should take its conversation from the applied access file's
   `transports` instead, which every reader of `Mail.conversations()` would have to learn.
+- `registry verify` answers every other card under `people/` whose history leads back to the first key filed for
+  its login, after the admins; one that does not verify is left out, since the host keeps a login answered revoked
+  revoked for good (`RegistryVerifyCommandTest`, red first; the chain check for an unpinned card seen red under a
+  mutant). The host refused ms-test-reviewer as "not named in the host's applied registry", which named its admin
+  alone.
 - Built during the stopped walk with unit tests only; the reading follows after the walk.
