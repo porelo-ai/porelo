@@ -693,7 +693,9 @@ porelo project default [list | add ADDRESS [--name=NAME] | remove NAME]
   it is refused as a rewrite. The name checked is `--project`, or the one the commit at `--since` gives, or else
   the tip's; a file under another name is refused. A project naming an access repository needs
   `--access-repository`; its URL is never fetched, and an access option the project file has no use for is
-  refused rather than passed unchecked. `--json` answers a program, as
+  refused rather than passed unchecked. An access repository that holds no commit yet, given without `--access-since`, is
+  answered with exit 0, an empty `access_commit` and nobody in `persons`, `admins` and `certifiers`: no access file
+  is in force, and `project access init` writes the first. With `--access-since` it is refused as a rewrite. `--json` answers a program, as
   [A host a playbook brings up](hosts.md#a-project-verified-without-following-it) says; 65 names why a check
   failed, 66 a path that is not there. It answers `persons` in access-file order with `login`, `ssh`,
   `role`, `hosts`, `expires`, `revoked` and `locked`, checking `cards/<login>.card` and its history

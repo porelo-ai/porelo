@@ -367,6 +367,65 @@ class ProjectVerifyCommandTest {
     }
 
     @Test
+    void anAccessRepositoryWithNoCommitYetIsAnsweredAsNoAccessFileInForce() throws Exception {
+        // Refused, a program registering a new project could not tell it from a failed check and
+        // would never file the first access commit.
+        final Path key = key("operator");
+        final Path access = dir.resolve("access.git");
+        git(dir, "init", "-q", "--bare", "-b", "main", access.toString());
+        final Path project = project(ACCESS_URL, key);
+
+        final int code =
+                verify(
+                        "--repository",
+                        project.toString(),
+                        "--signed-by",
+                        publicKey(key),
+                        "--access-repository",
+                        access.toString(),
+                        "--json");
+
+        assertThat(code).as("an empty access repository is no failed check: " + err).isZero();
+        @SuppressWarnings("unchecked")
+        final Map<String, Object> answer =
+                (Map<String, Object>) org.fuin.porelo.wire.Json.parse(out.toString().strip());
+        assertThat(answer)
+                .as("nothing is in force, so nobody is admitted")
+                .containsEntry("commit", git(project, "rev-parse", "HEAD"))
+                .containsEntry("access_commit", "")
+                .containsEntry("persons", List.of())
+                .containsEntry("admins", List.of())
+                .containsEntry("certifiers", List.of())
+                .containsEntry("host", null);
+    }
+
+    @Test
+    void anAccessRepositoryEmptiedSinceTheCommitInForceIsRefused() throws Exception {
+        // An emptied repository must not answer the persons in force as none.
+        final Path key = key("operator");
+        final Path access = access(key);
+        final String inForce = git(access, "rev-parse", "HEAD");
+        final Path project = project(ACCESS_URL, key);
+        final Path empty = dir.resolve("emptied.git");
+        git(dir, "init", "-q", "--bare", "-b", "main", empty.toString());
+
+        final int code =
+                verify(
+                        "--repository",
+                        project.toString(),
+                        "--signed-by",
+                        publicKey(key),
+                        "--access-repository",
+                        empty.toString(),
+                        "--access-since",
+                        inForce,
+                        "--json");
+
+        assertThat(code).as("an emptied access repository is refused: " + err).isEqualTo(65);
+        assertThat(out.toString()).as("no answer a program would read").isEmpty();
+    }
+
+    @Test
     void anAccessCommitThatDoesNotDescendFromTheOneInForceIsRefused() throws Exception {
         final Path key = key("operator");
         final Path access = access(key);

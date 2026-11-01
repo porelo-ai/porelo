@@ -222,7 +222,9 @@ public class ProjectVerifyCommand implements Callable<Integer>, PoreloFactory.Co
         }
         final @Nullable AccessFile access;
         try {
-            if (project.access() != null && checked.accessFile() == null) {
+            if (project.access() != null
+                    && checked.accessFile() == null
+                    && !noAccessCommitYet(result)) {
                 return refuse(
                         err,
                         65,
@@ -303,6 +305,16 @@ public class ProjectVerifyCommand implements Callable<Integer>, PoreloFactory.Co
         }
         out.flush();
         return 0;
+    }
+
+    /**
+     * Whether the access repository holds no commit and none was given as in force: answered with
+     * an empty {@code access_commit} and nobody admitted, so a program can file the first one.
+     */
+    private boolean noAccessCommitYet(final Reconcile.Result result) {
+        return accessSince.isEmpty()
+                && result.accessCommit().isEmpty()
+                && Reconcile.Outcome.UNCHANGED.name().equals(result.accessOutcome());
     }
 
     /**
