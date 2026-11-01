@@ -29,4 +29,21 @@ class SocketPeerTest {
             }
         }
     }
+
+    @Test
+    void theCallerOfASocketReadsTheServerAsThisAccountFromAnyWorkingDirectory(@TempDir Path dir)
+            throws Exception {
+        final Path socket = dir.resolve("peer.sock");
+        try (ServerSocketChannel listener = ServerSocketChannel.open(StandardProtocolFamily.UNIX)) {
+            listener.bind(UnixDomainSocketAddress.of(socket));
+            try (SocketChannel caller = SocketChannel.open(UnixDomainSocketAddress.of(socket));
+                    SocketChannel accepted = listener.accept()) {
+                // The calling end has no path of its own: the server is judged, not "." (the
+                // working directory, which is root's on a host's helper and refused the server).
+                final var server = SocketPeer.read(caller);
+                assertThat(server.sameUser()).as("the server runs as this account").isTrue();
+                assertThat(server.uid()).isEqualTo(SocketPeer.ownUid());
+            }
+        }
+    }
 }
