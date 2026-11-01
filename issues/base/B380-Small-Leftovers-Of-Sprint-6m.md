@@ -34,3 +34,6 @@ or lends a credential, trusts a key wrongly or loses data. Each one placed is sp
   asserts that the output holds no `4711`, and failed once because a commit hash in the output held it
   (`0540bdcce7471155...`); the assertion needs a token no hash can spell. Found while building
   [B387](README.md#b387).
+- Medium: `project clear` leaves the project's Matrix conversation behind when the access file was never applied,
+  and exits non-zero though the follow is gone; clear removes the conversation too, or names the command that does.
+  Found in the sprint 6m test.
