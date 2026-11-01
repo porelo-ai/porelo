@@ -61,7 +61,7 @@ model answered and the five counts; its `UsageSums` (`core`) sums them.
 5. **Shown** by `task status` for one task (by agent, by model, subtotal, the price date) and by `porelo usage
    [--since <date>] [--until <date>] [--json]` over every task's record, removed ones included, as the receipt
    above; the daemon gains `Cost(task: ?string, since: ?string, until: ?string) -> (cost: Cost)` in `15-task.varlink`
-   - an addition. The interface is Frontend's, later.
+   - an addition. The interface is porelo-frontend's, later.
 6. **Docs:** a section in `doc/reach.md` on what the sums mean and that list prices go stale with their date shown;
    `doc/commands.md` for `usage` and `subscription`; `doc/credentials.md` for the price files.
 
@@ -86,9 +86,9 @@ file is owner-only and the saving per month is as computed by hand.
 - Whether GitHub publishes per-token rates of its own per model for Copilot: it is said to bill in tokens converted
   to "GitHub AI Credits" (1 credit = $0.01) since 2026-06-01, by third-party sources only. Confirmed in GitHub's own
   documentation, those rates go into `prices/github-copilot.yaml` like any provider's; otherwise it carries
-  `priced_as` per model (Agent Core's).
+  `priced_as` per model.
 - The list prices of the providers shipped and of [P05](../providers/README.md#p05) to
   [P08](../providers/README.md#p08), read on one date from their price pages, and whether any has a price that
   depends on more than the model and the token kind (a long-context tier, a batch discount) that the table must
-  carry (Agent Core's).
+  carry.
 - Whether a cache read priced as input where a provider names no cache price overstates the sum enough to say so.

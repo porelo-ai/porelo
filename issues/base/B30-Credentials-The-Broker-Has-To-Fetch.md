@@ -56,8 +56,8 @@ the bought token; `CredentialScan` already keeps a token field in a response fro
 
 ## To be checked
 
-- **What a task that loses its bought token mid-run sees** (Agent Core's). A purchase failing at start is refused
+- **What a task that loses its bought token mid-run sees**. A purchase failing at start is refused
   before a container exists; one failing during the run cannot be. [B31](README.md#b31)'s grants raise "authorization needed" for the
   same case; a bought token has nobody to ask.
 - **Whether a stored credential that carries an end and nothing to renew it with should be named before a task needs
-  it** (Agent Core's): a `vault check` for the kinds that carry the date.
+  it**: a `vault check` for the kinds that carry the date.

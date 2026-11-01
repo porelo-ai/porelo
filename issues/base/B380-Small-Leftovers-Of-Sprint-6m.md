@@ -1,9 +1,9 @@
 # B380 — Small Leftovers Of Sprint 6m
 
 **Status:** Idea.
-**Size:** -, for michi to place - one gathering issue for the small edge cases sprint 6m's readings and fixes left,
-as michi decided on 2026-10-31: none of them reaches another person's key, card, socket, mailbox or container, shows
-or lends a credential, trusts a key wrongly or loses data. Each one placed is split out with its own size.
+**Size:** -, not yet placed - one gathering issue for the small edge cases sprint 6m's readings and fixes left, since
+none of them reaches another person's key, card, socket, mailbox or container, shows or lends a credential, trusts a
+key wrongly or loses data. Each one placed is split out with its own size.
 
 **What must be true.** Each point below holds, or is decided not to be worth it.
 
@@ -16,7 +16,7 @@ or lends a credential, trusts a key wrongly or loses data. Each one placed is sp
   and `task remove` needs `--force` (read in `UnhandedWork.CENSUS`, not measured). Found while fixing
   [B378](README.md#b378).
 - Medium for the tests only: `TransportConversationsTest` and `MachineTransportsTest` still expect the machine's
-  own login to be one a transport takes, so they fail under a login such as `Michi` or `runner_1`. Found while
+  own login to be one a transport takes, so they fail under a login such as `Alex` or `runner_1`. Found while
   fixing [B379](README.md#b379).
 - Low: a person recorded as joined under a name outside the rule, by a join before that check, can no longer be
   removed through `talk remove`; the transport never made such an account. Found while fixing

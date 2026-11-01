@@ -1,6 +1,6 @@
 # [B293](README.md#b293) — Source Levels And Risk Classes Enforced
 
-**Status:** Idea. Part 2 of the operator's split on 2026-10-29: the levels and classes themselves are derived and
+**Status:** Idea. Part 2 of a split: the levels and classes themselves are derived and
 shown by [B323](README.md#b323).
 
 **What must be true.** The more restrictive permissions of source level, consumed inputs, risk class and policy decide

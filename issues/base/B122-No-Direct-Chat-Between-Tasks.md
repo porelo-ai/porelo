@@ -65,4 +65,4 @@ stand-in transport with `--to` that account.
 ## To be checked
 
 - Whether a project file naming a person's account who has not joined the conversation yet is refused at the
-  start, or its peer only held until they join (Agent Core's).
+  start, or its peer only held until they join.

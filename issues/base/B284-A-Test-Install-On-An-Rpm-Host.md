@@ -1,6 +1,6 @@
 # B284 — A Test Install On An Rpm Host
 
-**Status:** Idea, filed on the operator's word.
+**Status:** Idea.
 
 **What must be true.** The legs module's `deploy` installs a build on a Fedora machine as it does on an Ubuntu one,
 `--account` included, so a change is tested there against the binary it built.

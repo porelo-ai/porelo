@@ -1,6 +1,6 @@
 # B363 — A Push Judged By Porelo When It Arrives
 
-**Status:** Review. Accepted (operator, 2026-10-31).
+**Status:** Review. Accepted.
 **Size:** M, proposed - one verb over the pre-receive input, the signers in force, the certifiers and the recorded
 task certificates, with tests over a quarantined push.
 
@@ -14,9 +14,8 @@ refused. It reads the pushed objects through the hook's quarantine, runs without
 but the scratch files ssh-keygen reads, removed before it answers, judges every commit so all refusals are named at
 once, and answers each verdict for the host to record.
 
-The operator took this into sprint 6m on 2026-10-31 at the coordinator's relay, for the host's issue that judges each
-push when it arrives. The contract handed to Agent Machines is
-`~/.porelo/handover/porelo/sprint-6m-host-task-contracts.md`, part C.
+It is part of sprint 6m, for the host's issue that judges each push when it arrives. The contract for the
+host is `~/.porelo/handover/porelo/sprint-6m-host-task-contracts.md`, part C.
 
 ## Acceptance
 

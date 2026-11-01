@@ -10,9 +10,9 @@ each reads it at its next wake. A reply to a task's own message still counts as 
 
 ## Why
 
-The operator decided, on 2026-10-24: "a person's room line wakes only the tasks it mentions, plus all of them on
-`@room`. An unaddressed line is delivered, not woken, and read at the next wake; a reply to a task's own message stays
-a mention." This turns walk 10's choice around.
+A person's room line wakes only the tasks it mentions, plus all of them on `@room`. An unaddressed line is delivered,
+not woken, and read at the next wake; a reply to a task's own message stays a mention. This turns walk 10's choice
+around.
 
 Read on 2026-10-24: today `AgentWake.namesIt` wakes every task at rest for a person's room line whose `to` is empty,
 written after walk 10, where a person asked "Wer ist da?" and no task answered. `doc/messages.md` promises it. So

@@ -1,6 +1,6 @@
 # B352 — A Person's Access Written By Porelo
 
-**Status:** Review. Backlog (operator, 2026-10-31), sprint 6m.
+**Status:** Review. Backlog, sprint 6m.
 **Size:** L, proposed - grew from M (one verb writing the access file and its cards, signed through the agent,
 idempotent by id) with the follow's own check of the remote before and after the write, a chosen git environment, the
 signer rules of the follow, the branch read from the server and a card read without following links.
@@ -21,8 +21,8 @@ answers `{"revision"}`, the commit it made:
 - `--id` makes it idempotent: the same id with the same change answers the same revision without a second commit; the
   same id with another change is refused.
 
-Part of the design the operator accepted in `porelo-project` on 2026-10-30, *A Person Joins With One Click*: one Ed25519
-SSH key per person, the state signed in Git, everything between a person and a host over SSH. The commit is signed
+Part of the design accepted in `porelo-project`, *A Person Joins With One Click*: one Ed25519 SSH key per
+person, the state signed in Git, everything between a person and a host over SSH. The commit is signed
 through the person's agent by Git itself (`gpg.format=ssh`, the key's public half as `user.signingkey`).
 
 ## Acceptance
@@ -68,4 +68,4 @@ through the person's agent by Git itself (`gpg.format=ssh`, the key's public hal
 - Tests: `ProjectAccessCommandTest` (32), against real git, a real ssh-agent and a bare access repository by
   `file://`, one HTTP fixture answering 302; while the verb runs, a process of it that inherits its environment gets
   the caller's `GIT_*` and `HOME`, as outside a test. Each test seen red by a mutation of what it guards. Full suite
-  4436 green. Three rounds of narrow readings by agy Gemini.
+  4436 green. Three rounds of narrow readings.

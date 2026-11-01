@@ -1,6 +1,6 @@
 # B344 — Messages Signed By A Task's Key
 
-**Status:** Review. Accepted (operator, 2026-10-31).
+**Status:** Review. Accepted.
 **Size:** L - grown from M (estimated 90 minutes): beyond the message checks, the machine key's removal reached
 `project enroll`, `talk key`, the `machine-signers` file and its protection, the transport verbs' `--login`, the
 setup script and the acceptance features; about 70 files, +1630 / -1650 lines.
@@ -11,8 +11,8 @@ message when a project certifier issued it and it is valid when the message arri
 the key. The machine's own message key, `project enroll` and `machine-signers` go. A transport is given the person's
 `login` in place of a machine name, `members` takes `--persons` ([B334](README.md#b334)) alone, and `--machines` goes.
 
-Part of the design the operator accepted in `porelo-project` on 2026-10-30, *A Person Joins With One Click*: one Ed25519
-SSH key per person, the state signed in Git, everything between a person and a host over SSH.
+Part of the design accepted in `porelo-project`, *A Person Joins With One Click*: one Ed25519 SSH key per
+person, the state signed in Git, everything between a person and a host over SSH.
 
 ## Done
 

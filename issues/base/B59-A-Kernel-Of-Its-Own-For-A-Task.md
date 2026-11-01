@@ -111,9 +111,9 @@ answering OpenSSF tip 2, OWASP AI Agent Cheat Sheet §9.
 
 ## To be checked
 
-- **Nested virtualisation** on the libvirt test machines and on rented ones (Agent Core's, measured). Without it,
+- **Nested virtualisation** on the libvirt test machines and on rented ones (measured). Without it,
   this cannot be tested where everything else is tested, and that alone may end the experiment.
-- **Whether the guest is the better home for the ruleset anyway** (Agent Core's). A ruleset the workload cannot
+- **Whether the guest is the better home for the ruleset anyway**. A ruleset the workload cannot
   reach around, loaded by something the workload cannot stop, is the property that matters; which kernel holds it
   is not.
 - **This is the rehearsal for Porelo on Apple Containers**. A container on

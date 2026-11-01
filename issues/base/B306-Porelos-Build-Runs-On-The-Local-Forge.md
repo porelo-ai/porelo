@@ -10,7 +10,7 @@ with no edit between them, with the values of porelo-host's
 
 - **The legs, off on the host's forge for now:** `build.yml`'s `legs` job (*Leg - fedora*, *Leg - ubuntu*, each with
   *Delete what this run created*) rents a machine per OS from the provider. It runs only where `github.server_url` is
-  GitHub's, decided by the operator on 2026-10-29: a machine asked for by kind from the host's pool does not exist
+  GitHub's: a machine asked for by kind from the host's pool does not exist
   yet. [B322](README.md#b322) switches it on again on the host's forge.
 - **Publish without the legs:** `deploy` runs today only after the legs passed, or after a proof and the binaries built
   on the runner (`native`). On the host's forge it must run after the Build alone, so the snapshots reach the forge's

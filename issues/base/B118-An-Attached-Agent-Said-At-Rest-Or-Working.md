@@ -66,4 +66,4 @@ today.
 
 ## To be checked
 
-- How `porelo-frontend` draws `AT_REST` beside `IDLE` and `UNKNOWN` (Agent Frontend's).
+- How `porelo-frontend` draws `AT_REST` beside `IDLE` and `UNKNOWN`.

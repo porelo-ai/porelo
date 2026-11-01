@@ -52,4 +52,4 @@ finding today - then with the finding, its path and line, and no byte of the key
 ## To be checked
 
 - Which detector: Porelo's own list of credential forms, as planned, or a library that keeps one, a dependency to
-  add (Agent Core's).
+  add.

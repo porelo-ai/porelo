@@ -283,13 +283,13 @@ transport rather than podman's store.
 
 ## To be checked
 
-- **The artifact verbs** (Agent Core's, with the transport repository's agent): their arguments, what `describe`
+- **The artifact verbs** (with the transport's repository): their arguments, what `describe`
   says about them, and their exit codes - settled by writing one transport that crosses machines against them.
 - **What a message transport can carry** (the transport repository's agent), measured per transport rather than
   assumed: the largest artifact its system accepts, what keeps the bytes and for how long, and who can read them
   there. Each transport answers this for itself in `describe` and in its own documentation.
-- **How the helper learns the commit** (Agent Core's). Provenance needs the revision the workspace was at, and
+- **How the helper learns the commit**. Provenance needs the revision the workspace was at, and
   nothing may run git inside the container or read `/workspace` from the host. The gate's mirror gives the last
   pushed commit, which may be older.
-- **What happens when an artifact of the same name arrives twice** (Agent Core's). `HandIns` replaces a file of the
+- **What happens when an artifact of the same name arrives twice**. `HandIns` replaces a file of the
   same name today; for an artifact that is a file changing under a running agent.

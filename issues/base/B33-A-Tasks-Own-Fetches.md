@@ -80,6 +80,6 @@ Steps:
 
 ## To be checked
 
-- **Whether the acceptance suite should depend on github.com** (Agent Core's). The scenario is one a person would
+- **Whether the acceptance suite should depend on github.com**. The scenario is one a person would
   do, but it makes the suite's result depend on a forge's behaviour; a scenario run only on request is the other
   way.

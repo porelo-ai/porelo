@@ -121,8 +121,8 @@ Steps, in order:
 
 ## To be checked
 
-- **What `podman build` writes into the build directory** (Agent Core's): measured after a build, and whether it
+- **What `podman build` writes into the build directory**: measured after a build, and whether it
   needs a pass afterwards or a directory outside the data directory.
-- **Whether anything under the data directory is bind-mounted into a task** (Agent Core's). A container's account
+- **Whether anything under the data directory is bind-mounted into a task**. A container's account
   maps to a subordinate uid, so an owner-only file there would be unreadable to it; a search of the mounts answers
   it before step 3.

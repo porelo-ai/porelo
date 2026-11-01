@@ -68,6 +68,6 @@ limit; with a stand-in session that reports a person attached, the task is not s
 ## To be checked
 
 - Whether every image Porelo builds carries what the wrapper needs (`timeout` or a shell loop), or Porelo brings its
-  own into the container (Agent Core's).
+  own into the container.
 - How the wrapper tells that a person is attached: the session multiplexer's list of clients, and whether it notices a
-  dropped ssh connection as a detach (Agent Core's).
+  dropped ssh connection as a detach.

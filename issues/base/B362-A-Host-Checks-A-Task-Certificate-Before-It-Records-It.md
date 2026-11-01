@@ -1,6 +1,6 @@
 # B362 — A Host Checks A Task Certificate Before It Records It
 
-**Status:** Review. Accepted (operator, 2026-10-31).
+**Status:** Review. Accepted.
 **Size:** S, proposed - one verb over the certificate checks [B343](README.md#b343) already makes, with its tests.
 
 **What must be true.** The host's helper for its persons, run as root at a task's start, has Porelo judge the task's
@@ -12,9 +12,8 @@ for at most seven days. It runs without a home, a vault or the network, writes n
 project, the task key's fingerprint, the signer and the validity. Porelo's caller of the helper, built in
 [B343](README.md#b343), is written down as the host's contract and drops one trailing newline of the token it takes.
 
-The operator took this into sprint 6m on 2026-10-31 at the coordinator's relay, for the host's issue that records a
-task and gives it its forge token. The contract handed to Agent Machines is
-`~/.porelo/handover/porelo/sprint-6m-host-task-contracts.md`, parts A and B.
+It is part of sprint 6m, for the host's issue that records a task and gives it its forge token. The contract for the
+host is `~/.porelo/handover/porelo/sprint-6m-host-task-contracts.md`, parts A and B.
 
 ## Done
 

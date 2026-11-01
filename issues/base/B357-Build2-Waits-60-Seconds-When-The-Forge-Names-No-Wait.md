@@ -5,8 +5,7 @@
 
 **What must be true.** When a forge limits how often it is asked and names no wait, `Build2.RateLimited` answers
 `retryAfter: 60`, not 0, as `Review1` does. A caller that retries at once on 0 asks a limited forge again at once, and
-is limited again. Michi's decision of 2026-10-31 (operator): `Review1` answers 60 seconds, as the forge suite rule
-does, and `Build2` follows.
+is limited again. `Review1` answers 60 seconds, as the forge suite rule does, and `Build2` follows.
 
 ## Acceptance
 

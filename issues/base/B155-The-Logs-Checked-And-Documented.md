@@ -59,4 +59,4 @@ Steps:
 ## To be checked
 
 - When the cut is made with nothing running in the background: at the task's next listing, start or read, or in a
-  pass the daemon already makes (Agent Core's).
+  pass the daemon already makes.

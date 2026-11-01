@@ -61,7 +61,7 @@ organisation file. It is to be folded in at analysis.
 
 ## To be checked
 
-At analysis (Agent Core's):
+At analysis:
 
 - **Which commit a file follows:** its newest signed commit or a pinned one. The proposal is the newest, as following
   does.

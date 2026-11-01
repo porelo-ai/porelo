@@ -10,7 +10,7 @@ comes from the bundle given and is checked exactly as a fetched one is: signed b
 descending from the access commit in force. The URL is never fetched. A follow from a file is read once, so a newer
 access bundle is applied the same way, by following again.
 
-Asked by Agent Machines for porelo-host's bring (2026-10-29): a host gets the access repository only as a bundle, the
+Needed for porelo-host's bring: a host gets the access repository only as a bundle, the
 bring follows with both bundles, and the follow of a private access file fetches the URL with the person's git credential. `project verify`
 and `project inventory` check an access bundle, but neither makes a follow take one.
 `Reconcile` already has an `accessFrom` that is used in place of the URL.

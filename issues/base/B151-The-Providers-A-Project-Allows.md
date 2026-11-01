@@ -39,4 +39,4 @@ such as "the provider asked for is not declared here"; `TaskLaunch` and the daem
 
 ## To be checked
 
-- a root-owned machine policy may also name the providers its tasks use: whether the two are one check at two levels; a start is refused when either refuses (Agent Core's).
+- a root-owned machine policy may also name the providers its tasks use: whether the two are one check at two levels; a start is refused when either refuses.

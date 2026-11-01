@@ -59,5 +59,5 @@ Steps:
 ## To be checked
 
 - Whether a provider's credential serving a project is best read from the project's allowed providers
-  ([B151](README.md#b151)) or from the tasks that used it, or both (Agent Core's).
-- Whether the models of tasks already removed count, which needs [B154](README.md#b154)'s log to carry the model (Agent Core's).
+  ([B151](README.md#b151)) or from the tasks that used it, or both.
+- Whether the models of tasks already removed count, which needs [B154](README.md#b154)'s log to carry the model.

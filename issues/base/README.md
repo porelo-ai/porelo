@@ -159,7 +159,7 @@ from its side, as *blocked by*.
 | <a id="b384"></a>[B384](B384-A-Start-That-Waits-For-Its-Helpers.md) | S | [B378](README.md#b378) | A start and a resume wait for their helpers and fail with 70 when one does not come up, a host's refusals come before the resume record, and a racing start stops only its own task |
 | <a id="b383"></a>[B383](B383-A-Build-That-Fits-Its-Old-Time.md) | S | - | The Build's verify takes about as long as before sprint 6m, not three times as long |
 | <a id="b382"></a>[B382](B382-A-Key-Added-While-KeePassXC-Runs-Is-Served.md) | S | [B356](README.md#b356) | A key added while KeePassXC runs is served once the database is unlocked in KeePassXC's window, with no second run |
-| <a id="b380"></a>[B380](B380-Small-Leftovers-Of-Sprint-6m.md) | - | - | The small edge cases sprint 6m left, gathered for michi to place |
+| <a id="b380"></a>[B380](B380-Small-Leftovers-Of-Sprint-6m.md) | - | - | The small edge cases sprint 6m left, gathered to be placed |
 | <a id="b374"></a>[B374](B374-A-Registry-Commit-Split-As-Git-Splits-It.md) | S | [B366](README.md#b366) | A registry commit's signature is checked over the bytes git checks: every header starting with `gpgsig` left out |
 | <a id="b373"></a>[B373](B373-A-Token-Lent-To-A-Forge-On-Its-Own-Port.md) | S | [B368](README.md#b368) | A vault token is lent to an `https://` repository on a port of its own: the helper's key names the port |
 | <a id="b365"></a>[B365](B365-The-Providers-Usage-Answered-In-One-Form.md) | M | - | `porelo usage` answers each provider's allowance left in one form, per machine, account and window, with a threshold that marks a window critical |
@@ -362,7 +362,7 @@ from its side, as *blocked by*.
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
 | <a id="b381"></a>B381 | S | - | A racing start stopping only its own task is not built on its own: it is part of [B384](#b384). |
-| <a id="b217"></a>B217 | S | - | A machine file's task naming its agent is not kept: the operator decided on 2026-10-23 that a host installs every agent and starts no task, so the file names neither; replaced by [B258](#b258). |
+| <a id="b217"></a>B217 | S | - | A machine file's task naming its agent is not kept: a host installs every agent and starts no task, so the file names neither; replaced by [B258](#b258). |
 | <a id="b194"></a>B194 | L | - | A host file handed into a task at every start is not built: nothing an agent needs is private, since machines, accounts and tools are named by `project.yml`, the `porelo.yml` files and the host's scripts and secrets stay in the vault; what an agent learns goes into its repository's `AGENTS.md` as a reviewed commit. |
 | <a id="b170"></a>B170 | M | - | A devcontainer file as image source is not built: it gives only `image` or `build`, with the tools behind `features` that Porelo does not fetch; superseded by [B192](#b192)'s `porelo.yml`. |
 | <a id="b18"></a>B18 | M | - | `StoreCredential` is not built: a credential is entered only in a terminal, the interface's terminal included; the expiry note went to [B178](#b178). |

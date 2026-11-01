@@ -5,7 +5,7 @@
 **What must be true.** A message Porelo writes into a task's inbox (`/run/porelo/mail/inbox/new/<id>.json`) ends with a
 newline, so `cat` of it leaves the shell's prompt on a line of its own, as a text file does.
 
-Seen in the operator's IntelliJ walk (2026-10-29): `cat` of an inbox message left the prompt on the line of the JSON.
+Seen in an IntelliJ walk: `cat` of an inbox message left the prompt on the line of the JSON.
 
 ## Acceptance
 

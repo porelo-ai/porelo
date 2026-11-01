@@ -1,7 +1,7 @@
 # B343 — Each Task Signs With Its Own Certified Key
 
 **Status:** Review.
-**Size:** L (operator, 2026-10-31) - grew from M (estimated 90 minutes from the median of M builds: task keys held
+**Size:** L - grew from M (estimated 90 minutes from the median of M builds: task keys held
 outside the container, their certificates, the start's handshake and the gate's check) with the host's records, the
 start on a host and renewal.
 
@@ -22,8 +22,8 @@ never reaches a forge itself: the gate on the host passes its branch on, to the 
 task's own forge token; the container gets neither `git.sock` nor `web.sock`, which signs in by the caller's account,
 nor any token.
 
-Part of the design the operator accepted in `porelo-project` on 2026-10-30, *A Person Joins With One Click*: one Ed25519
-SSH key per person, the state signed in Git, everything between a person and a host over SSH.
+Part of the design accepted in `porelo-project`, *A Person Joins With One Click*: one Ed25519 SSH key per
+person, the state signed in Git, everything between a person and a host over SSH.
 
 ## Done
 

@@ -101,5 +101,5 @@ Steps, in order:
 
 - **What logchange's maintainers want** (logchange's maintainers'): a goal or a `lint` option, and what a waiver
   looks like in their model, where entries are files rather than lines.
-- **Where "what ships or builds" is defined** (Agent Core's): by convention, or configured per project with editor
+- **Where "what ships or builds" is defined**: by convention, or configured per project with editor
   settings and the licence exempt by default.

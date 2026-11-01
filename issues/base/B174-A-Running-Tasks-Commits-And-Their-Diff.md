@@ -47,4 +47,4 @@ Asked for by the interface, which waits for it. Accepted
 ## To be checked
 
 - How long the census takes in a repository with a long unpushed history, measured, and whether the list needs a
-  limit (Agent Core's).
+  limit.

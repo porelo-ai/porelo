@@ -94,8 +94,8 @@ Steps:
 
 ## To be checked
 
-- **Are there real machines this would rescue?** (Agent Core's, by measuring). Debian, Ubuntu and Fedora ship
+- **Are there real machines this would rescue?** (by measuring). Debian, Ubuntu and Fedora ship
   dnsmasq with nftset. If every supported host passes, this buys wording and nothing else - which is what the plan
   above builds, and no more.
-- **Whether a task start should check too** (Agent Core's). Today only `setup` and `doctor` refuse; a machine whose
+- **Whether a task start should check too**. Today only `setup` and `doctor` refuse; a machine whose
   dnsmasq changed after setup starts tasks that reach nothing.

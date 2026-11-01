@@ -59,4 +59,4 @@ The agents that can reach it are listed in
 ## To be checked
 
 - Whether the anthropic-compatible path takes the key as `Authorization: Bearer` or as `x-api-key` - one header per
-  credential type is all a provider file says today (Agent Core's, measured with a key).
+  credential type is all a provider file says today (measured with a key).

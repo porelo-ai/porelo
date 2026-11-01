@@ -1,7 +1,7 @@
 # B345 — A Host Vault Opened By The Person's Key
 
-**Status:** Review. Estimated and Backlog (operator, 2026-10-30, sprint 6m).
-**Size:** L (operator, 2026-10-31) - several days, no median of L builds measured: an SSH agent client, a vault made without a passphrase, the
+**Status:** Review. Estimated and Backlog, sprint 6m.
+**Size:** L - several days, no median of L builds measured: an SSH agent client, a vault made without a passphrase, the
 share held in locked memory by the daemon, `host unlock` on the person's side, and every command that assumes a
 passphrase today; grew from M when planned.
 
@@ -19,8 +19,8 @@ key; the sign-ins are then made once more. A change of key with the old key stil
 old one opens, then removes the old one, and nothing is lost. The slot says what protects it: any process running as the
 person with the agent can derive it, unless the agent asks to confirm each use.
 
-Part of the design the operator accepted in `porelo-project` on 2026-10-30, *A Person Joins With One Click*: one Ed25519
-SSH key per person, the state signed in Git, everything between a person and a host over SSH.
+Part of the design accepted in `porelo-project`, *A Person Joins With One Click*: one Ed25519 SSH key per
+person, the state signed in Git, everything between a person and a host over SSH.
 
 ## Plan
 
@@ -112,7 +112,7 @@ SSH key per person, the state signed in Git, everything between a person and a h
 - Tests: `HostVaultSocketTest` (30), `HostVaultOwnerTest` (27), `HostUnlockReplyTest` (18), `HostVaultConnectionTest`
   (15), `HostUnlockCommandTest` (14), `VarlinkServerSocketTest` (14), `HostVaultKindTest` (7), `LockedSecretTest` (6),
   `HostVaultScopeTest` (5), `VaultGrantOwnerTest` (2), `SocketPeerTest` (1), `HostVaultKeepTest` (1); the whole suite
-  4404 green. Twelve rounds of narrow readings by agy Gemini.
+  4404 green. Twelve rounds of narrow readings.
 
 Residuals: varlink JSON and base64 shares, signature armor and parsing strings, and strings holding decrypted
 entries cannot be zeroed. Bouncy Castle's HKDF parameters clone the signature into library-owned memory; its

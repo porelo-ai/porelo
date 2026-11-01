@@ -1,6 +1,6 @@
 # B282 — A Failed Continuation Is Forgotten
 
-**Status:** Idea, filed on the operator's word.
+**Status:** Idea.
 
 **What must be true.** A run asked to continue a recorded session that fails without naming a session of its own has
 the recorded session forgotten, so the next start is fresh and says so, as the decision on sessions states; nothing

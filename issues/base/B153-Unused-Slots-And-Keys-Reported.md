@@ -74,5 +74,4 @@ Steps:
 
 ## To be checked
 
-- [B117](README.md#b117) lists every deploy key at a clearing; whether its list shows the last use from the same record
-  (Agent Core's).
+- [B117](README.md#b117) lists every deploy key at a clearing; whether its list shows the last use from the same record.

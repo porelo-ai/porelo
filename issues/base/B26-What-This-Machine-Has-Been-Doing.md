@@ -146,15 +146,15 @@ Steps:
 
 ## To be checked
 
-- **Concurrent appends** (Agent Core's). The daemon, the CLI and several helpers run as the same user and would
+- **Concurrent appends**. The daemon, the CLI and several helpers run as the same user and would
   write to one file. On Linux an `O_APPEND` write below `PIPE_BUF` is atomic, which would make one line per event
   safe without a lock - **this must be measured, not assumed**, and the line length bounded on purpose if it is
   what the design rests on. [B154](README.md#b154) plans a file lock instead.
-- **Whether an event can be tied to its task without widening what an event holds** (Agent Core's). A security
+- **Whether an event can be tied to its task without widening what an event holds**. A security
   review asked for correlation and proposed carrying destination address, port and process. The journal carries
   names and outcomes; what is open is whether a task id alone is enough.
-- **What the two caps actually are** (Agent Core's). Decided that there are two; the numbers should come from what a
+- **What the two caps actually are**. Decided that there are two; the numbers should come from what a
   busy machine really writes rather than from a round figure.
-- **Whether trimming and a hash chain can live in one file** (Agent Core's). [B154](README.md#b154) wants every line provable;
+- **Whether trimming and a hash chain can live in one file**. [B154](README.md#b154) wants every line provable;
   [B26](README.md#b26) wants the file bounded. Trimming a chain needs the first kept line's predecessor hash kept as an anchor, or the
   chain restarts at each trim and says so.

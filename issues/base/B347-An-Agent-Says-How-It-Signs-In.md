@@ -1,6 +1,6 @@
 # B347 — An Agent Says How It Signs In
 
-**Status:** Review. Estimated and Backlog (operator, 2026-10-30, sprint 6m).
+**Status:** Review. Estimated and Backlog, sprint 6m.
 **Size:** M - estimated 90 minutes from the median of M builds: a field in the agent API carried through YAML, the
 definition's JSON both ways and the agent server, the check in the sign-in, the `BROWSER` setting removed, docs. It
 grew from XS when planned: the definition crosses a process boundary, so the field is a contract change.
@@ -11,8 +11,8 @@ grew from XS when planned: the definition crosses a process boundary, so the fie
 hint for the other two. On the person's own desktop a `loopback` flow runs as today. An adapter that does not
 declare `login.flow` signs in as today, over SSH too, and `agents --json` answers `"flow": ""`.
 
-Part of the design the operator accepted in `porelo-project` on 2026-10-30, *A Person Joins With One Click*: one Ed25519
-SSH key per person, the state signed in Git, everything between a person and a host over SSH.
+Part of the design accepted in `porelo-project`, *A Person Joins With One Click*: one Ed25519 SSH key per
+person, the state signed in Git, everything between a person and a host over SSH.
 
 ## Plan
 
@@ -46,7 +46,7 @@ SSH key per person, the state signed in Git, everything between a person and a h
   reading the socket sees it too (`AgentEntryTest`, seen red without the field).
 - No refusal names `porelo vault login` as the way out where it would be refused: a task's start, its check and
   `vault import` ask one rule.
-- An agy Gemini reading found the refusals elsewhere, the explicit null, the sweep before the refusal and the docs; all
+- A reading found the refusals elsewhere, the explicit null, the sweep before the refusal and the docs; all
   fixed, with tests. A narrow reading of those fixes confirmed them and asked for tests that fail if they are undone,
   added for the hint, the sweep and an agent not installed. The three call sites that ask the rule have no test of
   their own: each needs an installed agent and a vault.

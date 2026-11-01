@@ -7,7 +7,7 @@ run removes what the hand-run `porelo prune --yes` removes. It also removes dang
 running task uses and a newer build has replaced, and volumes no container uses. As with `prune`, whatever holds
 work stays.
 
-Asked by the operator (2026-10-30): the development machine held 286 Podman images (41 GB) and 630 volumes (11 GB),
+The development machine held 286 Podman images (41 GB) and 630 volumes (11 GB),
 and hardly any of them were in use. Today only `porelo prune` removes anything, only when run by hand, and among
 images only those named after projects that no longer exist. That leaves out:
 

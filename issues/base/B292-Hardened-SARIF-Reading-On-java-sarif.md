@@ -14,7 +14,7 @@ daemon or appear clean.
   [B95](README.md#b95); the message filter, the forge adapters
   and the IDE plugin.
 - The reader, the profile and its fixtures are published as `porelo-review-api`, Porelo's sixth Central artifact,
-  with the fixtures as its tests jar, and AGENTS.md's list of artifacts says so (operator, 2026-10-31). This issue
+  with the fixtures as its tests jar, and AGENTS.md's list of artifacts says so. This issue
   makes the artifact; `Review1`, `ReviewReader` and their registration on `BuildMain` and `BuildServer` come with
   [B171](README.md#b171).
 - Override the library's older Jackson dependencies together. Use a dedicated synchronous byte-stream factory and

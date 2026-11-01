@@ -72,9 +72,8 @@ Steps:
 ## To be checked
 
 - Whether `metadata.via` joins the narrowed schema, as the guide and the transports use it now, or room and
-  direct are told another way (Agent Core's, with porelo-message-sluice's agent).
-- How a person is named in `metadata.from`: their Matrix id, or a plain name the host maps (Agent Core's, with
-  porelo-message-sluice's agent).
-- The Porelo messaging extension's URI (Agent Core's).
+  direct are told another way (with porelo-message-sluice).
+- How a person is named in `metadata.from`: their Matrix id, or a plain name the host maps (with porelo-message-sluice).
+- The Porelo messaging extension's URI.
 - Whether a message from before is refused or converted: the filter refuses it, since the filter never rewrites a
-  message; whether the host converts what sits in an outbox on the day of the switch (Agent Core's).
+  message; whether the host converts what sits in an outbox on the day of the switch.

@@ -6,7 +6,8 @@ one command's project, each with its test.
 
 **What must be true.** A task's message is believed for the sender its key traces to and held only when it names
 another; no task can be started under a name Porelo reserves for a person or the room. A second reading of
-[B344](README.md#b344) on 2026-10-31 found seven places, and Agent Matrix one more, where this does not hold yet:
+[B344](README.md#b344) on 2026-10-31 found seven places, and the matrix transport's reading one more, where this does
+not hold yet:
 
 - A task may be named `people`, by hand or after a repository of that name; its key is then certified for a
   principal the reader refuses, and every message it sends is held.
@@ -18,7 +19,7 @@ another; no task can be started under a name Porelo reserves for a person or the
   one writing that principal is held by its own sibling, which traces it as `<task>`: no name passes both.
 - A project file's `mail.peers` cannot name a task of another project as `task:<project>:<task>`, the form the
   reader traces and `doc/messages.md` documents. A peer name takes `:` in that one form only, `task:`, a project name
-  or `default`, `:` and a task name, as Agent Sluice's filter takes it (agreed in the room on 2026-10-31).
+  or `default`, `:` and a task name, as porelo-message-sluice's filter takes it.
 - The login a transport is given passes as `[A-Za-z0-9][A-Za-z0-9_-]{0,31}`, wider than every other login rule of
   Porelo and than the transports', `[a-z][a-z0-9-]{0,31}`; another login is refused before any transport runs.
 - `MessagingMethodsTest` never checks that `join` or `setup` is given `--login`, only that `part` is not.

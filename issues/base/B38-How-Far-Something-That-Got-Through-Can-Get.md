@@ -57,8 +57,8 @@ Steps:
 
 ## To be checked
 
-- **Whether the record can answer "how far did it get" after a reboot** (Agent Core's). The `HandIns` record and
+- **Whether the record can answer "how far did it get" after a reboot**. The `HandIns` record and
   `grants.log` outlive the task, but what it reached for and its other logs are in its state directory under
   `$XDG_RUNTIME_DIR`, which a reboot clears; only [B26](README.md#b26)'s journal answers then, which is why this waits for it.
-- **Whether binary content gets a sibling `.origin` file or nothing** (Agent Core's). A label inside a binary would
+- **Whether binary content gets a sibling `.origin` file or nothing**. A label inside a binary would
   break it; a sibling file is readable by the agent but easy to miss.

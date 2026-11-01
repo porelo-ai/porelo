@@ -60,7 +60,6 @@ write.
 
 ## To be checked
 
-- The wire name of the agent's mode, since `Start.mode` is taken: `agentMode` is the plan's (Agent Core's, with
-  the interface's agent).
+- The wire name of the agent's mode, since `Start.mode` is taken: `agentMode` is the plan's (with the interface).
 - Whether a mode applies to an attended start as well, where the agent's own interface could switch tools back
-  on (Agent Core's).
+  on.

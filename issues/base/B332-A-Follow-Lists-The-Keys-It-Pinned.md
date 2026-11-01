@@ -9,7 +9,7 @@ a test and a line in `doc/hosts.md` (XS median 26.5 min, n=6).
 that checks a newer commit of the project with `porelo project verify --since <followed commit>` then has the keys
 `verify` takes, after a handover too.
 
-Asked by Agent Machines for porelo-host's bring (2026-10-29): the second bring checks with `--since` the followed
+Needed for porelo-host's bring: the second bring checks with `--since` the followed
 commit, and `project verify` takes the keys in force at that commit, each the key itself, never a
 fingerprint. The host has the registration key from the person's machine file, which is in force only until the first
 handover. After a change of signers, the next bring is refused with 65.

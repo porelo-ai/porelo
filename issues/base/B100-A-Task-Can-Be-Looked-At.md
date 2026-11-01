@@ -1,6 +1,6 @@
 # B100 — A Task Can Be Looked At
 
-**Status:** Idea. The operator's decision: not planned now; the person looks at a task's work through the IntelliJ
+**Status:** Idea. Not planned now; the person looks at a task's work through the IntelliJ
 plugin (`porelo-intellij`).
 **Size:** XL - an image layer, a published port Porelo has never made, a credential, [B95](README.md#b95)'s container and the
 interface; splits in three below.
@@ -96,7 +96,7 @@ that connects without the token and is refused, and one with it that reads the f
 
 ## To be checked
 
-- Which VNC server goes into the image, and whether it can listen on a Unix socket only (Agent Core's, measured).
+- Which VNC server goes into the image, and whether it can listen on a Unix socket only (measured).
 - How `porelo task view` gives an external viewer, which cannot send the token itself, a port no one else on the
-  host can use (Agent Core's): a bridge on the person's own computer's loopback, or one on the host behind the ssh
+  host can use: a bridge on the person's own computer's loopback, or one on the host behind the ssh
   forward.

@@ -1,6 +1,6 @@
 # B334 — A Person Kept In The Project Room
 
-**Status:** Review. Estimated and Backlog (operator, 2026-10-30, sprint 6m).
+**Status:** Review. Estimated and Backlog, sprint 6m.
 **Size:** M - 45 minutes by the median of M builds. It grew from S while building: a developer let in by `members`
 never joins, so their words in the room are taken by the host account the transport names, a second contract with
 the transport.

@@ -56,5 +56,4 @@ reaching the stand-in provider; then `ProjectReaderTest` for `limits.tokens`.
 
 ## To be checked
 
-- Whether the daemon's contract gets a call to raise the ceiling, for the interface, or the CLI alone first
-  (Agent Core's).
+- Whether the daemon's contract gets a call to raise the ceiling, for the interface, or the CLI alone first.

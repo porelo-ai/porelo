@@ -60,4 +60,4 @@ in `acceptance/legs/.../Leg.java` could leave them out and the release would sti
 ## To be checked
 
 - Whether misuse scenarios that need a forge or a restart run in the release legs, given that restarts are kept off
-  the shared test machine (Agent Core's).
+  the shared test machine.

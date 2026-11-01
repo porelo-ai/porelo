@@ -1,6 +1,6 @@
 # B207 — An Image Built Within The Project's Egress
 
-**Status:** Backlog; its plan written, two questions for the operator open.
+**Status:** Backlog; its plan written, two questions open.
 **Size:** L - the image build moves into a network Porelo controls, the project's egress applied to it through the
 firewall or a proxy, with a package source the build may reach without being named; a design to decide first.
 
@@ -57,9 +57,9 @@ build as today reached both.
 
 ## Open questions
 
-- **For the morning (operator):** the build in a task's network (step 1), or a proxy? Recommended: the task's
+- The build in a task's network (step 1), or a proxy? Recommended: the task's
   network, measured to hold; a proxy alone lets a tool with its own sockets through.
-- **For the morning (operator):** a snippet that fetches from a host its project's egress does not name stops
+- A snippet that fetches from a host its project's egress does not name stops
   building once this lands. That is the point of it, and it breaks such projects until their egress names the host.
   Ship it as is, or with a release note telling projects to check their egress first?
 

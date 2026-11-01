@@ -1,6 +1,6 @@
 # B281 — Acceptance Legs In Less Wall Time
 
-**Status:** Idea, filed on the operator's word.
+**Status:** Idea.
 
 **What must be true.** The acceptance legs take less wall time, with the same scenarios and the same guards.
 

@@ -122,8 +122,8 @@ It splits into four issues:
 
 ## To be checked
 
-- **How a token behaves in this codebase** (Agent Core's): whether a native image can call libfido2 and tpm2-tss
+- **How a token behaves in this codebase**: whether a native image can call libfido2 and tpm2-tss
   without carrying half of them, and what a token that is absent looks like from Java - measured first, as the
   Notes say.
-- **Whether TPM2 goes through `systemd-creds`** (Agent Core's), which Porelo already runs, or through tpm2-tss: the
+- **Whether TPM2 goes through `systemd-creds`**, which Porelo already runs, or through tpm2-tss: the
   first needs no library in the image, the second asks for a PIN itself.

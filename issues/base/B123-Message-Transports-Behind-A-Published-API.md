@@ -81,9 +81,8 @@ It splits into five issues, each L or smaller, in this order:
 ## To be checked
 
 - **Whether a transport runs as a long-lived process**, as an agent does, or is started per call as today: a
-  process per poll costs a JVM start where the transport is not native (Agent Core's).
+  process per poll costs a JVM start where the transport is not native.
 - **How the move happens without a gap**: both contracts side by side for one release, or `porelo-message-matrix`
-  and `porelo` moved in one step (Agent Core's, with the agent of `porelo-message-matrix`).
+  and `porelo` moved in one step (with `porelo-message-matrix`).
 - **Whether `porelo-agent-api`, the build readers' API and this one share the scaffolding** - discovery, handshake,
-  protocol version, a broken one recorded against its own name - in one library, or each carries its own
-  (Agent Core's).
+  protocol version, a broken one recorded against its own name - in one library, or each carries its own.

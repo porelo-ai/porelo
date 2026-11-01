@@ -57,5 +57,5 @@ Red first: a `VaultProxy` test with a body above a threshold of 1 KiB that is fo
 
 ## To be checked
 
-- Near [B26](README.md#b26) and [B38](README.md#b38): whether alerts go into [B26](README.md#b26)'s machine-wide record once it exists, or stay per task (Agent
-  Core's). Which baselines are measured is step 1 of the plan.
+- Near [B26](README.md#b26) and [B38](README.md#b38): whether alerts go into [B26](README.md#b26)'s machine-wide record
+  once it exists, or stay per task. Which baselines are measured is step 1 of the plan.

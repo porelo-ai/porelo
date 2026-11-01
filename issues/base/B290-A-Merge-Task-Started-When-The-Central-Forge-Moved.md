@@ -21,7 +21,7 @@ them). Starting the task that merges the central changes only waits on the refus
 ## The shape proposed
 
 Porelo reads it itself: the daemon asks the forge about its own tasks, as it follows their builds today, so it
-works with any forge it reaches, on this machine or not, and needs no way back to it (the operator's decision).
+works with any forge it reaches, on this machine or not, and needs no way back to it.
 It sees the gathered push refused, since the push runs on its host, and reads the forge's `central/main`. **Porelo decides** and acts only if its own rules hold. A report from the forge, where the forge can reach
 Porelo, only makes it quicker and changes nothing of this.
 

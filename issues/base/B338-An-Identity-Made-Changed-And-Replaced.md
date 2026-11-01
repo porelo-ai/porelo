@@ -1,14 +1,13 @@
 # B338 — An Identity Made, Changed And Replaced
 
 **Status:** Review. Accepted.
-**Size:** L (operator, 2026-10-31) - grew from M (estimated 90 minutes from the median of M builds:
+**Size:** L - grew from M (estimated 90 minutes from the median of M builds:
 the identity verbs and their publishing to the registry and each host) when `identity show --json` was added for the
 interface's identity, with its registry and forge fields.
 
-**What must be true.** The contract Frontend builds against is `sprint-6m-b338-contract.md` (Agent Core,
-2026-10-31, operator decisions of that day); where this text and it once differed, the contract holds. No private key
-is ever read, written or kept by Porelo here: every card is signed through the person's own agent, the one
-`SSH_AUTH_SOCK` names, such as KeePassXC.
+**What must be true.** The contract the interface builds against is `sprint-6m-b338-contract.md`; where this text and it
+once differed, the contract holds. No private key is ever read, written or kept by Porelo here: every card is signed
+through the person's own agent, the one `SSH_AUTH_SOCK` names, such as KeePassXC.
 
 `porelo identity create --login --name [--email] --key FINGERPRINT|PUBFILE --json` makes the person's first card for a
 key their agent already serves, valid 30 days, and keeps it at `$XDG_CONFIG_HOME/porelo/identity/{key.pub,card}`. It
@@ -42,8 +41,8 @@ keys_url, account_url}`, null when no registry is read, and `pending`: `[{id, ac
 finished. It exits 0 whenever a card is kept, whatever its state; 65 `{"reason": "no-identity", "words"}` only when
 none is; 66 for an unreadable file. `sole_without_backup` is not answered here: [B346](README.md#b346) adds it.
 
-Part of the design the operator accepted in `porelo-project` on 2026-10-30, *A Person Joins With One Click*: one Ed25519
-SSH key per person, the state signed in Git, everything between a person and a host over SSH.
+Part of the design accepted in `porelo-project`, *A Person Joins With One Click*: one Ed25519 SSH key per
+person, the state signed in Git, everything between a person and a host over SSH.
 
 ## Acceptance
 
@@ -104,7 +103,7 @@ SSH key per person, the state signed in Git, everything between a person and a h
   `RegistryGit.sealing`, as every other git there.
 - Not claimed: a linked or foreign `$XDG_CONFIG_HOME/porelo/revoked.krl`, `project-signers`,
   `$XDG_STATE_HOME/porelo/follow` or the registry state written by `registry read` are read or written as Porelo found
-  them before this issue (operator, 2026-10-31); the identity verbs' own directories are checked, and the rest is
+  them before this issue; the identity verbs' own directories are checked, and the rest is
   [B360](README.md#b360). Who can push to an access repository can make a person's `replace` refuse (65, naming why) by
   breaking that person's card file; it never makes `replace` revoke or pin a wrong key. A pin counts only when its
   commit is signed by a signer pinned here now, so one signed by a signer handed over since is not in the chain. On the

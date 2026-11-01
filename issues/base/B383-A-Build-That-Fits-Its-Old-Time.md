@@ -11,4 +11,4 @@ named 5.5 minutes for a whole run; the job's bound was raised from 20 to 60 minu
 measured which tests grew: real `git`, `ssh-agent`, `ssh-keygen` and `sleep` processes, and waits of a second and
 more, came with this sprint's tests.
 
-Found when the Build on 5eeb7662 was cancelled on 2026-11-01; not built tonight (operator's rule of 22:30Z).
+Found when the Build on 5eeb7662 was cancelled on 2026-11-01; not built that night, since no build starts after 22:30Z.

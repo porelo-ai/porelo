@@ -70,5 +70,5 @@ missing is reading the traffic, a server without a key, and the agents being poi
 
 ## To be checked
 
-- Whether the agents' MCP settings come through `SetupContext` or through a file Porelo writes into the task (Agent
-  Core's, with the agent repositories).
+- Whether the agents' MCP settings come through `SetupContext` or through a file Porelo writes into the task (with the
+  agent repositories).

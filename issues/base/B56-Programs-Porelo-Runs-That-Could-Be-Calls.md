@@ -102,7 +102,7 @@ Steps, in order:
 
 ## To be checked
 
-To be checked again with each Java and GraalVM release (Agent Core's):
+To be checked again with each Java and GraalVM release:
 
 - **FFM in a static image**: whether a later GraalVM still needs `libc.so.6` for the default lookup.
 - **GraalVM's C interface against static musl**, from inside a hook.

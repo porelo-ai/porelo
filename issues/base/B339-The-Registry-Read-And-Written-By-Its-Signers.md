@@ -34,8 +34,8 @@ public key list it stays so until an admin confirms its fingerprint out of band.
 host's `admins` are its access file's project admins. `porelo registry file card|host-card|host-access|host-card-remove
 ...` writes and signs the commit with the person's key, by plain Git, never through a forge's contents API.
 
-Part of the design the operator accepted in `porelo-project` on 2026-10-30, *A Person Joins With One Click*: one Ed25519
-SSH key per person, the state signed in Git, everything between a person and a host over SSH.
+Part of the design accepted in `porelo-project`, *A Person Joins With One Click*: one Ed25519 SSH key per
+person, the state signed in Git, everything between a person and a host over SSH.
 
 ## Acceptance
 
@@ -170,7 +170,7 @@ SSH key per person, the state signed in Git, everything between a person and a h
   about it as about the card: listed makes the registry firm, others listed takes the removal back. A record whose `accepted` is not what the rule says is refused
   as malformed. A fresh read and a read from the record of any earlier read answer the same revision, people and
   blobs.
-- Operator's decision, 2026-10-31: a trust record that fails any check, or does not read, is discarded, said so in one
+- A trust record that fails any check, or does not read, is discarded, said so in one
   warning naming why (`the registry trust record was discarded and the registry read afresh from its first commit:
   ...`), and the registry walked again from its founding commit; the fresh state replaces the record, and a fresh walk
   that stops before its first commit deletes it. Slower, never weaker. Every command that reads the registry (`registry

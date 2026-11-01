@@ -1,6 +1,6 @@
 # B355 — No Switch That Turns Every Check Off
 
-**Status:** Accepted (operator, 2026-10-31), no sprint.
+**Status:** Accepted.
 **Size:** S, proposed, plus the room's and the interface's parts - no `--insecure` is built; what is built is one
 visible mark for what already runs unsigned or unverified, in `task list`, the interface, the gate's verdicts and the
 room, read from state that exists.
@@ -11,7 +11,7 @@ setup - given that working uncertified must always stay possible?
 
 ## The checks today
 
-Paths are in `/home/michi/git/porelo` (core, `main`) unless named; `b343:` is the worktree
+Paths are in `~/git/porelo` (core, `main`) unless named; `b343:` is the worktree
 `porelo-core-b343` ([B343](README.md#b343), not merged). Host and room rows are as their owners gave them,
 with the places found by grep; *planned* names host work still being built.
 
@@ -77,7 +77,7 @@ exchange, and judges the directories above the socket.
 | `--network private`, nft output chain `policy drop`, egress sets, DNS through Porelo's resolver | what the agent may reach | the person, the project | `ContainerSpec.java:263`, `shield/.../NftRuleset.java:190`, `hooks/.../NftHook.java` |
 | Volumes relabelled `:Z` | SELinux separation of mounts | the host | `ContainerSpec.java:297` |
 
-**The host (porelo-host; named by Machines)**
+**The host (porelo-host, as its repository names them)**
 
 | Check | Protects | Whom | Where |
 |---|---|---|---|
@@ -89,14 +89,14 @@ exchange, and judges the directories above the socket.
 | sudo helpers: caller uid and name, membership, not locked; root's files plain, root-owned, not other-writable; tokens on stdin | root and other accounts | the host | `roles/forge/files/porelo-host-project:93`, `:107`; `porelo-host-push`; `porelo-host-person:343` |
 | SSH only, one key per person, `porelo-people`, forwarding only to the gates' sockets | the host's only way in | the host | *planned* (SSH-only access) |
 
-**The room (porelo-message-matrix; named by Matrix)**
+**The room (porelo-message-matrix, as its repository names them)**
 
 | Check | Protects | Whom | Where |
 |---|---|---|---|
 | Gate: caller by `SO_PEERCRED`, `porelo-people` from `/etc/group` per request, login rule, expelled logins | one person acting as another | other persons | `Gate.java:97`, `:103`, `Expel.java:17` |
 | Tokens bound by whoami; `/login` and `/register` for own names; only `/_matrix/client` and `/_matrix/media` | the homeserver | other persons | `Gate.java:29-30` |
 | Aliases `porelo-<project>` only by that project's admins; login tokens single use, 2 min; request limits | a project's room | the project | `Gate.java:548` |
-| SSO redirect target rule (weak today) | sign-in | other persons | as named by Matrix |
+| SSO redirect target rule (weak today) | sign-in | other persons | as porelo-message-matrix names it |
 | Transport: loopback homeserver must be this uid's; `--loopback-only` | the person's own messages | the person | `Listener.java:44`, `Lifecycle.java:1702` |
 | Person rule on a central homeserver; name suffixes never cross logins | whose words are whose | other persons | `Login.java:58`, `Send.java:149`, `Person.java:52` |
 | `ca_certificate` refused, absolute `unix:` paths, `max_bytes` 10 KiB | hygiene | the person | `SettingsCheck.java:118`, `Describe.java:22` |
@@ -114,8 +114,8 @@ exchange, and judges the directories above the socket.
 | Moderation, message signatures | a task's words reach others unread | no: the words go to other persons | always; `off` already keeps the filter |
 | Daemon socket mode, vault sockets, SELinux type | another local user or task reaches the daemon or a token | no: the cost falls on other tasks and users | always |
 | Container hardening, egress | the agent gets privileges or the open network | egress: yes, via `shield egress` and clearance `allow`; privileges: no | container isolation from the host, always |
-| Host checks (all) | one person's switch weakens all persons on the host | no | always (Machines: "a host's checks are switched off only by not running a host") |
-| Room gate (A), person rule, suffixes, `ensureOwn` | one person speaks as another | no | always (Matrix: "no switch reaches the transport or the gate") |
+| Host checks (all) | one person's switch weakens all persons on the host | no | always (porelo-host: "a host's checks are switched off only by not running a host") |
+| Room gate (A), person rule, suffixes, `ensureOwn` | one person speaks as another | no | always (porelo-message-matrix: "no switch reaches the transport or the gate") |
 
 What is left for a global switch is only what already has a per-check, visible opt-out. Everything else
 either protects another person or the host, where one person's switch must never decide.
@@ -168,10 +168,10 @@ its absence) carried into three outputs and one record line; no new check, no ne
 
 ## Decisions
 
-- No `--insecure`; the visible mark is built instead (operator, 2026-10-31).
-- `default` stays `guarded`, with no class of the person's choosing (operator, 2026-10-31).
+- No `--insecure`; the visible mark is built instead.
+- `default` stays `guarded`, with no class of the person's choosing.
 - The mark also reaches the room: other persons see that a message came from an uncertified task or an unverified
-  project (operator, 2026-10-31). What it takes in the transport and the interface is the room's and the
+  project. What it takes in the transport and the interface is the room's and the
   interface's part of this issue.
 
 ## The mark, place by place
@@ -190,4 +190,4 @@ its absence) carried into three outputs and one record line; no new check, no ne
   it did not check. The mark is always a checker's verdict - the receiving Porelo's, the gate's or the host's -
   never the sender's own content. The talk event Porelo hands the interface carries it as `mark` (`unsigned`,
   `unverified` or empty).
-- No per-person config file: every opt-out stays a flag on its command (operator, 2026-10-31).
+- No per-person config file: every opt-out stays a flag on its command.

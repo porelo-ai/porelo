@@ -55,6 +55,5 @@ with the host's network, and the agent reaches it through the relay in its own n
 
 ## To be checked
 
-- Which port and path the templates ship with, given that servers differ (Agent Core's).
-- Whether the organisation's template needs a credential at all, or ships with none and says how to add one (Agent
-  Core's).
+- Which port and path the templates ship with, given that servers differ.
+- Whether the organisation's template needs a credential at all, or ships with none and says how to add one.

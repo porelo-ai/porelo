@@ -1,6 +1,6 @@
 # B351 — A Host Card Signed Through The SSH Agent
 
-**Status:** Review. Backlog (operator, 2026-10-31), sprint 6m.
+**Status:** Review. Backlog, sprint 6m.
 **Size:** S, proposed - one option on `card make-host` naming the agent's key by fingerprint, and the card signed
 through the agent as a person card is.
 
@@ -13,8 +13,8 @@ key, or refuses to sign, is refused, naming the key's fingerprint. An unencrypte
 private key to disk, and that breaks the promise of one key per person, kept where they keep it. For the sprint 6m
 test, walk6m's host card is signed with a throwaway host-admin key instead.
 
-Filed at the Coordinator's word (2026-10-30), when [B349](README.md#b349) was found to sign from a key file alone. Not
-planned in a sprint; whether it belongs in 6m is the operator's decision.
+Filed when [B349](README.md#b349) was found to sign from a key file alone. Not planned in a sprint; whether it belongs
+in 6m is open.
 
 ## Done
 

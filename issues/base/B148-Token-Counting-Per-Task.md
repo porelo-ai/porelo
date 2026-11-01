@@ -144,13 +144,13 @@ scenario and add it as a fixture.
 ## To be checked
 
 - That the stub, the Pi family and each agent speaking Chat Completions take the extra usage chunk, measured before
-  step 3 ships (Agent Core's).
+  step 3 ships.
 - Whether xAI, Zhipu, Copilot and Gemini's `/v1beta/openai` accept `stream_options.include_usage` and report the
   count, measured in [P07](../providers/README.md#p07) and [P08](../providers/README.md#p08)'s live scenarios and for
-  Copilot with a live request (Agent Core's).
+  Copilot with a live request.
 - How Codex's Responses over a WebSocket reaches the provider from a task: the broker relays only JSON and
   `text/event-stream` (`UNDERSTOOD_TYPES`), so whether Codex falls back to an HTTP stream there, is refused, or needs
-  the count read from WebSocket messages, measured before step 4 (Agent Core's).
+  the count read from WebSocket messages, measured before step 4.
 - Where the count sits in a Code Assist answer, which may wrap Gemini's `usageMetadata` in another object, read from
-  a recorded agy stream before step 4 (Agent Core's).
-- How the interface shows a task's usage (Agent Frontend's).
+  a recorded agy stream before step 4.
+- How the interface shows a task's usage.

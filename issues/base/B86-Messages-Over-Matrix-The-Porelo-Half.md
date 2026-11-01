@@ -51,11 +51,11 @@ Steps:
 ## To be checked
 
 - The vault name a central homeserver's registration token is put under, and whether `describe` declares it
-  (Agent Core's, with porelo-message-matrix's agent).
+  (with porelo-message-matrix).
 - Whether the central server's admin-room `deactivate` works as specified on a central Tuwunel, with a
   provisioning account per machine (porelo-message-matrix's agent's).
 - What `setup` answers to key the account entry by - its homeserver, as the transport spells it, is the leaning
-  (Agent Core's, with porelo-message-matrix's agent).
-- Whether the kit can lease two machines into one scenario, or the two-machine walk stays by hand (Agent Core's).
+  (with porelo-message-matrix).
+- Whether the kit can lease two machines into one scenario, or the two-machine walk stays by hand.
 - Confirm that `TransportLifecycle` keeps a task's password from `enroll`'s `secrets` in
   `transport/<scheme>/task/<task>` and hands it back to `retire` on a central homeserver.

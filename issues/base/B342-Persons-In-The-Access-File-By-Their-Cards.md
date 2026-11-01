@@ -19,8 +19,8 @@ whose role is `admin`, neither `locked` nor `revoked`, in the access file's orde
 line, limited to the tasks' namespaces and principals, since whoever starts a task certifies its key. A host builds its
 accounts and key list from the verified commit only. A person whose card fails is answered `revoked: true` and named.
 
-Part of the design the operator accepted in `porelo-project` on 2026-10-30, *A Person Joins With One Click*: one Ed25519
-SSH key per person, the state signed in Git, everything between a person and a host over SSH.
+Part of the design accepted in `porelo-project`, *A Person Joins With One Click*: one Ed25519 SSH key per
+person, the state signed in Git, everything between a person and a host over SSH.
 
 ## Acceptance
 

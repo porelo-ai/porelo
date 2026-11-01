@@ -45,5 +45,4 @@ Steps:
 
 - Whether a cut line keeps its beginning and end with the middle left out, or its beginning only (the
   interface's agent's, which shows it).
-- Whether a formatted `Tail` (through the agent) applies the cap before the agent formats a line or after
-  (Agent Core's).
+- Whether a formatted `Tail` (through the agent) applies the cap before the agent formats a line or after.

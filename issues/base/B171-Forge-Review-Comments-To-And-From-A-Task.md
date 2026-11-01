@@ -17,7 +17,7 @@ builds outside online projects. `ReviewReader`, `Review1`, `ReviewWatch`, review
 additions. `InboundCheck` filters external peer messages; forge input needs its own authenticated inbound route.
 
 1. Add `ReviewReader` and `org.fuin.porelo.Review1.varlink` to the published artifact `porelo-review-api`, which
-   [B292](README.md#b292) makes with the review profile and its reader, not in `builds/api` (operator, 2026-10-31); dispatch through
+   [B292](README.md#b292) makes with the review profile and its reader, not in `builds/api`; dispatch through
    `BuildMain`/`BuildServer` only when implemented, with capabilities in `Describe`. Extend `builds/stub/StubReader`.
    Read PR state and paged SARIF logs; write explicit create, reply, edit, delete, resolve, unresolve and verdict
    operations, each with exact target, native IDs, commit and released content. A SARIF snapshot is never a command.

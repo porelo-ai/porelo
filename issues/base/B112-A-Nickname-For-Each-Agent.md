@@ -72,4 +72,4 @@ Steps:
 ## To be checked
 
 - Whether a nickname must also be unique across a project's tasks on other machines, which this machine cannot
-  see (Agent Core's, with [B86](README.md#b86)).
+  see (with [B86](README.md#b86)).

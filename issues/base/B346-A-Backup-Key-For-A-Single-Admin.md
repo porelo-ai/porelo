@@ -1,6 +1,6 @@
 # B346 — A Backup Key For A Single Admin
 
-**Status:** Review (Accepted, operator, 2026-10-31: the whole L in sprint 6m, the project part included).
+**Status:** Review. Accepted: the whole L in sprint 6m, the project part included.
 **Size:** L - grown from S: the registry part alone needed owners keyed by key rather than by login, a rule for what a
 backup-signed commit may change in `owners.yml`, a new `registry file owners` path that signs with a key file instead of
 the agent, warnings in `registry read` and `identity show`, and the verb's two halves; the project part adds a backup
@@ -22,10 +22,10 @@ second backup key per admin is refused.
 `porelo identity show --json` ([B338](README.md#b338)) answers `sole_without_backup`: `[{role:
 "project-admin|host-admin|registry-owner", scope}]`, each project, host or registry where the person is the single admin
 or owner without a backup key, `scope` naming it, so the interface offers to make one. Until this is built, `identity
-show` leaves the field out of the answer (Coordinator's decision, 2026-10-30, operator confirms 2026-10-31).
+show` leaves the field out of the answer.
 
-Part of the design the operator accepted in `porelo-project` on 2026-10-30, *A Person Joins With One Click*: one Ed25519
-SSH key per person, the state signed in Git, everything between a person and a host over SSH.
+Part of the design accepted in `porelo-project`, *A Person Joins With One Click*: one Ed25519 SSH key per
+person, the state signed in Git, everything between a person and a host over SSH.
 
 ## Acceptance
 

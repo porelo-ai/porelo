@@ -1,7 +1,7 @@
 # B322 — Porelo's Acceptance Legs Run On The Host's Forge
 
 **Status:** Idea. Waits for machines asked for by kind from the host's pool, rented from a workflow on the host's
-Forgejo; until then porelo's legs run only on the central forge, decided by the operator on 2026-10-29.
+Forgejo; until then porelo's legs run only on the central forge.
 
 **What must be true.** porelo's acceptance legs run on the host's Forgejo as they do on the central forge, on the same
 commit with no edit between them, and the binary published there is the one the Ubuntu leg tested.

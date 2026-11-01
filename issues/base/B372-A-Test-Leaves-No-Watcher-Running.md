@@ -10,8 +10,8 @@ answers a container pid (`4711`) with clearance on reaches `ClearanceWiring.star
 `porelo shield watch --pid 4711` through `systemd-run --user --scope`. The scope puts it outside the test JVM, so
 it outlives the run; nothing names it once the test's temp directory is gone, and it never exits.
 
-On 2026-10-31 the host had 72 such watchers from one evening of Core's worktrees, about 110 MB each, about 8 GB in
-all, when memory ran low for every agent.
+On 2026-10-31 the host had 72 such watchers from one evening of the core repository's worktrees, about 110 MB each,
+about 8 GB in all, when memory ran low for every agent.
 
 - No test starts a real watcher unless it stops it, the same way `PoreloBinary.NAMED` already names a stand-in for
   other helpers.
@@ -19,7 +19,7 @@ all, when memory ran low for every agent.
 
 - Outside the tests too, a watcher ends once the task's container is gone: today nothing but a signal from whoever
   holds its pid file (the poststop hook, `task stop`, `task remove`) ends it, so a watcher whose hook never ran or
-  whose pid file was lost follows its events file for good. Asked by michi on 2026-10-31 and placed in sprint 6m.
+  whose pid file was lost follows its events file for good. Placed in sprint 6m.
 
 ## Done
 

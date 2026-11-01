@@ -11,7 +11,7 @@ only the account that made the room does so.
 
 ## Why
 
-Decided by the operator: on a prepared host, the
+On a prepared host, the
 project admin's Porelo holds the room and admits and removes
 developers' machines. With the list in the signed access file, the room follows it with no hand
 of anyone.

@@ -143,7 +143,7 @@ Contract: `Sets()` and `Egress` grow optional fields in `25-egress.varlink`, whi
 
 ## To be checked
 
-- **Where refused lookups are shown** (Agent Core's, with Agent Frontend's view). They exist in the resolver's log,
+- **Where refused lookups are shown** (with the interface's view). They exist in the resolver's log,
   per task. `task list` is a table with no room for them, and the daemon's `Task` fields are settled (what `task
   status` says is in [Commands](../../doc/commands.md#task)) - so this is a question about a surface rather than
   about data. A method of its own, a field on `Task`, or a line in the egress report: the choice decides whether an

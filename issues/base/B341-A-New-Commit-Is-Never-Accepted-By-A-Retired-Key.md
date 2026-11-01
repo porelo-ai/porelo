@@ -1,7 +1,7 @@
 # B341 — A New Commit Is Never Accepted By A Retired Key
 
-**Status:** Review. Estimated and Backlog (operator, 2026-10-30, sprint 6m).
-**Size:** L (operator, 2026-10-31) - grew from M (estimated 90 minutes from the median of M builds: the pinned signers
+**Status:** Review. Estimated and Backlog, sprint 6m.
+**Size:** L - grew from M (estimated 90 minutes from the median of M builds: the pinned signers
 file keeps retired keys apart from those in force, across `app-base` and `app-project`, and the checker takes a
 revocation list; grew from S when planned) with its readings beside [B335](README.md#b335)'s.
 
@@ -11,8 +11,8 @@ which its signer sets: a retired or stolen key could sign a new commit dated bef
 every new commit against the signers in force without any key that carries `valid-before`, and against the revocation
 list (`gpg.ssh.revocationFile`). `valid-before` serves only for reading history, never for accepting a new commit.
 
-Part of the design the operator accepted in `porelo-project` on 2026-10-30, *A Person Joins With One Click*: one Ed25519
-SSH key per person, the state signed in Git, everything between a person and a host over SSH.
+Part of the design accepted in `porelo-project`, *A Person Joins With One Click*: one Ed25519 SSH key per
+person, the state signed in Git, everything between a person and a host over SSH.
 
 ## Plan
 

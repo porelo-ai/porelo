@@ -1,6 +1,6 @@
 # B349 — A Host Card Signed By Its Host Admin
 
-**Status:** Review. Estimated and Backlog (operator, 2026-10-30, sprint 6m).
+**Status:** Review. Estimated and Backlog, sprint 6m.
 **Size:** S - estimated 136 minutes from the median of S builds: the host card's format and its check, beside the person
 card.
 
@@ -11,8 +11,8 @@ never reaches the host. `porelo card verify-host <card> --signer <fingerprint> -
 on a bad signature, another signer, a host name that is not a lower-case DNS label, or a port missing. It needs no
 network, no home and no vault.
 
-Part of the design the operator accepted in `porelo-project` on 2026-10-30, *A Person Joins With One Click*: one Ed25519
-SSH key per person, the state signed in Git, everything between a person and a host over SSH.
+Part of the design accepted in `porelo-project`, *A Person Joins With One Click*: one Ed25519 SSH key per
+person, the state signed in Git, everything between a person and a host over SSH.
 
 ## Plan
 

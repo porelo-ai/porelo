@@ -135,7 +135,7 @@ Steps, in order:
 
 ## To be checked
 
-- **Does it need the daemon?** (Agent Core's) `porelo task list` builds its answer in this process and works where
+- **Does it need the daemon?** `porelo task list` builds its answer in this process and works where
   nothing runs but podman. Consuming `Watch` makes the watching form need a daemon, which an operator meets as an
   error message. The plan states it plainly and falls back to one listing; the other choice is polling its own
   inventory, as the second change detector point 2 refuses.

@@ -1,6 +1,6 @@
 # B353 — The Projects A Person May Join
 
-**Status:** Review. Backlog (operator, 2026-10-31), sprint 6m.
+**Status:** Review. Backlog, sprint 6m.
 **Size:** M, proposed - one verb joining the registry's read and the access file's check, with no rule of its own.
 
 **What must be true.** A person's Porelo answers which projects they may join, from the organisation's registry, without
@@ -18,8 +18,8 @@ that project's access repository as [B342](README.md#b342) does. It answers:
 
 A forged, revoked or stale admission is refused, and nothing is followed or written: the verb only reads.
 
-Part of the design the operator accepted in `porelo-project` on 2026-10-30, *A Person Joins With One Click*: one Ed25519
-SSH key per person, the state signed in Git, everything between a person and a host over SSH.
+Part of the design accepted in `porelo-project`, *A Person Joins With One Click*: one Ed25519 SSH key per
+person, the state signed in Git, everything between a person and a host over SSH.
 
 ## Acceptance
 

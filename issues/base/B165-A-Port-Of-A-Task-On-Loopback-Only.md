@@ -55,5 +55,4 @@ directory, which is `0700` and the host user's, so no other account and nothing 
 ## To be checked
 
 - Whether the interface and the IDE plugin open the address for the person, over their ssh tunnel, which needs a
-  daemon method that holds the forward instead of a command (Agent Frontend's and the IDE plugin's agent's, with
-  Agent Core).
+  daemon method that holds the forward instead of a command.

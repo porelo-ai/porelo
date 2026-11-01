@@ -81,7 +81,6 @@ daemon's `Approve` (`GateMethods`, `35-gate.varlink`) call them. The task's agen
 ## To be checked
 
 - Whether a squash or a rebase downstream keeps them: a squash only if its message does, a rebase drops merge commits;
-  whether the page only says so or Porelo offers more (Agent Core's).
-- The trailer names (Agent Core's).
-- How a signed approve behaves in a fast-forward project, where there is no merge to carry the signature (Agent
-  Core's).
+  whether the page only says so or Porelo offers more.
+- The trailer names.
+- How a signed approve behaves in a fast-forward project, where there is no merge to carry the signature.

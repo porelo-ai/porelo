@@ -1,7 +1,7 @@
 # B340 — A Host Checks The Registry It Was Brought
 
 **Status:** Review.
-**Size:** M (operator, 2026-10-31) - grew from S (estimated 136 minutes from the median of S builds:
+**Size:** M - grew from S (estimated 136 minutes from the median of S builds:
 one verb over the registry rule, run as `verify` runs) when its security reading added the bundle boundary, the
 first-parent rule for `--since` and the checks of the access file's projects.
 
@@ -18,8 +18,8 @@ commit on its first-parent line exits 65, so no lock, revocation or change of ke
 host moves its pin to it after a change of key. It needs no network, no home and no vault, so root's sync runs it in the
 same isolated unit.
 
-Part of the design the operator accepted in `porelo-project` on 2026-10-30, *A Person Joins With One Click*: one Ed25519
-SSH key per person, the state signed in Git, everything between a person and a host over SSH.
+Part of the design accepted in `porelo-project`, *A Person Joins With One Click*: one Ed25519 SSH key per
+person, the state signed in Git, everything between a person and a host over SSH.
 
 ## Acceptance
 

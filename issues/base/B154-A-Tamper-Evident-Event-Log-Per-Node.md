@@ -97,9 +97,8 @@ Steps:
 
 ## To be checked
 
-- It replaces what [B121](README.md#b121) removes from the message record; near [B26](README.md#b26), whose machine-wide history may be the same file
-  (Agent Core's).
+- It replaces what [B121](README.md#b121) removes from the message record; near [B26](README.md#b26), whose machine-wide history may be the same file.
 - How the copy is sent off the machine - syslog over TLS, or an https endpoint - and whether a send that failed is
-  retried from the log's position (Agent Core's).
+  retried from the log's position.
 - Weigh an S3 Object Lock bucket written with a key that cannot delete, beside syslog over TLS and
   an HTTPS endpoint for the copy sent off the machine.

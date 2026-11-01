@@ -15,9 +15,8 @@ commit time, and a task's signature by its certificate's validity at that time. 
 trusted; what bounds it must be named: the order of the history, the signed commits around it, or the times the
 forge or the central forge recorded.
 
-The coordinator decided on 2026-10-31, for Agent Machines' bring of a project to a host, that the bring arms the
-hook right after the migration and records the migrated commits as `migrated`, not judged here, so this mode is not
-needed for sprint 6m; it is for michi to place.
+The bring of a project to a host arms the hook right after the migration and records the migrated commits as
+`migrated`, not judged here, so this mode is not needed for sprint 6m; it is not yet placed.
 
 Open: what bounds a commit's time when its own date is the signer's word; whether the mode reads the central
 forge's record of when each commit arrived there.

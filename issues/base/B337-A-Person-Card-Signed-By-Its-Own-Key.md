@@ -1,6 +1,6 @@
 # B337 — A Person Card Signed By Its Own Key
 
-**Status:** Review. Estimated and Backlog (operator, 2026-10-30, sprint 6m).
+**Status:** Review. Estimated and Backlog, sprint 6m.
 **Size:** S - estimated 136 minutes from the median of S builds: the card's format, its check and the chain of keys, in
 one module with its tests.
 
@@ -16,8 +16,8 @@ signature, on a chain that does not reach the pinned key, and on a chain that pa
 names, so a stolen key that an admin revoked can no longer hand the identity on. `revoked` is true when the card's own
 key is named there; `ssh` is then still given. It needs no network, no home and no vault.
 
-Part of the design the operator accepted in `porelo-project` on 2026-10-30, *A Person Joins With One Click*: one Ed25519
-SSH key per person, the state signed in Git, everything between a person and a host over SSH.
+Part of the design accepted in `porelo-project`, *A Person Joins With One Click*: one Ed25519 SSH key per
+person, the state signed in Git, everything between a person and a host over SSH.
 
 ## Plan
 
@@ -53,7 +53,7 @@ it too. The first signature is the card's own key, the second its predecessor's.
   the chain; neither the order of the earlier cards nor many copies of them change the answer or its cost.
 - `porelo card verify` answers the card for a program; a revocation list that is empty, missing or unreadable is exit
   66, never skipped.
-- A read-only security reading by agy Gemini found seven faults, all fixed with tests seen red: the merge keys, a key
+- A read-only security reading found seven faults, all fixed with tests seen red: the merge keys, a key
   with a line break, a name with a control character, a rolled-over day, the order of earlier cards, an empty `--krl`
   skipping the list, and a missing test for a change signed by the old key alone.
 - The narrow reading of those fixes found two more, also fixed with tests seen red: a walk exponential in copies of the

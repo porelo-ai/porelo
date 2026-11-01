@@ -90,7 +90,7 @@ the same with a stand-in that reports no cost and a price file; then `ProviderDe
 
 - Whether `openrouter`'s anthropic-messages dialect carries `usage.cost` in its `message_delta` event as its openai
   dialect does in the last chunk; its documentation says only where usage appears. Measured with a live request
-  before `reports_cost` is declared for both dialects (Agent Core's).
+  before `reports_cost` is declared for both dialects.
 - That `openrouter`'s credits are dollars one to one, read in its documentation, before `per_usd: 1` is written.
 - Where the start learns the model when neither the start nor the agent's definition names one, so step 4 can refuse
-  at the start rather than at the first answer (Agent Core's).
+  at the start rather than at the first answer.

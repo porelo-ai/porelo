@@ -1,7 +1,7 @@
 # B335 — Every Change To A Protected File Signed
 
 **Status:** Review.
-**Size:** L (operator, 2026-10-31) - grew from M (estimated 90 minutes from the median of M builds: the follow's
+**Size:** L - grew from M (estimated 90 minutes from the median of M builds: the follow's
 check moves from the tip to each protecting commit, on both repositories, with its refusal, docs and an acceptance
 step) when its readings reached the live clone, shallow clones and the published copy.
 
@@ -102,4 +102,4 @@ signed one either.
   A fingerprint matching none refuses before publication; refused multi-key follows and previews claim no pins.
 - Tests: `ReconcileTest` (192), `AccessReconcileTest` (32), `ConfigurationGateTest` (16),
   `ProjectFollowAccessBundleTest` (4) and `SignedByTest` (3); the whole suite 4193 green. Nine rounds of narrow
-  readings by agy Gemini; each fix's test was seen red first.
+  readings; each fix's test was seen red first.

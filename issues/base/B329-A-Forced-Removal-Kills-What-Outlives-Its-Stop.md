@@ -8,7 +8,7 @@ told apart from a living process; tests with real processes.
 ignores SIGTERM. A process that has already exited and only waits to be reaped (a zombie) counts as stopped. "still
 running" and exit 70 are left for a process that is still alive after SIGKILL.
 
-Seen in Agent Smith's acceptance run on snapshot.352 (2026-10-29): after `claude -p` or `pi --print` in the attached
+Seen in an acceptance run on snapshot.352: after `claude -p` or `pi --print` in the attached
 shell, `porelo task remove porelo-live-shell --force` exited 70 with "still running: <pid> ?". The empty command is
 what a zombie shows. Today a stop sends SIGTERM to the helpers and their descendants, waits 2 s, and reports whatever
 still answers alive; `--force` changes none of that.

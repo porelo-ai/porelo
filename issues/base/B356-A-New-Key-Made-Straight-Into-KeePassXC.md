@@ -19,7 +19,7 @@ agent integration off - it answers 65 `{"reason": "key-not-served", "words"}`, k
 Retry reads `identity show`, never makes a second key. A `keepassxc-cli` that refuses (a wrong password, an entry that
 exists) is answered 65 with `"reason": "key-store-refused"` and nothing is kept by Porelo.
 
-Michi's decision of 2026-10-31 (operator): a new key goes straight into the KeePassXC database through `keepassxc-cli`,
+Decided: a new key goes straight into the KeePassXC database through `keepassxc-cli`,
 the master password typed in a terminal of its own, and no key file is written anywhere; a key held only in the agent
 is not enough, since it is lost at restart. KeePassXC from the deb `keepassxc-full`, not the snap, which cannot reach
 the agent socket under `/run/user`. The person's interface opens the terminal, as it does for the forge's sign-in.
@@ -61,7 +61,7 @@ the agent socket under `/run/user`. The person's interface opens the terminal, a
   has the database open without a lock and unlock is not measured. The entry `add` made stays when an attachment
   is refused afterwards; the words say to remove it. A private key held in a Java array is cleared after the hand
   over, the `SigningKey` and the stream buffers are only dropped.
-- After its one reading (agy Gemini, 2026-10-31): the wait finds the new key among keys of any kind the agent
+- After its one reading: the wait finds the new key among keys of any kind the agent
   holds (an RSA key beside it crashed the wait before); `key-not-served` says to lock and unlock an open database;
   `create` without `--json` names its entry; the written key is read back by `ssh-keygen -y` for comments of every
   length modulo 8. Its other findings are in the room's list of 2026-10-31T23:52Z, not built tonight; whether an

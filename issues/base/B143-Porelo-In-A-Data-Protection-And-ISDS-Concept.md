@@ -50,4 +50,4 @@ messaging key and allowed signers (`MessagingPaths`); a mirror through `porelo g
 ## To be checked
 
 - The template's chapters and their order, read from its current edition, and which of them is the one on operation
-  and continuity (Agent Core's).
+  and continuity.

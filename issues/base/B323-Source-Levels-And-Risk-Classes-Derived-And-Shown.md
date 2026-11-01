@@ -1,6 +1,6 @@
 # [B323](README.md#b323) — Source Levels And Risk Classes Derived And Shown
 
-**Status:** Idea, split from [B293](README.md#b293) by the operator's decision on 2026-10-29.
+**Status:** Idea, split from [B293](README.md#b293).
 
 **What must be true.** The daemon assigns a source level to each pull request, commit and comment from authenticated
 evidence, and a code risk class from deterministic rules over the complete change. Both are carried with waiting work,
