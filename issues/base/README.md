@@ -147,6 +147,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b383"></a>[B383](B383-A-Build-That-Fits-Its-Old-Time.md) | S | - | The Build's verify takes about as long as before sprint 6m, not three times as long |
 | <a id="b382"></a>[B382](B382-A-Key-Added-While-KeePassXC-Runs-Is-Served.md) | S | [B356](README.md#b356) | A key added while KeePassXC runs is served without locking and unlocking the database |
 | <a id="b381"></a>[B381](B381-A-Racing-Start-Stops-Only-Its-Own-Task.md) | S | [B378](README.md#b378) | When two starts of one task name race, the failed one stops nothing of the other |
 | <a id="b380"></a>[B380](B380-Small-Leftovers-Of-Sprint-6m.md) | - | - | The small edge cases sprint 6m left, gathered for michi to place |
