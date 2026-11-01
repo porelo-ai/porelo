@@ -1,0 +1,2 @@
+title: "`porelo project access` writes `source`, the address the project is followed from, into an access file that names none, so `porelo registry joinable` answers a project whose first access commit `project access init` wrote; a path or `file://` is still written as no `source`"
+type: fixed

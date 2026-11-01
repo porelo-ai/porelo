@@ -603,7 +603,8 @@ transports:
   script anywhere, an `https://` address with `?`, `#` or `%40` where git reads a token as its host, and an `@` after
   the host are refused. A person learns from it, through `porelo registry joinable`, which repository to follow; an
   access file without it answers its project as refused there. A change Porelo writes with `project access` keeps
-  it.
+  it; to a file that names none it writes the address the project is followed from, unless that is one `source`
+  refuses (a path, `file://`), and then it writes none.
 - **`transports.matrix.homeserver` is an `https://` base URL with a real host** (the scheme in either case), and no
   user part, query, fragment, blank or control character; `porelo registry joinable` answers a project whose file
   names any other value as refused.

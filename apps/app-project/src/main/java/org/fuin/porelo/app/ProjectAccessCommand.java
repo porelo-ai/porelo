@@ -35,6 +35,7 @@ import org.fuin.porelo.core.project.AccessFile;
 import org.fuin.porelo.core.project.BranchScheme;
 import org.fuin.porelo.core.project.Project;
 import org.fuin.porelo.core.project.ProjectException;
+import org.fuin.porelo.core.project.Repository;
 import org.fuin.porelo.vault.AccessPersons;
 import org.fuin.porelo.vault.CardException;
 import org.fuin.porelo.vault.PersonCard;
@@ -262,7 +263,8 @@ public class ProjectAccessCommand implements Callable<Integer>, PoreloFactory.Co
             throw new Refused(70, "cannot make a scratch directory: " + ex.getMessage());
         }
         try {
-            return change(scratch, url, followed.accessCommit(), given, digest);
+            return change(
+                    scratch, url, followed.accessCommit(), source(followed.url()), given, digest);
         } finally {
             deleteTree(scratch);
         }
@@ -272,6 +274,7 @@ public class ProjectAccessCommand implements Callable<Integer>, PoreloFactory.Co
             final Path scratch,
             final String url,
             final String inForce,
+            final @Nullable String source,
             final @Nullable Card given,
             final String digest)
             throws Refused {
@@ -347,7 +350,7 @@ public class ProjectAccessCommand implements Callable<Integer>, PoreloFactory.Co
                         : Set.of();
         final Map<String, AccessFile.Person> persons = changed(before, cardAfter);
         final List<String> revoked = revokedAfter(before, cardAfter, chain);
-        final String text = write(before, persons, revoked);
+        final String text = write(before, source, persons, revoked);
         final AccessFile written;
         try {
             written = AccessFile.read(new StringReader(text), Access.FILE);
@@ -1495,12 +1498,30 @@ public class ProjectAccessCommand implements Callable<Integer>, PoreloFactory.Co
     }
 
     /**
+     * The project's repository as an access file names it: the address the project is followed
+     * from, none for a path or anything else the access file's {@code source} refuses.
+     */
+    private static @Nullable String source(final String followedFrom) {
+        if (!Repository.isAddress(followedFrom)) {
+            return null;
+        }
+        try {
+            Repository.refuseAsOption(followedFrom, "source");
+            return followedFrom;
+        } catch (final ProjectException ex) {
+            return null;
+        }
+    }
+
+    /**
      * The file as this writes it: the blocks in the documented order, persons by login, each
      * person's keys in the documented order; the host and transports as they read, the revoked keys
-     * as the change leaves them.
+     * as the change leaves them; a file naming no source gets the address the project is followed
+     * from, if it is one an access file takes.
      */
     private static String write(
             final AccessFile before,
+            final @Nullable String source,
             final Map<String, AccessFile.Person> persons,
             final List<String> revoked) {
         final Map<String, Object> root = new LinkedHashMap<>();
@@ -1511,8 +1532,9 @@ public class ProjectAccessCommand implements Callable<Integer>, PoreloFactory.Co
             written.put("ssh_host_key", was.sshHostKey());
             root.put("host", written);
         }
-        if (before.source() != null) {
-            root.put("source", before.source());
+        final String project = before.source() != null ? before.source() : source;
+        if (project != null) {
+            root.put("source", project);
         }
         final Map<String, Object> named = new LinkedHashMap<>();
         for (final AccessFile.Person person : persons.values()) {

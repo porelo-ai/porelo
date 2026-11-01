@@ -153,6 +153,58 @@ class ProjectAccessCommandTest {
     }
 
     @Test
+    void anAccessFileWithoutASourceGetsTheAddressTheProjectIsFollowedFrom() throws Exception {
+        // Without it 'registry joinable' refuses the project, and nobody can be told to join it.
+        final String address = "git@forge.example.org:demo/project.git";
+        followedFrom("file://" + project);
+        final String first = init();
+        assertThat(git(remote, "show", "main:access.yml"))
+                .as("a path is no address a person can follow, so none is written")
+                .doesNotContain("source:");
+        followedFrom(address);
+
+        change(
+                "add",
+                "--person",
+                "bob",
+                "--host",
+                "h1",
+                "--card",
+                card("bob", bob),
+                "--base",
+                first,
+                "--id",
+                "b");
+
+        assertThat(git(remote, "show", "main:access.yml"))
+                .as("the change names the project's own repository")
+                .contains("source: " + address + "\n");
+    }
+
+    /** Records the project as followed from another address, everything else as it was. */
+    private void followedFrom(final String url) throws IOException {
+        final FollowedProjects projects =
+                new FollowedProjects(context().paths().projects().followed());
+        final FollowedProjects.Followed was = projects.require("demo");
+        projects.write(
+                new FollowedProjects.Followed(
+                        was.name(),
+                        url,
+                        was.commit(),
+                        was.at(),
+                        was.outcome(),
+                        was.detail(),
+                        was.refused(),
+                        was.signer(),
+                        was.unverified(),
+                        was.accessCommit(),
+                        was.accessOutcome(),
+                        was.refusedFile(),
+                        was.accessRefused(),
+                        was.accessRefusedFile()));
+    }
+
+    @Test
     void addMakesASignedCommitThatVerifyAnswersWithThePersonAndTheirCard() throws Exception {
         // An access commit not signed by a project signer is refused by every follow.
         final String first = init();
