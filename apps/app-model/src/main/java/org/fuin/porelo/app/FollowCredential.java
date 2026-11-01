@@ -139,6 +139,36 @@ public final class FollowCredential implements AutoCloseable {
     }
 
     /**
+     * Says, for a fetch that failed with a key nobody declared for the address, which vault entry
+     * was lent and how to use the account's own agent instead: an entry such as {@code
+     * git.ssh.github.com} stands for every repository on its host, and a deploy key kept there
+     * answered a person's repository as somebody else's.
+     *
+     * @param context The machine.
+     * @param url The address that failed.
+     * @return The sentence, with a leading blank, or empty when a declaration chose the credential
+     *     or no vault key was lent.
+     */
+    static String impliedKeyNote(final PoreloContext context, final String url) {
+        if (context.credentialRegistry().forUrl("git", url) != null) {
+            return "";
+        }
+        final String entry = sshKeyFor(context, url);
+        if (entry == null) {
+            return "";
+        }
+        final String host = GitCredentialNames.hostOf(url);
+        return " The key lent was this account's vault entry '"
+                + entry
+                + "', which stands for every repository on "
+                + (host == null ? "every host" : host)
+                + "; if your own ssh agent holds the key for this one, use it with: 'porelo"
+                + " credentials declare "
+                + url
+                + " --kind=ssh-key --agent'.";
+    }
+
+    /**
      * Lends what a command needs to reach a URL, for a stated purpose.
      *
      * @param context The machine.

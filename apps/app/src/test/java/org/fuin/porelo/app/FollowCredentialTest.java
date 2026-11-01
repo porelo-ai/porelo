@@ -133,6 +133,61 @@ class FollowCredentialTest {
         }
     }
 
+    @Test
+    void aFailedFetchWithAKeyNobodyDeclaredNamesTheEntryAndTheAgentDeclaration(@TempDir Path dir)
+            throws Exception {
+        // A deploy key kept as git.ssh.<host> answered a person's repository as another's.
+        final String upstream = "git@forge.example:team/repo.git";
+        final char[] passphrase = "test passphrase".toCharArray();
+        final PoreloContext context =
+                new PoreloContext(
+                                new FakeCommandRunner(),
+                                new PoreloPaths(
+                                        XdgPaths.of(
+                                                name ->
+                                                        switch (name) {
+                                                            case "XDG_CONFIG_HOME" ->
+                                                                    dir.resolve("config")
+                                                                            .toString();
+                                                            case "XDG_DATA_HOME" ->
+                                                                    dir.resolve("data").toString();
+                                                            case "XDG_STATE_HOME" ->
+                                                                    dir.resolve("state").toString();
+                                                            default -> null;
+                                                        },
+                                                dir),
+                                        dir.resolve("bin")),
+                                args -> 0)
+                        .asking(prompt -> passphrase.clone());
+        context.vault()
+                .write(
+                        Map.of(
+                                "git.ssh.forge.example",
+                                new VaultEntry(
+                                        SigningKey.generate("deploy").seedBase64(),
+                                        "ssh-key",
+                                        Map.of())),
+                        passphrase);
+        context.openerAsking(false, new PrintWriter(new StringWriter()));
+
+        assertThat(FollowCredential.impliedKeyNote(context, upstream))
+                .contains("vault entry 'git.ssh.forge.example'")
+                .contains("every repository on forge.example")
+                .contains("'porelo credentials declare " + upstream + " --kind=ssh-key --agent'");
+
+        // Once a declaration chooses the credential, even a vault key, somebody chose it.
+        new CredentialDeclarations(context)
+                .declare(
+                        new Credential(
+                                "git.ssh.forge.example",
+                                Credential.Kind.SSH_KEY,
+                                CredentialRegistry.normalise("git@forge.example:team/"),
+                                null,
+                                Credential.ANY,
+                                Credential.Source.VAULT));
+        assertThat(FollowCredential.impliedKeyNote(context, upstream)).isEmpty();
+    }
+
     private PoreloContext context(final Path dir) {
         final XdgPaths xdg =
                 XdgPaths.of(

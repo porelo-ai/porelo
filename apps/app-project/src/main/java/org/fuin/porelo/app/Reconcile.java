@@ -1408,7 +1408,10 @@ public final class Reconcile {
                                 + followed.url()
                                 + ": "
                                 + fetched.standardError().strip()
-                                + identityHint(followed.url()));
+                                + identityHint(followed.url())
+                                + (lent
+                                        ? FollowCredential.impliedKeyNote(context, followed.url())
+                                        : ""));
             }
             return null;
         } catch (final ProjectException ex) {
