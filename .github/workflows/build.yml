@@ -37,9 +37,9 @@ jobs:
         name: Build and unit tests
         # Pinned, not ubuntu-latest: the packages' C library floor is measured on what this builds.
         runs-on: ubuntu-24.04
-        # About three times a normal run (5.5 min): GitHub's default is six hours, and a slow runner once took 14 times
-        # as long.
-        timeout-minutes: 20
+        # About three times a normal run (20 min on 2026-10-31: 18 for the verify, then the FFM check): GitHub's
+        # default is six hours, and a slow runner once took 14 times as long.
+        timeout-minutes: 60
         # To cancel this run's legs when it fails, and nothing else.
         permissions:
             contents: read
