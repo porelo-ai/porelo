@@ -42,3 +42,6 @@ Each is answered by a test that fails today.
 - `MessagingMethodsTest` asks `SetUpMessages`, `JoinMessages` and `RemoveMessageMember` through the daemon's socket,
   with a login of its own rather than the machine's, and holds that a login no transport takes is refused (78).
 - Left: a task's own key is still used to sign when its certificate names another task.
+- Measured on the Ubuntu VM: a stopped task named `porelo-old`, made by a build from before this fix, starts again
+  after the update when given its task name with `--project`, and is then answered as already running when given its
+  container's name; the refusal holds only for a new task.

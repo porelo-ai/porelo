@@ -49,14 +49,6 @@ Each is answered by a test that fails today.
 - `TaskRunCommandTest`'s test of an agent's file placed after the checkout starts its helpers as a program that exits
   at once, so no `gate serve` of this build is left serving whatever project of that name the account has.
 
-Left, each still true as the list above says:
-
-- The gate and the relay awaited until they record their pid, `vault serve` recording its pid before its token, and a
-  helper that does not come up failing the start, and the resume, with 70. Every gated start in the unit tests runs
-  this build's own `gate serve` against the account's own directories, where it fails or serves whatever project of
-  that name the account has; awaiting it would turn those starts into failures or 20-second waits, so the helpers
-  those tests start must first be stand-ins, a change across the test classes. A resume's count needs the same: its
-  tests record helpers whose commands never write a pid file.
-- The kept signing key and the forge token refused before the resume record is saved. Both refusals happen only on a
-  host, whose helper is at a fixed root-owned path, and in a certified start, which needs a certifier's key from a
-  verified access file; no unit test reaches them, so they wait for a seam for the helper's path or the machine test.
+Left, each still true as the list above says, and built in [B384](README.md#b384): the gate and the relay awaited
+until they record their pid, a helper that does not come up failing the start and the resume, and the host's two
+refusals before the resume record.
