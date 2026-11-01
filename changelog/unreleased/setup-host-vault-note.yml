@@ -1,0 +1,2 @@
+title: "`porelo setup` on an account whose vault has no passphrase slot says what opens it (`porelo host unlock` from the person's machine, or an enrolled device) instead of refusing a passphrase nobody was asked for"
+type: fixed

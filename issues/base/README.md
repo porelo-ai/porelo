@@ -22,6 +22,7 @@ from its side, as *blocked by*.
 |---|---|---|---|
 | <a id="b387"></a>[B387](B387-A-Project-Followed-Before-Its-Access-File-Exists.md) | S | - | A project whose access repository is still empty is followed, so `project access init` can write its first access commit |
 | <a id="b388"></a>[B388](B388-A-Registry-Owner-Check-With-An-App-Token.md) | S | - | The registry's owner check takes a GitHub App installation token declared in a variable, never kept in the vault |
+| <a id="b389"></a>[B389](B389-The-Sprint-6m-Walks-Core-Findings.md) | S | - | Directories without group write, the lent key named, no Unsafe warning, and setup on a host vault said in words |
 | <a id="b378"></a>[B378](B378-A-Failed-Start-Touches-Only-What-It-Made.md) | L | [B367](README.md#b367) | A failed task start stops and removes only what it made; what it keeps resumes with its helpers and is removable; six of nine done, helpers awaited and the host's refusals left |
 | <a id="b377"></a>[B377](B377-A-Backup-Key-Never-Pinned-Never-A-Signer.md) | L | [B370](README.md#b370) | A backup key is never pinned, active or retired, and no revoked key signs, on every path of follow, access and backup-key |
 | <a id="b375"></a>[B375](B375-An-Address-Whose-Host-Hides-No-Credential.md) | M | [B368](README.md#b368) | No bracketed host, `%40` authority or scp form carries a credential, and an IPv6 address is matched as git fetches it |

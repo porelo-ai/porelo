@@ -173,12 +173,37 @@ public class SetupCommand implements Callable<Integer>, PoreloFactory.ContextAwa
     }
 
     /**
+     * Says what opens a vault that has no passphrase slot, or {@code null} for one that has, or
+     * whose header cannot be read, which is asked for as before.
+     */
+    private @org.jspecify.annotations.Nullable String opensWithoutPassphrase() {
+        try {
+            if (context.vault().hasPassphrase()) {
+                return null;
+            }
+            return context.vault().isHostVault()
+                    ? "only the person's key opens it: 'porelo host unlock <host> --host-key"
+                            + " SHA256:... --login <account>' from their own machine"
+                    : "an enrolled device opens it";
+        } catch (final org.fuin.porelo.vault.VaultException ex) {
+            return null;
+        }
+    }
+
+    /**
      * Makes the vault when there is none and a person is at a terminal to choose its passphrase.
      *
      * @return Whether there is a vault afterwards.
      */
     private boolean vault(final PrintWriter out, final PrintWriter err) {
         if (context.vault().exists()) {
+            final String opens = opensWithoutPassphrase();
+            if (opens != null) {
+                // Nothing typed here opens it, so nobody is asked: refusing a passphrase it has no
+                // slot for read like a failure of a setup that went well.
+                out.println("vault     already there; " + opens);
+                return true;
+            }
             out.println("vault     already there");
             context.openerAsking(false, err);
             return true;

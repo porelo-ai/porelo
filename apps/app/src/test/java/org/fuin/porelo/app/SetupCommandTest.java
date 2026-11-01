@@ -132,6 +132,23 @@ class SetupCommandTest {
     }
 
     @Test
+    void saysWhatOpensAHostVaultAndAsksNoPassphraseForIt(@TempDir Path dir) throws IOException {
+
+        final PoreloContext context = context(dir, true);
+        Files.createDirectories(context.vault().path().getParent());
+        context.vault().write(java.util.Map.of(), new byte[32]);
+
+        // Run on a host with no terminal, it said "This vault has no passphrase slot".
+        assertThat(execute(context, "setup")).isZero();
+        assertThat(out.toString())
+                .contains(
+                        "vault     already there; only the person's key opens it: 'porelo host"
+                                + " unlock <host>")
+                .doesNotContain("no vault");
+        assertThat(err.toString()).doesNotContain("passphrase");
+    }
+
+    @Test
     void registersTheHooksAndNothingElseWhenAskedTo(@TempDir Path dir) throws IOException {
 
         assertThat(execute(context(dir, true), "setup", "--hooks-only")).isZero();
