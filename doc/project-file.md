@@ -606,8 +606,13 @@ transports:
   it; to a file that names none it writes the address the project is followed from, unless that is one `source`
   refuses (a path, `file://`), and then it writes none.
 - **`transports.matrix.homeserver` is an `https://` base URL with a real host** (the scheme in either case), and no
-  user part, query, fragment, blank or control character; `porelo registry joinable` answers a project whose file
-  names any other value as refused.
+  user part, query, fragment, blank or control character, **or a `unix:` socket path**, absolute, of letters, digits
+  and `. _ - /` with no `.` or `..` segment, as a person's Porelo on a host reaches the homeserver behind the host's
+  gate (`unix:/run/porelo-matrix/client.sock`); `porelo registry joinable` answers a project whose file names any
+  other value as refused.
+- **A project with an access file names its conversation with a peer:** `mail.transports` is refused there, so
+  `mail: {peers: {room: {address: "matrix:"}}}` in `project.yml` gives it its conversation, and the access file's
+  `transports.matrix` the settings.
 - **Public keys and addresses only.** No signers - those are the project file's - and nothing
   secret; a value holding a private key is refused.
 - **Persons are checked by their cards.** Each `cards/<login>.card` lies beside `access.yml` in the

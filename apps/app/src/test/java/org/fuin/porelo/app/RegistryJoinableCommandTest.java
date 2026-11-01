@@ -644,7 +644,13 @@ class RegistryJoinableCommandTest {
                 "https://walk6m.example.org/?access_token=tok-4711",
                 "https://walk6m.example.org/\\u00a0tok-4711",
                 "https://walk6m.example.org/\\u2028tok-4711",
-                "https://walk6m.example.org/\\etok-4711"
+                "https://walk6m.example.org/\\etok-4711",
+                "unix:run/porelo-matrix/tok-4711.sock",
+                "unix:/run/../home/bob/tok-4711.sock",
+                "unix:/run/porelo-matrix/tok 4711.sock",
+                "unix:/run/porelo-matrix/tok-4711.sock?x",
+                "unix:",
+                "unix:/"
             })
     void a_homeserver_that_is_no_https_url_refuses_its_project_naming_nothing_of_it(
             String homeserver) throws Exception {
@@ -668,7 +674,9 @@ class RegistryJoinableCommandTest {
     @ParameterizedTest
     @org.junit.jupiter.params.provider.CsvSource({
         "https://walk6m.example.org/_matrix/@room, https://walk6m.example.org/_matrix/@room",
-        "HTTPS://walk6m.example.org:8448/x, HTTPS://walk6m.example.org:8448/x"
+        "HTTPS://walk6m.example.org:8448/x, HTTPS://walk6m.example.org:8448/x",
+        // Behind a host's gate a person's Porelo there reaches the homeserver at its socket.
+        "unix:/run/porelo-matrix/client.sock, unix:/run/porelo-matrix/client.sock"
     })
     void a_homeserver_is_answered_as_written(String homeserver, String answered) throws Exception {
         registered(registry.access("demo"));

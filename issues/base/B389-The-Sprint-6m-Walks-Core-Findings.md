@@ -29,4 +29,9 @@ lent says which key it was.
   natively.
 - `SetupCommand` says what opens a vault without a passphrase slot and does not try to open it
   (`SetupCommandTest`, red first); `vault login` and the passphrase commands still name `porelo host unlock`.
+- `registry joinable` takes a `unix:` socket path as `transports.matrix.homeserver`
+  (`AddressForm.isUnixSocket`; `RegistryJoinableCommandTest`, red first, the segment check seen red under a
+  mutant). A project with an access file names its conversation with a peer at `matrix:` in `project.yml`
+  (documented); left: whether such a project should take its conversation from the applied access file's
+  `transports` instead, which every reader of `Mail.conversations()` would have to learn.
 - Built during the stopped walk with unit tests only; the reading follows after the walk.

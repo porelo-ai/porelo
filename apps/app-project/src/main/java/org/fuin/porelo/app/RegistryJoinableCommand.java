@@ -250,14 +250,15 @@ public class RegistryJoinableCommand implements Callable<Integer>, PoreloFactory
                         ? matrix.get("homeserver")
                         : null;
         if (homeserver != null
-                && !(homeserver instanceof String named && AddressForm.isHttps(named))) {
+                && !(homeserver instanceof String named
+                        && (AddressForm.isHttps(named) || AddressForm.isUnixSocket(named)))) {
             refused.add(
                     refusal(
                             state,
                             host,
                             project,
                             "the access file's transports.matrix.homeserver is not an https://"
-                                    + " URL with a host"));
+                                    + " URL with a host, nor a unix: socket path"));
             return null;
         }
         final boolean admitted =
@@ -280,7 +281,11 @@ public class RegistryJoinableCommand implements Callable<Integer>, PoreloFactory
                 "host_card",
                 card.answer(host.host()),
                 "homeserver",
-                homeserver == null ? null : withoutUserinfo((String) homeserver),
+                homeserver == null
+                        ? null
+                        : AddressForm.isUnixSocket((String) homeserver)
+                                ? homeserver
+                                : withoutUserinfo((String) homeserver),
                 "source",
                 withoutUserinfo(source),
                 "access_repository",

@@ -107,6 +107,30 @@ public final class AddressForm {
     }
 
     /**
+     * Says whether a value is a homeserver's Unix socket, as a person's Porelo on a host reaches
+     * the homeserver behind the host's gate: {@code unix:} and an absolute path of letters, digits,
+     * {@code . _ - /}, with no {@code .} or {@code ..} segment, so it names one file and holds
+     * nothing that could carry a token.
+     *
+     * @param value The value.
+     * @return Whether it is one.
+     */
+    public static boolean isUnixSocket(final String value) {
+        if (!UNIX_SOCKET.matcher(value).matches()) {
+            return false;
+        }
+        for (final String segment : value.substring("unix:/".length()).split("/", -1)) {
+            if (segment.isEmpty() || segment.equals(".") || segment.equals("..")) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /** {@code unix:} and an absolute path of plain characters. */
+    private static final Pattern UNIX_SOCKET = Pattern.compile("unix:/[A-Za-z0-9._/-]+");
+
+    /**
      * Returns an address with nothing of its user part but an ssh user: of a URL, all before its
      * first {@code /} up to the last {@code @} there; of {@code user@host:path}, all up to the last
      * {@code @} before its host's colon. An authority that holds no real host after that is left
