@@ -431,12 +431,17 @@ public class RegistryReadCommand implements Callable<Integer>, PoreloFactory.Con
     }
 
     /**
-     * The token this person signed in to the forge with, when the vault opens without asking:
-     * declared for the origin, or kept under the forge's own name. Never the plain {@code
-     * git.token}, which a machine keeps for another forge, and which a checkout's origin would
-     * otherwise send to whatever host it names.
+     * The token this person signed in to the forge with: declared for the origin in a variable or a
+     * file (a GitHub App's installation token, which lives an hour, is never put in the vault), or,
+     * when the vault opens without asking, declared for the origin there or kept under the forge's
+     * own name. Never the plain {@code git.token}, which a machine keeps for another forge, and
+     * which a checkout's origin would otherwise send to whatever host it names.
      */
     static @Nullable String token(final PoreloContext context, final RegistryOrigin origin) {
+        final String outside = outside(context, origin);
+        if (outside != null) {
+            return outside;
+        }
         final Map<String, VaultEntry> held = context.readableCredentials().orElseGet(Map::of);
         if (held.isEmpty()) {
             return null;
@@ -475,6 +480,42 @@ public class RegistryReadCommand implements Callable<Integer>, PoreloFactory.Con
         }
         final VaultEntry entry = name == null ? null : held.get(name);
         return entry == null || entry.value().isBlank() ? null : entry.value();
+    }
+
+    /** The most a token file may hold, in bytes; anything longer is no token. */
+    private static final long TOKEN_FILE_LIMIT = 64 * 1024;
+
+    /**
+     * The token declared for the origin in a variable or a file, with the same rule for a port as a
+     * token in the vault; {@code null} when none is declared there or it is unset, unreadable or
+     * blank.
+     */
+    private static @Nullable String outside(
+            final PoreloContext context, final RegistryOrigin origin) {
+        final Credential declared = context.credentialRegistry().forUrl("git", origin.url());
+        if (declared == null
+                || declared.kind() != Credential.Kind.TOKEN
+                || (origin.port() >= 0 && !namesPort(declared.match(), origin))) {
+            return null;
+        }
+        final @Nullable String value =
+                switch (declared.source()) {
+                    case ENVIRONMENT -> context.environment().apply(declared.id());
+                    case FILE -> file(Path.of(declared.id()));
+                    case VAULT, AGENT -> null;
+                };
+        return value == null || value.isBlank() ? null : value.strip();
+    }
+
+    private static @Nullable String file(final Path path) {
+        try {
+            if (!Files.isRegularFile(path) || Files.size(path) > TOKEN_FILE_LIMIT) {
+                return null;
+            }
+            return Files.readString(path, StandardCharsets.UTF_8);
+        } catch (final IOException ex) {
+            return null;
+        }
     }
 
     /** Whether a declared match names the origin's host and port, not the host alone. */

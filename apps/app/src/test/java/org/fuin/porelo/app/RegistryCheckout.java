@@ -257,10 +257,18 @@ final class RegistryCheckout implements AutoCloseable {
         }
     }
 
-    /** What the command reads from the environment: the agent the test started, and no other. */
+    /** Variables a test sets for the command, beside the agent. */
+    final Map<String, String> variables = new java.util.HashMap<>();
+
+    /**
+     * What the command reads from the environment: the agent the test started and the variables.
+     */
     UnaryOperator<String> environment() {
         final Path held = socket;
-        return name -> name.equals("SSH_AUTH_SOCK") && held != null ? held.toString() : null;
+        return name ->
+                name.equals("SSH_AUTH_SOCK") && held != null
+                        ? held.toString()
+                        : variables.get(name);
     }
 
     /** Whether the context's standard input is a terminal a person types into. */

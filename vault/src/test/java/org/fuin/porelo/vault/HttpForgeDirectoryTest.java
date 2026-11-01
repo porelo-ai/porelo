@@ -370,6 +370,45 @@ class HttpForgeDirectoryTest {
                 .allSatisfy(each -> assertThat(each.authorization()).isEqualTo("Bearer " + TOKEN));
     }
 
+    @Test
+    void ownsOnGitHubIsANoWhenTheOrganisationsInstallationTokenFindsNoMembership() {
+
+        // An installation token has no account: GitHub answers /user with 403.
+        replies.put("/api/user/memberships/orgs/acme", Reply.of(403, "Forbidden"));
+        replies.put(
+                "/api/installation/repositories?per_page=1",
+                Reply.of(200, "{\"repositories\": [{\"owner\": {\"login\": \"Acme\"}}]}"));
+        replies.put("/api/orgs/acme/memberships/outsider", Reply.of(404, "Not Found"));
+        replies.put(
+                "/api/orgs/acme/memberships/alice",
+                Reply.of(200, "{\"role\": \"admin\", \"state\": \"active\"}"));
+
+        // The organisation's own installation, granted Members: read, sees every membership.
+        assertThat(gitHub(TOKEN).owns("acme", "outsider")).contains(false);
+        assertThat(gitHub(TOKEN).owns("acme", "alice")).contains(true);
+        assertThat(seen)
+                .allSatisfy(each -> assertThat(each.authorization()).isEqualTo("Bearer " + TOKEN));
+    }
+
+    @ParameterizedTest
+    @ValueSource(
+            strings = {
+                "{\"repositories\": [{\"owner\": {\"login\": \"elsewhere\"}}]}",
+                "{\"repositories\": []}",
+                "{\"repositories\": [{}]}",
+                "not json"
+            })
+    void ownsOnGitHubCannotSayFromA404WhenTheInstallationIsAnotherOrganisations(
+            final String installation) {
+
+        replies.put("/api/user/memberships/orgs/acme", Reply.of(403, "Forbidden"));
+        replies.put("/api/installation/repositories?per_page=1", Reply.of(200, installation));
+        replies.put("/api/orgs/acme/memberships/outsider", Reply.of(404, "Not Found"));
+
+        // Another organisation's installation sees none of acme's memberships.
+        assertThat(gitHub(TOKEN).owns("acme", "outsider")).isEmpty();
+    }
+
     @ParameterizedTest
     @ValueSource(
             strings = {

@@ -41,7 +41,8 @@ import org.jspecify.annotations.Nullable;
  * "cannot say", never a no: a no refuses a person, and a forge being down must not. What a token
  * may not see is no answer either: a 404 for an organisation or membership says what the token
  * cannot see, not what the login is - unless, on GitHub, the token's own account is an active admin
- * of the organisation, which sees every membership.
+ * of the organisation, or the token is a GitHub App's installation token for the organisation
+ * (which must be granted Members: read), and each sees every membership.
  *
  * <p>The client is the caller's; it should trust what the account trusts ({@code
  * TrustedCertificates}) and must follow no redirects, so an answer cannot move to another host or
@@ -197,13 +198,31 @@ public final class HttpForgeDirectory implements ForgeDirectory {
         if (answer == null) {
             return Optional.empty();
         }
-        if (answer.status() == 404 && seesAll) {
+        if (answer.status() == 404 && (seesAll || installedOn(api, authorization, org))) {
             return Optional.of(false);
         }
         if (answer.status() != 200 || !(json(answer.body()) instanceof Map<?, ?>)) {
             return Optional.empty();
         }
         return Optional.of(activeAdmin(answer.body()));
+    }
+
+    /**
+     * Whether the token is a GitHub App's installation token for the organisation: such a token has
+     * no account to ask about, and the repositories its installation reaches are the
+     * organisation's. An installation that reaches none cannot say whose it is.
+     */
+    private boolean installedOn(final String api, final String authorization, final String org) {
+        final Answer answer = get(api + "/installation/repositories?per_page=1", authorization);
+        return answer != null
+                && answer.status() == 200
+                && json(answer.body()) instanceof Map<?, ?> installation
+                && installation.get("repositories") instanceof List<?> repositories
+                && !repositories.isEmpty()
+                && repositories.get(0) instanceof Map<?, ?> repository
+                && repository.get("owner") instanceof Map<?, ?> owner
+                && owner.get("login") instanceof String login
+                && login.equalsIgnoreCase(org);
     }
 
     private static boolean activeAdmin(final byte[] body) {

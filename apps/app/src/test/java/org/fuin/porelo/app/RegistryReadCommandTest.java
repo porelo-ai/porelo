@@ -400,6 +400,54 @@ class RegistryReadCommandTest {
                 .isEqualTo(expected);
     }
 
+    /**
+     * A GitHub App's installation token lives an hour and is never put in the vault: declared for
+     * the origin in a variable or a file, it asks ownership, and is never printed.
+     */
+    @ParameterizedTest
+    @ValueSource(strings = {"env", "file"})
+    void a_token_declared_in_a_variable_or_a_file_asks_ownership_and_is_never_printed(
+            final String source) throws Exception {
+        final PoreloContext context = registry.context();
+        final Path token = dir.resolve("installation-token");
+        Files.writeString(token, "ghs_installation4711\n");
+        registry.variables.put("PORELO_GITHUB_APP_TOKEN", "ghs_installation4711");
+        final Path declared = context.paths().vault().credentialRegistry();
+        Files.createDirectories(declared.getParent());
+        Files.writeString(
+                declared,
+                "credentials:\n  - match: https://forge.example.org/acme/\n    kind: token\n"
+                        + "    source: "
+                        + source
+                        + "\n    "
+                        + source
+                        + ": "
+                        + (source.equals("env") ? "PORELO_GITHUB_APP_TOKEN" : token)
+                        + "\n");
+        registry.founded();
+        registry.write("people/alice.card", registry.card("alice", "alice"));
+        registry.commit("bob");
+
+        assertThat(registry.registry(context, "read", registry.repo.toString(), "--json")).isZero();
+        assertThat(registry.forge.opened)
+                .containsExactly("https://forge.example.org ghs_installation4711");
+        assertThat(registry.out + "" + registry.err + Files.readString(registry.record()))
+                .doesNotContain("installation4711");
+
+        // Declared for the host alone, it is not sent to the same host on another port, though
+        // the match covers that address as a prefix.
+        Files.writeString(
+                declared,
+                Files.readString(declared)
+                        .replace("https://forge.example.org/acme/", "https://forge.example.org"));
+        registry.git(
+                "remote", "set-url", "origin", "https://forge.example.org:9999/acme/registry.git");
+        Files.delete(registry.record());
+        registry.registry(context, "read", registry.repo.toString());
+        assertThat(registry.forge.opened.getLast())
+                .isEqualTo("https://forge.example.org:9999 null");
+    }
+
     /** A token in the origin's URL is a secret; the refusal names the host and path alone. */
     @Test
     void an_origin_with_a_token_is_refused_without_it() throws Exception {
