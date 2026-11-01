@@ -434,6 +434,20 @@ class RegistryReadCommandTest {
         assertThat(registry.out + "" + registry.err + Files.readString(registry.record()))
                 .doesNotContain("installation4711");
 
+        // It is declared for the forge's https address, where it is sent; a checkout cloned over
+        // ssh asks the same forge with it, though no token may be declared for an ssh address.
+        for (final String ssh :
+                List.of(
+                        "git@forge.example.org:acme/registry.git",
+                        "ssh://git@forge.example.org:2222/acme/registry.git")) {
+            registry.git("remote", "set-url", "origin", ssh);
+            assertThat(registry.registry(context, "read", registry.repo.toString())).isZero();
+            assertThat(registry.forge.opened.getLast())
+                    .as(ssh)
+                    .isEqualTo("https://forge.example.org ghs_installation4711");
+        }
+        registry.git("remote", "set-url", "origin", "https://forge.example.org/acme/registry.git");
+
         // Declared for the host alone, it is not sent to the same host on another port, though
         // the match covers that address as a prefix.
         Files.writeString(

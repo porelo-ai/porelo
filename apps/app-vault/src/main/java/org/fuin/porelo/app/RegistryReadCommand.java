@@ -487,16 +487,19 @@ public class RegistryReadCommand implements Callable<Integer>, PoreloFactory.Con
     private static final long TOKEN_FILE_LIMIT = 64 * 1024;
 
     /**
-     * The token declared for the origin in a variable or a file, with the same rule for a port as a
-     * token in the vault; {@code null} when none is declared there or it is unset, unreadable or
-     * blank.
+     * The token declared in a variable or a file for the organisation at the forge's https address,
+     * where it is sent, whether the checkout was cloned over https or over ssh (no token is
+     * declared for an ssh address), with the same rule for a port as a token in the vault; {@code
+     * null} when none is declared there or it is unset, unreadable or blank.
      */
     private static @Nullable String outside(
             final PoreloContext context, final RegistryOrigin origin) {
-        final Credential declared = context.credentialRegistry().forUrl("git", origin.url());
+        final Credential declared =
+                context.credentialRegistry()
+                        .forUrl("git", origin.forge() + "/" + origin.organisation() + "/");
         if (declared == null
                 || declared.kind() != Credential.Kind.TOKEN
-                || (origin.port() >= 0 && !namesPort(declared.match(), origin))) {
+                || (origin.forge().getPort() >= 0 && !namesPort(declared.match(), origin))) {
             return null;
         }
         final @Nullable String value =

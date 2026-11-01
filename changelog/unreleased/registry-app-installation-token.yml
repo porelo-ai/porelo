@@ -1,2 +1,2 @@
-title: "`porelo registry read`, `file` and `joinable` ask ownership with a token declared for the registry's origin in a variable or a file, such as a GitHub App's installation token, and take such a token for the organisation as one that sees every membership"
+title: "`porelo registry read`, `file` and `joinable` ask ownership with a token declared in a variable or a file for the organisation at the forge's https address, also for a checkout cloned over ssh, such as a GitHub App's installation token, and take such a token for the organisation as one that sees every membership"
 type: added
