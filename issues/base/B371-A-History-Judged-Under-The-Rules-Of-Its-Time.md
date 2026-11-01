@@ -1,6 +1,6 @@
 # B371 — A History Judged Under The Rules Of Its Time
 
-**Status:** Idea.
+**Status:** Backlog.
 **Size:** M, proposed - a second mode of `porelo commit verify` that reads the signers with their `valid-before` and
 each task certificate at its commit, with its tests.
 

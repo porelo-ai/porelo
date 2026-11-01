@@ -76,6 +76,7 @@ from its side, as *blocked by*.
 | <a id="b216"></a>[B216](B216-A-Second-Setup-Says-Nothing-Changed.md) | M | - | A second `porelo-setup.sh` run changes nothing and says so, as a last line and in `--json`, so a playbook reports it truly |
 | <a id="b321"></a>[B321](B321-A-Long-Command-Says-What-It-Is-Doing.md) | M | - | A long command shows what it is doing while it runs: a transport's stderr streamed line by line, each line redacted against the secrets handed in, and a phase line for the other long commands a sweep finds |
 | <a id="b336"></a>[B336](B336-A-Repository-Says-Whether-A-Merge-Needs-A-Review.md) | S | - | `project.review` and `repositories.<name>.review` are `required` (the default) or `optional`, any other value refused, and answered to the host by `verify --json` |
+| <a id="b371"></a>[B371](B371-A-History-Judged-Under-The-Rules-Of-Its-Time.md) | M | [B363](README.md#b363) | A history mode of `porelo commit verify`: each commit judged by the keys and certificates in force at its own time, for a migrated history before the hook is armed |
 
 ## Analyzed
 
@@ -156,7 +157,6 @@ from its side, as *blocked by*.
 | <a id="b380"></a>[B380](B380-Small-Leftovers-Of-Sprint-6m.md) | - | - | The small edge cases sprint 6m left, gathered for michi to place |
 | <a id="b374"></a>[B374](B374-A-Registry-Commit-Split-As-Git-Splits-It.md) | S | [B366](README.md#b366) | A registry commit's signature is checked over the bytes git checks: every header starting with `gpgsig` left out |
 | <a id="b373"></a>[B373](B373-A-Token-Lent-To-A-Forge-On-Its-Own-Port.md) | S | [B368](README.md#b368) | A vault token is lent to an `https://` repository on a port of its own: the helper's key names the port |
-| <a id="b371"></a>[B371](B371-A-History-Judged-Under-The-Rules-Of-Its-Time.md) | M | [B363](README.md#b363) | A history mode of `porelo commit verify`: each commit judged by the keys and certificates in force at its own time, for a migrated history before the hook is armed |
 | <a id="b365"></a>[B365](B365-The-Providers-Usage-Answered-In-One-Form.md) | M | - | `porelo usage` answers each provider's allowance left in one form, per machine, account and window, with a threshold that marks a window critical |
 | <a id="b364"></a>[B364](B364-A-Test-Run-With-Its-Own-Temp-Directory.md) | S | - | Each test JVM gets a temp directory of its own under its module's `target/`, so two suites on one machine never see each other's scratch files |
 | <a id="b360"></a>[B360](B360-The-Persons-Own-Files-Read-Only-As-Themselves.md) | M | [B338](README.md#b338) | Every file Porelo keeps in the person's configuration and state directories is read and written only as itself, never through a link or another account's directory |
