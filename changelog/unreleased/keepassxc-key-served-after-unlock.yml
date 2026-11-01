@@ -1,0 +1,2 @@
+title: A key made into a KeePassXC database that KeePassXC has open is served once the person unlocks it in KeePassXC's window, where it was refused key-not-served until the database was locked and unlocked by hand and the command run again with --key
+type: changed

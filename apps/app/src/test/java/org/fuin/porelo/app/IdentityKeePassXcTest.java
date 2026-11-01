@@ -205,8 +205,12 @@ class IdentityKeePassXcTest {
         assertThat((String) answer.get("fingerprint")).startsWith("SHA256:");
         assertThat((String) answer.get("words")).contains((String) answer.get("fingerprint"));
         assertThat((String) answer.get("words"))
-                .as("an open database loads a new entry only once it is locked and unlocked")
-                .contains("lock and unlock the database");
+                .as("KeePassXC was locked and the database's unlock view opened; it is said")
+                .contains("unlock")
+                .contains("--key " + answer.get("fingerprint"));
+        assertThat(keepass.guiCalls())
+                .as("KeePassXC is locked and asked to show the database, nothing else")
+                .containsExactly("--lock", keepass.database.toString());
         assertThat(keepass.calls()).as("the entry is kept").isEqualTo(keepass.madeInto("alice"));
         assertThat(keepass.seen())
                 .as("KeePassXC got an OpenSSH private key")
@@ -287,6 +291,67 @@ class IdentityKeePassXcTest {
                 .isZero();
         assertThat(served()).containsExactly((String) registry.answer().get("key"));
         assertThat(cardFile()).exists();
+        assertThat(keepass.guiCalls())
+                .as("a key served within the grace never locks KeePassXC")
+                .isEmpty();
+    }
+
+    /**
+     * KeePassXC loads an entry added while its database is open only once the database is locked
+     * and unlocked (measured with KeePassXC 2.7.10): Porelo locks it, opens the database's unlock
+     * view, says so, and waits, so the person unlocks it in KeePassXC's window and nothing else.
+     */
+    @Test
+    void a_key_kept_while_keepassxc_runs_is_served_once_porelo_locks_it_and_it_is_unlocked()
+            throws Exception {
+        final KeePassXcStandIn keepass = standIn(KeePassXcStandIn.Mode.SERVES_AFTER_UNLOCK);
+
+        assertThat(
+                        create(
+                                keepass.store(Duration.ofSeconds(20)),
+                                "--keepassxc",
+                                keepass.database.toString(),
+                                "--entry",
+                                "alice",
+                                "--json"))
+                .as(registry.err.toString())
+                .isZero();
+        assertThat(served()).containsExactly((String) registry.answer().get("key"));
+        assertThat(cardFile()).exists();
+        assertThat(keepass.guiCalls()).containsExactly("--lock", keepass.database.toString());
+        assertThat(Files.readString(keepass.terminal))
+                .as("the person is told what happened and what to do, on the terminal")
+                .contains("locked")
+                .contains("unlock " + keepass.database);
+        assertThat(keepass.holding((String) registry.answer().get("key"))).isEmpty();
+    }
+
+    /**
+     * KeePassXC not running: Porelo starts no window of its own, which would hold this command
+     * until it is closed, and says to open the database in KeePassXC.
+     */
+    @Test
+    void keepassxc_not_running_is_never_started_and_the_refusal_says_to_open_the_database()
+            throws Exception {
+        final KeePassXcStandIn keepass = standIn(KeePassXcStandIn.Mode.HOLDS);
+        keepass.running(false);
+
+        assertThat(
+                        create(
+                                keepass.store(Duration.ofMillis(600)),
+                                "--keepassxc",
+                                keepass.database.toString(),
+                                "--entry",
+                                "alice",
+                                "--json"))
+                .isEqualTo(65);
+        final Map<?, ?> answer = registry.answer();
+        assertThat(answer.get("reason")).isEqualTo("key-not-served");
+        assertThat((String) answer.get("words"))
+                .contains("not running")
+                .contains("--key " + answer.get("fingerprint"));
+        assertThat(keepass.guiCalls()).as("no window is started").containsExactly("--lock");
+        assertThat(cardFile()).doesNotExist();
     }
 
     /** A wrong password: KeePassXC took nothing, and Porelo keeps nothing either. */
@@ -319,6 +384,7 @@ class IdentityKeePassXcTest {
         final KeePassXcKey missing =
                 new KeePassXcKey(
                         dir.resolve("nowhere").toString(),
+                        dir.resolve("nowhere-either").toString(),
                         Duration.ofSeconds(1),
                         Path.of("/dev/null"),
                         keepass.terminal);

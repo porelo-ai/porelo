@@ -13,6 +13,7 @@ import java.util.List;
 import java.util.Map;
 import org.fuin.porelo.core.process.Command;
 import org.fuin.porelo.core.process.CommandException;
+import org.fuin.porelo.core.process.CommandResult;
 import org.fuin.porelo.vault.AgentKey;
 import org.fuin.porelo.vault.PersonCard;
 import org.fuin.porelo.vault.SigningKey;
@@ -30,12 +31,15 @@ import org.jspecify.annotations.Nullable;
  * key and no argument carries it; Porelo never sees the password.
  *
  * @param program The {@code keepassxc-cli} run.
+ * @param gui KeePassXC itself, its window: locked and asked to show a database whose new entry its
+ *     agent does not serve yet.
  * @param patience How long the agent is waited for to serve the key.
  * @param terminalIn What {@code keepassxc-cli} reads the password from: this process's own input.
  * @param terminalOut Where {@code keepassxc-cli} prompts and talks: this process's own error
  *     output, so the answer on standard output stays the verb's alone.
  */
-record KeePassXcKey(String program, Duration patience, Path terminalIn, Path terminalOut) {
+record KeePassXcKey(
+        String program, String gui, Duration patience, Path terminalIn, Path terminalOut) {
 
     /** The attachment KeePassXC's agent integration takes the key from. */
     static final String KEY_ATTACHMENT = "id_ed25519";
@@ -45,6 +49,21 @@ record KeePassXcKey(String program, Duration patience, Path terminalIn, Path ter
 
     /** How long the agent is waited for, unless a test says otherwise. */
     static final Duration WAIT = Duration.ofSeconds(60);
+
+    /**
+     * How long the agent is given to serve the key before KeePassXC is locked: long enough for a
+     * database KeePassXC loads by itself, short against the wait that follows.
+     */
+    static final Duration GRACE = Duration.ofSeconds(3);
+
+    /** What {@code keepassxc --lock} says when it locked a running KeePassXC's databases. */
+    private static final String LOCKED = "have been locked";
+
+    /**
+     * Hands a database to the running KeePassXC and returns at once: detached, so that a KeePassXC
+     * that quit since the lock opens its own window without holding this command until it closes.
+     */
+    private static final String SHOW = "\"$1\" \"$2\" </dev/null >/dev/null 2>&1 &";
 
     /** How often the agent is asked while it is waited for. */
     private static final Duration POLL = Duration.ofMillis(250);
@@ -77,7 +96,8 @@ record KeePassXcKey(String program, Duration patience, Path terminalIn, Path ter
      */
     static KeePassXcKey real() {
         final String self = "/proc/" + ProcessHandle.current().pid() + "/fd/";
-        return new KeePassXcKey("keepassxc-cli", WAIT, Path.of(self + "0"), Path.of(self + "2"));
+        return new KeePassXcKey(
+                "keepassxc-cli", "keepassxc", WAIT, Path.of(self + "0"), Path.of(self + "2"));
     }
 
     /**
@@ -132,7 +152,29 @@ record KeePassXcKey(String program, Duration patience, Path terminalIn, Path ter
                             + "; nothing was made");
         }
         final String fingerprint = handOver(context, file.toString(), path, login);
-        return new Made(path, waitFor(socket, path, fingerprint));
+        final Duration grace = patience.compareTo(GRACE) < 0 ? patience : GRACE;
+        if (served(socket, fingerprint, grace)) {
+            return new Made(path, fingerprint);
+        }
+        // KeePassXC loads an entry added while the database is open only once the database is
+        // locked and unlocked: lock it, show the database's unlock view, and wait for the person.
+        final boolean locked = lock(context);
+        if (locked) {
+            show(context, file.toString());
+            say(
+                    "KeePassXC loads the new key only when "
+                            + RegistryVerifyCommand.printable(file.toString())
+                            + " is unlocked again, so Porelo has locked KeePassXC's databases:"
+                            + " unlock "
+                            + RegistryVerifyCommand.printable(file.toString())
+                            + " in KeePassXC's window; Porelo waits up to "
+                            + patience.toSeconds()
+                            + " s.\n");
+        }
+        if (served(socket, fingerprint, patience)) {
+            return new Made(path, fingerprint);
+        }
+        throw notServed(path, file.toString(), fingerprint, locked);
     }
 
     /**
@@ -231,31 +273,80 @@ record KeePassXcKey(String program, Duration patience, Path terminalIn, Path ter
         }
     }
 
-    /** Asks the agent until it serves the key, at most {@link #patience}. */
-    private String waitFor(final String socket, final String entry, final String fingerprint)
-            throws IdentityChange.Refused {
-        final long deadline = System.nanoTime() + patience.toNanos();
+    /** Asks the agent until it serves the key, at most {@code within}. */
+    private static boolean served(
+            final String socket, final String fingerprint, final Duration within) {
+        final long deadline = System.nanoTime() + within.toNanos();
         while (true) {
             for (final AgentKey each : served(socket)) {
                 if (IdentityFacts.fingerprint(each.keyBlob()).equals(fingerprint)) {
-                    return fingerprint;
+                    return true;
                 }
             }
             final long left = deadline - System.nanoTime();
             if (left <= 0) {
-                break;
+                return false;
             }
             try {
                 Thread.sleep(Duration.ofNanos(Math.min(left, POLL.toNanos())));
             } catch (InterruptedException ex) {
                 Thread.currentThread().interrupt();
-                break;
+                return false;
             }
         }
+    }
+
+    /**
+     * Locks the running KeePassXC's databases, which is what makes it load a new entry once one is
+     * unlocked again. Its words tell a running KeePassXC from none; it exits 0 either way.
+     *
+     * @return Whether a running KeePassXC locked its databases.
+     */
+    private boolean lock(final PoreloContext context) {
+        try {
+            final CommandResult result =
+                    context.runner()
+                            .run(Command.of(gui, "--lock").withEnvironment(Map.of("LC_ALL", "C")));
+            return (result.standardOutput() + result.standardError()).contains(LOCKED);
+        } catch (CommandException ex) {
+            return false;
+        }
+    }
+
+    /** Asks the running KeePassXC to show the database, whose unlock view the person then uses. */
+    private void show(final PoreloContext context, final String database) {
+        try {
+            context.runner().run(Command.of("sh", "-c", SHOW, "porelo-keepassxc", gui, database));
+        } catch (CommandException ex) {
+            // Not shown: the person unlocks it in KeePassXC as the words say.
+        }
+    }
+
+    /** Writes a line where keepassxc-cli talks to the person: their terminal. */
+    private void say(final String line) {
+        try {
+            Files.writeString(
+                    terminalOut,
+                    line,
+                    StandardCharsets.UTF_8,
+                    java.nio.file.StandardOpenOption.WRITE,
+                    java.nio.file.StandardOpenOption.APPEND);
+        } catch (java.io.IOException ex) {
+            // The answer's words say the same.
+        }
+    }
+
+    /** The refusal for a key the agent did not serve in time, saying what the person does next. */
+    private IdentityChange.Refused notServed(
+            final String entry,
+            final String database,
+            final String fingerprint,
+            final boolean locked) {
         final Map<String, @Nullable Object> more = new LinkedHashMap<>();
         more.put("entry", entry);
         more.put("fingerprint", fingerprint);
-        throw new IdentityChange.Refused(
+        final String shown = String.valueOf(RegistryVerifyCommand.printable(database));
+        return new IdentityChange.Refused(
                 65,
                 "key-not-served",
                 "KeePassXC holds the key "
@@ -264,9 +355,15 @@ record KeePassXcKey(String program, Duration patience, Path terminalIn, Path ter
                         + RegistryVerifyCommand.printable(entry)
                         + ", but its agent did not serve it within "
                         + patience.toSeconds()
-                        + " s: with the database open in KeePassXC and its SSH agent integration"
-                        + " on, lock and unlock the database so its agent loads the new entry,"
-                        + " then name the key with --key "
+                        + " s: "
+                        + (locked
+                                ? "Porelo locked KeePassXC's databases; unlock "
+                                        + shown
+                                        + " in KeePassXC's window with its SSH agent integration on"
+                                : "KeePassXC is not running; open "
+                                        + shown
+                                        + " in KeePassXC with its SSH agent integration on")
+                        + ", then name the key with --key "
                         + fingerprint,
                 more);
     }

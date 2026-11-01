@@ -32,6 +32,11 @@ final class KeePassXcStandIn {
         SERVES_LATE,
         /** The database is not open in KeePassXC: the entry is kept, the key not served. */
         HOLDS,
+        /**
+         * The database is open, and KeePassXC loads the new entry only once it is locked and
+         * unlocked: the key is held in memory until the database is unlocked again.
+         */
+        SERVES_AFTER_UNLOCK,
         /** A wrong master password: nothing is added. */
         REFUSES
     }
@@ -46,6 +51,8 @@ final class KeePassXcStandIn {
     final Path during;
     final Path settings;
     final Path terminal;
+    final Path gui;
+    final Path guiCalls;
 
     /** The test's own temporary directory, under which the JVM's temporary files lie. */
     private final Path temp = Path.of(System.getProperty("java.io.tmpdir"));
@@ -64,6 +71,10 @@ final class KeePassXcStandIn {
                     case SERVES -> "SSH_AUTH_SOCK=\"$sock\" ssh-add -q - < \"$5\" || exit 1";
                     case SERVES_LATE ->
                             "( sleep 1; SSH_AUTH_SOCK=\"$sock\" ssh-add -q - ) < \"$5\" &";
+                    case SERVES_AFTER_UNLOCK ->
+                            "( k=$(cat); while [ ! -e \"$here/unlocked\" ]; do sleep 0.1; done;"
+                                    + " printf '%s\\n' \"$k\" | SSH_AUTH_SOCK=\"$sock\" ssh-add -q - )"
+                                    + " < \"$5\" &";
                     case HOLDS, REFUSES -> "head -n 1 \"$5\" >> \"$here/seen\"";
                 };
         final String script =
@@ -114,6 +125,9 @@ final class KeePassXcStandIn {
                         + "esac\n";
         Files.writeString(program, script);
         Files.setPosixFilePermissions(program, PosixFilePermissions.fromString("rwx------"));
+        gui = this.dir.resolve("keepassxc");
+        guiCalls = this.dir.resolve("gui-calls");
+        running(true);
         for (final Path dirs :
                 List.of("home", "config", "state", "data", "run").stream()
                         .map(dir::resolve)
@@ -122,9 +136,43 @@ final class KeePassXcStandIn {
         }
     }
 
+    /**
+     * Makes the stand-in {@code keepassxc}, KeePassXC's window, running or not. Running, it locks
+     * its databases on {@code --lock} and, given a database, stands for the person unlocking it in
+     * the window; not running, it says so on {@code --lock}, and a database given to it would start
+     * a new window, which it notes.
+     */
+    void running(final boolean running) throws IOException {
+        final String script =
+                "#!/bin/sh\n"
+                        + "here='"
+                        + dir
+                        + "'\n"
+                        + "printf '%s\\n' \"$*\" >> \"$here/gui-calls\"\n"
+                        + "case \"$1\" in\n"
+                        + "--lock) "
+                        + (running
+                                ? "echo 'Databases have been locked.' ;;\n"
+                                : "echo 'KeePassXC is not running. No open database to lock' ;;\n")
+                        + "*) "
+                        + (running
+                                ? "touch \"$here/unlocked\"; echo 'Another instance of KeePassXC is"
+                                        + " already running.' ;;\n"
+                                : "echo started >> \"$here/gui-calls\" ;;\n")
+                        + "esac\n";
+        Files.writeString(gui, script);
+        Files.setPosixFilePermissions(gui, PosixFilePermissions.fromString("rwx------"));
+    }
+
     /** The store the verbs run: this stand-in, its terminal a file, waiting this long. */
     KeePassXcKey store(final Duration wait) {
-        return new KeePassXcKey(program.toString(), wait, Path.of("/dev/null"), terminal);
+        return new KeePassXcKey(
+                program.toString(), gui.toString(), wait, Path.of("/dev/null"), terminal);
+    }
+
+    /** Each argument list the stand-in window was run with, one line each. */
+    List<String> guiCalls() throws IOException {
+        return Files.exists(guiCalls) ? Files.readAllLines(guiCalls) : List.of();
     }
 
     /** Each argument list the stand-in was run with, one line each. */

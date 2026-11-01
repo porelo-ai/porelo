@@ -158,7 +158,7 @@ from its side, as *blocked by*.
 | <a id="b385"></a>[B385](B385-A-KeePassXC-Key-That-Is-Usable.md) | M | [B356](README.md#b356) | `--keepassxc` asks the master password once, a retry takes the key already made, no empty entry left, a clear refusal under `su` or a redirected stderr, aligned exit codes |
 | <a id="b384"></a>[B384](B384-A-Start-That-Waits-For-Its-Helpers.md) | S | [B378](README.md#b378) | A start and a resume wait for their helpers and fail with 70 when one does not come up, a host's refusals come before the resume record, and a racing start stops only its own task |
 | <a id="b383"></a>[B383](B383-A-Build-That-Fits-Its-Old-Time.md) | S | - | The Build's verify takes about as long as before sprint 6m, not three times as long |
-| <a id="b382"></a>[B382](B382-A-Key-Added-While-KeePassXC-Runs-Is-Served.md) | S | [B356](README.md#b356) | A key added while KeePassXC runs is served without locking and unlocking the database |
+| <a id="b382"></a>[B382](B382-A-Key-Added-While-KeePassXC-Runs-Is-Served.md) | S | [B356](README.md#b356) | A key added while KeePassXC runs is served once the database is unlocked in KeePassXC's window, with no second run |
 | <a id="b380"></a>[B380](B380-Small-Leftovers-Of-Sprint-6m.md) | - | - | The small edge cases sprint 6m left, gathered for michi to place |
 | <a id="b374"></a>[B374](B374-A-Registry-Commit-Split-As-Git-Splits-It.md) | S | [B366](README.md#b366) | A registry commit's signature is checked over the bytes git checks: every header starting with `gpgsig` left out |
 | <a id="b373"></a>[B373](B373-A-Token-Lent-To-A-Forge-On-Its-Own-Port.md) | S | [B368](README.md#b368) | A vault token is lent to an `https://` repository on a port of its own: the helper's key names the port |
