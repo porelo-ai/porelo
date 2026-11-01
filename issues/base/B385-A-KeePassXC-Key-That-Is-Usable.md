@@ -25,8 +25,7 @@ are usable by a person at their terminal:
 
 - Tests with the stand-in `keepassxc-cli` count one password prompt for a whole create, see a retry after
   `key-not-served` make no second key, and see no entry left after a refused attachment; each seen to fail first.
-- The test gaps 2 and 7.1 of the reading of the KeePassXC key are closed.
-
-## To be checked
-
-- The wording of the reading's test gaps 2 and 7.1, from the list of 2026-10-31T23:52Z.
+- The stand-in's check that no file holds the key at any time also catches a temporary file that is deleted before
+  it looks (`IdentityKeePassXcTest`, `KeePassXcStandIn`); today it would miss one.
+- The redirection of `keepassxc-cli`'s standard input to the person's terminal is tested; today only a run against
+  the real keepassxc-cli 2.7.10 shows it.
