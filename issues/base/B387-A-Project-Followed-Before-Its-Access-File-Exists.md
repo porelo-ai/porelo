@@ -1,6 +1,6 @@
 # B387 — A Project Followed Before Its Access File Exists
 
-**Status:** Implementing.
+**Status:** Review.
 **Severity:** high.
 **Size:** S, proposed - the follow takes an access repository with no commit as one with no access commit yet, and
 `project access init` writes the first, with a test of the whole start from an empty repository.
@@ -20,3 +20,21 @@ plain git, follows only once the access repository holds a commit.
 - A test follows a project whose access repository is empty, with no access commit in force, then runs
   `project access init`, and the follow takes that first commit; seen to fail first.
 - An access repository that cannot be reached at all is still refused, as it is today.
+
+## Done
+
+- `Reconcile.reconcileAccess` takes an access repository that was reached and lists no ref at all (`git ls-remote`,
+  asked with the credential the fetch lends) as one with no access commit yet: the follow publishes with the access
+  outcome `unchanged` and no access commit, and nothing reads access settings until one is applied. The next follow
+  takes the first commit `project access init` writes, checked as a first follow checks one.
+- Only when the follow record holds no access commit at all and the fetch failed as unreachable: an accepted
+  rewrite, an access file moved to another repository, an emptied repository, one that is not there, a shut vault,
+  an unknown host key or a missing credential are refused as before.
+- Tests in `AccessReconcileTest`: the start from an empty repository, with access settings withheld until the
+  first commit; an emptied repository under an access commit in force refused, with and without
+  `--accept-rewrite`; a repository that is not there refused and nothing followed. Each guard seen red, the
+  `--accept-rewrite` case on the first version of this fix.
+- After its one reading (agy Gemini): the empty case is asked of the follow record, not of what an accepted rewrite
+  takes as in force, and only after an unreachable fetch. Left: `doctor` answers a project with no access commit
+  yet as followed without saying so; `registry joinable` answers an empty access repository as unreachable; the
+  probe runs with the fetch's own environment, which is the follow's and not `project access`'s hardened one.

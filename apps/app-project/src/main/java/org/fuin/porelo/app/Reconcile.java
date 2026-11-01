@@ -1067,6 +1067,21 @@ public final class Reconcile {
         final FollowedProjects.Followed access =
                 new FollowedProjects.Followed(followed.name(), url, inForce, "", "", "");
         final Result failed = fetch(access, clone);
+        if (failed != null
+                && failed.outcome() == Outcome.UNREACHABLE
+                && followed.accessCommit().isEmpty()
+                && holdsNoCommit(access, clone)) {
+            // A project begins so: 'project access init' writes the first access commit only for
+            // a followed project. Asked of the record, not of what this follow takes as in force,
+            // which an accepted rewrite or a moved access file empties: an access commit this
+            // machine ever applied is never dropped for an empty repository. Nothing reads access
+            // settings until a commit is applied.
+            return new Result(
+                    Outcome.UNCHANGED,
+                    "",
+                    url
+                            + " holds no commit yet; write the first with 'porelo project access init'");
+        }
         if (failed != null) {
             return new Result(
                     failed.outcome(),
@@ -1400,6 +1415,36 @@ public final class Reconcile {
                     Outcome.UNREADABLE, followed.commit(), String.valueOf(ex.getMessage()));
         } catch (final IOException | RuntimeException ex) {
             return new Result(Outcome.FAILED, followed.commit(), String.valueOf(ex.getMessage()));
+        }
+    }
+
+    /**
+     * Whether a repository was reached and lists no ref at all, asked as the fetch asks, with the
+     * same credential lent; a repository that could not be reached is never empty.
+     */
+    private boolean holdsNoCommit(final FollowedProjects.Followed followed, final Path clone) {
+        try (FollowCredential credential =
+                FollowCredential.open(context, followed.url(), followed.name())) {
+            final java.util.List<String> arguments =
+                    new java.util.ArrayList<>(java.util.List.of("git"));
+            arguments.addAll(credential.arguments());
+            arguments.addAll(
+                    java.util.List.of(
+                            "-C",
+                            clone.toString(),
+                            "ls-remote",
+                            "--end-of-options",
+                            followed.url()));
+            final CommandResult listed =
+                    context.runner()
+                            .run(
+                                    Command.of(arguments)
+                                            .withEnvironment(
+                                                    credential.environmentFor(
+                                                            context, followed.url())));
+            return listed.successful() && listed.standardOutput().isBlank();
+        } catch (final RuntimeException ex) {
+            return false;
         }
     }
 

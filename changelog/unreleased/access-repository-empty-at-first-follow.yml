@@ -1,0 +1,2 @@
+title: "A project whose access repository holds no commit yet is followed with no access commit in force, so `porelo project access init` can write the first access commit; an access repository that cannot be reached, or one emptied while an access commit is in force, is still refused"
+type: fixed

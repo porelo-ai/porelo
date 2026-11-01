@@ -673,6 +673,9 @@ porelo project default [list | add ADDRESS [--name=NAME] | remove NAME]
   descending from the access commit in force, and the URL is never fetched. A newer access bundle is applied
   the same way, by following again. It is refused for a project followed from an address, which is fetched
   again in the background, and for a project naming no access repository.
+  An access repository that holds no commit yet is followed with no access commit in force, so `project access init`
+  can write the first; the access file is taken at the next follow, and nothing reads access settings until then.
+  One that cannot be reached is refused, and so is one emptied while an access commit is in force.
 - **`verify`** checks a project and its access file as `follow` would, from local paths or bundles only, and
   writes nothing: no follow, no pinned key, no clone left behind. It reads nothing of the account it runs as - no
   git configuration, vault, credentials, pinned keys or egress sets of its own, so a project naming a set only a

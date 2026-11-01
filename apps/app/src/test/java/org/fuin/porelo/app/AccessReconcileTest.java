@@ -799,6 +799,107 @@ class AccessReconcileTest {
                                                                 publicKey(signer))));
     }
 
+    @Test
+    void a_project_whose_access_repository_holds_no_commit_yet_is_followed_and_takes_the_first(
+            @TempDir final Path dir) throws Exception {
+        // Refused, a project could only begin with an access commit written by hand, since
+        // 'project access init' writes only for a followed project.
+        final PoreloContext context = context(dir);
+        final Path signer = key(dir, "operator");
+        final Path access = dir.resolve("access.git");
+        git(dir, "init", "-q", "--bare", "-b", "main", access.toString());
+        final Path repo = repository(dir, "project");
+        project(repo, access.toString(), "initial", signer);
+        commit(repo, signer);
+        final FollowSignedBy follow = new FollowSignedBy(context);
+
+        final FollowSignedBy.Answer first =
+                follow.follow("demo", repo.toString(), publicKey(signer), false, false);
+
+        assertThat(FollowSignedBy.mayPublish(first.result()))
+                .as("an empty access repository is no refusal: " + first.result().detail())
+                .isTrue();
+        assertThat(projects(context).require("demo").accessCommit())
+                .as("no access commit is in force")
+                .isEmpty();
+        final org.fuin.porelo.core.project.Project read =
+                org.fuin.porelo.core.project.ProjectReader.read(repo.resolve("project.yml"));
+        org.assertj.core.api.Assertions.assertThatThrownBy(
+                        () -> ProjectAccess.applied(context, read))
+                .as("nothing reads access settings while none is in force")
+                .isInstanceOf(ProjectAccess.Withheld.class);
+
+        final Path work = repository(dir, "access-work");
+        Files.writeString(work.resolve("access.yml"), "{}\n");
+        commit(work, signer);
+        git(work, "push", "-q", access.toString(), "main");
+        final FollowSignedBy.Answer second =
+                follow.follow("demo", repo.toString(), publicKey(signer), false, false);
+
+        assertThat(second.result().accessOutcome())
+                .as("the first access commit is taken: " + second.result().detail())
+                .isEqualTo("APPLIED");
+        assertThat(projects(context).require("demo").accessCommit())
+                .as("the first access commit is in force")
+                .isEqualTo(git(work, "rev-parse", "HEAD"));
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void an_access_repository_emptied_under_an_access_commit_in_force_is_refused(
+            final boolean acceptRewrite, @TempDir final Path dir) throws Exception {
+        // An emptied repository must not drop the persons in force as if none had ever been named.
+        final Fixture fixture = fixture(dir);
+        final FollowSignedBy follow = new FollowSignedBy(fixture.context());
+        final String inForce =
+                follow.follow("demo", fixture.project().toString(), null, false, false)
+                        .result()
+                        .accessCommit();
+        assertThat(inForce).as("an access commit is in force").isNotEmpty();
+        deleteTree(fixture.access());
+        git(dir, "init", "-q", "-b", "main", fixture.access().toString());
+
+        // A rewrite accepted for the project lifts the access file's descent, never what is in
+        // force.
+        final FollowSignedBy.Answer answer =
+                follow.follow("demo", fixture.project().toString(), null, false, acceptRewrite);
+
+        assertThat(FollowSignedBy.mayPublish(answer.result()))
+                .as("an emptied access repository is refused: " + answer.result().detail())
+                .isFalse();
+        assertThat(projects(fixture.context()).require("demo").accessCommit())
+                .as("the access commit in force stays")
+                .isEqualTo(inForce);
+    }
+
+    @Test
+    void an_access_repository_that_is_not_there_is_refused_on_a_first_follow(
+            @TempDir final Path dir) throws Exception {
+        // Taken as empty, a mistyped address would start a project whose access file never comes.
+        final PoreloContext context = context(dir);
+        final Path signer = key(dir, "operator");
+        final Path repo = repository(dir, "project");
+        project(repo, dir.resolve("no-such.git").toString(), "initial", signer);
+        commit(repo, signer);
+
+        final FollowSignedBy.Answer answer =
+                new FollowSignedBy(context)
+                        .follow("demo", repo.toString(), publicKey(signer), false, false);
+
+        assertThat(FollowSignedBy.mayPublish(answer.result()))
+                .as("a missing access repository is refused: " + answer.result().detail())
+                .isFalse();
+        assertThat(projects(context).find("demo")).as("nothing is followed").isNull();
+    }
+
+    private static void deleteTree(final Path root) throws IOException {
+        try (var walk = Files.walk(root)) {
+            for (final Path path : walk.sorted(java.util.Comparator.reverseOrder()).toList()) {
+                Files.delete(path);
+            }
+        }
+    }
+
     private record Fixture(PoreloContext context, Path key, Path project, Path access) {}
 
     private Fixture fixture(final Path dir) throws IOException {

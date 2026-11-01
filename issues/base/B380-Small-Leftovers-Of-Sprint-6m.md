@@ -30,3 +30,7 @@ or lends a credential, trusts a key wrongly or loses data. Each one placed is sp
   sender is believed through `MessageSigners.certifiers`, which takes every admitted person's key, a backup key
   among them, should one ever be admitted as a person's key. Left when the task-key messages met the backup keys
   of [B377](README.md#b377).
+- Low, for the tests only: `RegistryJoinableCommandTest.an_access_address_whose_user_part_holds_a_slash_is_refused_naming_nothing_of_it`
+  asserts that the output holds no `4711`, and failed once because a commit hash in the output held it
+  (`0540bdcce7471155...`); the assertion needs a token no hash can spell. Found while building
+  [B387](README.md#b387).
