@@ -36,3 +36,7 @@ or lends a credential, trusts a key wrongly or loses data. Each one placed is sp
 - Low: a line ssh-keygen cannot parse is skipped by git, while Porelo refuses the whole signers file (66); a line
   Java's `strip()` turns into a comment, such as `U+2000#x ssh-ed25519 K`, is skipped by Porelo but read by
   ssh-keygen as the principal `U+2000#x`. Both fail closed. Found while fixing [B376](README.md#b376).
+- Low: a task's certificate is refused when a backup key of the project's signers certified it, but a message's
+  sender is believed through `MessageSigners.certifiers`, which takes every admitted person's key, a backup key
+  among them, should one ever be admitted as a person's key. Left when the task-key messages met the backup keys
+  of [B377](README.md#b377).
