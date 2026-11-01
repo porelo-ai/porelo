@@ -11,6 +11,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Stream;
+import org.fuin.porelo.wire.Directories;
 import org.fuin.porelo.wire.Json;
 
 /**
@@ -436,7 +437,7 @@ public final class FollowedProjects {
             THREADS = new java.util.concurrent.ConcurrentHashMap<>();
 
     private <T> T locked(final Change<T> change) throws IOException {
-        Files.createDirectories(directory);
+        Directories.create(directory);
         final java.util.concurrent.locks.ReentrantLock threads =
                 THREADS.computeIfAbsent(
                         directory.toAbsolutePath().normalize(),
@@ -472,7 +473,7 @@ public final class FollowedProjects {
         document.put("refusedFile", followed.refusedFile());
         document.put("accessRefused", followed.accessRefused());
         document.put("accessRefusedFile", followed.accessRefusedFile());
-        Files.createDirectories(directory);
+        Directories.create(directory);
         final Path file = directory.resolve(followed.name() + ".json");
         final Path staged = directory.resolve("." + followed.name() + ".json.tmp");
         Files.writeString(staged, Json.write(document), StandardCharsets.UTF_8);

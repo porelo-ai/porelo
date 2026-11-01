@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import org.fuin.porelo.wire.Directories;
 
 /**
  * Stops every task not confirmed inactive and every helper any of them started.
@@ -215,7 +216,7 @@ public final class TaskPanic {
         }
         try {
             final java.nio.file.Path file = context.paths().stopJournal();
-            java.nio.file.Files.createDirectories(file.getParent());
+            Directories.create(file.getParent());
             java.nio.file.Files.writeString(
                     file,
                     line + "\n",

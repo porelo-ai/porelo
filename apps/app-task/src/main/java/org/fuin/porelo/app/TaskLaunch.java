@@ -9,6 +9,7 @@ import org.fuin.porelo.core.process.CommandException;
 import org.fuin.porelo.core.project.Project;
 import org.fuin.porelo.core.project.ProjectException;
 import org.fuin.porelo.core.project.ProjectReader;
+import org.fuin.porelo.wire.Directories;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -1905,7 +1906,7 @@ public final class TaskLaunch {
             // it, but the credential proxy needs it first: it writes its socket, its token and its
             // pid there, and it has to be listening before the container exists.
             final java.nio.file.Path state = context.paths().tasks().containerState(container);
-            java.nio.file.Files.createDirectories(state);
+            Directories.create(state);
             steps.recordIn(state);
             steps.started(StartStep.Step.IMAGE);
 

@@ -1,6 +1,7 @@
 package org.fuin.porelo.app;
 
 import java.io.PrintWriter;
+import org.fuin.porelo.wire.Directories;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -391,7 +392,7 @@ final class CredentialWiring {
         try {
             java.nio.file.Files.deleteIfExists(tokenFile);
             if (!routes.isEmpty()) {
-                java.nio.file.Files.createDirectories(routeTokens);
+                Directories.create(routeTokens);
                 java.nio.file.Files.setPosixFilePermissions(
                         routeTokens,
                         java.nio.file.attribute.PosixFilePermissions.fromString("rwx------"));

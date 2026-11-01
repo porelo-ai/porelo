@@ -10,6 +10,7 @@ import java.nio.file.attribute.PosixFilePermissions;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import org.fuin.porelo.wire.Directories;
 import org.fuin.porelo.wire.Json;
 
 /**
@@ -204,7 +205,7 @@ public final class TaskState {
 
     private static void createPrivate(Path directory) throws IOException {
         if (!Files.isDirectory(directory)) {
-            Files.createDirectories(directory);
+            Directories.create(directory);
             Files.setPosixFilePermissions(directory, PosixFilePermissions.fromString("rwx------"));
         }
     }

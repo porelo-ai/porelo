@@ -13,6 +13,7 @@ import org.fuin.porelo.runtime.ContainerName;
 import org.fuin.porelo.runtime.ContainerSpec;
 import org.fuin.porelo.runtime.Podman;
 import org.fuin.porelo.shield.NftRuleset;
+import org.fuin.porelo.wire.Directories;
 import org.fuin.porelo.wire.Sidecar;
 import org.jspecify.annotations.Nullable;
 
@@ -318,7 +319,7 @@ public class TaskRunner {
             throws IOException {
 
         final Path state = paths.tasks().containerState(container);
-        Files.createDirectories(state);
+        Directories.create(state);
         final Path authority = TaskCertificates.prepare(paths, state);
 
         final List<String> hostServices = project.egressFor(repository).hostServices();
@@ -884,7 +885,7 @@ public class TaskRunner {
         Sidecar.recordId(paths.tasks().containerState(container), id);
         final Path durable = paths.tasks().taskRecord(container);
         if (!Files.isDirectory(durable)) {
-            Files.createDirectories(durable);
+            Directories.create(durable);
             Files.setPosixFilePermissions(
                     durable, java.nio.file.attribute.PosixFilePermissions.fromString("rwx------"));
         }

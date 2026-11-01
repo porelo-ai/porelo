@@ -1,0 +1,2 @@
+title: "Every directory Porelo makes, `~/.config`, `~/.local/share` and `~/.local/state` among them, is writable by its owner alone whatever the account's umask, so a host helper that checks the directories above its files no longer refuses an account whose umask is 002"
+type: fixed

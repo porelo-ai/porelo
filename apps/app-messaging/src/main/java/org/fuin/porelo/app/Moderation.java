@@ -11,6 +11,7 @@ import java.util.Set;
 import java.util.TreeMap;
 import org.fuin.porelo.core.project.Mail;
 import org.fuin.porelo.core.project.Project;
+import org.fuin.porelo.wire.Directories;
 import org.fuin.porelo.wire.Json;
 
 /**
@@ -279,7 +280,7 @@ public final class Moderation {
                 (name, peer) -> named.put(name, new LinkedHashMap<>(Map.of("held", peer.held()))));
         final Map<String, Object> root = new LinkedHashMap<>();
         root.put("peers", named);
-        Files.createDirectories(file.getParent());
+        Directories.create(file.getParent());
         // Through a neighbour and a rename: a half-written file here would read as a peer nobody
         // decided about, which is the permissive answer for a project that already said otherwise.
         final Path staged = file.resolveSibling(file.getFileName() + STAGED);

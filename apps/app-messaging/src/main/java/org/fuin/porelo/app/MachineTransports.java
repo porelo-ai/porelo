@@ -9,6 +9,7 @@ import java.util.TreeSet;
 import org.fuin.porelo.core.process.CommandException;
 import org.fuin.porelo.core.project.Project;
 import org.fuin.porelo.core.project.SecurityClass;
+import org.fuin.porelo.wire.Directories;
 
 /**
  * The machines this machine lets into a project's conversation on its server: one implementation,
@@ -103,7 +104,7 @@ public final class MachineTransports {
                                     project.name(),
                                     ProjectAccess.settings(context, project, scheme));
             final Path marker = madeRoom(context, scheme, project.name());
-            Files.createDirectories(marker.getParent());
+            Directories.create(marker.getParent());
             Files.writeString(marker, made.conversation() + "\n");
             return Map.of(
                     "conversation", made.conversation(),

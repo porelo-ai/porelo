@@ -10,6 +10,7 @@ import java.nio.file.Path;
 import java.util.Base64;
 import java.util.Set;
 import org.fuin.porelo.vault.SigningKey;
+import org.fuin.porelo.wire.Directories;
 
 /**
  * The key this machine signs messages with.
@@ -47,7 +48,7 @@ public final class HostKey {
             return new SigningKey(Base64.getDecoder().decode(seed), comment);
         }
         final SigningKey created = SigningKey.generate(comment);
-        Files.createDirectories(file.getParent());
+        Directories.create(file.getParent());
         // Written to a temporary name and renamed, so nothing can read a half-written key, and
         // created 0600 before anything goes into it: written first and changed after, the seed
         // could be read by another account in between, or from a file a crash left so.

@@ -19,6 +19,7 @@ import org.fuin.porelo.core.process.CommandException;
 import org.fuin.porelo.core.process.CommandRunner;
 import org.fuin.porelo.runtime.Containerfile;
 import org.fuin.porelo.runtime.Podman;
+import org.fuin.porelo.wire.Directories;
 import org.jspecify.annotations.Nullable;
 
 /** The host authority explicitly handed to a task, isolated from host-client trust. */
@@ -93,7 +94,7 @@ public final class TaskCertificates {
                                 + " must be owned by this account and accessible only to it; restore its ownership and run chmod 600 "
                                 + file);
             }
-            Files.createDirectories(state);
+            Directories.create(state);
             Files.setPosixFilePermissions(state, PosixFilePermissions.fromString("rwx------"));
             final Path temporary =
                     Files.createTempFile(

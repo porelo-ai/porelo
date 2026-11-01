@@ -27,6 +27,7 @@ import org.fuin.porelo.vault.HttpForgeDirectory;
 import org.fuin.porelo.vault.RegistryHistory;
 import org.fuin.porelo.vault.RegistryState;
 import org.fuin.porelo.vault.VaultEntry;
+import org.fuin.porelo.wire.Directories;
 import org.fuin.porelo.wire.Json;
 import org.jspecify.annotations.Nullable;
 import picocli.CommandLine.Command;
@@ -381,7 +382,7 @@ public class RegistryReadCommand implements Callable<Integer>, PoreloFactory.Con
         final Path directory =
                 java.util.Objects.requireNonNull(
                         record.getParent(), "a trust record lies in the registry directory");
-        Files.createDirectories(
+        Directories.create(
                 java.util.Objects.requireNonNull(
                         directory.getParent(), "the registry directory lies in the state one"));
         if (!Files.isDirectory(directory, LinkOption.NOFOLLOW_LINKS)) {

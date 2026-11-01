@@ -10,6 +10,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import org.fuin.porelo.wire.Directories;
 import org.fuin.porelo.wire.Json;
 import org.jspecify.annotations.Nullable;
 
@@ -166,7 +167,7 @@ public final class TaskBuilds {
      */
     public void write(final String container, final Seen seen) throws IOException {
         final Path record = recordOf(container);
-        Files.createDirectories(
+        Directories.create(
                 record.getParent(),
                 PosixFilePermissions.asFileAttribute(PosixFilePermissions.fromString("rwx------")));
         if (!Files.exists(record)) {
@@ -327,7 +328,7 @@ public final class TaskBuilds {
 
     private void write(final String container, final Map<String, Object> said) throws IOException {
         final Path state = paths.containerState(container);
-        Files.createDirectories(state);
+        Directories.create(state);
         Files.writeString(
                 state.resolve(READER_FILE), Json.write(said) + "\n", StandardCharsets.UTF_8);
     }

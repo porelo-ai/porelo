@@ -11,6 +11,7 @@ import java.util.Locale;
 import java.util.Map;
 import org.fuin.porelo.core.credential.Credential;
 import org.fuin.porelo.core.credential.CredentialRegistry;
+import org.fuin.porelo.wire.Directories;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -554,7 +555,7 @@ public final class CredentialDeclarations {
 
     private void write(final List<Credential> credentials) throws IOException {
         final Path file = context.paths().vault().credentialRegistry();
-        Files.createDirectories(file.getParent());
+        Directories.create(file.getParent());
         final StringBuilder text =
                 new StringBuilder(
                         """

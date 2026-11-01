@@ -12,6 +12,7 @@ import java.util.stream.Stream;
 import org.fuin.porelo.core.process.Command;
 import org.fuin.porelo.core.process.CommandResult;
 import org.fuin.porelo.core.process.CommandRunner;
+import org.fuin.porelo.wire.Directories;
 
 /**
  * Hands queued messages to the transport that carries them.
@@ -351,7 +352,7 @@ public final class TransportSend {
     }
 
     private void moveWithCompanions(final Path message, final Path target) throws IOException {
-        Files.createDirectories(target);
+        Directories.create(target);
         final String name = message.getFileName().toString();
         for (final String suffix : new String[] {".sig", MessageDispatch.DESTINATION_SUFFIX}) {
             final Path companion = message.resolveSibling(name + suffix);

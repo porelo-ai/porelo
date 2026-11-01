@@ -8,6 +8,7 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.stream.Stream;
+import org.fuin.porelo.wire.Directories;
 
 /**
  * Lets a person send a held message on its way, or refuse it for good.
@@ -267,7 +268,7 @@ public final class MessageRelease {
             return new Result(Outcome.NOT_DELIVERABLE, name, id, "its signature is not beside it");
         }
         final Path active = mailbox.queueActive(peer.transport());
-        Files.createDirectories(active);
+        Directories.create(active);
         Files.writeString(
                 active.resolve(name + MessageDispatch.DESTINATION_SUFFIX),
                 peer.destination(),
@@ -373,7 +374,7 @@ public final class MessageRelease {
             return new Result(Outcome.RELEASED, name, messageId, INWARD);
         }
         final Path target = refuse ? mailbox.rejected() : mailbox.accepted();
-        Files.createDirectories(target);
+        Directories.create(target);
         if (refuse) {
             // Written before the message moves: an answer that exists for a message still in 'hold'
             // is a repeat at worst, and a message gone with no answer is a sender left waiting.

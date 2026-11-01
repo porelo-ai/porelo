@@ -9,6 +9,7 @@ import java.nio.file.attribute.PosixFilePermissions;
 import java.util.List;
 import java.util.concurrent.Callable;
 import org.fuin.porelo.core.process.Command;
+import org.fuin.porelo.wire.Directories;
 import picocli.CommandLine.Model.CommandSpec;
 import picocli.CommandLine.Option;
 import picocli.CommandLine.Spec;
@@ -132,7 +133,7 @@ public class GateProtectCommand implements Callable<Integer>, PoreloFactory.Cont
         }
 
         try {
-            Files.createDirectories(hookFile.getParent());
+            Directories.create(hookFile.getParent());
             if (Files.isRegularFile(hookFile)
                     && Files.readString(hookFile, StandardCharsets.UTF_8)
                             .contains(BEGIN_APPENDED)) {

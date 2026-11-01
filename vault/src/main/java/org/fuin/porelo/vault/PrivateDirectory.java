@@ -10,6 +10,7 @@ import java.nio.file.attribute.PosixFilePermissions;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import org.fuin.porelo.wire.Directories;
 
 /**
  * A directory under one of Porelo's XDG homes that only this account reads and writes: each
@@ -33,7 +34,7 @@ public final class PrivateDirectory {
      * @throws IOException When one is a link, another's, no directory, or cannot be made.
      */
     public static Path make(final Path home, final Path directory) throws IOException {
-        Files.createDirectories(Objects.requireNonNull(home.getParent(), "a home has a parent"));
+        Directories.create(Objects.requireNonNull(home.getParent(), "a home has a parent"));
         for (final Path each : steps(home, directory)) {
             if (!Files.exists(each, LinkOption.NOFOLLOW_LINKS)) {
                 try {

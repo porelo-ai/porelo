@@ -16,6 +16,7 @@ import org.fuin.porelo.build.api.Build;
 import org.fuin.porelo.build.api.BuildReaderException;
 import org.fuin.porelo.build.api.BuildRefused;
 import org.fuin.porelo.build.api.PullRequest;
+import org.fuin.porelo.wire.Directories;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -381,7 +382,7 @@ public final class BuildWatch {
                                 + " as another forge account than the person who approves it");
                 return;
             }
-            Files.createDirectories(scratch);
+            Directories.create(scratch);
             handIn(
                     "pull-request.txt",
                     ("branch: " + branch + "\nurl: " + opened.url() + "\n")
@@ -475,7 +476,7 @@ public final class BuildWatch {
         }
         final String base = "build-" + commit.substring(0, Math.min(12, commit.length()));
         try {
-            Files.createDirectories(scratch);
+            Directories.create(scratch);
             final List<TaskBuilds.Job> jobs = new java.util.ArrayList<>();
             for (final Build.Job job : build.jobs()) {
                 final byte[] tail = job.log();

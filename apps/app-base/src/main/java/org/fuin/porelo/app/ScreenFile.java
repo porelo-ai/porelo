@@ -11,6 +11,7 @@ import java.nio.file.attribute.PosixFilePermissions;
 import java.time.Clock;
 import java.time.Duration;
 import java.util.List;
+import org.fuin.porelo.wire.Directories;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -76,7 +77,7 @@ public final class ScreenFile {
      * @throws IOException When it cannot be made.
      */
     public static Path prepare(final Path state) throws IOException {
-        final Path directory = Files.createDirectories(directory(state));
+        final Path directory = Directories.create(directory(state));
         Files.setPosixFilePermissions(directory, PosixFilePermissions.fromString("rwxr-xr-x"));
         return directory;
     }

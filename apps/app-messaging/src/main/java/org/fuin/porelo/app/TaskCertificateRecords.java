@@ -10,6 +10,7 @@ import java.util.Map;
 import java.util.regex.Pattern;
 import org.fuin.porelo.vault.PersonCard;
 import org.fuin.porelo.vault.SshCertificate;
+import org.fuin.porelo.wire.Directories;
 import org.fuin.porelo.wire.Json;
 import org.jspecify.annotations.Nullable;
 
@@ -56,7 +57,7 @@ final class TaskCertificateRecords {
         record.put("valid_before", certificate.validBefore().toString());
         record.put("certificate", certificate.line());
         final Path file = file(certificate.fingerprint());
-        Files.createDirectories(file.getParent());
+        Directories.create(file.getParent());
         final Path written = Files.createTempFile(file.getParent(), ".certificate-", ".json");
         try {
             Files.writeString(written, Json.write(record) + "\n", StandardCharsets.UTF_8);

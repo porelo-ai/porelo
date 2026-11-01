@@ -15,6 +15,7 @@ import org.fuin.porelo.core.process.CommandRunner;
 import org.fuin.porelo.core.project.ProjectException;
 import org.fuin.porelo.core.project.ProjectReader;
 import org.fuin.porelo.core.project.ProjectSigners;
+import org.fuin.porelo.wire.Directories;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -690,7 +691,7 @@ final class SignerHandover {
         for (final String key : keys) {
             lines.add(activeLine(project, key));
         }
-        Files.createDirectories(signers.toAbsolutePath().getParent());
+        Directories.create(signers.toAbsolutePath().getParent());
         final Path staged =
                 Files.createTempFile(signers.toAbsolutePath().getParent(), ".project-signers-", "");
         try {

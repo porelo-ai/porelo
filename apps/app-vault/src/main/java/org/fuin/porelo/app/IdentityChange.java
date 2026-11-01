@@ -29,6 +29,7 @@ import org.fuin.porelo.vault.AgentKey;
 import org.fuin.porelo.vault.PersonCard;
 import org.fuin.porelo.vault.RegistryState;
 import org.fuin.porelo.vault.SshAgentClient;
+import org.fuin.porelo.wire.Directories;
 import org.fuin.porelo.wire.Json;
 import org.jspecify.annotations.Nullable;
 import picocli.CommandLine;
@@ -859,8 +860,7 @@ final class IdentityChange {
             if (!made.successful()) {
                 return "cannot make a scratch repository to push from";
             }
-            final Path info =
-                    Files.createDirectories(repository.resolve("objects").resolve("info"));
+            final Path info = Directories.create(repository.resolve("objects").resolve("info"));
             Files.writeString(
                     info.resolve("alternates"),
                     Path.of(common.trimmedOutput()).resolve("objects") + "\n",

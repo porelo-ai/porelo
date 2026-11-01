@@ -12,6 +12,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import org.fuin.porelo.wire.Directories;
 import org.fuin.porelo.wire.Json;
 import org.jspecify.annotations.Nullable;
 
@@ -65,8 +66,8 @@ public final class PersonNote {
 
         final String name = FILE_TIME.format(now) + "--" + id + ".json";
         mailbox.refuseLinks();
-        Files.createDirectories(mailbox.inboxTmp());
-        Files.createDirectories(mailbox.inboxNew());
+        Directories.create(mailbox.inboxTmp());
+        Directories.create(mailbox.inboxNew());
         final Path staged = mailbox.inboxTmp().resolve(name);
         Files.writeString(staged, Json.write(note), StandardCharsets.UTF_8);
         mailbox.intoInbox(staged);

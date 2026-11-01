@@ -72,7 +72,7 @@ public record Sidecar(
         if (!id.strip().matches("[0-9a-f]{12,64}")) {
             throw new java.io.IOException("podman gave back no container id: '" + id.strip() + "'");
         }
-        java.nio.file.Files.createDirectories(state);
+        Directories.create(state);
         final java.nio.file.Path staged = state.resolve("." + RECORDED_ID + ".tmp");
         java.nio.file.Files.writeString(
                 staged, id.strip() + "\n", java.nio.charset.StandardCharsets.UTF_8);
@@ -213,7 +213,7 @@ public record Sidecar(
      */
     public void writeTo(Path file) throws IOException {
         if (file.getParent() != null) {
-            Files.createDirectories(file.getParent());
+            Directories.create(file.getParent());
         }
         Files.writeString(file, toJson(), StandardCharsets.UTF_8);
     }

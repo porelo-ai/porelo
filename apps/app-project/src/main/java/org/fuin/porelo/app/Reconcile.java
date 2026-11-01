@@ -14,6 +14,7 @@ import org.fuin.porelo.core.project.Access;
 import org.fuin.porelo.core.project.AccessFile;
 import org.fuin.porelo.core.project.ProjectException;
 import org.fuin.porelo.core.project.ProjectReader;
+import org.fuin.porelo.wire.Directories;
 
 /**
  * Brings this account's copy of a project's repository up to what the project says, when the
@@ -655,7 +656,7 @@ public final class Reconcile {
             AllowedSigner.read(runner, signers).stream()
                     .filter(line -> name.equals(principalOf(line)))
                     .forEach(lines::add);
-            Files.createDirectories(destination.getParent());
+            Directories.create(destination.getParent());
             final Path staged =
                     Files.createTempFile(destination.getParent(), ".project-signers-", "");
             try {
@@ -747,7 +748,7 @@ public final class Reconcile {
         if (toPublish) {
             final Path parent =
                     context.paths().projects().followedClone(followed.name()).getParent();
-            Files.createDirectories(parent);
+            Directories.create(parent);
             scratch = Files.createTempDirectory(parent, ".follow-prepared-");
         } else {
             scratch = Files.createTempDirectory("porelo-follow-check-");
@@ -913,7 +914,7 @@ public final class Reconcile {
             for (final Path path : paths.toList()) {
                 final Path copy = destination.resolve(source.relativize(path));
                 if (Files.isDirectory(path, java.nio.file.LinkOption.NOFOLLOW_LINKS)) {
-                    Files.createDirectories(copy);
+                    Directories.create(copy);
                 } else {
                     Files.copy(
                             path,
@@ -1288,7 +1289,7 @@ public final class Reconcile {
             if (!holdsRepository(clone)) {
                 // A directory left empty, or with its .git gone, is made again rather than fetched
                 // into: git would look upwards for a repository and fetch into whatever it finds.
-                Files.createDirectories(clone.getParent());
+                Directories.create(clone.getParent());
                 final CommandResult made =
                         runner.run(Command.of("git", "init", "-q", clone.toString()));
                 if (!made.successful()) {
@@ -1933,7 +1934,7 @@ public final class Reconcile {
                             "cannot read image snippet " + path + " at " + commit);
                 }
                 final Path target = scratch.resolve(path);
-                Files.createDirectories(target.getParent());
+                Directories.create(target.getParent());
                 Files.writeString(target, snippet.standardOutput());
             }
             return ProjectReader.read(

@@ -15,6 +15,7 @@ import java.util.Set;
 import java.util.stream.Stream;
 import org.fuin.porelo.core.process.Command;
 import org.fuin.porelo.core.process.CommandResult;
+import org.fuin.porelo.wire.Directories;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -183,7 +184,7 @@ final class TransportConversations {
                                 .resolve(scheme)
                                 .resolve("inbound")
                                 .resolve(project);
-                Files.createDirectories(inbound);
+                Directories.create(inbound);
                 final TransportDescription described =
                         TransportDescription.of(context.runner(), adapter);
                 // Where a waiting poll runs for this conversation, it fetches; here only what it
@@ -383,7 +384,7 @@ final class TransportConversations {
                                 .resolve(scheme)
                                 .resolve("inbound")
                                 .resolve(project);
-                Files.createDirectories(inbound);
+                Directories.create(inbound);
                 poll(adapter, described, secrets, inbound, scheme, project, WAIT_SECONDS, failures);
                 final Map<String, String> accounts = lifecycle.addresses(scheme, project);
                 final java.util.Set<String> persons = lifecycle.persons(scheme, project);
@@ -460,7 +461,7 @@ final class TransportConversations {
                         .resolve(member.scheme())
                         .resolve("direct")
                         .resolve(member.container());
-        Files.createDirectories(into);
+        Directories.create(into);
         final List<String> poll =
                 new ArrayList<>(
                         List.of(
@@ -661,7 +662,7 @@ final class TransportConversations {
                                 + " on this machine is to read it");
             }
             for (final Member to : readers) {
-                Files.createDirectories(to.mailbox().inbound());
+                Directories.create(to.mailbox().inbound());
                 if (person != null) {
                     Files.writeString(
                             to.mailbox().inbound().resolve(name + MessageDelivery.PERSON_SUFFIX),
@@ -686,7 +687,7 @@ final class TransportConversations {
                         to.mailbox().inbound().resolve(name),
                         StandardCopyOption.REPLACE_EXISTING,
                         StandardCopyOption.ATOMIC_MOVE);
-                Files.createDirectories(to.mailbox().record());
+                Directories.create(to.mailbox().record());
                 Files.writeString(
                         to.mailbox().record().resolve(ARRIVED),
                         name + "\n",

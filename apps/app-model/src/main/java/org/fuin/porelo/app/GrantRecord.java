@@ -11,6 +11,7 @@ import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import org.fuin.porelo.vault.VaultEntry;
+import org.fuin.porelo.wire.Directories;
 
 /**
  * Records whom a task acts as: for each credential it holds that a person granted, who granted it
@@ -80,7 +81,7 @@ final class GrantRecord {
                     org.fuin.porelo.wire.Json.write(given),
                     StandardCharsets.UTF_8);
             final Path log = context.paths().xdg().state().resolve(LOG);
-            Files.createDirectories(log.getParent());
+            Directories.create(log.getParent());
             Files.writeString(
                     log,
                     lines.toString(),

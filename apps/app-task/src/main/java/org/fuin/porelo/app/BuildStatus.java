@@ -19,6 +19,7 @@ import org.fuin.porelo.core.project.ProjectException;
 import org.fuin.porelo.core.project.ProjectReader;
 import org.fuin.porelo.core.project.Repository;
 import org.fuin.porelo.gate.LocalRepository;
+import org.fuin.porelo.wire.Directories;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -157,7 +158,7 @@ public record BuildStatus(
                                             + "'.");
         }
         final Path root = context.paths().tasks().buildQueries();
-        Files.createDirectories(
+        Directories.create(
                 root,
                 PosixFilePermissions.asFileAttribute(PosixFilePermissions.fromString("rwx------")));
         final Path directory =

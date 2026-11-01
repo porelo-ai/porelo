@@ -11,6 +11,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import org.fuin.porelo.wire.Directories;
 import org.fuin.porelo.wire.SocketContext;
 import org.jspecify.annotations.Nullable;
 
@@ -309,7 +310,7 @@ public class VarlinkServer implements AutoCloseable, Runnable {
         try {
             final Path parent = directoryOf(socket);
             refuseForeignAbove(parent, ownUid.read());
-            Files.createDirectories(
+            Directories.create(
                     parent,
                     PosixFilePermissions.asFileAttribute(
                             PosixFilePermissions.fromString("rwx------")));

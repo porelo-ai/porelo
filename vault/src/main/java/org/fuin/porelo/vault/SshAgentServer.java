@@ -11,6 +11,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.attribute.PosixFilePermissions;
 import java.util.List;
+import org.fuin.porelo.wire.Directories;
 import org.fuin.porelo.wire.SocketContext;
 import org.jspecify.annotations.Nullable;
 
@@ -64,7 +65,7 @@ public class SshAgentServer implements AutoCloseable, Runnable {
         this.socketPath = socketPath;
         this.keys = List.copyOf(keys);
         try {
-            Files.createDirectories(socketPath.toAbsolutePath().getParent());
+            Directories.create(socketPath.toAbsolutePath().getParent());
             // Never over a live one. This socket signs with the operator's key; taking it from a
             // running agent on the strength of a pathname is the last thing that should happen by
             // accident.

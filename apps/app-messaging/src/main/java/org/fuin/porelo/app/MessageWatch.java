@@ -11,6 +11,7 @@ import java.util.function.UnaryOperator;
 import java.util.stream.Stream;
 import org.fuin.porelo.core.project.Mail;
 import org.fuin.porelo.core.project.Project;
+import org.fuin.porelo.wire.Directories;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -482,7 +483,7 @@ public final class MessageWatch implements AutoCloseable {
             // Made here when it is not there yet: on a fresh account it came with the first task,
             // after the daemon's start, and nothing was ever noticed - every message waited for the
             // timed pass.
-            Files.createDirectories(root);
+            Directories.create(root);
             watcher = root.getFileSystem().newWatchService();
             register(root);
             for (final Path mailbox : mailboxes()) {

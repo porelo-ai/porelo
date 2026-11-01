@@ -12,6 +12,7 @@ import java.util.Optional;
 import org.fuin.porelo.agent.api.AgentDefinition;
 import org.fuin.porelo.agent.api.SessionIds;
 import org.fuin.porelo.core.process.CommandResult;
+import org.fuin.porelo.wire.Directories;
 import org.fuin.porelo.wire.Json;
 import org.jspecify.annotations.Nullable;
 
@@ -71,7 +72,7 @@ public final class TaskSession {
         }
         final Path file = file(container);
         try {
-            Files.createDirectories(file.getParent());
+            Directories.create(file.getParent());
             final Path written =
                     Files.writeString(
                             file.resolveSibling(file.getFileName() + ".new"),

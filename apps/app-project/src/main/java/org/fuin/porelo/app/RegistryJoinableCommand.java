@@ -22,6 +22,7 @@ import org.fuin.porelo.vault.CardException;
 import org.fuin.porelo.vault.HttpForgeDirectory;
 import org.fuin.porelo.vault.RegistryState;
 import org.fuin.porelo.vault.Userinfo;
+import org.fuin.porelo.wire.Directories;
 import org.fuin.porelo.wire.Json;
 import org.jspecify.annotations.Nullable;
 import picocli.CommandLine.Command;
@@ -214,7 +215,7 @@ public class RegistryJoinableCommand implements Callable<Integer>, PoreloFactory
         }
         final Reconcile.Checked checked;
         try {
-            Files.createDirectories(place);
+            Directories.create(place);
             final Path signers = place.resolve("signers");
             Files.writeString(signers, project.name() + " " + key + "\n", StandardCharsets.UTF_8);
             final Path home = Files.createDirectory(place.resolve("home"));

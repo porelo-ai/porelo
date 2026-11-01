@@ -13,6 +13,7 @@ import java.util.Base64;
 import java.util.List;
 import java.util.Map;
 import org.fuin.porelo.core.config.XdgPaths;
+import org.fuin.porelo.wire.Directories;
 
 /**
  * Additional host git trust without replacing the system's authorities.
@@ -95,7 +96,7 @@ public record GitCertificates(XdgPaths paths, List<Path> systemBundles) {
             final Path directory =
                     java.util.Objects.requireNonNull(
                             bundle.getParent(), "the git CA bundle has a state directory");
-            Files.createDirectories(directory);
+            Directories.create(directory);
             final Path temporary =
                     Files.createTempFile(
                             directory,

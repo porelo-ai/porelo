@@ -14,6 +14,7 @@ import java.util.Map;
 import java.util.stream.Stream;
 import org.fuin.porelo.agent.api.AgentDefinition;
 import org.fuin.porelo.agent.api.ProviderDefinition;
+import org.fuin.porelo.wire.Directories;
 import org.jspecify.annotations.Nullable;
 import org.yaml.snakeyaml.LoaderOptions;
 import org.yaml.snakeyaml.Yaml;
@@ -298,7 +299,7 @@ public record Destination(
      * @throws IOException If it cannot be written.
      */
     public static Path write(Path dataHome, Destination destination) throws IOException {
-        final Path directory = Files.createDirectories(dataHome.resolve("destinations"));
+        final Path directory = Directories.create(dataHome.resolve("destinations"));
         final Path file = directory.resolve(destination.name() + ".yaml");
         final Path staged = directory.resolve("." + destination.name() + ".yaml.tmp");
         Files.writeString(staged, destination.yaml(), StandardCharsets.UTF_8);

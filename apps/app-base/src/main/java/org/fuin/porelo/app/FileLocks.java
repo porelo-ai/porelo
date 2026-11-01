@@ -12,6 +12,7 @@ import java.nio.file.StandardOpenOption;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.ReentrantLock;
+import org.fuin.porelo.wire.Directories;
 
 /**
  * Holds a file's lock across threads and processes: the daemon's pass and a command at the terminal
@@ -58,7 +59,7 @@ final class FileLocks {
             if (here.getHoldCount() > 1) {
                 return locked.run();
             }
-            Files.createDirectories(lock.toAbsolutePath().getParent());
+            Directories.create(lock.toAbsolutePath().getParent());
             while (true) {
                 final Object before;
                 try {

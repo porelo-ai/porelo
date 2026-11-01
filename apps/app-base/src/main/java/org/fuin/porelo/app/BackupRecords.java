@@ -9,6 +9,7 @@ import java.nio.file.StandardOpenOption;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import org.fuin.porelo.wire.Directories;
 
 /**
  * What backups have been taken, and where they were put.
@@ -60,7 +61,7 @@ public final class BackupRecords {
      */
     public void add(String project, Path bundle, int refs) {
         try {
-            Files.createDirectories(directory);
+            Directories.create(directory);
             // Absolute, because a relative path recorded from one directory means something else
             // read from another - and this is read by a daemon that was started somewhere else.
             final String line =

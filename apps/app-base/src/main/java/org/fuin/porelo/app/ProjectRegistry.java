@@ -8,6 +8,7 @@ import java.nio.file.StandardCopyOption;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.stream.Stream;
+import org.fuin.porelo.wire.Directories;
 
 /**
  * Where each project's file is, remembered when a task is started with it.
@@ -54,7 +55,7 @@ final class ProjectRegistry {
             return;
         }
         try {
-            Files.createDirectories(directory);
+            Directories.create(directory);
             final Path entry = directory.resolve(name);
             if (Files.isRegularFile(entry)
                     && projectFile.toString().equals(Files.readString(entry).strip())) {

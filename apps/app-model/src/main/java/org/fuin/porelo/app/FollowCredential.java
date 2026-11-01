@@ -10,6 +10,7 @@ import org.fuin.porelo.core.credential.CredentialRegistry;
 import org.fuin.porelo.core.net.GitCertificates;
 import org.fuin.porelo.vault.SshAgentServer;
 import org.fuin.porelo.vault.VaultException;
+import org.fuin.porelo.wire.Directories;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -326,7 +327,7 @@ public final class FollowCredential implements AutoCloseable {
         }
         try {
             final Path where = socketFor(context, label);
-            Files.createDirectories(where.getParent());
+            Directories.create(where.getParent());
             Files.deleteIfExists(where);
             final SshAgentServer serving = new SshAgentServer(where, List.of(key));
             Thread.ofVirtual().start(serving);
@@ -607,7 +608,7 @@ public final class FollowCredential implements AutoCloseable {
         // of skipping past it.
         final Path file = context.paths().xdg().state().resolve("known_hosts");
         try {
-            Files.createDirectories(file.getParent());
+            Directories.create(file.getParent());
         } catch (final IOException ex) {
             // ssh will say it could not write; that is its message to give, not ours to guess at.
             return file;

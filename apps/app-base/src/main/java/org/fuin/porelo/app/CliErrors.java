@@ -12,6 +12,7 @@ import java.util.Deque;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
+import org.fuin.porelo.wire.Directories;
 import org.jspecify.annotations.Nullable;
 import picocli.CommandLine;
 import picocli.CommandLine.IParameterExceptionHandler;
@@ -270,7 +271,7 @@ final class CliErrors {
             Exception ex) {
         try {
             final Path file = paths.failureLog();
-            Files.createDirectories(file.getParent());
+            Directories.create(file.getParent());
             final StringWriter trace = new StringWriter();
             ex.printStackTrace(new PrintWriter(trace));
             final String entry =

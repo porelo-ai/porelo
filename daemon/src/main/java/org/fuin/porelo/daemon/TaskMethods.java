@@ -14,6 +14,7 @@ import org.fuin.porelo.app.TaskInventory;
 import org.fuin.porelo.app.TaskLaunch;
 import org.fuin.porelo.app.TaskPanic;
 import org.fuin.porelo.runtime.ContainerName;
+import org.fuin.porelo.wire.Directories;
 import org.fuin.porelo.wire.varlink.VarlinkException;
 import org.fuin.porelo.wire.varlink.VarlinkServer;
 import org.jspecify.annotations.Nullable;
@@ -311,7 +312,7 @@ final class TaskMethods {
                                             java.time.Instant.now()));
                     final List<String> files;
                     try {
-                        java.nio.file.Files.createDirectories(
+                        Directories.create(
                                 archives,
                                 java.nio.file.attribute.PosixFilePermissions.asFileAttribute(
                                         java.nio.file.attribute.PosixFilePermissions.fromString(

@@ -11,6 +11,7 @@ import java.util.List;
 import java.util.Map;
 import org.fuin.porelo.core.process.Command;
 import org.fuin.porelo.core.process.CommandResult;
+import org.fuin.porelo.wire.Directories;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -280,7 +281,7 @@ public final class HostKeys {
         for (final Offered candidate : offeredBy(context, host)) {
             if (candidate.fingerprint().equals(wanted)) {
                 final Path file = FollowCredential.knownHostsFile(context);
-                Files.createDirectories(file.getParent());
+                Directories.create(file.getParent());
                 final String existing =
                         Files.exists(file) ? Files.readString(file, StandardCharsets.UTF_8) : "";
                 if (!existing.contains(candidate.line())) {

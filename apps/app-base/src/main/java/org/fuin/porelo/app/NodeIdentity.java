@@ -8,6 +8,7 @@ import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.nio.file.attribute.PosixFilePermissions;
 import java.util.UUID;
+import org.fuin.porelo.wire.Directories;
 
 /**
  * What a node calls itself, so a client can tell two of them apart - and tell one of them from
@@ -56,7 +57,7 @@ public final class NodeIdentity {
             if (existing != null) {
                 return existing;
             }
-            Files.createDirectories(file.getParent());
+            Directories.create(file.getParent());
             final Path temp = Files.createTempFile(file.getParent(), "node-id", ".tmp");
             try {
                 final String minted = UUID.randomUUID().toString();

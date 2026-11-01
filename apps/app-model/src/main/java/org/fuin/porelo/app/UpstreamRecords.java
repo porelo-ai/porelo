@@ -7,6 +7,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
 import org.fuin.porelo.gate.UpstreamDistance;
+import org.fuin.porelo.wire.Directories;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -59,7 +60,7 @@ final class UpstreamRecords {
      */
     void put(String project, UpstreamDistance.Distance distance) {
         try {
-            Files.createDirectories(directory);
+            Directories.create(directory);
             final Path temporary =
                     directory.resolve(
                             "."

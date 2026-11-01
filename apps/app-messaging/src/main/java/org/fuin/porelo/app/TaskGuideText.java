@@ -8,6 +8,7 @@ import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.nio.file.attribute.PosixFilePermissions;
 import org.fuin.porelo.runtime.Containerfile;
+import org.fuin.porelo.wire.Directories;
 
 /**
  * What a task's agent is told about Porelo in its task: its handed-in files, the builds of its
@@ -150,7 +151,7 @@ public final class TaskGuideText {
         if (Files.isSymbolicLink(directory)) {
             throw new IOException(directory + " is a link; the guide is not written through it");
         }
-        Files.createDirectories(directory);
+        Directories.create(directory);
         Files.setPosixFilePermissions(directory, PosixFilePermissions.fromString("rwxr-xr-x"));
         final String text = text(mailbox, values);
         final Path file = guide.file();

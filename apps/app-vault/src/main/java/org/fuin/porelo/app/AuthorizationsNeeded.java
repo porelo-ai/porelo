@@ -10,6 +10,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Stream;
+import org.fuin.porelo.wire.Directories;
 import org.fuin.porelo.wire.Json;
 import org.jspecify.annotations.Nullable;
 
@@ -57,7 +58,7 @@ public final class AuthorizationsNeeded {
         question.put("state", state);
         question.put("at", Instant.now().toString());
         try {
-            Files.createDirectories(file.getParent());
+            Directories.create(file.getParent());
             final Path staged = file.resolveSibling(file.getFileName() + ".tmp");
             Files.writeString(staged, Json.write(question), StandardCharsets.UTF_8);
             Files.move(

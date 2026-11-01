@@ -12,6 +12,7 @@ import org.fuin.porelo.core.process.Command;
 import org.fuin.porelo.core.process.CommandResult;
 import org.fuin.porelo.vault.VaultEntry;
 import org.fuin.porelo.vault.VaultFile;
+import org.fuin.porelo.wire.Directories;
 import org.fuin.porelo.wire.Json;
 import org.jspecify.annotations.Nullable;
 
@@ -294,7 +295,7 @@ final class TransportLifecycle {
             // address was lost - with it, its own words in the room come back to it as a peer's.
             final Path file = addressesFile(scheme, project);
             try {
-                Files.createDirectories(file.getParent());
+                Directories.create(file.getParent());
                 FileLocks.holding(
                         file.resolveSibling("." + file.getFileName() + ".lock"),
                         () -> {
@@ -442,7 +443,7 @@ final class TransportLifecycle {
     void remember(String scheme, String project, String person, String user) {
         final Path taken = takenFile(scheme, project);
         try {
-            Files.createDirectories(taken.getParent());
+            Directories.create(taken.getParent());
             FileLocks.holding(
                     lockOf(taken),
                     () -> {
@@ -1206,7 +1207,7 @@ final class TransportLifecycle {
         written.put("room", conversation.room());
         try {
             final Path file = state(scheme, project);
-            Files.createDirectories(file.getParent());
+            Directories.create(file.getParent());
             whole(file, Json.write(written));
         } catch (IOException ex) {
             throw new Refused(

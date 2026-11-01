@@ -20,6 +20,7 @@ import javax.crypto.spec.GCMParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
 import org.bouncycastle.crypto.generators.Argon2BytesGenerator;
 import org.bouncycastle.crypto.params.Argon2Parameters;
+import org.fuin.porelo.wire.Directories;
 import org.fuin.porelo.wire.Json;
 import org.jspecify.annotations.Nullable;
 
@@ -1107,7 +1108,7 @@ public class VaultFile {
 
         final Path directory = file.toAbsolutePath().getParent();
         try {
-            Files.createDirectories(directory);
+            Directories.create(directory);
             final Path temporary =
                     Files.createTempFile(
                             directory,
@@ -1272,7 +1273,7 @@ public class VaultFile {
                         absolute, key -> new java.util.concurrent.locks.ReentrantLock());
         threadLock.lock();
         try {
-            Files.createDirectories(lockFile.getParent());
+            Directories.create(lockFile.getParent());
             try (RandomAccessFile raf = new RandomAccessFile(lockFile.toFile(), "rw");
                     FileLock lock = raf.getChannel().lock()) {
                 return body.get();
@@ -1320,7 +1321,7 @@ public class VaultFile {
 
         threadLock.lock();
         try {
-            Files.createDirectories(lockFile.getParent());
+            Directories.create(lockFile.getParent());
             try (RandomAccessFile raf = new RandomAccessFile(lockFile.toFile(), "rw");
                     FileLock lock = raf.getChannel().lock()) {
                 if (!exists()) {

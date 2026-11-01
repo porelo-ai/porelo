@@ -10,6 +10,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import org.fuin.porelo.core.project.Repository;
+import org.fuin.porelo.wire.Directories;
 import org.fuin.porelo.wire.Json;
 import org.jspecify.annotations.Nullable;
 
@@ -365,7 +366,7 @@ public final class DefaultProject {
         }
         final Path file = record().resolveSibling("project.yml");
         try {
-            Files.createDirectories(file.getParent());
+            Directories.create(file.getParent());
             final Path staged = Files.createTempFile(file.getParent(), ".project.yml.", ".new");
             Files.writeString(staged, text.toString(), StandardCharsets.UTF_8);
             Files.move(
@@ -387,7 +388,7 @@ public final class DefaultProject {
     private void write(final List<Entry> entries) {
         final Path file = record();
         try {
-            Files.createDirectories(file.getParent());
+            Directories.create(file.getParent());
             final Path staged =
                     Files.createTempFile(file.getParent(), ".repositories.json.", ".new");
             Files.writeString(

@@ -11,6 +11,7 @@ import org.fuin.porelo.core.process.CommandResult;
 import org.fuin.porelo.runtime.ContainerName;
 import org.fuin.porelo.runtime.ContainerSummary;
 import org.fuin.porelo.runtime.Podman.ContainerState;
+import org.fuin.porelo.wire.Directories;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -815,7 +816,7 @@ public final class TaskControl {
                 // environment.
                 if (!tokens.routes().isEmpty()) {
                     final Path routes =
-                            Files.createDirectories(state.resolve(TaskSecrets.ROUTES_DIRECTORY));
+                            Directories.create(state.resolve(TaskSecrets.ROUTES_DIRECTORY));
                     Files.setPosixFilePermissions(
                             routes,
                             java.nio.file.attribute.PosixFilePermissions.fromString("rwx------"));

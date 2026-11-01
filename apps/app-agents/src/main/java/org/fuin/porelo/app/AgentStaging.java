@@ -2,6 +2,7 @@ package org.fuin.porelo.app;
 
 import java.io.PrintWriter;
 import org.fuin.porelo.core.project.Project;
+import org.fuin.porelo.wire.Directories;
 
 /**
  * Puts what an agent's own package ships into the image build context.
@@ -171,7 +172,7 @@ final class AgentStaging {
             throws java.io.IOException {
 
         deleteTree(target);
-        java.nio.file.Files.createDirectories(target);
+        Directories.create(target);
         final var result =
                 runner.run(
                         org.fuin.porelo.core.process.Command.of(
@@ -213,9 +214,9 @@ final class AgentStaging {
             for (final java.nio.file.Path path : walk.toList()) {
                 final java.nio.file.Path destination = target.resolve(source.relativize(path));
                 if (java.nio.file.Files.isDirectory(path)) {
-                    java.nio.file.Files.createDirectories(destination);
+                    Directories.create(destination);
                 } else {
-                    java.nio.file.Files.createDirectories(destination.getParent());
+                    Directories.create(destination.getParent());
                     java.nio.file.Files.copy(
                             path,
                             destination,

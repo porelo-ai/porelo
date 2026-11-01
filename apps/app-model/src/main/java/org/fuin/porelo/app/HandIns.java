@@ -20,6 +20,7 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Pattern;
 import org.fuin.porelo.runtime.Containerfile;
+import org.fuin.porelo.wire.Directories;
 import org.fuin.porelo.wire.Json;
 import org.jspecify.annotations.Nullable;
 
@@ -330,7 +331,7 @@ public final class HandIns {
                             Map.of("name", name, "received", 0L),
                             "the part starts at " + offset + "; nothing of " + name + " is here");
                 }
-                Files.createDirectories(
+                Directories.create(
                         staging,
                         PosixFilePermissions.asFileAttribute(
                                 PosixFilePermissions.fromString("rwx------")));
@@ -562,7 +563,7 @@ public final class HandIns {
     private void append(final String container, final String event, final HandedFile file)
             throws IOException {
         final Path record = recordOf(container);
-        Files.createDirectories(
+        Directories.create(
                 record.getParent(),
                 PosixFilePermissions.asFileAttribute(PosixFilePermissions.fromString("rwx------")));
         final Map<String, Object> line = new LinkedHashMap<>();

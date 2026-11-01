@@ -11,6 +11,7 @@ import java.nio.file.attribute.PosixFilePermission;
 import java.util.Comparator;
 import java.util.Set;
 import java.util.stream.Stream;
+import org.fuin.porelo.wire.Directories;
 
 /**
  * One task's mailbox on the host: where its messages wait before they leave and after they arrive.
@@ -392,7 +393,7 @@ public final class Mailbox {
                                 + " is a link; nothing is taken from or put into this task's box"
                                 + " until it is a directory again");
             }
-            Files.createDirectories(directory);
+            Directories.create(directory);
             // Each time, so a task made before the box opened finds it open when it comes back.
             Files.setPosixFilePermissions(directory, permissionsOf(directory));
         }

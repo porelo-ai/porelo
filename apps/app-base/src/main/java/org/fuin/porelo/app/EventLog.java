@@ -15,6 +15,7 @@ import java.util.Set;
 import org.fuin.porelo.core.process.Command;
 import org.fuin.porelo.core.process.CommandResult;
 import org.fuin.porelo.core.process.CommandRunner;
+import org.fuin.porelo.wire.Directories;
 import org.fuin.porelo.wire.Json;
 import org.jspecify.annotations.Nullable;
 
@@ -211,7 +212,7 @@ public final class EventLog {
         line.put("detail", detail);
         line.put("previous", previous);
         line.put("hash", hash);
-        Files.createDirectories(file.getParent());
+        Directories.create(file.getParent());
         Files.writeString(
                 file,
                 Json.write(line) + "\n",
