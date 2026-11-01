@@ -10,7 +10,7 @@ import java.nio.file.Path;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
-/** Holds the native SO_PEERCRED layout to the kernel's actual uid and pid. */
+/** Holds the peer the kernel names to the account that bound the socket. */
 class SocketPeerTest {
     @Test
     void readsTheConnectingProcessFromTheKernel(@TempDir Path dir) throws Exception {
@@ -21,13 +21,10 @@ class SocketPeerTest {
                     SocketChannel accepted = listener.accept()) {
                 final var peer = SocketPeer.read(accepted);
                 assertThat(peer.uid())
-                        .as("SO_PEERCRED supplies the connecting process's numeric uid")
+                        .as("the connecting process runs as this account, whose uid is answered")
                         .isEqualTo(
                                 ((Number) java.nio.file.Files.getAttribute(dir, "unix:uid"))
                                         .longValue());
-                assertThat(peer.pid())
-                        .as("SO_PEERCRED supplies pid before uid and gid")
-                        .isEqualTo(ProcessHandle.current().pid());
                 assertThat(peer.sameUser()).as("the connecting uid is this process's uid").isTrue();
             }
         }

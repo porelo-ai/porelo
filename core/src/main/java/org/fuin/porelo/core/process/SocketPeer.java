@@ -1,31 +1,20 @@
 package org.fuin.porelo.core.process;
 
-import java.lang.foreign.Arena;
+import java.io.IOException;
 import java.lang.foreign.FunctionDescriptor;
 import java.lang.foreign.Linker;
-import java.lang.foreign.MemorySegment;
 import java.lang.foreign.ValueLayout;
 import java.lang.invoke.MethodHandle;
+import java.net.UnixDomainSocketAddress;
 import java.nio.channels.SocketChannel;
+import java.nio.file.Files;
+import java.nio.file.LinkOption;
+import jdk.net.ExtendedSocketOptions;
 import org.fuin.porelo.wire.varlink.VarlinkServer;
-import sun.misc.Unsafe;
 
 /** Reads Linux peer credentials without trusting anything sent by the client. */
 public final class SocketPeer {
-    private static final int SOL_SOCKET = 1;
-    private static final int SO_PEERCRED = 17;
-    private static final int UCRED_BYTES = 12;
     private static final Linker LINKER = Linker.nativeLinker();
-    private static final MethodHandle GETSOCKOPT =
-            LINKER.downcallHandle(
-                    LINKER.defaultLookup().find("getsockopt").orElseThrow(),
-                    FunctionDescriptor.of(
-                            ValueLayout.JAVA_INT,
-                            ValueLayout.JAVA_INT,
-                            ValueLayout.JAVA_INT,
-                            ValueLayout.JAVA_INT,
-                            ValueLayout.ADDRESS,
-                            ValueLayout.ADDRESS));
     private static final MethodHandle GETUID =
             LINKER.downcallHandle(
                     LINKER.defaultLookup().find("getuid").orElseThrow(),
@@ -33,29 +22,29 @@ public final class SocketPeer {
 
     private SocketPeer() {}
 
-    /** Returns the kernel's uid and pid, authorizing the daemon's own account. */
+    /**
+     * Returns whether the kernel says the connecting process runs as the account that bound the
+     * socket, which is the daemon's own.
+     *
+     * <p>The kernel's {@code SO_PEERCRED}, asked through the JDK's own socket option: reading the
+     * channel's descriptor for {@code getsockopt} took {@code sun.misc.Unsafe}, which the JDK warns
+     * about at every start and will remove. The pid it gave was never read; the answer carries
+     * {@code -1} for it, and for the uid of anybody else.
+     *
+     * @param channel An accepted connection on a Unix domain socket.
+     * @return The peer.
+     */
     public static VarlinkServer.Peer read(SocketChannel channel) {
-        try (Arena arena = Arena.ofConfined()) {
-            final MemorySegment credentials = arena.allocate(UCRED_BYTES, 4);
-            final MemorySegment length = arena.allocate(ValueLayout.JAVA_INT);
-            length.set(ValueLayout.JAVA_INT, 0, UCRED_BYTES);
-            if ((int)
-                                    GETSOCKOPT.invokeExact(
-                                            descriptor(channel),
-                                            SOL_SOCKET,
-                                            SO_PEERCRED,
-                                            credentials,
-                                            length)
-                            != 0
-                    || length.get(ValueLayout.JAVA_INT, 0) != UCRED_BYTES) {
-                throw new IllegalStateException("Cannot read the unix socket peer credentials");
-            }
-            final long pid = Integer.toUnsignedLong(credentials.get(ValueLayout.JAVA_INT, 0));
-            final long uid = Integer.toUnsignedLong(credentials.get(ValueLayout.JAVA_INT, 4));
-            return new VarlinkServer.Peer(uid, pid, uid == ownUid());
-        } catch (RuntimeException ex) {
-            throw ex;
-        } catch (Throwable ex) {
+        try {
+            final var peer = channel.getOption(ExtendedSocketOptions.SO_PEERCRED).user();
+            final var bound =
+                    Files.getOwner(
+                            ((UnixDomainSocketAddress) channel.getLocalAddress()).getPath(),
+                            LinkOption.NOFOLLOW_LINKS);
+            // Principals of the same kind compare by their numeric id, never by a looked-up name.
+            final boolean same = peer.equals(bound) && bound.equals(peer);
+            return new VarlinkServer.Peer(same ? ownUid() : -1, -1, same);
+        } catch (IOException | ClassCastException | UnsupportedOperationException ex) {
             throw new IllegalStateException("Cannot read the unix socket peer credentials", ex);
         }
     }
@@ -67,14 +56,5 @@ public final class SocketPeer {
         } catch (Throwable ex) {
             throw new IllegalStateException("Cannot read this process's uid", ex);
         }
-    }
-
-    private static int descriptor(SocketChannel channel) throws ReflectiveOperationException {
-        // SocketChannel exposes uid/gid but omits pid; the descriptor is needed for SO_PEERCRED.
-        final var field = Unsafe.class.getDeclaredField("theUnsafe");
-        field.setAccessible(true);
-        final Unsafe unsafe = (Unsafe) field.get(null);
-        return unsafe.getInt(
-                channel, unsafe.objectFieldOffset(channel.getClass().getDeclaredField("fdVal")));
     }
 }

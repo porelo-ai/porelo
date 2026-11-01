@@ -1,0 +1,2 @@
+title: "porelod and the host vault's connection read the caller's account through the JDK's own `SO_PEERCRED` option, so the JDK's sun.misc.Unsafe warnings at every start are gone"
+type: fixed
