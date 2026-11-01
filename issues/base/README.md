@@ -63,6 +63,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b387"></a>[B387](B387-A-Project-Followed-Before-Its-Access-File-Exists.md) | S | - | A project whose access repository is still empty is followed, so `project access init` can write its first access commit |
 | <a id="b214"></a>[B214](B214-A-Vault-Entry-Put-Again-Unchanged.md) | M | - | `vault put` given the value an entry already holds says `unchanged` and exits 0, so a second play reports nothing changed |
 | <a id="b154"></a>[B154](B154-A-Tamper-Evident-Event-Log-Per-Node.md) | L | - | One hash-chained event log per account, anchored in the user's journal, optionally copied off the machine, kept by `porelo clear`; written by approve, reject, clearance, hand-in, credentials and project changes.; part 1 built, the copy off the machine after it |
 
@@ -151,7 +152,6 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
-| <a id="b387"></a>[B387](B387-A-Project-Followed-Before-Its-Access-File-Exists.md) | S | - | A project whose access repository is still empty is followed, so `project access init` can write its first access commit |
 | <a id="b386"></a>[B386](B386-A-Project-Access-Contract-Without-Guessing.md) | S | - | A read-only lookup by `Porelo-Change-Id`, the head `project verify` takes from a bundle written down, `access add --role admin` for a listed admin defined, and verify naming the access commit's signer |
 | <a id="b385"></a>[B385](B385-A-KeePassXC-Key-That-Is-Usable.md) | M | [B356](README.md#b356) | `--keepassxc` asks the master password once, a retry takes the key already made, no empty entry left, a clear refusal under `su` or a redirected stderr, aligned exit codes |
 | <a id="b384"></a>[B384](B384-A-Start-That-Waits-For-Its-Helpers.md) | S | [B378](README.md#b378) | A start and a resume wait for their helpers and fail with 70 when one does not come up, a host's refusals come before the resume record, and a racing start stops only its own task |

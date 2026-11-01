@@ -1,6 +1,6 @@
 # B387 — A Project Followed Before Its Access File Exists
 
-**Status:** Idea.
+**Status:** Implementing.
 **Severity:** high.
 **Size:** S, proposed - the follow takes an access repository with no commit as one with no access commit yet, and
 `project access init` writes the first, with a test of the whole start from an empty repository.
