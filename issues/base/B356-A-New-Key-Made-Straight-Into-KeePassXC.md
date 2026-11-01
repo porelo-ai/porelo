@@ -61,3 +61,8 @@ the agent socket under `/run/user`. The person's interface opens the terminal, a
   has the database open without a lock and unlock is not measured. The entry `add` made stays when an attachment
   is refused afterwards; the words say to remove it. A private key held in a Java array is cleared after the hand
   over, the `SigningKey` and the stream buffers are only dropped.
+- After its one reading (agy Gemini, 2026-10-31): the wait finds the new key among keys of any kind the agent
+  holds (an RSA key beside it crashed the wait before); `key-not-served` says to lock and unlock an open database;
+  `create` without `--json` names its entry; the written key is read back by `ssh-keygen -y` for comments of every
+  length modulo 8. Its other findings are in the room's list of 2026-10-31T23:52Z, not built tonight; whether an
+  open database serves a new entry is filed as an Idea of its own.

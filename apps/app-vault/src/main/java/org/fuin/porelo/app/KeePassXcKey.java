@@ -237,7 +237,7 @@ record KeePassXcKey(String program, Duration patience, Path terminalIn, Path ter
         final long deadline = System.nanoTime() + patience.toNanos();
         while (true) {
             for (final AgentKey each : served(socket)) {
-                if (PersonCard.fingerprint(PersonCard.keyLine(each)).equals(fingerprint)) {
+                if (IdentityFacts.fingerprint(each.keyBlob()).equals(fingerprint)) {
                     return fingerprint;
                 }
             }
@@ -264,7 +264,8 @@ record KeePassXcKey(String program, Duration patience, Path terminalIn, Path ter
                         + RegistryVerifyCommand.printable(entry)
                         + ", but its agent did not serve it within "
                         + patience.toSeconds()
-                        + " s: open the database in KeePassXC with its SSH agent integration on,"
+                        + " s: with the database open in KeePassXC and its SSH agent integration"
+                        + " on, lock and unlock the database so its agent loads the new entry,"
                         + " then name the key with --key "
                         + fingerprint,
                 more);

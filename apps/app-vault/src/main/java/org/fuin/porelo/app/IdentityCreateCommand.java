@@ -155,6 +155,9 @@ public class IdentityCreateCommand implements Callable<Integer>, PoreloFactory.C
         } else {
             out.println("login " + RegistryVerifyCommand.printable(login));
             out.println("fingerprint " + answer.get("fingerprint"));
+            if (answer.get("entry") instanceof String made) {
+                out.println("entry " + RegistryVerifyCommand.printable(made));
+            }
             out.println(
                     "card kept at "
                             + RegistryVerifyCommand.printable(

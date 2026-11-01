@@ -204,12 +204,72 @@ class IdentityKeePassXcTest {
         assertThat(answer.get("entry")).isEqualTo("alice");
         assertThat((String) answer.get("fingerprint")).startsWith("SHA256:");
         assertThat((String) answer.get("words")).contains((String) answer.get("fingerprint"));
+        assertThat((String) answer.get("words"))
+                .as("an open database loads a new entry only once it is locked and unlocked")
+                .contains("lock and unlock the database");
         assertThat(keepass.calls()).as("the entry is kept").isEqualTo(keepass.madeInto("alice"));
         assertThat(keepass.seen())
                 .as("KeePassXC got an OpenSSH private key")
                 .contains("-----BEGIN OPENSSH PRIVATE KEY-----");
         assertThat(cardFile()).doesNotExist();
         assertThat(cardFile().getParent()).doesNotExist();
+    }
+
+    /** A person's agent often holds other keys too, of other kinds; the new one is still found. */
+    @Test
+    void a_key_made_while_the_agent_also_holds_an_rsa_key_is_found() throws Exception {
+        final KeePassXcStandIn keepass = standIn(KeePassXcStandIn.Mode.SERVES);
+        final Path rsa = dir.resolve("other_rsa");
+        final String socket = registry.environment().apply("SSH_AUTH_SOCK");
+        assertThat(
+                        new ProcessBuilder(
+                                        "ssh-keygen",
+                                        "-q",
+                                        "-t",
+                                        "rsa",
+                                        "-b",
+                                        "2048",
+                                        "-N",
+                                        "",
+                                        "-f",
+                                        rsa.toString())
+                                .redirectErrorStream(true)
+                                .start()
+                                .waitFor())
+                .isZero();
+        final ProcessBuilder add = new ProcessBuilder("ssh-add", "-q", rsa.toString());
+        add.environment().put("SSH_AUTH_SOCK", socket);
+        assertThat(add.redirectErrorStream(true).start().waitFor()).isZero();
+
+        assertThat(
+                        create(
+                                keepass.store(Duration.ofSeconds(10)),
+                                "--keepassxc",
+                                keepass.database.toString(),
+                                "--json"))
+                .as(registry.err.toString())
+                .isZero();
+        assertThat(registry.answer().get("agent")).isEqualTo("holds");
+        assertThat(cardFile()).exists();
+    }
+
+    /**
+     * Without --json the entry is named too, since only then does the person know where it went.
+     */
+    @Test
+    void a_key_made_without_json_names_its_entry() throws Exception {
+        final KeePassXcStandIn keepass = standIn(KeePassXcStandIn.Mode.SERVES);
+
+        assertThat(
+                        create(
+                                keepass.store(Duration.ofSeconds(10)),
+                                "--keepassxc",
+                                keepass.database.toString(),
+                                "--entry",
+                                "ssh/alice"))
+                .as(registry.err.toString())
+                .isZero();
+        assertThat(registry.out.toString()).contains("entry ssh/alice");
     }
 
     /** KeePassXC's agent takes a moment after the database opens; that is waited for. */

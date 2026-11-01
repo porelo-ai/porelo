@@ -8,6 +8,8 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 /**
  * Tests for reading the seed out of the key file a person actually has.
@@ -118,10 +120,24 @@ class OpenSshPrivateKeyTest {
         assertThat(OpenSshPrivateKey.looksLikeOne("ghp_averyordinarylookingtoken")).isFalse();
     }
 
-    /** A key written here that ssh-keygen cannot read would be stored and never serve. */
-    @Test
-    void aKeyWrittenHereIsOneSshKeygenReadsWithItsPublicHalf() throws Exception {
-        final SigningKey key = SigningKey.generate("alice");
+    /**
+     * A key written here that ssh-keygen cannot read would be stored and never serve. The logins
+     * take every length modulo 8, so each padding a key's comment asks for is written once.
+     */
+    @ParameterizedTest
+    @ValueSource(
+            strings = {
+                "alice",
+                "a",
+                "bo",
+                "bob",
+                "kim7",
+                "abcdef",
+                "ms-test-reviewer",
+                "michael-schnell"
+            })
+    void aKeyWrittenHereIsOneSshKeygenReadsWithItsPublicHalf(final String login) throws Exception {
+        final SigningKey key = SigningKey.generate(login);
         final byte[] text = key.openSshPrivateKey();
 
         final Process process =
