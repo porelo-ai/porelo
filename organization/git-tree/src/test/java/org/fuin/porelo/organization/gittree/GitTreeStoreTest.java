@@ -19,6 +19,7 @@ import org.fuin.porelo.organization.IdentitySource;
 import org.fuin.porelo.organization.Organization;
 import org.fuin.porelo.organization.OrganizationException;
 import org.fuin.porelo.organization.OrganizationQuestions;
+import org.fuin.porelo.vault.HostCard;
 import org.fuin.porelo.vault.OpenSshPrivateKey;
 import org.fuin.porelo.vault.PersonCard;
 import org.fuin.porelo.vault.SigningKey;
@@ -1096,6 +1097,411 @@ class GitTreeStoreTest {
         assertThatThrownBy(() -> store(dir.resolve("absent").toString()).read(forge))
                 .as("an empty answer would read as no owners at all")
                 .isInstanceOf(IOException.class);
+    }
+
+    /** A host made by the owner with alice as its first admin. */
+    private void host() throws IOException {
+        write("hosts/build/host.yml", "admins:\n  - login: alice\nprojects: []\n");
+        commit("mia");
+    }
+
+    private void carried() throws IOException {
+        write("hosts/build/host.yml", "admins:\n  - login: alice\nprojects: [demo]\n");
+        commit("alice");
+    }
+
+    private String hostCard(final String name, final String signer) {
+        return HostCard.write(
+                name, "build.example.org", 22, key("carol"), 3000, 2222, 8448, keys.get(signer));
+    }
+
+    @Test
+    void anOwnerMakesAHostWithItsFirstAdmin() throws Exception {
+        founded();
+        project();
+        host();
+
+        final OrganizationQuestions answers = read();
+
+        assertThat(answers.isHostAdmin("build", "alice")).as("the owner named alice").isTrue();
+        assertThat(answers.isHostAdmin("build", "bob")).as("nobody else").isFalse();
+        assertThat(answers.isHostAdmin("other", "alice")).as("no such host").isFalse();
+    }
+
+    @Test
+    void aHostFiledByAnyoneButAnOwnerIsRefused() throws Exception {
+        founded();
+        project();
+        write("hosts/build/host.yml", "admins:\n  - login: alice\nprojects: []\n");
+        commit("alice");
+
+        final OrganizationQuestions answers = read();
+
+        assertThat(answers.isHostAdmin("build", "alice")).as("alice made herself one").isFalse();
+        assertThat(refusedPaths(answers)).containsExactly("hosts/build/host.yml");
+    }
+
+    @Test
+    void anOwnerCannotPutAProjectOnAHostWhenMakingIt() throws Exception {
+        founded();
+        project();
+        write("hosts/build/host.yml", "admins:\n  - login: alice\nprojects: [demo]\n");
+        commit("mia");
+
+        final OrganizationQuestions answers = read();
+
+        assertThat(answers.hostOf("demo")).as("carrying is the host admin's").isEmpty();
+        assertThat(refusedPaths(answers)).containsExactly("hosts/build/host.yml");
+    }
+
+    @Test
+    void anOwnerChangesNothingOnAHostThatStands() throws Exception {
+        founded();
+        project();
+        host();
+        write("hosts/build/host.yml", "admins:\n  - login: bob\nprojects: []\n");
+        commit("mia");
+
+        final OrganizationQuestions answers = read();
+
+        assertThat(answers.isHostAdmin("build", "bob")).as("only its admins change it").isFalse();
+        assertThat(answers.isHostAdmin("build", "alice")).isTrue();
+        assertThat(refusedPaths(answers)).containsExactly("hosts/build/host.yml");
+    }
+
+    @Test
+    void aHostAdminCarriesAProjectAndItsMembersFindTheHost() throws Exception {
+        founded();
+        project();
+        host();
+        carried();
+
+        final OrganizationQuestions answers = read();
+
+        assertThat(answers.hostOf("demo")).as("the one host").contains("build");
+        assertThat(answers.hostsFor("bob")).as("a member's host").containsExactly("build");
+        assertThat(answers.hostsFor("mia")).as("no member, no host").isEmpty();
+    }
+
+    @Test
+    void aLockedMemberFindsNoHost() throws Exception {
+        founded();
+        project();
+        host();
+        carried();
+        write(
+                "projects/demo/members.yml",
+                "members:\n  - login: alice\n    role: admin\n"
+                        + "  - login: bob\n    role: developer\n    locked: true\n");
+        commit("alice");
+
+        assertThat(read().hostsFor("bob")).as("listed, but may nothing").isEmpty();
+    }
+
+    @Test
+    void aProjectIsOnOneHostAtATime() throws Exception {
+        founded();
+        project();
+        host();
+        carried();
+        write("hosts/other/host.yml", "admins:\n  - login: alice\nprojects: []\n");
+        commit("mia");
+        write("hosts/other/host.yml", "admins:\n  - login: alice\nprojects: [demo]\n");
+        commit("alice");
+
+        final OrganizationQuestions answers = read();
+
+        assertThat(answers.hostOf("demo")).as("the first host keeps it").contains("build");
+        assertThat(refusedPaths(answers)).containsExactly("hosts/other/host.yml");
+    }
+
+    @Test
+    void aHostCannotCarryAProjectThatDoesNotExist() throws Exception {
+        founded();
+        project();
+        host();
+        write("hosts/build/host.yml", "admins:\n  - login: alice\nprojects: [ghost]\n");
+        commit("alice");
+
+        final OrganizationQuestions answers = read();
+
+        assertThat(answers.hostOf("ghost")).as("no such project").isEmpty();
+        assertThat(refusedPaths(answers)).containsExactly("hosts/build/host.yml");
+    }
+
+    @Test
+    void aHostMustKeepAnAdminWithAKeyOfTheirOwn() throws Exception {
+        founded();
+        project();
+        host();
+        write(
+                "hosts/build/host.yml",
+                "admins:\n  - login: alice\n    key: \""
+                        + key("bob")
+                        + "\"\n    backup: true\nprojects: []\n");
+        commit("alice");
+
+        final OrganizationQuestions answers = read();
+
+        assertThat(answers.isHostAdmin("build", "alice")).as("the file is refused whole").isTrue();
+        assertThat(refusedPaths(answers)).containsExactly("hosts/build/host.yml");
+    }
+
+    @Test
+    void aHostAdminsBackupKeyChangesNothingOnTheHost() throws Exception {
+        founded();
+        project();
+        host();
+        write(
+                "hosts/build/host.yml",
+                "admins:\n  - login: alice\n  - login: alice\n    key: \""
+                        + key("carol")
+                        + "\"\n    backup: true\nprojects: []\n");
+        commit("alice");
+        write("hosts/build/host.yml", "admins:\n  - login: bob\nprojects: []\n");
+        commit("carol");
+
+        final OrganizationQuestions answers = read();
+
+        assertThat(answers.isHostAdmin("build", "bob")).as("a backup key places nobody").isFalse();
+        assertThat(answers.isHostAdmin("build", "alice")).isTrue();
+    }
+
+    @Test
+    void aHostAdminWhoseCardIsNotVouchedForYetStopsTheWalk() throws Exception {
+        founded();
+        write("projects/demo/card", "name: demo\nadmin: bob\n");
+        commit("mia");
+        write("people/alice.card", card("alice", "alice"));
+        commit("alice");
+        final String before = git("rev-parse", "HEAD");
+        write("hosts/build/host.yml", "admins:\n  - login: alice\nprojects: []\n");
+        commit("mia");
+        final String made = git("rev-parse", "HEAD");
+        write("hosts/build/host.yml", "admins:\n  - login: bob\nprojects: []\n");
+        commit("alice");
+
+        assertThat(read().revision())
+                .as("anybody could have filed that card, so the commit waits")
+                .isEqualTo(made)
+                .isNotEqualTo(before);
+    }
+
+    @Test
+    void aHostAdminsCardSaysWhereTheHostIsReached() throws Exception {
+        founded();
+        project();
+        host();
+        write("hosts/build/card", hostCard("build", "alice"));
+        commit("alice");
+
+        assertThat(read().reach("build"))
+                .as("the card's own values")
+                .contains(new OrganizationQuestions.Reach("build.example.org", 22, key("carol")));
+    }
+
+    @Test
+    void aHostsCardSignedOrCommittedByAnyoneElseSaysNothing() throws Exception {
+        founded();
+        project();
+        host();
+        write("hosts/build/card", hostCard("build", "bob"));
+        commit("bob");
+        write("hosts/build/card", hostCard("build", "mallory"));
+        commit("alice");
+
+        final OrganizationQuestions answers = read();
+
+        assertThat(answers.reach("build")).as("neither counts").isEmpty();
+        assertThat(refusedPaths(answers)).containsExactly("hosts/build/card", "hosts/build/card");
+    }
+
+    @Test
+    void aHostsCardNamingAnotherHostSaysNothing() throws Exception {
+        founded();
+        project();
+        host();
+        write("hosts/build/card", hostCard("other", "alice"));
+        commit("alice");
+
+        final OrganizationQuestions answers = read();
+
+        assertThat(answers.reach("build")).as("copied from another host").isEmpty();
+        assertThat(answers.reach("other")).as("nor there").isEmpty();
+        assertThat(refusedPaths(answers)).containsExactly("hosts/build/card");
+    }
+
+    @Test
+    void anOwnerRemovesAHostWithItsCardAndNobodyElseCan() throws Exception {
+        founded();
+        project();
+        host();
+        carried();
+        write("hosts/build/card", hostCard("build", "alice"));
+        commit("alice");
+        Files.delete(repo.resolve("hosts/build/host.yml"));
+        commit("alice");
+        assertThat(read().isHostAdmin("build", "alice")).as("its admin cannot").isTrue();
+        Files.delete(repo.resolve("hosts/build/card"));
+        commit("mia");
+        assertThat(read().reach("build"))
+                .as("the owner takes no card off a host that stays")
+                .isPresent();
+
+        carried();
+        write("hosts/build/card", hostCard("build", "alice"));
+        commit("alice");
+        Files.delete(repo.resolve("hosts/build/host.yml"));
+        Files.delete(repo.resolve("hosts/build/card"));
+        commit("mia");
+
+        final OrganizationQuestions answers = read();
+
+        assertThat(answers.isHostAdmin("build", "alice")).as("the owner can").isFalse();
+        assertThat(answers.reach("build")).as("its card went with it").isEmpty();
+        assertThat(answers.hostOf("demo")).as("and what it carried").isEmpty();
+    }
+
+    @Test
+    void aProjectsAdminFilesItsAddress() throws Exception {
+        founded();
+        project();
+        write("projects/demo/repository.yml", "address: git@github.com:acme/demo.git\n");
+        commit("alice");
+
+        assertThat(read().getProjectRepository("demo")).contains("git@github.com:acme/demo.git");
+    }
+
+    @Test
+    void anAddressFromADeveloperOrAnOwnerIsRefused() throws Exception {
+        founded();
+        project();
+        write("projects/demo/repository.yml", "address: git@github.com:acme/demo.git\n");
+        commit("bob");
+        write("projects/demo/repository.yml", "address: git@github.com:acme/other.git\n");
+        commit("mia");
+
+        final OrganizationQuestions answers = read();
+
+        assertThat(answers.getProjectRepository("demo")).as("only its admins").isEmpty();
+        assertThat(refusedPaths(answers))
+                .containsExactly("projects/demo/repository.yml", "projects/demo/repository.yml");
+    }
+
+    @Test
+    void anAddressHoldingACredentialOrAProgramIsRefusedAndNotQuoted() throws Exception {
+        founded();
+        project();
+        write(
+                "projects/demo/repository.yml",
+                "address: https://bob:tok-4711@example.org/demo.git\n");
+        commit("alice");
+        write("projects/demo/repository.yml", "address: \"ext::sh -c tok-4712\"\n");
+        commit("alice");
+
+        final OrganizationQuestions answers = read();
+
+        assertThat(answers.getProjectRepository("demo")).as("neither is an address").isEmpty();
+        assertThat(answers.getRefusals())
+                .as("a refusal must not carry the token it refused")
+                .hasSize(2)
+                .noneMatch(refusal -> refusal.why().contains("tok-471"));
+    }
+
+    @Test
+    void aFiledAddressCannotBeRemovedWhileItsProjectStands() throws Exception {
+        founded();
+        project();
+        write("projects/demo/repository.yml", "address: git@github.com:acme/demo.git\n");
+        commit("alice");
+        Files.delete(repo.resolve("projects/demo/repository.yml"));
+        commit("alice");
+
+        assertThat(read().getProjectRepository("demo"))
+                .as("a change of address replaces it")
+                .contains("git@github.com:acme/demo.git");
+    }
+
+    @Test
+    void anOwnerRemovesAProjectWithItsFilesAndItLeavesItsHost() throws Exception {
+        founded();
+        project();
+        host();
+        carried();
+        write("projects/demo/repository.yml", "address: git@github.com:acme/demo.git\n");
+        commit("alice");
+        Files.delete(repo.resolve("projects/demo/card"));
+        Files.delete(repo.resolve("projects/demo/members.yml"));
+        Files.delete(repo.resolve("projects/demo/repository.yml"));
+        commit("mia");
+
+        final OrganizationQuestions answers = read();
+
+        assertThat(answers.getRefusals()).as("one change, whole").isEmpty();
+        assertThat(answers.projectAdmins("demo")).as("no such project").isEmpty();
+        assertThat(answers.hostOf("demo")).as("it left its host").isEmpty();
+        assertThat(answers.getProjectRepository("demo")).as("and its address").isEmpty();
+    }
+
+    @Test
+    void aRemovedProjectMadeAgainStartsWithoutItsOldAddressOrHost() throws Exception {
+        founded();
+        project();
+        host();
+        carried();
+        write("projects/demo/repository.yml", "address: git@github.com:acme/demo.git\n");
+        commit("alice");
+        Files.delete(repo.resolve("projects/demo/card"));
+        Files.delete(repo.resolve("projects/demo/members.yml"));
+        Files.delete(repo.resolve("projects/demo/repository.yml"));
+        commit("mia");
+        write("projects/demo/card", "name: demo\nadmin: bob\n");
+        commit("mia");
+
+        final OrganizationQuestions answers = read();
+
+        assertThat(answers.hostOf("demo")).as("no host carries it by its old name").isEmpty();
+        assertThat(answers.getProjectRepository("demo")).as("no old address").isEmpty();
+    }
+
+    @Test
+    void projectAdminsAreTheMembersWithThatRoleAndNoLock() throws Exception {
+        founded();
+        project();
+        person("carol");
+        write(
+                "projects/demo/members.yml",
+                "members:\n  - login: alice\n    role: admin\n"
+                        + "  - login: bob\n    role: developer\n"
+                        + "  - login: carol\n    role: admin\n    locked: true\n");
+        commit("alice");
+
+        assertThat(read().projectAdmins("demo"))
+                .as("a developer and a locked admin may not act as one")
+                .contains(List.of("alice"));
+    }
+
+    @Test
+    void aMemberWhoseCardIsRefusedOrAbsentHoldsNoRole() throws Exception {
+        founded();
+        project();
+        host();
+        carried();
+        write(
+                "projects/demo/members.yml",
+                "members:\n  - login: alice\n    role: admin\n"
+                        + "  - login: bob\n    role: developer\n"
+                        + "  - login: carol\n    role: admin\n");
+        commit("alice");
+        forge.keys.put("bob", List.of(key("mallory")));
+        write("people/bob.card", card("bob", "bob"));
+        commit("bob");
+
+        final OrganizationQuestions answers = read();
+
+        assertThat(answers.isProjectMember("demo", "carol")).as("no card at all").isEmpty();
+        assertThat(answers.projectAdmins("demo")).as("nor as admin").contains(List.of("alice"));
+        assertThat(answers.hostsFor("carol")).as("nor a host").isEmpty();
     }
 
     @Test

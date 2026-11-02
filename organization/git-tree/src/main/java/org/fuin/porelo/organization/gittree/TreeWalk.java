@@ -11,10 +11,13 @@ import java.util.TreeMap;
 import java.util.TreeSet;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 import org.fuin.porelo.core.project.Project;
 import org.fuin.porelo.organization.IdentitySource;
 import org.fuin.porelo.organization.Organization;
+import org.fuin.porelo.organization.OrganizationQuestions;
 import org.fuin.porelo.vault.CardException;
+import org.fuin.porelo.vault.HostCard;
 import org.fuin.porelo.vault.PersonCard;
 import org.fuin.porelo.vault.PersonCardChain;
 import org.fuin.porelo.vault.RegistryText;
@@ -24,8 +27,9 @@ import org.jspecify.annotations.Nullable;
  * Walks the first-parent line, judging every commit path by path against the state before it. Write
  * access to the repository is wide, so a commit's signer alone proves nothing: {@code owners.yml}
  * counts from an owner, a person's card from its own key, a project's card from an owner, and its
- * members from one of its admins, or from an owner for its admins alone. A refused path keeps the
- * state it had and the walk goes on; every other path is never read.
+ * members from one of its admins, or from an owner for its admins alone; a host from an owner when
+ * it is made or removed, and from its admins between. A refused path keeps the state it had and the
+ * walk goes on; every other path is never read.
  *
  * <p>A card's key changes when the old key hands it on, or when an owner replaces it, which revokes
  * the old key from that commit on: nothing it signs counts again, and no card holding it stands.
@@ -37,7 +41,9 @@ final class TreeWalk {
     private static final Pattern PERSON = Pattern.compile("people/([^/]+)\\.card");
 
     private static final Pattern PROJECT_FILE =
-            Pattern.compile("projects/([^/]+)/(card|members\\.yml)");
+            Pattern.compile("projects/([^/]+)/(card|members\\.yml|repository\\.yml)");
+
+    private static final Pattern HOST_FILE = Pattern.compile("hosts/([^/]+)/(card|host\\.yml)");
 
     /** No project of an organization may carry the name of the one each machine has by itself. */
     private static final String RESERVED = "default";
@@ -64,9 +70,13 @@ final class TreeWalk {
                     new TreeMap<>(),
                     new TreeMap<>(),
                     new TreeSet<>(),
+                    new TreeMap<>(),
                     new TreeMap<>());
 
     private final List<Organization.Refusal> refusals = new ArrayList<>();
+
+    /** The judged paths of the commit being judged. */
+    private List<String> touched = List.of();
 
     /** What has been accepted so far; copied before each commit, which is judged against it. */
     private record Model(
@@ -74,7 +84,8 @@ final class TreeWalk {
             Map<String, Person> people,
             Map<String, ProjectState> projects,
             Set<String> revoked,
-            Map<String, String> cards) {
+            Map<String, String> cards,
+            Map<String, HostState> hosts) {
 
         Model copy() {
             return new Model(
@@ -82,7 +93,8 @@ final class TreeWalk {
                     new TreeMap<>(people),
                     new TreeMap<>(projects),
                     new TreeSet<>(revoked),
-                    new TreeMap<>(cards));
+                    new TreeMap<>(cards),
+                    new TreeMap<>(hosts));
         }
 
         boolean owner(final String fingerprint) {
@@ -113,8 +125,18 @@ final class TreeWalk {
      *
      * @param admin The first admin an owner named.
      * @param members Its members, or {@code null} before the first {@code members.yml}.
+     * @param address The address of its repository, or {@code null} until one is filed.
      */
-    private record ProjectState(String admin, @Nullable List<TreeFiles.Member> members) {}
+    private record ProjectState(
+            String admin, @Nullable List<TreeFiles.Member> members, @Nullable String address) {}
+
+    /**
+     * A host as it stands.
+     *
+     * @param file Its admins and what it carries.
+     * @param card Its card, or {@code null} until an admin files one.
+     */
+    private record HostState(TreeFiles.HostFile file, @Nullable HostCard card) {}
 
     /** Why one path of one commit is refused. */
     private static final class Refused extends Exception {
@@ -168,13 +190,46 @@ final class TreeWalk {
                 .filter(owner -> !owner.backup())
                 .forEach(owner -> owners.add(owner.login()));
         final Map<String, List<TreeFiles.Member>> members = new TreeMap<>();
+        final Map<String, String> addresses = new TreeMap<>();
         model.projects()
                 .forEach(
                         (name, project) -> {
                             final List<TreeFiles.Member> listed = project.members();
                             members.put(name, listed == null ? List.of() : listed);
+                            if (project.address() != null) {
+                                addresses.put(name, project.address());
+                            }
                         });
-        return new GitTreeOrganization(reached, owners, members, refusals);
+        final Map<String, GitTreeOrganization.Host> hosts = new TreeMap<>();
+        model.hosts()
+                .forEach(
+                        (name, host) ->
+                                hosts.put(
+                                        name,
+                                        new GitTreeOrganization.Host(
+                                                host.file().admins().stream()
+                                                        .filter(admin -> !admin.backup())
+                                                        .map(TreeFiles.HostAdmin::login)
+                                                        .collect(Collectors.toSet()),
+                                                host.file().projects(),
+                                                reach(host.card()))));
+        final Set<String> holders = new TreeSet<>();
+        model.people()
+                .forEach(
+                        (login, person) -> {
+                            if (!person.state().equals(Organization.REFUSED)) {
+                                holders.add(login);
+                            }
+                        });
+        return new GitTreeOrganization(
+                reached, owners, members, addresses, hosts, holders, refusals);
+    }
+
+    private static OrganizationQuestions.@Nullable Reach reach(final @Nullable HostCard card) {
+        return card == null
+                ? null
+                : new OrganizationQuestions.Reach(
+                        card.address(), card.sshPort(), card.sshHostKey());
     }
 
     private boolean commit(final String commit, final String parent) throws IOException {
@@ -195,6 +250,7 @@ final class TreeWalk {
                     path -> refuse(commit, path, "signed by " + signer + ", which is revoked"));
             return true;
         }
+        touched = paths;
         final Model before = model.copy();
         final List<Organization.Refusal> refusedBefore = List.copyOf(refusals);
         for (final String path : paths) {
@@ -218,9 +274,11 @@ final class TreeWalk {
     private static boolean judged(final String path) {
         final Matcher person = PERSON.matcher(path);
         final Matcher project = PROJECT_FILE.matcher(path);
+        final Matcher host = HOST_FILE.matcher(path);
         return path.equals(OWNERS)
                 || person.matches() && TreeFiles.login(person.group(1))
-                || project.matches() && project.group(1).matches(Project.NAME_PATTERN);
+                || project.matches() && project.group(1).matches(Project.NAME_PATTERN)
+                || host.matches() && TreeFiles.host(host.group(1));
     }
 
     /** Judges one path; returns whether it was accepted. */
@@ -240,10 +298,19 @@ final class TreeWalk {
             if (project.group(1).equals(RESERVED)) {
                 throw new Refused("no project of an organization may be named " + RESERVED);
             }
-            if (project.group(2).equals("card")) {
-                projectCard(before, commit, path, project.group(1), signer);
+            switch (project.group(2)) {
+                case "card" -> projectCard(before, commit, path, project.group(1), signer);
+                case "members.yml" -> members(before, commit, path, project.group(1), signer);
+                default -> address(before, commit, path, project.group(1), signer);
+            }
+            return true;
+        }
+        final Matcher host = HOST_FILE.matcher(path);
+        if (host.matches()) {
+            if (host.group(2).equals("card")) {
+                hostCard(before, commit, path, host.group(1), signer);
             } else {
-                members(before, commit, path, project.group(1), signer);
+                hostFile(before, commit, path, host.group(1), signer);
             }
             return true;
         }
@@ -597,12 +664,17 @@ final class TreeWalk {
         final Optional<String> text = text(commit, path);
         if (text.isEmpty()) {
             model.projects().remove(project);
+            leaveHosts(project);
             return;
         }
         final String admin = parsed(() -> TreeFiles.projectAdmin(text.orElseThrow(), project));
         final ProjectState prior = before.projects().get(project);
         model.projects()
-                .put(project, new ProjectState(admin, prior == null ? null : prior.members()));
+                .put(
+                        project,
+                        prior == null
+                                ? new ProjectState(admin, null, null)
+                                : new ProjectState(admin, prior.members(), prior.address()));
     }
 
     private void members(
@@ -618,7 +690,10 @@ final class TreeWalk {
         }
         final Optional<String> text = text(commit, path);
         if (text.isEmpty()) {
-            throw new Refused("members.yml cannot be removed while its project stands");
+            if (model.projects().containsKey(project)) {
+                throw new Refused("members.yml cannot be removed while its project stands");
+            }
+            return;
         }
         final List<TreeFiles.Member> file = parsed(() -> TreeFiles.members(text.orElseThrow()));
         final List<TreeFiles.Member> members = prior.members();
@@ -631,7 +706,180 @@ final class TreeWalk {
                 throw new Refused("signed by " + signer + ", neither its admin nor an owner");
             }
         }
-        model.projects().put(project, new ProjectState(prior.admin(), file));
+        model.projects().put(project, new ProjectState(prior.admin(), file, prior.address()));
+    }
+
+    /** A project's address counts from its admins alone, and goes only with the project. */
+    private void address(
+            final Model before,
+            final String commit,
+            final String path,
+            final String project,
+            final String signer)
+            throws Refused, Undecided {
+        final ProjectState prior = before.projects().get(project);
+        if (prior == null) {
+            throw new Refused("no such project");
+        }
+        final Optional<String> text = text(commit, path);
+        if (text.isEmpty()) {
+            if (model.projects().containsKey(project)) {
+                throw new Refused("repository.yml cannot be removed while its project stands");
+            }
+            return;
+        }
+        if (!admin(before, prior.members(), signer)) {
+            throw new Refused("signed by " + signer + ", not its admin");
+        }
+        final String address = parsed(() -> TreeFiles.repositoryAddress(text.orElseThrow()));
+        final ProjectState now = model.projects().getOrDefault(project, prior);
+        model.projects().put(project, new ProjectState(now.admin(), now.members(), address));
+    }
+
+    /** A project that goes leaves its host, so that one made again under its name is not on it. */
+    private void leaveHosts(final String project) {
+        model.hosts()
+                .replaceAll(
+                        (name, host) ->
+                                new HostState(
+                                        new TreeFiles.HostFile(
+                                                host.file().admins(),
+                                                host.file().projects().stream()
+                                                        .filter(each -> !each.equals(project))
+                                                        .toList()),
+                                        host.card()));
+    }
+
+    /**
+     * An owner makes a host with its first admin and nothing on it, and alone removes it;
+     * everything between is its admins'.
+     */
+    private void hostFile(
+            final Model before,
+            final String commit,
+            final String path,
+            final String host,
+            final String signer)
+            throws Refused, Undecided {
+        final HostState prior = before.hosts().get(host);
+        final Optional<String> text = text(commit, path);
+        if (text.isEmpty()) {
+            if (prior == null) {
+                return;
+            }
+            if (!before.owner(signer)) {
+                throw new Refused("signed by " + signer + ", not an owner");
+            }
+            model.hosts().remove(host);
+            return;
+        }
+        final TreeFiles.HostFile file = parsed(() -> TreeFiles.hostFile(text.orElseThrow()));
+        if (prior == null) {
+            if (!before.owner(signer)) {
+                throw new Refused("signed by " + signer + ", not an owner");
+            }
+            if (file.admins().size() != 1 || !file.projects().isEmpty()) {
+                throw new Refused("a new host holds its first admin and nothing else");
+            }
+            model.hosts().put(host, new HostState(file, null));
+            return;
+        }
+        if (!hostAdmin(before, prior, signer)) {
+            throw new Refused("signed by " + signer + ", not its admin");
+        }
+        for (final String project : file.projects()) {
+            carriable(before, host, prior, project);
+        }
+        model.hosts().put(host, new HostState(file, prior.card()));
+    }
+
+    /** A project newly on a host must stand, and be on no other host. */
+    private static void carriable(
+            final Model before, final String host, final HostState prior, final String project)
+            throws Refused {
+        if (prior.file().projects().contains(project)) {
+            return;
+        }
+        if (!before.projects().containsKey(project)) {
+            throw new Refused("no such project");
+        }
+        final boolean elsewhere =
+                before.hosts().entrySet().stream()
+                        .anyMatch(
+                                other ->
+                                        !other.getKey().equals(host)
+                                                && other.getValue()
+                                                        .file()
+                                                        .projects()
+                                                        .contains(project));
+        if (elsewhere) {
+            throw new Refused("the project is on another host");
+        }
+    }
+
+    /** A host's card counts from its admins; an owner removes it only with the host. */
+    private void hostCard(
+            final Model before,
+            final String commit,
+            final String path,
+            final String host,
+            final String signer)
+            throws Refused, Undecided {
+        final HostState prior = before.hosts().get(host);
+        if (prior == null) {
+            throw new Refused("no such host");
+        }
+        final Optional<String> object = object(commit, path);
+        if (object.isEmpty()
+                && before.owner(signer)
+                && touched.contains("hosts/" + host + "/host.yml")) {
+            return;
+        }
+        if (!hostAdmin(before, prior, signer)) {
+            throw new Refused("signed by " + signer + ", not its admin");
+        }
+        if (object.isEmpty()) {
+            model.hosts().put(host, new HostState(prior.file(), null));
+            return;
+        }
+        model.hosts()
+                .put(
+                        host,
+                        new HostState(
+                                prior.file(),
+                                readHostCard(object.orElseThrow(), path, host, signer)));
+    }
+
+    private HostCard readHostCard(
+            final String object, final String path, final String host, final String signer)
+            throws Refused {
+        final HostCard card;
+        try {
+            card = HostCard.read(repository.text(object), path);
+        } catch (CardException ex) {
+            // A card's own messages may quote what it holds.
+            throw new Refused("not a readable host card");
+        }
+        if (!card.host().equals(host)) {
+            throw new Refused("the card names another host than its path");
+        }
+        try {
+            card.checkSignedBy(signer);
+        } catch (CardException ex) {
+            throw new Refused("the card is not signed by the commit's signer");
+        }
+        return card;
+    }
+
+    /** Whether the key is that of an admin of the host on their card; a backup key never is. */
+    private static boolean hostAdmin(final Model before, final HostState host, final String signer)
+            throws Undecided {
+        for (final TreeFiles.HostAdmin admin : host.file().admins()) {
+            if (!admin.backup() && holds(before, admin.login(), signer)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /** Whether the key is that of an unlocked admin among these members. */

@@ -6,6 +6,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.regex.Pattern;
+import org.fuin.porelo.core.project.AddressForm;
+import org.fuin.porelo.core.project.Project;
 import org.fuin.porelo.vault.CardException;
 import org.fuin.porelo.vault.PersonCard;
 import org.jspecify.annotations.Nullable;
@@ -27,6 +29,9 @@ final class TreeFiles {
 
     /** A project member's role that may not. */
     static final String DEVELOPER = "developer";
+
+    /** A host's name: one lower-case DNS label, as a host's card must carry it. */
+    private static final Pattern HOST = Pattern.compile("[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?");
 
     private static final Pattern KEY = Pattern.compile("ssh-ed25519 [A-Za-z0-9+/]+={0,2}");
 
@@ -54,6 +59,33 @@ final class TreeFiles {
      * @param locked Whether it is listed but may nothing.
      */
     record Member(String login, String role, boolean locked) {}
+
+    /**
+     * One entry of a host's {@code admins}. A key of the admin's own is on their card, so only a
+     * backup key is named here.
+     *
+     * @param login The login.
+     * @param backupKey The offline backup key, or {@code null} for the admin's place itself.
+     */
+    record HostAdmin(String login, @Nullable String backupKey) {
+
+        boolean backup() {
+            return backupKey != null;
+        }
+    }
+
+    /**
+     * A host's {@code host.yml}.
+     *
+     * @param admins Its admins.
+     * @param projects The names of the projects it carries.
+     */
+    record HostFile(List<HostAdmin> admins, List<String> projects) {}
+
+    /** Whether a name is one a host may carry. */
+    static boolean host(final String name) {
+        return HOST.matcher(name).matches();
+    }
 
     /** Whether a login is one a person may carry: Porelo's own accounts take the others. */
     static boolean login(final String login) {
@@ -133,6 +165,70 @@ final class TreeFiles {
             members.add(new Member(login, role, flag(entry.get("locked"), "locked")));
         }
         return List.copyOf(members);
+    }
+
+    /**
+     * Reads a host's {@code host.yml}.
+     *
+     * @param text Its content.
+     * @return Its admins, at least one holding the place itself, and its projects, each once.
+     * @throws CardException Saying what is wrong, never quoting it.
+     */
+    static HostFile hostFile(final String text) {
+        final Map<?, ?> file = document(text, Set.of("admins", "projects"));
+        final List<HostAdmin> admins = new ArrayList<>();
+        final Set<String> seen = new HashSet<>();
+        for (final Object each : list(file.get("admins"), "admins")) {
+            final HostAdmin admin = hostAdmin(entry(each, Set.of("login", "key", "backup")));
+            if (!seen.add(admin.login() + " " + admin.backupKey())) {
+                throw new CardException("an admin is named twice");
+            }
+            admins.add(admin);
+        }
+        if (admins.stream().allMatch(HostAdmin::backup)) {
+            throw new CardException("no admin holds the place with a key of their own");
+        }
+        final List<String> projects = new ArrayList<>();
+        for (final Object each : list(file.get("projects"), "projects")) {
+            final String name = string(each, "a project");
+            if (!name.matches(Project.NAME_PATTERN) || projects.contains(name)) {
+                throw new CardException("a project is no name, or is named twice");
+            }
+            projects.add(name);
+        }
+        return new HostFile(List.copyOf(admins), List.copyOf(projects));
+    }
+
+    private static HostAdmin hostAdmin(final Map<?, ?> entry) {
+        final String login = login(entry.get("login"));
+        final boolean backup = flag(entry.get("backup"), "backup");
+        if (!backup) {
+            if (entry.containsKey("key")) {
+                throw new CardException("an admin's own key is on their card, not here");
+            }
+            return new HostAdmin(login, null);
+        }
+        final String key = string(entry.get("key"), "key");
+        if (!KEY.matcher(key).matches()) {
+            throw new CardException("a backup key is not an Ed25519 key");
+        }
+        PersonCard.fingerprint(key);
+        return new HostAdmin(login, key);
+    }
+
+    /**
+     * Reads a project's {@code repository.yml}.
+     *
+     * @param text Its content.
+     * @return The address, which holds no credential and nothing git would run.
+     * @throws CardException Saying what is wrong, never quoting it: it may hold a token.
+     */
+    static String repositoryAddress(final String text) {
+        final String address = string(document(text, Set.of("address")).get("address"), "address");
+        if (!AddressForm.isRepository(address)) {
+            throw new CardException("the address is none a repository may have");
+        }
+        return address;
     }
 
     private static Map<?, ?> document(final String text, final Set<String> known) {
