@@ -12,8 +12,9 @@ public interface OfflineOrganization {
      * @param host The host's name.
      * @param pinned The fingerprint of the pinned key.
      * @param since The revision applied last, or "" before the first.
-     * @return The answer, in JSON's shapes: the revision, {@code host_card}, {@code admins}, {@code
-     *     projects} and {@code persons}, the fields the host reads.
+     * @return The answer, in JSON's shapes, as the host's sync contract names its fields: {@code
+     *     commit} for the revision, {@code host_card}, {@code admins}, {@code projects} and {@code
+     *     persons}.
      * @throws IOException When the copy cannot be read.
      * @throws IllegalArgumentException When an argument is none this could check.
      * @throws OrganizationException When the check refuses the copy.

@@ -22,10 +22,32 @@ class OrganizationBoundaryTest {
     /** What only the Git adapter may name. */
     private static final Pattern ADAPTER_STATE =
             Pattern.compile(
-                    "import org\\.fuin\\.porelo\\.organization\\.git\\."
+                    "org\\.fuin\\.porelo\\.organization\\.git\\."
                             + "(RegistryState|RegistryHistory|TrustRecords)\\b"
-                            + "|org\\.fuin\\.porelo\\.organization\\.git\\."
-                            + "(RegistryState|RegistryHistory|TrustRecords)\\.");
+                            + "|import org\\.fuin\\.porelo\\.organization\\.git\\.\\*"
+                            + "|\\bwalked\\(|\\.walk\\(opened|store\\(\\)\\.walk\\(");
+
+    /** Every area with sources of its own, apart from the Git adapter. */
+    private static final List<String> AREAS_OUTSIDE_THE_ADAPTER =
+            List.of(
+                    "agents",
+                    "apps",
+                    "builds",
+                    "clearance",
+                    "core",
+                    "daemon",
+                    "egress",
+                    "gate",
+                    "hooks",
+                    "organization/api",
+                    "providers",
+                    "runtime",
+                    "shield",
+                    "supervisor",
+                    "vault");
+
+    /** A host's forge port, which a host's card names: of a host's reach, not of how it is kept. */
+    private static final String FORGE_PORT = "forgeGitPort";
 
     /** What writes to the organization: it keeps its Git until its writes move. */
     private static final Set<String> WRITERS =
@@ -34,8 +56,8 @@ class OrganizationBoundaryTest {
     /** Words that say how an organization is kept: a path, a commit, Git or a process. */
     private static final Pattern HOW_IT_IS_KEPT =
             Pattern.compile(
-                    "\\bgit\\b|commit|\\bblob|java\\.nio\\.file|CommandRunner|\\bProcess\\b"
-                            + "|org\\.fuin\\.porelo\\.(vault|core)",
+                    "git|commit|\\bblob|java\\.nio\\.file|java\\.io\\.File|java\\.util\\.function"
+                            + "|CommandRunner|\\bProcess\\b|org\\.fuin\\.porelo\\.(vault|core)",
                     Pattern.CASE_INSENSITIVE);
 
     private static Path root() {
@@ -53,17 +75,33 @@ class OrganizationBoundaryTest {
     @Test
     void nothing_outside_the_git_adapter_names_its_state() throws IOException {
         final List<String> reaching = new ArrayList<>();
-        for (final String area : List.of("apps", "daemon", "gate", "core", "vault", "supervisor")) {
-            for (final Path source : sources(root().resolve(area))) {
-                final String name = source.getFileName().toString();
-                if (!WRITERS.contains(name)
-                        && ADAPTER_STATE.matcher(Files.readString(source)).find()) {
-                    reaching.add(root().relativize(source).toString());
-                }
+        final List<Path> outside = new ArrayList<>();
+        for (final String area : AREAS_OUTSIDE_THE_ADAPTER) {
+            outside.addAll(sources(root().resolve(area)));
+        }
+        assertThat(outside).as("sources are found").hasSizeGreaterThan(500);
+        for (final Path source : outside) {
+            final String name = source.getFileName().toString();
+            if (!WRITERS.contains(name) && ADAPTER_STATE.matcher(Files.readString(source)).find()) {
+                reaching.add(root().relativize(source).toString());
             }
         }
 
         assertThat(reaching).isEmpty();
+    }
+
+    @Test
+    void the_check_finds_a_name_of_the_adapters_state() {
+        assertThat(
+                        ADAPTER_STATE
+                                .matcher("new org.fuin.porelo.organization.git.RegistryHistory(r)")
+                                .find())
+                .isTrue();
+        assertThat(ADAPTER_STATE.matcher("import org.fuin.porelo.organization.git.*;").find())
+                .isTrue();
+        assertThat(ADAPTER_STATE.matcher("var state = RegistryFileCommand.walked(c);").find())
+                .isTrue();
+        assertThat(ADAPTER_STATE.matcher("store.read(identities)").find()).isFalse();
     }
 
     @Test
@@ -75,7 +113,8 @@ class OrganizationBoundaryTest {
             final String code =
                     Files.readString(type)
                             .replaceAll("(?s)/\\*.*?\\*/", "")
-                            .replaceAll("//[^\\n]*", "");
+                            .replaceAll("//[^\\n]*", "")
+                            .replace(FORGE_PORT, "");
             if (HOW_IT_IS_KEPT.matcher(code).find()) {
                 naming.add(root().relativize(type).toString());
             }
@@ -88,6 +127,9 @@ class OrganizationBoundaryTest {
     void the_check_finds_a_type_that_names_git() {
         assertThat(HOW_IT_IS_KEPT.matcher("record Revision(String commit) {}").find()).isTrue();
         assertThat(HOW_IT_IS_KEPT.matcher("import java.nio.file.Path;").find()).isTrue();
+        assertThat(HOW_IT_IS_KEPT.matcher("record Revision(String gitRef) {}").find()).isTrue();
+        assertThat(HOW_IT_IS_KEPT.matcher("import java.io.File;").find()).isTrue();
+        assertThat(HOW_IT_IS_KEPT.matcher("import java.util.function.Supplier;").find()).isTrue();
         assertThat(HOW_IT_IS_KEPT.matcher("record Person(String login) {}").find()).isFalse();
     }
 

@@ -16,22 +16,22 @@ Measured in today's code: every command that decides something holds a `Registry
 - **New group `organization/`**, as `agents/` is one: `organization/api` (`porelo-organization-api`), which needs `wire`
   alone, and `organization/git` (`porelo-organization-git`), which needs the API, `vault` and `core`. A README for each,
   a `package-info.java` with `@NullMarked`, and the root's module, dependency management and index.
-- **In the API, plain data only:** no `Path`, no commit, no `CommandRunner`, no callback, so a store could stand behind
-  a process boundary later. Each adapter answers each question itself; the questions are the contract, and the whole
-  read stays inside the Git adapter (`GitOrganization`). `OrganizationStore`, opened by the organization's address or
-  checkout; `IdentitySource`,
-  today's `ForgeDirectory` under that name, answering yes, no or cannot say; records for persons, owners, hosts and
-  refusals, each answer naming the revision it rests on.
-- **The API holds what is asked today:** whether a key is someone's and not revoked, with and without a login; who else
-  holds a key; organization owners; host admins; a host's reach and its projects with their admins; persons; a person's
-  and a host's card; refusals and warnings as data; who lacks a backup key; the host's offline check. Nothing is added
+- **In the API, plain data only:** no `Path`, no commit, no `CommandRunner`, so a store could stand behind a process
+  boundary later; the one thing a store asks back is `IdentitySource`. Each adapter answers each question itself; the questions are the contract, and the whole
+  read stays inside the Git adapter (`GitOrganization`). `OrganizationStore`, which `GitOrganizationStore.open` opens by a
+  checkout; `IdentitySource`, today's `ForgeDirectory` under that name, answering yes, no or cannot say; records for
+  persons, owners, hosts and refusals; the revision is answered once, by `Organization`, for all of them. The offline
+  check's answer keeps the field `commit`, as `registry verify`'s answer has it today.
+- **The API holds what is asked today:** who else holds a key; the revoked keys; organization owners; host admins; a
+  host's reach and its projects with their admins; persons with their standing; refusals and warnings as data; who lacks
+  a backup key; the host's offline check. Whether a key is someone's and not revoked a caller answers from those. Nothing is added
   for what has no source today, such as a project's members.
 - **Into `organization/git`, unchanged:** `RegistryHistory`, `RegistryState`, `RegistryOwners`, `RegistryAccess`,
   `RegistryFiles`, `RegistryRepository`, `RegistryVerifier`, `CommitSigner`, `TrustRecords`, `HttpForgeDirectory`, with
   their tests, and the store part of `RegistryReadCommand` (`read`, `known`, `origin`, the trust record).
 - **Stay in `vault`:** `PersonCard`, `PersonCardChain`, `HostCard`, `SshSignature` and the classes they need. Messages,
   task certificates and `card verify` use them with no store, and they need Bouncy Castle through `SigningKey.verify`,
-  which the API must not. The API carries a card as its text.
+  which the API must not. The API carries what a card says, not its text.
 - **Stay in the commands:** this machine's revocation list (`IdentityFacts.revoked`'s `ssh-keygen -Q`), which is no
   store's; printing; and the several registries a machine may have read, asked one store at a time.
 - **Callers moved one by one, each a commit, the suite green after each:** `IdentityFacts`, `IdentityShowCommand`,

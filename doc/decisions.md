@@ -681,8 +681,9 @@ Porelo asks for its organization through an API that says nothing of how it is k
 it. The adapter is built into Porelo, not an executable of its own behind a contract as a build adapter is. It decides
 whom Porelo trusts, so an executable would itself have to be trusted first, by something that has no organization to ask
 yet. A second adapter therefore comes with a Porelo release. **What keeps the other way open:** the API carries plain
-data only, with no path, no revision of Git's and no callback, and a test holds it to that, so an executable can stand
-behind it later without changing a caller. **What would change the answer:** an adapter that cannot ship with Porelo, such
+data only, with no path and no revision of Git's, and a test holds it to that. The one thing a store asks back is
+`IdentitySource`, which an executable would have to answer over its boundary. Callers ask the API, and only where a store
+is opened names the adapter, so an executable can stand behind it later by changing that place. **What would change the answer:** an adapter that cannot ship with Porelo, such
 as one a company must keep to itself.
 
 ## A single admin keeps an offline backup key

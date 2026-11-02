@@ -26,6 +26,9 @@ import org.jspecify.annotations.Nullable;
 /**
  * An organization kept in a Git repository, opened by a checkout: what a read trusted is kept under
  * Porelo's state directory for the checkout's origin, as a trust record beside where it was read.
+ *
+ * <p><strong>One store is one read.</strong> The trust record is taken when the store is opened, so
+ * the next read opens it again; nothing here reads twice.
  */
 public final class GitOrganizationStore implements OrganizationStore {
 
