@@ -99,6 +99,7 @@ would change the answer.
 | A signing key is never read from the repository it verifies | the anchor comes from the person; a fingerprint only selects a key the person named | [entry](#a-signing-key-is-never-read-from-the-repository-it-verifies) |
 | A project's signing key is handed on through the project file | a signers change counts only signed by a key in force before it; no task key changes configuration | [entry](#a-projects-signing-key-is-handed-on-through-the-project-file) |
 | A signature counts when it arrives, never when it says it was made | commits judged at arrival by the gate and the forge's pre-receive hook, messages when the receiver takes them; a date the signer writes decides nothing | [entry](#a-signature-counts-when-it-arrives-never-when-it-says-it-was-made) |
+| A host believes the forge about a member's first card | within `org fetch` it asks the forge's public key list, anonymously, and judges as a person's machine does; a forge with no such list leaves that person first-seen, so their commit waits | [entry](#a-host-believes-the-forge-about-a-members-first-card) |
 | A single admin keeps an offline backup key | for a project's one signer, a host's one admin and a registry's one owner; it may only replace the key it backs, signs nothing else and certifies no task | [entry](#a-single-admin-keeps-an-offline-backup-key) |
 | A project may be followed without a signing key | `--unverified` is allowed per project, as a loudly reported state, not an error | [entry](#a-project-may-be-followed-without-a-signing-key) |
 | Where a followed project's file comes from | only the verified clone; nothing in force means no task, never a fallback to a local file | [entry](#where-a-followed-projects-file-comes-from) |
@@ -685,6 +686,22 @@ data only, with no path and no revision of Git's, and a test holds it to that. T
 `IdentitySource`, which an executable would have to answer over its boundary. Callers ask the API, and only where a store
 is opened names the adapter, so an executable can stand behind it later by changing that place. **What would change the answer:** an adapter that cannot ship with Porelo, such
 as one a company must keep to itself.
+
+## A host believes the forge about a member's first card
+
+An organization's `members.yml` pins no fingerprint, so a first card needs somebody to vouch for it. Without that, anyone who can
+write to the organization's repository could file a first card under the login of a listed member who has none, and a host
+would admit that key for that login. So within `porelo org fetch` the host asks the forge's public key list, anonymously, about
+first-seen and refused cards, and judges by the same rules as a person's machine. The founder cannot be asked anonymously and is
+taken from the commits under the host's pin, whose signature covers their parents. A forge with no such list leaves that person
+first-seen, and their commit waits.
+
+**The exposure:** whoever controls a login's account on the forge decides that login's first key, on a host as on a person's
+machine, so the forge's account is trusted on the host too. **Why it stays:** pins in `members.yml` would change the layout and
+every `project member add`, and would ask for a person's key at the moment they are added; first card wins would admit a stranger
+under a listed login; and a person's machine already believes the forge on this. **What would change the answer:** an
+organization that must not trust its forge's accounts. GitHub's anonymous limit of 60 calls an hour is kept low since only those
+cards are asked about.
 
 ## A single admin keeps an offline backup key
 
