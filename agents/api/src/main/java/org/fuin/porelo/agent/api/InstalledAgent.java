@@ -37,6 +37,8 @@ public class InstalledAgent implements AutoCloseable {
 
     private final Process process;
 
+    private static final String METHOD_NOT_FOUND = "org.varlink.service.MethodNotFound";
+
     private final VarlinkClient client;
 
     private final AgentDefinition definition;
@@ -310,20 +312,85 @@ public class InstalledAgent implements AutoCloseable {
                 + ")";
     }
 
+    /**
+     * Says why an agent reporting a version is refused.
+     *
+     * @param executable The agent binary.
+     * @param version What it reported.
+     * @return The refusal, or {@code null} for a version this Porelo can work with, a newer one
+     *     included, since it calls only methods it knows.
+     */
+    static @Nullable String refusal(final Path executable, final int version) {
+        return version >= AgentProtocol.LOWEST
+                ? null
+                : executable
+                        + " speaks agent protocol "
+                        + version
+                        + ", and this Porelo needs at least "
+                        + AgentProtocol.LOWEST
+                        + ". Upgrade the agent.";
+    }
+
+    /** What an agent answered to a method it may not have. */
+    public sealed interface Answer {
+
+        /**
+         * It answered.
+         *
+         * @param reply The reply's parameters.
+         */
+        record Answered(Map<String, Object> reply) implements Answer {}
+
+        /**
+         * It has no such method, so it cannot say. Never "nothing found".
+         *
+         * @param method The method asked.
+         */
+        record CannotSay(String method) implements Answer {}
+    }
+
+    /**
+     * Calls a method an agent built against an older contract may lack.
+     *
+     * @param client The connection to the agent.
+     * @param method The method.
+     * @param parameters Its parameters.
+     * @return The answer, or {@link Answer.CannotSay} when the agent has no such method.
+     * @throws org.fuin.porelo.wire.varlink.VarlinkException On any other error: a real failure is
+     *     not read as an old agent.
+     */
+    static Answer optional(
+            final VarlinkClient client, final String method, final Map<String, Object> parameters) {
+        try {
+            return new Answer.Answered(client.call(method, parameters));
+        } catch (org.fuin.porelo.wire.varlink.VarlinkException ex) {
+            if (METHOD_NOT_FOUND.equals(ex.getErrorName())) {
+                return new Answer.CannotSay(method);
+            }
+            throw ex;
+        }
+    }
+
+    /**
+     * Calls a method this agent may lack.
+     *
+     * @param method The method.
+     * @param parameters Its parameters.
+     * @return The answer, or {@link Answer.CannotSay} when the agent has no such method.
+     */
+    public Answer optional(final String method, final Map<String, Object> parameters) {
+        return optional(client, method, parameters);
+    }
+
     private AgentDefinition handshake() {
 
         final Map<String, Object> answer = client.call(AgentProtocol.DESCRIBE, Map.of());
 
         final int version =
                 answer.get("protocolVersion") instanceof Number number ? number.intValue() : -1;
-        if (version != AgentProtocol.VERSION) {
-            throw new AgentException(
-                    executable
-                            + " speaks agent protocol "
-                            + version
-                            + ", this build of Porelo speaks "
-                            + AgentProtocol.VERSION
-                            + ". Install a matching version of one of them.");
+        final String refused = refusal(executable, version);
+        if (refused != null) {
+            throw new AgentException(refused);
         }
         if (!(answer.get("definition") instanceof Map<?, ?> definition)) {
             throw new AgentException(executable + " returned no definition");
@@ -476,16 +543,14 @@ public class InstalledAgent implements AutoCloseable {
      *     they are from an agent that does not format them.
      */
     public List<@Nullable String> format(List<String> lines) {
-        try {
-            final Map<String, Object> reply =
-                    client.call(AgentProtocol.FORMAT, Map.of("lines", lines));
-            if (reply.get("lines") instanceof List<?> shown && shown.size() == lines.size()) {
-                final List<@Nullable String> result = new ArrayList<>();
-                shown.forEach(line -> result.add(line instanceof String text ? text : null));
-                return result;
-            }
-        } catch (org.fuin.porelo.wire.varlink.VarlinkException ex) {
-            // An agent built before the method shows its lines as they are.
+        // An agent built before the method shows its lines as they are.
+        if (optional(AgentProtocol.FORMAT, Map.of("lines", lines))
+                        instanceof Answer.Answered(Map<String, Object> reply)
+                && reply.get("lines") instanceof List<?> shown
+                && shown.size() == lines.size()) {
+            final List<@Nullable String> result = new ArrayList<>();
+            shown.forEach(line -> result.add(line instanceof String text ? text : null));
+            return result;
         }
         return new ArrayList<>(lines);
     }
@@ -498,14 +563,12 @@ public class InstalledAgent implements AutoCloseable {
      *     that does not say.
      */
     public @Nullable AgentEnd ended(String line) {
-        try {
-            final Map<String, Object> reply =
-                    client.call(AgentProtocol.ENDED, Map.of("line", line));
-            return reply.get("ended") instanceof Map<?, ?> ended ? AgentEnd.of(ended) : null;
-        } catch (org.fuin.porelo.wire.varlink.VarlinkException ex) {
-            // An agent built before the method: it says nothing about its end, as before.
-            return null;
-        }
+        // An agent built before the method says nothing about its end, as before.
+        return optional(AgentProtocol.ENDED, Map.of("line", line))
+                                instanceof Answer.Answered(Map<String, Object> reply)
+                        && reply.get("ended") instanceof Map<?, ?> ended
+                ? AgentEnd.of(ended)
+                : null;
     }
 
     private static Map<String, String> attributes(@Nullable Object value) {

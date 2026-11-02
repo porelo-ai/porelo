@@ -438,14 +438,17 @@ release and `apt` would refuse to upgrade from a snapshot to the real thing.
 
 ## Protocol versions
 
-`AgentProtocol.VERSION` is the contract. Porelo and the agents ship as separate
-packages, so an untested combination is a matter of time: an agent states which
-version it speaks, and Porelo refuses one it does not know rather than reading a
-field that means something else now.
+`AgentProtocol.VERSION` is what an agent reports, the contract it was built
+against. `AgentProtocol.LOWEST` is the lowest this Porelo needs. Porelo and the
+agents ship as separate packages, so an untested combination is a matter of time:
+an agent below `LOWEST` is refused, naming both numbers, and any other is accepted,
+a newer one included, since Porelo calls only methods it knows.
 
-Raise it when a change would make an older Porelo misread a newer agent, or the
-reverse. Adding an optional field does not qualify; renaming or removing one
-does.
+**`Agent1` only grows.** A method or an optional field may be added, which raises
+`VERSION` and no agent has to release for it. A method an agent lacks answers
+`org.varlink.service.MethodNotFound`, and Porelo says of that "this agent cannot
+say", never "nothing found". Any other error is an error, not an old agent. A
+renamed, removed or reinterpreted method or field raises `LOWEST`.
 
 ## When an agent will not start
 

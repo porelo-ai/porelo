@@ -109,11 +109,13 @@ public final class AgentDefinitionReader {
                 // wrong for every other.
                 //
                 // An EMPTY list is not the same as absent. An agent whose login is "just run me"
-                // declares the section with no arguments, and reading that as "cannot log in" would
-                // refuse the commonest shape there is.
-                root.get("login") == null
-                        ? null
-                        : strings(optionalSection(root, "login").get("arguments")),
+                // declares 'arguments: []', and reading that as "cannot log in" would refuse the
+                // commonest shape there is. A section with no 'arguments' key at all declares a
+                // flow or grants and no login of its own: run as "just run me", the person signs in
+                // and Porelo collects nothing.
+                optionalSection(root, "login").containsKey("arguments")
+                        ? strings(optionalSection(root, "login").get("arguments"))
+                        : null,
                 // Where that login is described. Optional even when the section is there: an agent
                 // may have a login and no page about it, and a missing link is better than one
                 // somebody invented.

@@ -1,6 +1,6 @@
 # B224 — An Agent Protocol That Only Grows
 
-**Status:** Backlog.
+**Status:** Review.
 **Size:** M - small in code, one module and its tests, but it changes the contract every agent repository reads, and
 its rule goes into the contract's documentation.
 
@@ -42,9 +42,8 @@ Read in the code on 2026-10-20 (`agents/api`).
    `org.varlink.service.MethodNotFound`; every other error still throws. `format` (`:465`) and `ended` (`:487`) catch
    every `VarlinkException` today; they keep their fallback but go through `optional`, so a real failure is no
    longer read as an old agent.
-4. **A test seam**: a package-private `InstalledAgent` constructor over an already-connected `VarlinkClient`, so a
-   test can serve a chosen `Describe` and a chosen subset of methods from a plain `VarlinkServer`; no test covers a
-   version mismatch today.
+4. **A test seam**: `InstalledAgent.refusal` and a static `optional` over a connected `VarlinkClient`, so a test serves
+   a chosen subset of methods from a plain `VarlinkServer`; no test covers a version mismatch today.
 5. `builds/api`'s handshake stays exact; a build reader is not touched here.
 
 **Red first:** `InstalledAgentVersionTest`: an agent answering `protocolVersion` 2 is refused with both numbers; 4 is
@@ -58,3 +57,13 @@ another error throws.
 - A call to a method the stub lacks is rendered as "cannot say", and seen to fail first where it was rendered as
   nothing found.
 - The rule is in `AgentProtocol`'s Javadoc and `agents/README.md`.
+- A definition's `login:` section with no `arguments` key reads as no login of its own, so `vault login` answers
+  `UNSUPPORTED` and `vault import` offers none, rather than a login that leaves nothing to collect; `arguments: []` still
+  means "just run me". Needed before an agent such as Pi or Oh My Pi can name a `config_dir` for `Find`.
+
+## Checked
+
+- A stub of the previous version: `LOWEST` is the current version, so the previous one is what `refusal` refuses and
+  the next one what it accepts; a real agent at another version is measured when `VERSION` goes to 4.
+- `format` has no caller in the apps, and `ended`'s caller, `AgentEnding`, catches a runtime failure and says nothing,
+  so an error now thrown from either changes nothing a person sees.

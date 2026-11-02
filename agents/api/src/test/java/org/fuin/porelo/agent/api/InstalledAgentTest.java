@@ -129,4 +129,81 @@ class InstalledAgentTest {
                 .contains("slow");
         assertThat(InstalledAgent.diagnosis(false, "")).contains("had exited").contains("nothing");
     }
+
+    @Test
+    void anAgentBelowTheLowestVersionIsRefusedNamingBothNumbers() {
+        final Path executable = Path.of("/usr/libexec/porelo/agents/porelo-agent-old");
+
+        assertThat(InstalledAgent.refusal(executable, AgentProtocol.LOWEST - 1))
+                .contains(executable.toString())
+                .contains(" " + (AgentProtocol.LOWEST - 1) + ",")
+                .contains("at least " + AgentProtocol.LOWEST)
+                .contains("Upgrade the agent");
+        assertThat(InstalledAgent.refusal(executable, -1)).as("no version at all").isNotNull();
+    }
+
+    @Test
+    void anAgentAtTheLowestVersionOrNewerIsAccepted() {
+        final Path executable = Path.of("/usr/libexec/porelo/agents/porelo-agent-new");
+
+        assertThat(InstalledAgent.refusal(executable, AgentProtocol.LOWEST)).isNull();
+        assertThat(InstalledAgent.refusal(executable, AgentProtocol.VERSION)).isNull();
+        assertThat(InstalledAgent.refusal(executable, AgentProtocol.VERSION + 1))
+                .as("a newer one, since Porelo calls only methods it knows")
+                .isNull();
+    }
+
+    private static org.fuin.porelo.wire.varlink.VarlinkServer serving(final Path socket) {
+        final org.fuin.porelo.wire.varlink.VarlinkServer server =
+                new org.fuin.porelo.wire.varlink.VarlinkServer(socket, AgentProtocol.INTERFACE);
+        server.method(
+                "Known", (parameters, replies) -> replies.last(java.util.Map.of("said", "yes")));
+        server.method(
+                "Broken",
+                (parameters, replies) -> {
+                    throw new AgentException("it broke");
+                });
+        Thread.ofPlatform().daemon().start(server);
+        return server;
+    }
+
+    @Test
+    void aMethodTheAgentHasIsAnswered(@org.junit.jupiter.api.io.TempDir Path dir) throws Exception {
+        final Path socket = dir.resolve("s.sock");
+        try (var server = serving(socket);
+                var client = new org.fuin.porelo.wire.varlink.VarlinkClient(socket)) {
+            assertThat(
+                            InstalledAgent.optional(
+                                    client, AgentProtocol.INTERFACE + ".Known", java.util.Map.of()))
+                    .isEqualTo(new InstalledAgent.Answer.Answered(java.util.Map.of("said", "yes")));
+        }
+    }
+
+    @Test
+    void aMethodTheAgentLacksCannotSayAndIsNotNothingFound(
+            @org.junit.jupiter.api.io.TempDir Path dir) throws Exception {
+        final Path socket = dir.resolve("s.sock");
+        final String method = AgentProtocol.INTERFACE + ".NotThere";
+        try (var server = serving(socket);
+                var client = new org.fuin.porelo.wire.varlink.VarlinkClient(socket)) {
+            assertThat(InstalledAgent.optional(client, method, java.util.Map.of()))
+                    .isEqualTo(new InstalledAgent.Answer.CannotSay(method));
+        }
+    }
+
+    @Test
+    void anyOtherErrorIsAnErrorAndNotAnOldAgent(@org.junit.jupiter.api.io.TempDir Path dir)
+            throws Exception {
+        final Path socket = dir.resolve("s.sock");
+        try (var server = serving(socket);
+                var client = new org.fuin.porelo.wire.varlink.VarlinkClient(socket)) {
+            org.assertj.core.api.Assertions.assertThatThrownBy(
+                            () ->
+                                    InstalledAgent.optional(
+                                            client,
+                                            AgentProtocol.INTERFACE + ".Broken",
+                                            java.util.Map.of()))
+                    .isInstanceOf(org.fuin.porelo.wire.varlink.VarlinkException.class);
+        }
+    }
 }

@@ -806,4 +806,19 @@ class AgentDefinitionReaderTest {
                 .isInstanceOf(AgentException.class)
                 .hasMessageContaining("cloud-code");
     }
+
+    @Test
+    void aLoginSectionWithNoArgumentsKeyIsNoLoginOfItsOwn() {
+        // Read as "just run me", 'vault login' started a container, the person signed in, and
+        // Porelo collected nothing from an agent that keeps its sign-in where no extractor reads.
+        assertThat(read(MINIMAL + "login:\n  flow: device-code\n").loginArguments()).isNull();
+        assertThat(read(MINIMAL).loginArguments()).isNull();
+    }
+
+    @Test
+    void anEmptyArgumentsListStillMeansJustRunMe() {
+        assertThat(read(MINIMAL + "login:\n  arguments: []\n").loginArguments()).isEmpty();
+        assertThat(read(MINIMAL + "login:\n  arguments: [\"login\"]\n").loginArguments())
+                .containsExactly("login");
+    }
 }

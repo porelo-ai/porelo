@@ -6,7 +6,13 @@ package org.fuin.porelo.agent.api;
  * <p>Porelo and the agents are packaged, versioned and installed separately, so at some point an
  * operator will have a combination nobody tested. The version here is what makes that a clear
  * message instead of a strange failure: an agent states which protocol it speaks, and Porelo
- * refuses one it does not understand rather than guessing at a partially-matching shape.
+ * refuses one older than it needs rather than guessing at a partially-matching shape.
+ *
+ * <p><strong>{@code Agent1} only grows.</strong> A method or an optional field may be added, and
+ * neither side has to release for it: an agent built against an older contract goes on working, a
+ * method it lacks answers {@code org.varlink.service.MethodNotFound}, and Porelo says of that "this
+ * agent cannot say", never "nothing found". A renamed, removed or reinterpreted method or field
+ * raises {@link #LOWEST}.
  */
 public final class AgentProtocol {
 
@@ -14,12 +20,19 @@ public final class AgentProtocol {
     public static final String INTERFACE = "org.fuin.porelo.Agent1";
 
     /**
-     * Version of this contract.
+     * Version of this contract: what an agent built against it reports in {@code Describe}.
      *
-     * <p>Raised when a change would make an older Porelo misread a newer agent, or the reverse.
-     * Adding an optional field does not qualify; renaming or removing one does.
+     * <p>Raised with every addition, so that an agent says how much of the contract it knows.
      */
     public static final int VERSION = 3;
+
+    /**
+     * The lowest version this Porelo needs.
+     *
+     * <p>An agent at or above it is accepted, a newer one included, since Porelo calls only methods
+     * it knows. Raised only when a method or field is renamed, removed or changes its meaning.
+     */
+    public static final int LOWEST = 3;
 
     /** Returns the agent's definition and the protocol version it speaks. */
     public static final String DESCRIBE = INTERFACE + ".Describe";

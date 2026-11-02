@@ -88,6 +88,34 @@ class AgentLoginTest {
     }
 
     @Test
+    void aLoginSectionWithNoArgumentsIsNeitherOfferedNorRun(@TempDir Path dir) {
+        // With a config directory it would have started a container, let the person sign in, and
+        // collected nothing, since the sign-in lies where no extractor reads. 'vault import'
+        // offered
+        // that login through signsInHere as well.
+        final AgentDefinition definition =
+                AgentDefinitionReader.read(
+                        new java.io.StringReader(
+                                """
+                                name: example
+                                binary: example-cli
+                                git_identity:
+                                  name: Example
+                                  email: noreply@example.com
+                                headless:
+                                  prompt_flag: "-p"
+                                config_dir: %s
+                                login:
+                                  flow: device-code
+                                """
+                                        .formatted(dir)),
+                        "test");
+
+        assertThat(definition.loginArguments()).isNull();
+        assertThat(AgentLogin.signsInHere(context(dir), definition)).isFalse();
+    }
+
+    @Test
     void anAgentNotInstalledHasNoLoginToNameAsAWayOut(@TempDir Path dir) {
         assertThat(AgentLogin.signsInHere(context(dir), "absent")).isFalse();
     }
