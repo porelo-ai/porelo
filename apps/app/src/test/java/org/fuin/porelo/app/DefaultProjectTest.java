@@ -451,26 +451,84 @@ class DefaultProjectTest {
         assertThat(project.mail().peers()).isEmpty();
     }
 
-    @Test
-    void aNameInTheRecordThatWouldWriteASectionIsRefusedAndNeverWritten() throws Exception {
-        // A name goes into the written file as it stands, so a line end in it wrote a 'mail'
-        // section with a room peer, and the reader read it.
-        final String name =
-                "x:\n    upstream: \"a\"\nmail:\n  peers:\n    room:\n      address: \"matrix:\"\n    z";
+    private static String sectionWriting() {
+        return "x:\n    upstream: \"a\"\nmail:\n  peers:\n    room:\n      address: \"matrix:\"\n    z";
+    }
+
+    private void recorded(final String name) throws Exception {
         Files.writeString(
                 record(),
                 org.fuin.porelo.wire.Json.write(
                         java.util.List.of(
                                 java.util.Map.of(
                                         "name", name, "upstream", "https://example.org/r.git"))));
-        final DefaultProject project = new DefaultProject(context());
+    }
 
-        assertThatThrownBy(project::file)
-                .as("refused where it is read")
-                .hasMessageContaining("is not a repository name");
-        assertThat(dir.resolve("state/porelo/default/project.yml"))
-                .as("never reaches the written file")
-                .doesNotExist();
+    @Test
+    void aNameInTheRecordThatWouldWriteASectionNeverReachesTheFile() throws Exception {
+        // A name goes into the written file as it stands, so a line end in it wrote a 'mail'
+        // section with a room peer, and the reader read it.
+        recorded(sectionWriting());
+
+        final Path file = new DefaultProject(context()).file();
+        final Project project = ProjectReader.read(file);
+
+        assertThat(project.mail().conversations()).isEmpty();
+        assertThat(project.mail().peers()).isEmpty();
+        assertThat(Files.readString(file)).doesNotContain("mail:").doesNotContain("repositories:");
+    }
+
+    @Test
+    void oneBadNameStopsNoListingAndCanStillBeRemoved() throws Exception {
+        // Read for every project a machine lists, so a refusal here stopped the daemon's watches.
+        recorded(sectionWriting());
+        final PoreloContext context = context();
+
+        assertThat(new ProjectInventory(context).projects())
+                .as("the machine's projects are still listed")
+                .anySatisfy(project -> assertThat(project.name()).isEqualTo(DefaultProject.NAME));
+        assertThat(new DefaultProject(context).entries()).hasSize(1);
+
+        new DefaultProject(context).remove(sectionWriting());
+
+        assertThat(new DefaultProject(context).entries()).isEmpty();
+    }
+
+    @Test
+    void theListingMarksABadNameOnOneLineAndKeepsTheGoodOnes() throws Exception {
+        Files.writeString(
+                record(),
+                org.fuin.porelo.wire.Json.write(
+                        java.util.List.of(
+                                java.util.Map.of(
+                                        "name", "\u001b]0;x\u0007\nbad",
+                                        "upstream", "https://example.org/b.git"),
+                                java.util.Map.of(
+                                        "name", "good",
+                                        "upstream", "https://example.org/g.git"))));
+        final java.io.StringWriter out = new java.io.StringWriter();
+        final picocli.CommandLine cli = PoreloCli.commandLine(context());
+        cli.setOut(new java.io.PrintWriter(out));
+
+        assertThat(cli.execute("project", "default", "list")).isZero();
+
+        assertThat(out.toString())
+                .as("a name from the file is no terminal's control sequence and no second line")
+                .doesNotContain("\u001b")
+                .contains("no repository name")
+                .contains("https://example.org/g.git");
+        assertThat(out.toString().lines()).hasSize(2);
+    }
+
+    @Test
+    void anOlderNameEndingInAHyphenIsLeftOutAndNamedNotFailed() throws Exception {
+        // Taken before names had to end in a letter or digit.
+        recorded("repo-");
+
+        assertThat(Files.readString(new DefaultProject(context()).file())).doesNotContain("repo-");
+        assertThat(DefaultProject.usable("repo-")).isFalse();
+        assertThat(DefaultProject.usable("default")).as("its own name is none either").isFalse();
+        assertThat(DefaultProject.usable("repo")).isTrue();
     }
 
     @Test
@@ -507,9 +565,16 @@ class DefaultProjectTest {
                 """);
         final Project named = ProjectReader.read(file);
         assertThat(named.mail().conversations()).as("the file does name a room").isNotEmpty();
+        final Path mark = dir.resolve("asked");
+        final Path adapter =
+                Files.createDirectories(dir.resolve("data/porelo/transports"))
+                        .resolve(TransportDirectory.PREFIX + "matrix");
+        Files.writeString(adapter, "#!/bin/sh\ntouch " + mark + "\n");
+        assertThat(adapter.toFile().setExecutable(true)).as("the transport runs").isTrue();
 
         assertThat(new TaskConversations(context()).enroll(named, "porelo-default-fix"))
                 .as("nothing is asked of a transport, so nothing is refused either")
                 .isNull();
+        assertThat(mark).as("the transport was not run at all").doesNotExist();
     }
 }

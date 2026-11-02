@@ -162,7 +162,13 @@ public final class MessagePass {
                                 false);
             }
             final TransportSend send = new TransportSend(runner, transports, acting);
-            for (final String transport : queues(mailbox)) {
+            // A project with no peer and no conversation asks no transport anything, whatever a
+            // queue left here holds: the project 'default' has none, and talks to nobody.
+            final List<String> queued =
+                    mail.peers().isEmpty() && mail.conversations().isEmpty()
+                            ? List.of()
+                            : queues(mailbox);
+            for (final String transport : queued) {
                 final TransportSend.Result result = send.send(mailbox, transport);
                 sent.put(transport, result);
                 for (final String message : result.sent()) {

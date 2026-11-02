@@ -273,6 +273,31 @@ class TalkPassProjectTest {
     }
 
     @Test
+    void aQueueLeftInATaskOfDefaultAsksNoTransportAnything() throws Exception {
+        // 'default' talks to nobody, whatever was left in its task's mailbox.
+        final PoreloContext context = context();
+        final Path adapter =
+                Files.createDirectories(dir.resolve("data/porelo/transports"))
+                        .resolve(TransportDirectory.PREFIX + "room");
+        Files.writeString(adapter, "#!/bin/sh\n");
+        assertThat(adapter.toFile().setExecutable(true)).as("the adapter runs").isTrue();
+        final Mailbox mailbox =
+                new Mailbox(context.paths().messaging().mailbox("porelo-default-fix"));
+        mailbox.create();
+        Files.createDirectories(mailbox.queueActive("room"));
+
+        final int code = pass(context, "porelo-default-fix", "--project", "default");
+
+        assertThat(code).as(err.toString()).isZero();
+        assertThat(runner.invocations())
+                .as("the transport is not run, not even to describe itself")
+                .noneSatisfy(
+                        command ->
+                                assertThat(command.arguments().toString())
+                                        .contains(adapter.toString()));
+    }
+
+    @Test
     void aTaskGivenWithItsProjectThatClimbsOutOfItsMailboxIsRefused() throws Exception {
         // 'fix/../porelo-other-secret' would make 'default''s task a path into 'other''s live
         // mailbox, and pass 'default''s conversation into it.

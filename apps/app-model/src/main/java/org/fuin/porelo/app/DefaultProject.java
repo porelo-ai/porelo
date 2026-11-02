@@ -158,12 +158,6 @@ public final class DefaultProject {
                     if (each instanceof Map<?, ?> entry
                             && entry.get("name") instanceof String name
                             && entry.get("upstream") instanceof String upstream) {
-                        // A name goes into the written file as it stands, so one that is no name
-                        // could write a section of its own there: a room, for a project with none.
-                        if (!name.matches(Repository.NAME_PATTERN)) {
-                            throw new IllegalArgumentException(
-                                    "'" + name + "' is not a repository name");
-                        }
                         final String checkout =
                                 entry.get("checkout") instanceof String given ? given : "";
                         entries.add(
@@ -341,6 +335,22 @@ public final class DefaultProject {
         return java.util.Objects.requireNonNull(locked(this::fileHeld));
     }
 
+    /**
+     * Tells whether a recorded name can stand in the project's file.
+     *
+     * <p>A name goes into the file as it stands, so one that is no name could write a section of
+     * its own there: a room, for a project with none. Such an entry is left out of the file, not
+     * refused: this project is read for every project a machine lists, so one bad entry must not
+     * stop them all, and it can still be listed and removed. An older name no longer taken, ending
+     * in a hyphen, is left out the same way.
+     *
+     * @param name The recorded name.
+     * @return Whether it is written.
+     */
+    public static boolean usable(final String name) {
+        return name.matches(Repository.NAME_PATTERN) && !NAME.equals(name);
+    }
+
     private Path fileHeld() {
         final StringBuilder text = new StringBuilder();
         text.append(
@@ -358,7 +368,8 @@ public final class DefaultProject {
                 .append("  base_image: \"")
                 .append(BASE_IMAGE)
                 .append("\"\n");
-        final List<Entry> entries = entries();
+        final List<Entry> entries =
+                entries().stream().filter(entry -> usable(entry.name())).toList();
         if (!entries.isEmpty()) {
             text.append("repositories:\n");
             for (final Entry entry : entries) {
