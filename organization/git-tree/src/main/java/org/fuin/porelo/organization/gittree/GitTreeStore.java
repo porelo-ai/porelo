@@ -216,7 +216,10 @@ public final class GitTreeStore {
                 keep(walked);
             }
             return answers(walked, warnings);
-        } catch (CardException | CommandException ex) {
+        } catch (CommandException ex) {
+            // Git did not end in time: a forge that hangs says nothing of the state.
+            throw new Unreachable("the organization's repository did not answer in time");
+        } catch (CardException ex) {
             throw new OrganizationException(ex.getMessage(), ex);
         }
     }
@@ -275,7 +278,10 @@ public final class GitTreeStore {
                 keep(walked);
             }
             return answers(walked, warnings);
-        } catch (CardException | CommandException ex) {
+        } catch (CommandException ex) {
+            // Git did not end in time: a forge that hangs says nothing of the state.
+            throw new Unreachable("the organization's repository did not answer in time");
+        } catch (CardException ex) {
             throw new OrganizationException(ex.getMessage(), ex);
         }
     }

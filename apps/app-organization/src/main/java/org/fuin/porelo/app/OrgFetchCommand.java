@@ -84,12 +84,12 @@ public class OrgFetchCommand extends OrgReading {
             return new LinkedHashMap<>(
                     fetcher.open(machine, address, access)
                             .check(host, pinned, since == null ? "" : since));
-        } catch (GitTreeStore.Unreachable ex) {
+        } catch (GitTreeStore.Unreachable | CommandException ex) {
             // Never a stale state: a host acts on this answer. A forge whose host key does not
             // match the pin ends here as well.
             throw new Refused(Refused.CANNOT_SAY, "the organization cannot be reached", since);
-        } catch (OrganizationException | CommandException ex) {
-            // A shallow or unreadable history, or git run out of time, proves nothing.
+        } catch (OrganizationException ex) {
+            // A shallow or unreadable history proves nothing.
             throw new Refused(Refused.REFUSED_STATE, String.valueOf(ex.getMessage()), since);
         }
     }

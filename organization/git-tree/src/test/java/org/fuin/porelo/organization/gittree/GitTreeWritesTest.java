@@ -24,6 +24,7 @@ import org.fuin.porelo.organization.OrganizationQuestions.Refused;
 import org.fuin.porelo.organization.OrganizationWrites.Acting;
 import org.fuin.porelo.organization.OrganizationWrites.Change;
 import org.fuin.porelo.organization.OrganizationWrites.Written;
+import org.fuin.porelo.vault.HostCard;
 import org.fuin.porelo.vault.OpenSshPrivateKey;
 import org.fuin.porelo.vault.PersonCard;
 import org.fuin.porelo.vault.SigningKey;
@@ -1257,5 +1258,61 @@ class GitTreeWritesTest {
                                 .successful())
                 .as("nothing was pushed")
                 .isFalse();
+    }
+
+    private String hostCard(final String name, final String signer) {
+        return HostCard.write(
+                name, "build.example.org", 22, key("carol"), 3000, 2222, 8448, keys.get(signer));
+    }
+
+    @Test
+    void aBackupKeyOfSomeoneElseDoesNotCountAsAnOwnerLeft() throws Exception {
+        write(
+                "owners.yml",
+                "owners:\n  - login: mia\n    key: \""
+                        + key("mia")
+                        + "\"\n  - login: carol\n    key: \""
+                        + key("backup")
+                        + "\"\n    backup: true\n");
+        git("add", "-A");
+        git("-c", "user.signingkey=" + keyFiles.get("mia"), "commit", "-q", "-S", "-m", "backup");
+
+        refusedAs(
+                "last-of-its-kind",
+                () -> as("mia").removeOrganizationOwner(change("mia", "mia", "x"), "mia"));
+    }
+
+    @Test
+    void aRemovedHostLeavesNoCardForOneMadeAgainUnderItsName() throws Exception {
+        build();
+        as("alice")
+                .changeHost(change("alice", "alice", "card"), "build", hostCard("build", "alice"));
+        assertThat(repo.resolve("hosts/build/card")).exists();
+
+        as("mia").removeHost(change("mia", "mia", "off"), "build");
+
+        assertThat(repo.resolve("hosts/build/card")).doesNotExist();
+    }
+
+    @Test
+    void aCardOfAnotherHostIsUsage() throws Exception {
+        build();
+
+        refusedAs(
+                "usage",
+                () ->
+                        as("alice")
+                                .changeHost(
+                                        change("alice", "alice", "x"),
+                                        "build",
+                                        hostCard("other", "alice")));
+    }
+
+    @Test
+    void aCardTheForgeNoLongerStandsByHoldsNoRole() throws Exception {
+        aliceFiled();
+        forge.keys.put("alice", List.of(key("mallory")));
+
+        refusedAs("no-card", () -> as("mia").addHost(change("mia", "mia", "x"), "build", "alice"));
     }
 }
