@@ -9,7 +9,7 @@ installation token is taken as one that sees every membership.
 for one call, without a personal token in Porelo's vault.
 
 The test tokens of the test walk moved to a GitHub App (2026-11-01): its installation token lives an hour
-and sits in the test secrets file, never in the vault. The owner check took its token only from the vault
+and is held outside the vault. The owner check took its token only from the vault
 (`git.token.github.com`, or a declared vault entry), and it took a 404 for a membership as "cannot say" unless
 `/user/memberships/orgs/ORG` showed an active admin, which an installation token, having no account, cannot show.
 
