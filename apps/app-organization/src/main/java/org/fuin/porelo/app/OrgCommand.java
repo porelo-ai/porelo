@@ -28,6 +28,7 @@ import picocli.CommandLine.Command;
             OrgFetchCommand.class,
             OrgSignersCommand.class,
             OrgAddReadKeyCommand.class,
+            OrgCreateCommand.class,
             OrgOwnerCommand.class,
             OrgPersonCommand.class,
             OrgProjectCommand.class,

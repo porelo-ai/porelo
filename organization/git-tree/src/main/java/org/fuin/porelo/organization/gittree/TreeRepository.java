@@ -16,6 +16,7 @@ import org.fuin.porelo.core.process.Command;
 import org.fuin.porelo.core.process.CommandResult;
 import org.fuin.porelo.core.process.CommandRunner;
 import org.fuin.porelo.organization.OrganizationQuestions;
+import org.fuin.porelo.organization.OrganizationQuestions.Refused;
 import org.fuin.porelo.vault.CardException;
 import org.fuin.porelo.vault.PersonCard;
 import org.fuin.porelo.vault.RegistryText;
@@ -27,6 +28,15 @@ import org.jspecify.annotations.Nullable;
  * the caller's configuration, hooks or environment changes what it reads.
  */
 final class TreeRepository implements AutoCloseable {
+
+    /**
+     * What git, and the forges behind it, say of a repository that is not there. Anything else that
+     * fails is unreachable: never read as no.
+     */
+    private static final java.util.regex.Pattern NOT_THERE =
+            java.util.regex.Pattern.compile(
+                    "(?i)repository not found|repository does not exist"
+                            + "|does not appear to be a git repository");
 
     /** Only what fetches an organization's repository; {@code ext::} would run a program. */
     private static final String PROTOCOLS = "file:ssh:https";
@@ -106,6 +116,13 @@ final class TreeRepository implements AutoCloseable {
                 arguments.addAll(List.of("ls-remote", "--", address, BRANCH));
                 final CommandResult asked =
                         clone.git(lease.environment(), arguments.toArray(String[]::new));
+                if (NOT_THERE.matcher(asked.standardError()).find()) {
+                    throw new Refused(
+                            Refused.NO_REPOSITORY,
+                            "the organization's repository does not exist: make it on the forge"
+                                    + " first, empty",
+                            null);
+                }
                 if (!asked.successful()) {
                     throw new GitTreeStore.Unreachable("cannot read the organization's repository");
                 }

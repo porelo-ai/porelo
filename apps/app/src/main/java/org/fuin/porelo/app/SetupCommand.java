@@ -49,6 +49,8 @@ public class SetupCommand implements Callable<Integer>, PoreloFactory.ContextAwa
                             + " started the daemon and made the vault.")
     private boolean hooksOnly;
 
+    @picocli.CommandLine.Mixin private final OrgSetup organization = new OrgSetup();
+
     /** Whether a person is at a terminal to type a passphrase; replaced in tests. */
     private java.util.function.BooleanSupplier terminal = () -> System.console() != null;
 
@@ -63,6 +65,9 @@ public class SetupCommand implements Callable<Integer>, PoreloFactory.ContextAwa
 
     @Override
     public Integer call() throws Exception {
+        if (organization.named()) {
+            return organization.run(context, spec);
+        }
 
         final PrintWriter out = spec.commandLine().getOut();
         final PrintWriter err = spec.commandLine().getErr();

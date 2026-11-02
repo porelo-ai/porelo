@@ -111,6 +111,9 @@ class OrgWritingCommandsTest {
         if (line.getCommand() instanceof OrgWriting writing) {
             writing.session = opener;
         }
+        if (line.getCommand() instanceof OrgCreateCommand create) {
+            create.founder = (machine, address) -> opener.open(machine);
+        }
         if (line.getCommand() instanceof ProjectAddressCommand address) {
             address.filed = (machine, project) -> !"new".equals(project);
         }
@@ -450,5 +453,112 @@ class OrgWritingCommandsTest {
         }
 
         assertThat(out.toString()).contains("no-key");
+    }
+
+    private static final String ADDRESS = "git@github.com:acme/organization.git";
+
+    private void ownCard() throws IOException {
+        final Path card = dir.resolve("config/porelo/identity/card");
+        Files.createDirectories(card.getParent());
+        Files.writeString(card, "mia's card");
+    }
+
+    private Path settings() {
+        return dir.resolve("config/porelo/organization.yml");
+    }
+
+    @Test
+    void creatingFilesTheOwnCardAndPointsThisMachineAtIt() throws Exception {
+        ownCard();
+
+        assertThat(run("org", "create", ADDRESS, "--json", "--id", "one"))
+                .as("what it said: %s", err)
+                .isZero();
+
+        assertThat(calls).containsExactly("createOrganization[mia's card]");
+        assertThat(changes.getFirst().base()).as("nothing was accepted yet").isNull();
+        assertThat(answer().get("address"))
+                .as("as org answers it, with nothing of who connects")
+                .isEqualTo("github.com:acme/organization.git");
+        assertThat(answer().get("of")).isEqualTo("organization");
+        assertThat(OrgAccess.repository(context())).contains(ADDRESS);
+    }
+
+    @Test
+    void creatingSaysToKeepASecondOwnerOrABackupKey() throws Exception {
+        ownCard();
+
+        assertThat(run("org", "create", ADDRESS)).isZero();
+
+        assertThat(out.toString()).contains("second owner").contains("backup key");
+    }
+
+    @Test
+    void askedAgainForTheSameAddressCreatingReachesTheStore() throws Exception {
+        ownCard();
+        organization();
+        again = true;
+
+        assertThat(run("org", "create", ADDRESS, "--json", "--id", "one"))
+                .as("a run that got as far as the settings has to be answered: %s", err)
+                .isZero();
+
+        assertThat(answer().get("again")).isEqualTo(true);
+    }
+
+    @Test
+    void aMachineWithAnotherOrganizationIsNotPointedElsewhere() throws Exception {
+        ownCard();
+        organization();
+        final String before = Files.readString(settings());
+
+        assertThat(run("org", "create", "git@github.com:other/organization.git", "--json"))
+                .isEqualTo(65);
+
+        assertThat(answer().get("reason")).isEqualTo("exists");
+        assertThat(calls).as("nothing is filed for a machine that cannot use it").isEmpty();
+        assertThat(Files.readString(settings())).isEqualTo(before);
+    }
+
+    @Test
+    void aFailedCreationWritesNoSettingsAndNamesTheIdToAskAgainWith() throws Exception {
+        ownCard();
+        failing = unreachable();
+
+        assertThat(run("org", "create", ADDRESS, "--json", "--id", "keep-me")).isEqualTo(69);
+
+        assertThat(out.toString()).contains("keep-me");
+        assertThat(settings()).doesNotExist();
+    }
+
+    @Test
+    void creatingWithNoCardOfOurOwnIsNoCard() {
+        assertThat(run("org", "create", ADDRESS, "--json")).isEqualTo(65);
+
+        assertThat(answer().get("reason")).isEqualTo("no-card");
+    }
+
+    @Test
+    void anAddressCarryingASecretIsRefusedBeforeItCanBeKept() throws Exception {
+        ownCard();
+
+        for (final String secret :
+                List.of(
+                        "https://mia:hunter2@github.com/acme/organization.git",
+                        "https://hunter2@github.com/acme/organization.git",
+                        "ssh://mia:hunter2@github.com/acme/organization.git")) {
+            out.getBuffer().setLength(0);
+            assertThat(run("org", "create", secret, "--json"))
+                    .as("settings are handed to hosts, so the secret would travel")
+                    .isEqualTo(64);
+            assertThat(out.toString()).doesNotContain("hunter2");
+        }
+        assertThat(calls).isEmpty();
+    }
+
+    @Test
+    void aSshAddressWithItsGitUserAndPortIsNoSecret() {
+        assertThat(OrgAccess.settable("ssh://git@github.com:22/acme/organization.git"))
+                .isNotBlank();
     }
 }

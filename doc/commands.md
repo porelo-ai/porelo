@@ -604,6 +604,7 @@ exits 64 `usage`, 65 `not-allowed` or `refused-state`, 66 `not-found`, 69 `canno
 | `porelo org fetch --host HOST --settings FILE --ssh-key FILE --known-hosts FILE --pin FILE [--since REVISION] --json` | Run by a host as root, with no home, vault or person. Fetches with the host's read key alone, against the forge's pinned host key, judges by the same rules as a person's machine with the forge's public key list asked anonymously, and answers `revision`, `host_card`, `admins`, `persons` and `projects`. `refused-state` for anything older than `--since` or a change of the host's files not signed for the pin; `cannot-say` when it cannot be reached, never a stale state. A person's first card the forge cannot say of waits, and the answer stays at the earlier revision. |
 | `porelo org signers --state FILE --project PROJECT --json` | Builds from the state `org fetch` answered a project's `signers` and `certifiers`, in allowed signers format: only the keys in force, each until its card ends, and a locked member's not at all. |
 | `porelo org add-read-key --settings FILE --key FILE --json` | Adds a host's read-only deploy key to the organization's repository, with the host admin's token on standard input and nowhere else; the token is not kept. Asked again it answers `added: false`. A key the repository holds with write access is `not-allowed`. `revision` is the forge's word for the latest commit, or `null`; nothing is judged by it. |
+| `porelo org create ADDRESS [--id ID]` | Fills an organization's repository, which you make on the forge first, empty, and makes you its first owner; this machine then answers from it. Your key must stay on the forge until a card is handed on, so keep a second owner or a backup key. |
 | `porelo org owner add LOGIN`, `porelo org owner remove LOGIN` | Changes who owns the organization: an owner alone. A write, like every one below: `--base REVISION` refuses a store that moved on, `--id ID` names the change, and asked again it answers `again: true`, `--json` answers `revision`, `id`, `again` and `of`. After 69 or 70 keep the id, since the change may have been made. |
 | `porelo org person revoke LOGIN`, `porelo org person replace LOGIN --card FILE` | Withdraws a card, by its person or an owner, which revokes its key so that coming back takes a new one; or puts a new card in place of a lost key's, by an owner. The only owner's card cannot be withdrawn: replace its key from a backup, or name another owner first. |
 | `porelo org project add PROJECT --admin LOGIN`, `porelo org project remove PROJECT`, `porelo org project admin PROJECT LOGIN` | An owner's: adds a project with its first admin, who becomes a member; removes it; or names another first admin. |
@@ -835,6 +836,7 @@ shows a value, and says when the vault is locked.
 
 ```
 porelo setup [--hooks-only] [--uninstall]
+porelo setup --organization ADDRESS [--replace] [--json]
 ```
 
 Makes this account ready. Each step runs only if needed, so running it again is safe:

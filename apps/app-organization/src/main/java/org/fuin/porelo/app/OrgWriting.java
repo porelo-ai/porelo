@@ -131,6 +131,18 @@ public abstract class OrgWriting extends OrgReading {
                                                 "this machine has no organization: run porelo setup"
                                                         + " first",
                                                 null));
+        return at(machine, repository);
+    }
+
+    /**
+     * Opens the changes of the organization at an address, for this machine's person.
+     *
+     * @param machine The machine.
+     * @param repository The address.
+     * @return Who acts, and what they act on.
+     * @throws IOException When the person's card cannot be read.
+     */
+    static Session at(final PoreloContext machine, final String repository) throws IOException {
         final PersonCard card = ownCard(machine);
         final String socket = machine.environment().apply(AGENT);
         final AgentKey key = served(socket, card.fingerprint());
@@ -148,13 +160,24 @@ public abstract class OrgWriting extends OrgReading {
                 key);
     }
 
-    private static PersonCard ownCard(final PoreloContext machine) throws IOException {
+    /**
+     * Returns the text of this machine's person's card.
+     *
+     * @param machine The machine.
+     * @return The card, as filed.
+     * @throws IOException When it cannot be read.
+     */
+    static String ownCardText(final PoreloContext machine) throws IOException {
         final Path file = machine.paths().xdg().config().resolve("identity/card");
         if (!Files.isRegularFile(file, LinkOption.NOFOLLOW_LINKS)) {
             throw new Refused(Refused.NO_CARD, "this machine holds no card of yours", null);
         }
+        return Files.readString(file, StandardCharsets.UTF_8);
+    }
+
+    private static PersonCard ownCard(final PoreloContext machine) throws IOException {
         try {
-            return PersonCard.read(Files.readString(file, StandardCharsets.UTF_8), "own card");
+            return PersonCard.read(ownCardText(machine), "own card");
         } catch (CardException ex) {
             throw new Refused(Refused.NO_CARD, "this machine's card does not read", null);
         }

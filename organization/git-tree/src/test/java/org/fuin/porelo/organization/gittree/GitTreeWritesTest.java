@@ -1315,4 +1315,33 @@ class GitTreeWritesTest {
 
         refusedAs("no-card", () -> as("mia").addHost(change("mia", "mia", "x"), "build", "alice"));
     }
+
+    @Test
+    void aRepositoryThatIsNotThereIsNoRepositoryAndAFailureIsNot() {
+        final Change first = new Change(new Acting("mia", key("mia")), null, "found");
+
+        refusedAs(
+                "no-repository",
+                () ->
+                        founding(dir.resolve("never-made"))
+                                .createOrganization(first, card("mia", "mia")));
+
+        final GitTreeWrites answering =
+                new GitTreeWrites(
+                        command -> {
+                            if (command.arguments().contains("ls-remote")) {
+                                return new org.fuin.porelo.core.process.CommandResult(
+                                        command, 128, "", "fatal: unable to access: timed out");
+                            }
+                            return runner.run(command);
+                        },
+                        dir.resolve("hanging").toString(),
+                        "acme",
+                        FetchAccess.NONE,
+                        forge,
+                        new CommitSigning(Map.of(), Map.of()));
+        assertThatThrownBy(() -> answering.createOrganization(first, card("mia", "mia")))
+                .as("a forge that says nothing has said no repository is there")
+                .isInstanceOf(GitTreeStore.Unreachable.class);
+    }
 }

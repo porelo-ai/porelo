@@ -715,4 +715,75 @@ class OrgReadingCommandsTest {
                 .doesNotContain("u001b")
                 .contains("lory\\nsecond");
     }
+
+    private int setup(final String... args) {
+        out.getBuffer().setLength(0);
+        err.getBuffer().setLength(0);
+        final CommandLine line = PoreloCli.commandLine(context());
+        line.setOut(new PrintWriter(out));
+        line.setErr(new PrintWriter(err));
+        final CommandLine setup = line.getSubcommands().get("setup");
+        ((OrgSetup) setup.getMixins().get("organization")).opener =
+                (machine, ignored) ->
+                        new OrgAccess.Opened(
+                                GitTreeStore.at(
+                                        runner,
+                                        address,
+                                        "acme",
+                                        "github.com",
+                                        FetchAccess.NONE,
+                                        machine.paths().xdg().state().resolve("organization")),
+                                forge);
+        return line.execute(args);
+    }
+
+    private static final String NAMED = "git@github.com:acme/organization.git";
+
+    private Path settings() {
+        return dir.resolve("config/porelo/organization.yml");
+    }
+
+    @Test
+    void setupWritesTheSettingsOnceTheOrganizationAnswersAndOrgThenReadsThem() throws Exception {
+        assertThat(settings()).doesNotExist();
+
+        assertThat(setup("setup", "--organization", NAMED, "--json"))
+                .as("what it said: %s", err)
+                .isZero();
+
+        assertThat(answer().get("address"))
+                .as("as org answers it, with nothing of who connects")
+                .isEqualTo("github.com:acme/organization.git");
+        assertThat(answer().get("name")).isEqualTo("acme");
+        assertThat(OrgAccess.repository(context())).contains(NAMED);
+        assertThat(run("org", "--json")).as("what it said: %s", err).isZero();
+    }
+
+    @Test
+    void setupOfAnOrganizationThatDoesNotAnswerWritesNothing() throws Exception {
+        address = dir.resolve("gone").toString();
+
+        assertThat(setup("setup", "--organization", NAMED, "--json"))
+                .as("a machine pointed at nothing fails later, where it is harder to see")
+                .isEqualTo(69);
+
+        assertThat(answer().get("reason")).isEqualTo("cannot-say");
+        assertThat(settings()).doesNotExist();
+    }
+
+    @Test
+    void aSecondOrganizationTakesReplaceAndTheSameOneIsAskedAgainFreely() throws Exception {
+        organizationYml(ORGANIZATION_YML);
+        final String other = "git@github.com:other/organization.git";
+
+        assertThat(setup("setup", "--organization", other, "--json")).isEqualTo(65);
+        assertThat(answer().get("reason")).isEqualTo("exists");
+        assertThat(OrgAccess.repository(context()))
+                .as("the machine has one organization")
+                .isNotEqualTo(java.util.Optional.of(other));
+
+        assertThat(setup("setup", "--organization", other, "--replace", "--json")).isZero();
+        assertThat(OrgAccess.repository(context())).contains(other);
+        assertThat(setup("setup", "--organization", other, "--json")).isZero();
+    }
 }
