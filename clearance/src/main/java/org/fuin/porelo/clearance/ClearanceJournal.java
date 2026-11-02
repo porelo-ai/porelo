@@ -10,6 +10,7 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import org.fuin.porelo.wire.Directories;
 import org.fuin.porelo.wire.Json;
 import org.jspecify.annotations.Nullable;
 
@@ -70,7 +71,7 @@ public class ClearanceJournal {
         try {
             if (!Files.exists(file)) {
                 if (file.getParent() != null) {
-                    Files.createDirectories(file.getParent());
+                    Directories.create(file.getParent());
                 }
                 // Made owner-only before its first line, not restricted after it: what a task
                 // reached is nobody else's business, and the directory it sits in is shared with

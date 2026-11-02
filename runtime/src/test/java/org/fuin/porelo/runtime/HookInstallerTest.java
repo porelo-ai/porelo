@@ -291,4 +291,22 @@ class HookInstallerTest {
             binary.toFile().setExecutable(true);
         }
     }
+
+    @Test
+    void theDirectoriesItMakesAreWritableByTheirOwnerAlone(@TempDir Path root) throws IOException {
+        // Seen red only under a umask that leaves the group's write, such as 002.
+        installer(root).install();
+        for (final Path made :
+                List.of(
+                        root.resolve("containers"),
+                        root.resolve("containers/oci"),
+                        root.resolve("containers/oci/hooks.d"),
+                        root.resolve("containers/containers.conf.d"))) {
+            assertThat(Files.getPosixFilePermissions(made))
+                    .as(made.toString())
+                    .doesNotContain(
+                            java.nio.file.attribute.PosixFilePermission.GROUP_WRITE,
+                            java.nio.file.attribute.PosixFilePermission.OTHERS_WRITE);
+        }
+    }
 }

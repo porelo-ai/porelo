@@ -20,6 +20,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import org.fuin.porelo.wire.Directories;
 import org.fuin.porelo.wire.SocketContext;
 import org.jspecify.annotations.Nullable;
 
@@ -367,7 +368,7 @@ public class VaultProxy implements AutoCloseable, Runnable {
             // disagreeing about which of them the container is talking to.
             org.fuin.porelo.wire.LiveSocket.refuseToStealFrom(socket, "credential proxy");
             Files.deleteIfExists(socket);
-            Files.createDirectories(socket.getParent());
+            Directories.create(socket.getParent());
             // Locked down BEFORE the socket exists, because this is what keeps other host users
             // out. A window in which the directory is traversable is the whole hole.
             Files.setPosixFilePermissions(

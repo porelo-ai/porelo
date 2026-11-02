@@ -17,8 +17,9 @@ lent says which key it was.
 
 ## Done
 
-- `wire.Directories.create` makes each missing directory and takes the group's and others' write from it; all 85
-  `Files.createDirectories` calls of the main code use it (`DirectoriesTest`, red under umask 002 without the change).
+- `wire.Directories.create` makes each missing directory and takes the group's and others' write from it; every
+  `Files.createDirectories` call of the main code uses it, the acceptance kit's aside, and a person's state home is
+  made through it (`DirectoriesTest`, red under umask 002 without the change).
   Natively on the Ubuntu VM, with umask 002 and a fresh home: 5 group-writable directories with 900, none with 955.
 - `FollowCredential.impliedKeyNote`, appended to an unreachable follow when a key was lent (`FollowCredentialTest`;
   the declaration check seen red under a mutant). The agent does not win over the vault's key by itself: the

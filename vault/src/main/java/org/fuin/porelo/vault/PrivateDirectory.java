@@ -38,7 +38,13 @@ public final class PrivateDirectory {
         for (final Path each : steps(home, directory)) {
             if (!Files.exists(each, LinkOption.NOFOLLOW_LINKS)) {
                 try {
-                    Files.createDirectory(each);
+                    if (each.equals(home)) {
+                        // Its mode is left as found once it is there, so it is made without the
+                        // group's and others' write, whatever the umask.
+                        Directories.create(each);
+                    } else {
+                        Files.createDirectory(each);
+                    }
                 } catch (FileAlreadyExistsException ex) {
                     // Made by a run at once; it is judged below as any found.
                 }

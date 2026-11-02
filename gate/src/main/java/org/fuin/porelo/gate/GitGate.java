@@ -14,6 +14,7 @@ import org.fuin.porelo.core.process.CommandException;
 import org.fuin.porelo.core.process.CommandResult;
 import org.fuin.porelo.core.process.CommandRunner;
 import org.fuin.porelo.core.project.BranchScheme;
+import org.fuin.porelo.wire.Directories;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -146,7 +147,7 @@ public class GitGate {
             return;
         }
         try {
-            Files.createDirectories(mirror);
+            Directories.create(mirror);
         } catch (java.io.IOException ex) {
             throw new GateException("Cannot create " + mirror, ex);
         }
@@ -566,7 +567,7 @@ public class GitGate {
      */
     public void backup(Path bundle) {
         try {
-            Files.createDirectories(bundle.toAbsolutePath().getParent());
+            Directories.create(bundle.toAbsolutePath().getParent());
         } catch (java.io.IOException ex) {
             throw new GateException("Cannot create " + bundle.getParent(), ex);
         }
@@ -934,7 +935,7 @@ public class GitGate {
         // and after the checkout would be one command too late.
         final Path noHooks = into.resolve(".git").resolve("porelo-no-hooks");
         try {
-            Files.createDirectories(noHooks);
+            Directories.create(noHooks);
         } catch (java.io.IOException ex) {
             throw new GateException("Cannot make " + noHooks, ex);
         }
@@ -1260,7 +1261,7 @@ public class GitGate {
         git("init", "--quiet", target);
         final Path noHooks = scratch.resolve(".git").resolve("porelo-no-hooks");
         try {
-            Files.createDirectories(noHooks);
+            Directories.create(noHooks);
         } catch (java.io.IOException ex) {
             throw new GateException("Cannot make " + noHooks, ex);
         }

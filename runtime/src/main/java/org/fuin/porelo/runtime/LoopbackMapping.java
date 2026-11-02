@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import org.fuin.porelo.wire.Directories;
 
 /**
  * What makes the host's loopback reachable from a task container, and only from one.
@@ -73,7 +74,7 @@ public final class LoopbackMapping {
     public static Path write(Path file) {
         try {
             if (file.getParent() != null) {
-                Files.createDirectories(file.getParent());
+                Directories.create(file.getParent());
             }
             Files.writeString(file, configuration(), StandardCharsets.UTF_8);
             return file;

@@ -5,6 +5,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
+import org.fuin.porelo.wire.Directories;
 import org.fuin.porelo.wire.Sidecar;
 import org.fuin.porelo.wire.SystemProgram;
 
@@ -56,7 +57,7 @@ public class ReaderHook extends Hook {
         }
 
         final Path stateDirectory = Path.of(sidecar.stateDirectory());
-        Files.createDirectories(stateDirectory);
+        Directories.create(stateDirectory);
 
         final List<String> command =
                 List.of(

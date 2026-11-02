@@ -11,6 +11,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
+import org.fuin.porelo.wire.Directories;
 import org.fuin.porelo.wire.varlink.VarlinkClient;
 import org.jspecify.annotations.Nullable;
 
@@ -82,7 +83,7 @@ public class InstalledAgent implements AutoCloseable {
         this.socket = socketFor(executable, socketDirectory);
 
         try {
-            Files.createDirectories(socketDirectory);
+            Directories.create(socketDirectory);
             Files.deleteIfExists(socket);
             this.process =
                     new ProcessBuilder(executable.toString(), "serve", socket.toString())

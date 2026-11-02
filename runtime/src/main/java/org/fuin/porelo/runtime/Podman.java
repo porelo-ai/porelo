@@ -14,6 +14,7 @@ import org.fuin.porelo.core.process.Command;
 import org.fuin.porelo.core.process.CommandResult;
 import org.fuin.porelo.core.process.CommandRunner;
 import org.fuin.porelo.core.project.Project;
+import org.fuin.porelo.wire.Directories;
 import org.fuin.porelo.wire.Sidecar;
 import org.jspecify.annotations.Nullable;
 
@@ -392,7 +393,7 @@ public class Podman {
     public String buildImage(Project project, Path contextDirectory, ImageLayers layers) {
         final Path containerfile = contextDirectory.resolve("Containerfile");
         try {
-            Files.createDirectories(contextDirectory);
+            Directories.create(contextDirectory);
             Files.writeString(
                     containerfile, Containerfile.render(project, layers), StandardCharsets.UTF_8);
         } catch (IOException ex) {
@@ -459,7 +460,7 @@ public class Podman {
             Project project, Path contextDirectory, ImageLayers layers, Rebuild rebuild) {
         final Path containerfile = contextDirectory.resolve("Containerfile");
         try {
-            Files.createDirectories(contextDirectory);
+            Directories.create(contextDirectory);
             Files.writeString(
                     containerfile, Containerfile.render(project, layers), StandardCharsets.UTF_8);
         } catch (IOException ex) {

@@ -7,6 +7,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import org.fuin.porelo.wire.Directories;
 import org.fuin.porelo.wire.Json;
 import org.fuin.porelo.wire.Sidecar;
 
@@ -295,7 +296,7 @@ public class HookInstaller {
      * @throws IOException If a file cannot be written.
      */
     public List<Path> install() throws IOException {
-        Files.createDirectories(hooksDirectory);
+        Directories.create(hooksDirectory);
         final List<Path> written = new java.util.ArrayList<>();
         for (final Map.Entry<String, String> entry : descriptors().entrySet()) {
             final Path file = hooksDirectory.resolve(entry.getKey());
@@ -303,7 +304,7 @@ public class HookInstaller {
             written.add(file);
         }
         final Path dropIn = dropInFile();
-        Files.createDirectories(dropIn.getParent());
+        Directories.create(dropIn.getParent());
         Files.writeString(dropIn, podmanDropIn(), StandardCharsets.UTF_8);
         written.add(dropIn);
         written.sort(Path::compareTo);

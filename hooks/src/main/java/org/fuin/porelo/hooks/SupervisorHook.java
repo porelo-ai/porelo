@@ -5,6 +5,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
+import org.fuin.porelo.wire.Directories;
 import org.fuin.porelo.wire.Sidecar;
 import org.fuin.porelo.wire.SystemProgram;
 
@@ -52,7 +53,7 @@ public class SupervisorHook extends Hook {
         }
 
         final Path state_ = Path.of(sidecar.stateDirectory());
-        Files.createDirectories(state_);
+        Directories.create(state_);
 
         // nsenter for the same reason the nft hook uses it: setns is per-thread and this process
         // must not join the container's network namespace itself.

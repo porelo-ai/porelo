@@ -6,6 +6,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.time.Instant;
+import org.fuin.porelo.wire.Directories;
 import org.fuin.porelo.wire.Sidecar;
 
 /**
@@ -122,7 +123,7 @@ public abstract class Hook {
     protected void log(Sidecar sidecar, String stage, String message) {
         try {
             final Path file = Path.of(sidecar.stateDirectory()).resolve("hooks.log");
-            Files.createDirectories(file.getParent());
+            Directories.create(file.getParent());
             Files.writeString(
                     file,
                     Instant.now() + " " + name + " " + stage + " " + message + "\n",
