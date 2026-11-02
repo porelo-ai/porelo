@@ -90,6 +90,9 @@ would change the answer.
 | The organization's adapter is linked into Porelo | it decides whom Porelo trusts, so it is no executable that would have to be trusted first; a second one comes with a release; its API carries plain data, so one can stand behind a process later | [entry](#the-organizations-adapter-is-linked-into-porelo) |
 | A new key goes straight into KeePassXC, and a running KeePassXC is locked to serve it | accepted: no key file and no master password in Porelo; every database the running KeePassXC has open is locked, and the others stay locked until the person unlocks them | [entry](#a-new-key-goes-straight-into-keepassxc-and-a-running-keepassxc-is-locked-to-serve-it) |
 | A registry's trust record is checked, not hardened against whoever writes the state directory | accepted: a record that fails a check is discarded and the registry walked again from its founding commit; a writer of `$XDG_STATE_HOME` can change Porelo's config and binaries too | [entry](#a-registrys-trust-record-is-checked-not-hardened-against-whoever-writes-the-state-directory) |
+| A backup key replaces only the card of the person who filed it | it replaces that login's key and nothing else, revoking the old one; an owner's backup signs `owners.yml` and the new key the card; nobody may name a backup for someone else | [entry](#a-backup-key-replaces-only-the-card-of-the-person-who-filed-it) |
+| An owner handing on a key changes the owners first | two commits in one push: the old key signs `owners.yml` with the new key, the new key signs the card; no rule lets a non-owner's key change `owners.yml` | [entry](#an-owner-handing-on-a-key-changes-the-owners-first) |
+| Withdrawing a card revokes its key | the key signs nothing more and cannot file the card again; the only owner's card cannot be withdrawn | [entry](#withdrawing-a-card-revokes-its-key) |
 | A founder's key that left the forge refuses the organization on a new machine | a new machine answers `refused-state` naming the key; a machine that read it while listed goes on; recovery is the key back on the forge, or a new organization | [entry](#a-founders-key-that-left-the-forge-refuses-the-organization-on-a-new-machine) |
 | A project's lock does not bind an organization owner | accepted: an owner may name any admin, and an admin may unlock; every step is a signed commit | [entry](#a-projects-lock-does-not-bind-an-organization-owner) |
 | A past commit is judged by the whole chain of its key, read to the tip | a key handed on keeps its commits on a new machine; a lost key's stay refused, and an owner adds the project's admins again | [entry](#a-past-commit-is-judged-by-the-whole-chain-of-its-key-read-to-the-tip) |
@@ -1189,6 +1192,22 @@ that does not read, names another address or is not owner-only is discarded with
 fields and each card against its fingerprint are checked; the changes are not judged again from the history, so a hand-edited
 record passes more easily than today's. The exposure and the reason are the ones above: who can write that directory can
 change Porelo too. A stale answer rests on this file alone, without a fetch, so no security check may rest on one.
+
+## A backup key replaces only the card of the person who filed it
+
+*2026-11-02.* Filed under an owner's place in `owners.yml` or a host admin's in `host.yml`, a backup key replaces the key of the login it stands under and nothing else, and the old key is revoked from that commit on, as by an owner's replacement.
+
+A host admin's backup key signs the commit holding the new card, the card signed by the new key alone. An owner's backup key signs no card: it puts the new key in `owners.yml`, and the new key then signs the card, in a second commit of the same push.
+
+A host's admins may change `host.yml`, so a new backup entry must be signed by the key of the login it names. Otherwise one admin could name a key of their own as another's backup, and take that person's card.
+
+## An owner handing on a key changes the owners first
+
+*2026-11-02.* `owners.yml` holds an owner's key itself, so a card handed on alone would leave the old key signing as an owner and the new one unable to. One push holds two commits: the old key signs `owners.yml` with the new key in its place, then the new key signs the card. No rule lets a non-owner's key change `owners.yml`, and a reader judges each commit as any other. A push is taken whole or not at all, so a refused one leaves neither.
+
+## Withdrawing a card revokes its key
+
+*2026-11-02.* A card removed by its own key or by an owner revokes that key from the commit on: it signs nothing more, and the card cannot be filed again with it, so coming back takes a new key. Past commits stay accepted. The only owner's card cannot be withdrawn: nothing could be accepted afterwards and nobody could put it right.
 
 ## A founder's key that left the forge refuses the organization on a new machine
 

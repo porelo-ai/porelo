@@ -272,6 +272,8 @@ final class TreeRepository implements AutoCloseable {
      * @throws IOException When a signature cannot be read.
      */
     Optional<String> changeNamed(final String id, final String fingerprint) throws IOException {
+        // A change of two commits carries its id on both: it stands at the newer one.
+        String newest = null;
         for (final String row :
                 require(
                                 "log",
@@ -283,10 +285,15 @@ final class TreeRepository implements AutoCloseable {
                         .lines()
                         .toList()) {
             final String[] fields = row.split(" ", 2);
-            if (fields.length == 2
-                    && List.of(fields[1].split(",")).contains(id)
-                    && signedBy(fields[0], fingerprint)) {
-                return Optional.of(fields[0]);
+            if (fields.length < 2 || !List.of(fields[1].split(",")).contains(id)) {
+                newest = null;
+                continue;
+            }
+            if (newest == null) {
+                newest = fields[0];
+            }
+            if (signedBy(fields[0], fingerprint)) {
+                return Optional.of(newest);
             }
         }
         return Optional.empty();
@@ -329,7 +336,10 @@ final class TreeRepository implements AutoCloseable {
         final Path text = scratch.resolve("file");
         for (final Map.Entry<String, @Nullable String> file : files.entrySet()) {
             if (file.getValue() == null) {
-                written(git(index, "update-index", "--force-remove", "--", file.getKey()));
+                // Git asks for a work tree here though it touches none; this one stays empty.
+                final Map<String, String> removing = new java.util.HashMap<>(index);
+                removing.put("GIT_WORK_TREE", scratch.toString());
+                written(git(removing, "update-index", "--force-remove", "--", file.getKey()));
                 continue;
             }
             Files.writeString(text, file.getValue(), StandardCharsets.UTF_8);

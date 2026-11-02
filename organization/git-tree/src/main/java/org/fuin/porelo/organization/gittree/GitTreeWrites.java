@@ -2,6 +2,7 @@ package org.fuin.porelo.organization.gittree;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -26,8 +27,16 @@ public final class GitTreeWrites {
     /** What a change does to the files, given what was accepted. */
     @FunctionalInterface
     private interface Edit {
-        Map<String, @Nullable String> files(TreeModel model);
+        List<Step> steps(TreeModel model);
     }
+
+    /**
+     * One commit of a change.
+     *
+     * @param files What it changes: a path and its text, {@code null} to remove it.
+     * @param key The key that signs it.
+     */
+    private record Step(Map<String, @Nullable String> files, String key) {}
 
     private final CommandRunner runner;
 
@@ -85,7 +94,7 @@ public final class GitTreeWrites {
                     if (held != null && !Organization.REFUSED.equals(held.state())) {
                         throw new Refused(Refused.EXISTS, "this login has a card", null);
                     }
-                    return Map.of(path, card);
+                    return List.of(new Step(Map.of(path, card), change.acting().key()));
                 });
     }
 
@@ -104,10 +113,38 @@ public final class GitTreeWrites {
                 change,
                 "Change a person's card",
                 model -> {
-                    if (!model.people().containsKey(change.acting().login())) {
+                    final String login = change.acting().login();
+                    final TreeModel.Person held = model.people().get(login);
+                    if (held == null) {
                         throw new Refused(Refused.NO_CARD, "this login has no card", null);
                     }
-                    return Map.of(path, card);
+                    final Step filing = new Step(Map.of(path, card), change.acting().key());
+                    final String fingerprint = PersonCard.fingerprint(change.acting().key());
+                    final Optional<TreeFiles.Owner> owning =
+                            model.owners().stream()
+                                    .filter(
+                                            owner ->
+                                                    !owner.backup()
+                                                            && owner.login().equals(login)
+                                                            && !owner.fingerprint()
+                                                                    .equals(fingerprint))
+                                    .findFirst();
+                    if (owning.isEmpty()) {
+                        return List.of(filing);
+                    }
+                    // Otherwise the handed-on key would go on signing as an owner, and the new one
+                    // could not. The old key names its successor while it still may.
+                    return List.of(
+                            new Step(
+                                    Map.of(
+                                            "owners.yml",
+                                            ownersWith(
+                                                    model,
+                                                    login,
+                                                    change.acting().key(),
+                                                    fingerprint)),
+                                    owning.orElseThrow().key()),
+                            filing);
                 });
     }
 
@@ -131,9 +168,188 @@ public final class GitTreeWrites {
                 change,
                 "Add a backup key",
                 model ->
-                        host == null
-                                ? ownerBackup(model, change.acting(), key, fingerprint)
-                                : hostBackup(model, change.acting(), host, key));
+                        List.of(
+                                new Step(
+                                        host == null
+                                                ? ownerBackup(
+                                                        model, change.acting(), key, fingerprint)
+                                                : hostBackup(model, change.acting(), host, key),
+                                        change.acting().key())));
+    }
+
+    /**
+     * Withdraws a card, which revokes its key from this commit on.
+     *
+     * @param change Who acts: the person themselves, or an owner.
+     * @param login Whose card.
+     * @return What the change made, or made before under this id.
+     * @throws IOException When something unexpected happened; the change may have been made, so ask
+     *     again with the same id.
+     */
+    public Written revokeCard(final Change change, final String login) throws IOException {
+        return change(
+                change,
+                "Withdraw a person's card",
+                model -> {
+                    final TreeModel.Person held = model.people().get(login);
+                    if (held == null || Organization.REFUSED.equals(held.state())) {
+                        throw new Refused(Refused.NOT_FOUND, "this login has no card", null);
+                    }
+                    if (model.owners().stream()
+                            .filter(owner -> !owner.backup())
+                            .allMatch(owner -> owner.login().equals(login))) {
+                        // Nothing could ever be accepted again, and nobody could put it right.
+                        throw new Refused(
+                                Refused.LAST_OF_ITS_KIND,
+                                "this is the only owner's card: replace its key from a backup, or"
+                                        + " name another owner first",
+                                null);
+                    }
+                    final Map<String, @Nullable String> files = new HashMap<>();
+                    files.put("people/" + login + ".card", null);
+                    return List.of(new Step(files, change.acting().key()));
+                });
+    }
+
+    /**
+     * Puts a new card in place of a lost key's, which revokes that key; for an owner alone.
+     *
+     * @param change Who acts, against which state, under which id.
+     * @param login Whose card.
+     * @param card The new card, already signed by its own key.
+     * @return What the change made, or made before under this id.
+     * @throws IOException When something unexpected happened; the change may have been made, so ask
+     *     again with the same id.
+     */
+    public Written replaceCard(final Change change, final String login, final String card)
+            throws IOException {
+        final String path = cardOf(login, card).path;
+        return change(
+                change,
+                "Replace a person's card",
+                model -> {
+                    if (model.owners().stream()
+                            .noneMatch(
+                                    owner ->
+                                            !owner.backup()
+                                                    && owner.login()
+                                                            .equals(change.acting().login()))) {
+                        throw new Refused(
+                                Refused.NOT_ALLOWED, "only an owner replaces a card", null);
+                    }
+                    if (!model.people().containsKey(login)) {
+                        throw new Refused(Refused.NOT_FOUND, "this login has no card", null);
+                    }
+                    return List.of(new Step(Map.of(path, card), change.acting().key()));
+                });
+    }
+
+    /**
+     * Replaces the key a backup key backs, the acting key being that backup key: only the card of
+     * the person who filed it, revoking the old key as an owner's replacement does.
+     *
+     * @param change Who acts, against which state, under which id.
+     * @param host The host, or {@code null} for the organization's owner.
+     * @param card The new card, already signed by its own key.
+     * @return What the change made, or made before under this id.
+     * @throws IOException When something unexpected happened; the change may have been made, so ask
+     *     again with the same id.
+     */
+    public Written replaceKeyWithBackup(
+            final Change change, final @Nullable String host, final String card)
+            throws IOException {
+        final String login = change.acting().login();
+        final Filed filed = cardOf(login, card);
+        final String backup = PersonCard.fingerprint(change.acting().key());
+        return change(
+                change,
+                "Replace a key with its backup",
+                model -> {
+                    if (!model.people().containsKey(login)) {
+                        throw new Refused(Refused.NO_CARD, "this login has no card", null);
+                    }
+                    final Map<String, @Nullable String> filing = Map.of(filed.path, card);
+                    if (host == null) {
+                        if (!backsOwner(model, login, backup)) {
+                            throw new Refused(
+                                    Refused.NOT_ALLOWED,
+                                    "this key backs no owner of this login",
+                                    null);
+                        }
+                        // The backup key signs no card: it names the new key, which then does.
+                        return List.of(
+                                new Step(
+                                        Map.of(
+                                                "owners.yml",
+                                                ownersWith(
+                                                        model,
+                                                        login,
+                                                        filed.key,
+                                                        filed.fingerprint)),
+                                        change.acting().key()),
+                                new Step(filing, filed.key));
+                    }
+                    if (!backedOnHost(model, host, login, backup)) {
+                        throw new Refused(
+                                Refused.NOT_ALLOWED, "this key backs no such place", null);
+                    }
+                    return List.of(new Step(filing, change.acting().key()));
+                });
+    }
+
+    private static boolean backedOnHost(
+            final TreeModel model, final String host, final String login, final String backup) {
+        final TreeModel.HostState state = model.hosts().get(host);
+        if (state == null) {
+            throw new Refused(Refused.NOT_FOUND, "no such host", null);
+        }
+        return state.file().admins().stream()
+                .anyMatch(
+                        admin ->
+                                admin.login().equals(login)
+                                        && admin.backupKey() != null
+                                        && PersonCard.fingerprint(admin.backupKey())
+                                                .equals(backup));
+    }
+
+    private static boolean backsOwner(
+            final TreeModel model, final String login, final String backup) {
+        return model.owners().stream()
+                .anyMatch(
+                        owner ->
+                                owner.backup()
+                                        && owner.login().equals(login)
+                                        && owner.fingerprint().equals(backup));
+    }
+
+    /** The owners with a new key in place of the login's own. */
+    private static String ownersWith(
+            final TreeModel model, final String login, final String key, final String fingerprint) {
+        final List<TreeFiles.Owner> owners = new ArrayList<>();
+        for (final TreeFiles.Owner owner : model.owners()) {
+            owners.add(
+                    !owner.backup() && owner.login().equals(login)
+                            ? new TreeFiles.Owner(login, key, fingerprint, false)
+                            : owner);
+        }
+        return TreeFiles.ownersText(owners);
+    }
+
+    /** A card's place, and its key. */
+    private record Filed(String path, String key, String fingerprint) {}
+
+    /** Checks that a card is this login's, and says where it is filed. */
+    private static Filed cardOf(final String login, final String text) {
+        final PersonCard card;
+        try {
+            card = PersonCard.read(text, "the card");
+        } catch (CardException ex) {
+            throw new Refused(Refused.USAGE, "that is no card", null);
+        }
+        if (!TreeFiles.login(login) || !card.login().equals(login)) {
+            throw new Refused(Refused.USAGE, "the card names another login", null);
+        }
+        return new Filed("people/" + login + ".card", card.key(), card.fingerprint());
     }
 
     private static Map<String, @Nullable String> ownerBackup(
@@ -177,20 +393,11 @@ public final class GitTreeWrites {
 
     /** Checks that a card is the acting person's own, and returns where it is filed. */
     private static String ownCard(final Change change, final String text) {
-        final String login = change.acting().login();
-        final PersonCard card;
-        try {
-            card = PersonCard.read(text, "the card");
-        } catch (CardException ex) {
-            throw new Refused(Refused.USAGE, "that is no card", null);
-        }
-        if (!card.login().equals(login) || !TreeFiles.login(login)) {
-            throw new Refused(Refused.USAGE, "the card names another login", null);
-        }
-        if (!card.fingerprint().equals(PersonCard.fingerprint(change.acting().key()))) {
+        final Filed filed = cardOf(change.acting().login(), text);
+        if (!filed.fingerprint.equals(PersonCard.fingerprint(change.acting().key()))) {
             throw new Refused(Refused.USAGE, "the card is not of the key that acts", null);
         }
-        return "people/" + login + ".card";
+        return filed.path;
     }
 
     private Written change(final Change change, final String subject, final Edit edit)
@@ -213,16 +420,21 @@ public final class GitTreeWrites {
             if (base != null && !base.equals(tip)) {
                 throw new Refused(Refused.MOVED_ON, "the organization has moved on", tip);
             }
-            final String commit =
-                    clone.commit(
-                            tip,
-                            edit.files(before.model()),
-                            subject,
-                            change.id(),
-                            signing,
-                            change.acting().key(),
-                            change.acting().login());
-            judged(clone, commit, tip);
+            final List<String> commits = new ArrayList<>();
+            String commit = tip;
+            for (final Step step : edit.steps(before.model())) {
+                commit =
+                        clone.commit(
+                                commit,
+                                step.files(),
+                                subject,
+                                change.id(),
+                                signing,
+                                step.key(),
+                                change.acting().login());
+                commits.add(commit);
+            }
+            judged(clone, commits, tip);
             if (!clone.push(address, access)) {
                 return afterRefusedPush(change, commit, tip);
             }
@@ -233,15 +445,15 @@ public final class GitTreeWrites {
     }
 
     /** Refuses what every reader would refuse, before anybody has to. */
-    private void judged(final TreeRepository clone, final String commit, final String tip)
+    private void judged(final TreeRepository clone, final List<String> commits, final String tip)
             throws IOException {
         final TreeRecord after = walk(clone);
         for (final var refusal : after.refusals()) {
-            if (refusal.revision().equals(commit)) {
+            if (commits.contains(refusal.revision())) {
                 throw new Refused(Refused.NOT_ALLOWED, refusal.why(), tip);
             }
         }
-        if (!commit.equals(after.commit())) {
+        if (!commits.getLast().equals(after.commit())) {
             throw new Refused(
                     Refused.CANNOT_SAY,
                     "the identity source could not say enough to judge this change",
