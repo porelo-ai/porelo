@@ -92,6 +92,7 @@ would change the answer.
 | A registry's trust record is checked, not hardened against whoever writes the state directory | accepted: a record that fails a check is discarded and the registry walked again from its founding commit; a writer of `$XDG_STATE_HOME` can change Porelo's config and binaries too | [entry](#a-registrys-trust-record-is-checked-not-hardened-against-whoever-writes-the-state-directory) |
 | A backup key replaces only the card of the person who filed it | it replaces that login's key and nothing else, revoking the old one; an owner's backup signs `owners.yml` and the new key the card; nobody may name a backup for someone else | [entry](#a-backup-key-replaces-only-the-card-of-the-person-who-filed-it) |
 | An owner handing on a key changes the owners first | two commits in one push: the old key signs `owners.yml` with the new key, the new key signs the card; no rule lets a non-owner's key change `owners.yml` | [entry](#an-owner-handing-on-a-key-changes-the-owners-first) |
+| An owner does not move a host's pin | the pin follows only a chain the old key signed, or a backup that key filed; an owner's replacement leaves the host at `refused-state` until its admin renews the pin on the machine | [entry](#an-owner-does-not-move-a-hosts-pin) |
 | Withdrawing a card revokes its key | the key signs nothing more and cannot file the card again; the only owner's card cannot be withdrawn | [entry](#withdrawing-a-card-revokes-its-key) |
 | A founder's key that left the forge refuses the organization on a new machine | a new machine answers `refused-state` naming the key; a machine that read it while listed goes on; recovery is the key back on the forge, or a new organization | [entry](#a-founders-key-that-left-the-forge-refuses-the-organization-on-a-new-machine) |
 | A project's lock does not bind an organization owner | accepted: an owner may name any admin, and an admin may unlock; every step is a signed commit | [entry](#a-projects-lock-does-not-bind-an-organization-owner) |
@@ -1204,6 +1205,14 @@ A host's admins may change `host.yml`, so a new backup entry must be signed by t
 ## An owner handing on a key changes the owners first
 
 *2026-11-02.* `owners.yml` holds an owner's key itself, so a card handed on alone would leave the old key signing as an owner and the new one unable to. One push holds two commits: the old key signs `owners.yml` with the new key in its place, then the new key signs the card. No rule lets a non-owner's key change `owners.yml`, and a reader judges each commit as any other. A push is taken whole or not at all, so a refused one leaves neither.
+
+## An owner does not move a host's pin
+
+*2026-11-02, the operator's.* A host's pin follows its admins only along what the pin itself vouches for: a chain the old key signed, or a commit signed for the pin, a backup key that key filed among them. An owner's replacement of an admin's card is neither, so it leaves the host at `refused-state`, naming the commit, until its admin renews the pin on the machine as root.
+
+The other way, an owner may move a pin, is simpler for a person who lost their only key with no backup, but it gives every owner's key the whole fleet. A host cannot tell a stolen owner's key from an honest replacement by its look, and the pin exists to stop exactly that. So losing the only admin's key with no backup means going to the machine.
+
+Only a card the forge vouched for reaches a host, as a key or in the pin. While the forge cannot say, anyone with write access could file a member's first card; the role stays answered, the key does not.
 
 ## Withdrawing a card revokes its key
 

@@ -58,10 +58,32 @@ public final class GitTreeOffline implements OfflineOrganization {
         final Map<String, Object> answer = new LinkedHashMap<>();
         answer.put("revision", String.valueOf(state.revision()));
         answer.put("host_card", hostCard(held));
-        answer.put("admins", held.admins().stream().map(GitTreeOffline::admin).toList());
+        final Set<String> vouched = vouched(state);
+        answer.put(
+                "admins",
+                held.admins().stream()
+                        .filter(admin -> admin.backup() || vouched.contains(admin.login()))
+                        .map(GitTreeOffline::admin)
+                        .toList());
         answer.put("persons", persons(state, held));
-        answer.put("projects", held.projects().stream().map(name -> project(state, name)).toList());
+        answer.put(
+                "projects",
+                held.projects().stream().map(name -> project(state, name, vouched)).toList());
         return answer;
+    }
+
+    /**
+     * The logins whose key a host may act on. While the forge cannot say, anyone with write access
+     * could file a member's first card, so a first-seen key reaches no host; the role stays said.
+     */
+    private static Set<String> vouched(final OrganizationQuestions state) {
+        final Set<String> logins = new TreeSet<>();
+        for (final OrganizationQuestions.Person person : state.getPersons()) {
+            if (!person.revoked() && Organization.TRUSTED.equals(person.state())) {
+                logins.add(person.login());
+            }
+        }
+        return logins;
     }
 
     private static Map<String, @Nullable Object> hostCard(final OrganizationQuestions.Host held) {
@@ -85,8 +107,8 @@ public final class GitTreeOffline implements OfflineOrganization {
     }
 
     /**
-     * The persons this host needs, and no other. A refused card is no card, but a revoked one is
-     * said, since a host must drop it.
+     * The persons this host needs, and no other. Only a card the forge vouched for gives one, but a
+     * revoked one is said, since a host must drop it.
      */
     private static List<Map<String, Object>> persons(
             final OrganizationQuestions state, final OrganizationQuestions.Host held) {
@@ -100,7 +122,7 @@ public final class GitTreeOffline implements OfflineOrganization {
         final List<Map<String, Object>> rows = new ArrayList<>();
         for (final OrganizationQuestions.Person person : state.getPersons()) {
             if (needed.contains(person.login())
-                    && (person.revoked() || !Organization.REFUSED.equals(person.state()))) {
+                    && (person.revoked() || Organization.TRUSTED.equals(person.state()))) {
                 final Map<String, Object> row = new LinkedHashMap<>();
                 row.put("login", person.login());
                 row.put("key", person.key());
@@ -113,7 +135,7 @@ public final class GitTreeOffline implements OfflineOrganization {
     }
 
     private static Map<String, @Nullable Object> project(
-            final OrganizationQuestions state, final String project) {
+            final OrganizationQuestions state, final String project, final Set<String> vouched) {
         final Map<String, @Nullable Object> row = new LinkedHashMap<>();
         row.put("project", project);
         row.put("address", state.getProjectRepository(project).orElse(null));
@@ -132,7 +154,10 @@ public final class GitTreeOffline implements OfflineOrganization {
                         .toList());
         row.put(
                 "signing_keys",
-                state.signingKeys(project).stream().map(GitTreeOffline::signingKey).toList());
+                state.signingKeys(project).stream()
+                        .filter(key -> vouched.contains(key.login()))
+                        .map(GitTreeOffline::signingKey)
+                        .toList());
         return row;
     }
 

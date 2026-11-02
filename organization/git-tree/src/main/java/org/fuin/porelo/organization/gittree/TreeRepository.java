@@ -10,10 +10,12 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.regex.Pattern;
 import java.util.stream.Stream;
 import org.fuin.porelo.core.process.Command;
 import org.fuin.porelo.core.process.CommandResult;
 import org.fuin.porelo.core.process.CommandRunner;
+import org.fuin.porelo.organization.OrganizationQuestions;
 import org.fuin.porelo.vault.CardException;
 import org.fuin.porelo.vault.PersonCard;
 import org.fuin.porelo.vault.RegistryText;
@@ -34,6 +36,9 @@ final class TreeRepository implements AutoCloseable {
     private static final int LIMIT = 1024 * 1024;
 
     private static final String CHANGE_ID = "Porelo-Change-Id";
+
+    /** What the command runner writes where it dropped the start of an output. */
+    private static final Pattern CUT = Pattern.compile("\\[[0-9]+ bytes cut before this\\]\\n");
 
     private final Path scratch;
 
@@ -471,7 +476,16 @@ final class TreeRepository implements AutoCloseable {
                     "cannot read the organization's history: "
                             + RegistryText.printable(result.standardError().strip()));
         }
-        return result.standardOutput();
+        final String output = result.standardOutput();
+        if (CUT.matcher(output).lookingAt()) {
+            // Past 16 MiB of a command's output its start is gone: paths or commits would go
+            // unjudged, and the marker would be read as a commit.
+            throw new OrganizationQuestions.Refused(
+                    OrganizationQuestions.Refused.CANNOT_SAY,
+                    "the organization's history is too long to read whole",
+                    null);
+        }
+        return output;
     }
 
     private CommandResult git(final String... arguments) {

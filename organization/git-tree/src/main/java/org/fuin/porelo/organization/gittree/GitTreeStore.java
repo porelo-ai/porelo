@@ -252,6 +252,14 @@ public final class GitTreeStore {
                                 + since,
                         since);
             }
+            if (kept != null && kept.commit() != null && !line.contains(kept.commit())) {
+                throw new OrganizationQuestions.Refused(
+                        OrganizationQuestions.Refused.REFUSED_STATE,
+                        "the organization's tip does not continue the commit this host read last:"
+                                + " an older state served again, or a fork, at "
+                                + kept.commit(),
+                        kept.commit());
+            }
             final TreeWalk walk = new TreeWalk(clone, identities, organisation);
             walk.readChains();
             // Only from the commit taken: a later record may hold commits no pin has judged yet.

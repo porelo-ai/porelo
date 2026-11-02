@@ -112,7 +112,8 @@ public final class ForgeReadKey {
                             null);
                 }
             }
-            if (rows.size() < PAGE) {
+            // A forge may cap a page below what is asked: only an empty one is the end.
+            if (rows.isEmpty()) {
                 final Map<String, Object> body = new LinkedHashMap<>();
                 body.put("title", title);
                 body.put("key", key);

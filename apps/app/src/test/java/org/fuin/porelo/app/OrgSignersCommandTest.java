@@ -108,13 +108,13 @@ class OrgSignersCommandTest {
         assertThat(answer().get("revision")).isEqualTo("r1");
         assertThat(String.valueOf(answer().get("signers")))
                 .isEqualTo(
-                        "alice namespaces=\"git\",valid-after=\"20261102\",valid-before=\"20281102\" "
+                        "alice namespaces=\"git\",valid-after=\"20261102Z\",valid-before=\"20281102Z\" "
                                 + ALICE
                                 + "\n");
         assertThat(String.valueOf(answer().get("certifiers")))
                 .isEqualTo(
-                        "task:demo:* cert-authority,namespaces=\"git\",valid-after=\"20261102\","
-                                + "valid-before=\"20281102\" "
+                        "task:demo:* cert-authority,namespaces=\"git\",valid-after=\"20261102Z\","
+                                + "valid-before=\"20281102Z\" "
                                 + ALICE
                                 + "\n");
     }
@@ -173,5 +173,96 @@ class OrgSignersCommandTest {
                                                                 "2028-11-02")))))));
 
         assertThat(run("demo")).as("an option line must not be injected").isEqualTo(64);
+    }
+
+    private boolean verifiesAt(
+            final String signers, final Path message, final Path signature, final String time)
+            throws Exception {
+        final Path allowed = dir.resolve("allowed");
+        Files.writeString(allowed, signers);
+        return new ProcessBuilder(
+                                "ssh-keygen",
+                                "-Y",
+                                "verify",
+                                "-f",
+                                allowed.toString(),
+                                "-I",
+                                "alice",
+                                "-n",
+                                "git",
+                                "-s",
+                                signature.toString(),
+                                "-Overify-time=" + time)
+                        .redirectInput(message.toFile())
+                        .redirectErrorStream(true)
+                        .redirectOutput(ProcessBuilder.Redirect.DISCARD)
+                        .start()
+                        .waitFor()
+                == 0;
+    }
+
+    @Test
+    void aRealSshKeygenTakesTheKeyUpToTheCardsLastDayInUtcAndNotAfter() throws Exception {
+        final Path own = dir.resolve("own");
+        assertThat(
+                        new ProcessBuilder(
+                                        "ssh-keygen",
+                                        "-q",
+                                        "-t",
+                                        "ed25519",
+                                        "-N",
+                                        "",
+                                        "-f",
+                                        own.toString())
+                                .redirectErrorStream(true)
+                                .redirectOutput(ProcessBuilder.Redirect.DISCARD)
+                                .start()
+                                .waitFor())
+                .isZero();
+        final String real = Files.readString(dir.resolve("own.pub")).strip();
+        final Path message = Files.writeString(dir.resolve("message"), "a commit");
+        assertThat(
+                        new ProcessBuilder(
+                                        "ssh-keygen",
+                                        "-Y",
+                                        "sign",
+                                        "-f",
+                                        own.toString(),
+                                        "-n",
+                                        "git",
+                                        message.toString())
+                                .redirectErrorStream(true)
+                                .redirectOutput(ProcessBuilder.Redirect.DISCARD)
+                                .start()
+                                .waitFor())
+                .isZero();
+        Files.writeString(
+                dir.resolve("state.json"),
+                Json.write(
+                        Map.of(
+                                "revision",
+                                "r1",
+                                "projects",
+                                List.of(
+                                        Map.of(
+                                                "project",
+                                                "demo",
+                                                "members",
+                                                List.of(),
+                                                "signing_keys",
+                                                List.of(key("alice", real, null)))))));
+        run("demo");
+        final String signers = String.valueOf(answer().get("signers"));
+        final Path signature = dir.resolve("message.sig");
+
+        assertThat(verifiesAt(signers, message, signature, "20281101235959Z"))
+                .as("the day before the card ends")
+                .isTrue();
+        assertThat(verifiesAt(signers, message, signature, "20281102000001Z"))
+                .as("the day the card stops being valid")
+                .isFalse();
+        assertThat(verifiesAt(signers, message, signature, "20261101235959Z"))
+                .as("before the card begins")
+                .isFalse();
     }
 }

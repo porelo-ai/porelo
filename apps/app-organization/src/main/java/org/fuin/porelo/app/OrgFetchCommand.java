@@ -10,8 +10,10 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import org.fuin.porelo.core.process.CommandException;
 import org.fuin.porelo.core.project.AddressForm;
 import org.fuin.porelo.organization.OfflineOrganization;
+import org.fuin.porelo.organization.OrganizationException;
 import org.fuin.porelo.organization.OrganizationQuestions.Refused;
 import org.fuin.porelo.organization.git.HttpForgeDirectory;
 import org.fuin.porelo.organization.git.RegistryOrigin;
@@ -86,6 +88,9 @@ public class OrgFetchCommand extends OrgReading {
             // Never a stale state: a host acts on this answer. A forge whose host key does not
             // match the pin ends here as well.
             throw new Refused(Refused.CANNOT_SAY, "the organization cannot be reached", since);
+        } catch (OrganizationException | CommandException ex) {
+            // A shallow or unreadable history, or git run out of time, proves nothing.
+            throw new Refused(Refused.REFUSED_STATE, String.valueOf(ex.getMessage()), since);
         }
     }
 
@@ -193,6 +198,8 @@ public class OrgFetchCommand extends OrgReading {
                                     "IdentitiesOnly=yes",
                                     "-o",
                                     "IdentityAgent=none",
+                                    "-o",
+                                    "UpdateHostKeys=no",
                                     "-o",
                                     "BatchMode=yes",
                                     "-o",
