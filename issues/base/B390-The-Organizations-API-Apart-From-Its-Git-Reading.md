@@ -43,8 +43,10 @@ Measured in today's code: every command that decides something holds a `Registry
 
 - Every existing test that reads the registry passes, its assertions unchanged; only its imports move.
 - `organization/api` compiles with `wire` alone, and a test fails on an API type that names Git.
-- `registry read --json`, `registry verify --json` and `registry joinable --json` answer byte for byte as before on the
-  same fixture, compared in a test.
+- `registry read --json`, `registry verify --json` and `registry joinable --json` and the trust record answer as before
+  on a fixture kept from before the API, compared in a test: every value and every list's order. An object's field
+  order is left out, because today it differs from one run of the same code to the next (`Map.of`, measured); the
+  text of `registry read` and what it warns of are compared byte for byte.
 - The native image builds and `porelo registry read` runs from it.
 
 ## To be checked
