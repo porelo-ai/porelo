@@ -78,7 +78,7 @@ class IdentityRotateCommandTest {
         return card;
     }
 
-    /** hank's walk6m names the project demo, whose admin is alice. */
+    /** hank's wharf6 names the project demo, whose admin is alice. */
     private void host() throws Exception {
         final Path access = dir.resolve("access.yml");
         Files.writeString(access, registry.access("demo"));
@@ -88,7 +88,7 @@ class IdentityRotateCommandTest {
                                 "host-access",
                                 registry.repo.toString(),
                                 "--host",
-                                "walk6m",
+                                "wharf6",
                                 "--file",
                                 access.toString()))
                 .as(registry.err.toString())
@@ -491,13 +491,13 @@ class IdentityRotateCommandTest {
                 .isEqualTo("michael");
         final Map<?, ?> walk = (Map<?, ?>) places.get(1);
         assertThat(walk.get("where")).isEqualTo("host");
-        assertThat(walk.get("host")).isEqualTo("walk6m");
+        assertThat(walk.get("host")).isEqualTo("wharf6");
         assertThat(((Map<?, ?>) ((List<?>) walk.get("who_may")).getFirst()).get("login"))
                 .isEqualTo("hank");
         assertThat(answer.get("hosts"))
-                .isEqualTo(List.of(Map.of("host", "walk6m", "vault", "reset")));
+                .isEqualTo(List.of(Map.of("host", "wharf6", "vault", "reset")));
         assertThat(answer.get("sign_ins"))
-                .isEqualTo(List.of(Map.of("host", "walk6m", "entries", List.of())));
+                .isEqualTo(List.of(Map.of("host", "wharf6", "entries", List.of())));
         assertThat(ops()).doesNotExist();
         assertThat(Files.readString(registry.paths.xdg().config().resolve("identity/card")))
                 .isEqualTo(card);
@@ -578,7 +578,7 @@ class IdentityRotateCommandTest {
                                                 "Michael",
                                                 "email",
                                                 "m@example.org"))));
-        assertThat(((Map<?, ?>) places.get(2)).get("host")).isEqualTo("walk6m");
+        assertThat(((Map<?, ?>) places.get(2)).get("host")).isEqualTo("wharf6");
         assertThat(((Map<?, ?>) places.get(2)).get("why"))
                 .isEqualTo("the host takes it at its next sync");
         assertThat(identity("status", "--id", "rot-" + today() + "-1")).isZero();
@@ -967,9 +967,9 @@ class IdentityRotateCommandTest {
                 clone.resolve("access.yml"),
                 "persons:\n  michael:\n    fingerprint: "
                         + registry.pin("michael")
-                        + "\n    role: admin\n    hosts: [walk6m]\n  alice:\n    fingerprint: "
+                        + "\n    role: admin\n    hosts: [wharf6]\n  alice:\n    fingerprint: "
                         + registry.pin("alice")
-                        + "\n    role: developer\n    hosts: [walk6m]\n");
+                        + "\n    role: developer\n    hosts: [wharf6]\n");
         final Map<String, String> plain =
                 Map.of("GIT_CONFIG_GLOBAL", "/dev/null", "GIT_CONFIG_NOSYSTEM", "1");
         for (List<String> git :

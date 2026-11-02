@@ -144,7 +144,7 @@ class RegistryHistoryTest {
     private String owners(String hostAdmin) {
         return "owners:\n  - login: michael\n    key: \""
                 + key("michael")
-                + "\"\nhost_admins:\n  walk6m:\n    - login: "
+                + "\"\nhost_admins:\n  wharf6:\n    - login: "
                 + hostAdmin.replace("-new", "")
                 + "\n      key: \""
                 + key(hostAdmin)
@@ -172,8 +172,8 @@ class RegistryHistoryTest {
 
     private String hostCard(String signer) {
         return HostCard.write(
-                "walk6m",
-                "walk6m.example.org",
+                "wharf6",
+                "wharf6.example.org",
                 2201,
                 key("hank"),
                 3000,
@@ -245,7 +245,7 @@ class RegistryHistoryTest {
                             assertThat(owner.login()).isEqualTo("michael");
                             assertThat(owner.fingerprint()).isEqualTo(pin("michael"));
                         });
-        assertThat(state.hostAdmins().get("walk6m"))
+        assertThat(state.hostAdmins().get("wharf6"))
                 .as("host admins come from the accepted owners file")
                 .extracting(RegistryState.Owner::login)
                 .containsExactly("hank");
@@ -453,7 +453,7 @@ class RegistryHistoryTest {
                 + key(michael)
                 + "\"\n  - login: michael\n    key: \""
                 + key("carol")
-                + "\"\n    backup: true\nhost_admins:\n  walk6m:\n    - login: hank\n      key: \""
+                + "\"\n    backup: true\nhost_admins:\n  wharf6:\n    - login: hank\n      key: \""
                 + key(hank)
                 + "\"\n    - login: hank\n      key: \""
                 + key("bob")
@@ -486,7 +486,7 @@ class RegistryHistoryTest {
                 .extracting(RegistryState.Owner::fingerprint)
                 .as("michael's key replaced by his backup key, nobody added")
                 .containsExactly(pin("alice-new"), pin("carol"));
-        assertThat(state.hostAdmins().get("walk6m"))
+        assertThat(state.hostAdmins().get("wharf6"))
                 .extracting(RegistryState.Owner::fingerprint)
                 .as("hank's key replaced by his backup key for the host")
                 .containsExactly(pin("alice"), pin("bob"));
@@ -573,11 +573,11 @@ class RegistryHistoryTest {
                 "owners.yml",
                 owners.substring(0, owners.indexOf("host_admins:"))
                         + hank
-                        + "host_admins:\n  walk6m:\n    - login: hank\n      key: \""
+                        + "host_admins:\n  wharf6:\n    - login: hank\n      key: \""
                         + key("bob")
                         + "\"\n");
         commit("bob");
-        assertThat(read(null).hostAdmins().get("walk6m"))
+        assertThat(read(null).hostAdmins().get("wharf6"))
                 .extracting(RegistryState.Owner::fingerprint, RegistryState.Owner::backup)
                 .as("a host admin's backup key does not make itself the host's admin")
                 .containsExactly(
@@ -602,10 +602,10 @@ class RegistryHistoryTest {
         // The same file again, a byte apart, so the owner's commit founds the registry.
         write("owners.yml", backedOwners("michael", "hank") + "\n");
         commit("michael");
-        write("hosts/walk6m/card", hostCard("hank"));
-        write("hosts/walk6m/access.yml", access("demo"));
+        write("hosts/wharf6/card", hostCard("hank"));
+        write("hosts/wharf6/access.yml", access("demo"));
         commit("hank");
-        write("hosts/walk6m/access.yml", access("other"));
+        write("hosts/wharf6/access.yml", access("other"));
         final String forged = commit("bob");
         final RegistryState state = read(null);
         assertThat(state.hosts().getFirst().projects())
@@ -615,7 +615,7 @@ class RegistryHistoryTest {
                 .last(org.assertj.core.api.InstanceOfAssertFactories.STRING)
                 .startsWith(
                         forged
-                                + " hosts/walk6m/access.yml: signed by "
+                                + " hosts/wharf6/access.yml: signed by "
                                 + pin("bob")
                                 + ", not a host admin");
     }
@@ -742,11 +742,11 @@ class RegistryHistoryTest {
     void a_revoked_keys_later_commit_is_refused() throws Exception {
         founded("alice");
         write("people/alice.card", card("alice", "alice", null, "Alice"));
-        write("hosts/walk6m/access.yml", access("demo"));
+        write("hosts/wharf6/access.yml", access("demo"));
         commit("alice");
         write("people/alice.card", card("alice", "alice-new", null, "Alice"));
         commit("michael");
-        write("hosts/walk6m/access.yml", access("other"));
+        write("hosts/wharf6/access.yml", access("other"));
         final String late = commit("alice");
         final RegistryState state = read(null);
         assertThat(state.hosts().getFirst().projects())
@@ -757,7 +757,7 @@ class RegistryHistoryTest {
                 .singleElement(org.assertj.core.api.InstanceOfAssertFactories.STRING)
                 .isEqualTo(
                         late
-                                + " hosts/walk6m/access.yml: commit signed by "
+                                + " hosts/wharf6/access.yml: commit signed by "
                                 + pin("alice")
                                 + ", which is revoked");
     }
@@ -767,10 +767,10 @@ class RegistryHistoryTest {
     void a_host_access_file_changed_by_another_key_than_a_host_admin_keeps_the_last_good_state()
             throws Exception {
         founded("hank");
-        write("hosts/walk6m/card", hostCard("hank"));
-        write("hosts/walk6m/access.yml", access("demo"));
+        write("hosts/wharf6/card", hostCard("hank"));
+        write("hosts/wharf6/access.yml", access("demo"));
         commit("hank");
-        write("hosts/walk6m/access.yml", access("other"));
+        write("hosts/wharf6/access.yml", access("other"));
         final String forged = commit("michael");
         final RegistryState state = read(null);
         final RegistryState.Host host = state.hosts().getFirst();
@@ -779,7 +779,7 @@ class RegistryHistoryTest {
                 .as("project admins by login and fingerprint")
                 .containsExactly(new RegistryState.Admin("alice", pin("alice")));
         assertThat(host.card()).as("the card is accepted").isNotNull();
-        assertThat(host.card().answer("walk6m"))
+        assertThat(host.card().answer("wharf6"))
                 .as("the card answered as the verifier answers it")
                 .containsEntry("signed_by", pin("hank"))
                 .containsEntry("ssh_port", 2201);
@@ -787,7 +787,7 @@ class RegistryHistoryTest {
                 .singleElement(org.assertj.core.api.InstanceOfAssertFactories.STRING)
                 .startsWith(
                         forged
-                                + " hosts/walk6m/access.yml: signed by "
+                                + " hosts/wharf6/access.yml: signed by "
                                 + pin("michael")
                                 + ", not a host admin");
     }
@@ -796,13 +796,13 @@ class RegistryHistoryTest {
     @Test
     void a_host_card_signed_by_another_key_than_its_committer_is_refused() throws Exception {
         founded("hank");
-        write("hosts/walk6m/card", hostCard("bob"));
+        write("hosts/wharf6/card", hostCard("bob"));
         final String forged = commit("hank");
         final RegistryState state = read(null);
         assertThat(state.hosts()).as("no host from a refused card").isEmpty();
         assertThat(state.warnings())
                 .singleElement(org.assertj.core.api.InstanceOfAssertFactories.STRING)
-                .startsWith(forged + " hosts/walk6m/card: the host card of walk6m is signed by");
+                .startsWith(forged + " hosts/wharf6/card: the host card of wharf6 is signed by");
     }
 
     /** A commit cannot grant itself the right it uses: each path is judged by the state before. */
@@ -837,7 +837,7 @@ class RegistryHistoryTest {
         write("other.yml", "{{{ not yaml");
         write("people/README.md", "not a card");
         write("people/Alice.card", "not a card");
-        write("hosts/walk6m/notes", "free text");
+        write("hosts/wharf6/notes", "free text");
         write("hosts/Walk/card", "not a card");
         commit(null);
         final RegistryState state = read(null);
@@ -853,7 +853,7 @@ class RegistryHistoryTest {
         founded("hank");
         write("people/alice.card", card("alice", "alice", null, "Alice"));
         final String unsigned = commit(null);
-        write("hosts/walk6m/access.yml", access("demo"));
+        write("hosts/wharf6/access.yml", access("demo"));
         commit("hank");
         final RegistryState refused = read(null);
         assertThat(refused.people()).as("an unsigned card is refused").isEmpty();
@@ -1727,7 +1727,7 @@ class RegistryHistoryTest {
         forge.keys.put("michael", List.of(key("michael")));
         write("owners.yml", backedOwners("michael", "hank"));
         commit("michael");
-        final String path = "hosts/walk6m/" + name;
+        final String path = "hosts/wharf6/" + name;
         final String text = name.equals("card") ? hostCard("bob") : access("demo");
         write(path, text);
         final String placedAt = commit("bob");
@@ -1740,12 +1740,12 @@ class RegistryHistoryTest {
         final RegistryState.Host host =
                 name.equals("card")
                         ? new RegistryState.Host(
-                                "walk6m",
+                                "wharf6",
                                 RegistryState.Card.of(HostCard.read(text, path), pin("bob")),
                                 List.of(),
                                 List.of())
                         : new RegistryState.Host(
-                                "walk6m",
+                                "wharf6",
                                 null,
                                 List.of(new RegistryState.Admin("alice", pin("alice"))),
                                 List.of(
@@ -1783,19 +1783,19 @@ class RegistryHistoryTest {
         founded("hank");
         final String text =
                 HostCard.write(
-                        damage.equals("names-another-host") ? "staging" : "walk6m",
-                        "walk6m.example.org",
+                        damage.equals("names-another-host") ? "staging" : "wharf6",
+                        "wharf6.example.org",
                         2201,
                         key("hank"),
                         3000,
                         2222,
                         8448,
                         keys.get(damage.equals("names-another-host") ? "hank" : "bob"));
-        write("hosts/walk6m/card", text);
+        write("hosts/wharf6/card", text);
         final String forgedAt = commit("hank");
         final RegistryState walked = read(null);
         assertThat(walked.hosts()).as("the walk refuses it").isEmpty();
-        final String path = "hosts/walk6m/card";
+        final String path = "hosts/wharf6/card";
         final Map<String, String> blobs = new HashMap<>(walked.blobs());
         blobs.put(path, git("rev-parse", forgedAt + ":" + path));
         final Map<String, RegistryState.Change> changes = new HashMap<>(walked.changes());
@@ -1810,7 +1810,7 @@ class RegistryHistoryTest {
                         walked.people(),
                         List.of(
                                 new RegistryState.Host(
-                                        "walk6m",
+                                        "wharf6",
                                         RegistryState.Card.of(
                                                 HostCard.read(text, path), pin("hank")),
                                         List.of(),
@@ -1928,7 +1928,7 @@ class RegistryHistoryTest {
                         .replace("[{\"login\":\"hank\"", "[{\"login\":\"mallory\"");
         assertThat(bad).as("the damage applied").isNotEqualTo(good);
         final RegistryState record = RegistryState.fromJson(bad);
-        assertThat(record.hostAdmins().get("walk6m").getFirst().login()).isEqualTo("mallory");
+        assertThat(record.hostAdmins().get("wharf6").getFirst().login()).isEqualTo("mallory");
         readAfresh(read(record), "does not match the registry's history");
     }
 
@@ -2192,12 +2192,12 @@ class RegistryHistoryTest {
     void a_trust_record_round_trips_and_the_next_read_walks_only_newer_commits() throws Exception {
         founded("alice");
         write("people/alice.card", card("alice", "alice", null, "Alice"));
-        write("hosts/walk6m/card", hostCard("alice"));
-        write("hosts/walk6m/access.yml", access("demo"));
+        write("hosts/wharf6/card", hostCard("alice"));
+        write("hosts/wharf6/access.yml", access("demo"));
         commit("alice");
         write("people/alice.card", card("alice", "alice-new", null, "Alice"));
         commit("michael");
-        write("hosts/walk6m/access.yml", access("other"));
+        write("hosts/wharf6/access.yml", access("other"));
         commit("bob");
         final RegistryState first = read(null);
         assertThat(first.revoked()).as("the fixture holds a revocation").isNotEmpty();
@@ -2253,8 +2253,8 @@ class RegistryHistoryTest {
     void a_malformed_trust_record_is_discarded_whole_and_the_registry_read_afresh(String damage)
             throws Exception {
         founded("hank");
-        write("hosts/walk6m/card", hostCard("hank"));
-        write("hosts/walk6m/access.yml", access("demo"));
+        write("hosts/wharf6/card", hostCard("hank"));
+        write("hosts/wharf6/access.yml", access("demo"));
         commit("hank");
         write("people/alice.card", card("alice", "alice", null, "Alice"));
         commit("alice");
@@ -2278,8 +2278,8 @@ class RegistryHistoryTest {
                     // repositories reach git.
                     case "address-option" ->
                             good.replace(
-                                    "\"address\":\"walk6m.example.org\"",
-                                    "\"address\":\"walk6m\\nProxyCommand sh\"");
+                                    "\"address\":\"wharf6.example.org\"",
+                                    "\"address\":\"wharf6\\nProxyCommand sh\"");
                     case "host-key-cert-authority" ->
                             good.replace(
                                     "\"ssh_host_key\":\"ssh-ed25519",
@@ -2313,7 +2313,7 @@ class RegistryHistoryTest {
                                     "\"people/alice.card\":$1,\"people/bob.card\":$1");
                     case "host-card-change-by-another-signer" ->
                             good.replaceFirst(
-                                    "(\"hosts/walk6m/card\":\\{\"commit\":\"[0-9a-f]+\",\"signer\":\")"
+                                    "(\"hosts/wharf6/card\":\\{\"commit\":\"[0-9a-f]+\",\"signer\":\")"
                                             + java.util.regex.Pattern.quote(pin("hank")),
                                     "$1"
                                             + java.util.regex.Matcher.quoteReplacement(

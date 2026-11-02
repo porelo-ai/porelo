@@ -25,7 +25,7 @@ class RegistryOwnersTest {
                     + KEY
                     + "\"\n  - login: alice\n    key: \""
                     + BACKUP
-                    + "\"\n    backup: true\nhost_admins:\n  walk6m:\n    - login: michael\n      key: \""
+                    + "\"\n    backup: true\nhost_admins:\n  wharf6:\n    - login: michael\n      key: \""
                     + KEY
                     + "\"\n";
 
@@ -50,7 +50,7 @@ class RegistryOwnersTest {
                 .containsExactly(
                         new RegistryOwners.Entry("alice", KEY, false),
                         new RegistryOwners.Entry("alice", BACKUP, true));
-        assertThat(owners.hostAdmins().get("walk6m"))
+        assertThat(owners.hostAdmins().get("wharf6"))
                 .containsExactly(new RegistryOwners.Entry("michael", KEY, false));
     }
 
@@ -94,7 +94,7 @@ class RegistryOwnersTest {
                             GOOD.replace(
                                     BACKUP + "\"\n    backup", "ssh-rsa AAAAB3Nza\"\n    backup");
                     case "porelo-login" -> GOOD.replace("login: alice", "login: porelo-x");
-                    case "uppercase-host" -> GOOD.replace("walk6m:", "Walk6m:");
+                    case "uppercase-host" -> GOOD.replace("wharf6:", "Walk6m:");
                     case "anchor" -> GOOD.replace("login: alice", "login: &a alice");
                     case "quoted-backup" -> GOOD.replace("backup: true", "backup: \"true\"");
                     case "no-owners" -> GOOD.substring(GOOD.indexOf("host_admins:"));

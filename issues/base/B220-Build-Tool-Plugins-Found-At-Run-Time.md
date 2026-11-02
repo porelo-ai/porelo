@@ -60,5 +60,5 @@ refused; and a plugin that opens a TCP connection to an address outside, which m
 
 ## To be checked
 
-- That `unshare --user --net` works for `core` on the `ubuntu26.04` VM, on `fedora` under SELinux enforcing, and
+- That `unshare --user --net` works for an unprivileged account on Ubuntu 26.04, on `fedora` under SELinux enforcing, and
   for `porelod` under its systemd user unit; where it does not, what the refusal says.

@@ -21,8 +21,8 @@
         <!-- Nothing here runs without a machine to run it against, so the suite is off unless a
              host is given. Naming one is what turns it on: see the module's README. -->
         <porelo.acceptance.host/>
-        <porelo.acceptance.user>claude</porelo.acceptance.user>
-        <porelo.acceptance.key>${user.home}/.claude/.ssh/claude_key</porelo.acceptance.key>
+        <porelo.acceptance.user/>
+        <porelo.acceptance.key/>
         <!-- Whose Porelo to drive. Empty means the user this suite connects as. -->
         <porelo.acceptance.as/>
         <!-- Several accounts, comma-separated, to run features in parallel - one account per feature

@@ -54,12 +54,12 @@ class RegistryReadCommandTest {
     void answers_the_contract_in_its_key_order() throws Exception {
         registry.founded();
         registry.forge.keys.put("alice", List.of(registry.key("alice")));
-        registry.write("hosts/walk6m/card", registry.hostCard("walk6m", "hank"));
-        registry.write("hosts/walk6m/access.yml", registry.access("demo"));
+        registry.write("hosts/wharf6/card", registry.hostCard("wharf6", "hank"));
+        registry.write("hosts/wharf6/access.yml", registry.access("demo"));
         registry.commit("hank");
         registry.write("people/alice.card", registry.card("alice", "alice"));
         registry.commit("alice");
-        registry.write("hosts/walk6m/access.yml", registry.access("other"));
+        registry.write("hosts/wharf6/access.yml", registry.access("other"));
         final String refused = registry.commit("bob");
 
         assertThat(registry.registry("read", registry.repo.toString(), "--json")).isZero();
@@ -77,7 +77,7 @@ class RegistryReadCommandTest {
         assertThat(keys(answer.get("refused_commit"))).containsExactly("commit", "path", "why");
         assertThat(((Map<?, ?>) answer.get("refused_commit")).get("commit")).isEqualTo(refused);
         assertThat(((Map<?, ?>) answer.get("refused_commit")).get("path"))
-                .isEqualTo("hosts/walk6m/access.yml");
+                .isEqualTo("hosts/wharf6/access.yml");
         final Map<?, ?> person = first(answer.get("people"));
         assertThat(keys(person))
                 .containsExactly("login", "name", "email", "key", "fingerprint", "state", "why");
@@ -92,7 +92,7 @@ class RegistryReadCommandTest {
         assertThat(answer.get("host_admins"))
                 .isEqualTo(
                         Map.of(
-                                "walk6m",
+                                "wharf6",
                                 List.of(
                                         Map.of(
                                                 "login",
@@ -101,7 +101,7 @@ class RegistryReadCommandTest {
                                                 registry.pin("hank"),
                                                 "backup",
                                                 false))));
-        assertThat(keys(first(((Map<?, ?>) answer.get("host_admins")).get("walk6m"))))
+        assertThat(keys(first(((Map<?, ?>) answer.get("host_admins")).get("wharf6"))))
                 .containsExactly("login", "fingerprint", "backup");
         assertThat((List<?>) answer.get("warnings")).anyMatch(w -> w.toString().contains(refused));
         final Map<?, ?> host = first(answer.get("hosts"));
@@ -128,7 +128,7 @@ class RegistryReadCommandTest {
         assertThat(registry.out.toString()).contains("\"revision\":null");
 
         registry.founded();
-        registry.write("hosts/walk6m/access.yml", registry.access("demo"));
+        registry.write("hosts/wharf6/access.yml", registry.access("demo"));
         registry.commit("hank");
         assertThat(registry.registry("read", registry.repo.toString(), "--json")).isZero();
         assertThat(registry.out.toString()).contains("\"card\":null");

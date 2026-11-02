@@ -111,7 +111,7 @@ class RegistryFileCommandTest {
     @Test
     void a_host_card_and_access_file_are_filed_by_an_agent_held_host_admin() throws Exception {
         registry.agent("bob", "hank");
-        final Path card = file("card", registry.hostCard("walk6m", "hank"));
+        final Path card = file("card", registry.hostCard("wharf6", "hank"));
         final Path access = file("access.yml", registry.access("demo"));
 
         assertThat(
@@ -120,14 +120,14 @@ class RegistryFileCommandTest {
                                 "host-card",
                                 registry.repo.toString(),
                                 "--host",
-                                "walk6m",
+                                "wharf6",
                                 "--card",
                                 card.toString(),
                                 "--json"))
                 .as(registry.err.toString())
                 .isZero();
         assertThat(registry.answer())
-                .isEqualTo(Map.of("commit", registry.head(), "path", "hosts/walk6m/card"));
+                .isEqualTo(Map.of("commit", registry.head(), "path", "hosts/wharf6/card"));
         assertThat(registry.out.toString()).startsWith("{\"commit\":");
         assertThat(
                         registry.registry(
@@ -135,12 +135,12 @@ class RegistryFileCommandTest {
                                 "host-access",
                                 registry.repo.toString(),
                                 "--host",
-                                "walk6m",
+                                "wharf6",
                                 "--file",
                                 access.toString()))
                 .as(registry.err.toString())
                 .isZero();
-        assertThat(registry.out.toString()).contains("hosts/walk6m/access.yml");
+        assertThat(registry.out.toString()).contains("hosts/wharf6/access.yml");
 
         final Map<?, ?> answer = read();
         assertThat(answer.get("warnings")).isEqualTo(registry.soleWarnings());
@@ -269,7 +269,7 @@ class RegistryFileCommandTest {
                                 "host-access",
                                 registry.repo.toString(),
                                 "--host",
-                                "walk6m",
+                                "wharf6",
                                 "--file",
                                 access.toString()))
                 .isEqualTo(65);
@@ -351,7 +351,7 @@ class RegistryFileCommandTest {
                                 "host-access",
                                 registry.repo.toString(),
                                 "--host",
-                                "walk6m",
+                                "wharf6",
                                 "--file",
                                 access.toString()))
                 .isEqualTo(65);
@@ -435,7 +435,7 @@ class RegistryFileCommandTest {
                                 "host-access",
                                 registry.repo.toString(),
                                 "--host",
-                                "walk6m",
+                                "wharf6",
                                 "--file",
                                 access.toString()))
                 .isEqualTo(65);
@@ -502,11 +502,11 @@ class RegistryFileCommandTest {
                                 "host-access",
                                 registry.repo.toString(),
                                 "--host",
-                                "walk6m",
+                                "wharf6",
                                 "--file",
                                 access.toString()))
                 .isEqualTo(65);
-        assertThat(registry.err.toString()).contains("names no admin of walk6m");
+        assertThat(registry.err.toString()).contains("names no admin of wharf6");
         assertThat(registry.head()).isEqualTo(revoked);
 
         // A key handed on from a revoked one is refused by every reader, so it is never filed.
@@ -540,7 +540,7 @@ class RegistryFileCommandTest {
                                 "host-access",
                                 registry.repo.toString(),
                                 "--host",
-                                "walk6m",
+                                "wharf6",
                                 "--file",
                                 access.toString()))
                 .isEqualTo(65);
@@ -564,7 +564,7 @@ class RegistryFileCommandTest {
                                 "host-access",
                                 registry.repo.toString(),
                                 "--host",
-                                "walk6m",
+                                "wharf6",
                                 "--file",
                                 access.toString()))
                 .isEqualTo(65);
@@ -578,7 +578,7 @@ class RegistryFileCommandTest {
      */
     @Test
     void a_host_card_is_removed_by_its_admin_and_asked_again_answers_the_same() throws Exception {
-        registry.write("hosts/walk6m/card", registry.hostCard("walk6m", "hank"));
+        registry.write("hosts/wharf6/card", registry.hostCard("wharf6", "hank"));
         final String filed = registry.commit("hank");
         registry.agent("hank");
         final String[] args = {
@@ -586,7 +586,7 @@ class RegistryFileCommandTest {
             "host-card-remove",
             registry.repo.toString(),
             "--host",
-            "walk6m",
+            "wharf6",
             "--id",
             "gone-1",
             "--base",
@@ -597,12 +597,12 @@ class RegistryFileCommandTest {
         assertThat(registry.registry(args)).as(registry.err.toString()).isZero();
         final String made = registry.head();
         assertThat(registry.answer())
-                .isEqualTo(Map.of("commit", made, "path", "hosts/walk6m/card"));
+                .isEqualTo(Map.of("commit", made, "path", "hosts/wharf6/card"));
         assertThat(registry.git("rev-parse", "HEAD^")).isEqualTo(filed);
         assertThat(registry.git("log", "-1", "--format=%B"))
                 .contains("Porelo-Change-Id: gone-1")
-                .contains("Porelo-Change-Digest: " + digest("hosts/walk6m/card", ""));
-        assertThat(registry.repo.resolve("hosts/walk6m/card")).doesNotExist();
+                .contains("Porelo-Change-Digest: " + digest("hosts/wharf6/card", ""));
+        assertThat(registry.repo.resolve("hosts/wharf6/card")).doesNotExist();
         assertThat(registry.git("status", "--porcelain")).isEmpty();
         final Map<?, ?> answer = read();
         assertThat(answer.get("hosts")).isEqualTo(List.of());
@@ -623,9 +623,9 @@ class RegistryFileCommandTest {
                                 "host-card-remove",
                                 registry.repo.toString(),
                                 "--host",
-                                "walk6m"))
+                                "wharf6"))
                 .isEqualTo(65);
-        assertThat(registry.err.toString()).contains("accepts no hosts/walk6m/card");
+        assertThat(registry.err.toString()).contains("accepts no hosts/wharf6/card");
         assertThat(registry.head()).isEqualTo(founded);
     }
 
@@ -635,7 +635,7 @@ class RegistryFileCommandTest {
      */
     @Test
     void a_refused_host_card_at_head_is_not_removed_naming_why() throws Exception {
-        registry.write("hosts/walk6m/card", registry.hostCard("walk6m", "hank"));
+        registry.write("hosts/wharf6/card", registry.hostCard("wharf6", "hank"));
         registry.commit("bob");
         final String refused = registry.head();
         registry.agent("hank");
@@ -645,10 +645,10 @@ class RegistryFileCommandTest {
                                 "host-card-remove",
                                 registry.repo.toString(),
                                 "--host",
-                                "walk6m"))
+                                "wharf6"))
                 .isEqualTo(65);
         assertThat(registry.err.toString())
-                .contains("accepts no hosts/walk6m/card")
+                .contains("accepts no hosts/wharf6/card")
                 .contains("HEAD holds one it refused");
         assertThat(registry.head()).isEqualTo(refused);
     }
@@ -659,9 +659,9 @@ class RegistryFileCommandTest {
      */
     @Test
     void an_accepted_host_card_head_no_longer_holds_is_put_back_and_removed() throws Exception {
-        registry.write("hosts/walk6m/card", registry.hostCard("walk6m", "hank"));
+        registry.write("hosts/wharf6/card", registry.hostCard("wharf6", "hank"));
         registry.commit("hank");
-        Files.delete(registry.repo.resolve("hosts/walk6m/card"));
+        Files.delete(registry.repo.resolve("hosts/wharf6/card"));
         final String deleted = registry.commit("bob");
         registry.agent("hank");
         assertThat(
@@ -670,14 +670,14 @@ class RegistryFileCommandTest {
                                 "host-card-remove",
                                 registry.repo.toString(),
                                 "--host",
-                                "walk6m",
+                                "wharf6",
                                 "--id",
                                 "gone-2"))
                 .as(registry.err.toString())
                 .isZero();
         assertThat(registry.git("rev-parse", "HEAD~2")).isEqualTo(deleted);
         assertThat(registry.git("log", "-1", "--format=%B", "HEAD~1"))
-                .startsWith("Restore hosts/walk6m/card")
+                .startsWith("Restore hosts/wharf6/card")
                 .contains("Porelo-Change-Step: gone-2")
                 .doesNotContain("Porelo-Change-Id");
         final Map<?, ?> answer = read();
@@ -691,7 +691,7 @@ class RegistryFileCommandTest {
      */
     @Test
     void a_host_card_is_never_removed_by_anybody_but_its_admin() throws Exception {
-        registry.write("hosts/walk6m/card", registry.hostCard("walk6m", "hank"));
+        registry.write("hosts/wharf6/card", registry.hostCard("wharf6", "hank"));
         final String filed = registry.commit("hank");
         registry.agent("bob", "michael");
         assertThat(
@@ -700,16 +700,16 @@ class RegistryFileCommandTest {
                                 "host-card-remove",
                                 registry.repo.toString(),
                                 "--host",
-                                "walk6m"))
+                                "wharf6"))
                 .isEqualTo(65);
         assertThat(registry.head()).isEqualTo(filed);
-        assertThat(registry.repo.resolve("hosts/walk6m/card")).exists();
+        assertThat(registry.repo.resolve("hosts/wharf6/card")).exists();
     }
 
     /** A removal decided on an older registry, or given a file to file, is not this removal. */
     @Test
     void a_host_card_removal_on_another_base_or_with_a_file_is_refused() throws Exception {
-        registry.write("hosts/walk6m/card", registry.hostCard("walk6m", "hank"));
+        registry.write("hosts/wharf6/card", registry.hostCard("wharf6", "hank"));
         final String filed = registry.commit("hank");
         registry.agent("hank");
         assertThat(
@@ -718,19 +718,19 @@ class RegistryFileCommandTest {
                                 "host-card-remove",
                                 registry.repo.toString(),
                                 "--host",
-                                "walk6m",
+                                "wharf6",
                                 "--base",
                                 founded))
                 .isEqualTo(65);
         assertThat(registry.err.toString()).contains(filed).contains(founded);
-        final Path card = file("walk6m.card", registry.hostCard("walk6m", "hank"));
+        final Path card = file("wharf6.card", registry.hostCard("wharf6", "hank"));
         assertThat(
                         registry.registry(
                                 "file",
                                 "host-card-remove",
                                 registry.repo.toString(),
                                 "--host",
-                                "walk6m",
+                                "wharf6",
                                 "--card",
                                 card.toString()))
                 .isEqualTo(64);
@@ -953,28 +953,28 @@ class RegistryFileCommandTest {
     @Test
     void an_id_on_a_commit_of_another_change_is_refused_by_name() throws Exception {
         registry.agent("hank");
-        final String text = registry.hostCard("walk6m", "hank");
-        final Path card = file("walk6m.card", text);
+        final String text = registry.hostCard("wharf6", "hank");
+        final Path card = file("wharf6.card", text);
         final String[] args = {
             "file",
             "host-card",
             registry.repo.toString(),
             "--host",
-            "walk6m",
+            "wharf6",
             "--card",
             card.toString(),
             "--id",
             "host-1"
         };
         assertThat(registry.registry(args)).as(registry.err.toString()).isZero();
-        registry.write("hosts/walk6m/access.yml", registry.access("demo"));
+        registry.write("hosts/wharf6/access.yml", registry.access("demo"));
         registry.git("add", "-A");
         final String other =
                 registry.commit(
                         "hank",
-                        "File hosts/walk6m/access.yml\n\nPorelo-Change-Id: host-1\n"
+                        "File hosts/wharf6/access.yml\n\nPorelo-Change-Id: host-1\n"
                                 + "Porelo-Change-Digest: "
-                                + digest("hosts/walk6m/card", text));
+                                + digest("hosts/wharf6/card", text));
 
         assertThat(registry.registry(args)).isEqualTo(65);
         assertThat(registry.err.toString()).contains("--id host-1 names " + other + ",");
@@ -988,15 +988,15 @@ class RegistryFileCommandTest {
     @Test
     void an_id_on_a_commit_refused_before_its_signer_was_allowed_is_refused_by_name()
             throws Exception {
-        final String text = registry.hostCard("walk6m", "bob");
-        registry.write("hosts/walk6m/card", text);
+        final String text = registry.hostCard("wharf6", "bob");
+        registry.write("hosts/wharf6/card", text);
         registry.git("add", "-A");
         final String early =
                 registry.commit(
                         "bob",
-                        "File hosts/walk6m/card\n\nPorelo-Change-Id: host-1\n"
+                        "File hosts/wharf6/card\n\nPorelo-Change-Id: host-1\n"
                                 + "Porelo-Change-Digest: "
-                                + digest("hosts/walk6m/card", text));
+                                + digest("hosts/wharf6/card", text));
         registry.write(
                 "owners.yml",
                 registry.owners()
@@ -1005,14 +1005,14 @@ class RegistryFileCommandTest {
                         + "\"\n");
         final String allowed = registry.commit("michael");
         registry.agent("bob");
-        final Path card = file("walk6m.card", text);
+        final Path card = file("wharf6.card", text);
         assertThat(
                         registry.registry(
                                 "file",
                                 "host-card",
                                 registry.repo.toString(),
                                 "--host",
-                                "walk6m",
+                                "wharf6",
                                 "--card",
                                 card.toString(),
                                 "--id",
@@ -1320,20 +1320,20 @@ class RegistryFileCommandTest {
                                 "host-card",
                                 registry.repo.toString(),
                                 "--host",
-                                "walk6m",
+                                "wharf6",
                                 "--card",
                                 other.toString()))
                 .isEqualTo(65);
-        assertThat(registry.err.toString()).contains("not the card of walk6m");
+        assertThat(registry.err.toString()).contains("not the card of wharf6");
 
-        final Path bobs = file("card", registry.hostCard("walk6m", "bob"));
+        final Path bobs = file("card", registry.hostCard("wharf6", "bob"));
         assertThat(
                         registry.registry(
                                 "file",
                                 "host-card",
                                 registry.repo.toString(),
                                 "--host",
-                                "walk6m",
+                                "wharf6",
                                 "--card",
                                 bobs.toString()))
                 .isEqualTo(65);
@@ -1365,12 +1365,12 @@ class RegistryFileCommandTest {
             strings = {
                 "letter --card x",
                 "card --file x",
-                "card --card x --host walk6m",
+                "card --card x --host wharf6",
                 "host-card --card x",
-                "host-access --card x --host walk6m",
-                "host-access --host walk6m",
+                "host-access --card x --host wharf6",
+                "host-access --host wharf6",
                 "owners --card x",
-                "owners --file x --host walk6m",
+                "owners --file x --host wharf6",
                 "owners",
             })
     void options_the_kind_does_not_take_are_wrong_use(String use) throws Exception {

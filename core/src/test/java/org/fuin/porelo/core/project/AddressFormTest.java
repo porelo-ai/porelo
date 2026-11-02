@@ -58,8 +58,8 @@ class AddressFormTest {
     @ParameterizedTest
     @ValueSource(
             strings = {
-                "https://[c0ffee0123456789%40walk6m.example.org]",
-                "https://[a:c0ffee%40walk6m.example.org]:8448"
+                "https://[c0ffee0123456789%40wharf6.example.org]",
+                "https://[a:c0ffee%40wharf6.example.org]:8448"
             })
     void a_homeserver_whose_bracketed_host_spells_an_at_sign_is_refused(String url) {
         assertThat(AddressForm.isHttps(url)).as(url).isFalse();
@@ -68,9 +68,9 @@ class AddressFormTest {
     @ParameterizedTest
     @ValueSource(
             strings = {
-                "https://bob:tok-4711@walk6m.example.org:8448",
-                "https://tok-4711@walk6m.example.org",
-                "https://bob:tok%404711@walk6m.example.org"
+                "https://bob:tok-4711@wharf6.example.org:8448",
+                "https://tok-4711@wharf6.example.org",
+                "https://bob:tok%404711@wharf6.example.org"
             })
     void a_homeserver_with_a_user_part_is_refused(String url) {
         assertThat(AddressForm.isHttps(url)).as(url).isFalse();
@@ -127,10 +127,10 @@ class AddressFormTest {
     @ParameterizedTest
     @ValueSource(
             strings = {
-                "https://walk6m.example.org?x=/bob:tok-4711@evil.example.org",
-                "https://walk6m.example.org#/bob:tok-4711@evil.example.org",
-                "https://walk6m.example.org/?access_token=tok-4711",
-                "https://walk6m.example.org:8448/x#tok-4711"
+                "https://wharf6.example.org?x=/bob:tok-4711@evil.example.org",
+                "https://wharf6.example.org#/bob:tok-4711@evil.example.org",
+                "https://wharf6.example.org/?access_token=tok-4711",
+                "https://wharf6.example.org:8448/x#tok-4711"
             })
     void a_homeserver_with_a_query_or_a_fragment_is_refused(String url) {
         assertThat(AddressForm.isHttps(url)).as(url).isFalse();
@@ -153,10 +153,10 @@ class AddressFormTest {
     @ParameterizedTest
     @ValueSource(
             strings = {
-                "https://walk6m.example.org/\u00a0",
-                "https://walk6m.example.org/x\u2028y",
-                "https://walk6m.example.org/\u001b[2J",
-                "https://walk6m.example.org\u0085"
+                "https://wharf6.example.org/\u00a0",
+                "https://wharf6.example.org/x\u2028y",
+                "https://wharf6.example.org/\u001b[2J",
+                "https://wharf6.example.org\u0085"
             })
     void a_homeserver_with_a_unicode_blank_or_control_is_refused(String url) {
         assertThat(AddressForm.isHttps(url)).as(url).isFalse();
@@ -227,10 +227,10 @@ class AddressFormTest {
     @ParameterizedTest
     @ValueSource(
             strings = {
-                "HTTPS://walk6m.example.org:8448",
-                "Https://walk6m.example.org",
+                "HTTPS://wharf6.example.org:8448",
+                "Https://wharf6.example.org",
                 "https://cafe\u0301.example.org",
-                "https://walk6m.example.org/_matrix/@room",
+                "https://wharf6.example.org/_matrix/@room",
                 "https://[2001:db8::1]:8448/"
             })
     void a_homeserver_any_https_reader_takes_is_taken(String url) {

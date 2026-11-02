@@ -17,7 +17,7 @@ import org.jspecify.annotations.Nullable;
  * starting person's machine when the start came from there. A task with no project is certified by
  * the starting person alone: from their machine, or by the first Ed25519 key their agent holds when
  * they start it here. Otherwise the task starts uncertified: its commits are not signed and its
- * gate judges nothing (decided 2026-10-31 for starts without a card key; michi confirms).
+ * gate judges nothing.
  */
 final class TaskCertifying {
 

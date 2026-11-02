@@ -177,7 +177,7 @@ final class RegistryCheckout implements AutoCloseable {
         return PersonCard.fingerprint(key(login));
     }
 
-    /** michael owns the registry, which the forge confirms; hank administers walk6m. */
+    /** michael owns the registry, which the forge confirms; hank administers wharf6. */
     String founded() throws IOException {
         forge.owners.put("michael", true);
         forge.keys.put("michael", List.of(key("michael")));
@@ -192,15 +192,15 @@ final class RegistryCheckout implements AutoCloseable {
         return List.of(
                 "owners.yml names michael as the registry's only owner, without a backup key; make"
                         + " one with porelo identity backup-key --registry",
-                "owners.yml names hank as the only admin of walk6m, without a backup key; make one"
-                        + " with porelo identity backup-key --host walk6m");
+                "owners.yml names hank as the only admin of wharf6, without a backup key; make one"
+                        + " with porelo identity backup-key --host wharf6");
     }
 
-    /** The owners file naming michael as owner and hank as walk6m's admin. */
+    /** The owners file naming michael as owner and hank as wharf6's admin. */
     String owners() {
         return "owners:\n  - login: michael\n    key: \""
                 + key("michael")
-                + "\"\nhost_admins:\n  walk6m:\n    - login: hank\n      key: \""
+                + "\"\nhost_admins:\n  wharf6:\n    - login: hank\n      key: \""
                 + key("hank")
                 + "\"\n";
     }

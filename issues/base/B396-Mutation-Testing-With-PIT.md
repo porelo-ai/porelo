@@ -12,7 +12,7 @@ they cover, and read which gaps are real.
 
 ## Model
 
-Agent Matrix's try in porelo-message-matrix: `~/.porelo/handover/porelo-message-matrix/pit-014d86a/report.md` and its
+A try in porelo-message-matrix, its report kept outside the repository, and its
 branch `pit-try`, later its pushed profile.
 
 ## Question for later

@@ -138,7 +138,7 @@ class IdentityShowCommandTest {
                                         "role",
                                         "host-admin",
                                         "scope",
-                                        Map.of("kind", "host", "name", "walk6m"))));
+                                        Map.of("kind", "host", "name", "wharf6"))));
     }
 
     /** Only a machine with no card is refused; the interface then offers to make one. */

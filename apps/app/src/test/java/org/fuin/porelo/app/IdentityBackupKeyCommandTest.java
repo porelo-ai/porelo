@@ -186,14 +186,14 @@ class IdentityBackupKeyCommandTest {
         assertThat(
                         backupKey(
                                 "--host",
-                                "walk6m",
+                                "wharf6",
                                 "--out",
                                 dir.resolve("backup").toString(),
                                 "--json"))
                 .as(registry.err.toString())
                 .isZero();
         assertThat(registry.answer().get("scope"))
-                .isEqualTo(Map.of("kind", "host", "name", "walk6m"));
+                .isEqualTo(Map.of("kind", "host", "name", "wharf6"));
         assertThat(read().get("warnings"))
                 .asInstanceOf(org.assertj.core.api.InstanceOfAssertFactories.LIST)
                 .containsExactly(registry.soleWarnings().getFirst());
@@ -219,7 +219,7 @@ class IdentityBackupKeyCommandTest {
         assertThat(registry.answer().get("reason")).isEqualTo("no-terminal");
         assertThat(ran).isEmpty();
         assertThat(backupKey("--registry", "--json")).isEqualTo(64);
-        assertThat(backupKey("--registry", "--host", "walk6m", "--out", "x")).isEqualTo(64);
+        assertThat(backupKey("--registry", "--host", "wharf6", "--out", "x")).isEqualTo(64);
     }
 
     @Test
@@ -303,7 +303,7 @@ class IdentityBackupKeyCommandTest {
                 "owners.yml",
                 "owners:\n  - login: michael\n    key: \""
                         + backupKey
-                        + "\"\nhost_admins:\n  walk6m:\n    - login: hank\n      key: \""
+                        + "\"\nhost_admins:\n  wharf6:\n    - login: hank\n      key: \""
                         + registry.key("hank")
                         + "\"\n");
         registry.keyFiles.put("backup", file);
@@ -456,7 +456,7 @@ class IdentityBackupKeyCommandTest {
         assertThat(
                         backupKey(
                                 "--host",
-                                "walk6m",
+                                "wharf6",
                                 "--out",
                                 dir.resolve("h").toString(),
                                 "--id",
@@ -466,7 +466,7 @@ class IdentityBackupKeyCommandTest {
         IdentityRun.keep(registry, registry.card("michael", "michael"));
 
         assertThat(backupKey("--registry", "--out", again.toString(), "--id", "op-1", "--json"))
-                .as("op-1 filed hank's key for walk6m, not michael's for the registry")
+                .as("op-1 filed hank's key for wharf6, not michael's for the registry")
                 .isEqualTo(65);
         assertThat(again).doesNotExist();
     }
@@ -480,7 +480,7 @@ class IdentityBackupKeyCommandTest {
         assertThat(registry.registry("read", registry.repo.toString())).isZero();
         IdentityRun.keep(registry, registry.card("hank", "hank"));
         final Path host = dir.resolve("h");
-        assertThat(backupKey("--host", "walk6m", "--out", host.toString())).isZero();
+        assertThat(backupKey("--host", "wharf6", "--out", host.toString())).isZero();
         assertThat(registry.registry("read", registry.repo.toString())).isZero();
         registry.close();
         IdentityRun.keep(registry, registry.card("michael", "michael"));
@@ -504,7 +504,7 @@ class IdentityBackupKeyCommandTest {
         assertThat(
                         backupKey(
                                 "--host",
-                                "walk6m",
+                                "wharf6",
                                 "--use",
                                 host.toString(),
                                 "--card",
@@ -526,7 +526,7 @@ class IdentityBackupKeyCommandTest {
                         "--json");
 
         assertThat(code)
-                .as("op-2 replaced hank's key for walk6m, not michael's: " + registry.out)
+                .as("op-2 replaced hank's key for wharf6, not michael's: " + registry.out)
                 .isEqualTo(65);
     }
 

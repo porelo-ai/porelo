@@ -20,7 +20,7 @@ hold, its adapter sets that itself and says so in its issue.
 Decided: the soft switch, adapter-independent, default 0. A hard bound in Porelo
 itself, a process limit in the task's container or a cap at the provider proxy that also counts an agent starting
 itself again through its shell, is an Idea of its own in `porelo-project`. What each agent offers today was read
-from the binaries, not measured (`~/.porelo/handover/porelo-claude-code/subagent-limit-survey.md`): Claude Code, Codex
+from the binaries, not measured (a survey kept outside the repository): Claude Code, Codex
 and omp can be switched off and bounded in number and depth; agy can only be switched off, through a hook; Pi has
 no subagents.
 

@@ -28,6 +28,6 @@ and is held outside the vault. The owner check took its token only from the vaul
   admin, and takes the 404 as a no when the first repository's owner is the organisation (`HttpForgeDirectoryTest`,
   red first; the owner comparison seen red under a mutant). The App needs Members: read.
 - The interface passes the test walk's token as `PORELO_GITHUB_APP_TOKEN` for each `registry` call; a local script
-  declares it with `porelo credentials declare https://github.com/porelo-ai-test/
+  declares it with `porelo credentials declare https://github.com/<test-organization>/
   --kind=token --env PORELO_GITHUB_APP_TOKEN`. Built during a stopped test walk with its unit tests only; the
   reading follows after the walk.

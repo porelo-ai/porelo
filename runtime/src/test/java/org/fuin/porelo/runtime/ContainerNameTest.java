@@ -101,7 +101,7 @@ class ContainerNameTest {
     @Test
     void aPeerNamesATaskOfAnotherProjectExactlyWhenAStartCouldMakeThatTask() {
 
-        // A peer no task start can make is one whose every message is held, and Agent Sluice's
+        // A peer no task start can make is one whose every message is held, and an agent's
         // filter copies the peer rule: both must take what a start takes and nothing else.
         final java.util.regex.Pattern peer =
                 java.util.regex.Pattern.compile(

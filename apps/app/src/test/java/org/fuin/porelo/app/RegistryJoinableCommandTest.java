@@ -128,13 +128,13 @@ class RegistryJoinableCommandTest {
                 .trimmedOutput();
     }
 
-    /** The registry: michael owns it, hank administers walk6m, alice and bob filed cards. */
+    /** The registry: michael owns it, hank administers wharf6, alice and bob filed cards. */
     private void registered(String accessFile) throws IOException {
         registry.founded();
         registry.forge.keys.put("alice", List.of(registry.key("alice")));
         registry.forge.keys.put("bob", List.of(registry.key("bob")));
-        registry.write("hosts/walk6m/card", registry.hostCard("walk6m", "hank"));
-        registry.write("hosts/walk6m/access.yml", accessFile);
+        registry.write("hosts/wharf6/card", registry.hostCard("wharf6", "hank"));
+        registry.write("hosts/wharf6/access.yml", accessFile);
         registry.commit("hank");
         registry.write("people/alice.card", registry.card("alice", "alice"));
         registry.commit("alice");
@@ -201,13 +201,13 @@ class RegistryJoinableCommandTest {
             throws Exception {
         registered(registry.access("demo"));
         preamble +=
-                "transports:\n  matrix: {homeserver: \"https://walk6m.example.org:8448\","
-                        + " room: \"#demo:walk6m.example.org\"}\n";
+                "transports:\n  matrix: {homeserver: \"https://wharf6.example.org:8448\","
+                        + " room: \"#demo:wharf6.example.org\"}\n";
         final String revision =
                 accessCommit(
                         "alice",
-                        person("alice", "admin", "walk6m", false)
-                                + person("bob", "developer", "walk6m", false),
+                        person("alice", "admin", "wharf6", false)
+                                + person("bob", "developer", "wharf6", false),
                         "alice",
                         "bob");
 
@@ -231,14 +231,14 @@ class RegistryJoinableCommandTest {
                         "signers",
                         "admins");
         assertThat(project.get("project")).isEqualTo("demo");
-        assertThat(project.get("host")).isEqualTo("walk6m");
+        assertThat(project.get("host")).isEqualTo("wharf6");
         assertThat(project.get("host_account")).isEqualTo("bob");
         assertThat(project.get("source"))
                 .as("the project's repository the verified access file names")
                 .isEqualTo(SOURCE);
         assertThat(project.get("homeserver"))
                 .as("the verified access file's Matrix homeserver")
-                .isEqualTo("https://walk6m.example.org:8448");
+                .isEqualTo("https://wharf6.example.org:8448");
         assertThat(keys(project.get("host_card")))
                 .as("exactly the accepted card")
                 .doesNotContain("homeserver");
@@ -250,7 +250,7 @@ class RegistryJoinableCommandTest {
         final Map<?, ?> card = (Map<?, ?>) project.get("host_card");
         assertThat(card.get("address"))
                 .as("the tunnel is opened from the accepted card")
-                .isEqualTo("walk6m.example.org");
+                .isEqualTo("wharf6.example.org");
         assertThat(((Number) card.get("ssh_port")).longValue()).isEqualTo(2201L);
         assertThat(card.get("ssh_host_key")).isEqualTo(registry.key("hank"));
         final List<?> admins = (List<?>) project.get("admins");
@@ -268,17 +268,17 @@ class RegistryJoinableCommandTest {
         registered(registry.access("demo"));
         accessCommit(
                 "alice",
-                person("alice", "admin", "walk6m", false)
-                        + person("bob", "developer", "walk6m", true)
+                person("alice", "admin", "wharf6", false)
+                        + person("bob", "developer", "wharf6", true)
                         + person("michael", "developer", "elsewhere", false)
-                        + person("hank", "developer", "walk6m", false),
+                        + person("hank", "developer", "wharf6", false),
                 "alice",
                 "bob",
                 "michael");
 
         for (String login : List.of("bob", "michael", "hank", "carol")) {
             assertThat(joinable(login)).as(login + ": " + registry.err).isZero();
-            assertThat(list("projects")).as(login + " is not admitted on walk6m").isEmpty();
+            assertThat(list("projects")).as(login + " is not admitted on wharf6").isEmpty();
             assertThat(list("refused")).as(login + ": the file itself verified").isEmpty();
         }
     }
@@ -289,8 +289,8 @@ class RegistryJoinableCommandTest {
         registered(registry.access("demo"));
         accessCommit(
                 "bob",
-                person("alice", "admin", "walk6m", false)
-                        + person("bob", "developer", "walk6m", false),
+                person("alice", "admin", "wharf6", false)
+                        + person("bob", "developer", "wharf6", false),
                 "alice",
                 "bob");
 
@@ -301,7 +301,7 @@ class RegistryJoinableCommandTest {
         assertThat(keys(refused))
                 .containsExactly("project", "host", "access_repository", "why", "admins");
         assertThat(refused.get("project")).isEqualTo("demo");
-        assertThat(refused.get("host")).isEqualTo("walk6m");
+        assertThat(refused.get("host")).isEqualTo("wharf6");
         assertThat(refused.get("access_repository")).isEqualTo(DEMO);
         assertThat(refused.get("why").toString()).startsWith("unknown_key");
         final Map<?, ?> admin = (Map<?, ?>) ((List<?>) refused.get("admins")).getFirst();
@@ -321,7 +321,7 @@ class RegistryJoinableCommandTest {
         assertThat(list("refused")).as("never left out").hasSize(1);
         final Map<?, ?> refused = (Map<?, ?>) list("refused").getFirst();
         assertThat(refused.get("access_repository")).isEqualTo(DEMO);
-        assertThat(refused.get("host")).isEqualTo("walk6m");
+        assertThat(refused.get("host")).isEqualTo("wharf6");
         assertThat(refused.get("why").toString())
                 .contains("cannot fetch ssh://example.org/demo.git");
     }
@@ -375,11 +375,11 @@ class RegistryJoinableCommandTest {
     void a_host_without_an_accepted_card_is_refused_never_left_out() throws Exception {
         registry.founded();
         registry.forge.keys.put("alice", List.of(registry.key("alice")));
-        registry.write("hosts/walk6m/access.yml", registry.access("demo"));
+        registry.write("hosts/wharf6/access.yml", registry.access("demo"));
         registry.commit("hank");
         registry.write("people/alice.card", registry.card("alice", "alice"));
         registry.commit("alice");
-        accessCommit("alice", person("bob", "developer", "walk6m", false), "bob");
+        accessCommit("alice", person("bob", "developer", "wharf6", false), "bob");
 
         assertThat(joinable("bob")).isZero();
 
@@ -395,8 +395,8 @@ class RegistryJoinableCommandTest {
         registered(registry.access("demo").replace(registry.pin("alice"), registry.pin("bob")));
         accessCommit(
                 "alice",
-                person("alice", "admin", "walk6m", false)
-                        + person("bob", "developer", "walk6m", false),
+                person("alice", "admin", "wharf6", false)
+                        + person("bob", "developer", "wharf6", false),
                 "alice",
                 "bob");
 
@@ -410,7 +410,7 @@ class RegistryJoinableCommandTest {
     @Test
     void a_registry_whose_history_is_refused_answers_no_project() throws Exception {
         registered(registry.access("demo"));
-        accessCommit("alice", person("bob", "developer", "walk6m", false), "bob");
+        accessCommit("alice", person("bob", "developer", "wharf6", false), "bob");
         assertThat(joinable("bob")).isZero();
         assertThat(list("projects")).hasSize(1);
 
@@ -440,8 +440,8 @@ class RegistryJoinableCommandTest {
         preamble = "";
         accessCommit(
                 "alice",
-                person("alice", "admin", "walk6m", false)
-                        + person("bob", "developer", "walk6m", false),
+                person("alice", "admin", "wharf6", false)
+                        + person("bob", "developer", "wharf6", false),
                 "alice",
                 "bob");
 
@@ -458,8 +458,8 @@ class RegistryJoinableCommandTest {
         registered(registry.access("demo"));
         accessCommit(
                 "alice",
-                person("alice", "admin", "walk6m", false)
-                        + person("bob", "developer", "walk6m", false),
+                person("alice", "admin", "wharf6", false)
+                        + person("bob", "developer", "wharf6", false),
                 "alice",
                 "bob");
 
@@ -492,12 +492,12 @@ class RegistryJoinableCommandTest {
         assertThat(registry.out.toString() + registry.err).doesNotContain("xyzzy");
     }
 
-    /** A login admitted on walk6m by an access file alice signed, with this preamble. */
+    /** A login admitted on wharf6 by an access file alice signed, with this preamble. */
     private void admitted() throws IOException {
         accessCommit(
                 "alice",
-                person("alice", "admin", "walk6m", false)
-                        + person("bob", "developer", "walk6m", false),
+                person("alice", "admin", "wharf6", false)
+                        + person("bob", "developer", "wharf6", false),
                 "alice",
                 "bob");
     }
@@ -516,7 +516,7 @@ class RegistryJoinableCommandTest {
 
         assertThat(list("projects")).isEmpty();
         assertThat(list("refused")).as("the host is named, never left out").hasSize(1);
-        assertThat(((Map<?, ?>) list("refused").getFirst()).get("host")).isEqualTo("walk6m");
+        assertThat(((Map<?, ?>) list("refused").getFirst()).get("host")).isEqualTo("wharf6");
         assertThat(registry.out.toString() + registry.err)
                 .as("no vault entry named after the user part")
                 .doesNotContain("git.token.bob")
@@ -530,7 +530,7 @@ class RegistryJoinableCommandTest {
         // Its founding cannot be decided: the forge says nothing of michael's ownership.
         registry.write("owners.yml", registry.owners());
         registry.commit("michael");
-        registry.write("hosts/walk6m/access.yml", registry.access("demo"));
+        registry.write("hosts/wharf6/access.yml", registry.access("demo"));
         registry.commit("hank");
 
         assertThat(joinable("bob")).as("refused").isEqualTo(65);
@@ -544,14 +544,14 @@ class RegistryJoinableCommandTest {
         registry.founded();
         registry.forge.keys.put("alice", List.of(registry.key("alice")));
         registry.forge.keys.put("bob", List.of(registry.key("bob")));
-        registry.write("hosts/walk6m/card", registry.hostCard("walk6m", "hank"));
+        registry.write("hosts/wharf6/card", registry.hostCard("wharf6", "hank"));
         registry.commit("hank");
         registry.write("people/alice.card", registry.card("alice", "alice"));
         registry.commit("alice");
         registry.write("people/bob.card", registry.card("bob", "bob"));
         registry.commit("bob");
-        // Not walk6m's admin: the registry refuses the file.
-        registry.write("hosts/walk6m/access.yml", registry.access("demo"));
+        // Not wharf6's admin: the registry refuses the file.
+        registry.write("hosts/wharf6/access.yml", registry.access("demo"));
         registry.commit("bob");
         admitted();
 
@@ -560,8 +560,8 @@ class RegistryJoinableCommandTest {
         assertThat(list("projects")).isEmpty();
         assertThat(list("refused")).as("never left out").hasSize(1);
         final Map<?, ?> refused = (Map<?, ?>) list("refused").getFirst();
-        assertThat(refused.get("host")).isEqualTo("walk6m");
-        assertThat(refused.get("why").toString()).contains("hosts/walk6m/access.yml");
+        assertThat(refused.get("host")).isEqualTo("wharf6");
+        assertThat(refused.get("why").toString()).contains("hosts/wharf6/access.yml");
         final Map<?, ?> admin = (Map<?, ?>) ((List<?>) refused.get("admins")).getFirst();
         assertThat(admin.get("login")).as("who signs the host's files").isEqualTo("hank");
     }
@@ -618,7 +618,7 @@ class RegistryJoinableCommandTest {
         assertThat(handed).as("never handed to git").doesNotContain(secret);
         assertThat(list("projects")).isEmpty();
         assertThat(list("refused")).as("the host is named, never left out").hasSize(1);
-        assertThat(((Map<?, ?>) list("refused").getFirst()).get("host")).isEqualTo("walk6m");
+        assertThat(((Map<?, ?>) list("refused").getFirst()).get("host")).isEqualTo("wharf6");
         assertThat(registry.out.toString() + registry.err)
                 .as("nothing of the token in the answer or the words")
                 .doesNotContain("4711");
@@ -632,19 +632,19 @@ class RegistryJoinableCommandTest {
     @ParameterizedTest
     @ValueSource(
             strings = {
-                "ssh://bob:tok-4711@walk6m.example.org:8448",
-                "https://bob:tok-4711%40walk6m.example.org:8448",
-                " https://bob:tok-4711@walk6m.example.org:8448",
-                "http://walk6m.example.org:8448",
-                "https://walk6m.example.org?x=tok-4711@other.example.org",
-                "walk6m.example.org:8448",
-                "https://bob:tok-4711@walk6m.example.org:8448",
-                "https://walk6m.example.org?x=/bob:tok-4711@evil.example.org",
-                "https://walk6m.example.org#/bob:tok-4711@evil.example.org",
-                "https://walk6m.example.org/?access_token=tok-4711",
-                "https://walk6m.example.org/\\u00a0tok-4711",
-                "https://walk6m.example.org/\\u2028tok-4711",
-                "https://walk6m.example.org/\\etok-4711",
+                "ssh://bob:tok-4711@wharf6.example.org:8448",
+                "https://bob:tok-4711%40wharf6.example.org:8448",
+                " https://bob:tok-4711@wharf6.example.org:8448",
+                "http://wharf6.example.org:8448",
+                "https://wharf6.example.org?x=tok-4711@other.example.org",
+                "wharf6.example.org:8448",
+                "https://bob:tok-4711@wharf6.example.org:8448",
+                "https://wharf6.example.org?x=/bob:tok-4711@evil.example.org",
+                "https://wharf6.example.org#/bob:tok-4711@evil.example.org",
+                "https://wharf6.example.org/?access_token=tok-4711",
+                "https://wharf6.example.org/\\u00a0tok-4711",
+                "https://wharf6.example.org/\\u2028tok-4711",
+                "https://wharf6.example.org/\\etok-4711",
                 "unix:run/porelo-matrix/tok-4711.sock",
                 "unix:/run/../home/bob/tok-4711.sock",
                 "unix:/run/porelo-matrix/tok 4711.sock",
@@ -658,7 +658,7 @@ class RegistryJoinableCommandTest {
         preamble +=
                 "transports:\n  matrix: {homeserver: \""
                         + homeserver
-                        + "\", room: \"#demo:walk6m.example.org\"}\n";
+                        + "\", room: \"#demo:wharf6.example.org\"}\n";
         admitted();
 
         assertThat(joinable("bob")).as(registry.err.toString()).isZero();
@@ -673,8 +673,8 @@ class RegistryJoinableCommandTest {
     /** An at sign in the path is the path's, and a scheme is read in either case. */
     @ParameterizedTest
     @org.junit.jupiter.params.provider.CsvSource({
-        "https://walk6m.example.org/_matrix/@room, https://walk6m.example.org/_matrix/@room",
-        "HTTPS://walk6m.example.org:8448/x, HTTPS://walk6m.example.org:8448/x",
+        "https://wharf6.example.org/_matrix/@room, https://wharf6.example.org/_matrix/@room",
+        "HTTPS://wharf6.example.org:8448/x, HTTPS://wharf6.example.org:8448/x",
         // Behind a host's gate a person's Porelo there reaches the homeserver at its socket.
         "unix:/run/porelo-matrix/client.sock, unix:/run/porelo-matrix/client.sock"
     })
@@ -683,7 +683,7 @@ class RegistryJoinableCommandTest {
         preamble +=
                 "transports:\n  matrix: {homeserver: \""
                         + homeserver
-                        + "\", room: \"#demo:walk6m.example.org\"}\n";
+                        + "\", room: \"#demo:wharf6.example.org\"}\n";
         admitted();
 
         assertThat(joinable("bob")).as(registry.err.toString()).isZero();

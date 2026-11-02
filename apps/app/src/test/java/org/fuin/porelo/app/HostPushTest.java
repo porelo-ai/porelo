@@ -29,7 +29,7 @@ class HostPushTest {
         final Path mirror = dir.resolve("mirror.git");
 
         assertThat(
-                        push(mirror, conf("host=walk6m\nport=3000\ngit_port=3001\n"), "t0ken")
+                        push(mirror, conf("host=wharf6\nport=3000\ngit_port=3001\n"), "t0ken")
                                 .passOn(COMMIT))
                 .isNull();
 

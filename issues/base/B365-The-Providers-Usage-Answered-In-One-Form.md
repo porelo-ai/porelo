@@ -7,7 +7,7 @@ fragile, since none of the three providers offers a documented usage interface.
 **What must be true.** A person sees how much of each AI provider's allowance is left before a task stops on it.
 `porelo usage [--json]` answers each provider the person's agents use in one form, one entry per machine, account and
 window: the provider, the account, the window (such as the five-hour session or the week), the part left in percent,
-the time it resets and when it was read. Today `~/.porelo/coordinator/quota.sh` reads the same by hand, from three
+the time it resets and when it was read. Today a local script reads the same by hand, from three
 places that each answer differently: Antigravity's `/usage`, the `rate_limits` of Codex's newest session file and
 Claude Code's `/usage`. A provider that cannot be read is answered as such, with why, never as zero or as full.
 

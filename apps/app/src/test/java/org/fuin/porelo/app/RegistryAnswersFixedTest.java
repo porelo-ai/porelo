@@ -180,7 +180,7 @@ class RegistryAnswersFixedTest {
                                 "--repository",
                                 fixture("verify.bundle").toString(),
                                 "--host",
-                                "walk6m",
+                                "wharf6",
                                 "--pinned",
                                 kept("pinned.txt").strip(),
                                 "--json"))
@@ -201,8 +201,8 @@ class RegistryAnswersFixedTest {
                 Files.createDirectories(Path.of(System.getProperty("registry.answers.make")));
         final String pinned = registry.pin("hank");
         registry.founded();
-        registry.write("hosts/walk6m/card", registry.hostCard("walk6m", "hank"));
-        registry.write("hosts/walk6m/access.yml", registry.access("demo"));
+        registry.write("hosts/wharf6/card", registry.hostCard("wharf6", "hank"));
+        registry.write("hosts/wharf6/access.yml", registry.access("demo"));
         registry.commit("hank");
         registry.write("people/alice.card", longLived("alice"));
         registry.commit("alice");
@@ -248,8 +248,8 @@ class RegistryAnswersFixedTest {
         Files.writeString(
                 access.resolve("access.yml"),
                 "source: git@example.org:acme/demo.git\ntransports:\n  matrix: {homeserver:"
-                        + " \"https://walk6m.example.org:8448\", room:"
-                        + " \"#demo:walk6m.example.org\"}\npersons:\n"
+                        + " \"https://wharf6.example.org:8448\", room:"
+                        + " \"#demo:wharf6.example.org\"}\npersons:\n"
                         + person("alice", "admin")
                         + person("bob", "developer"));
         Files.createDirectories(access.resolve("cards"));
@@ -293,7 +293,7 @@ class RegistryAnswersFixedTest {
                 + registry.pin(login)
                 + "\"\n    role: "
                 + role
-                + "\n    hosts: [walk6m]\n";
+                + "\n    hosts: [wharf6]\n";
     }
 
     /** A card that outlives this comparison: the fixture must not expire. */
@@ -362,7 +362,7 @@ class RegistryAnswersFixedTest {
                                 "--repository",
                                 to.resolve("verify.bundle").toString(),
                                 "--host",
-                                "walk6m",
+                                "wharf6",
                                 "--pinned",
                                 Files.readString(to.resolve("pinned.txt")).strip(),
                                 "--json"))

@@ -1,8 +1,8 @@
-Registry e3b390cb298f09ce47b66721e61d09373a1fd3cc of acme
+Registry ac503aff222ded4099e181cfad2fb334023ee617 of acme
 People: 3
 Owners: 1
 Hosts: 1
-Refused: e3b390cb298f09ce47b66721e61d09373a1fd3cc hosts/other/access.yml: signed by SHA256:eDhfVug3O2OAxh9pPbkxppwenL2OkDZPHX5n60ZDr6k, not a host admin owners.yml names for other
-warning: e3b390cb298f09ce47b66721e61d09373a1fd3cc hosts/other/access.yml: signed by SHA256:eDhfVug3O2OAxh9pPbkxppwenL2OkDZPHX5n60ZDr6k, not a host admin owners.yml names for other
+Refused: ac503aff222ded4099e181cfad2fb334023ee617 hosts/other/access.yml: signed by SHA256:UtBzmHt3d5YowNrPQ4Kk35tWQc3VaAGLsTRzB7BpLiU, not a host admin owners.yml names for other
+warning: ac503aff222ded4099e181cfad2fb334023ee617 hosts/other/access.yml: signed by SHA256:UtBzmHt3d5YowNrPQ4Kk35tWQc3VaAGLsTRzB7BpLiU, not a host admin owners.yml names for other
 warning: owners.yml names michael as the registry's only owner, without a backup key; make one with porelo identity backup-key --registry
-warning: owners.yml names hank as the only admin of walk6m, without a backup key; make one with porelo identity backup-key --host walk6m
+warning: owners.yml names hank as the only admin of wharf6, without a backup key; make one with porelo identity backup-key --host wharf6
