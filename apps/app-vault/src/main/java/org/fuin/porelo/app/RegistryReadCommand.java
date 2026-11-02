@@ -4,13 +4,7 @@ import java.io.IOException;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
-import java.nio.file.LinkOption;
 import java.nio.file.Path;
-import java.nio.file.StandardCopyOption;
-import java.nio.file.attribute.PosixFilePermissions;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
-import java.util.HexFormat;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -18,18 +12,16 @@ import java.util.concurrent.Callable;
 import org.fuin.porelo.core.credential.Credential;
 import org.fuin.porelo.core.credential.CredentialRegistry;
 import org.fuin.porelo.core.process.CommandException;
-import org.fuin.porelo.core.process.CommandResult;
 import org.fuin.porelo.core.process.CommandRunner;
 import org.fuin.porelo.core.process.ProcessCommandRunner;
 import org.fuin.porelo.organization.IdentitySource;
+import org.fuin.porelo.organization.Organization;
+import org.fuin.porelo.organization.OrganizationException;
+import org.fuin.porelo.organization.git.GitOrganizationStore;
 import org.fuin.porelo.organization.git.HttpForgeDirectory;
-import org.fuin.porelo.organization.git.RegistryGit;
-import org.fuin.porelo.organization.git.RegistryHistory;
 import org.fuin.porelo.organization.git.RegistryOrigin;
-import org.fuin.porelo.organization.git.RegistryState;
 import org.fuin.porelo.vault.CardException;
 import org.fuin.porelo.vault.VaultEntry;
-import org.fuin.porelo.wire.Directories;
 import org.fuin.porelo.wire.Json;
 import org.jspecify.annotations.Nullable;
 import picocli.CommandLine.Command;
@@ -83,9 +75,17 @@ public class RegistryReadCommand implements Callable<Integer>, PoreloFactory.Con
      * What one read found.
      *
      * @param origin The origin it asked the forge of.
-     * @param state The state it ended with, kept as the trust record.
+     * @param organization What it says.
      */
-    record Read(RegistryOrigin origin, RegistryState state) {}
+    record Read(RegistryOrigin origin, Organization organization) {}
+
+    /**
+     * A store opened for a read, and who it asks.
+     *
+     * @param store The store.
+     * @param identities The identity source of its origin's forge.
+     */
+    record Opened(GitOrganizationStore store, IdentitySource identities) {}
 
     @Override
     public void setContext(PoreloContext context) {
@@ -98,16 +98,16 @@ public class RegistryReadCommand implements Callable<Integer>, PoreloFactory.Con
         final PoreloContext machine =
                 java.util.Objects.requireNonNull(context, "picocli's factory sets the context");
         final RegistryOrigin origin;
-        final RegistryState state;
+        final Organization state;
         try {
             final Read read = read(machine, runner, checkout, forges, spec.commandLine().getErr());
             origin = read.origin();
-            state = read.state();
+            state = read.organization();
         } catch (IllegalArgumentException ex) {
             return refuse(64, ex.getMessage());
         } catch (IOException ex) {
             return refuse(66, ex.getMessage());
-        } catch (CardException | CommandException ex) {
+        } catch (OrganizationException | CardException | CommandException ex) {
             return refuse(65, ex.getMessage());
         }
         final var out = spec.commandLine().getOut();
@@ -123,12 +123,12 @@ public class RegistryReadCommand implements Callable<Integer>, PoreloFactory.Con
             out.println("People: " + state.people().size());
             out.println("Owners: " + state.owners().size());
             out.println("Hosts: " + state.hosts().size());
-            final RegistryState.Refusal refused = state.lastInForce();
+            final Organization.Refusal refused = state.lastRefusal();
             if (refused != null) {
                 out.println(
                         "Refused: "
                                 + RegistryVerifyCommand.printable(
-                                        refused.commit()
+                                        refused.revision()
                                                 + " "
                                                 + refused.path()
                                                 + ": "
@@ -149,9 +149,9 @@ public class RegistryReadCommand implements Callable<Integer>, PoreloFactory.Con
      * @param state The state read.
      * @return The warnings.
      */
-    static List<String> warnings(final RegistryState state) {
+    static List<String> warnings(final Organization state) {
         final List<String> warnings = new java.util.ArrayList<>(state.warnings());
-        for (RegistryState.Sole sole : state.soleWithoutBackup()) {
+        for (Organization.Sole sole : state.soleWithoutBackup()) {
             warnings.add(
                     "owners.yml names "
                             + sole.login()
@@ -185,34 +185,49 @@ public class RegistryReadCommand implements Callable<Integer>, PoreloFactory.Con
             final Forges forges,
             final java.io.PrintWriter err)
             throws IOException {
-        final String url = origin(runner, checkout);
-        final RegistryOrigin origin = RegistryOrigin.of(url);
-        final Path record = trustRecord(context, url);
-        final RegistryState state =
-                new RegistryHistory(runner)
-                        .read(
-                                checkout,
-                                trusted(record),
-                                record.toString(),
-                                forge(context, origin, forges, err),
-                                origin.organisation());
-        keep(record, state);
-        if (state.commit() != null) {
-            write(
-                    known(record),
-                    Json.write(
-                            Map.of(
-                                    "origin",
-                                    url,
-                                    "checkout",
-                                    checkout.toAbsolutePath().normalize().toString())));
-        }
-        // Whichever command read it: a warning, such as a record discarded, is never lost.
-        for (String warning : warnings(state)) {
+        final Opened opened = open(context, runner, checkout, forges, err);
+        final Organization organization = opened.store().read(opened.identities());
+        warn(organization, err);
+        return new Read(opened.store().origin(), organization);
+    }
+
+    /**
+     * Opens a checkout and the identity source of its origin's forge, nothing read yet.
+     *
+     * @param context The machine.
+     * @param runner How git runs.
+     * @param checkout The checkout.
+     * @param forges How the forge is asked.
+     * @param err Where a warning about the forge token goes.
+     * @return The store and who it asks.
+     * @throws IOException When the checkout cannot be read.
+     * @throws IllegalArgumentException When the origin is none the reader can place.
+     * @throws CardException When the trust record refuses the read.
+     */
+    static Opened open(
+            final PoreloContext context,
+            final CommandRunner runner,
+            final Path checkout,
+            final Forges forges,
+            final java.io.PrintWriter err)
+            throws IOException {
+        final GitOrganizationStore store =
+                GitOrganizationStore.open(runner, context.paths().xdg().state(), checkout);
+        return new Opened(store, forge(context, store.origin(), forges, err));
+    }
+
+    /**
+     * Says what a read warns of, whichever command read it: a warning, such as a record discarded,
+     * is never lost.
+     *
+     * @param organization What was read.
+     * @param err Where it goes.
+     */
+    static void warn(final Organization organization, final java.io.PrintWriter err) {
+        for (String warning : warnings(organization)) {
             err.println("porelo: warning: " + RegistryVerifyCommand.printable(warning));
         }
         err.flush();
-        return new Read(origin, state);
     }
 
     /**
@@ -226,58 +241,6 @@ public class RegistryReadCommand implements Callable<Integer>, PoreloFactory.Con
     record Known(String origin, Path checkout, Path record) {}
 
     /**
-     * The registries this machine has read, one per origin, the latest read of each.
-     *
-     * @param context The machine.
-     * @return Each, in the order of their records' names; none when nothing was read.
-     * @throws IOException When the registry directory cannot be listed.
-     */
-    static List<Known> known(final PoreloContext context) throws IOException {
-        final Path directory = context.paths().xdg().state().resolve("registry");
-        if (!Files.isDirectory(directory, LinkOption.NOFOLLOW_LINKS)) {
-            return List.of();
-        }
-        final List<Known> known = new java.util.ArrayList<>();
-        try (var listed = Files.list(directory)) {
-            for (final Path where :
-                    listed.filter(path -> path.getFileName().toString().endsWith(".where.json"))
-                            .sorted()
-                            .toList()) {
-                if (!Files.isRegularFile(where, LinkOption.NOFOLLOW_LINKS)) {
-                    continue;
-                }
-                final Object read;
-                try {
-                    read = Json.parse(Files.readString(where, StandardCharsets.UTF_8));
-                } catch (RuntimeException ex) {
-                    // Half a file or none of this shape is no registry this machine read.
-                    continue;
-                }
-                // A record of another origin's name would answer for an address it is not.
-                if (read instanceof Map<?, ?> map
-                        && map.get("origin") instanceof String origin
-                        && map.get("checkout") instanceof String checkout
-                        && trustRecord(context, origin).equals(record(where))) {
-                    known.add(new Known(origin, Path.of(checkout), record(where)));
-                }
-            }
-        }
-        return List.copyOf(known);
-    }
-
-    private static Path known(final Path record) {
-        final String name = record.getFileName().toString();
-        return record.resolveSibling(
-                name.substring(0, name.length() - ".json".length()) + ".where.json");
-    }
-
-    private static Path record(final Path where) {
-        final String name = where.getFileName().toString();
-        return where.resolveSibling(
-                name.substring(0, name.length() - ".where.json".length()) + ".json");
-    }
-
-    /**
      * Returns the checkout's {@code origin} URL, the one setting of the checkout this reads.
      *
      * @throws IOException When the checkout is not a Git repository that can be read.
@@ -285,132 +248,12 @@ public class RegistryReadCommand implements Callable<Integer>, PoreloFactory.Con
      *     another than it names.
      */
     static String origin(final CommandRunner runner, final Path checkout) throws IOException {
-        if (!Files.isDirectory(checkout, LinkOption.NOFOLLOW_LINKS)) {
-            throw new IOException(
-                    "cannot read registry checkout '"
-                            + RegistryVerifyCommand.printable(checkout.toString())
-                            + "': expected a directory, not a symlink");
-        }
-        if (!git(runner, checkout, "rev-parse", "--git-dir").successful()) {
-            throw new IOException(
-                    "cannot read registry checkout '"
-                            + RegistryVerifyCommand.printable(checkout.toString())
-                            + "': not a Git repository");
-        }
-        final CommandResult origin =
-                git(runner, checkout, "config", "--get-all", "remote.origin.url");
-        final List<String> urls =
-                origin.successful()
-                        ? origin.standardOutput().lines().filter(url -> !url.isEmpty()).toList()
-                        : List.of();
-        if (urls.isEmpty()) {
-            throw new IllegalArgumentException(
-                    "the registry checkout '"
-                            + RegistryVerifyCommand.printable(checkout.toString())
-                            + "' has no origin to name its forge");
-        }
-        // Git fetches from the first URL, after its rewrites; the forge must be the one it names.
-        final CommandResult fetched = git(runner, checkout, "remote", "get-url", "origin");
-        if (urls.size() > 1
-                || !fetched.successful()
-                || !fetched.trimmedOutput().equals(urls.getFirst())) {
-            throw new IllegalArgumentException(
-                    "the registry checkout '"
-                            + RegistryVerifyCommand.printable(checkout.toString())
-                            + "' names its origin more than once or git rewrites it; give it"
-                            + " exactly one url, as git fetches it");
-        }
-        return urls.getFirst();
-    }
-
-    private static CommandResult git(
-            final CommandRunner runner, final Path checkout, final String... arguments) {
-        return runner.run(RegistryGit.git(checkout, Map.of(), arguments));
+        return GitOrganizationStore.origin(runner, checkout);
     }
 
     /** Where the state the last read of this origin ended with is kept. */
     static Path trustRecord(final PoreloContext context, final String url) {
-        try {
-            final byte[] digest =
-                    MessageDigest.getInstance("SHA-256")
-                            .digest(url.getBytes(StandardCharsets.UTF_8));
-            return context.paths()
-                    .xdg()
-                    .state()
-                    .resolve("registry")
-                    .resolve(HexFormat.of().formatHex(digest) + ".json");
-        } catch (NoSuchAlgorithmException ex) {
-            throw new IllegalStateException("SHA-256 is not available", ex);
-        }
-    }
-
-    /**
-     * Reads the trust record's text, or none for a first read. One that is no regular file, or
-     * cannot be read, refuses the read; one whose text fails a check is discarded by the read,
-     * which walks the registry afresh and says so.
-     */
-    private static @Nullable String trusted(final Path record) {
-        if (!Files.exists(record, LinkOption.NOFOLLOW_LINKS)) {
-            return null;
-        }
-        if (!Files.isRegularFile(record, LinkOption.NOFOLLOW_LINKS)) {
-            throw new CardException(
-                    "the registry trust record " + record + " is not a regular file");
-        }
-        try {
-            return Files.readString(record, StandardCharsets.UTF_8);
-        } catch (IOException ex) {
-            throw new CardException("cannot read the registry trust record " + record);
-        }
-    }
-
-    /**
-     * Keeps a read that ended, owner-only and whole: a reader never finds half a record. A read
-     * that stopped before its first commit leaves none, so the next one starts afresh; a record it
-     * discarded is deleted, never left for the next read.
-     */
-    private static void keep(final Path record, final RegistryState state) throws IOException {
-        if (state.commit() == null) {
-            // The record and the origin it was read from go together, so neither is left alone.
-            Files.deleteIfExists(record);
-            Files.deleteIfExists(known(record));
-            return;
-        }
-        write(record, state.toJson());
-    }
-
-    /** Writes a file of the registry directory, owner-only and whole. */
-    private static void write(final Path record, final String text) throws IOException {
-        final Path directory =
-                java.util.Objects.requireNonNull(
-                        record.getParent(), "a trust record lies in the registry directory");
-        Directories.create(
-                java.util.Objects.requireNonNull(
-                        directory.getParent(), "the registry directory lies in the state one"));
-        if (!Files.isDirectory(directory, LinkOption.NOFOLLOW_LINKS)) {
-            Files.createDirectory(
-                    directory,
-                    PosixFilePermissions.asFileAttribute(
-                            PosixFilePermissions.fromString("rwx------")));
-        }
-        Files.setPosixFilePermissions(directory, PosixFilePermissions.fromString("rwx------"));
-        final Path staged =
-                Files.createTempFile(
-                        directory,
-                        ".",
-                        ".json.staged",
-                        PosixFilePermissions.asFileAttribute(
-                                PosixFilePermissions.fromString("rw-------")));
-        try {
-            Files.writeString(staged, text, StandardCharsets.UTF_8);
-            Files.move(
-                    staged,
-                    record,
-                    StandardCopyOption.REPLACE_EXISTING,
-                    StandardCopyOption.ATOMIC_MOVE);
-        } finally {
-            Files.deleteIfExists(staged);
-        }
+        return GitOrganizationStore.record(context.paths().xdg().state(), url);
     }
 
     private static IdentitySource forge(
@@ -555,16 +398,16 @@ public class RegistryReadCommand implements Callable<Integer>, PoreloFactory.Con
     }
 
     /** The answer, in the order the contract names its fields. */
-    static Map<String, @Nullable Object> answer(final RegistryState state) {
+    static Map<String, @Nullable Object> answer(final Organization state) {
         final Map<String, @Nullable Object> answer = new LinkedHashMap<>();
         answer.put("revision", state.revision());
-        final RegistryState.Refusal refused = state.lastInForce();
+        final Organization.Refusal refused = state.lastRefusal();
         answer.put(
                 "refused_commit",
                 refused == null
                         ? null
                         : ordered(
-                                "commit", refused.commit(),
+                                "commit", refused.revision(),
                                 "path", refused.path(),
                                 "why", refused.why()));
         answer.put(
@@ -614,12 +457,12 @@ public class RegistryReadCommand implements Callable<Integer>, PoreloFactory.Con
                 state.hosts().stream()
                         .map(
                                 host -> {
-                                    final RegistryState.Card card = host.card();
+                                    final Organization.Card card = host.card();
                                     return ordered(
                                             "host",
                                             host.host(),
                                             "card",
-                                            card == null ? null : card.answer(host.host()),
+                                            card == null ? null : cardAnswer(host.host(), card),
                                             "admins",
                                             host.admins().stream()
                                                     .map(
@@ -645,6 +488,31 @@ public class RegistryReadCommand implements Callable<Integer>, PoreloFactory.Con
                                                     .toList());
                                 })
                         .toList());
+        return answer;
+    }
+
+    /**
+     * A host's card as an answer names it.
+     *
+     * @param host The host's name.
+     * @param card Its card.
+     * @return {@code host}, {@code address}, {@code ssh_port}, {@code ssh_host_key}, {@code
+     *     services} and {@code signed_by}.
+     */
+    static Map<String, Object> cardAnswer(final String host, final Organization.Card card) {
+        final Map<String, Object> answer = new LinkedHashMap<>();
+        answer.put("host", host);
+        answer.put("address", card.address());
+        answer.put("ssh_port", card.sshPort());
+        answer.put("ssh_host_key", card.sshHostKey());
+        answer.put(
+                "services",
+                Map.of(
+                        "forge",
+                        Map.of("web_port", card.forgeWebPort(), "git_port", card.forgeGitPort()),
+                        "matrix",
+                        Map.of("port", card.matrixPort())));
+        answer.put("signed_by", card.signedBy());
         return answer;
     }
 

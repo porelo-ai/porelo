@@ -33,11 +33,7 @@ class OrganizationBoundaryTest {
 
     /** What still reads through the adapter's state: empties as each moves to the API. */
     private static final Set<String> NOT_MOVED_YET =
-            Set.of(
-                    "RegistryReadCommand.java",
-                    "RegistryJoinableCommand.java",
-                    "ProjectAccessCommand.java",
-                    "SignerHandover.java");
+            Set.of("ProjectAccessCommand.java", "SignerHandover.java");
 
     /** Words that say how an organization is kept: a path, a commit, Git or a process. */
     private static final Pattern HOW_IT_IS_KEPT =

@@ -17,9 +17,10 @@ import org.fuin.porelo.core.process.CommandException;
 import org.fuin.porelo.core.project.Access;
 import org.fuin.porelo.core.project.AccessFile;
 import org.fuin.porelo.core.project.AddressForm;
+import org.fuin.porelo.organization.Organization;
+import org.fuin.porelo.organization.OrganizationException;
 import org.fuin.porelo.organization.git.HttpForgeDirectory;
 import org.fuin.porelo.organization.git.RegistryGit;
-import org.fuin.porelo.organization.git.RegistryState;
 import org.fuin.porelo.vault.AccessPersons;
 import org.fuin.porelo.vault.CardException;
 import org.fuin.porelo.vault.Userinfo;
@@ -91,7 +92,7 @@ public class RegistryJoinableCommand implements Callable<Integer>, PoreloFactory
         if (!login.matches(LOGIN)) {
             return refuse(64, "--login '" + login + "' is not a login; expected " + LOGIN);
         }
-        final RegistryState state;
+        final Organization state;
         try {
             state =
                     RegistryReadCommand.read(
@@ -100,12 +101,12 @@ public class RegistryJoinableCommand implements Callable<Integer>, PoreloFactory
                                     checkout,
                                     forges,
                                     spec.commandLine().getErr())
-                            .state();
+                            .organization();
         } catch (IllegalArgumentException ex) {
             return refuse(64, String.valueOf(ex.getMessage()));
         } catch (IOException ex) {
             return refuse(66, String.valueOf(ex.getMessage()));
-        } catch (CardException | CommandException ex) {
+        } catch (OrganizationException | CardException | CommandException ex) {
             return refuse(65, String.valueOf(ex.getMessage()));
         }
         // Owners are never empty once an owners.yml was accepted: a card accepted without one
@@ -161,13 +162,13 @@ public class RegistryJoinableCommand implements Callable<Integer>, PoreloFactory
 
     /** Checks every project of every host's accepted access file, each in a place of its own. */
     private Map<String, @Nullable Object> joinable(
-            final PoreloContext machine, final RegistryState state, final Path scratch) {
+            final PoreloContext machine, final Organization state, final Path scratch) {
         final List<Object> projects = new ArrayList<>();
         final List<Object> refused = new ArrayList<>();
         refusedAccessFiles(state, refused);
         int at = 0;
-        for (RegistryState.Host host : state.hosts()) {
-            for (RegistryState.Project project : host.projects()) {
+        for (Organization.Host host : state.hosts()) {
+            for (Organization.Project project : host.projects()) {
                 final Path place = scratch.resolve(Integer.toString(at++));
                 final Object joined = check(machine, state, host, project, place, refused);
                 if (joined != null) {
@@ -188,13 +189,13 @@ public class RegistryJoinableCommand implements Callable<Integer>, PoreloFactory
      */
     private @Nullable Object check(
             final PoreloContext machine,
-            final RegistryState state,
-            final RegistryState.Host host,
-            final RegistryState.Project project,
+            final Organization state,
+            final Organization.Host host,
+            final Organization.Project project,
             final Path place,
             final List<Object> refused) {
         final String url = project.accessRepository();
-        final RegistryState.@Nullable Card card = host.card();
+        final Organization.@Nullable Card card = host.card();
         if (card == null) {
             refused.add(
                     refusal(state, host, project, "the registry holds no accepted card for it"));
@@ -280,7 +281,7 @@ public class RegistryJoinableCommand implements Callable<Integer>, PoreloFactory
                 "host_account",
                 login,
                 "host_card",
-                card.answer(host.host()),
+                RegistryReadCommand.cardAnswer(host.host(), card),
                 "homeserver",
                 homeserver == null
                         ? null
@@ -299,12 +300,7 @@ public class RegistryJoinableCommand implements Callable<Integer>, PoreloFactory
                 checked.persons().stream()
                         .filter(AccessPersons.Person::admitted)
                         .filter(person -> person.role().equals("admin"))
-                        .map(
-                                person ->
-                                        IdentityFacts.contact(
-                                                org.fuin.porelo.organization.git
-                                                        .GitOrganizationStore.organization(state),
-                                                person.login()))
+                        .map(person -> IdentityFacts.contact(state, person.login()))
                         .toList());
     }
 
@@ -318,15 +314,15 @@ public class RegistryJoinableCommand implements Callable<Integer>, PoreloFactory
     }
 
     /** Why a registry that accepted no commit, or no owners.yml, answers no project. */
-    private static String unaccepted(final RegistryState state) {
-        final RegistryState.@Nullable Refusal refused =
+    private static String unaccepted(final Organization state) {
+        final Organization.@Nullable Refusal refused =
                 state.refusals().stream()
                         .filter(refusal -> refusal.path().equals("owners.yml"))
                         .reduce((first, last) -> last)
-                        .orElse(state.lastInForce());
+                        .orElse(state.lastRefusal());
         final String why =
                 refused != null
-                        ? refused.commit() + " " + refused.path() + ": " + refused.why()
+                        ? refused.revision() + " " + refused.path() + ": " + refused.why()
                         : state.warnings().isEmpty()
                                 ? "nothing was accepted"
                                 : String.join("; ", state.warnings());
@@ -346,8 +342,8 @@ public class RegistryJoinableCommand implements Callable<Integer>, PoreloFactory
      * Names each host whose access file a commit changed and the read refused: the projects it
      * names are not known, and leaving the host out would answer it as naming none.
      */
-    private static void refusedAccessFiles(final RegistryState state, final List<Object> refused) {
-        for (RegistryState.Refusal refusal : state.refusals()) {
+    private static void refusedAccessFiles(final Organization state, final List<Object> refused) {
+        for (Organization.Refusal refusal : state.refusals()) {
             final java.util.regex.Matcher path = ACCESS_FILE.matcher(refusal.path());
             if (!path.matches()) {
                 continue;
@@ -366,19 +362,13 @@ public class RegistryJoinableCommand implements Callable<Integer>, PoreloFactory
                                     "the registry refused "
                                             + refusal.path()
                                             + " at "
-                                            + refusal.commit()
+                                            + refusal.revision()
                                             + ": "
                                             + refusal.why()),
                             // Who signs the host's files is who can file it again.
                             "admins",
                             state.hostAdmins().getOrDefault(host, List.of()).stream()
-                                    .map(
-                                            admin ->
-                                                    IdentityFacts.contact(
-                                                            org.fuin.porelo.organization.git
-                                                                    .GitOrganizationStore
-                                                                    .organization(state),
-                                                            admin.login()))
+                                    .map(admin -> IdentityFacts.contact(state, admin.login()))
                                     .toList()));
         }
     }
@@ -465,10 +455,10 @@ public class RegistryJoinableCommand implements Callable<Integer>, PoreloFactory
      * access file names, whose key is the one that file pins for it.
      */
     private static @Nullable String adminKey(
-            final RegistryState state,
-            final RegistryState.Host host,
-            final RegistryState.Project project) {
-        final RegistryState.@Nullable Person card = accepted(state, project.admin());
+            final Organization state,
+            final Organization.Host host,
+            final Organization.Project project) {
+        final Organization.@Nullable Person card = accepted(state, project.admin());
         if (card == null) {
             return null;
         }
@@ -481,19 +471,19 @@ public class RegistryJoinableCommand implements Callable<Integer>, PoreloFactory
                 : null;
     }
 
-    private static RegistryState.@Nullable Person accepted(
-            final RegistryState state, final String login) {
+    private static Organization.@Nullable Person accepted(
+            final Organization state, final String login) {
         return state.people().stream()
                 .filter(person -> person.login().equals(login))
-                .filter(person -> !person.state().equals(RegistryState.REFUSED))
+                .filter(person -> !person.refused())
                 .findFirst()
                 .orElse(null);
     }
 
     private static Map<String, @Nullable Object> refusal(
-            final RegistryState state,
-            final RegistryState.Host host,
-            final RegistryState.Project project,
+            final Organization state,
+            final Organization.Host host,
+            final Organization.Project project,
             final String why) {
         final String url = project.accessRepository();
         return ordered(
@@ -507,11 +497,7 @@ public class RegistryJoinableCommand implements Callable<Integer>, PoreloFactory
                 Userinfo.leftOutOf(why),
                 // Nothing of the access file verified: the admin the registry names is who to ask.
                 "admins",
-                List.of(
-                        IdentityFacts.contact(
-                                org.fuin.porelo.organization.git.GitOrganizationStore.organization(
-                                        state),
-                                project.admin())));
+                List.of(IdentityFacts.contact(state, project.admin())));
     }
 
     /** A JSON object whose keys stay in the order given: name, value, name, value. */

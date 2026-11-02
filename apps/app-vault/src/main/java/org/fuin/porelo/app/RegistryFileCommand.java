@@ -166,14 +166,13 @@ public class RegistryFileCommand implements Callable<Integer>, PoreloFactory.Con
             final String text = source == null ? "" : read(source);
             final String origin = String.valueOf(source == null ? "" : source.getFileName());
             final RegistryState state =
-                    RegistryReadCommand.read(
-                                    java.util.Objects.requireNonNull(
-                                            context, "picocli's factory sets the context"),
-                                    runner,
-                                    checkout,
-                                    forges,
-                                    spec.commandLine().getErr())
-                            .state();
+                    walked(
+                            java.util.Objects.requireNonNull(
+                                    context, "picocli's factory sets the context"),
+                            runner,
+                            checkout,
+                            forges,
+                            spec.commandLine().getErr());
             afterRead.run();
             final String head = readHead(state);
             filing =
@@ -1218,5 +1217,24 @@ public class RegistryFileCommand implements Callable<Integer>, PoreloFactory.Con
         err.println("porelo: " + RegistryVerifyCommand.printable(String.valueOf(message)));
         err.flush();
         return code;
+    }
+
+    /**
+     * Reads a checkout as {@code registry read} does, answering the state as it is kept, which what
+     * writes to the repository works from until its writes move behind the organization's API.
+     */
+    static RegistryState walked(
+            final PoreloContext context,
+            final CommandRunner runner,
+            final Path checkout,
+            final RegistryReadCommand.Forges forges,
+            final java.io.PrintWriter err)
+            throws IOException {
+        final RegistryReadCommand.Opened opened =
+                RegistryReadCommand.open(context, runner, checkout, forges, err);
+        final RegistryState state = opened.store().walk(opened.identities());
+        RegistryReadCommand.warn(
+                org.fuin.porelo.organization.git.GitOrganizationStore.organization(state), err);
+        return state;
     }
 }

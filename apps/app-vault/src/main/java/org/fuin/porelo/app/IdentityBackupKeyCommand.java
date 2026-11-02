@@ -268,13 +268,12 @@ public class IdentityBackupKeyCommand implements Callable<Integer>, PoreloFactor
             }
             // The checkout as it is now, never the trust record of an earlier read.
             final RegistryState state =
-                    RegistryReadCommand.read(
-                                    machine,
-                                    machine.runner(),
-                                    registry.known().checkout(),
-                                    forges,
-                                    spec.commandLine().getErr())
-                            .state();
+                    RegistryFileCommand.walked(
+                            machine,
+                            machine.runner(),
+                            registry.known().checkout(),
+                            forges,
+                            spec.commandLine().getErr());
             final List<RegistryState.Owner> entries = inScope(state);
             return use == null
                     ? make(machine, registry, state, entries, own, head)
