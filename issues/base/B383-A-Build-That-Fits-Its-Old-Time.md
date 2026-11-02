@@ -2,9 +2,8 @@
 
 **Status:** Analyzed.
 **Severity:** medium.
-**Size:** M - several test modules (`apps/app`, `daemon`, `agents/stub`, `vault` fixtures) and one seam, a real run
-of the Build to measure each step; no contract other repositories read. It becomes S if the operator rules out the
-seam in `VaultFile` (open question) and only fixtures and waits are cut.
+**Size:** S - fixtures and waits in several test modules (`apps/app`, `daemon`, `agents/stub`), and a real run of the Build
+to measure each step; no contract other repositories read, and `VaultFile` is not touched.
 
 **What must be true.** The Build's `mvnw verify` takes about as long as it used to, not three times
 as long. On 2026-10-31 it took 18 minutes (Build 41253673912, 23:43:26 to 00:01:41), where the build job's comment
@@ -35,10 +34,8 @@ about 0.15-0.3 s a derive, measured) in every vault write and open of a fixture;
    `@BeforeAll` and copied per test; `ssh-agent`, `git` and the signed commits stay real. The vault fixtures of
    `TransportConversationsTest`, `MachineTransportsTest`, `MessagingMethodsTest`, `BuildStatusCommandTest` the same
    way: one vault file written per class, copied per test.
-4. **Argon2 at a lower cost in fixtures** only if step 1 shows the derives still dominate after step 3 and the operator
-   allows the seam: `VaultFile` gets a package-visible way to write a given cost, used by a test helper in the
-   fixtures named above, never by `VaultFileTest`, `VaultClearingTest`, `VaultRenew*` or any test of the keyring or the
-   passphrase, which keep the production cost.
+4. **Argon2 keeps its production cost everywhere:** `VaultFile` gets no way to write a cheaper one. A target of about 12
+   minutes is what fixtures and waits can reach; 5.5 is not reachable without parallel tests, which these do not allow today.
 5. **Do not touch:** the signature, backup-key, access and registry-history tests with real `git`/`ssh-keygen`, the
    second JVM in `VaultFileTest`, the real credential helper in `RegistryJoinableCommandTest`, the `sleep` helper
    process rows, the keyring rows.
@@ -59,16 +56,6 @@ about 0.15-0.3 s a derive, measured) in every vault write and open of a fixture;
   the wait, not the subject.
 - Every test that gives up a real wait is seen to fail first against a loop or an agent that never ends/serves.
 - The number of tests run is the same (504 classes, same count of tests per class) before and after.
-
-## Open questions
-
-- May `VaultFile` carry a seam to write a cost other than the production one, for fixtures only? It is the only way to
-  cut Argon2 below one derive per write and per open, and it puts a cheap-cost writer into the class that guards the
-  vault. The plan builds it last and only if the cheaper steps are not enough; say no and the issue is S.
-- What is the target? The issue says "about as long as it used to" (5.5 minutes in the job's comment); the plan reads
-  12 minutes as reachable by fixtures and waits and 5.5 minutes as not reachable without parallel test execution,
-  which these tests do not allow today (process-wide `System.setProperty`, the kernel keyring, one `ssh-agent` each).
-  Say which number is meant.
 
 ## To be checked
 

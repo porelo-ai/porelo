@@ -38,9 +38,8 @@ boundary `:`), so the record is found and the key then misses.
    `fromEnvironment` (315) and `fromVault` (330) into `helper` (414), which writes
    `"credential." + GitCredentialNames.helperScopeOf(url) + ".helper=!..."` and no longer reads `credential.match()`
    for the key. The address fetched, not the record's match, decides, so a record for the host and a fetch on its
-   port agree. The scheme in the key is the scheme of the address; whether `http://` may now be lent a token is the
-   open question below, and until it is answered the method keeps writing `https://` for an `https://` address only
-   and returns no scope for `http://` (nothing is lent, as today).
+   port agree. A token is lent over `https://` only: the method returns no scope for `http://`, so nothing is lent there,
+   as today, although `kindOf` counts `http://` as a token address.
 3. **Tests, red first**, each seen to fail before the change:
    - `FollowCredentialHelperTest` (`apps/app/src/test/.../FollowCredentialHelperTest.java`, beside
      `gitRunsTheHelperAndGetsItsToken`, 37-85): a parameterized case that opens a lease for `https://forge.example.org:8443/team/repo.git`
@@ -54,7 +53,7 @@ boundary `:`), so the record is found and the key then misses.
    - `RegistryJoinableCommandTest` (a loopback forge exists at line 789ff): a fetch from the forge on its own port with
      the address NOT rewritten, so the argument that git sees is the one Porelo built. This needs the test's runner
      (`context()`, 77-112) to leave the `-c credential...` key alone, as it does for any argument not in `rewritten`;
-     over TLS or over `http://` as the open question decides.
+     over TLS.
 4. `doc/credentials.md`: one sentence that a token is lent to the scheme, host and port of the address, and that the
    entry's name names the host only. `changelog/unreleased/` entry.
 
@@ -71,19 +70,10 @@ boundary `:`), so the record is found and the key then misses.
 - A token is not lent to another port of the same host than the one the record or the fetch names: a lease for
   `https://forge.example:8443/...` answers nothing for `host=forge.example:9443`.
 
-## Open questions
-
-- May a vault token be lent over plain `http://`? The helper's key is written `https://` today, so no token is lent to
-  an `http://` address (measured: git does not match it), although `kindOf` counts `http://` as a token address.
-  Keying by the address's own scheme would lend it, in clear text, to whatever `http://` forge a record or the implied
-  names reach. Default in the plan: `https://` only, the loopback test over TLS. Say if `http://` to a loopback or to
-  a named host is wanted.
-
 ## To be checked
 
 - How a loopback test reaches `https://` without a process-free way to make a certificate: whether `keytool` or `openssl`
-  may be run by the test (one real process, about a second) or whether the end-to-end test is the `http://` one if
-  the question above says yes.
+  may be run by the test (one real process, about a second).
 - `RepositoryAddress.key` (`app-model/.../RepositoryAddress.java:72-90`) takes `hostOf` and drops the port, so two forges
   on one host with different ports share a key there; whether any caller can be fooled by it is not read yet and is not
   part of this issue unless it is.

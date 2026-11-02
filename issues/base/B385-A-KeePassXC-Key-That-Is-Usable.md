@@ -2,8 +2,8 @@
 
 **Status:** Analyzed.
 **Severity:** medium.
-**Size:** L - a design to decide first (how one unlock serves three or more `keepassxc-cli` commands without Porelo
-reading the master password), then `KeePassXcKey`, the three verbs, the stand-in and about a dozen tests; the
+**Size:** L - one unlock serving three or more `keepassxc-cli` commands without Porelo reading the master password, proved
+first against the real program, then `KeePassXcKey`, the three verbs, the stand-in and about a dozen tests; the
 smallest piece (typed refusals for a terminal that is not the person's) is S on its own.
 
 **What must be true.** `identity create`, `identity rotate` and `identity revoke --lost` with `--keepassxc DATABASE`
@@ -46,15 +46,12 @@ The terminal is judged by file descriptor 0 only (`StandardInput.java:45-52`), w
    Tests: `IdentityKeePassXcTest` gets one test per refusal, run through the stand-in with the context's input a terminal and
    `terminalOut` a regular file, and with a terminal owned by another user (a fake `StandardInput`), each seen to fail
    first (today the stand-in is run and the answer is not a refusal).
-2. **One master password per create (design to decide first).** Candidates, from the measurement: (a) `keepassxc-cli open DB`
+2. **One master password per create.** `keepassxc-cli open DB`
    as one process fed `add`, `attachment-import` with the key on descriptor 3 and the settings on descriptor 4, and `exit`
    from a pipe, the password from the terminal; works with a pause between the password and the commands (measured), so
-   the wrapper must first let `keepassxc-cli` read the password from the terminal and only then feed the commands; (b) the
-   wrapper shell reads the password (`stty -echo; read -r`) once and hands it to each of the three runs on a pipe: the
-   password then lives in a helper shell for the length of the command, which breaks "Porelo never sees the password"
-   (`KeePassXcKey.java:30`); (c) keep three prompts and say so. The plan is (a), proved first by a spike against the real
-   `keepassxc-cli` in a pseudo-terminal (`script`), and falls to the open question if no way that does not depend on timing
-   is found. In every case the stand-in counts its prompts (one per invocation of `keepassxc-cli` that reads the terminal path).
+   the wrapper must first let `keepassxc-cli` read the password from the terminal and only then feed the commands. Porelo
+   never sees the password (`KeePassXcKey.java:30`). This is proved first by a spike against the real `keepassxc-cli` in a
+   pseudo-terminal (`script`). If no way that does not depend on timing is found, three prompts stay and the answer says so. In every case the stand-in counts its prompts (one per invocation of `keepassxc-cli` that reads the terminal path).
 3. **A retry takes the key already made.** Before a key is generated, `make` looks for the entry named by `--entry` (an
    entry is named by the first answer's `entry`, which `key-not-served` already carries): with `attachment-export DB ENTRY
    id_ed25519 --stdout` it reads the key back, parses it (`OpenSshPrivateKey`, vault module), and takes its fingerprint
@@ -64,14 +61,14 @@ The terminal is judged by file descriptor 0 only (`StandardInput.java:45-52`), w
    retry (it names it already), and the three verbs do the same. The key read back is held in memory as it was at
    generation and cleared the same way (`Arrays.fill`).
 4. **No orphan entry.** In `handOver` (187-250) an attachment that is refused removes the entry again, in the same unlocked
-   session as step 2 if that is built (a second `rm` is needed for the recycle bin, whose name depends on the database's
-   language, measured: `Papierkorb`/`Recycle Bin`; the group is found from `ls -R` or the entry is deleted from within
-   `open`). The answer says what is left: "removed", "in the recycle bin as <group>/<entry> with the key attached" (the key
-   is then in the database's recycle bin, which must be said), or "not removed: remove <entry> in KeePassXC". Test with a
+   session as step 2 if that is built, with one `rm`: KeePassXC moves it to the database's recycle bin, and no second `rm`
+   follows, since that one depends on the database's language. The private key stays there until the person empties the bin,
+   and the answer says so: "in the recycle bin as <group>/<entry> with the private key attached, until you empty it", "removed"
+   for a database with no bin, or "not removed: remove <entry> in KeePassXC". Test with a
    stand-in mode that refuses the second `attachment-import`, seen to fail first (today the entry stays and the words only
    say to remove it).
 5. **A person who never types the password.** The `keepassxc-cli` runs through the wrapper get their own bound (the
-   default ten-minute kill is `ProcessCommandRunner`'s), e.g. 120 s per prompt, and a timeout is answered as a typed refusal
+   default ten-minute kill is `ProcessCommandRunner`'s), 120 s per prompt, and a timeout is answered as a typed refusal
    `no-password` "the master password was not typed in 120 s; nothing was kept" -- not as exit 127 (today
    `CommandException` is mapped to 127 = `key-store-missing`, `KeePassXcKey.java:273-275`, which would blame a missing
    program). With neither an agent nor a terminal the answer is `no-terminal` before the agent is asked (the order at
@@ -115,26 +112,12 @@ keeps its edits in those files to the lines named above.
   run's, and the stand-in saw exactly one `add`.
 - The stand-in's check that no file holds the key runs while the key exists: a test that writes the key to a temporary file
   and deletes it before `attachment-import` makes the check fail.
-- Against the real `keepassxc-cli` 2.7.10 in a pseudo-terminal (not only the stand-in), one create asks the password once
-  if step 2 is built as (a) or (b); if (c) is chosen, three, and the answer says so.
-
-## Open questions
-
-- How may one unlock serve a whole create? (a) `keepassxc-cli open` fed by Porelo after the person typed the password at
-  `keepassxc-cli`'s own prompt: Porelo never sees the password, but the commands must be sent after the program has read it,
-  and `open` reads its standard input as commands, so the timing has to be handled (measured: commands sent at once with the
-  password are lost; with a pause they run). (b) A helper shell reads the password once and feeds each run: one prompt and no
-  timing, but the master password passes through a process Porelo started, which the code comment says it never does.
-  (c) Three prompts stay and the answer says so. Plan: (a), with (c) as the fall-back; say if (b) is acceptable.
-- May a key that Porelo made for an entry it then removes stay in the database's recycle bin? KeePassXC's `rm` moves an
-  entry there first (measured); removing it for good takes a second `rm` in the language of the database. Plan: remove for
-  good, and say so; say if the recycle bin copy is acceptable, because it holds the private key until the person empties it.
-- What bound is a master password to be waited for? The default kill is ten minutes; the plan says 120 s per prompt. A person
-  with a hardware key (`--yubikey`) or a slow disk may need longer.
+- Against the real `keepassxc-cli` 2.7.10 in a pseudo-terminal (not only the stand-in), one create asks the password once;
+  where the fall-back holds, three times, and the answer says so.
 
 ## To be checked
 
-- A spike of step 2(a) in a pseudo-terminal against the real `keepassxc-cli` 2.7.10 (`script -qec`): whether the prompt for
+- A spike of step 2 in a pseudo-terminal against the real `keepassxc-cli` 2.7.10 (`script -qec`): whether the prompt for
   the password can be left to `keepassxc-cli` and the commands sent after it without a fixed pause (for instance by waiting
   for the `DATABASE>` prompt on its output). Not established; the piped measurement here had no terminal.
 - What `hidepid` does to `/proc/self/fd/0` of the process itself (a process may read its own `/proc/<pid>/fd` under

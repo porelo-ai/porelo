@@ -1,6 +1,6 @@
 # B392 — Checks Every Organization Adapter Passes
 
-**Status:** Backlog; blocked by [B391](README.md#b391).
+**Status:** Backlog.
 **Size:** M - one module of checks over the API, a fixture for the Git adapter, and a broken adapter per requirement to
 show each check fails.
 
