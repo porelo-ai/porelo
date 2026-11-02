@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>org.fuin.porelo</groupId>
+        <artifactId>porelo-apps</artifactId>
+        <version>0.5.1-SNAPSHOT</version>
+    </parent>
+
+    <artifactId>porelo-app-organization</artifactId>
+    <name>Porelo App - Organization</name>
+    <description>Porelo - the command line's organization area: what `porelo org` and a project's new verbs answer. Its place among the
+        areas is its dependencies: an area that is not one of them cannot be reached from here, and the build says so.</description>
+
+    <dependencies>
+
+        <dependency>
+            <groupId>org.fuin.porelo</groupId>
+            <artifactId>porelo-app-base</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.fuin.porelo</groupId>
+            <artifactId>porelo-app-model</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.fuin.porelo</groupId>
+            <artifactId>porelo-organization-api</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.fuin.porelo</groupId>
+            <artifactId>porelo-organization-git-tree</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>info.picocli</groupId>
+            <artifactId>picocli</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>info.picocli</groupId>
+            <artifactId>picocli-codegen</artifactId>
+            <scope>provided</scope>
+        </dependency>
+
+    </dependencies>
+
+    <build>
+        <plugins>
+            <!-- Each module with commands generates its own picocli reflection metadata; without it the JVM tests
+                 pass and only the native binary fails. -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <configuration>
+                    <annotationProcessorPaths>
+                        <path>
+                            <groupId>info.picocli</groupId>
+                            <artifactId>picocli-codegen</artifactId>
+                            <version>${picocli.version}</version>
+                        </path>
+                    </annotationProcessorPaths>
+                    <compilerArgs>
+                        <arg>-Aproject=${project.groupId}/${project.artifactId}</arg>
+                    </compilerArgs>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+
+</project>

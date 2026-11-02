@@ -54,6 +54,9 @@ public record HostCard(
         String body,
         String signature) {
 
+    /** The port of a service this host does not offer: no port, since none is 0 on a card. */
+    public static final int NO_SERVICE = 0;
+
     private static final String BEGIN = "-----BEGIN SSH SIGNATURE-----";
 
     private static final String END = "-----END SSH SIGNATURE-----";
@@ -67,14 +70,15 @@ public record HostCard(
                     "services.matrix", Set.of("port"));
 
     private static final List<String> REQUIRED =
-            List.of(
-                    "host",
-                    "address",
-                    "ssh_port",
-                    "ssh_host_key",
-                    "services.forge.web_port",
-                    "services.forge.git_port",
-                    "services.matrix.port");
+            List.of("host", "address", "ssh_port", "ssh_host_key");
+
+    /** A service's fields, either all on the card or none: half a service reaches nothing. */
+    private static final Map<String, List<String>> SERVICES =
+            Map.of(
+                    "services.forge",
+                    List.of("services.forge.web_port", "services.forge.git_port"),
+                    "services.matrix",
+                    List.of("services.matrix.port"));
 
     /**
      * A host's name: one lower-case DNS label, as a host name and a Matrix server name carry it.
@@ -122,6 +126,16 @@ public record HostCard(
                 throw new CardException(origin + ": '" + field + "' is missing");
             }
         }
+        for (final Map.Entry<String, List<String>> service : SERVICES.entrySet()) {
+            final boolean named =
+                    fields.containsKey(service.getKey())
+                            || service.getValue().stream().anyMatch(fields::containsKey);
+            for (final String field : service.getValue()) {
+                if (named && fields.getOrDefault(field, NONE).value().isBlank()) {
+                    throw new CardException(origin + ": '" + field + "' is missing");
+                }
+            }
+        }
         // A person's machine writes these into its ssh configuration a line at a time.
         for (final Map.Entry<String, Scalar> field : fields.entrySet()) {
             if (field.getValue().value().chars().anyMatch(Character::isISOControl)) {
@@ -152,9 +166,9 @@ public record HostCard(
                 address,
                 port(fields, "ssh_port", origin),
                 hostKey,
-                port(fields, "services.forge.web_port", origin),
-                port(fields, "services.forge.git_port", origin),
-                port(fields, "services.matrix.port", origin),
+                servicePort(fields, "services.forge.web_port", origin),
+                servicePort(fields, "services.forge.git_port", origin),
+                servicePort(fields, "services.matrix.port", origin),
                 body,
                 block(text.substring(start), origin));
     }
@@ -183,17 +197,32 @@ public record HostCard(
             final int forgeGitPort,
             final int matrixPort,
             final AgentKey key) {
+        final String services =
+                "services:\n" + forge(forgeWebPort, forgeGitPort) + matrix(matrixPort);
+        return signed(host, address, sshPort, sshHostKey, services, key);
+    }
+
+    private static String forge(final int webPort, final int gitPort) {
+        return "  forge:\n    web_port: " + webPort + "\n    git_port: " + gitPort + "\n";
+    }
+
+    private static String matrix(final int port) {
+        return "  matrix:\n    port: " + port + "\n";
+    }
+
+    private static String signed(
+            final String host,
+            final String address,
+            final int sshPort,
+            final String sshHostKey,
+            final String services,
+            final AgentKey key) {
         final StringBuilder body = new StringBuilder();
         body.append("host: ").append(quoted(host)).append('\n');
         body.append("address: ").append(quoted(address)).append('\n');
         body.append("ssh_port: ").append(sshPort).append('\n');
         body.append("ssh_host_key: ").append(quoted(sshHostKey)).append('\n');
-        body.append("services:\n");
-        body.append("  forge:\n");
-        body.append("    web_port: ").append(forgeWebPort).append('\n');
-        body.append("    git_port: ").append(forgeGitPort).append('\n');
-        body.append("  matrix:\n");
-        body.append("    port: ").append(matrixPort).append('\n');
+        body.append(services);
         final String file =
                 body
                         + SshSignature.sign(
@@ -203,6 +232,39 @@ public record HostCard(
         // Read back, so a card this writes is one this reads: a port out of range is refused here.
         read(file, "the host card for " + printable(host));
         return file;
+    }
+
+    /**
+     * Writes a card on which a service may be off.
+     *
+     * @param host The host's name.
+     * @param address Where it is reached.
+     * @param sshPort The port its ssh listens on.
+     * @param sshHostKey The key its ssh answers with, {@code ssh-ed25519 AAAA...}, with no comment.
+     * @param forgeWebPort The port of the forge's web interface, or {@link #NO_SERVICE}.
+     * @param forgeGitPort The port of the forge's git over ssh, or {@link #NO_SERVICE}.
+     * @param matrixPort The port of its Matrix server, or {@link #NO_SERVICE}.
+     * @param key The host admin's key, which signs.
+     * @return The file's content.
+     * @throws CardException If a forge has one port and not the other.
+     * @throws VaultException If the key is no Ed25519 key or an agent does not sign.
+     */
+    public static String writeOffered(
+            final String host,
+            final String address,
+            final int sshPort,
+            final String sshHostKey,
+            final int forgeWebPort,
+            final int forgeGitPort,
+            final int matrixPort,
+            final AgentKey key) {
+        final boolean forge = forgeWebPort != NO_SERVICE || forgeGitPort != NO_SERVICE;
+        final boolean matrix = matrixPort != NO_SERVICE;
+        final String services =
+                (forge || matrix ? "services:\n" : "")
+                        + (forge ? forge(forgeWebPort, forgeGitPort) : "")
+                        + (matrix ? matrix(matrixPort) : "");
+        return signed(host, address, sshPort, sshHostKey, services, key);
     }
 
     /**
@@ -257,6 +319,11 @@ public record HostCard(
         } catch (final NoSuchAlgorithmException ex) {
             throw new IllegalStateException("SHA-256 is not available", ex);
         }
+    }
+
+    private static int servicePort(
+            final Map<String, Scalar> fields, final String field, final String origin) {
+        return fields.containsKey(field) ? port(fields, field, origin) : NO_SERVICE;
     }
 
     private static int port(
@@ -498,9 +565,11 @@ public record HostCard(
                 fields.put(named, scalar(value, origin));
                 at += 2;
             } else if (opens(value, origin)) {
+                fields.put(named, NONE);
                 at = mapping(events, at + 2, named, origin, fields);
             } else if (scalar(value, origin).equals(NONE)) {
                 // Nothing where a mapping belongs holds no field, so the one missing is named.
+                fields.put(named, NONE);
                 at += 2;
             } else {
                 throw new CardException(origin + ": '" + named + "' is not a mapping");

@@ -1,0 +1,2 @@
+title: "A host's card may leave a service out: a card without `forge` or `matrix` reads, and a service named with a port missing is still refused"
+type: changed

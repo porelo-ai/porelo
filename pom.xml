@@ -260,6 +260,12 @@
 
             <dependency>
                 <groupId>org.fuin.porelo</groupId>
+                <artifactId>porelo-organization-git-tree</artifactId>
+                <version>${porelo.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.fuin.porelo</groupId>
                 <artifactId>porelo-gate</artifactId>
                 <version>${porelo.version}</version>
             </dependency>
@@ -313,6 +319,12 @@
             <dependency>
                 <groupId>org.fuin.porelo</groupId>
                 <artifactId>porelo-app-vault</artifactId>
+                <version>${porelo.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.fuin.porelo</groupId>
+                <artifactId>porelo-app-organization</artifactId>
                 <version>${porelo.version}</version>
             </dependency>
 
