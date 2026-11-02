@@ -635,4 +635,47 @@ class ProjectFileTest {
                 .as("an older file in another repository goes back from nothing")
                 .isEqualTo(ProjectFile.READ);
     }
+
+    @Test
+    void aKeyFileThatDoesNotOpenIsNoKey() throws Exception {
+        final Path locked = dir.resolve("locked");
+        runner.runOrFail(
+                Command.of(
+                        "ssh-keygen",
+                        "-q",
+                        "-t",
+                        "ed25519",
+                        "-N",
+                        "secret",
+                        "-f",
+                        locked.toString()));
+        final String key =
+                Files.readString(dir.resolve("locked.pub")).strip().replaceAll(" [^ ]*$", "");
+        final List<SigningKey> theirs =
+                List.of(
+                        row("alice", "admin"),
+                        new SigningKey(
+                                "locked",
+                                "admin",
+                                key,
+                                LocalDate.of(2000, 1, 1),
+                                LocalDate.of(2999, 1, 1),
+                                null));
+        final ProjectFile file =
+                new ProjectFile(
+                        runner,
+                        FetchAccess.NONE,
+                        new CommitSigning(Map.of(), Map.of(key, locked)),
+                        dir.resolve("memory"));
+
+        refusedAs(
+                Refused.NO_KEY,
+                () ->
+                        file.add(
+                                new Change(new Acting("locked", key), null, "one"),
+                                repo.toString(),
+                                theirs,
+                                "app",
+                                UPSTREAM));
+    }
 }
