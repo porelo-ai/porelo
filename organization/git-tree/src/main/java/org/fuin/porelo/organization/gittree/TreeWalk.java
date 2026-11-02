@@ -73,6 +73,9 @@ final class TreeWalk {
     /** The judged paths of the commit being judged. */
     private List<String> touched = List.of();
 
+    /** Why the last founding failed on its key; what a walk that ends with no owners answers. */
+    private @Nullable String lostFounder;
+
     /** Why one path of one commit is refused. */
     private static final class Refused extends Exception {
         private static final long serialVersionUID = 1L;
@@ -113,6 +116,7 @@ final class TreeWalk {
     TreeRecord read(final @Nullable String revision, final @Nullable TreeRecord start)
             throws IOException {
         String reached = null;
+        boolean stopped = false;
         boolean past = start == null;
         if (start != null) {
             model = start.model().copy();
@@ -125,9 +129,18 @@ final class TreeWalk {
                 continue;
             }
             if (!commit(entry.getKey(), entry.getValue())) {
+                stopped = true;
                 break;
             }
             reached = entry.getKey();
+        }
+        if (!stopped && lostFounder != null && model.owners().isEmpty()) {
+            throw new OrganizationQuestions.Refused(
+                    OrganizationQuestions.Refused.REFUSED_STATE,
+                    lostFounder
+                            + ", so nothing in this organization can be accepted: put that key back"
+                            + " on the forge, or make a new organization",
+                    reached);
         }
         if (revision != null && !revision.equals(reached)) {
             throw new OrganizationQuestions.Refused(
@@ -388,6 +401,11 @@ final class TreeWalk {
         }
         final String state = trust(founder.login(), signer);
         if (state.equals(Organization.REFUSED)) {
+            lostFounder =
+                    "the first owners.yml is signed by "
+                            + signer
+                            + ", which the identity source does not list for "
+                            + founder.login();
             throw new Refused("no key " + signer + " is listed for " + founder.login());
         }
         if (owns.isEmpty() || state.equals(Organization.FIRST_SEEN)) {

@@ -91,7 +91,7 @@ final class TreeRepository implements AutoCloseable {
             final CommandResult fetched =
                     git(lease.environment(), arguments.toArray(String[]::new));
             if (!fetched.successful()) {
-                throw new IOException(
+                throw new GitTreeStore.Unreachable(
                         "cannot read the organization's repository: "
                                 + RegistryText.printable(fetched.standardError().strip()));
             }

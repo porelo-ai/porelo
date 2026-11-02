@@ -244,18 +244,56 @@ class GitTreeStoreTest {
     }
 
     @Test
-    void aFounderWhoseKeyIsNotTheOneListedIsNoOwner() throws Exception {
-        forge.owners.put("mia", true);
+    void aFounderWhoseKeyLeftTheForgeIsRefusedOnANewMachineNamingThatKey() throws Exception {
+        founded();
+        final String fingerprint = PersonCard.fingerprint(key("mia"));
+        assertThat(keeping().read(forge).isOrganizationOwner("mia")).as("in force").isTrue();
+
         forge.keys.put("mia", List.of(key("alice")));
+
+        assertThat(keeping().read(forge).isOrganizationOwner("mia"))
+                .as("a machine that saw it in force keeps its record")
+                .isTrue();
+        assertThatThrownBy(this::read)
+                .as("a list without the key is a plain no; answering no owners would look empty")
+                .isInstanceOfSatisfying(
+                        OrganizationQuestions.Refused.class,
+                        refused -> {
+                            assertThat(refused.reason()).isEqualTo("refused-state");
+                            assertThat(refused.getMessage()).contains(fingerprint);
+                        });
+    }
+
+    @Test
+    void aForgedFirstFileDoesNotStopTheRealFounderFromFounding() throws Exception {
+        forge.owners.put("mia", true);
+        forge.keys.put("mia", List.of(key("mia")));
+        write("owners.yml", "owners:\n  - login: mia\n    key: \"" + key("mallory") + "\"\n");
+        commit("mallory");
+        assertThatThrownBy(this::read)
+                .as("nothing is accepted yet")
+                .isInstanceOf(OrganizationQuestions.Refused.class);
+
         write("owners.yml", owners("mia"));
         commit("mia");
 
         assertThat(read().isOrganizationOwner("mia"))
-                .as("owning the organisation with another key proves nothing")
-                .isFalse();
-        assertThat(refusedPaths(read()))
-                .as("a complete list without the key is a plain no, not a question for later")
-                .containsExactly("owners.yml");
+                .as("a stranger's commit must not lock the founder out")
+                .isTrue();
+    }
+
+    @Test
+    void aFounderNobodyCanVouchForAfterAForgedFileIsNotYetARefusal() throws Exception {
+        forge.owners.put("mia", true);
+        forge.keys.put("mia", List.of(key("mia")));
+        write("owners.yml", "owners:\n  - login: mia\n    key: \"" + key("mallory") + "\"\n");
+        final String forged = commit("mallory");
+        write("owners.yml", owners("alice"));
+        commit("alice");
+
+        assertThat(read().revision())
+                .as("the next read judges alice's commit again, so nothing is lost for good yet")
+                .isEqualTo(forged);
     }
 
     @Test

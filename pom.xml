@@ -318,6 +318,12 @@
 
             <dependency>
                 <groupId>org.fuin.porelo</groupId>
+                <artifactId>porelo-app-organization</artifactId>
+                <version>${porelo.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.fuin.porelo</groupId>
                 <artifactId>porelo-app-messaging</artifactId>
                 <version>${porelo.version}</version>
             </dependency>

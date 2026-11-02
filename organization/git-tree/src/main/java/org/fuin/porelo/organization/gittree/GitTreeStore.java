@@ -32,6 +32,16 @@ import org.jspecify.annotations.Nullable;
  */
 public final class GitTreeStore {
 
+    /** The repository could not be reached: the one failure {@link #last} is an answer to. */
+    public static final class Unreachable extends IOException {
+
+        private static final long serialVersionUID = 1L;
+
+        Unreachable(final String message) {
+            super(message);
+        }
+    }
+
     private static final String RECORD = "trust-record.json";
 
     private static final Set<PosixFilePermission> NOT_OWNERS =
@@ -84,6 +94,28 @@ public final class GitTreeStore {
     }
 
     /**
+     * Opens a store at an address that names no forge, such as a directory of a test organization,
+     * saying itself what the address would say.
+     *
+     * @param runner How git runs.
+     * @param repository The repository's address.
+     * @param organisation The organisation it belongs to.
+     * @param forge The forge's host name.
+     * @param access What a fetch may use.
+     * @param state The directory the record is kept in.
+     * @return The store.
+     */
+    public static GitTreeStore at(
+            final CommandRunner runner,
+            final String repository,
+            final String organisation,
+            final String forge,
+            final FetchAccess access,
+            final Path state) {
+        return new GitTreeStore(runner, repository, organisation, forge, access, state);
+    }
+
+    /**
      * Opens a store that keeps nothing. Nothing is read yet.
      *
      * @param runner How git runs.
@@ -120,9 +152,10 @@ public final class GitTreeStore {
      *
      * @param identities Who says whose keys are whose.
      * @return The answers, at the commit the walk reached.
-     * @throws IOException When it cannot be fetched or read.
-     * @throws OrganizationException When its history proves nothing, or does not continue the
-     *     record.
+     * @throws Unreachable When it cannot be fetched.
+     * @throws IOException When it cannot be read, or the record cannot be kept.
+     * @throws OrganizationException When its history proves nothing.
+     * @throws OrganizationQuestions.Refused When it does not continue the record.
      */
     public OrganizationQuestions read(final IdentitySource identities) throws IOException {
         return walk(identities, null);

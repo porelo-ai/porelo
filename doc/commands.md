@@ -13,6 +13,7 @@ file are in [the project file](project-file.md).
 | [`host`](#host) | Opens a host vault with the person's local SSH key. |
 | [`credentials`](#credentials) | Records which credential each destination is connected to with. |
 | [`card`](#card) | Checks a person's card; makes and checks a host's. |
+| [`org`](#org) | Answers the organization: its people, projects and hosts. |
 | [`gate`](#gate) | Reviews and forwards what an agent pushed. |
 | [`commit`](#commit) | Judges the commits a push brings to a host's forge. |
 | [`talk`](#talk) | Shows and moves the messages a task exchanges with other tasks. |
@@ -586,6 +587,22 @@ fingerprints the new key's and the old one's, each contact `{"login", "name", "e
 credential: neither the checkout's credential helpers nor a forge token Porelo holds are given to it, so it works
 only where the forge takes the push without one; a registry is pushed over `ssh` with the agent.
 
+## org
+
+The organization of the new structure, from the repository `organization.yml` names; `porelo setup` writes that file. Each
+command fetches and walks what is new first. One that cannot reach the store answers the last state it trusted, with
+`"stale": true` and exit 0, or `cannot-say` (69) when it has none. No security check rests on a stale state. `--json` answers one
+object in `snake_case`, with `revision`; a refusal is one line `{"reason", "words", "revision"}` and `words` on standard error too,
+exits 64 `usage`, 65 `not-allowed` or `refused-state`, 66 `not-found`, 69 `cannot-say`, 70 `failed` and 78 `no-organization`.
+
+| Command | What it does |
+|---|---|
+| `porelo org [--json]` | Answers the organization: `name`, `kept_in`, `vouched_by`, `revision`, `stale`, `me` (`null` for a person with no card), `owners`, `people`, `projects`, `hosts`, `warnings`, `refusals`, `sole_without_backup`. `vouched` is what the identity source says now, and `cannot-say` is never read as yes. |
+| `porelo org card LOGIN [--json]` | Answers a person's card as filed, whole, with `state`. |
+| `porelo org host-card HOST [--json]` | Answers a host's card as filed, whole. |
+| `porelo org projects [--json]` | Lists the organization's projects this person is in, then those registered on this machine alone, then `default`, each with `source`, `role`, `locked`, `host` and `opened`. |
+| `porelo project show PROJECT [--json]` | Answers a project for its members, `not-allowed` for anyone else, or one registered on this machine alone, its organization fields `null`. A filed project's `repositories` are not read yet: `state` is `not-opened` or `cannot-say`, with `names` empty. |
+
 ## registry
 
 | Command | What it does |
@@ -655,6 +672,7 @@ porelo project access init|add|remove|lock|unlock --project NAME --person LOGIN 
 porelo project access replace --project NAME --person LOGIN --card FILE --base COMMIT --id ID [--json]
 porelo project refresh [NAME]
 porelo project list
+porelo project show PROJECT [--json]
 porelo project unfollow NAME [--dry-run] [--force]
 porelo project clear NAME [--yes] [--dry-run] [--force]
 porelo project default [list | add ADDRESS [--name=NAME] | remove NAME]

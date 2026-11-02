@@ -1182,6 +1182,23 @@ Ideas, not fixed one by one. **What would change the answer:** a record that cro
 does not, such as one shared between machines or people, which would then have to be signed or proven against the
 history in full.
 
+**The organization's record of the new structure is under the same answer, and checked less.** The Git adapter keeps its own
+under `$XDG_STATE_HOME/porelo/organization/`, owner-only. A tip that does not continue its commit refuses the read, and one
+that does not read, names another address or is not owner-only is discarded with a warning and the store walked afresh. Its
+fields and each card against its fingerprint are checked; the changes are not judged again from the history, so a hand-edited
+record passes more easily than today's. The exposure and the reason are the ones above: who can write that directory can
+change Porelo too. A stale answer rests on this file alone, without a fetch, so no security check may rest on one.
+
+## A founder's key that left the forge refuses the organization on a new machine
+
+The first `owners.yml` is proven by the identity source alone: it must list the founder's key. **The exposure:** when that key
+leaves the forge with no card handed on, a new machine can prove no owner, and with no owner nothing else. It answers
+`refused-state`, naming the key; it does not answer an empty organization. A machine that read it while the key was listed goes
+on from its record. A forged first file answers the same until the real founder files theirs, which still founds it.
+**Why it stays (the operator, 2026-11-02):** anything else would let somebody other than the forge's listed key found an
+organization. Recovery is the key back on the forge for the walk, or a new organization, and `org create`'s words say to keep a
+second owner or a backup key. **What would change the answer:** a root of trust that does not rest on the forge.
+
 ## A project's lock does not bind an organization owner
 
 A locked member of a project is listed but may do nothing until one of the project's admins unlocks them, and a commit of

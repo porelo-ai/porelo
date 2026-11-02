@@ -24,6 +24,7 @@
         <module>app-model</module>
         <module>app-agents</module>
         <module>app-vault</module>
+        <module>app-organization</module>
         <module>app-messaging</module>
         <module>app-egress</module>
         <module>app-task</module>

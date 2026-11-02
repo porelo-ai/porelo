@@ -23,6 +23,12 @@ public interface OrganizationQuestions {
 
         private static final long serialVersionUID = 1L;
 
+        /** This machine has no organization. */
+        public static final String NO_ORGANIZATION = "no-organization";
+
+        /** Options or arguments are wrong. */
+        public static final String USAGE = "usage";
+
         /** The acting person does not hold the role. */
         public static final String NOT_ALLOWED = "not-allowed";
 
@@ -52,6 +58,9 @@ public interface OrganizationQuestions {
 
         /** No such person, project or host. */
         public static final String NOT_FOUND = "not-found";
+
+        /** The project has no address yet. */
+        public static final String NOT_OPENED = "not-opened";
 
         /** The organization's repository does not exist. */
         public static final String NO_REPOSITORY = "no-repository";
