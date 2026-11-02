@@ -57,6 +57,8 @@ public class OrgCreateCommand extends OrgReading {
         final OrganizationWrites.Written written;
         try {
             written = opened.writes().createOrganization(change, card);
+        } catch (Refused ex) {
+            throw needingToken(machine, settable, ex);
         } catch (GitTreeStore.Unreachable ex) {
             throw new Refused(
                     Refused.CANNOT_SAY,
@@ -73,6 +75,23 @@ public class OrgCreateCommand extends OrgReading {
         answer.put("of", "organization");
         answer.put("address", RegistryOrigin.withoutUserinfo(settable));
         return answer;
+    }
+
+    /** The founder's ownership is the forge's to say, and it says so only to a token. */
+    private static Refused needingToken(
+            final PoreloContext machine, final String address, final Refused refused) {
+        final RegistryOrigin origin = RegistryOrigin.of(address);
+        if (!Refused.CANNOT_SAY.equals(refused.reason())
+                || OrgForgeToken.of(machine, origin) != null) {
+            return refused;
+        }
+        return new Refused(
+                Refused.CANNOT_SAY,
+                "the forge must say that you own this organization, and that takes a token:"
+                        + " porelo credentials declare "
+                        + origin.forge()
+                        + " --kind token --vault NAME, porelo vault put NAME, then ask again",
+                refused.revision());
     }
 
     @Override

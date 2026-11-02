@@ -784,6 +784,27 @@ class OrgReadingCommandsTest {
     }
 
     @Test
+    void setupOfAnEmptyRepositorySaysSoAndWritesNothing() throws Exception {
+        final Path empty = dir.resolve("empty.git");
+        assertThat(
+                        new ProcessBuilder("git", "init", "-q", "--bare", empty.toString())
+                                .start()
+                                .waitFor())
+                .isZero();
+        address = empty.toString();
+
+        assertThat(setup("setup", "--organization", NAMED, "--json")).isEqualTo(69);
+
+        assertThat(answer().get("words"))
+                .as("it was reached, and sent looking for a network fault nobody finds it")
+                .asString()
+                .contains("empty")
+                .contains("porelo org create")
+                .doesNotContain("cannot be reached");
+        assertThat(settings()).doesNotExist();
+    }
+
+    @Test
     void aSecondOrganizationTakesReplaceAndTheSameOneIsAskedAgainFreely() throws Exception {
         organizationYml(ORGANIZATION_YML);
         final String other = "git@github.com:other/organization.git";

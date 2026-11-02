@@ -527,6 +527,41 @@ class OrgWritingCommandsTest {
     }
 
     @Test
+    void creatingWithNoTokenSaysToDeclareOneAndHow() throws Exception {
+        ownCard();
+        refusing = new Refused(Refused.CANNOT_SAY, "could not say enough", null);
+
+        assertThat(run("org", "create", ADDRESS, "--json")).isEqualTo(69);
+
+        assertThat(answer().get("words"))
+                .as("the forge is asked who owns it with a token, and none is declared")
+                .asString()
+                .contains("porelo credentials declare https://github.com --kind token");
+    }
+
+    @Test
+    void creatingWithATokenKeepsWhatTheStoreSaid() throws Exception {
+        ownCard();
+        final Path token = dir.resolve("token");
+        Files.writeString(token, "tok");
+        final Path declared = context().paths().vault().credentialRegistry();
+        Files.createDirectories(declared.getParent());
+        Files.writeString(
+                declared,
+                "credentials:\n  - match: https://github.com\n    kind: token\n"
+                        + "    source: file\n    file: "
+                        + token
+                        + "\n");
+        refusing = new Refused(Refused.CANNOT_SAY, "could not say enough", null);
+
+        assertThat(run("org", "create", ADDRESS, "--json")).isEqualTo(69);
+
+        assertThat(answer().get("words"))
+                .as("declaring a token again would not help someone who has one")
+                .isEqualTo("could not say enough");
+    }
+
+    @Test
     void creatingSaysToKeepASecondOwnerOrABackupKey() throws Exception {
         ownCard();
 

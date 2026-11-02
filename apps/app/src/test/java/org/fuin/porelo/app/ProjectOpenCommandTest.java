@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.sun.net.httpserver.HttpServer;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.net.InetSocketAddress;
@@ -38,6 +39,7 @@ import org.fuin.porelo.organization.gittree.ProjectFile;
 import org.fuin.porelo.vault.PersonCard;
 import org.fuin.porelo.vault.SigningKey;
 import org.fuin.porelo.wire.Json;
+import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
@@ -57,6 +59,8 @@ class ProjectOpenCommandTest {
         private HttpServer server;
 
         private int status = 201;
+
+        private @Nullable String answering;
 
         private final List<String> requests = new ArrayList<>();
 
@@ -81,7 +85,11 @@ class ProjectOpenCommandTest {
                         tokens.add(
                                 String.valueOf(
                                         exchange.getRequestHeaders().getFirst("Authorization")));
-                        final byte[] answer = "{}".getBytes(StandardCharsets.UTF_8);
+                        final byte[] answer =
+                                (answering != null
+                                                ? answering
+                                                : recorded(exchange.getRequestURI().getPath()))
+                                        .getBytes(StandardCharsets.UTF_8);
                         exchange.getResponseHeaders().add("Content-Type", "application/json");
                         exchange.sendResponseHeaders(status, answer.length);
                         exchange.getResponseBody().write(answer);
@@ -93,6 +101,16 @@ class ProjectOpenCommandTest {
         @AfterEach
         void gone() {
             server.stop(0);
+        }
+
+        /** What the forge really answers on making a repository, whole. */
+        private static String recorded(final String path) throws IOException {
+            final String forge = path.startsWith("/api/v1/") ? "forgejo" : "github";
+            try (InputStream recording =
+                    ProjectOpenCommandTest.class.getResourceAsStream(
+                            "/forge-answers/" + forge + "-create-repository.json")) {
+                return new String(recording.readAllBytes(), StandardCharsets.UTF_8);
+            }
         }
 
         private URI base() {
@@ -136,6 +154,26 @@ class ProjectOpenCommandTest {
                 assertThatThrownBy(() -> maker().make(forge, "tok", "acme", "demo"))
                         .isInstanceOfSatisfying(
                                 Refused.class, ex -> assertThat(ex.reason()).isEqualTo(reason));
+            }
+        }
+
+        @Test
+        void anAnswerNoRecordCanBeReadFromIsNotTakenForMade() {
+            // Counted as made, a type the native image lacks would go unseen until the first
+            // commit met a repository that may not be there.
+            answering = "not a repository";
+            for (final URI forge : List.of(URI.create("https://github.com"), base())) {
+                assertThatThrownBy(() -> maker().make(forge, "tok", "acme", "demo"))
+                        .isInstanceOfSatisfying(
+                                Refused.class,
+                                ex -> {
+                                    assertThat(ex.reason()).isEqualTo(Refused.CANNOT_SAY);
+                                    assertThat(ex.getMessage())
+                                            .as("it did answer, and asking again is safe")
+                                            .contains("cannot read")
+                                            .contains("ask again")
+                                            .doesNotContain("did not answer");
+                                });
             }
         }
 

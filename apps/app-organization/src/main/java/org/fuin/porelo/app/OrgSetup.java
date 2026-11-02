@@ -182,6 +182,11 @@ public final class OrgSetup {
         final OrgAccess.Opened opened = opener.open(machine, named);
         try {
             return opened.store().read(opened.identities());
+        } catch (GitTreeStore.Empty ex) {
+            throw new Refused(
+                    Refused.CANNOT_SAY,
+                    "that repository is empty: its first owner fills it with porelo org create",
+                    null);
         } catch (GitTreeStore.Unreachable ex) {
             throw new Refused(Refused.CANNOT_SAY, "the organization cannot be reached", null);
         } catch (CommandException ex) {
