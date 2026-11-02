@@ -1,0 +1,2 @@
+title: "The daemon's `Tasks1` loses `Follow`, `Unfollow`, `Following`, `RefreshProjects` and `CreateRoom`: once only, against its rule that it only grows, since they served only what the rebuild removes and were never released"
+type: removed

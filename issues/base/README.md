@@ -134,6 +134,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b402"></a>[B402](B402-A-Clients-Prepare-Reads-The-Organization-As-The-Command-Line-Does.md) | - | - | A client's `Prepare` of an organization's project reads it as `porelo task prepare` does, not only what the last start placed |
 | <a id="b400"></a>[B400](B400-A-Revoked-Key-Stops-Certifying-Off-A-Host-Before-A-Start.md) | - | - | Off a host, a key revoked in the organization stops being believed as a certifier of messages soon after, not only at the project's next start |
 | <a id="b397"></a>[B397](B397-A-Plain-Git-Credential-Goes-To-Any-Host-A-Project-Names.md) | - | - | A plain `git.token` or `git.ssh` reaches only a host the person meant it for, not whatever host a project's file names. |
 | <a id="b401"></a>[B401](B401-What-The-Write-Contract-Does-Not-Yet-Hold.md) | - | - | What a store could do and still pass the write contract: five operations no check calls, the source's silence, the last admin, backups and reasons never asserted |

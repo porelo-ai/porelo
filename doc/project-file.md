@@ -348,12 +348,17 @@ image:
 
 **A project of an organization is read at each start, and at nothing else.** `porelo task start` asks the
 organization for the project's repository and for the keys of the people in it, fetches that repository, and judges
-the newest change to `project.yml` and to each `snippet_file` it names: each commit must be signed by the key of a person
-with the project's admin role, valid at that commit's date. A file naming another project than the one asked for is refused. What passes is placed on this machine, at the commit judged, never at the tip, and a
+the newest change to `project.yml`: its commit must be signed by the key of a person with the project's admin role,
+valid at that commit's date. A file it names is not judged, as [the decision](decisions.md#a-projects-own-file-is-judged-by-its-newest-change-alone)
+says. A file naming another project than the one asked for is refused. What passes is placed on this machine, at the commit judged, never at the tip, and a
 push between the judging and the fetch changes nothing. A task's settings stay what its start placed: what runs, a
 gate and a listing read that, and a change in the repository waits for the next start.
 The daemon's `CanStart` is asked at every change in a dialog, so it reads only for a project not on this machine yet, and
 the start has the last word.
+
+**A start through the daemon reads with the daemon's environment, which holds no agent of the person's.** A project in an
+organization read by ssh with a key only in the person's own agent answers 69 `cannot-say` there, and goes from the command
+line. A token, or a key in the vault or a file, works for both.
 
 | A start | Exit | `reason` | Because |
 |---|---|---|---|

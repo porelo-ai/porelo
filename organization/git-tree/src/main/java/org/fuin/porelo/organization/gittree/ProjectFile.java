@@ -11,11 +11,9 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 import java.util.function.UnaryOperator;
 import org.fuin.porelo.core.process.CommandException;
 import org.fuin.porelo.core.process.CommandRunner;
@@ -148,24 +146,7 @@ public final class ProjectFile {
                                 + accepted
                                 + ": an admin signs it anew");
             }
-            final Set<String> named = new LinkedHashSet<>();
-            final Project project =
-                    parsed(clone.text(blob.orElseThrow()), inClone(clone, tip, named));
-            for (final String each : named) {
-                final Optional<String> changed = newestChange(clone, each);
-                if (changed.isPresent()
-                        && !anAdminsKey(
-                                clone.signer(changed.orElseThrow()),
-                                keys,
-                                clone.dated(changed.orElseThrow()))) {
-                    return refused(
-                            each
-                                    + ", which project.yml names, was changed by "
-                                    + changed.orElseThrow()
-                                    + ", not signed by the key of an admin of this project now: an"
-                                    + " admin signs it anew");
-                }
-            }
+            final Project project = parsed(clone.text(blob.orElseThrow()), inClone(clone, tip));
             final Read read = new Read(READ, tip, project, null);
             remember(address, dated);
             return read;
@@ -216,9 +197,8 @@ public final class ProjectFile {
         return ProjectReader.read(new StringReader(text), PATH, snippets);
     }
 
-    /** Reads what the file names from the commit judged, noting it: it is judged as the file is. */
-    private static SnippetFiles inClone(
-            final TreeRepository clone, final String tip, final Set<String> named) {
+    /** Reads what the file names from that commit: the caller's directory has no part in it. */
+    private static SnippetFiles inClone(final TreeRepository clone, final String tip) {
         return (path, origin) -> {
             final Path normal = Path.of(path).normalize();
             if (normal.isAbsolute() || normal.startsWith("..")) {
@@ -228,7 +208,6 @@ public final class ProjectFile {
             if (object.isEmpty()) {
                 throw new ProjectException(origin + ": no such snippet file");
             }
-            named.add(normal.toString());
             return clone.text(object.orElseThrow());
         };
     }

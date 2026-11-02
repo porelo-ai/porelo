@@ -365,12 +365,14 @@ class ProjectTakingTest {
     }
 
     @Test
-    void a_snippet_file_changed_by_a_writer_alone_changes_no_image() throws Exception {
+    void a_snippet_file_is_not_judged_as_decided() throws Exception {
         snippet("michael", "RUN true\n");
-        // The file naming it stays what the admin signed: the image is what would change.
-        snippet("alice", "RUN evil\n");
+        snippet("alice", "RUN another\n");
 
-        refused(65, "refused-state");
+        taking().taken("demo");
+
+        assertThat(ProjectSource.resolve(context, "demo").file().resolveSibling("Containerfile"))
+                .hasContent("RUN another\n");
     }
 
     @Test
