@@ -5,3 +5,4 @@ is the adapter's, which guarantees the security itself. The command line still c
 
 - [api](api/README.md) - what Porelo asks, saying nothing of how it is kept
 - [git](git/README.md) - the adapter that keeps it in one Git repository
+- [git-tree](git-tree/README.md) - the same for the new structure, reading only, until the cut
