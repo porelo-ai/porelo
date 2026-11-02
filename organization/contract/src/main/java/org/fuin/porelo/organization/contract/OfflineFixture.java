@@ -11,8 +11,9 @@ import org.jspecify.annotations.Nullable;
 public interface OfflineFixture {
 
     /**
-     * Makes an organization with one host carrying one project, whose admin has filed the host's
-     * card.
+     * Makes an organization with one host carrying one project: an owner makes the host, whose
+     * admin then signs the host's card, at the address {@code <host>.example.org}. From that commit
+     * on the host's files answer to its pin.
      *
      * @param owner The organization's owner.
      * @param host The host's name.
@@ -46,6 +47,27 @@ public interface OfflineFixture {
      * @throws IOException When the change cannot be made.
      */
     void hostChangeNobodyAllowed(@Nullable String signer, String host) throws IOException;
+
+    /**
+     * An owner makes somebody the host's admin too, which the store allows and the pin does not.
+     *
+     * @param owner The owner.
+     * @param host The host's name.
+     * @param login The person, who has a card.
+     * @throws IOException When the change cannot be made.
+     */
+    void adminByOwner(String owner, String host, String login) throws IOException;
+
+    /**
+     * The host's admin makes another person admin beside them, and that person then changes the
+     * host's files: the handover a pin follows.
+     *
+     * @param admin The host's admin.
+     * @param host The host's name.
+     * @param login The new admin, who has a card.
+     * @throws IOException When a change cannot be made.
+     */
+    void handOverHost(String admin, String host, String login) throws IOException;
 
     /**
      * A person's allowed change, so that the history has one more state.

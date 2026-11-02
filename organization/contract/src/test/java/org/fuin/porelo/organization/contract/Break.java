@@ -128,20 +128,30 @@ enum Break {
     ACCEPTS_CARD_FILED_BY_ANOTHER(
             Set.of("aCardFiledByAStrangerHoldsNothing", "aCardFiledByAnOwnerHoldsNothing"),
             Set.of()),
-    OFFLINE_ANSWERS_NOTHING(Set.of(), Set.of("thePinnedKeyAnswersTheHostsState")),
+    OFFLINE_ANSWERS_NOTHING(
+            Set.of(), Set.of("thePinFollowsAHandoverItSigned", "thePinnedKeyAnswersTheHostsState")),
+    OFFLINE_OWNER_PASSES_THE_PIN(Set.of(), Set.of("anOwnersChangeIsRefusedUnderThePin")),
+    OFFLINE_TRUSTS_THE_WHOLE_SET(Set.of(), Set.of("aStrangersKeyBesideThePinSignsNothing")),
+    OFFLINE_PIN_STAYS_PUT(Set.of(), Set.of("thePinFollowsAHandoverItSigned")),
     OFFLINE_REFUSES_THE_PIN(
             Set.of(),
             Set.of(
-                    "thePinnedKeyAnswersTheHostsState",
+                    "aRewrittenHistoryIsRefused",
                     "anOlderStateThanTheOneAppliedIsRefused",
-                    "aRewrittenHistoryIsRefused")),
+                    "anOwnersChangeIsRefusedUnderThePin",
+                    "thePinFollowsAHandoverItSigned",
+                    "thePinnedKeyAnswersTheHostsState")),
     OFFLINE_IGNORES_THE_PIN(Set.of(), Set.of("anotherPersonsKeyPinnedIsRefused")),
     OFFLINE_ACCEPTS_UNSIGNED(
             Set.of(),
             Set.of("anUnsignedHostChangeIsRefused", "anUnsignedHostChangeUnderALaterOneIsRefused")),
     OFFLINE_ACCEPTS_ANY_SIGNER(
             Set.of(),
-            Set.of("aStrangersHostChangeIsRefused", "aStrangersHostChangeUnderALaterOneIsRefused")),
+            Set.of(
+                    "aStrangersHostChangeIsRefused",
+                    "aStrangersHostChangeUnderALaterOneIsRefused",
+                    "aStrangersKeyBesideThePinSignsNothing",
+                    "anOwnersChangeIsRefusedUnderThePin")),
     OFFLINE_ACCEPTS_OLDER_STATE(Set.of(), Set.of("anOlderStateThanTheOneAppliedIsRefused")),
     OFFLINE_ACCEPTS_REWRITTEN_HISTORY(Set.of(), Set.of("aRewrittenHistoryIsRefused"));
 

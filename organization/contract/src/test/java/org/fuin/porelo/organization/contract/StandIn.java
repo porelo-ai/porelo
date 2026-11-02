@@ -13,7 +13,6 @@ import java.util.Optional;
 import java.util.Set;
 import org.fuin.porelo.organization.OfflineOrganization;
 import org.fuin.porelo.organization.Organization;
-import org.fuin.porelo.organization.OrganizationException;
 import org.fuin.porelo.organization.OrganizationQuestions;
 import org.fuin.porelo.organization.OrganizationQuestions.Refused;
 import org.jspecify.annotations.Nullable;
@@ -38,6 +37,7 @@ final class StandIn implements OrganizationFixture, OfflineFixture {
         OWNER,
         REPLACE,
         HOST,
+        HOST_ADMIN,
         HOST_CHANGE
     }
 
@@ -93,11 +93,17 @@ final class StandIn implements OrganizationFixture, OfflineFixture {
         final Set<String> revoked = new HashSet<>();
         final Map<String, Map<String, String>> members = new HashMap<>();
         final Set<String> locked = new HashSet<>();
-        final Map<String, String> hostAdmins = new HashMap<>();
+        final Map<String, Set<String>> hostAdmins = new HashMap<>();
+        final Set<String> pin;
         final List<Organization.Refusal> refusals = new ArrayList<>();
         final List<String> refusedKinds = new ArrayList<>();
 
         Walk(final List<Entry> entries, final int trustedUpTo) {
+            this(entries, trustedUpTo, Set.of());
+        }
+
+        Walk(final List<Entry> entries, final int trustedUpTo, final Set<String> pin) {
+            this.pin = pin;
             for (int i = 0; i < entries.size(); i++) {
                 if (i == trustedUpTo && broken(Break.FORGETS_REVOCATION_ACROSS_A_READ)) {
                     revoked.clear();
@@ -135,6 +141,7 @@ final class StandIn implements OrganizationFixture, OfflineFixture {
                 case FOUND -> null;
                 case CARD -> judgeCard(entry);
                 case PROJECT, OWNER, REPLACE, HOST -> judgeBy(entry, owners);
+                case HOST_ADMIN -> judgeHostChange(entry);
                 case DENIED_CARD ->
                         broken(Break.ACCEPTS_CARD_THE_SOURCE_DENIES)
                                 ? null
@@ -236,9 +243,17 @@ final class StandIn implements OrganizationFixture, OfflineFixture {
             if (entry.signer() == null) {
                 return broken(Break.OFFLINE_ACCEPTS_UNSIGNED) ? null : "unsigned";
             }
-            final boolean allowed =
-                    signerLogins(entry).contains(hostAdmins.get(entry.args().get(0)));
-            return allowed || broken(Break.OFFLINE_ACCEPTS_ANY_SIGNER) ? null : "not allowed";
+            final Set<String> admins = hostAdmins.getOrDefault(entry.args().get(0), Set.of());
+            final boolean allowed = signerLogins(entry).stream().anyMatch(admins::contains);
+            final boolean owner =
+                    broken(Break.OFFLINE_OWNER_PASSES_THE_PIN)
+                            && signerLogins(entry).stream().anyMatch(owners::contains);
+            final boolean inSet =
+                    broken(Break.OFFLINE_TRUSTS_THE_WHOLE_SET)
+                            && pin.contains("SHA256:" + entry.signer());
+            return allowed || owner || inSet || broken(Break.OFFLINE_ACCEPTS_ANY_SIGNER)
+                    ? null
+                    : "not allowed";
         }
 
         private void apply(final Entry entry) {
@@ -269,7 +284,15 @@ final class StandIn implements OrganizationFixture, OfflineFixture {
                     cards.put(args.get(0), args.get(1));
                     hold(args.get(1), args.get(0));
                 }
-                case HOST -> hostAdmins.put(args.get(0), args.get(1));
+                case HOST ->
+                        hostAdmins
+                                .computeIfAbsent(args.get(0), host -> new HashSet<>())
+                                .add(args.get(1));
+                case HOST_ADMIN -> {
+                    if (!broken(Break.OFFLINE_PIN_STAYS_PUT)) {
+                        hostAdmins.get(args.get(0)).add(args.get(1));
+                    }
+                }
                 case HOST_CHANGE -> {
                     // A change that was accepted says nothing a check asks about.
                 }
@@ -463,6 +486,17 @@ final class StandIn implements OrganizationFixture, OfflineFixture {
     }
 
     @Override
+    public void adminByOwner(final String owner, final String host, final String login) {
+        add(Kind.HOST_ADMIN, key(owner), host, login);
+    }
+
+    @Override
+    public void handOverHost(final String admin, final String host, final String login) {
+        add(Kind.HOST_ADMIN, key(admin), host, login);
+        add(Kind.HOST_CHANGE, key(login), host);
+    }
+
+    @Override
     public void hostChangeNobodyAllowed(final @Nullable String signer, final String host) {
         add(Kind.HOST_CHANGE, signer == null ? null : key(signer), host);
     }
@@ -470,22 +504,39 @@ final class StandIn implements OrganizationFixture, OfflineFixture {
     @Override
     public OfflineOrganization copy() {
         final List<Entry> brought = List.copyOf(line);
-        return (host, pinned, since) -> check(brought, host, pinned, since);
+        return new OfflineOrganization() {
+            @Override
+            public Map<String, Object> check(
+                    final String host, final String pinned, final String since) throws IOException {
+                return check(host, Set.of(pinned), since);
+            }
+
+            @Override
+            public Map<String, Object> check(
+                    final String host, final Set<String> pinned, final String since)
+                    throws IOException {
+                return StandIn.this.check(brought, host, pinned, since);
+            }
+        };
     }
 
     private Map<String, Object> check(
-            final List<Entry> brought, final String host, final String pinned, final String since)
+            final List<Entry> brought,
+            final String host,
+            final Set<String> pinned,
+            final String since)
             throws IOException {
         if (broken(Break.OFFLINE_REFUSES_THE_PIN)) {
             throw refused("the pin");
         }
-        final Walk walk = new Walk(brought, brought.size());
-        final String admin = walk.hostAdmins.get(host);
-        if (admin == null) {
-            throw refused("no such host");
+        final Walk walk = new Walk(brought, brought.size(), pinned);
+        final Set<String> admins = walk.hostAdmins.get(host);
+        if (admins == null) {
+            throw new Refused(Refused.NOT_FOUND, "no such host", null);
         }
-        if (!pinned.equals("SHA256:" + walk.cards.get(admin))
-                && !broken(Break.OFFLINE_IGNORES_THE_PIN)) {
+        final boolean forThePin =
+                admins.stream().anyMatch(each -> pinned.contains("SHA256:" + walk.cards.get(each)));
+        if (!forThePin && !broken(Break.OFFLINE_IGNORES_THE_PIN)) {
             throw refused("another key is pinned");
         }
         if (!walk.refusals.isEmpty() || !walk.refusedKinds.isEmpty()) {
@@ -497,7 +548,7 @@ final class StandIn implements OrganizationFixture, OfflineFixture {
         }
         if (broken(Break.OFFLINE_ANSWERS_NOTHING)) {
             return Map.of(
-                    "commit",
+                    "revision",
                     at,
                     "host_card",
                     Map.of(),
@@ -509,16 +560,24 @@ final class StandIn implements OrganizationFixture, OfflineFixture {
                     List.of());
         }
         return Map.of(
-                "commit",
+                "revision",
                 at,
                 "host_card",
-                Map.of("host", host),
+                Map.of("host", host, "address", host + ".example.org"),
                 "admins",
-                Map.of(admin, pinned),
+                admins.stream()
+                        .map(
+                                each ->
+                                        Map.of(
+                                                "login",
+                                                each,
+                                                "fingerprint",
+                                                "SHA256:" + walk.cards.get(each)))
+                        .toList(),
                 "projects",
-                walk.members.keySet().stream().map(name -> Map.of("name", name)).toList(),
+                walk.members.keySet().stream().map(name -> Map.of("project", name)).toList(),
                 "persons",
-                List.of(Map.of("login", admin, "revoked", false)));
+                admins.stream().map(each -> Map.of("login", each, "revoked", false)).toList());
     }
 
     private void refuseUnlessItContinues(final List<Entry> brought, final String since) {
@@ -536,8 +595,8 @@ final class StandIn implements OrganizationFixture, OfflineFixture {
         }
     }
 
-    private static OrganizationException refused(final String why) {
-        return new OrganizationException(why, new IllegalStateException(why));
+    private static Refused refused(final String why) {
+        return new Refused(Refused.REFUSED_STATE, why, null);
     }
 
     /** The answers of one walk; a question no check asks fails, rather than answering wrongly. */

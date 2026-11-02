@@ -92,7 +92,7 @@ would change the answer.
 | A registry's trust record is checked, not hardened against whoever writes the state directory | accepted: a record that fails a check is discarded and the registry walked again from its founding commit; a writer of `$XDG_STATE_HOME` can change Porelo's config and binaries too | [entry](#a-registrys-trust-record-is-checked-not-hardened-against-whoever-writes-the-state-directory) |
 | A founder's key that left the forge refuses the organization on a new machine | a new machine answers `refused-state` naming the key; a machine that read it while listed goes on; recovery is the key back on the forge, or a new organization | [entry](#a-founders-key-that-left-the-forge-refuses-the-organization-on-a-new-machine) |
 | A project's lock does not bind an organization owner | accepted: an owner may name any admin, and an admin may unlock; every step is a signed commit | [entry](#a-projects-lock-does-not-bind-an-organization-owner) |
-| Every organization store passes one set of checks | `organization/contract` holds what any store must guarantee, and each adapter runs it against itself through a fixture; the offline checks run against stand-ins until `organization/git-tree` has an offline check | [entry](#every-organization-store-passes-one-set-of-checks) |
+| Every organization store passes one set of checks | `organization/contract` holds what any store must guarantee, and each adapter runs it against itself through a fixture; `organization/git` keeps its own offline answer and does not run them | [entry](#every-organization-store-passes-one-set-of-checks) |
 | A past commit is judged by the whole chain of its key, read to the tip | a key handed on keeps its commits on a new machine; a lost key's stay refused, and an owner adds the project's admins again | [entry](#a-past-commit-is-judged-by-the-whole-chain-of-its-key-read-to-the-tip) |
 | **Projects and following** | | |
 | One agent works in one repository | a task holds one repository, so an agent that spans several is one per repository, its commits authored by the name it goes by | [entry](#one-agent-works-in-one-repository) |
@@ -1221,10 +1221,10 @@ neither `git` nor a class of an adapter. Each check has been seen to fail agains
   before its first read is not noticed.
 - **A host's offline check answers only for its pinned key.** It answers the host's admins, projects, persons and card
   under that key. It refuses a copy under another person's pin, one holding a change nobody allowed, also under a later
-  change, and one that does not continue the state the host applied last.
+  change or with a stranger's key named beside the pin, an owner's change of the host's files, and one that does not continue
+  the state the host applied last. The pin follows a new admin only through a commit it signed itself.
 
-`organization/git-tree` runs the reading checks on real commits. It has no offline check yet, so the offline checks run
-against the contract's stand-ins alone until it does.
+`organization/git-tree` runs the reading and the offline checks on real commits.
 
 ## A project's lock does not bind an organization owner
 

@@ -16,8 +16,11 @@ import java.util.TreeSet;
 import org.fuin.porelo.core.process.Command;
 import org.fuin.porelo.core.process.ProcessCommandRunner;
 import org.fuin.porelo.organization.IdentitySource;
+import org.fuin.porelo.organization.OfflineOrganization;
 import org.fuin.porelo.organization.OrganizationQuestions;
+import org.fuin.porelo.organization.contract.OfflineFixture;
 import org.fuin.porelo.organization.contract.OrganizationFixture;
+import org.fuin.porelo.vault.HostCard;
 import org.fuin.porelo.vault.OpenSshPrivateKey;
 import org.fuin.porelo.vault.PersonCard;
 import org.fuin.porelo.vault.SigningKey;
@@ -27,7 +30,7 @@ import org.jspecify.annotations.Nullable;
  * The contract's fixture on a real repository: people's allowed changes and the attacker are both
  * raw commits, since nothing goes through the adapter, and every key is made in the run.
  */
-final class GitTreeFixture implements OrganizationFixture {
+final class GitTreeFixture implements OrganizationFixture, OfflineFixture {
 
     private static final String ORGANISATION = "acme";
 
@@ -52,6 +55,10 @@ final class GitTreeFixture implements OrganizationFixture {
     private final Map<String, Set<String>> locked = new HashMap<>();
 
     private final List<String> ownerLogins = new ArrayList<>();
+
+    private final List<String> hostAdmins = new ArrayList<>();
+
+    private String hostProjects = "[]";
 
     /**
      * An identity source that answers what the fixture sets, and "could not be asked" otherwise.
@@ -432,6 +439,90 @@ final class GitTreeFixture implements OrganizationFixture {
         forge.keys.put(login, List.of(line(login + "-listed")));
         write("people/" + login + ".card", card(login, nameOf(login)));
         return commit(nameOf(login));
+    }
+
+    @Override
+    public String fingerprint(final String login) {
+        return PersonCard.fingerprint(key(login));
+    }
+
+    private String hostCard(final String host, final String signer) {
+        return HostCard.write(
+                host,
+                host + ".example.org",
+                22,
+                line("host-key"),
+                3000,
+                2222,
+                8448,
+                keyNamed(signer));
+    }
+
+    private void writeHost(final String host, final List<String> admins, final String projects)
+            throws IOException {
+        final StringBuilder text = new StringBuilder("admins:\n");
+        admins.forEach(login -> text.append("  - login: ").append(login).append('\n'));
+        write(
+                "hosts/" + host + "/host.yml",
+                text.append("projects: ").append(projects).append('\n').toString());
+    }
+
+    @Override
+    public void hostWithAdmin(
+            final String owner, final String host, final String admin, final String project)
+            throws IOException {
+        found(owner);
+        fileCard(admin);
+        makeProject(owner, project, admin);
+        hostAdmins.add(admin);
+        hostProjects = "[" + project + "]";
+        writeHost(host, hostAdmins, "[]");
+        commit(nameOf(owner));
+        writeHost(host, hostAdmins, hostProjects);
+        commit(nameOf(admin));
+        write("hosts/" + host + "/card", hostCard(host, nameOf(admin)));
+        commit(nameOf(admin));
+    }
+
+    @Override
+    public void hostChangeNobodyAllowed(final @Nullable String signer, final String host)
+            throws IOException {
+        write(
+                "hosts/" + host + "/card",
+                signer == null ? "not signed\n" : hostCard(host, nameOf(signer)));
+        commit(signed(signer, this::nameOf));
+    }
+
+    @Override
+    public void adminByOwner(final String owner, final String host, final String login)
+            throws IOException {
+        final List<String> admins = new ArrayList<>(hostAdmins);
+        admins.add(login);
+        writeHost(host, admins, hostProjects);
+        commit(nameOf(owner));
+    }
+
+    @Override
+    public void handOverHost(final String admin, final String host, final String login)
+            throws IOException {
+        hostAdmins.add(login);
+        writeHost(host, hostAdmins, hostProjects);
+        commit(nameOf(admin));
+        write("hosts/" + host + "/card", hostCard(host, nameOf(login)));
+        commit(nameOf(login));
+    }
+
+    @Override
+    public OfflineOrganization copy() {
+        return new GitTreeOffline(
+                GitTreeStore.at(
+                        runner,
+                        repo.toString(),
+                        ORGANISATION,
+                        "github.com",
+                        FetchAccess.NONE,
+                        dir.resolve("host-state")),
+                forge);
     }
 
     @Override
