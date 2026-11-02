@@ -678,4 +678,52 @@ class ProjectFileTest {
                                 "app",
                                 UPSTREAM));
     }
+
+    @Test
+    void aKeyThatIsNoAdminsChangesNothingAndIsNotAnsweredAsDone() throws Exception {
+        final String tip = git("rev-parse", "HEAD");
+
+        refusedAs(
+                Refused.NOT_ALLOWED,
+                () -> file().add(change("carol", "x"), repo.toString(), rows(), "app", UPSTREAM));
+
+        assertThat(git("rev-parse", "HEAD"))
+                .as("the next reader would refuse the file for a change answered as made")
+                .isEqualTo(tip);
+    }
+
+    @Test
+    void aStrangersCommitCarryingAnAdminsIdIsNoAnswerToThatId() throws Exception {
+        file().add(change("alice", "one"), repo.toString(), rows(), "app", UPSTREAM);
+        Files.writeString(repo.resolve("project.yml"), TEXT.replace("first", "theirs"));
+        git("add", "-A");
+        git("commit", "-q", "-m", "Name a repository\n\nPorelo-Change-Id: one\n");
+
+        refusedAs(
+                Refused.REFUSED_STATE,
+                () -> file().add(change("alice", "one"), repo.toString(), rows(), "app", UPSTREAM));
+    }
+
+    @Test
+    void aRepositoryHoldingAnyOtherBranchIsNotEmpty() throws Exception {
+        final Path bare = dir.resolve("other-branch.git");
+        git("clone", "-q", "--bare", repo.toString(), bare.toString());
+        runner.runOrFail(
+                Command.of("git", "--git-dir=" + bare, "branch", "-q", "-m", "main", "master"));
+
+        refusedAs(
+                Refused.EXISTS, () -> file().found(change("alice", "one"), bare.toString(), TEXT));
+    }
+
+    @Test
+    void aFoundingPushTheRepositoryRefusesIsNotAnsweredAsMade() throws Exception {
+        final Path bare = empty();
+        final Path hook = bare.resolve("hooks/pre-receive");
+        Files.createDirectories(hook.getParent());
+        Files.writeString(hook, "#!/bin/sh\nexit 1\n");
+        hook.toFile().setExecutable(true);
+
+        assertThatThrownBy(() -> file().found(change("alice", "one"), bare.toString(), TEXT))
+                .isInstanceOf(GitTreeStore.Unreachable.class);
+    }
 }

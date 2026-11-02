@@ -49,6 +49,13 @@ public class ProjectOpenCommand extends OrgWriting {
         final OrganizationQuestions state = reading.answers();
         final String login = change.acting().login();
         ProjectRepositoryCommand.admin(state, project, login);
+        // Asked again, the address is filed and the id answers; otherwise nothing is made on a
+        // state the person did not see, which a new id could then only call taken.
+        if (change.base() != null
+                && !change.base().equals(state.revision())
+                && state.getProjectRepository(project).isEmpty()) {
+            throw new Refused(Refused.MOVED_ON, "the organization has moved on", state.revision());
+        }
         final String organization = OrgAccess.repository(machine).orElseThrow();
         final RegistryOrigin origin = RegistryOrigin.of(organization);
         final String at =

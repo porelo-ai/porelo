@@ -2686,6 +2686,37 @@ class GitTreeStoreTest {
     }
 
     @Test
+    void anOwnerWhoseCardIsRefusedIsAnsweredAsNoOwner() throws Exception {
+        carryingHost();
+        forge.keys.put("carol", List.of(key("carol")));
+        write("people/carol.card", card("carol", "carol"));
+        commit("carol");
+        write("owners.yml", owners("mia", "carol"));
+        commit("mia");
+        assertThat(read().isOrganizationOwner("carol")).isTrue();
+
+        forge.keys.put("carol", List.of(key("mallory")));
+
+        final OrganizationQuestions now = read();
+        assertThat(now.isOrganizationOwner("carol"))
+                .as("me.owner beside me.card: refused says they may do what they may not")
+                .isFalse();
+        assertThat(now.isOrganizationOwner("mia")).isTrue();
+    }
+
+    @Test
+    void aFirstSeenCardJudgesNoProjectFile() throws Exception {
+        carryingHost();
+        firstSeenCarol();
+
+        assertThat(read().signingKeys("demo"))
+                .as("whoever filed that card under an admin's login could set the project's file")
+                .extracting(OrganizationQuestions.SigningKey::login)
+                .contains("alice")
+                .doesNotContain("carol");
+    }
+
+    @Test
     void aFirstSeenCardBecomesAHostsKeyOnceTheForgeVouchesForIt() throws Exception {
         carryingHost();
         firstSeenCarol();
