@@ -86,15 +86,19 @@ would change the answer.
 | A credential is entered only in a terminal | no daemon method takes a provider credential or passphrase; only a device's keyslot share crosses the socket | [entry](#a-credential-is-entered-only-in-a-terminal) |
 | A credential with no expiry is stored and named | accepted, never refused; the store says so and the list marks it (not yet built) | [entry](#a-credential-with-no-expiry-is-stored-and-named) |
 | A storage class Porelo cannot prove is shown as user-scoped | stronger only by a slot the node enrolled or evidence it checks; a client's claim is recorded and shown as user-scoped (not yet built) | [entry](#a-storage-class-porelo-cannot-prove-is-shown-as-user-scoped) |
+| A registry is judged path by path, and a first card by the forge's public key list | each path by the signers its rule names, never the commit's signer alone; a first card trusted from `<forge>/<login>.keys`, not the forge's API; written by plain signed Git | [entry](#a-registry-is-judged-path-by-path-and-a-first-card-by-the-forges-public-key-list) |
+| A new key goes straight into KeePassXC, and a running KeePassXC is locked to serve it | accepted: no key file and no master password in Porelo; every database the running KeePassXC has open is locked, and the others stay locked until the person unlocks them | [entry](#a-new-key-goes-straight-into-keepassxc-and-a-running-keepassxc-is-locked-to-serve-it) |
 | A registry's trust record is checked, not hardened against whoever writes the state directory | accepted: a record that fails a check is discarded and the registry walked again from its founding commit; a writer of `$XDG_STATE_HOME` can change Porelo's config and binaries too | [entry](#a-registrys-trust-record-is-checked-not-hardened-against-whoever-writes-the-state-directory) |
 | **Projects and following** | | |
 | One agent works in one repository | a task holds one repository, so an agent that spans several is one per repository, its commits authored by the name it goes by | [entry](#one-agent-works-in-one-repository) |
 | A project file describes constraints, not instructions | no prompt or standing instruction belongs in `project.yml` | [entry](#a-project-file-describes-constraints-not-instructions) |
 | A project exists by being followed | every project beside `default` is followed from a repository or bundle; `CheckProjectFile` checks a draft without registering it | [entry](#a-project-exists-by-being-followed) |
 | A project is named, never pointed at | every command and call takes a project name; no path form exists | [entry](#a-project-is-named-never-pointed-at) |
-| Configuration coming in is checked by its signature, as work going out is checked by a person | only commits signed by a key pinned out of band apply; git verifies; a rewrite waits for a person | [entry](#configuration-coming-in-is-checked-by-its-signature-as-work-going-out-is-checked-by-a-person) |
+| Configuration coming in is checked by its signature, as work going out is checked by a person | every protected change on the first-parent line signed by a key in force before it, the first pinned out of band; document-only commits need none; git verifies; a rewrite waits for a person | [entry](#configuration-coming-in-is-checked-by-its-signature-as-work-going-out-is-checked-by-a-person) |
 | A signing key is never read from the repository it verifies | the anchor comes from the person; a fingerprint only selects a key the person named | [entry](#a-signing-key-is-never-read-from-the-repository-it-verifies) |
-| A project's signing key is handed on through the project file | a signers change counts only signed by a key in force before it; machine keys never change configuration | [entry](#a-projects-signing-key-is-handed-on-through-the-project-file) |
+| A project's signing key is handed on through the project file | a signers change counts only signed by a key in force before it; no task key changes configuration | [entry](#a-projects-signing-key-is-handed-on-through-the-project-file) |
+| A signature counts when it arrives, never when it says it was made | commits judged at arrival by the gate and the forge's pre-receive hook, messages when the receiver takes them; a date the signer writes decides nothing | [entry](#a-signature-counts-when-it-arrives-never-when-it-says-it-was-made) |
+| A single admin keeps an offline backup key | for a project's one signer, a host's one admin and a registry's one owner; it may only replace the key it backs, signs nothing else and certifies no task | [entry](#a-single-admin-keeps-an-offline-backup-key) |
 | A project may be followed without a signing key | `--unverified` is allowed per project, as a loudly reported state, not an error | [entry](#a-project-may-be-followed-without-a-signing-key) |
 | Where a followed project's file comes from | only the verified clone; nothing in force means no task, never a fallback to a local file | [entry](#where-a-followed-projects-file-comes-from) |
 | Clearing names what only a person's credentials can remove, and never attempts it | keys made by earlier versions and `machine-signers` lines are named, not removed at the forge; git needs no administration right; the vault stays | [entry](#clearing-names-what-only-a-persons-credentials-can-remove-and-never-attempts-it) |
@@ -102,7 +106,7 @@ would change the answer.
 | What a build runs beside its secrets is fixed by its content | every action by commit with its version, Maven and GraalVM by checksum, Artifactory spoken to with curl; `check-actions` refuses a tag | [entry](#what-a-build-runs-beside-its-secrets-is-fixed-by-its-content) |
 | An offline project never connects, and its agent still reaches its provider | no upstream or external egress, followed only from a file; declared `host_services` reach the host on TCP 443, and the agent's model calls go through the broker as in every class | [entry](#an-offline-project-never-connects-and-its-agent-still-reaches-its-provider) |
 | **Messages** | | |
-| A task holds no key and sees no address | one mailbox in the container; a host-side signing key, distinct from the login key | [entry](#a-task-holds-no-key-and-sees-no-address) |
+| A task holds no key and sees no address | one mailbox in the container; messages and commits signed on the host by the task's own certified key, never a login key | [entry](#a-task-holds-no-key-and-sees-no-address) |
 | No model decides what a message may contain | rules accept or refuse, a person holds; a classifier may only ever hold | [entry](#no-model-decides-what-a-message-may-contain) |
 | A project's message rules are set once, in its project file | by class (project, room, others), defaults allow, allow, deny; the host keeps only holding a peer | [entry](#a-projects-message-rules-are-set-once-in-its-project-file) |
 | A person's words in the room reach every agent, unfiltered | what a joined person writes in the room reaches every task of the project, and in a direct chat that one task, without the content filter; an answer goes where it was asked | [entry](#a-persons-words-in-the-room-reach-every-agent-unfiltered) |
@@ -632,8 +636,12 @@ from the task rather than asked for again.
 
 A followed project's repository decides what runs on every machine following it - the image, the limits and the
 hosts a task may reach - so whoever can push there could otherwise open the firewall on all of them at the next
-fetch. A machine therefore applies only a commit signed by a key pinned out of band (`--signed-by`), and keeps what it
-verified last when a commit is refused or the repository cannot be reached. The signature is checked by git
+fetch. A machine therefore applies a new `main` only when every commit on its first-parent line that changes a
+protected file is signed by a key in force before that commit, the first one pinned out of band (`--signed-by`), and
+keeps what it verified last when a commit is refused or the repository cannot be reached. A commit that changes only
+plans, issues or documents needs no signature, so a developer's pull request merged by fast-forward is applied without
+a signer signing on top of it. Every protected change is checked, not only the tip, since otherwise a later signed
+commit could carry an earlier unsigned change. The signature is checked by git
 (`verify-commit` against the pinned keys in `allowed_signers` format), not reimplemented, since a commit's signature
 covers the commit object and a second canonicalization would be a second implementation of what git already does
 exactly. A history that moves under the machine is refused until a person says `--accept-rewrite`, since a rebase and
@@ -656,6 +664,25 @@ then the new key alone retires the old one. Pinning a new key on every following
 make every machine refuse the next commit after a key change. Messages are signed by each task's own key, certified by
 one of the project's certifiers, and no such key changes a project's configuration, so a machine that is taken over has
 no power over the others.
+
+## A signature counts when it arrives, never when it says it was made
+
+A task's commit is judged when it arrives: at its first accepted push to the host's forge, by the pre-receive hook, or
+for a task without a host forge at the gate's own receipt. A message is judged when the receiver takes it, by the
+receiver's clock. The key or certificate must hold then. The time a commit or message names is written by whoever
+signs it, so a key that has ended or was retired could otherwise date new work into the time it was valid. **The
+cost:** a commit signed while its certificate held but pushed after it ended is refused; a running task's
+certificate is renewed with `porelo task certify` before it ends.
+
+## A single admin keeps an offline backup key
+
+A project with one signer, a host with one host admin and a registry with one owner each keep a second key, made
+once by `porelo identity backup-key` as a file kept offline and never put in the daily agent: a single key that is
+lost leaves nobody who may hand the place on. The backup key is held to the one change that recovers: a commit it
+signs may change only the entry it backs, and itself. It signs no other change and certifies no task.
+`project verify`, `registry read` and `identity show` warn while one is missing. **The exposure:** whoever holds the
+backup key can replace the key it backs and so take that place over, as with the main key; kept offline, it is
+harder to reach.
 
 ## A project may be followed without a signing key
 
@@ -695,10 +722,12 @@ uninstalling.
 ## A task holds no key and sees no address
 
 Inside the container there is one mailbox directory and nothing else for messages: no socket, no credential, no
-network. A recipient is a peer name; what it resolves to is on the host. Every message is signed on the host with the
-key of the account running Porelo, because a key a task can reach is a key it can copy; the signature says the
-installation vouched, not that the agent typed it. That key is not the user's login key: one lets a machine connect,
-the other says what it vouches for, and revoking one must not invalidate the other.
+network. A recipient is a peer name; what it resolves to is on the host. Every message, like every commit, is signed
+on the host with the task's own key, which Porelo makes for the task, holds outside the container and destroys with
+the task, because a key a task can reach is a key it can copy. The signature says the installation vouched for that
+task, not that the agent typed it. A person certifies the key for that one task through their own agent, so a
+receiver traces it to who let the task act. It is not a person's login key: one lets a person connect, the other
+says what one task may vouch for, and ending the task must not touch the person's key.
 
 ## No model decides what a message may contain
 
@@ -1094,6 +1123,31 @@ evidence such as a TPM2 attestation the node checks. A claim a client merely sen
 and the interface show it exactly like a user-scoped slot: a label that reads stronger than it is does more harm than
 an honest weaker one. **Not yet built:** `EnrollDevice` and `vault devices` still record and display the storage class
 a client claims without proof instead of showing unproven claims as user-scoped.
+
+## A registry is judged path by path, and a first card by the forge's public key list
+
+Many people can write to a registry repository, so a commit's signer alone proves nothing. `registry read` judges each
+commit on the first-parent line path by path: a card is changed by its own key, and a change of key by its
+predecessor too; `owners.yml` by an owner it names; a host's card and access file by a host admin `owners.yml` names
+for that host; any other path is never read. A first card is trusted only when the central forge lists its key for
+that login on the public `<forge>/<login>.keys` page. The page is read, not the forge's API, because Forgejo's API
+asks for a token even for another person's public keys; until the forge has been asked, the card is `first-seen`.
+`registry file` commits with plain Git, signed through the person's agent, never through a forge's contents API: the
+signed commit is the proof, and it is made where the key is.
+
+## A new key goes straight into KeePassXC, and a running KeePassXC is locked to serve it
+
+`--keepassxc` makes a person's new key in memory and hands it to `keepassxc-cli` over a pipe, so no key file is
+written anywhere; a key held only by the agent is not enough, since it is lost at restart. `keepassxc-cli` reads the
+master password on the person's terminal; Porelo never sees it. KeePassXC 2.7.10 does not serve an entry added while
+its database is open, not even after its D-Bus `openDatabase` of that database; it serves it once the database is
+locked and unlocked again, or when KeePassXC starts anew. So when the agent has not served the key after 3 seconds,
+Porelo runs `keepassxc --lock`, asks KeePassXC to show the database, and the person unlocks it in KeePassXC's own
+window. **The exposure:** `keepassxc --lock` locks every database the running KeePassXC has open, not only this one;
+the others stay locked until the person unlocks them. **Why it stays:** unlocking through D-Bus
+`openDatabase(file, password, keyfile)` would serve the key with no step by the person, but it needs the master
+password in Porelo, which only `keepassxc-cli` reads. **What would change the answer:** a KeePassXC that serves an
+entry added to an open database.
 
 ## A registry's trust record is checked, not hardened against whoever writes the state directory
 

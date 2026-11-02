@@ -6,7 +6,7 @@ each task certificate at its commit, with its tests.
 
 **What must be true.** A host can check a whole migrated history before it arms its pre-receive hook, under the rules
 that held when each commit was made, not only under the rules of now. Today `porelo commit verify`
-([B363](README.md#b363)) judges every commit at its arrival: only keys in force, without `valid-before`, and task
+judges every commit at its arrival: only keys in force, without `valid-before`, and task
 certificates valid now, so a history with since-retired keys or since-expired task certificates is refused as a
 whole.
 
@@ -16,7 +16,7 @@ trusted; what bounds it must be named: the order of the history, the signed comm
 forge or the central forge recorded.
 
 The bring of a project to a host arms the hook right after the migration and records the migrated commits as
-`migrated`, not judged here, so this mode is not needed for sprint 6m; it is not yet placed.
+`migrated`, not judged here, so this mode is not needed for a host's bring; it is not yet placed.
 
 Open: what bounds a commit's time when its own date is the signer's word; whether the mode reads the central
 forge's record of when each commit arrived there.

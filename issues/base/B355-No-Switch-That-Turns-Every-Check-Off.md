@@ -12,7 +12,7 @@ setup - given that working uncertified must always stay possible?
 ## The checks today
 
 Paths are in `~/git/porelo` (core, `main`) unless named; `b343:` is the worktree
-`porelo-core-b343` ([B343](README.md#b343), not merged). Host and room rows are as their owners gave them,
+`porelo-core-b343` (task certificates, merged since). Host and room rows are as their owners gave them,
 with the places found by grep; *planned* names host work still being built.
 
 **Signatures and the gate**
@@ -23,7 +23,7 @@ with the places found by grep; *planned* names host work still being built.
 | Approved work merged as a commit signed by the approver; unsigned is not pushed | provenance of what reaches the upstream | the project | `gate/.../GitGate.java:1228`, `:1319` |
 | Each arriving commit verified against the task's certificate, at arrival time | that a push is the task's own | the project, the host | `b343: gate/.../SignedArrivals.java`, verdicts recorded by `b343: apps/app-gate/.../ArrivalRecords.java:48` |
 
-**Task certificates** ([B343](README.md#b343))
+**Task certificates**
 
 | Check | Protects | Whom | Where |
 |---|---|---|---|
@@ -46,7 +46,7 @@ with the places found by grep; *planned* names host work still being built.
 | Check | Protects | Whom | Where |
 |---|---|---|---|
 | `registry verify --repository --host --pinned --since`: bundle signed by the pinned host admin, head descends | the host's persons, keys and projects | the host, all its persons | `apps/app-vault/.../RegistryVerifyCommand.java:29` |
-| Path-by-path signers, `owners.yml`, forge-listed keys ([B339](README.md#b339)) | who is who in the organisation | other persons | Idea/Implementing; not found in `main` |
+| Path-by-path signers, `owners.yml`, forge-listed keys | who is who in the organisation | other persons | Idea/Implementing; not found in `main` |
 
 **Room admission and messages (core side)**
 
@@ -177,7 +177,7 @@ its absence) carried into three outputs and one record line; no new check, no ne
 ## The mark, place by place
 
 - **On this machine:** `task list` and `task status --json` answer the task's `certified` (true or false, as
-  [B343](README.md#b343) answers it; the interface's proposed `signing` is this field), beside the project's
+  the task's certificate answers it; the interface's proposed `signing` is this field), beside the project's
   `verified`; an absent value shows as `unsigned`, never as certified. The gate's answer for a waiting push carries its arrival verdict as `ArrivalRecords` writes it
   (`accepted` or `accepted, unsigned`), so the review shows it before an approval.
 - **In the room, for persons reading in any client:** the sending Porelo puts the mark into the line it already
@@ -185,7 +185,7 @@ its absence) carried into three outputs and one record line; no new check, no ne
   The transport carries both unread; nothing changes there. A machine-readable `send --mark` in the transport is an
   optional XS of the room's, built only when it is wanted.
 - **In another person's interface:** the mark is the receiving Porelo's own verdict, from the message's signature
-  and the task's certificate it checks itself ([B344](README.md#b344)). A mark the sender writes is the sender's
+  and the task's certificate it checks itself. A mark the sender writes is the sender's
   word: a sender that lies leaves it out, so its absence never reads as certified, and the interface shows nothing
   it did not check. The mark is always a checker's verdict - the receiving Porelo's, the gate's or the host's -
   never the sender's own content. The talk event Porelo hands the interface carries it as `mark` (`unsigned`,

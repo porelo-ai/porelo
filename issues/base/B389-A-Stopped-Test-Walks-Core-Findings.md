@@ -1,8 +1,8 @@
-# B389 — The Sprint 6m Walk's Core Findings
+# B389 — A Stopped Test Walk's Core Findings
 
 **Status:** Review.
 **Severity:** medium.
-**Size:** S, proposed - four small fixes the stopped sprint 6m walk (2026-11-01) asked for before it resumes.
+**Size:** S, proposed - four small fixes the stopped test walk of 2026-11-01 asked for before it resumes.
 
 **What must be true.** An account set up by the host's helpers, with an umask of 002 and a host vault, is set up
 without a refusal, a warning or a message that reads like a failure, and a follow that fails with a key the vault

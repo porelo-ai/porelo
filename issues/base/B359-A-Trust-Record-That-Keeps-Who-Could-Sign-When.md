@@ -5,7 +5,7 @@
 the record's check judging each signer against those of its time.
 
 **What must be true.** The trust record `porelo registry read` keeps
-([B339](README.md#b339)) is checked against the history before it is used, and a record that fails a check is
+is checked against the history before it is used, and a record that fails a check is
 discarded and the registry walked again. Some checks need to know who could sign at the time,
 which the record does not keep, so today they are weaker in the record than in the walk:
 

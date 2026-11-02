@@ -1,6 +1,6 @@
 # B345 — A Host Vault Opened By The Person's Key
 
-**Status:** Review. Estimated and Backlog, sprint 6m.
+**Status:** Review. Estimated and Backlog.
 **Size:** L - several days, no median of L builds measured: an SSH agent client, a vault made without a passphrase, the
 share held in locked memory by the daemon, `host unlock` on the person's side, and every command that assumes a
 passphrase today; grew from M when planned.

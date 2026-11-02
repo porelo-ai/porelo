@@ -4,9 +4,9 @@
 **Size:** M, proposed - the directory check the identity verbs use, applied to every file Porelo reads or writes
 under the person's configuration and state directories.
 
-**What must be true.** The identity verbs ([B338](README.md#b338)) read and write their own directories only when
+**What must be true.** The identity verbs (`identity create`, `rotate`, `revoke`) read and write their own directories only when
 each, from the XDG home down, is a directory of the person's own account and no link. The rest of Porelo reads
-and writes the person's files as it finds them. [B338](README.md#b338) leaves these out:
+and writes the person's files as it finds them. The identity verbs leave these out:
 
 - `$XDG_CONFIG_HOME/porelo/revoked.krl`, followed through a link by the configuration gate and `ssh-keygen -Q`;
 - `$XDG_CONFIG_HOME/porelo/project-signers`, read without refusing a link;

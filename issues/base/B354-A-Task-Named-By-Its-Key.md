@@ -1,6 +1,6 @@
 # B354 — A Task Named By Its Key
 
-**Status:** Idea; blocked by [B343](README.md#b343).
+**Status:** Idea.
 **Size:** S, proposed - one suffix in the task's name from its certified key's fingerprint, unique per login.
 
 **What must be true.** A task's name carries a short suffix from its own key's fingerprint, unique among the tasks of

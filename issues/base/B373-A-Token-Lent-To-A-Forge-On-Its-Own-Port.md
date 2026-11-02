@@ -13,4 +13,4 @@ The loopback tests do not see it, because they rewrite the address they fetch.
 - The helper's key names the port when the repository's address names one.
 - A test fetches from a loopback forge on its own port without rewriting the address.
 
-Found by a reading of [B368](README.md#b368) on 2026-10-31.
+Found by a reading of the address check for credentials on 2026-10-31.

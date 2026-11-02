@@ -533,7 +533,8 @@ repository it verifies. A project lists no message keys: a task signs its messag
 which one of the project's certifiers certified at its start (see [messages](messages.md)).
 
 In `project-signers` only active lines named for the project being checked authorize new protected
-changes. Git prints that project name as the principal. Retired lines serve historical verification.
+changes. Git prints that project name as the principal. Retired lines serve historical verification. Each line is read as ssh-keygen reads it: a principal
+may stand in quotes, and a blank is a space or a tab only.
 Protected inputs must be regular committed files: a symbolic link could let an unsigned change to
 its target alter what the following machine reads.
 

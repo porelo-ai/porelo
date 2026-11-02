@@ -1,6 +1,6 @@
 # B358 — A Task Reviews A Pull Request On The Central Forge
 
-**Status:** Accepted; analysed after sprint 6m.
+**Status:** Accepted.
 **Blocked by:** [B172](README.md#b172).
 **Size:** - (estimated at its analysis).
 

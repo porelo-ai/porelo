@@ -6,5 +6,4 @@
 the callback port, and the interface shows the person the one `ssh -L <port>:localhost:<port> <host>` line to open on
 their own machine before they open the link.
 
-Filed when a `loopback` sign-in over SSH was made a refusal
-([B347](README.md#b347)). Not planned in a sprint.
+Filed when a `loopback` sign-in over SSH was made a refusal. Not planned in a sprint.

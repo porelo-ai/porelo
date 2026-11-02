@@ -448,12 +448,13 @@ porelo credentials check git@github.com:acme/x.git    # what would be used, and 
 ```
 
 - **The kind is said, not guessed:** `ssh-key`, `token`, `basic` or `oauth`.
-- **The longest `match` wins**, after normalising `git@host:path` to `ssh://host/path`.
+- **The longest `match` wins**, after normalising `git@host:path` to `ssh://host/path`; an IPv6 host stays whole in
+  its brackets, so `git@[2001:db8::1]:x` and `ssh://[2001:db8::1]/x` are one destination.
 - **Four sources.** `vault` is encrypted and shut when idle. `file` (such as `~/.ssh/id_ed25519`)
   and `env` are not protected by Porelo, and `credentials list` says so. `agent` uses the account's
   own ssh-agent and reads nothing.
-- **With no `credentials.yml`** a git URL falls back to vault entries named after its host:
-  `git.ssh.<host>`, `git.token.<host>`, then `ssh.default`.
+- **With no `credentials.yml`** a git URL falls back to vault entries named after its host, an IPv6 host with
+  its brackets (`git.token.[2001:db8::1]`): `git.ssh.<host>`, `git.token.<host>`, then `ssh.default`.
 - **A key never leaves the vault.** Porelo serves an ssh-agent for the length of the command. A token
   reaches git through git's credential helper over a pipe, for that host only; nothing is written to
   a config and no value is on a command line.

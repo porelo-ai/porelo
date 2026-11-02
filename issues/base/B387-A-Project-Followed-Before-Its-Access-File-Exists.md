@@ -37,12 +37,12 @@ plain git, follows only once the access repository holds a commit.
 - `project verify` answers an access repository with no commit, given without `--access-since`, with exit 0, an empty
   `access_commit` and nobody in `persons`, `admins` and `certifiers`, so a program registering the project files
   the first access commit; with `--access-since` it is refused as before (`ProjectVerifyCommandTest`, red first; the
-  guard seen red under a mutant). Built during the sprint 6m test, with its short unit tests only.
+  guard seen red under a mutant). Built during a test walk, with its short unit tests only.
 - After its one reading: the empty case is asked of the follow record, not of what an accepted rewrite
   takes as in force, and only after an unreachable fetch. Left: `doctor` answers a project with no access commit
   yet as followed without saying so; `registry joinable` answers an empty access repository as unreachable; the
   probe runs with the fetch's own environment, which is the follow's and not `project access`'s hardened one.
-- Found in the sprint 6m walk: the access file `project access init` wrote named no `source`, so `registry joinable`
+- Found in a test walk: the access file `project access init` wrote named no `source`, so `registry joinable`
   refused the project ("the access file names no project repository"). `project access` now writes the address the
   project is followed from into a file that names none, if `source` takes it; an existing `source` is kept, and a
   path or `file://` writes none (`ProjectAccessCommandTest`, red first; the address guard seen red under a mutant).

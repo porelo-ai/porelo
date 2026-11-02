@@ -115,6 +115,9 @@ The command line and the daemon's logic are modules by area, `app-<area>`, submo
   against.
 - **A test that caches a vault passphrase forgets it in `finally`**: the tests' keys carry a per-JVM `porelo-test-<pid>`
   prefix, `KeyringLeakGuard` forgets and names any one a test leaves, and a full keyring stops every container.
+- **A unit test leaves no clearance watcher running**: `OwnPorelo` answers `shield watch` for a class's helpers with a
+  stand-in that makes its socket and exits, and `WatcherLeakGuard`, registered for every test in `apps/app`, fails a
+  test whose watcher still runs ten seconds after it, names it and stops it.
 - **`doc/reach.md` is held by `ReachDocumentTest`**, which reads its numbers off the code and refuses a row that does
   not say control or accident-catcher; a change that widens what a task can reach, hold, spend or produce changes
   that page in the same commit.
