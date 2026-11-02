@@ -30,6 +30,25 @@ class StubAgentTest {
      * they keep working whatever form the line takes. An earlier version read the body out of a
      * here-document, which was both brittle and a form podman 4 cannot build at all.
      */
+    /** How long an attached stub is given to have done what a test waits for. */
+    private static final long AT_WORK_MILLIS = 3_500;
+
+    /** Polls until {@code done} says so or {@link #AT_WORK_MILLIS} have passed. */
+    private static void awaitWork(final java.util.concurrent.Callable<Boolean> done)
+            throws Exception {
+        final long bound = System.nanoTime() + AT_WORK_MILLIS * 1_000_000;
+        while (!done.call() && System.nanoTime() < bound) {
+            Thread.sleep(50);
+        }
+    }
+
+    /** Whether {@code file} exists and holds {@code text}. */
+    private static boolean holds(final java.nio.file.Path file, final String text)
+            throws java.io.IOException {
+        return java.nio.file.Files.exists(file)
+                && java.nio.file.Files.readString(file).contains(text);
+    }
+
     private String renderedScript() throws Exception {
         final java.nio.file.Path file = java.nio.file.Files.createTempFile("stub-cli", ".sh");
         try {
@@ -130,7 +149,8 @@ class StubAgentTest {
                         .redirectOutput(screen.toFile());
         attached.environment().put("PORELO_STUB_WORKSPACE", workspace.toString());
         final Process process = attached.start();
-        Thread.sleep(3_500);
+        final java.nio.file.Path commitsLogged = workspace.resolve(".git/logs/HEAD");
+        awaitWork(() -> holds(screen, "stub: step 2") && holds(commitsLogged, "stub: step 2"));
         process.destroy();
         process.waitFor(5, java.util.concurrent.TimeUnit.SECONDS);
         process.destroyForcibly();
@@ -180,7 +200,13 @@ class StubAgentTest {
         attached.environment().put("PORELO_STUB_SOCKET", dir.resolve("provider.sock").toString());
         attached.environment().put("PATH", bin + ":" + System.getenv("PATH"));
         final Process process = attached.start();
-        Thread.sleep(3_500);
+        final java.nio.file.Path disk = workspace.resolve(".porelo-stub-disk");
+        awaitWork(
+                () ->
+                        // Two steps, or a disk that grows at each would still read as one step's.
+                        holds(asked, "\"stream\":true")
+                                && java.nio.file.Files.readAllLines(asked).size() >= 2
+                                && java.nio.file.Files.exists(disk));
         process.destroy();
         process.waitFor(5, java.util.concurrent.TimeUnit.SECONDS);
         process.destroyForcibly();

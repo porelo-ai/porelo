@@ -21,6 +21,7 @@ import org.fuin.porelo.vault.KernelKeyring;
 import org.fuin.porelo.vault.VaultEntry;
 import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import picocli.CommandLine;
@@ -35,6 +36,27 @@ class MachineTransportsTest {
 
     /** A secret long enough to be withheld, and recognizable wherever it leaks. */
     private static final String TOKEN = "machine-token-SECRET-1234";
+
+    /** The vault most tests open, sealed once with the production cost; each test copies it. */
+    private static Path sealedVault;
+
+    @BeforeAll
+    static void sealVault(@TempDir final Path shared) {
+        sealedVault = shared.resolve("vault");
+        new org.fuin.porelo.vault.VaultFile(sealedVault).write(entries(Map.of()), PASSPHRASE);
+    }
+
+    private static Map<String, VaultEntry> entries(final Map<String, String> project) {
+        final Map<String, VaultEntry> entries = new LinkedHashMap<>();
+        entries.put(
+                VaultNames.TRANSPORT_PREFIX + "room/account", VaultEntry.of("{\"ADMIN\":\"a-1\"}"));
+        if (!project.isEmpty()) {
+            entries.put(
+                    VaultNames.TRANSPORT_PREFIX + "room/project/p",
+                    VaultEntry.of(org.fuin.porelo.wire.Json.write(project)));
+        }
+        return entries;
+    }
 
     @TempDir Path dir;
 
@@ -86,15 +108,11 @@ class MachineTransportsTest {
         final PoreloContext context = context().asking(prompt -> PASSPHRASE.clone());
         used = context;
         Files.createDirectories(context.vault().path().getParent());
-        final Map<String, VaultEntry> entries = new LinkedHashMap<>();
-        entries.put(
-                VaultNames.TRANSPORT_PREFIX + "room/account", VaultEntry.of("{\"ADMIN\":\"a-1\"}"));
-        if (!project.isEmpty()) {
-            entries.put(
-                    VaultNames.TRANSPORT_PREFIX + "room/project/p",
-                    VaultEntry.of(org.fuin.porelo.wire.Json.write(project)));
+        if (project.isEmpty()) {
+            Files.copy(sealedVault, context.vault().path());
+        } else {
+            context.vault().write(entries(project), PASSPHRASE);
         }
-        context.vault().write(entries, PASSPHRASE);
         assertThat(context.openerAsking(false, new PrintWriter(new StringWriter())))
                 .as("the vault opens for the test")
                 .isPresent();

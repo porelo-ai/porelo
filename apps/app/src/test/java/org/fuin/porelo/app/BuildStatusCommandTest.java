@@ -17,10 +17,13 @@ import org.fuin.porelo.core.config.XdgPaths;
 import org.fuin.porelo.testing.FakeCommandRunner;
 import org.fuin.porelo.vault.KernelKeyring;
 import org.fuin.porelo.vault.VaultEntry;
+import org.fuin.porelo.vault.VaultFile;
 import org.fuin.porelo.wire.Json;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.EnumSource;
@@ -31,7 +34,12 @@ class BuildStatusCommandTest {
 
     private static final String COMMIT = "a".repeat(40);
     private static final String UPSTREAM = "https://forge.example/acme/code.git";
-    private final String token = java.util.UUID.randomUUID().toString();
+    private static final String VAULT_TOKEN = java.util.UUID.randomUUID().toString();
+
+    /** One vault for the class, sealed once with the production cost; each test gets its copy. */
+    private static Path sealedVault;
+
+    private final String token = VAULT_TOKEN;
     private final StringWriter out = new StringWriter();
     private final StringWriter err = new StringWriter();
     private final FakeCommandRunner runner = new FakeCommandRunner();
@@ -42,6 +50,15 @@ class BuildStatusCommandTest {
     private int starts;
     private boolean installed;
     private boolean failStarting;
+
+    @BeforeAll
+    static void sealVault(@TempDir final Path shared) {
+        sealedVault = shared.resolve("vault");
+        new VaultFile(sealedVault)
+                .write(
+                        Map.of("forge-token", VaultEntry.of(VAULT_TOKEN)),
+                        "test passphrase".toCharArray());
+    }
 
     @BeforeEach
     void prepare() throws Exception {
@@ -62,10 +79,8 @@ class BuildStatusCommandTest {
         context =
                 new PoreloContext(runner, new PoreloPaths(xdg, directory.resolve("bin")), args -> 0)
                         .asking(prompt -> "test passphrase".toCharArray());
-        context.vault()
-                .write(
-                        Map.of("forge-token", VaultEntry.of(token)),
-                        "test passphrase".toCharArray());
+        Files.createDirectories(context.vault().path().getParent());
+        Files.copy(sealedVault, context.vault().path());
         project(true);
     }
 

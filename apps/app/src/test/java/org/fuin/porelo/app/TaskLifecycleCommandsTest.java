@@ -79,6 +79,11 @@ class TaskLifecycleCommandsTest {
         runner.answering("git status --porcelain", counts);
     }
 
+    /** What a real helper does once it is up, and what resuming waits up to five seconds for. */
+    private static String writesItsPid(Path state, String helper) {
+        return "echo $$ > " + state.resolve(helper + ".pid");
+    }
+
     private Path stateOf(String container) throws IOException {
         final Path state = root.resolve("run/porelo").resolve(container);
         Files.createDirectories(state);
@@ -877,7 +882,12 @@ class TaskLifecycleCommandsTest {
                         java.util.List.of(
                                 new TaskHelpers.Helper(
                                         "vault",
-                                        java.util.List.of("true", "--token-file", "x"),
+                                        java.util.List.of(
+                                                "/bin/sh",
+                                                "-c",
+                                                writesItsPid(state, "vault"),
+                                                "--token-file",
+                                                "x"),
                                         java.util.Map.of(),
                                         TaskHelpers.BEFORE),
                                 new TaskHelpers.Helper(
@@ -951,7 +961,8 @@ class TaskLifecycleCommandsTest {
                         java.util.List.of(
                                 new TaskHelpers.Helper(
                                         "gate",
-                                        java.util.List.of("true"),
+                                        java.util.List.of(
+                                                "/bin/sh", "-c", writesItsPid(state, "gate")),
                                         java.util.Map.of(),
                                         TaskHelpers.BEFORE)))
                 .writeTo(state);
@@ -979,7 +990,12 @@ class TaskLifecycleCommandsTest {
                                 new TaskHelpers.Helper(
                                         "vault",
                                         java.util.List.of(
-                                                "/bin/sh", "-c", "echo vault >> " + order),
+                                                "/bin/sh",
+                                                "-c",
+                                                "echo vault >> "
+                                                        + order
+                                                        + "; "
+                                                        + writesItsPid(state, "vault")),
                                         java.util.Map.of(),
                                         TaskHelpers.BEFORE)))
                 .writeTo(state);
@@ -1101,7 +1117,10 @@ class TaskLifecycleCommandsTest {
                                         java.util.List.of(
                                                 "/bin/sh",
                                                 "-c",
-                                                "echo \"$@\" > " + marker + "",
+                                                "echo \"$@\" > "
+                                                        + marker
+                                                        + "; "
+                                                        + writesItsPid(state, "vault"),
                                                 "sh"),
                                         java.util.Map.of(),
                                         TaskHelpers.BEFORE)))

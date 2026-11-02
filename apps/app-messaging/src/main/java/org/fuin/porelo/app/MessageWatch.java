@@ -96,7 +96,22 @@ public final class MessageWatch implements AutoCloseable {
      * @param interval How often to look. Zero or negative means never.
      */
     public MessageWatch(final PoreloContext context, final Duration interval) {
-        this(context, interval, () -> context.vault().exists() && context.opener().isPresent());
+        this(context, interval, IDLE);
+    }
+
+    /**
+     * Constructor, saying itself how long a loop on a transport rests.
+     *
+     * @param context The machine.
+     * @param interval How often to look.
+     * @param rest How long a loop rests when its transport did not wait.
+     */
+    MessageWatch(final PoreloContext context, final Duration interval, final Duration rest) {
+        this(
+                context,
+                interval,
+                () -> context.vault().exists() && context.opener().isPresent(),
+                rest);
     }
 
     /**
@@ -110,12 +125,24 @@ public final class MessageWatch implements AutoCloseable {
             final PoreloContext context,
             final Duration interval,
             final java.util.function.BooleanSupplier vaultOpen) {
+        this(context, interval, vaultOpen, IDLE);
+    }
+
+    private MessageWatch(
+            final PoreloContext context,
+            final Duration interval,
+            final java.util.function.BooleanSupplier vaultOpen,
+            final Duration rest) {
         this.context = context;
         this.interval = interval;
         this.vaultOpen = vaultOpen;
+        this.rest = rest;
     }
 
     private final java.util.function.BooleanSupplier vaultOpen;
+
+    /** How long a loop on a transport rests when the transport did not wait. */
+    private final Duration rest;
 
     /** Whether the last pass found the conversations waiting for the vault. */
     private volatile boolean waitedForTheVault;
@@ -903,7 +930,10 @@ public final class MessageWatch implements AutoCloseable {
                                     say(conversations.confirm(List.of(member)));
                                 }
                                 Thread.sleep(
-                                        pause(got, Duration.ofNanos(System.nanoTime() - asked))
+                                        pause(
+                                                        got,
+                                                        Duration.ofNanos(System.nanoTime() - asked),
+                                                        rest)
                                                 .toMillis());
                             }
                         } catch (final InterruptedException ex) {
@@ -951,7 +981,8 @@ public final class MessageWatch implements AutoCloseable {
                                                 pause(
                                                                 got,
                                                                 Duration.ofNanos(
-                                                                        System.nanoTime() - asked))
+                                                                        System.nanoTime() - asked),
+                                                                rest)
                                                         .toMillis());
                                     }
                                 } catch (final InterruptedException ex) {
@@ -971,19 +1002,22 @@ public final class MessageWatch implements AutoCloseable {
 
     /**
      * Returns how long a loop rests before it waits on its transport again: not at all after
-     * something came or after a wait that waited, {@link #IDLE} after a failure or a wait that came
+     * something came or after a wait that waited, {@code rest} after a failure or a wait that came
      * back at once with nothing. Without a vault entry for an account, or with the vault shut, a
      * wait returns at once, and two such loops turned two cores for hours.
      *
      * @param got What the wait brought.
      * @param took How long it took.
+     * @param rest The rest after a failure or a wait that did not wait; {@link #IDLE} in the
+     *     daemon.
      * @return The rest.
      */
-    static Duration pause(final TransportConversations.Outcome got, final Duration took) {
+    static Duration pause(
+            final TransportConversations.Outcome got, final Duration took, final Duration rest) {
         if (!got.failures().isEmpty()) {
-            return IDLE;
+            return rest;
         }
-        return got.handed().isEmpty() && took.compareTo(WAITED) < 0 ? IDLE : Duration.ZERO;
+        return got.handed().isEmpty() && took.compareTo(WAITED) < 0 ? rest : Duration.ZERO;
     }
 
     private void say(final List<String> failures) {
