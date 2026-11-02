@@ -1,6 +1,6 @@
 # B220 — Build-Tool Plugins Found At Run Time
 
-**Status:** Analyzed.
+**Status:** Implementing.
 **Size:** M - a new contract module copied from `builds/api` (about 1,200 lines there), a stub, discovery of every
 installed plugin, a start without network, the isolation test, a doc page; no change to an existing contract.
 
