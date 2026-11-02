@@ -1,6 +1,6 @@
 # B393 — A Task Of The Default Project Never Joins A Room
 
-**Status:** Idea.
+**Status:** Backlog.
 **Size:** S - a check where the project's file is written, a read-side refusal and tests.
 
 **What must be true.** A task of the project `default` talks to nobody, whatever this machine or host has: a homeserver

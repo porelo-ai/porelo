@@ -53,6 +53,7 @@ from its side, as *blocked by*.
 | <a id="b321"></a>[B321](B321-A-Long-Command-Says-What-It-Is-Doing.md) | M | - | A long command shows what it is doing while it runs: a transport's stderr streamed line by line, each line redacted against the secrets handed in, and a phase line for the other long commands a sweep finds |
 | <a id="b336"></a>[B336](B336-A-Repository-Says-Whether-A-Merge-Needs-A-Review.md) | S | - | `project.review` and `repositories.<name>.review` are `required` (the default) or `optional`, any other value refused, and answered to the host by `verify --json` |
 | <a id="b371"></a>[B371](B371-A-History-Judged-Under-The-Rules-Of-Its-Time.md) | M | - | A history mode of `porelo commit verify`: each commit judged by the keys and certificates in force at its own time, for a migrated history before the hook is armed |
+| <a id="b393"></a>[B393](B393-A-Task-Of-The-Default-Project-Never-Joins-A-Room.md) | S | - | A task of the project `default` never joins a room, whatever the machine or host has; a repository name that could write a `mail` section into its file is refused. |
 
 ## Analyzed
 
@@ -127,7 +128,6 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
-| <a id="b393"></a>[B393](B393-A-Task-Of-The-Default-Project-Never-Joins-A-Room.md) | S | - | A task of the project `default` never joins a room, whatever the machine or host has; a repository name that could write a `mail` section into its file is refused. |
 | <a id="b394"></a>[B394](B394-An-Online-Task-On-A-Host-With-No-Forge-Passes-On-To-Its-Upstream.md) | S | - | An `online` task on a host with no forge passes on to its `upstream` instead of pushing to a forge that is not there. |
 | <a id="b386"></a>[B386](B386-A-Project-Access-Contract-Without-Guessing.md) | S | - | A read-only lookup by `Porelo-Change-Id`, the head `project verify` takes from a bundle written down, `access add --role admin` for a listed admin defined, and verify naming the access commit's signer |
 | <a id="b385"></a>[B385](B385-A-KeePassXC-Key-That-Is-Usable.md) | M | - | `--keepassxc` asks the master password once, a retry takes the key already made, no empty entry left, a clear refusal under `su` or a redirected stderr, aligned exit codes |
