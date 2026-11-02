@@ -1,0 +1,2 @@
+title: "A token is now lent to a forge on a port of its own, where a fetch used to go out without it and was answered as unreachable"
+type: fixed

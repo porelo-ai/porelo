@@ -26,6 +26,12 @@ class MessageWatchLoopsTest {
 
     private static final char[] PASSPHRASE = "correct horse battery staple".toCharArray();
 
+    /** Far shorter than {@link MessageWatch#IDLE}, so a loop's end is not waited out. */
+    private static final Duration SHORT_REST = Duration.ofMillis(100);
+
+    /** How long a loop with the production rest is watched for asking its transport again. */
+    private static final long WATCHED_MILLIS = 1_500;
+
     private static final String PROJECT =
             """
             project:
@@ -50,6 +56,10 @@ class MessageWatchLoopsTest {
     private MessageWatch watch;
 
     private void machine(final String containers) throws IOException {
+        machine(containers, MessageWatch.IDLE);
+    }
+
+    private void machine(final String containers, final Duration rest) throws IOException {
         Assumptions.assumeTrue(
                 KernelKeyring.available(),
                 "no kernel keyring here: libkeyutils is missing or the kernel refuses it");
@@ -87,7 +97,10 @@ class MessageWatchLoopsTest {
         Files.createDirectories(context.vault().path().getParent());
         context.vault().write(Map.of(), PASSPHRASE);
         keyring.store(PASSPHRASE);
-        watch = new MessageWatch(context, Duration.ofSeconds(60));
+        watch =
+                rest.equals(MessageWatch.IDLE)
+                        ? new MessageWatch(context, Duration.ofSeconds(60))
+                        : new MessageWatch(context, Duration.ofSeconds(60), rest);
     }
 
     private void task(final String container, final boolean account) throws IOException {
@@ -110,9 +123,15 @@ class MessageWatchLoopsTest {
                 .toList();
     }
 
+    private long asksOfDirectChats() {
+        return runner.invocations().stream()
+                .filter(each -> each.arguments().contains("--direct"))
+                .count();
+    }
+
     private static boolean ended(final String name) throws InterruptedException {
         for (final Thread thread : loops(name)) {
-            // A loop ends when it wakes from its rest, at most five seconds on.
+            // A loop ends when it wakes from its rest; the bound stays twice the production rest.
             thread.join(2 * MessageWatch.IDLE.toMillis());
         }
         return loops(name).isEmpty();
@@ -137,7 +156,7 @@ class MessageWatchLoopsTest {
 
     @Test
     void aRunningTaskWithAnAccountHasALoopOnItsDirectChatsAndOneOnItsConversation()
-            throws IOException {
+            throws IOException, InterruptedException {
         machine("porelo-p-up\tUp 4 minutes\t1700000000\t0\tp\tguarded\n");
         task("porelo-p-up", true);
 
@@ -149,6 +168,17 @@ class MessageWatchLoopsTest {
         assertThat(loops("porelo-conversation-p"))
                 .as("the loop the project's conversation is read by")
                 .hasSize(1);
+
+        // A transport here comes back at once with nothing: asked again without a rest, two such
+        // loops turned two cores for hours.
+        final long bound = System.nanoTime() + MessageWatch.IDLE.toNanos();
+        while (asksOfDirectChats() == 0 && System.nanoTime() < bound) {
+            Thread.sleep(20);
+        }
+        Thread.sleep(WATCHED_MILLIS);
+        assertThat(asksOfDirectChats())
+                .as("the daemon's watch rests between asks of a transport that did not wait")
+                .isOne();
     }
 
     @Test
@@ -183,15 +213,19 @@ class MessageWatchLoopsTest {
 
     @Test
     void theLoopOfATaskWhoseAccountCannotBeReadAnyLongerEnds() throws Exception {
-        machine("porelo-p-shut\tUp 4 minutes\t1700000000\t0\tp\tguarded\n");
+        machine("porelo-p-shut\tUp 4 minutes\t1700000000\t0\tp\tguarded\n", SHORT_REST);
         task("porelo-p-shut", true);
         watch.passOnce();
         assertThat(loops("porelo-direct-porelo-p-shut")).hasSize(1);
 
         // The vault shut: its wait comes back at once with nothing.
+        final long shut = System.nanoTime();
         keyring.forget();
 
         assertThat(ended("porelo-direct-porelo-p-shut")).as("without waiting for a pass").isTrue();
+        assertThat(Duration.ofNanos(System.nanoTime() - shut))
+                .as("it woke from the rest it was given, not the production one")
+                .isLessThan(MessageWatch.IDLE);
     }
 
     @Test
@@ -243,7 +277,7 @@ class MessageWatchLoopsTest {
 
     @Test
     void theLoopsOfARemovedTaskEndAtTheNextPassEvenWithNoMailboxLeft() throws Exception {
-        machine("porelo-p-gone\tUp 4 minutes\t1700000000\t0\tp\tguarded\n");
+        machine("porelo-p-gone\tUp 4 minutes\t1700000000\t0\tp\tguarded\n", SHORT_REST);
         task("porelo-p-gone", true);
         watch.passOnce();
         assertThat(loops("porelo-direct-porelo-p-gone")).hasSize(1);

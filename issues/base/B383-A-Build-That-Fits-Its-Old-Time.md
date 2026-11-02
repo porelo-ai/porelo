@@ -1,6 +1,6 @@
 # B383 — A Build That Fits Its Old Time
 
-**Status:** Backlog.
+**Status:** Implementing.
 **Severity:** medium.
 **Size:** S - fixtures and waits in several test modules (`apps/app`, `daemon`, `agents/stub`), and a real run of the Build
 to measure each step; no contract other repositories read, and `VaultFile` is not touched.

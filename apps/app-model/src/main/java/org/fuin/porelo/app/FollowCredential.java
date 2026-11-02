@@ -223,12 +223,15 @@ public final class FollowCredential implements AutoCloseable {
             final String label,
             final String purpose,
             final @Nullable Credential offered) {
+        if (!GitCredentialNames.namesOneHost(url)) {
+            return new FollowCredential(Map.of(), null, null, false);
+        }
         if (offered != null) {
-            return lend(context, offered, label);
+            return lend(context, offered, url, label);
         }
         final Credential declared = context.credentialRegistry().forUrl(purpose, url);
         if (declared != null) {
-            return lend(context, declared, label);
+            return lend(context, declared, url, label);
         }
         // Nothing declared: the names a git URL implies, which is what a machine that has never
         // written a registry has always used. Kept so that what somebody already stored is still
@@ -260,6 +263,7 @@ public final class FollowCredential implements AutoCloseable {
                                 null,
                                 purpose,
                                 Credential.Source.VAULT),
+                        url,
                         label);
             }
         }
@@ -271,11 +275,15 @@ public final class FollowCredential implements AutoCloseable {
      *
      * @param context The machine.
      * @param credential What to lend.
+     * @param url Where git is about to connect, which is what a token is lent to.
      * @param label Names the socket.
      * @return The lease.
      */
     private static FollowCredential lend(
-            final PoreloContext context, final Credential credential, final String label) {
+            final PoreloContext context,
+            final Credential credential,
+            final String url,
+            final String label) {
         return switch (credential.source()) {
             case AGENT ->
                     new FollowCredential(
@@ -288,14 +296,14 @@ public final class FollowCredential implements AutoCloseable {
                             null,
                             null,
                             false);
-            case FILE -> fromFile(context, credential);
-            case ENVIRONMENT -> fromEnvironment(context, credential);
-            case VAULT -> fromVault(context, credential, label);
+            case FILE -> fromFile(context, credential, url);
+            case ENVIRONMENT -> fromEnvironment(context, credential, url);
+            case VAULT -> fromVault(context, credential, url, label);
         };
     }
 
     private static FollowCredential fromFile(
-            final PoreloContext context, final Credential credential) {
+            final PoreloContext context, final Credential credential, final String url) {
         if (!Files.isReadable(Path.of(credential.id()))) {
             return new FollowCredential(Map.of(), null, null, false);
         }
@@ -309,11 +317,11 @@ public final class FollowCredential implements AutoCloseable {
                     null,
                     false);
         }
-        return helper(context, credential, "--file", credential.id());
+        return helper(context, credential, url, "--file", credential.id());
     }
 
     private static FollowCredential fromEnvironment(
-            final PoreloContext context, final Credential credential) {
+            final PoreloContext context, final Credential credential, final String url) {
         // Asked of the machine: the helper git starts reads the same variable, which a caller
         // running git in an environment of its own passes on.
         if (context.environment().apply(credential.id()) == null) {
@@ -324,11 +332,14 @@ public final class FollowCredential implements AutoCloseable {
             // make one would be this creating the copy somebody asked it not to make.
             return new FollowCredential(Map.of(), null, null, false);
         }
-        return helper(context, credential, "--env", credential.id());
+        return helper(context, credential, url, "--env", credential.id());
     }
 
     private static FollowCredential fromVault(
-            final PoreloContext context, final Credential credential, final String label) {
+            final PoreloContext context,
+            final Credential credential,
+            final String url,
+            final String label) {
         // At a terminal a shut vault is opened here for this command; the daemon has none and waits
         // as before.
         context.openIfShut(true, false, STDERR);
@@ -345,7 +356,7 @@ public final class FollowCredential implements AutoCloseable {
             // not reach: lent, the fetch failed for no reason anybody was told.
             return opensOnlyHere(context)
                     ? new FollowCredential(Map.of(), null, null, true)
-                    : helper(context, credential, "--entry", credential.id());
+                    : helper(context, credential, url, "--entry", credential.id());
         }
         final org.fuin.porelo.vault.AgentKey key;
         try {
@@ -407,6 +418,10 @@ public final class FollowCredential implements AutoCloseable {
      * never ran it and no token reached a forge over https (found on the sprint-5 host,
      * 2026-10-27).
      *
+     * <p><strong>The key is the address fetched, not the record's match.</strong> git matches it
+     * against the address's whole authority, and a record for a host also covers that host's ports,
+     * so a key built from the record missed a forge on its own port and no token went out.
+     *
      * <p><strong>The helper is told where the account is.</strong> It reads the vault this command
      * checked, whatever environment git runs in: a check that runs git without the account's home,
      * so that libcurl reads no {@code .netrc} of it, still lends the account's token.
@@ -414,17 +429,18 @@ public final class FollowCredential implements AutoCloseable {
     private static FollowCredential helper(
             final PoreloContext context,
             final Credential credential,
+            final String url,
             final String option,
             final String where) {
-        final String host = GitCredentialNames.hostOf(credential.match());
-        if (host == null) {
+        final String scope = GitCredentialNames.helperScopeOf(url);
+        if (scope == null) {
             return new FollowCredential(Map.of(), null, null, false);
         }
         return new FollowCredential(
                 Map.of(
                         "PORELO_GIT_CREDENTIAL_CONFIG",
-                        "credential.https://"
-                                + host
+                        "credential."
+                                + scope
                                 + ".helper=!"
                                 + account(context)
                                 + word(PoreloBinary.path().toString())

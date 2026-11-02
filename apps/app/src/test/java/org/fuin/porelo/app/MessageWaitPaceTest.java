@@ -24,17 +24,33 @@ class MessageWaitPaceTest {
         // Two tasks down for two days, no account for them in the vault; each direct-chat loop came
         // back from its 'wait' at once, with nothing and no error, and asked again - two cores, for
         // hours.
-        assertThat(MessageWatch.pause(outcome(Map.of(), List.of()), Duration.ofMillis(3)))
+        assertThat(
+                        MessageWatch.pause(
+                                outcome(Map.of(), List.of()),
+                                Duration.ofMillis(3),
+                                MessageWatch.IDLE))
                 .isEqualTo(MessageWatch.IDLE);
     }
 
     @Test
     void aWaitThatWaitedOrBroughtSomethingIsAskedAgainAtOnceAndAFailureAfterAPause() {
-        assertThat(MessageWatch.pause(outcome(Map.of(), List.of()), Duration.ofSeconds(30)))
+        assertThat(
+                        MessageWatch.pause(
+                                outcome(Map.of(), List.of()),
+                                Duration.ofSeconds(30),
+                                MessageWatch.IDLE))
                 .isZero();
-        assertThat(MessageWatch.pause(outcome(Map.of("m", "t"), List.of()), Duration.ofMillis(3)))
+        assertThat(
+                        MessageWatch.pause(
+                                outcome(Map.of("m", "t"), List.of()),
+                                Duration.ofMillis(3),
+                                MessageWatch.IDLE))
                 .isZero();
-        assertThat(MessageWatch.pause(outcome(Map.of(), List.of("refused")), Duration.ofMillis(3)))
+        assertThat(
+                        MessageWatch.pause(
+                                outcome(Map.of(), List.of("refused")),
+                                Duration.ofMillis(3),
+                                MessageWatch.IDLE))
                 .isEqualTo(MessageWatch.IDLE);
     }
 }

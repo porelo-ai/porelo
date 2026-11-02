@@ -16,6 +16,7 @@ import org.fuin.porelo.core.project.ProjectReader;
 import org.fuin.porelo.testing.FakeCommandRunner;
 import org.fuin.porelo.vault.KernelKeyring;
 import org.junit.jupiter.api.Assumptions;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -28,6 +29,23 @@ import org.junit.jupiter.params.provider.ValueSource;
 class TransportConversationsTest {
 
     private static final char[] PASSPHRASE = "correct horse battery staple".toCharArray();
+
+    /** One empty vault for the class, sealed once with the production cost; each test copies it. */
+    private static Path sealedVault;
+
+    @BeforeAll
+    static void sealVault(@TempDir final Path shared) {
+        sealedVault = shared.resolve("vault");
+        new org.fuin.porelo.vault.VaultFile(sealedVault).write(Map.of(), PASSPHRASE);
+    }
+
+    /** Gives a test its own copy of the empty vault. */
+    private static void emptyVault(final PoreloContext context) throws IOException {
+        Files.copy(
+                sealedVault,
+                context.vault().path(),
+                java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+    }
 
     @TempDir Path dir;
 
@@ -368,7 +386,7 @@ class TransportConversationsTest {
         runner.answering(" join ", "{\"login\":{\"user\":\"@alice\"}}");
         final PoreloContext context = context().asking(prompt -> PASSPHRASE.clone());
         Files.createDirectories(context.vault().path().getParent());
-        context.vault().write(Map.of(), PASSPHRASE);
+        emptyVault(context);
         assertThat(
                         context.openerAsking(
                                 false, new java.io.PrintWriter(java.io.Writer.nullWriter())))
@@ -466,7 +484,7 @@ class TransportConversationsTest {
                                 })
                         .asking(prompt -> PASSPHRASE.clone());
         Files.createDirectories(context.vault().path().getParent());
-        context.vault().write(Map.of(), PASSPHRASE);
+        emptyVault(context);
         assertThat(
                         context.openerAsking(
                                 false, new java.io.PrintWriter(java.io.Writer.nullWriter())))
@@ -710,7 +728,7 @@ class TransportConversationsTest {
         final KernelKeyring keyring = new KernelKeyring(context.paths().vault().vaultKeyringKey());
         try {
             Files.createDirectories(context.vault().path().getParent());
-            context.vault().write(Map.of(), PASSPHRASE);
+            emptyVault(context);
             keyring.store(PASSPHRASE);
             runner.answering(
                     "describe",
@@ -803,7 +821,7 @@ class TransportConversationsTest {
         final KernelKeyring keyring = new KernelKeyring(context.paths().vault().vaultKeyringKey());
         try {
             Files.createDirectories(context.vault().path().getParent());
-            context.vault().write(Map.of(), PASSPHRASE);
+            emptyVault(context);
             keyring.store(PASSPHRASE);
             runner.answering(
                     "describe",
@@ -864,7 +882,7 @@ class TransportConversationsTest {
         final KernelKeyring keyring = new KernelKeyring(context.paths().vault().vaultKeyringKey());
         try {
             Files.createDirectories(context.vault().path().getParent());
-            context.vault().write(Map.of(), PASSPHRASE);
+            emptyVault(context);
             keyring.store(PASSPHRASE);
             runner.answering(
                     "describe",
@@ -901,7 +919,7 @@ class TransportConversationsTest {
         final KernelKeyring keyring = new KernelKeyring(context.paths().vault().vaultKeyringKey());
         try {
             Files.createDirectories(context.vault().path().getParent());
-            context.vault().write(Map.of(), PASSPHRASE);
+            emptyVault(context);
             keyring.store(PASSPHRASE);
             runner.answering(
                     "describe",
@@ -938,7 +956,7 @@ class TransportConversationsTest {
         System.setProperty("user.name", "al ice");
         try {
             Files.createDirectories(context.vault().path().getParent());
-            context.vault().write(Map.of(), PASSPHRASE);
+            emptyVault(context);
             keyring.store(PASSPHRASE);
             runner.answering(
                     "describe",
@@ -984,7 +1002,7 @@ class TransportConversationsTest {
         final KernelKeyring keyring = new KernelKeyring(context.paths().vault().vaultKeyringKey());
         try {
             Files.createDirectories(context.vault().path().getParent());
-            context.vault().write(Map.of(), PASSPHRASE);
+            emptyVault(context);
             keyring.store(PASSPHRASE);
             runner.answering(
                     "describe",
@@ -1034,7 +1052,7 @@ class TransportConversationsTest {
         final KernelKeyring keyring = new KernelKeyring(context.paths().vault().vaultKeyringKey());
         try {
             Files.createDirectories(context.vault().path().getParent());
-            context.vault().write(Map.of(), PASSPHRASE);
+            emptyVault(context);
             keyring.store(PASSPHRASE);
             runner.answering(
                     "describe",
@@ -1125,7 +1143,7 @@ class TransportConversationsTest {
         VaultCache.hold();
         try {
             Files.createDirectories(context.vault().path().getParent());
-            context.vault().write(Map.of(), PASSPHRASE);
+            emptyVault(context);
             keyring.store(PASSPHRASE);
             final TransportLifecycle lifecycle =
                     new TransportLifecycle(
@@ -1188,7 +1206,7 @@ class TransportConversationsTest {
         final KernelKeyring keyring = new KernelKeyring(context.paths().vault().vaultKeyringKey());
         try {
             Files.createDirectories(context.vault().path().getParent());
-            context.vault().write(Map.of(), PASSPHRASE);
+            emptyVault(context);
             keyring.store(PASSPHRASE);
             runner.answering(
                     "setup",
@@ -1257,7 +1275,7 @@ class TransportConversationsTest {
         final KernelKeyring keyring = new KernelKeyring(context.paths().vault().vaultKeyringKey());
         try {
             Files.createDirectories(context.vault().path().getParent());
-            context.vault().write(Map.of(), PASSPHRASE);
+            emptyVault(context);
             keyring.store(PASSPHRASE);
             runner.answering(
                     "describe",
@@ -1306,7 +1324,7 @@ class TransportConversationsTest {
         final KernelKeyring keyring = new KernelKeyring(context.paths().vault().vaultKeyringKey());
         try {
             Files.createDirectories(context.vault().path().getParent());
-            context.vault().write(Map.of(), PASSPHRASE);
+            emptyVault(context);
             keyring.store(PASSPHRASE);
             runner.answering(
                     "describe",
@@ -1359,7 +1377,7 @@ class TransportConversationsTest {
         final KernelKeyring keyring = new KernelKeyring(context.paths().vault().vaultKeyringKey());
         try {
             Files.createDirectories(context.vault().path().getParent());
-            context.vault().write(Map.of(), PASSPHRASE);
+            emptyVault(context);
             keyring.store(PASSPHRASE);
             runner.answering(
                     "describe",

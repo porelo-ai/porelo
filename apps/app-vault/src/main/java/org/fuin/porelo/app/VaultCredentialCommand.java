@@ -19,8 +19,8 @@ import picocli.CommandLine.Spec;
  * <p><strong>git's own protocol, not an invention.</strong> git runs a credential helper with
  * {@code get}, writes {@code protocol=}, {@code host=} and a blank line to its standard input, and
  * reads {@code username=} and {@code password=} back. Porelo wires it up per command ({@code git -c
- * credential.https://host.helper=...}), so nothing is written into any git config and the helper is
- * offered to that host alone.
+ * credential.https://host:port.helper=...}), so nothing is written into any git config and the
+ * helper is offered to that scheme, host and port alone.
  *
  * <p><strong>Why the token is not an argument.</strong> {@code /proc/<pid>/cmdline} is world
  * readable on both supported distributions, so a token on a command line is readable by every

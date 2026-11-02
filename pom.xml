@@ -497,11 +497,17 @@
                                  tests failed whenever its agent did not hold it (2026-10-04). -->
                             <GIT_CONFIG_GLOBAL>/dev/null</GIT_CONFIG_GLOBAL>
                             <GIT_CONFIG_NOSYSTEM>1</GIT_CONFIG_NOSYSTEM>
+                            <!-- A key with a passphrase asks through ssh-askpass, in a window on the
+                                 person's desktop; a test asks nobody. -->
+                            <SSH_ASKPASS_REQUIRE>never</SSH_ASKPASS_REQUIRE>
                         </environmentVariables>
                         <!-- It would send every test's context to the vault it names, whatever paths the test gave. -->
                         <excludedEnvironmentVariables>
                             <excludedEnvironmentVariable>PORELO_VAULT</excludedEnvironmentVariable>
                             <excludedEnvironmentVariable>SSH_AUTH_SOCK</excludedEnvironmentVariable>
+                            <excludedEnvironmentVariable>SSH_ASKPASS</excludedEnvironmentVariable>
+                            <excludedEnvironmentVariable>DISPLAY</excludedEnvironmentVariable>
+                            <excludedEnvironmentVariable>WAYLAND_DISPLAY</excludedEnvironmentVariable>
                             <excludedEnvironmentVariable>DBUS_SESSION_BUS_ADDRESS</excludedEnvironmentVariable>
                         </excludedEnvironmentVariables>
                         <!-- And with nothing installed, on every machine: an agent, a filter or a

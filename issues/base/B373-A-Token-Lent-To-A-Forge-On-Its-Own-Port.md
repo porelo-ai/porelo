@@ -1,6 +1,6 @@
 # B373 — A Token Lent To A Forge On Its Own Port
 
-**Status:** Backlog.
+**Status:** Review.
 **Size:** S - one module pair (`app-base`, `app-model`) and their tests, no contract other repositories read; the
 helper's key is built from the address git is given, and the vault entry names stay as they are.
 
@@ -30,7 +30,10 @@ boundary `:`), so the record is found and the key then misses.
 
 1. **`GitCredentialNames`** gets one new method, `helperScopeOf(url)`: the scheme, the host and the port exactly as the
    address writes them, without a user, path, query or fragment (`https://forge.example:8443`,
-   `https://[::1]:8443`); `null` for an address that names no host. `hostOf`, `candidatesFor`, `impliedName`,
+   `https://[::1]:8443`); `null` for an address that names no host, or a host other than the one `hostOf` reads
+   (`https://forge.example#@other.example/x`: the credential is chosen for other.example and git connects to
+   forge.example, so keyed by the address that token would go to the other host), or a host holding `=`, which would
+   end git's `-c` key early. `hostOf`, `candidatesFor`, `impliedName`,
    `storeCommandFor` and `isOne` are not touched, so `git.token.<host>` still names a host and never a port, and
    every other caller of `hostOf` (`RepositoryAddress.key`, `HostKeys.nameOf`, `ForgeIdentity`, `Reconcile`,
    `FollowCredential.impliedKeyNote`) reads what it read.
@@ -38,8 +41,13 @@ boundary `:`), so the record is found and the key then misses.
    `fromEnvironment` (315) and `fromVault` (330) into `helper` (414), which writes
    `"credential." + GitCredentialNames.helperScopeOf(url) + ".helper=!..."` and no longer reads `credential.match()`
    for the key. The address fetched, not the record's match, decides, so a record for the host and a fetch on its
-   port agree. A token is lent over `https://` only: the method returns no scope for `http://`, so nothing is lent there,
-   as today, although `kindOf` counts `http://` as a token address.
+   port agree. A token is lent over `https://` only; plain `http://` lends nothing, although `kindOf` counts it as a
+   token address.
+   A key takes the same care: git decodes an `ssh://` address before it ends the host, so
+   `ssh://forge.example%2F@other.example/x` connects to forge.example while the key is chosen for other.example.
+   `namesOneHost(url)` refuses an encoded character in such an authority, and `FollowCredential` then lends nothing.
+   `#@` and `?@` in an `ssh://` address hold: git hands ssh the whole authority and ssh connects to the host after the
+   `@`, the one the key is chosen for (measured with a stand-in for ssh and `ssh -G`).
 3. **Tests, red first**, each seen to fail before the change:
    - `FollowCredentialHelperTest` (`apps/app/src/test/.../FollowCredentialHelperTest.java`, beside
      `gitRunsTheHelperAndGetsItsToken`, 37-85): a parameterized case that opens a lease for `https://forge.example.org:8443/team/repo.git`
@@ -50,10 +58,9 @@ boundary `:`), so the record is found and the key then misses.
    - `GitCredentialNamesTest`: `helperScopeOf` for the shapes above; and `hostOf` and `candidatesFor` unchanged for
      `https://forge.example:8443/x.git` (`git.token.forge.example`, `git.token`), which pins that entry names keep
      their meaning.
-   - `RegistryJoinableCommandTest` (a loopback forge exists at line 789ff): a fetch from the forge on its own port with
-     the address NOT rewritten, so the argument that git sees is the one Porelo built. This needs the test's runner
-     (`context()`, 77-112) to leave the `-c credential...` key alone, as it does for any argument not in `rewritten`;
-     over TLS.
+   - `TokenFetchOnItsOwnPortTest` (`apps/app/src/test/...`), a test of its own: real git with a real lease and real
+     `porelo vault credential`, the address not rewritten: a forge over TLS on its own port, with `keytool` making the
+     certificate.
 4. `doc/credentials.md`: one sentence that a token is lent to the scheme, host and port of the address, and that the
    entry's name names the host only. `changelog/unreleased/` entry.
 
@@ -69,6 +76,9 @@ boundary `:`), so the record is found and the key then misses.
   with the token (the forge sees it); seen to fail first.
 - A token is not lent to another port of the same host than the one the record or the fetch names: a lease for
   `https://forge.example:8443/...` answers nothing for `host=forge.example:9443`.
+- A credential chosen for one host never reaches another: a lease for `https://forge.example#@other.example/...` answers
+  nothing for `host=forge.example`, and a key for other.example is not offered to `ssh://forge.example%2F@other.example/...`.
+- Plain `http://` lends nothing: no helper is named for it.
 
 ## To be checked
 

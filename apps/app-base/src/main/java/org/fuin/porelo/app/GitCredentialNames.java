@@ -1,6 +1,8 @@
 package org.fuin.porelo.app;
 
 import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -33,6 +35,20 @@ public final class GitCredentialNames {
     private static final String SSH = "git.ssh";
 
     private static final String TOKEN = "git.token";
+
+    private static final String HTTPS = "https://";
+
+    private static final String SSH_SCHEME = "ssh://";
+
+    private static final Pattern AUTHORITY_END = Pattern.compile("[/?#]");
+
+    /**
+     * A host, in brackets when IPv6, and a port: without '=', which would end git's {@code -c key}
+     * early and make the rest of the host the helper it runs, without '*', which git reads as a
+     * wildcard, and without a second '@'.
+     */
+    private static final Pattern HOST_AND_PORT =
+            Pattern.compile("(\\[[^\\]\\s=@]+]|[^\\[\\]:=@*\\s\\p{Cntrl}]+)(:\\d+)?");
 
     private GitCredentialNames() {
         throw new UnsupportedOperationException("Utility class");
@@ -97,6 +113,74 @@ public final class GitCredentialNames {
             return leadingHost(trimmed.substring(trimmed.indexOf('@') + 1));
         }
         return null;
+    }
+
+    /**
+     * Returns the key git matches a token's helper by: the scheme, the host and the port exactly as
+     * the address writes them. git compares it with the whole authority of the address it connects
+     * to, so a key without the address's port misses it. {@link #hostOf} is not this: an entry's
+     * name stands for a host, on whatever port.
+     *
+     * @param url The repository.
+     * @return The key, or {@code null} when the address is not {@code https://} - over {@code
+     *     http://} a token crosses the wire in the clear - or names no host that can stand in a
+     *     key, or a host other than the one {@link #hostOf} reads.
+     */
+    public static @Nullable String helperScopeOf(final @Nullable String url) {
+        if (url == null) {
+            return null;
+        }
+        final String trimmed = url.strip();
+        if (!trimmed.startsWith(HTTPS)) {
+            return null;
+        }
+        final String rest = trimmed.substring(HTTPS.length());
+        // Where git ends the authority: an '@' after any of these names no host.
+        final Matcher end = AUTHORITY_END.matcher(rest);
+        final String authority = end.find() ? rest.substring(0, end.start()) : rest;
+        final String hostAndPort = authority.substring(authority.indexOf('@') + 1);
+        final Matcher parts = HOST_AND_PORT.matcher(hostAndPort);
+        // The credential is chosen by hostOf: where it reads another host, that host's token would
+        // be keyed for this one.
+        return parts.matches() && parts.group(1).equals(hostOf(trimmed))
+                ? HTTPS + hostAndPort
+                : null;
+    }
+
+    /**
+     * Tells whether git connects to the host this class reads. git decodes an {@code ssh://}
+     * address before it ends the host, so {@code ssh://forge.example%2F@other.example/x} connects
+     * to forge.example while {@link #hostOf} and the registry read other.example, and that host's
+     * key would be offered to the other. Over http the address reaches libcurl undecoded and they
+     * agree.
+     *
+     * @param url The repository.
+     * @return {@code false} for an {@code ssh://} address with an encoded character in its
+     *     authority.
+     */
+    public static boolean namesOneHost(final @Nullable String url) {
+        if (url == null) {
+            return true;
+        }
+        final String trimmed = url.strip();
+        final boolean ssh = trimmed.regionMatches(true, 0, SSH_SCHEME, 0, SSH_SCHEME.length());
+        final String rest = ssh ? trimmed.substring(SSH_SCHEME.length()) : trimmed;
+        // git takes what follows "@[" for a bracketed part, also where it was encoded, and hands
+        // ssh
+        // "host/x@other", which ssh connects to as the host after the last '@'. Only a host itself
+        // may stand in brackets.
+        final String decoded = rest.replaceAll("(?i)%40", "@").replaceAll("(?i)%5b", "[");
+        final int bracket = decoded.lastIndexOf("@[");
+        if (bracket >= 0
+                && (decoded.lastIndexOf('/', bracket) >= 0
+                        || decoded.lastIndexOf(':', bracket) >= 0)) {
+            return false;
+        }
+        if (!ssh) {
+            return true;
+        }
+        final int slash = rest.indexOf('/');
+        return (slash < 0 ? rest : rest.substring(0, slash)).indexOf('%') < 0;
     }
 
     /** The host a host and its path begin with; an IPv6 host keeps the colons in its brackets. */
