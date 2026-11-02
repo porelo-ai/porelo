@@ -46,9 +46,7 @@ import picocli.CommandLine.Spec;
                         + " one to replace the key it backs.")
 public class IdentityBackupKeyCommand implements Callable<Integer>, PoreloFactory.ContextAware {
 
-    /**
-     * How the store's answer says a commit could not be made: here, a key file that stayed shut.
-     */
+    /** How the store says a key did not sign a commit. */
     private static final String NO_KEY = OrganizationQuestions.Refused.NO_KEY;
 
     /** A base no store stands at: the id is looked for first, and nothing is made without it. */
@@ -229,16 +227,6 @@ public class IdentityBackupKeyCommand implements Callable<Integer>, PoreloFactor
                         change);
         final OrganizationWrites.Written filed =
                 IdentityOrganization.filed(() -> writes.addBackupKey(made, scope.host, key));
-        if (filed.again() && !holds(machine, login, PersonCard.fingerprint(key))) {
-            throw new IdentityChange.Refused(
-                    65,
-                    OrganizationQuestions.Refused.EXISTS,
-                    "the id "
-                            + change
-                            + " made another change, and the key in "
-                            + outFile()
-                            + " is not filed; the file is left as it is");
-        }
         kept = true;
         final Map<String, @Nullable Object> answer = new LinkedHashMap<>();
         answer.put("id", filed.id());
@@ -252,20 +240,6 @@ public class IdentityBackupKeyCommand implements Callable<Integer>, PoreloFactor
         return answer(
                 answer,
                 "filed backup key " + PersonCard.fingerprint(key) + " in " + filed.revision());
-    }
-
-    /**
-     * Whether the store now holds this key as this login's backup in the place. It is asked because
-     * the store knows a change again by its id and acting key alone, not by what it was asked for.
-     */
-    private boolean holds(final PoreloContext machine, final String login, final String fingerprint)
-            throws IdentityChange.Refused, IOException {
-        return place(IdentityOrganization.required(machine, opener).answers()).stream()
-                .anyMatch(
-                        row ->
-                                row.backup()
-                                        && row.login().equals(login)
-                                        && row.fingerprint().equals(fingerprint));
     }
 
     /** Everything that would refuse the key, so none is made for a change that cannot be made. */
@@ -446,7 +420,9 @@ public class IdentityBackupKeyCommand implements Callable<Integer>, PoreloFactor
                         "the new card's key stands already, by a change this backup key did not"
                                 + " make");
             }
-            if (NO_KEY.equals(ex.reason())) {
+            // The store names the key that did not sign: an agent short of the new key is not a
+            // file that stayed shut.
+            if (NO_KEY.equals(ex.reason()) && ex.words().contains(backup)) {
                 throw new IdentityChange.Refused(
                         65,
                         "wrong-passphrase",
@@ -454,12 +430,6 @@ public class IdentityBackupKeyCommand implements Callable<Integer>, PoreloFactor
                                 + " terminal could ask it");
             }
             throw ex;
-        }
-        if (filed.again() && !cardStands(machine, login, next.fingerprint())) {
-            throw new IdentityChange.Refused(
-                    65,
-                    OrganizationQuestions.Refused.EXISTS,
-                    "the id " + change + " made another change, and this card does not stand");
         }
         final Map<String, @Nullable Object> answer = new LinkedHashMap<>();
         answer.put("id", filed.id());
@@ -479,16 +449,6 @@ public class IdentityBackupKeyCommand implements Callable<Integer>, PoreloFactor
                         + next.fingerprint()
                         + " in "
                         + filed.revision());
-    }
-
-    private boolean cardStands(
-            final PoreloContext machine, final String login, final String fingerprint)
-            throws IdentityChange.Refused, IOException {
-        return IdentityOrganization.required(machine, opener).answers().getPersons().stream()
-                .anyMatch(
-                        person ->
-                                person.login().equals(login)
-                                        && person.fingerprint().equals(fingerprint));
     }
 
     private Map<String, @Nullable Object> scope(final IdentityOrganization.Reading organization) {

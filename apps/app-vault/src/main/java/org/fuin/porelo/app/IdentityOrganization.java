@@ -49,9 +49,6 @@ final class IdentityOrganization {
     /** A reason nobody expects: the change may have been made. */
     private static final int FAILED = 70;
 
-    /** How the adapter says a commit could not be made, which is how a signature fails. */
-    private static final String UNSIGNED = "cannot make the change";
-
     /** How the adapter says its fetch failed, before anything could be pushed. */
     private static final String UNFETCHED = "cannot read the organization's repository";
 
@@ -181,6 +178,36 @@ final class IdentityOrganization {
         return repository(context).isEmpty() ? null : required(context, opener);
     }
 
+    /**
+     * Reads the organization for a first card, which needs no state: a repository holding nothing
+     * yet answers as a machine with none does.
+     *
+     * @param context The machine.
+     * @param opener How the store is opened.
+     * @return What it answered, or {@code null} when there is nothing to file in.
+     * @throws IdentityChange.Refused 69 {@code cannot-say} when the store cannot be reached, or
+     *     holds nothing although this machine read a state of it.
+     * @throws IOException When something unexpected happened.
+     */
+    static @Nullable Reading requiredUnlessEmpty(final PoreloContext context, final Opener opener)
+            throws IdentityChange.Refused, IOException {
+        final Optional<String> repository = repository(context);
+        if (repository.isEmpty()) {
+            return null;
+        }
+        final Opened opened = opener.open(context, repository.get());
+        try {
+            return fetched(repository.get(), opened);
+        } catch (GitTreeStore.Empty ex) {
+            if (opened.store().last().isPresent()) {
+                throw cannotSay(ex);
+            }
+            return null;
+        } catch (GitTreeStore.Unreachable ex) {
+            throw cannotSay(ex);
+        }
+    }
+
     private static Reading fetched(final String repository, final Opened opened)
             throws IdentityChange.Refused, IOException {
         try {
@@ -221,7 +248,17 @@ final class IdentityOrganization {
             return filing.file();
         } catch (OrganizationQuestions.Refused ex) {
             // The adapter refuses before it pushes: what is left after a push is only a failure.
-            throw refused(ex).beforeAnyPush();
+            throw refused(
+                            OrganizationQuestions.Refused.NO_KEY.equals(ex.reason())
+                                    ? new OrganizationQuestions.Refused(
+                                            ex.reason(),
+                                            ex.getMessage()
+                                                    + ": serve it, then ask again with the same id,"
+                                                    + " or begin again with a new id and another"
+                                                    + " key",
+                                            ex.revision())
+                                    : ex)
+                    .beforeAnyPush();
         } catch (GitTreeStore.Unreachable ex) {
             final IdentityChange.Refused lost =
                     new IdentityChange.Refused(
@@ -238,15 +275,6 @@ final class IdentityOrganization {
                     OrganizationQuestions.Refused.REFUSED_STATE,
                     String.valueOf(ex.getMessage()));
         } catch (IOException ex) {
-            if (String.valueOf(ex.getMessage()).startsWith(UNSIGNED)) {
-                throw new IdentityChange.Refused(
-                                69,
-                                OrganizationQuestions.Refused.NO_KEY,
-                                "the agent did not sign the change: serve its key, then ask again"
-                                        + " with the same id, or begin again with a new id and"
-                                        + " another key")
-                        .beforeAnyPush();
-            }
             throw new IdentityChange.Refused(ex);
         }
     }

@@ -413,4 +413,66 @@ class IdentityCreateCommandTest {
             assertThat(listed).isEmpty();
         }
     }
+
+    /**
+     * Founding an organization takes a card first, and its empty repository is named before there
+     * is one: refusing here would leave the person no way to either.
+     */
+    @Test
+    void a_repository_holding_nothing_yet_prepares_a_first_card_and_files_nothing()
+            throws Exception {
+        registry.agent("alice");
+        organization = new TestOrganization(registry);
+        organization.holdsNothing();
+
+        assertThat(createInOrganization("--key", registry.pin("alice"), "--json"))
+                .as(registry.err.toString())
+                .isZero();
+
+        final Map<?, ?> answer = registry.answer();
+        assertThat(answer.get("revision")).as("nothing was accepted yet").isNull();
+        assertThat(answer.get("next")).isEqualTo(List.of("org create"));
+        assertThat(Files.readString(cardFile())).isEqualTo(answer.get("card"));
+        assertThat(organization.git("for-each-ref").isEmpty()).as("nothing was filed").isTrue();
+    }
+
+    /** A store that held a state and now holds nothing says nothing of what became of it. */
+    @Test
+    void a_repository_emptied_after_it_was_read_is_cannot_say() throws Exception {
+        registry.agent("alice");
+        organization = new TestOrganization(registry);
+        assertThat(IdentityRun.identity(organization, "keys", "--json"))
+                .as(registry.err.toString())
+                .isZero();
+        organization.holdsNothing();
+
+        assertThat(createInOrganization("--key", registry.pin("alice"), "--json")).isEqualTo(69);
+
+        assertThat(reason()).isEqualTo("cannot-say");
+        assertThat(cardFile()).doesNotExist();
+    }
+
+    /** Only a first card needs no store: every other verb has nothing to rest on. */
+    @Test
+    void every_other_verb_finds_a_repository_holding_nothing_cannot_say() throws Exception {
+        registry.agent("alice", "bob");
+        organization = new TestOrganization(registry);
+        organization.holdsNothing();
+        IdentityRun.keep(registry, registry.card("alice", "alice"));
+        final String pin = registry.pin("bob");
+
+        final List<List<String>> verbs =
+                List.of(
+                        List.of("rotate", "--key", pin, "--json"),
+                        List.of("revoke", "--lost", "--key", pin, "--json"),
+                        List.of("show", "--json"),
+                        List.of("keys", "--json"),
+                        List.of("backup-key", "--organization", "--out", "unused", "--json"));
+        for (final List<String> verb : verbs) {
+            assertThat(IdentityRun.identity(organization, verb.toArray(String[]::new)))
+                    .as(verb.toString())
+                    .isEqualTo(69);
+            assertThat(reason()).as(verb.toString()).isEqualTo("cannot-say");
+        }
+    }
 }

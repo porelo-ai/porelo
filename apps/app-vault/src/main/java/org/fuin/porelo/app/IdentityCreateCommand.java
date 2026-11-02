@@ -170,8 +170,12 @@ public class IdentityCreateCommand implements Callable<Integer>, PoreloFactory.C
                     IdentityOrganization.read(machine, opener),
                     null);
         }
+        // A kept operation is filed somewhere; only a new first card goes on with nothing to file
+        // in.
         final IdentityOrganization.Reading organization =
-                IdentityOrganization.requiredIfAny(machine, opener);
+                again != null
+                        ? IdentityOrganization.requiredIfAny(machine, opener)
+                        : IdentityOrganization.requiredUnlessEmpty(machine, opener);
         final IdentityChange change = new IdentityChange(machine);
         if (again != null) {
             final IdentityChange.Filed filed =
@@ -334,8 +338,19 @@ public class IdentityCreateCommand implements Callable<Integer>, PoreloFactory.C
         }
         answer.put(
                 "forge", IdentityFacts.forgeAnswer(organization, card.login(), card.fingerprint()));
-        answer.put("next", organization == null ? List.of("setup") : List.of());
+        answer.put("next", next(machine, organization));
         return answer;
+    }
+
+    /** What the person does next: nothing once it is filed, or name or found the organization. */
+    private static List<String> next(
+            final PoreloContext machine, final IdentityOrganization.@Nullable Reading organization)
+            throws IdentityChange.Refused, IOException {
+        if (organization != null) {
+            return List.of();
+        }
+        return List.of(
+                IdentityOrganization.repository(machine).isPresent() ? "org create" : "setup");
     }
 
     /** Makes a new key into the KeePassXC database and waits for the agent to serve it. */

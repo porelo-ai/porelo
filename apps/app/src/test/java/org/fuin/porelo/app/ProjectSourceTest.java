@@ -1,6 +1,7 @@
 package org.fuin.porelo.app;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -64,6 +65,64 @@ class ProjectSourceTest {
         Files.writeString(file, "project:\n  name: \"" + name + "\"\n");
         new ProjectRegistry(context.paths().projects().projectRegistry()).remember(name, file);
         return file;
+    }
+
+    /** A file written in a project's place, as a person registers one by hand. */
+    private Path written(final PoreloContext context, final String place, final String named)
+            throws IOException {
+        final Path file = context.paths().projects().defaultProjectFile(place);
+        Files.createDirectories(file.getParent());
+        Files.writeString(file, "project:\n  name: \"" + named + "\"\n");
+        return file;
+    }
+
+    /** Written by hand it is the project's file, and nobody ever checked it. */
+    @Test
+    void aFileWrittenInItsPlaceAnswersAndIsNotVerified(@TempDir final Path dir) throws IOException {
+        final PoreloContext context = context(dir);
+        final Path file = written(context, "off", "off");
+
+        final ProjectSource.Found found = ProjectSource.resolve(context, "off");
+
+        assertThat(found.file()).isEqualTo(file);
+        assertThat(found.verified()).as("nothing checked it").isFalse();
+        assertThat(ProjectSource.names(context)).contains("off");
+    }
+
+    /** It wins over a file a task once ran from, since a person just wrote it. */
+    @Test
+    void aFileWrittenInItsPlaceWinsOverARecordedOne(@TempDir final Path dir) throws IOException {
+        final PoreloContext context = context(dir);
+        recorded(context, dir, "off");
+        final Path file = written(context, "off", "off");
+
+        assertThat(ProjectSource.resolve(context, "off").file()).isEqualTo(file);
+    }
+
+    /** A name is a directory here: one that is no name must not walk out of the place. */
+    @Test
+    void aNameThatIsNoNameIsNotRead(@TempDir final Path dir) throws IOException {
+        final PoreloContext context = context(dir);
+        final Path outside = dir.resolve("config/porelo/outside/project.yml");
+        Files.createDirectories(outside.getParent());
+        Files.writeString(outside, "project:\n  name: \"outside\"\n");
+
+        assertThat(ProjectSource.resolve(context, "../outside").file()).isNull();
+        written(context, "Not_A_Name", "Not_A_Name");
+        assertThat(ProjectSource.resolve(context, "Not_A_Name").file()).isNull();
+        assertThat(ProjectSource.names(context)).doesNotContain("Not_A_Name");
+    }
+
+    /** Which project a task belongs to must not depend on which directory the file stands in. */
+    @Test
+    void aFileNamingAnotherProjectIsRefusedNamingBoth(@TempDir final Path dir) throws IOException {
+        final PoreloContext context = context(dir);
+        written(context, "off", "other");
+
+        assertThatThrownBy(() -> ProjectSource.require(context, "off"))
+                .isInstanceOf(org.fuin.porelo.core.project.ProjectException.class)
+                .hasMessageContaining("'off'")
+                .hasMessageContaining("'other'");
     }
 
     @Test

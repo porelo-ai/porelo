@@ -110,7 +110,14 @@ public class IdentityRevokeCommand implements Callable<Integer>, PoreloFactory.C
             final IdentityOperation again =
                     IdentityChange.kept(machine, id, IdentityOperation.REVOKE_LOST);
             if (again != null) {
-                answer(IdentityChange.finish(machine, again), true, organization, null);
+                final IdentityOperation finished = IdentityChange.finish(machine, again);
+                answer(
+                        finished,
+                        true,
+                        organization,
+                        null,
+                        new IdentityChange(machine)
+                                .retireWhatHandsOnFrom(finished.predecessor(), finished.id()));
                 return 0;
             }
             final IdentityChange change = new IdentityChange(machine);
@@ -178,7 +185,12 @@ public class IdentityRevokeCommand implements Callable<Integer>, PoreloFactory.C
                                     false));
             final IdentityOperation operation =
                     begun.fresh() ? change.keep(begun.operation()) : begun.operation();
-            answer(operation, !begun.fresh(), organization, made);
+            answer(
+                    operation,
+                    !begun.fresh(),
+                    organization,
+                    made,
+                    change.retireWhatHandsOnFrom(operation.predecessor(), operation.id()));
             return 0;
         } catch (IdentityChange.Refused ex) {
             return IdentityChange.refuse(spec, json, ex);
@@ -194,7 +206,8 @@ public class IdentityRevokeCommand implements Callable<Integer>, PoreloFactory.C
             final IdentityOperation operation,
             final boolean again,
             final IdentityOrganization.@Nullable Reading organization,
-            final KeePassXcKey.@Nullable Made made) {
+            final KeePassXcKey.@Nullable Made made,
+            final List<String> retired) {
         final Map<String, @Nullable Object> answer = new LinkedHashMap<>();
         answer.put("revision", organization == null ? null : organization.revision());
         answer.put("stale", organization != null && organization.stale());
@@ -205,6 +218,7 @@ public class IdentityRevokeCommand implements Callable<Integer>, PoreloFactory.C
         answer.put("predecessor", operation.predecessor());
         answer.put("card", operation.card());
         answer.put("plan", plan(organization));
+        answer.put("retired", retired);
         final List<String> text = new ArrayList<>();
         text.add(
                 operation.action()
@@ -215,6 +229,8 @@ public class IdentityRevokeCommand implements Callable<Integer>, PoreloFactory.C
                         + " -> "
                         + operation.fingerprint());
         text.addAll(planLines(organization));
+        retired.forEach(
+                each -> text.add("retired " + each + ": it hands on from the key this replaces"));
         IdentityChange.print(spec, json, answer, text, made);
     }
 

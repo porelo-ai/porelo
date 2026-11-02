@@ -418,10 +418,11 @@ class IdentityRotateCommandTest {
     }
 
     /**
-     * The way out under a lost key stays open, and takes the record of the first change with it.
+     * The way out under a lost key stays open, and ends the first change: nothing it could file
+     * would be this person's card any more.
      */
     @Test
-    void a_lost_key_goes_past_a_change_that_may_stand_and_keeps_its_record() throws Exception {
+    void a_lost_key_goes_past_a_change_that_may_stand_and_retires_its_record() throws Exception {
         registry.agent("alice", "alice-new", "bob");
         filed();
         final String before = organization.tip();
@@ -442,7 +443,8 @@ class IdentityRotateCommandTest {
                 .isZero();
 
         assertThat(answer().get("predecessor")).isEqualTo(registry.pin("alice"));
-        assertThat(IdentityOperation.read(registry.context(), "c1")).isNotNull();
+        assertThat(IdentityOperation.read(registry.context(), "c1")).isNull();
+        assertThat(answer().get("retired")).isEqualTo(List.of("c1"));
         assertThat(kept().fingerprint()).isEqualTo(registry.pin("bob"));
 
         organization.listed("alice", "alice-new");
@@ -951,6 +953,46 @@ class IdentityRotateCommandTest {
 
         assertThat(answer().get("predecessor")).isEqualTo(registry.pin("alice"));
         assertThat(IdentityOperation.read(registry.context(), "c1")).isNull();
+    }
+
+    /**
+     * A run that may have pushed leaves its row, and only the key it hands on from could end it.
+     * With that key revoked the person would read it under pending for good.
+     */
+    @Test
+    void a_lost_key_retires_a_row_that_hands_on_from_it_and_says_so() throws Exception {
+        registry.agent("alice", "alice-new", "bob");
+        filed();
+        organization.listed("alice", "bob");
+        organization.unreachableForChanges = true;
+        assertThat(rotate("c1")).isEqualTo(69);
+        organization.unreachableForChanges = false;
+        final Path row = ops().resolve("c1.json");
+        final Map<String, Object> tried =
+                new LinkedHashMap<>((Map<String, Object>) Json.parse(Files.readString(row)));
+        tried.put("push_tried", true);
+        Files.writeString(row, Json.write(tried));
+
+        assertThat(
+                        identity(
+                                "revoke",
+                                "--lost",
+                                "--key",
+                                registry.pin("bob"),
+                                "--id",
+                                "l1",
+                                "--json"))
+                .as(err())
+                .isZero();
+
+        assertThat(answer().get("retired")).as("what it ended").isEqualTo(List.of("c1"));
+        assertThat(identity("show", "--json")).as(err()).isZero();
+        final List<Object> waiting = new java.util.ArrayList<>();
+        ((List<?>) answer().get("pending"))
+                .forEach(each -> waiting.add(((Map<?, ?>) each).get("id")));
+        assertThat(waiting)
+                .as("the replacement waits for an owner, and nothing else does")
+                .isEqualTo(List.of("l1"));
     }
 
     /** One that reached the store stands: what is lost now is that key, which an owner replaces. */

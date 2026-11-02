@@ -6,6 +6,11 @@ Everything `project.yml` can say, and what each key is for.
 built-in project `default`, which uses Porelo's own settings. Write a project file when you want other
 settings.
 
+**Written by hand, it needs no repository and no organization.** Write it to
+`$XDG_CONFIG_HOME/porelo/projects/NAME/project.yml`, with `project.name` the same `NAME`, then run
+`porelo task start -p NAME`, on a person's machine or as an account on a host. Nothing checks who wrote it, and
+that is how an offline project comes to a machine.
+
 **It lives in a git repository, committed: the code's own, or one of its own that names the code repositories
 under `repositories`.** A machine gets it with `porelo project follow <name> <url or local path>`, and reads a commit,
 never the working tree; Porelo never writes one. That command names anything wrong with
@@ -31,7 +36,7 @@ project:
 
   # Required: offline, guarded or online. See security.md.
   #   offline  no network beyond this host; external egress and upstream are refused,
-  #            host_services is allowed, and the project is followed only from a file.
+  #            and host_services is allowed.
   #   guarded  reaches what egress names, pushes to a gate, holds no upstream credential.
   #   online   pushes to a gate that passes its own branch on at once; needs 'upstream'.
   security_class: "guarded"

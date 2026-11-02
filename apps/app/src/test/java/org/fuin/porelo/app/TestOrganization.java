@@ -83,6 +83,11 @@ final class TestOrganization {
                 .trimmedOutput();
     }
 
+    /** Leaves the repository reachable and holding nothing, as a forge holds one made empty. */
+    void holdsNothing() {
+        git("update-ref", "-d", "refs/heads/main");
+    }
+
     /** Takes the repository away, leaving its address and what this machine last read of it. */
     void outOfReach() throws IOException {
         Files.move(repo, machine.dir.resolve("away"));

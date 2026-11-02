@@ -536,9 +536,9 @@ class IdentityBackupKeyCommandTest {
 
         assertThat(backupKey("--organization", "--out", other.toString(), "--id", "b1", "--json"))
                 .as(registry.out.toString())
-                .isEqualTo(65);
+                .isEqualTo(64);
 
-        assertThat(answer().get("reason")).isEqualTo("exists");
+        assertThat(answer().get("reason")).isEqualTo("usage");
         assertThat(answer().get("id")).isEqualTo("b1");
         assertThat(answer().get("fingerprint")).as("no claim about that key").isNull();
         assertThat(organization.owners()).doesNotContain(registry.key("bob"));
@@ -578,9 +578,9 @@ class IdentityBackupKeyCommandTest {
                                 "u1",
                                 "--json"))
                 .as(registry.out.toString())
-                .isEqualTo(65);
+                .isEqualTo(64);
 
-        assertThat(answer().get("reason")).isEqualTo("exists");
+        assertThat(answer().get("reason")).isEqualTo("usage");
         assertThat(answer().get("by")).isNull();
     }
 
@@ -708,8 +708,10 @@ class IdentityBackupKeyCommandTest {
                                 "--id",
                                 "u1",
                                 "--json"))
-                .isEqualTo(65);
-        assertThat(answer().get("reason")).isEqualTo("wrong-passphrase");
+                .isEqualTo(69);
+        assertThat(answer().get("reason"))
+                .as("the file signed; the agent lacks the new key, so a passphrase is not why")
+                .isEqualTo("no-key");
         assertThat(organization.tip()).isEqualTo(before);
     }
 }

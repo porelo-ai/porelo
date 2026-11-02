@@ -734,6 +734,42 @@ class TaskRunCommandTest {
         return context;
     }
 
+    /**
+     * A person with no organization and nothing to follow still starts an offline project: the file
+     * written in its place is the whole registration, so losing this would leave them no way in.
+     */
+    @Test
+    void anOfflineProjectWrittenInItsPlaceStartsByItsName(@TempDir Path dir) throws IOException {
+
+        final PoreloContext context = previewContext(dir);
+        final Path file = context.paths().projects().defaultProjectFile("off");
+        Files.createDirectories(file.getParent());
+        Files.writeString(
+                file,
+                """
+                project:
+                  name: "off"
+                  security_class: "offline"
+                image:
+                  base_image: "ubuntu:24.04"
+                """);
+
+        final int code =
+                execute(
+                        context,
+                        "task",
+                        "start",
+                        "shell",
+                        "-p",
+                        "off",
+                        "--repository",
+                        "off",
+                        "--dry-run");
+
+        assertThat(code).as(err.toString()).isZero();
+        assertThat(out.toString()).contains("security class offline");
+    }
+
     @Test
     void aDryRunNamesTheAgentFoundSignedInAndWhere(@TempDir Path dir) throws IOException {
 

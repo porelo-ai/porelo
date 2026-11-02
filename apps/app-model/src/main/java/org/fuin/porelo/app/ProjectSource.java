@@ -30,8 +30,8 @@ public final class ProjectSource {
         FOLLOWED,
 
         /**
-         * The name is a project this machine has run a task for, and the file is where that task
-         * read it from. Nothing verified it.
+         * The name is a project a person wrote in its place, or one this machine has run a task
+         * for, and the file is where that is. Nothing verified it.
          */
         RECORDED,
 
@@ -102,12 +102,68 @@ public final class ProjectSource {
             // file: that would answer the question the wrong way round, quietly.
             return new Found(Outcome.UNKNOWN, null, "", false);
         }
+        final Path written = written(context, name);
+        if (written != null) {
+            return new Found(Outcome.RECORDED, written, "", false);
+        }
         final String recorded =
                 new ProjectRegistry(context.paths().projects().projectRegistry()).all().get(name);
         if (recorded != null && Files.isRegularFile(Path.of(recorded))) {
             return new Found(Outcome.RECORDED, Path.of(recorded), "", false);
         }
         return new Found(Outcome.UNKNOWN, null, "", false);
+    }
+
+    /**
+     * Returns the file a person wrote in a project's place, which is the whole of registering it.
+     *
+     * @param context The machine.
+     * @param name The project's name; one that is no name is not read.
+     * @return The file, or {@code null} when none is there.
+     */
+    private static @Nullable Path written(final PoreloContext context, final String name) {
+        if (!name.matches(org.fuin.porelo.core.project.Project.NAME_PATTERN)) {
+            return null;
+        }
+        final Path file = context.paths().projects().defaultProjectFile(name);
+        return Files.isRegularFile(file) ? file : null;
+    }
+
+    /** A file in the place of one name that declares another would run under the wrong project. */
+    private static void refuseAnotherName(final Path file, final String name) {
+        final String declared;
+        try (java.io.Reader reader = Files.newBufferedReader(file)) {
+            declared = org.fuin.porelo.core.project.ProjectReader.name(reader, file.toString());
+        } catch (final IOException ex) {
+            throw new org.fuin.porelo.core.project.ProjectException(
+                    "cannot read " + file + ": " + ex.getMessage());
+        }
+        if (!declared.equals(name)) {
+            throw new org.fuin.porelo.core.project.ProjectException(
+                    file + " stands in the place of '" + name + "' and names '" + declared + "'");
+        }
+    }
+
+    /**
+     * Returns the projects a person wrote in their place, by name.
+     *
+     * @param context The machine.
+     * @return Their names, sorted.
+     */
+    public static java.util.List<String> writtenNames(final PoreloContext context) {
+        final Path root = context.paths().xdg().config().resolve("projects");
+        if (!Files.isDirectory(root)) {
+            return java.util.List.of();
+        }
+        try (java.util.stream.Stream<Path> places = Files.list(root)) {
+            return places.map(place -> place.getFileName().toString())
+                    .filter(name -> written(context, name) != null)
+                    .sorted()
+                    .toList();
+        } catch (final IOException ex) {
+            // A listing of names is not the place to fail over a directory.
+            return java.util.List.of();
+        }
     }
 
     /**
@@ -121,6 +177,9 @@ public final class ProjectSource {
      */
     public static Path require(final PoreloContext context, final String name) {
         final Found found = resolve(context, name);
+        if (found.file() != null && found.file().equals(written(context, name))) {
+            refuseAnotherName(found.file(), name);
+        }
         if (found.outcome() == Outcome.FOLLOWED && found.file() == null) {
             throw new org.fuin.porelo.core.project.ProjectException(
                     "'"
@@ -164,6 +223,7 @@ public final class ProjectSource {
             // A listing of names is not the place to fail over the follow record.
             all.clear();
         }
+        all.addAll(writtenNames(context));
         all.addAll(
                 new ProjectRegistry(context.paths().projects().projectRegistry()).all().keySet());
         return java.util.List.copyOf(all);

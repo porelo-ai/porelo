@@ -515,6 +515,26 @@ final class IdentityChange {
     }
 
     /**
+     * Retires each earlier change that hands on from a key now revoked: the card kept here no
+     * longer rests on that key, so its row would stay pending for good.
+     *
+     * @param key The fingerprint of the key revoked.
+     * @param id The id of this change.
+     * @return The ids retired.
+     * @throws IOException When a record cannot be removed.
+     */
+    List<String> retireWhatHandsOnFrom(final String key, final String id) throws IOException {
+        final List<String> retired = new java.util.ArrayList<>();
+        for (final IdentityOperation pending : IdentityOperation.pending(context)) {
+            if (filing(pending) && !pending.id().equals(id) && pending.predecessor().equals(key)) {
+                pending.forget(context);
+                retired.add(pending.id());
+            }
+        }
+        return retired;
+    }
+
+    /**
      * Ends each earlier change of another id that reached the organization: the card it filed is
      * the person's, and what comes next is made against it. A stale state can say neither way.
      *

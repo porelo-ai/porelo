@@ -365,7 +365,9 @@ public final class ProjectInventory {
         }
 
         final Map<String, String> files =
-                new ProjectRegistry(context.paths().projects().projectRegistry()).all();
+                new LinkedHashMap<>(
+                        new ProjectRegistry(context.paths().projects().projectRegistry()).all());
+        ProjectSource.writtenNames(context).forEach(name -> files.putIfAbsent(name, ""));
         final Map<String, Summary> found = new LinkedHashMap<>();
 
         // Always there, even with no repository in it: it is where work goes that no followed
