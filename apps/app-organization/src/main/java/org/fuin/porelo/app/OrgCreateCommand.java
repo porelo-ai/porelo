@@ -80,11 +80,11 @@ public class OrgCreateCommand extends OrgReading {
     /** The founder's ownership is the forge's to say, and it says so only to a token. */
     private static Refused needingToken(
             final PoreloContext machine, final String address, final Refused refused) {
-        final RegistryOrigin origin = RegistryOrigin.of(address);
+        final ForgeAddress origin = ForgeAddress.of(address);
         final String revision = refused.revision();
         final String standing = revision == null || revision.isEmpty() ? null : revision;
         if (!Refused.CANNOT_SAY.equals(refused.reason())
-                || OrgForgeToken.of(machine, origin) != null) {
+                || OrganizationAccess.forgeToken(machine, origin) != null) {
             return new Refused(refused.reason(), String.valueOf(refused.getMessage()), standing);
         }
         return new Refused(
