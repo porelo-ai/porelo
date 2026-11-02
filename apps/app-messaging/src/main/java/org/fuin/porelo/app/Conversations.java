@@ -88,8 +88,8 @@ public final class Conversations {
             PoreloContext context, Project project, String person, boolean reset) throws Refused {
         final TaskConversations conversations = new TaskConversations(context);
         try {
-            ProjectAccess.requireAdmitted(context, project, person);
-        } catch (final ProjectAccess.Withheld ex) {
+            ProjectMembers.requireAdmitted(context, project.name(), person);
+        } catch (final ProjectMembers.Withheld ex) {
             throw new Refused(String.valueOf(ex.getMessage()), 69, null);
         }
         final String existing = conversations.members(context, project).get(person);
@@ -122,14 +122,14 @@ public final class Conversations {
 
     /**
      * Returns who is heard in a project's conversation: admitted joins and each admitted person of
-     * the applied access file taken by their host account.
+     * the project's members taken by their host account.
      *
      * @param context Where the state is.
      * @param project The project.
      * @return Person to their account.
      */
     public static Map<String, String> members(PoreloContext context, Project project) {
-        // A person taken by their host account counts while the access file admits them.
+        // A person taken by their host account counts while the members admit them.
         return new TaskConversations(context).heard(context, project);
     }
 

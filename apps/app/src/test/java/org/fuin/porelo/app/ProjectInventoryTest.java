@@ -122,27 +122,18 @@ class ProjectInventoryTest {
     }
 
     @Test
-    void theJsonProjectListCarriesTheInventorysRecordedUse(@TempDir Path dir) throws IOException {
-        // A program must see the same use as the daemon before offering to unfollow a project.
+    void theInventorysAnswerCarriesTheRecordedUse(@TempDir Path dir) throws IOException {
+        // An interface must see the same use as the daemon before offering to remove a project.
         final PoreloContext context = context(dir);
         mirror("uc");
         recordedTask(context, "porelo-first", "uc", "2026-10-01T10:00:00Z");
-        final var out = new java.io.StringWriter();
-        final var command = PoreloCli.commandLine(context);
-        command.setOut(new java.io.PrintWriter(out));
-        command.setErr(new java.io.PrintWriter(new java.io.StringWriter()));
 
-        assertThat(command.execute("project", "list", "--json"))
-                .as("project list supports a program's JSON request")
-                .isZero();
-        final var reply = (java.util.Map<?, ?>) org.fuin.porelo.wire.Json.parse(out.toString());
-        assertThat((java.util.List<?>) reply.get("projects"))
-                .as("the JSON list renders the inventory's recorded use")
-                .filteredOn(project -> "uc".equals(((java.util.Map<?, ?>) project).get("name")))
+        assertThat(projectsOf(context).stream().map(ProjectInventory.Summary::asMap))
+                .filteredOn(project -> "uc".equals(project.get("name")))
                 .singleElement()
                 .satisfies(
                         project ->
-                                assertThat(((java.util.Map<?, ?>) project).get("lastUsed"))
+                                assertThat(project.get("lastUsed"))
                                         .as("the same instant as the inventory")
                                         .isEqualTo(lastUsed(context, "uc")));
     }
@@ -603,18 +594,10 @@ class ProjectInventoryTest {
     }
 
     /** A project this machine follows, with the file its verified clone holds. */
-    private void followed(final PoreloContext context, final String name, final String content)
+    private void placed(final PoreloContext context, final String name, final String content)
             throws IOException {
-        new FollowedProjects(context.paths().projects().followed())
-                .write(
-                        new FollowedProjects.Followed(
-                                name,
-                                "git@example.com:x/" + name + ".git",
-                                "a1b2c3",
-                                "2026-09-19T00:00:00Z",
-                                "APPLIED",
-                                ""));
-        final Path clone = context.paths().projects().followedClone(name);
+        PlacedFixture.record(context, name);
+        final Path clone = context.paths().projects().organizationClone(name);
         Files.createDirectories(clone);
         Files.writeString(clone.resolve("project.yml"), content);
     }
@@ -628,7 +611,7 @@ class ProjectInventoryTest {
         // a project that has done none of those three is in none of them. A project exists here by
         // being followed, so this is the case, not an edge of it.
         final PoreloContext context = context(dir);
-        followed(
+        placed(
                 context,
                 "e2e-follow",
                 """
@@ -652,7 +635,7 @@ class ProjectInventoryTest {
                 .isEqualTo(
                         context.paths()
                                 .projects()
-                                .followedClone("e2e-follow")
+                                .organizationClone("e2e-follow")
                                 .resolve("project.yml")
                                 .toString());
         // And with the repositories that file names, so the interface can offer the choice a task
@@ -660,21 +643,18 @@ class ProjectInventoryTest {
         assertThat(projects.get(0).repositories())
                 .extracting(ProjectInventory.RepositorySummary::name)
                 .containsExactly("e2e-follow", "backend");
-        assertThat(projects.get(0).following())
-                .isNotNull()
-                .satisfies(one -> assertThat(one.outcome()).isEqualTo("APPLIED"));
     }
 
     @Test
     void showsTheClassOfTheFileInForceNotOfATaskStartedUnderAnEarlierOne(@TempDir Path dir)
             throws IOException {
 
-        // A followed project made online kept saying guarded, the class its old tasks had been
+        // A placed project made online kept saying guarded, the class its old tasks had been
         // started with, and a person asked whether the new file had been refused.
         final PoreloContext context = context(dir);
         runner.answering("ps", "porelo-uc-writer\tExited (0) 1 hour ago\n");
         task("porelo-uc-writer", "uc");
-        followed(
+        placed(
                 context,
                 "uc",
                 """
@@ -714,7 +694,7 @@ class ProjectInventoryTest {
                 """;
         Files.writeString(local, file);
         registry(dir, "uc", local);
-        followed(context, "uc", file);
+        placed(context, "uc", file);
 
         assertThat(projectsOf(context))
                 .singleElement()
@@ -724,7 +704,7 @@ class ProjectInventoryTest {
                                         .isEqualTo(
                                                 context.paths()
                                                         .projects()
-                                                        .followedClone("uc")
+                                                        .organizationClone("uc")
                                                         .resolve("project.yml")
                                                         .toString()));
     }

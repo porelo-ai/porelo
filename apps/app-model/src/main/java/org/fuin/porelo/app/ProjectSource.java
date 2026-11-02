@@ -8,14 +8,13 @@ import org.jspecify.annotations.Nullable;
 /**
  * Where one project's file comes from.
  *
- * <p><strong>A followed project's file is the one the machine verified.</strong> Following fetches
- * a repository, checks that its head commit is signed by a key pinned out of band, and only then
- * moves the clone. Reading anything else afterwards throws that away: a file in a working directory
- * has been checked by nobody, and the whole of following is that somebody checked.
+ * <p><strong>An organization's project's file is the one its last start judged.</strong> A start
+ * fetches the repository and judges its file with the project's signing keys. Reading anything else
+ * afterwards throws that away: a file in a working directory has been checked by nobody.
  *
  * <p><strong>This is the one place that answers it.</strong> A project's file could be in three
- * places - the directory somebody stood in, the one a create call chose, and the verified clone -
- * and three answers to one question is how a machine comes to run something nobody chose.
+ * places - the directory somebody stood in, the one a person wrote, and the judged clone - and
+ * three answers to one question is how a machine comes to run something nobody chose.
  */
 public final class ProjectSource {
 
@@ -26,8 +25,8 @@ public final class ProjectSource {
     /** Why a name could not be resolved, or that it was. */
     public enum Outcome {
 
-        /** The name is a project this machine follows, and the file is its verified clone's. */
-        FOLLOWED,
+        /** The name is the organization's project, and the file is its last start's judged one. */
+        ORGANIZATION,
 
         /**
          * The name is a project a person wrote in its place, or one this machine has run a task
@@ -50,30 +49,15 @@ public final class ProjectSource {
      *
      * @param outcome Where it came from.
      * @param file The project file, or {@code null} when nothing was found.
-     * @param commit The commit the file was applied at, or "" when nothing was applied.
-     * @param unverified {@code true} for a project followed without an anchor, whose commits no
-     *     signature was checked on - whoever can push to its repository decides what it says.
+     * @param commit The revision the file was judged at, or "" when nothing judged it.
      */
-    public record Found(Outcome outcome, @Nullable Path file, String commit, boolean unverified) {
-
-        /**
-         * Tells whether a task started from this would run against something checked.
-         *
-         * @return {@code true} only for a project followed with an anchor that has applied a
-         *     commit.
-         */
-        public boolean verified() {
-            return outcome == Outcome.FOLLOWED && !commit.isEmpty() && !unverified;
-        }
-    }
+    public record Found(Outcome outcome, @Nullable Path file, String commit) {}
 
     /**
      * Resolves a project by name.
      *
-     * <p>A followed project wins over a recorded one of the same name, and it is not close: one was
-     * checked against a pinned key and the other was wherever a task last ran. A project that is
-     * followed but has never applied a commit - refused, unreachable, nothing pinned - resolves to
-     * nothing rather than to a stale file, because *"what is in force"* is then honestly nothing.
+     * <p>The organization's project wins over a local one of the same name, and it is not close:
+     * one was judged with the project's signing keys and the other nobody checked.
      *
      * @param context The machine.
      * @param name The project's name.
@@ -81,37 +65,35 @@ public final class ProjectSource {
      */
     public static Found resolve(final PoreloContext context, final String name) {
         if (DefaultProject.is(name)) {
-            // Before anything else: the name is reserved, so nothing followed or recorded may
+            // Before anything else: the name is reserved, so nothing placed or recorded may
             // answer for it.
-            return new Found(Outcome.BUILT_IN, new DefaultProject(context).file(), "", false);
+            return new Found(Outcome.BUILT_IN, new DefaultProject(context).file(), "");
         }
         try {
-            final FollowedProjects.Followed followed =
-                    new FollowedProjects(context.paths().projects().followed()).find(name);
-            if (followed != null) {
+            final OrganizationProjects.Placed placed = OrganizationProjects.of(context).find(name);
+            if (placed != null) {
                 final Path file =
-                        context.paths().projects().followedClone(name).resolve("project.yml");
-                return new Found(
-                        Outcome.FOLLOWED,
-                        Files.isRegularFile(file) ? file : null,
-                        followed.commit(),
-                        followed.unverified());
+                        context.paths().projects().organizationClone(name).resolve("project.yml");
+                if (Files.isRegularFile(file)) {
+                    return new Found(Outcome.ORGANIZATION, file, placed.revision());
+                }
+                return new Found(Outcome.UNKNOWN, null, "");
             }
         } catch (final IOException ex) {
-            // A follow record that cannot be read is not a reason to fall through to an unverified
-            // file: that would answer the question the wrong way round, quietly.
-            return new Found(Outcome.UNKNOWN, null, "", false);
+            // A record that cannot be read is not a reason to fall through to an unchecked file:
+            // that would answer the question the wrong way round, quietly.
+            return new Found(Outcome.UNKNOWN, null, "");
         }
         final Path written = written(context, name);
         if (written != null) {
-            return new Found(Outcome.RECORDED, written, "", false);
+            return new Found(Outcome.RECORDED, written, "");
         }
         final String recorded =
                 new ProjectRegistry(context.paths().projects().projectRegistry()).all().get(name);
         if (recorded != null && Files.isRegularFile(Path.of(recorded))) {
-            return new Found(Outcome.RECORDED, Path.of(recorded), "", false);
+            return new Found(Outcome.RECORDED, Path.of(recorded), "");
         }
-        return new Found(Outcome.UNKNOWN, null, "", false);
+        return new Found(Outcome.UNKNOWN, null, "");
     }
 
     /**
@@ -172,22 +154,13 @@ public final class ProjectSource {
      * @param context The machine.
      * @param name The project's name.
      * @return The file to read.
-     * @throws org.fuin.porelo.core.project.ProjectException When there is no such project, or when
-     *     it is followed and nothing of it is in force. The message names what there is.
+     * @throws org.fuin.porelo.core.project.ProjectException When there is no such project. The
+     *     message names what there is.
      */
     public static Path require(final PoreloContext context, final String name) {
         final Found found = resolve(context, name);
         if (found.file() != null && found.file().equals(written(context, name))) {
             refuseAnotherName(found.file(), name);
-        }
-        if (found.outcome() == Outcome.FOLLOWED && found.file() == null) {
-            throw new org.fuin.porelo.core.project.ProjectException(
-                    "'"
-                            + name
-                            + "' is followed and"
-                            + " nothing of it is in force: "
-                            + Shown.whyNotInForce(context, name)
-                            + ".");
         }
         if (found.file() == null) {
             final java.util.List<String> known = names(context);
@@ -195,16 +168,14 @@ public final class ProjectSource {
                     "no project '"
                             + name
                             + "' here. "
-                            + (known.isEmpty()
-                                    ? "This machine follows none. A project comes to be here by following"
-                                            + " its repository: porelo project follow <name> <url>"
-                                    : "This machine has: " + String.join(", ", known)));
+                            + "This machine has: "
+                            + String.join(", ", known));
         }
         return found.file();
     }
 
     /**
-     * Returns the names this machine can resolve, followed ones first.
+     * Returns the names this machine can resolve, the organization's placed ones first.
      *
      * <p>What a refusal prints. A person who mistypes a project name should be told which projects
      * this machine has, which is a question only the machine can answer.
@@ -216,11 +187,9 @@ public final class ProjectSource {
         final java.util.Set<String> all = new java.util.LinkedHashSet<>();
         all.add(DefaultProject.NAME);
         try {
-            new FollowedProjects(context.paths().projects().followed())
-                    .all()
-                    .forEach(one -> all.add(one.name()));
+            all.addAll(OrganizationProjects.of(context).names());
         } catch (final IOException ex) {
-            // A listing of names is not the place to fail over the follow record.
+            // A listing of names is not the place to fail over a directory.
             all.clear();
         }
         all.addAll(writtenNames(context));

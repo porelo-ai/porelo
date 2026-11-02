@@ -81,7 +81,7 @@ class TaskCertificationTest {
                                         List.of(),
                                         clock))
                 .isInstanceOf(TaskCertification.Refused.class)
-                .hasMessageContaining("no key of project demo's access file may certify it");
+                .hasMessageContaining("no key of project demo's members may certify it");
         assertThat(asked).isFalse();
     }
 

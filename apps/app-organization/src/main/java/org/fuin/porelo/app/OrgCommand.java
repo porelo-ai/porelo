@@ -24,7 +24,6 @@ import picocli.CommandLine.Command;
         subcommands = {
             OrgCardCommand.class,
             OrgHostCardCommand.class,
-            OrgProjectsCommand.class,
             OrgFetchCommand.class,
             OrgSignersCommand.class,
             OrgAddReadKeyCommand.class,

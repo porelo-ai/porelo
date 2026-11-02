@@ -17,76 +17,10 @@ import picocli.CommandLine;
 /**
  * Tests for the verb that ends a project.
  *
- * <p><strong>What is measured here is the project nobody follows.</strong> A project made before
- * following existed - a task was started with a file, which wrote a mirror and a registry entry -
- * is in no follow record, and this command used to refuse it outright. The project stayed in the
- * listing with its mirror and its image and no command ended it; two of them were cleared by hand
- * on a test machine, which is not something an interface can do. What is at risk is the same either
- * way, so the checks have to be the same either way.
+ * <p><strong>What is measured here is a project of this machine alone</strong>: a mirror, a build
+ * directory and a registry entry, and nothing of the organization.
  */
-class ProjectUnfollowCommandTest {
-
-    @Test
-    void aFailedDeletionSaysFollowingStoppedAndNamesTheRemainingData(@TempDir final Path dir)
-            throws IOException {
-        // A partial removal must not leave the operator believing updates are still enabled.
-        final PoreloContext context = context(dir);
-        unfollowedProject("uc");
-        final FollowedProjects projects =
-                new FollowedProjects(context.paths().projects().followed());
-        projects.follow("uc", "git@example.org:uc.git");
-        final Path clone = Files.createDirectories(context.paths().projects().followedClone("uc"));
-        Files.writeString(clone.resolve("project.yml"), "project data");
-        final var permissions = Files.getPosixFilePermissions(clone);
-        final Run result;
-        try {
-            Files.setPosixFilePermissions(
-                    clone, java.nio.file.attribute.PosixFilePermissions.fromString("r-x------"));
-            result = run(context, "uc");
-        } finally {
-            Files.setPosixFilePermissions(clone, permissions);
-        }
-
-        assertThat(result.code()).as("a partial removal is a failure").isNotZero();
-        assertThat(projects.find("uc")).as("following stays stopped after deletion fails").isNull();
-        assertThat(clone).as("the clone that failed to delete remains").exists();
-        assertThat(result.err())
-                .as("the failure explains that following stopped and identifies manual cleanup")
-                .contains("has stopped", "by hand", clone.toString());
-    }
-
-    @Test
-    void unfollowRemovesTheRecordBeforeDeletingProjectData(@TempDir final Path dir)
-            throws IOException {
-        // A reconcile waiting on the clone lock must see the record gone before deletion starts.
-        final PoreloContext context = context(dir);
-        unfollowedProject("uc");
-        final FollowedProjects projects =
-                new FollowedProjects(context.paths().projects().followed());
-        projects.follow("uc", "git@example.org:uc.git");
-        final Path clone = Files.createDirectories(context.paths().projects().followedClone("uc"));
-        final var removals = new java.util.concurrent.atomic.AtomicInteger();
-        final PoreloContext observed =
-                new PoreloContext(
-                        command -> {
-                            if (command.arguments().contains("rmi")) {
-                                removals.incrementAndGet();
-                                assertThat(context.paths().projects().followed().resolve("uc.json"))
-                                        .as("following stops before project deletion starts")
-                                        .doesNotExist();
-                                assertThat(clone).as("the record goes before the clone").exists();
-                            }
-                            return runner.run(command);
-                        },
-                        context.paths(),
-                        arguments -> 0);
-
-        final Run result = run(observed, "uc");
-
-        assertThat(result.code()).as("unfollow succeeds").isZero();
-        assertThat(removals.get()).as("the deletion was observed").isPositive();
-        assertThat(clone).as("the clone is removed after the record").doesNotExist();
-    }
+class ProjectRemoveCommandTest {
 
     private final FakeCommandRunner runner = new FakeCommandRunner();
 
@@ -108,9 +42,10 @@ class ProjectUnfollowCommandTest {
     }
 
     /**
-     * A project the old way: a mirror, a build directory and a registry entry. Nothing follows it.
+     * A project of this machine: a mirror, a build directory and a registry entry. Nothing of the
+     * organization names it.
      */
-    private void unfollowedProject(final String name) throws IOException {
+    private void localProject(final String name) throws IOException {
         Files.createDirectories(
                 root.resolve("data/porelo/mirrors").resolve(name + ".git").resolve("objects"));
         Files.createDirectories(root.resolve("data/porelo/build").resolve(name));
@@ -126,7 +61,7 @@ class ProjectUnfollowCommandTest {
     private record Run(int code, String out, String err) {}
 
     private Run run(final PoreloContext context, final String... arguments) {
-        final ProjectUnfollowCommand command = new ProjectUnfollowCommand();
+        final ProjectRemoveCommand command = new ProjectRemoveCommand();
         command.setContext(context);
         final StringWriter out = new StringWriter();
         final StringWriter err = new StringWriter();
@@ -139,18 +74,17 @@ class ProjectUnfollowCommandTest {
     }
 
     @Test
-    void previews_a_project_nobody_follows_rather_than_refusing_to_look(@TempDir final Path dir)
+    void previews_a_project_of_this_machine_rather_than_refusing_to_look(@TempDir final Path dir)
             throws IOException {
 
         final PoreloContext context = context(dir);
-        unfollowedProject("objects4j");
+        localProject("objects4j");
 
         final Run previewed = run(context, "objects4j", "--dry-run");
 
         assertThat(previewed.code()).isZero();
         assertThat(previewed.out())
                 .contains("would remove objects4j")
-                .contains("does not follow")
                 // What goes, by name. A preview that says only "yes, something" is not a preview.
                 .contains("mirrors")
                 .contains("objects4j-project.yml");
@@ -161,15 +95,14 @@ class ProjectUnfollowCommandTest {
     }
 
     @Test
-    void clears_a_project_nobody_follows(@TempDir final Path dir) throws IOException {
+    void clears_a_project_of_this_machine(@TempDir final Path dir) throws IOException {
 
         final PoreloContext context = context(dir);
-        unfollowedProject("utils4j");
+        localProject("utils4j");
 
         final Run cleared = run(context, "utils4j");
 
         assertThat(cleared.code()).isZero();
-        assertThat(cleared.out()).contains("was not followed here");
         assertThat(dir.resolve("data/porelo/mirrors/utils4j.git")).doesNotExist();
         assertThat(dir.resolve("data/porelo/projects/utils4j")).doesNotExist();
         assertThat(dir.resolve("data/porelo/build/utils4j")).doesNotExist();
@@ -180,7 +113,7 @@ class ProjectUnfollowCommandTest {
     @Test
     void a_name_this_machine_does_not_list_is_still_its_own_answer(@TempDir final Path dir) {
 
-        // The distinction is the value of the error: "it is here and you do not follow it" is a
+        // The distinction is the value of the error: "it is here and is yours to remove" is a
         // thing to act on, "there is no such project" is a typo.
         final Run missing = run(context(dir), "nowhere", "--dry-run");
 
@@ -189,14 +122,14 @@ class ProjectUnfollowCommandTest {
     }
 
     @Test
-    void refuses_a_project_nobody_follows_that_holds_unreviewed_work(@TempDir final Path dir)
+    void refuses_a_project_of_this_machine_that_holds_unreviewed_work(@TempDir final Path dir)
             throws IOException {
 
         // The point of the whole requirement. These are the pushes that exist in the mirror and
         // nowhere else, and they do not become less valuable because the project predates
         // following. Without this, clearing such a project from an interface would be blind.
         final PoreloContext context = context(dir);
-        unfollowedProject("objects4j");
+        localProject("objects4j");
         final Path mirror = dir.resolve("data/porelo/mirrors/objects4j.git");
         runner.answering("for-each-ref", "refs/porelo/incoming/shell\n");
 
@@ -211,13 +144,13 @@ class ProjectUnfollowCommandTest {
     void takes_the_verified_clone_with_the_rest(@TempDir final Path dir) throws IOException {
 
         // It did not, over the socket: the terminal removed the clone by hand AFTER the deletion
-        // and the daemon never did, so a project unfollowed from an interface left its verified
+        // and the daemon never did, so a project removed through an interface left its verified
         // clone on the machine - while the contract said the clone goes. Found through the
         // interface. Removed through ProjectDeletion now, which is the one thing both ways call,
         // and it is named in the preview for the same reason.
         final PoreloContext context = context(dir);
-        unfollowedProject("uc");
-        final Path clone = context.paths().projects().followedClone("uc");
+        localProject("uc");
+        final Path clone = context.paths().projects().organizationClone("uc");
         Files.createDirectories(clone);
         Files.writeString(
                 clone.resolve("project.yml"), "project:\n  name: \"uc\"\n", StandardCharsets.UTF_8);
@@ -225,7 +158,7 @@ class ProjectUnfollowCommandTest {
         final Run previewed = run(context, "uc", "--dry-run");
         assertThat(previewed.out()).contains(clone.toString());
         // Readable, not a record's toString: this is the screen somebody decides on.
-        assertThat(previewed.out()).contains("followed clone").doesNotContain("Removal[");
+        assertThat(previewed.out()).contains("placed clone").doesNotContain("Removal[");
         // And what is inside the clone is NOT listed as kept, because the clone goes. Saying both
         // about one path in one preview is worse than saying neither.
         assertThat(
@@ -240,5 +173,63 @@ class ProjectUnfollowCommandTest {
         run(context, "uc");
 
         assertThat(clone).doesNotExist();
+    }
+
+    @Test
+    void removing_a_written_file_takes_a_link_to_its_checkout_and_leaves_the_checkout(
+            @TempDir final Path dir) throws IOException {
+        final PoreloContext context = context(dir);
+        final Path checkout = Files.createDirectories(dir.resolve("mine"));
+        Files.writeString(checkout.resolve("project.yml"), "project:\n  name: \"mine\"\n");
+        final Path place = context.paths().projects().defaultProjectFile("mine").getParent();
+        Files.createDirectories(place.getParent());
+        Files.createSymbolicLink(place, checkout);
+        runner.answering("for-each-ref", "");
+
+        final Run removed = run(context, "mine", "--force");
+
+        assertThat(removed.code()).as(removed.err()).isZero();
+        assertThat(place).doesNotExist();
+        assertThat(java.nio.file.Files.isSymbolicLink(place)).isFalse();
+        assertThat(checkout.resolve("project.yml")).exists();
+    }
+
+    @Test
+    void removing_a_written_file_takes_it_and_its_empty_place(@TempDir final Path dir)
+            throws IOException {
+        final PoreloContext context = context(dir);
+        final Path file = context.paths().projects().defaultProjectFile("mine");
+        Files.createDirectories(file.getParent());
+        Files.writeString(file, "project:\n  name: \"mine\"\n");
+        runner.answering("for-each-ref", "");
+
+        final Run removed = run(context, "mine");
+
+        assertThat(removed.code()).as(removed.err()).isZero();
+        assertThat(file.getParent()).doesNotExist();
+        assertThat(ProjectSource.resolve(context, "mine").file()).isNull();
+    }
+
+    @Test
+    void an_organizations_project_is_not_this_commands_to_remove(@TempDir final Path dir)
+            throws IOException {
+        final PoreloContext context = context(dir);
+        PlacedFixture.place(context, "theirs", "project:\n  name: \"theirs\"\n");
+
+        final Run removed = run(context, "theirs", "--force", "--json");
+
+        assertThat(removed.code()).isEqualTo(65);
+        assertThat(removed.out()).contains("not-allowed");
+        assertThat(context.paths().projects().organizationClone("theirs")).exists();
+    }
+
+    @Test
+    void default_is_not_removed_either(@TempDir final Path dir) {
+        assertThat(run(context(dir), DefaultProject.NAME, "--force").code()).isEqualTo(65);
+    }
+
+    @Test
+    void forced_with_nothing_there_is_a_success_for_a_cleanup_trap(@TempDir final Path dir) {
+        assertThat(run(context(dir), "nowhere", "--force").code()).isZero();
     }
 }

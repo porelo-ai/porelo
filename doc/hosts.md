@@ -8,8 +8,7 @@ A host comes up in two plays. The first prepares the machine and needs nothing P
 runs it writes that play's inventory itself. It ends with Porelo's setup script, taken from the `porelo` package
 rather than downloaded, once the repository is added by the key's pinned fingerprint, as
 [Running Porelo](running.md#preparing-a-machine) says; the script makes the account. The second play runs on the
-host, as that account, once `porelo setup` has run there. It reads its inventory from `porelo project inventory`,
-and its answers from the commands below.
+host, as that account, once `porelo setup` has run there. It takes its answers from the commands below.
 
 **The machine installs every agent and starts no task.** The first play installs every agent Porelo's repository
 offers: those the setup script's `--list --json` names with `"kind": "agent"`, passed to it as `--with`. Nobody keeps
@@ -42,111 +41,6 @@ access:
   access repository needs it, and one naming none refuses it.
 - **Neither tasks nor agents.** A machine file naming `tasks` or `agents` is refused: the machine installs every
   agent, and which tasks run is decided by the person when they start them.
-
-## The second play's inventory
-
-`porelo project inventory --machine-file FILE` prints it on standard output; the play writes it to a file. The
-project file is checked against the machine file's key exactly as `porelo project follow` checks it, the access
-bundle against the keys the project holds, as a follow checks a fetched access file, and nothing is recorded,
-followed or pinned.
-
-```yaml
-all:
-    vars:
-        porelo_inventory_version: 2
-    hosts:
-        localhost:
-            ansible_connection: local
-            porelo_account: core
-            porelo_project:
-                name: porelo
-                url: git@github.com:porelo-ai/porelo-project.git
-                signed_by: SHA256:WQGwmhyDCFLwcZ6bK2mzCOXfex1G7vUPdPOVkjtrsfY
-            porelo_transports:
-              -   scheme: matrix
-                  package: porelo-message-transport-matrix
-                  files:
-                      registration_token_file: $XDG_CONFIG_HOME/porelo/matrix/host-registration-token
-            porelo_vault_keys:
-              -   name: github-deploy
-                  path: /mnt/drive/keys/github-deploy
-```
-
-- **`porelo_inventory_version`** is 2: version 1 had `porelo_tasks`, which is gone. It is raised on any change of a
-  name or a meaning here, and a play refuses a version it does not know. A name added beside the others changes
-  neither, so it keeps the version: a play ignores what it does not read.
-- **`porelo_account`** is the account the command ran as.
-- **`porelo_transports`** lists the transports the project's mail conversations and peers use, once each, in
-  file order, with their `scheme` and `package`, `porelo-message-transport-<scheme>`. A project without mail gets an
-  empty list. The machine file names no transport package; any homeserver package is the playbook's decision.
-  **`files`**, where there is any, names each file the transport expects, by its setting (every setting named
-  `*_file`) and the path as the settings give it, `~/` meaning the account's home. The settings are the verified
-  access file's for a project that names one, and the project file's otherwise, so a setting kept only in the private
-  access file, such as Matrix's `registration_token_file`, is still found. Nothing else of a transport's settings
-  reaches the inventory: a path is never a secret, another setting may be.
-- **Refusals**, with nothing printed on standard output: 66 when the machine file or its access bundle is not there;
-  65 when Porelo's part of it is wrong (a missing `project` field, a key or bundle outside the file's directory, a
-  `tasks` or `agents` section), when the project file fails its check against the key, when the access file fails
-  its check or its bundle is missing or has no use, or when the settings name under a transport a `*_file` setting
-  that is not one path, absolute or under `~/`, without `..` (the setting is named, its value never).
-
-A host follows a project whose access file is in a private repository from the two bundles a person uploads,
-`porelo project follow NAME project.bundle --signed-by KEY --access-repository access.bundle`: the host holds no
-credential for that repository, and its URL is never fetched.
-
-## A project verified without following it
-
-Root's `sync` on a host and an interface's *Join* run `porelo project verify ... --json` rather than a checker of
-their own, so the rules that decide which keys and commits count are Porelo's alone. It is run on copies: root runs
-it as a throwaway unprivileged user on its copies of a person's bundles, with no home, vault or network, against
-the key pinned at the project's registration.
-
-```
-porelo project verify --repository project.bundle --signed-by "ssh-ed25519 AAAA..." \
-    --since <commit> --access-repository access.bundle --access-since <commit> --json
-```
-
-The answer, alone on standard output, for the newest commits that hold:
-
-```json
-{"project": "acme", "commit": "<project commit>", "access_commit": "<access commit>",
- "signer": "ssh-ed25519 AAAA...", "signers": ["ssh-ed25519 AAAA..."],
- "host": {...}, "persons": [{"login": "alice", "ssh": "ssh-ed25519 AAAA...",
- "role": "admin", "hosts": ["example-host"], "expires": "2027-10-30", "revoked": false, "locked": false}],
- "admins": ["alice"],
- "certifiers": ["task:acme:* cert-authority,namespaces=\"git\" ssh-ed25519 AAAA..."],
- "transports": {...}}
-```
-
-- **`host`** is the access file's `host:` (`address`, `ssh_host_key`), or `null`.
-  **`persons`** lists each login in access-file order, with the SSH key and expiry from its verified
-  card, role, hosts, revocation and project lock. A revoked person's `ssh` and `expires` are empty;
-  stderr names each refused person on a separate line while the others are still answered.
-- **`admins`** lists only admins neither locked nor revoked, in access-file order.
-  **`certifiers`** gives one allowed-signers line per person neither locked nor revoked, of either
-  role, limited to `namespaces="git"` and principal `task:<project>:*`, the form a task certificate
-  carries. **`transports`** is the access file's settings, or the project file's for a project
-  naming none, when `access_commit` is "". The persons, admins and certifiers are then empty lists.
-- **`signer`** is the verified key of the project tip, or `""` when no signature was checked at the tip.
-  **`signers`** are the keys in force after it, a handover
-  walked: a handover commit is signed by the key before it and hands on to its successors, so `signers` is what a
-  caller pins and names with `--signed-by` next time, with `commit` and `access_commit` as `--since` and
-  `--access-since`.
-- **The name** is the one at `--since`, so a later commit renaming the project is refused as a follow refuses it.
-  A first check has no `--since`; a caller that knows the project names it with `--project`, or another project's
-  bundles signed with the same key would pass under their own name.
-- **`--krl FILE`** supplies the SSH revocation list explicitly. The verifier reads no account's
-  `revoked.krl`; following reads `$XDG_CONFIG_HOME/porelo/revoked.krl` when present. A configured list that
-  is empty, malformed, or unreadable refuses, even when no commit needs a signature. New protected
-  changes use only keys in force, excluding every
-  `valid-before` entry, even for a backdated commit. Retired keys remain available for historical
-  verification and never appear in `signers` or `following --json`'s `signed_by`.
-- Every protected-file change since `--since` is checked against the keys in force before it;
-  unsigned document commits pass. A refusal names the offending commit and protected path on stderr.
-- **Refusals**, with nothing on standard output: 65 when a check fails, naming the outcome a follow would give
-  (`unknown_key`, `not_signed`, `rewritten`, ...), a key, name or commit is not one, a path is a URL, an access
-  option has no use, or a setting has no form in JSON; 66 when a path is not there. A repository without a
-  `project.yml` at its tip is named so, before any signature is looked at.
 
 ## A task certificate judged for the host
 
@@ -207,7 +101,7 @@ porelo commit verify --repository <git-dir> --signers signers --certifiers certi
     --krl revoked.krl --certificates certificates --json < pre-receive input
 ```
 
-- **`--signers`** are the project's keys in force, as `project verify` answers `signers` (no `valid-before` line signs a
+- **`--signers`** are the project's keys in force, as the organization answers them (no `valid-before` line signs a
   new commit); **`--certifiers`** its `certifiers` lines, of which only those in force at the arrival count (no
   `valid-before`, any `valid-after` passed, the `git` namespace admitted), each line read as ssh-keygen reads it - a
   principal list in quotes may hold spaces, a blank is a space or a tab only, and a `valid-after` day past its month's
@@ -233,7 +127,6 @@ A playbook changes only what differs, so a second `up` on a host that is up chan
 
 | Command | Answer |
 |---|---|
-| `porelo project following --json` | `{"follows": [...]}`, each with `name`, `url`, `commit`, `outcome`, `verified`, `signed_by` (the keys pinned for it), `detail`, `refused`, `refused_file`, `access_refused`, `access_refused_file` (the offending commits and paths, `""` when absent), and `access_commit` and `access_outcome` (the project's access file in force and how its last try ended, both "" for a project naming none). The play follows a project again where its `url` or key differs, or where the followed `commit` is none of the uploaded bundle's heads. |
 | `porelo agents --json` | `{"vault": "open"\|"shut"\|"none", "agents": [...]}`, each with `name`, `found_by` (the description or executable that named it), `credential` (the vault entry it signs in under: its default provider's, or its own name when it is not brokered), `flow` (how its sign-in works, as its definition's `login.flow` says: `paste-code`, `device-code` or `loopback`, and "" when it does not say) and `signed_in`. `signed_in` is given only while the vault is open, and is false for a sign-in lacking what its provider sends beside the token; `credential` and `signed_in` are both left out for an agent whose default provider cannot be used (none named, none declared, or a dialect it does not serve), since its start is refused whatever the vault holds; `name`, `found_by` and `flow` are always given. No value is printed. |
 | `porelo task stop --all` | Stops every running task of the account and its helpers, and removes nothing. Exit 0 when nothing of the account runs any more, nothing having run included; 70 when something survived, each named on standard error as `porelo: still running: …`. `down` runs it before `vault clear` and stops on 70. Standard output is for a person. |
 | `porelo vault clear --yes --force` | Clears the account's vault, locked or open, and what the keyring caches of it, without asking and without a terminal. Exit 0 when the vault is gone; 1 when anything was not removed, a running task holding a token from it among them, each named. `--json` gives the same as values. |

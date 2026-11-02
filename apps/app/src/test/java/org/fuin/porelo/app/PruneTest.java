@@ -241,11 +241,10 @@ class PruneTest {
     @Test
     void aRepositorysImageBelongsToItsProject() throws IOException {
 
-        // Taken for a project of its own, a followed project's repository image was a leftover, and
+        // Taken for a project of its own, a placed project's repository image was a leftover, and
         // its next task built it again from nothing.
         final PoreloContext context = context();
-        new FollowedProjects(context.paths().projects().followed())
-                .follow("kept", "git@example.org:kept.git", true);
+        PlacedFixture.record(context, "kept");
         runner.answering(
                 "images", "localhost/porelo/kept_backend\nlocalhost/porelo/gone_backend\n");
         final Path kept =
@@ -257,26 +256,25 @@ class PruneTest {
 
         assertThat(found.removes())
                 .extracting(Prune.Item::name)
-                .as("a vanished project's repository image goes, a followed one's stays")
+                .as("a vanished project's repository image goes, a placed one's stays")
                 .contains("porelo/gone_backend", gone.toString())
                 .doesNotContain("porelo/kept_backend", kept.toString());
     }
 
     @Test
-    void aCloneLeftBesideNoFollowRecordIsALeftoverAndAFollowedOnesIsNot() throws IOException {
+    void aCloneLeftBesideNoRecordIsALeftoverAndAPlacedOnesIsNot() throws IOException {
         final PoreloContext context = context();
-        Files.createDirectories(context.paths().projects().followedClone("refused"));
-        new FollowedProjects(context.paths().projects().followed())
-                .follow("kept", "git@example.org:kept.git", true);
-        Files.createDirectories(context.paths().projects().followedClone("kept"));
+        Files.createDirectories(context.paths().projects().organizationClone("refused"));
+        PlacedFixture.record(context, "kept");
+        Files.createDirectories(context.paths().projects().organizationClone("kept"));
 
         final Prune.Result found = new Prune(context).run(true, false);
 
-        assertThat(context.paths().projects().followedClone("refused")).doesNotExist();
-        assertThat(context.paths().projects().followedClone("kept")).exists();
+        assertThat(context.paths().projects().organizationClone("refused")).doesNotExist();
+        assertThat(context.paths().projects().organizationClone("kept")).exists();
         assertThat(found.removes())
                 .extracting(Prune.Item::name)
-                .contains(context.paths().projects().followedClone("refused").toString());
+                .contains(context.paths().projects().organizationClone("refused").toString());
     }
 
     @Test

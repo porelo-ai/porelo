@@ -12,12 +12,12 @@ import org.jspecify.annotations.Nullable;
 /**
  * Decides at a task's start whether and by whom its key is certified.
  *
- * <p>A project's task is certified by one of its certifiers, the admitted persons of the verified
- * access commit, through the starter's own agent when it holds one of their keys, or by the
- * starting person's machine when the start came from there. A task with no project is certified by
- * the starting person alone: from their machine, or by the first Ed25519 key their agent holds when
- * they start it here. Otherwise the task starts uncertified: its commits are not signed and its
- * gate judges nothing.
+ * <p>A project's task is certified by one of its certifiers, its members with a current key,
+ * through the starter's own agent when it holds one of their keys, or by the starting person's
+ * machine when the start came from there. A task with no project is certified by the starting
+ * person alone: from their machine, or by the first Ed25519 key their agent holds when they start
+ * it here. Otherwise the task starts uncertified: its commits are not signed and its gate judges
+ * nothing.
  */
 final class TaskCertifying {
 
@@ -28,44 +28,10 @@ final class TaskCertifying {
      *
      * @param context The machine.
      * @param project The project.
-     * @return Their keys, empty for a project without a verified access commit.
+     * @return Their keys, empty for a project of this machine alone.
      */
     static List<String> certifiers(PoreloContext context, Project project) {
-        try {
-            return certifiers(
-                    MessageSigners.certifiers(context, project), backups(context, project.name()));
-        } catch (IOException ex) {
-            // The follows cannot be read, so which keys are backup keys is not known.
-            return List.of();
-        }
-    }
-
-    /**
-     * Returns the keys allowed to certify, of the admitted persons' keys: never a backup key of the
-     * project's signers, which signs no change but the one that replaces the key it backs.
-     *
-     * @param admitted The admitted persons' keys.
-     * @param backups The project's backup keys.
-     * @return The certifiers' keys.
-     */
-    static List<String> certifiers(List<String> admitted, List<String> backups) {
-        return admitted.stream()
-                .filter(key -> !key.isBlank())
-                .filter(key -> !backups.contains(key))
-                .toList();
-    }
-
-    /** The backup keys among the signers of the project followed under this name. */
-    private static List<String> backups(PoreloContext context, String project) throws IOException {
-        final FollowedProjects.@Nullable Followed followed =
-                new FollowedProjects(context.paths().projects().followed()).find(project);
-        final List<org.fuin.porelo.core.project.ProjectSigners.Signer> entries =
-                followed == null ? null : FollowedSigners.inForce(context, followed);
-        return entries == null
-                ? List.of()
-                : org.fuin.porelo.core.project.ProjectSigners.backups(entries).stream()
-                        .map(org.fuin.porelo.core.project.ProjectSigners.Signer::key)
-                        .toList();
+        return ProjectMembers.certifiers(context, project.name());
     }
 
     /**
@@ -73,7 +39,7 @@ final class TaskCertifying {
      *
      * <p>A task without a project is certified again by the key that certified it at its start,
      * since its gate checks that one, whichever key the agent now holds first. A project's task is
-     * certified by its access file's certifiers, and by no key when there are none.
+     * certified by its members' keys, and by no key when there are none.
      *
      * @param project The task's project, or {@link TaskCertification#NO_PROJECT}.
      * @param certificate The task's certificate as it holds it.

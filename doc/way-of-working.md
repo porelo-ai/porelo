@@ -23,8 +23,7 @@ calls still go through the host's broker to its model provider, so the class is 
 machine; a cloud provider still sees the prompts. A model in the organization's network keeps them in the
 organization, not on the machine.
 
-1. Follow the project from a file: `porelo project follow <project> <file>`, a bundle of its repository or a directory
-   on this machine. A mirror is seeded from a carried bundle with `porelo gate restore <file> --project <project>`.
+1. Write the project's file on this machine, under `$XDG_CONFIG_HOME/porelo/projects/<project>/project.yml`. A mirror is seeded from a carried bundle with `porelo gate restore <file> --project <project>`.
 2. Start a task: `porelo task start --project <project> --repository <repository>`. The agent clones from the gate's
    Git mirror, builds and tests in its container, and pushes back to the mirror.
 3. Read the work: `porelo gate review -p <project> -r <repository> <task>`, or open it as a copy with
@@ -44,8 +43,8 @@ organization, not on the machine.
 A `guarded` project's gate holds every push of the agent until a person approves it, and the approval forwards it to
 the repository's `upstream` on GitHub or a company forge.
 
-1. Follow the project: `porelo project follow <project> <url-or-path> --signed-by "ssh-ed25519 AAAA..."`, its file
-   saying `security_class: "guarded"` and the repository's `upstream`.
+1. Have the project in your organization, its signed file saying `security_class: "guarded"` and the repository's
+   `upstream`, or write that file on this machine.
 2. Start a task: `porelo task start --project <project> --repository <repository>`. The agent builds and tests in its
    container and pushes to the gate.
 3. Read the work: `porelo gate review -p <project> -r <repository> <task>`.
@@ -54,7 +53,7 @@ the repository's `upstream` on GitHub or a company forge.
 
 - **The person decides** whether the code goes to the forge. The gate's approval is a review of the code.
 - **The first independent build** runs on the forge after the approval, if the repository's workflow builds that push.
-- **It needs** the followed project, an agent, a model provider credential, and the host's credential for the forge
+- **It needs** the project, an agent, a model provider credential, and the host's credential for the forge
   ([what this machine connects out with](credentials.md#what-this-machine-connects-out-with)).
 
 ## With the host's own forge
@@ -93,13 +92,13 @@ repository must be private, and the forge must enforce the team's review.
 
 - **The person decides** the merge, under the company's rules.
 - **The first independent build** runs on the company forge, if its workflow builds the task's push or pull request.
-- **It needs** the followed project, an agent, a model provider credential, the host's credential for the forge, and
+- **It needs** the project, an agent, a model provider credential, the host's credential for the forge, and
   for build reading a reader and its API credential.
 - **Not built yet:** comments reaching the task and waking it.
 
 ## Without any forge
 
-In a local checkout that no followed project names, `porelo task start` uses the built-in `guarded` project `default`,
+In a local checkout that no project names, `porelo task start` uses the built-in `guarded` project `default`,
 and no project file or forge is involved. In the same checkout, `porelo approve` shows the waiting work, asks, and
 brings it in as the branch `porelo/<task>`; merging that branch is the person's. See
 [getting started](getting-started.md#7-review-and-approve).

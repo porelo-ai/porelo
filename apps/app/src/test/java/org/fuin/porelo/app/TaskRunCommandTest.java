@@ -889,9 +889,9 @@ class TaskRunCommandTest {
      * Writes a project file and records where it is, then answers its NAME.
      *
      * <p>Commands take a project name now, and a name resolves through what this machine knows: the
-     * verified clone of a followed project, then where a task last read one. A fixture that only
-     * wrote a file into a temporary directory would be a project this machine has never heard of -
-     * which is exactly what the refusal is for, and not what these tests are about.
+     * judged clone of a placed project, then where a task last read one. A fixture that only wrote
+     * a file into a temporary directory would be a project this machine has never heard of - which
+     * is exactly what the refusal is for, and not what these tests are about.
      */
     private String projectFile(Path dir, String content) throws IOException {
         final Path file = dir.resolve("project.yml");
@@ -3805,24 +3805,16 @@ class TaskRunCommandTest {
     }
 
     @Test
-    void aFollowedProjectsVerifiedFileWinsOverTheOneInTheDirectory(@TempDir Path dir)
+    void aPlacedProjectsJudgedFileWinsOverTheOneInTheDirectory(@TempDir Path dir)
             throws IOException {
 
         // The measurement that matters: start a task from a directory holding a DIFFERENT
-        // project.yml and show that the directory's file had no effect. Following checks a
-        // signature against a key pinned out of band, and reading anything else afterwards throws
-        // that check away.
+        // project.yml and show that the directory's file had no effect. A start judges a
+        // commit's signature against the organization's keys, and reading anything else afterwards
+        // throws that judging away.
         final PoreloContext context = context(dir, true);
-        new FollowedProjects(context.paths().projects().followed())
-                .write(
-                        new FollowedProjects.Followed(
-                                "uc",
-                                "git@example.com:x/uc.git",
-                                "a1b2c3d4",
-                                "2026-09-19T00:00:00Z",
-                                "APPLIED",
-                                ""));
-        final Path clone = context.paths().projects().followedClone("uc");
+        PlacedFixture.record(context, "uc");
+        final Path clone = context.paths().projects().organizationClone("uc");
         Files.createDirectories(clone);
         Files.writeString(
                 clone.resolve("project.yml"),
@@ -3834,24 +3826,16 @@ class TaskRunCommandTest {
         assertThat(out.toString()).contains("base image     ubuntu:22.04");
         // And it says where that came from, so nobody wonders why the file they are looking at is
         // not the one being used.
-        assertThat(out.toString()).contains("a1b2c3d4").contains("followed, verified");
+        assertThat(out.toString()).contains("c0").contains("the organization's, judged");
     }
 
     @Test
-    void aFollowedProjectWithNothingInForceRefusesRatherThanUsingTheLocalFile(@TempDir Path dir)
+    void aPlacedProjectWithNoFileRefusesRatherThanUsingTheLocalFile(@TempDir Path dir)
             throws IOException {
 
         final PoreloContext context = context(dir, true);
-        // Followed and refused - no clone was written.
-        new FollowedProjects(context.paths().projects().followed())
-                .write(
-                        new FollowedProjects.Followed(
-                                "uc",
-                                "git@example.com:x/uc.git",
-                                "",
-                                "2026-09-19T00:00:00Z",
-                                "UNKNOWN_KEY",
-                                "a key that is not pinned"));
+        // Placed, and its clone gone.
+        PlacedFixture.record(context, "uc");
 
         final int code =
                 execute(context, "task", "start", "-p", projectFile(dir, MINIMAL), "--dry-run");
@@ -3859,7 +3843,7 @@ class TaskRunCommandTest {
         // Falling back would run the very thing the machine declined to apply, and would make a
         // refusal look as though it had no effect.
         assertThat(code).isEqualTo(2);
-        assertThat(err.toString()).contains("nothing of it is in force");
+        assertThat(err.toString()).contains("no project 'uc' here");
     }
 
     @Test
@@ -3867,16 +3851,8 @@ class TaskRunCommandTest {
             throws IOException {
 
         final PoreloContext context = context(dir, true);
-        new FollowedProjects(context.paths().projects().followed())
-                .write(
-                        new FollowedProjects.Followed(
-                                "uc",
-                                "git@example.com:x/uc.git",
-                                "a1b2c3d4",
-                                "2026-09-19T00:00:00Z",
-                                "APPLIED",
-                                ""));
-        final Path clone = context.paths().projects().followedClone("uc");
+        PlacedFixture.record(context, "uc");
+        final Path clone = context.paths().projects().organizationClone("uc");
         Files.createDirectories(clone);
         Files.writeString(clone.resolve("project.yml"), MINIMAL);
 
@@ -3896,8 +3872,7 @@ class TaskRunCommandTest {
                 .anyMatch(
                         line ->
                                 line.contains("create")
-                                        && line.contains(
-                                                "--label org.fuin.porelo.commit=a1b2c3d4"));
+                                        && line.contains("--label org.fuin.porelo.commit=c0"));
     }
 
     @Test

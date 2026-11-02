@@ -139,81 +139,39 @@ class MachineTransportsTest {
     private static final org.fuin.porelo.vault.SigningKey BOB =
             org.fuin.porelo.vault.SigningKey.generate("bob");
 
-    /** The applied access file's persons: two logins, with different roles. */
-    private static final String PERSONS =
-            """
-            host:
-              address: host.example.org
-              ssh_host_key: ssh-ed25519 AAAA host@example.org
-            transports:
-              room: {homeserver: "https://access.example"}
-            persons:
-              bob:
-                fingerprint: "%s"
-                role: admin
-                hosts: [example-host]
-              alice:
-                fingerprint: "%s"
-                role: developer
-                hosts: [example-host]
-            """
-                    .formatted(
-                            org.fuin.porelo.vault.PersonCard.fingerprint(
-                                    org.fuin.porelo.vault.PersonCard.keyLine(BOB)),
-                            org.fuin.porelo.vault.PersonCard.fingerprint(
-                                    org.fuin.porelo.vault.PersonCard.keyLine(ALICE)));
+    /** Who the project has: a row each. */
+    private static OrganizationProjects.Key row(
+            final String login, final org.fuin.porelo.vault.SigningKey key) {
+        return PlacedFixture.key(login, org.fuin.porelo.vault.PersonCard.keyLine(key));
+    }
 
-    /** A followed project whose access file, with its persons, is applied at {@code a1}. */
+    /** An organization's project with both persons, as its last start placed it. */
     private Project followed(final PoreloContext context) throws IOException {
-        final Path clone = Files.createDirectories(context.paths().projects().followedClone("p"));
-        Files.writeString(
-                clone.resolve("project.yml"),
+        PlacedFixture.place(
+                context,
+                "p",
                 "project:\n  name: \"p\"\n  security_class: \"guarded\"\n"
                         + "image:\n  base_image: \"ubuntu:24.04\"\n"
-                        + "mail:\n  peers:\n    people: {address: \"room:\", trust: \"external\"}\n"
-                        + "access: {repository: \"git@example.org:p/access.git\"}\n",
-                StandardCharsets.UTF_8);
-        Files.createDirectories(context.paths().projects().followedAccessClone("p"));
-        runner.answering("show a1:access.yml", PERSONS);
-        runner.answering(":cards/alice.card", roomCard("alice", ALICE));
-        runner.answering(":cards/bob.card", roomCard("bob", BOB));
-        new FollowedProjects(context.paths().projects().followed())
-                .write(
-                        new FollowedProjects.Followed(
-                                "p",
-                                "git@example.org:p/project.git",
-                                "c1",
-                                "",
-                                "APPLIED",
-                                "",
-                                "",
-                                "",
-                                false,
-                                "a1",
-                                "APPLIED"));
+                        + "mail:\n  transports:\n    room: {homeserver: \"https://access.example\"}\n"
+                        + "  peers:\n    people: {address: \"room:\", trust: \"external\"}\n",
+                row("bob", BOB),
+                row("alice", ALICE));
         return GateSupport.byName(context, "p");
     }
 
-    private static String roomCard(String login, org.fuin.porelo.vault.SigningKey key) {
-        return org.fuin.porelo.vault.PersonCard.write(
-                login,
-                login,
-                "",
-                key,
-                java.time.LocalDate.parse("2026-10-30"),
-                java.time.LocalDate.parse("2027-10-30"),
-                null);
+    /** The project as placed anew with bob having no row: locked, revoked or never listed. */
+    private void withoutBob(final PoreloContext context) throws IOException {
+        PlacedFixture.record(context, "p", row("alice", ALICE));
     }
 
     // Harm guarded: join and reset must not create credentials for a person the project denies.
     @org.junit.jupiter.params.ParameterizedTest
-    @org.junit.jupiter.params.provider.MethodSource("deniedJoins")
-    void aDeniedJoinRefusesBeforeAnyTransportCall(final String denial, final boolean reset)
-            throws Exception {
+    @org.junit.jupiter.params.provider.ValueSource(booleans = {false, true})
+    void aDeniedJoinRefusesBeforeAnyTransportCall(final boolean reset) throws Exception {
         final PoreloContext context = unlockedVault();
         personsTransport("{\"invited\":[],\"removed\":[]}");
         followed(context);
-        runner.answering("show a1:access.yml", deniedBob(denial));
+        withoutBob(context);
         runner.answering(" join", "{\"shown\":\"" + TOKEN + "\"}");
         final int before = runner.invocations().size();
         final List<String> args = new java.util.ArrayList<>(List.of("talk", "join", "p", "bob"));
@@ -224,7 +182,9 @@ class MachineTransportsTest {
         assertThat(execute(context, args.toArray(String[]::new)))
                 .as("a denied login cannot create or reset an account: " + err)
                 .isEqualTo(69);
-        assertThat(err.toString()).as("the login and refusal are named").contains("bob", denial);
+        assertThat(err.toString())
+                .as("the login and refusal are named")
+                .contains("bob", "not admitted");
         assertThat(out.toString() + err).as("no credential is printed").doesNotContain(TOKEN);
         assertThat(runner.invocations().subList(before, runner.invocations().size()))
                 .as("even describe and setup must wait until admission")
@@ -233,28 +193,15 @@ class MachineTransportsTest {
                                 command.arguments().getFirst().contains(TransportDirectory.PREFIX));
     }
 
-    private static java.util.stream.Stream<org.junit.jupiter.params.provider.Arguments>
-            deniedJoins() {
-        return java.util.stream.Stream.of("locked", "revoked", "not admitted")
-                .flatMap(
-                        denial ->
-                                java.util.stream.Stream.of(false, true)
-                                        .map(
-                                                reset ->
-                                                        org.junit.jupiter.params.provider.Arguments
-                                                                .of(denial, reset)));
-    }
-
     // Harm guarded: a saved join must not turn an admission refusal into an existing-account
     // answer.
-    @org.junit.jupiter.params.ParameterizedTest
-    @org.junit.jupiter.params.provider.ValueSource(strings = {"locked", "revoked", "not admitted"})
-    void aSavedJoinCannotHideTheAdmissionRefusal(final String denial) throws Exception {
+    @Test
+    void aSavedJoinCannotHideTheAdmissionRefusal() throws Exception {
         final PoreloContext context = unlockedVault();
         personsTransport("{\"invited\":[],\"removed\":[]}");
         final Project project = followed(context);
         joined(context, Map.of("bob", "@bob:hs"));
-        runner.answering("show a1:access.yml", deniedBob(denial));
+        withoutBob(context);
         final int before = runner.invocations().size();
 
         assertThatThrownBy(() -> Conversations.join(context, project, "bob", false))
@@ -264,7 +211,7 @@ class MachineTransportsTest {
                         refused -> {
                             assertThat(refused.getMessage())
                                     .as("the denial is named")
-                                    .contains("bob", denial);
+                                    .contains("bob", "not admitted");
                             assertThat(refused.code())
                                     .as("an admission refusal is unavailable")
                                     .isEqualTo(69);
@@ -279,89 +226,6 @@ class MachineTransportsTest {
                                 command.arguments().getFirst().contains(TransportDirectory.PREFIX));
     }
 
-    private static String deniedBob(final String denial) {
-        if (denial.equals("locked")) {
-            return PERSONS.replace("role: admin", "role: admin\n    locked: true");
-        }
-        final String revoked =
-                "revoked: [\""
-                        + org.fuin.porelo.vault.PersonCard.fingerprint(
-                                org.fuin.porelo.vault.PersonCard.keyLine(BOB))
-                        + "\"]\n";
-        return (denial.equals("revoked")
-                        ? PERSONS
-                        : PERSONS.replaceFirst("(?s)  bob:.*?(?=  alice:)", ""))
-                + revoked;
-    }
-
-    // Harm guarded: a registered project with an unreadable admission decision cannot hear joins.
-    @org.junit.jupiter.params.ParameterizedTest
-    @org.junit.jupiter.params.provider.ValueSource(booleans = {false, true})
-    void aBesideProjectAccessFileCannotBeBypassedByAJoin(final boolean readable) throws Exception {
-        final PoreloContext context = unlockedVault();
-        personsTransport("{\"invited\":[],\"removed\":[]}");
-        final Mailbox review = conversation(context);
-        final Path file = context.paths().projects().followedClone("p").resolve("project.yml");
-        Files.writeString(
-                file,
-                Files.readString(file)
-                        .replace(
-                                "repository: \"git@example.org:p/access.git\"",
-                                "file: access.yml"));
-        Files.delete(context.paths().projects().followed().resolve("p.json"));
-        new ProjectRegistry(context.paths().projects().projectRegistry()).remember("p", file);
-        if (readable) {
-            Files.writeString(file.resolveSibling("access.yml"), deniedBob("locked"));
-        }
-        joined(context, Map.of("bob", "@bob:hs"));
-        said(context, "t1--room-person-one.json", "@bob:hs", null);
-
-        conversations(context).pass(group(review));
-
-        assertThat(fromIn(review)).as("an unverified local access file admits nobody").isEmpty();
-        assertThat(Conversations.members(context, GateSupport.byName(context, "p")))
-                .as("a joined account cannot be answered through a local access file")
-                .isEmpty();
-        assertThat(kept(context, "members"))
-                .as("the join survives for later verification")
-                .isEqualTo(Map.of("bob", "@bob:hs"));
-    }
-
-    // Harm guarded: unsigned project state must never grant a person access to a task.
-    @Test
-    void anUnverifiedFollowKeepsMachinesAlone() throws Exception {
-        final PoreloContext context = unlockedVault();
-        personsTransport("{\"invited\":[],\"removed\":[]}");
-        final Mailbox review = conversation(context);
-        final FollowedProjects follows =
-                new FollowedProjects(context.paths().projects().followed());
-        final FollowedProjects.Followed previous = follows.find("p");
-        follows.write(
-                new FollowedProjects.Followed(
-                        "p",
-                        previous.url(),
-                        previous.commit(),
-                        "",
-                        "APPLIED",
-                        "",
-                        "",
-                        "",
-                        true,
-                        "a1",
-                        "APPLIED"));
-        joined(context, Map.of("bob", "@bob:hs"));
-        said(context, "t1--room-person-one.json", "@bob:hs", "bob");
-
-        conversations(context).pass(group(review));
-
-        assertThat(fromIn(review))
-                .as("an unsigned follow grants no access by join or card")
-                .isEmpty();
-        assertThat(Conversations.members(context, GateSupport.byName(context, "p")))
-                .as("unsigned persons receive no answers")
-                .isEmpty();
-    }
-
     // Harm guarded: read-receipt polling must not contact a denied person's account.
     @Test
     void readReceiptsAreAskedOnlyOfAdmittedPersons() throws Exception {
@@ -373,7 +237,7 @@ class MachineTransportsTest {
                 "{\"scheme\":\"room\",\"confirms\":\"read\",\"persons\":true,"
                         + "\"lifecycle\":[\"members\"]}");
         runner.answering(" receipt ", "{\"state\":\"pending\"}");
-        runner.answering("show a1:access.yml", deniedBob("locked"));
+        withoutBob(context);
         joined(context, Map.of("bob", "@bob:hs", "charlie", "@charlie:hs"));
         final Path taken =
                 Files.createDirectories(
@@ -424,13 +288,7 @@ class MachineTransportsTest {
         personsTransport(
                 "{\"invited\":[],\"removed\":[],\"persons_invited\":[],\"persons_removed\":[]}");
         followed(context);
-        runner.answering(
-                "show a1:access.yml",
-                PERSONS.replace("role: developer", "role: developer\n    locked: true")
-                        + "revoked: [\""
-                        + org.fuin.porelo.vault.PersonCard.fingerprint(
-                                org.fuin.porelo.vault.PersonCard.keyLine(BOB))
-                        + "\"]\n");
+        PlacedFixture.record(context, "p");
         assertThat(
                         new TransportLifecycle(
                                         context, context.paths().messaging().transportDirectory())
@@ -509,7 +367,7 @@ class MachineTransportsTest {
         final Mailbox review = conversation(context);
         said(context, "t1--room-person-one.json", "@bob:hs", "bob");
         conversations(context).pass(group(review));
-        applyWithoutBob(context);
+        withoutBob(context);
 
         assertThat(Conversations.members(context, GateSupport.byName(context, "p")))
                 .as("no task answers him any more, before any pass")
@@ -571,9 +429,8 @@ class MachineTransportsTest {
         assertThat(kept(context, "taken")).isEmpty();
     }
 
-    @org.junit.jupiter.params.ParameterizedTest
-    @org.junit.jupiter.params.provider.ValueSource(strings = {"locked", "revoked", "not admitted"})
-    void aDeclaredLockOrRevocationOverridesAManualJoin(final String denial) throws Exception {
+    @Test
+    void aLockOrRevocationOverridesAManualJoin() throws Exception {
         final PoreloContext context = unlockedVault();
         personsTransport("{\"invited\":[],\"removed\":[]}");
         final Mailbox review = conversation(context);
@@ -582,8 +439,7 @@ class MachineTransportsTest {
                                 context.paths().xdg().state().resolve("transport/room/members"))
                         .resolve("p.json"),
                 "{\"bob\":\"@bob:hs\"}");
-        final String denied = deniedBob(denial);
-        runner.answering("show a1:access.yml", denied);
+        withoutBob(context);
         said(context, "t1--room-person-one.json", "@bob:hs", null);
 
         conversations(context).pass(group(review));
@@ -610,14 +466,13 @@ class MachineTransportsTest {
                                 context.paths().xdg().state().resolve("transport/room/members"))
                         .resolve("p.json"),
                 "{\"bob\":\"@bob:hs\"}");
-        runner.answering(
-                "show a1:access.yml",
-                PERSONS.replace("role: admin", "role: admin\n    locked: true"));
+        withoutBob(context);
         assertThat(Conversations.members(context, project))
-                .as("the verified access file locks bob out")
+                .as("the members locks bob out")
                 .isEmpty();
 
-        Files.writeString(context.paths().projects().followed().resolve("p.json"), damaged);
+        Files.writeString(
+                context.paths().projects().organizationProjects().resolve("p.json"), damaged);
 
         assertThat(Conversations.members(context, project))
                 .as(
@@ -638,7 +493,7 @@ class MachineTransportsTest {
                                 context.paths().xdg().state().resolve("transport/room/members"))
                         .resolve("p.json"),
                 "{\"bob\":\"@bob:hs\"}");
-        applyWithoutBob(context);
+        withoutBob(context);
         said(context, "t2--room-person-two.json", "@bob:hs", null);
 
         conversations(context).pass(group(review));
@@ -700,7 +555,7 @@ class MachineTransportsTest {
         saidDirectly(context, "t1--room-person-one.json", "@bob:hs", "bob");
 
         conversations(context).pass(group(review));
-        applyWithoutBob(context);
+        withoutBob(context);
         saidDirectly(context, "t2--room-person-two.json", "@bob:hs", null);
         final var outcome = conversations(context).waitDirect(group(review).getFirst());
 
@@ -832,28 +687,6 @@ class MachineTransportsTest {
         return Files.isRegularFile(file)
                 ? (Map<?, ?>) org.fuin.porelo.wire.Json.parse(Files.readString(file))
                 : Map.of();
-    }
-
-    /** The access file applied at a2, which no longer names bob. */
-    private void applyWithoutBob(final PoreloContext context) throws IOException {
-        runner.answering(
-                "show a2:access.yml",
-                PERSONS.substring(0, PERSONS.indexOf("  bob:"))
-                        + PERSONS.substring(PERSONS.indexOf("  alice:")));
-        new FollowedProjects(context.paths().projects().followed())
-                .write(
-                        new FollowedProjects.Followed(
-                                "p",
-                                "git@example.org:p/project.git",
-                                "c1",
-                                "",
-                                "APPLIED",
-                                "",
-                                "",
-                                "",
-                                false,
-                                "a2",
-                                "APPLIED"));
     }
 
     private Command only(final String verb) {

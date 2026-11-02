@@ -160,13 +160,11 @@ public final class PoreloDaemon {
     record Watches(
             PoreloContext context,
             org.fuin.porelo.app.UpstreamWatch upstream,
-            org.fuin.porelo.app.MessageWatch mail,
-            org.fuin.porelo.app.ConfigurationWatch configuration)
+            org.fuin.porelo.app.MessageWatch mail)
             implements AutoCloseable {
         @Override
         public void close() {
             try {
-                configuration.close();
                 mail.close();
                 upstream.close();
             } finally {
@@ -176,16 +174,12 @@ public final class PoreloDaemon {
     }
 
     static Watches watches(
-            PoreloContext supplied,
-            java.time.Duration every,
-            java.time.Duration messages,
-            java.time.Duration following) {
+            PoreloContext supplied, java.time.Duration every, java.time.Duration messages) {
         final PoreloContext context = ownedContext(supplied);
         return new Watches(
                 context,
                 new org.fuin.porelo.app.UpstreamWatch(context, every),
-                new org.fuin.porelo.app.MessageWatch(context, messages),
-                new org.fuin.porelo.app.ConfigurationWatch(context, following));
+                new org.fuin.porelo.app.MessageWatch(context, messages));
     }
 
     /**
@@ -1196,15 +1190,12 @@ public final class PoreloDaemon {
         // nothing in a test should walk a machine's mailboxes by existing.
         final java.time.Duration messages =
                 org.fuin.porelo.app.MessageWatch.interval(System::getenv);
-        final java.time.Duration following =
-                org.fuin.porelo.app.ConfigurationWatch.interval(System::getenv);
         final PoreloContext context = PoreloContext.real();
-        try (Watches watches = watches(context, every, messages, following)) {
+        try (Watches watches = watches(context, every, messages)) {
             final PoreloContext owned = watches.context();
             final Path socket = owned.paths().daemonSocket();
             final var upstream = watches.upstream();
             final var mail = watches.mail();
-            final var configuration = watches.configuration();
             try (VarlinkServer server = serving(owned, socket)) {
                 // try-with-resources does not run for a signal, and a signal is how a daemon
                 // normally
@@ -1224,7 +1215,6 @@ public final class PoreloDaemon {
                 // timer still goes and asks, because a watch can miss things and a transport that
                 // fetches from elsewhere has to be asked rather than waited on.
                 final boolean noticing = mail.startNotices();
-                configuration.start();
                 // An update replaces this binary and starts nothing: this notices, and has the
                 // account's own manager restart the daemon on the new one.
                 SelfReplacement.ofThisProcess(owned.runner()).start();
@@ -1240,14 +1230,6 @@ public final class PoreloDaemon {
                                         + (noticing
                                                 ? ", and at once when one lands here"
                                                 : " (this machine cannot watch directories)"));
-                System.out.println(
-                        following.isZero() || following.isNegative()
-                                ? "not following project repositories ("
-                                        + org.fuin.porelo.app.ConfigurationWatch.INTERVAL_VARIABLE
-                                        + "=0)"
-                                : "following each project's repository every "
-                                        + following.toSeconds()
-                                        + " seconds");
                 System.out.println(
                         every.isZero() || every.isNegative()
                                 ? "not measuring how far projects are behind upstream ("

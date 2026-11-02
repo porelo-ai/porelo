@@ -9,8 +9,10 @@ import java.nio.file.Path;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Deque;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Optional;
 import org.fuin.porelo.wire.Directories;
 import org.jspecify.annotations.Nullable;
@@ -162,6 +164,8 @@ final class CliErrors {
         return (ParameterException ex, String[] args) -> {
             final CommandLine command = ex.getCommandLine();
             final PrintWriter err = command.getErr();
+            final StringWriter said = new StringWriter();
+            final PrintWriter sayer = new PrintWriter(said);
 
             if (ex instanceof UnmatchedArgumentException unmatched
                     && !unmatched.getUnmatched().isEmpty()) {
@@ -170,33 +174,50 @@ final class CliErrors {
                 final String where = command.getCommandSpec().qualifiedName(" ");
 
                 if (first.startsWith("-")) {
-                    err.println("porelo: '" + first + "' is not an option of '" + where + "'");
+                    sayer.println("porelo: '" + first + "' is not an option of '" + where + "'");
                 } else {
-                    err.println("porelo: '" + where + "' has no command called '" + first + "'");
+                    sayer.println("porelo: '" + where + "' has no command called '" + first + "'");
                     // The whole point: a name that exists elsewhere is not a typo, and telling
                     // somebody where it lives is the one thing that gets them moving.
                     final Optional<String> elsewhere = pathTo(rootOf(command), first);
                     final Optional<String> nearest = nearestTo(rootOf(command), first);
                     if (elsewhere.isPresent()) {
-                        err.println("porelo: it is '" + elsewhere.get() + "'");
+                        sayer.println("porelo: it is '" + elsewhere.get() + "'");
                     } else if (nearest.isPresent()) {
-                        err.println("porelo: did you mean '" + nearest.get() + "'?");
+                        sayer.println("porelo: did you mean '" + nearest.get() + "'?");
                     } else if (!available(command).isEmpty()) {
-                        err.println("porelo: try one of: " + String.join(", ", available(command)));
+                        sayer.println(
+                                "porelo: try one of: " + String.join(", ", available(command)));
                     }
                 }
             } else {
                 // Everything else picocli says is already about what somebody typed rather than
                 // about the parser - a missing parameter, a value of the wrong kind - so it is
                 // passed through with the prefix the rest of this product uses.
-                err.println("porelo: " + lower(ex.getMessage()));
+                sayer.println("porelo: " + lower(ex.getMessage()));
                 // And when the command knows what it would have taken, it says so here rather than
                 // sending somebody to another command to read a name back.
                 if (command.getCommand() instanceof Suggests suggests) {
-                    Suggests.offer(err, suggests);
+                    Suggests.offer(sayer, suggests);
                 }
             }
 
+            sayer.flush();
+            err.print(said);
+            if (List.of(args).contains("--json")) {
+                // A program that asked for one answer gets it for this refusal too.
+                final Map<String, String> answer = new LinkedHashMap<>();
+                answer.put("reason", "usage");
+                answer.put(
+                        "words",
+                        said.toString()
+                                .lines()
+                                .findFirst()
+                                .orElse("")
+                                .replaceFirst("^porelo: ", ""));
+                command.getOut().println(org.fuin.porelo.wire.Json.write(answer));
+                command.getOut().flush();
+            }
             err.println();
             err.println(
                     "Run '"

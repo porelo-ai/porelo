@@ -36,17 +36,14 @@ final class ProjectSchema {
                         "credentials",
                         "builds",
                         "parameters",
-                        "branch",
-                        "access"));
-        SECTIONS.put("access", Set.of("repository", "file"));
+                        "branch"));
         SECTIONS.put("branch", Set.of("template", "pattern"));
         SECTIONS.put("builds", Set.of("forge", "credential", "api", "logs"));
         SECTIONS.put(
                 "parameters.<parameter>",
                 Set.of("description", "values", "pattern", "default", "required", "env"));
         SECTIONS.put(
-                "project",
-                Set.of("name", "description", "security_class", "upstream", "signers", "nickname"));
+                "project", Set.of("name", "description", "security_class", "upstream", "nickname"));
         SECTIONS.put("image", Set.of("base_image", "snippet", "snippet_file", "package_sources"));
         SECTIONS.put("egress", Set.of("sets", "domains", "refused", "host_services"));
         SECTIONS.put("limits", Set.of("memory", "pids", "cpus", "hand_in", "subagents"));
@@ -125,31 +122,6 @@ final class ProjectSchema {
                                     + " keeps every branch it matches from the tasks.",
                             "string",
                             "^porelo/.+$",
-                            false),
-                    key(
-                            "",
-                            "access",
-                            "Where the project's access file is: its host, persons and"
-                                    + " transports' settings, signed like this file and kept out of"
-                                    + " it.",
-                            "map",
-                            "",
-                            false),
-                    key(
-                            "access",
-                            "repository",
-                            "A repository of its own holding access.yml, fetched with this"
-                                    + " account's credential; not with 'file'.",
-                            "string",
-                            "",
-                            false),
-                    key(
-                            "access",
-                            "file",
-                            "access.yml beside this file, in the same commit, as visible as this"
-                                    + " repository; not with 'repository'.",
-                            "string",
-                            "",
                             false),
                     key(
                             "",
@@ -276,17 +248,6 @@ final class ProjectSchema {
                             "description",
                             "For people: shown wherever the project is listed.",
                             "string",
-                            "",
-                            false),
-                    key(
-                            "project",
-                            "signers",
-                            "The public keys of the people whose signed commits change this file. A"
-                                    + " commit signed by a key a machine has pinned that adds or removes one here makes it pin or"
-                                    + " unpin it; a key never counts for the commit that adds it. An entry"
-                                    + " {key, backup: true, backs, since} is a backup key, which signs only the"
-                                    + " change that replaces the key it backs.",
-                            "list",
                             "",
                             false),
                     new ProjectKey(

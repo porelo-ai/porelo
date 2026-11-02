@@ -27,250 +27,6 @@ import org.junit.jupiter.api.io.TempDir;
  */
 class ProjectDeletionTest {
 
-    @org.junit.jupiter.params.ParameterizedTest
-    @org.junit.jupiter.params.provider.ValueSource(strings = {"preview", "gate", "task"})
-    void aPreviewOrRefusalKeepsTheFollowRecordAndPinnedKey(String reason, @TempDir Path dir)
-            throws IOException {
-        // Refusing removal must not silently stop updates or discard the project's trust anchor.
-        final PoreloContext context = context(dir);
-        project("uc");
-        final FollowedProjects projects =
-                new FollowedProjects(context.paths().projects().followed());
-        final FollowedProjects.Followed previous = projects.follow("uc", "git@example.org:uc.git");
-        final Path signers = context.paths().projects().configurationSigners();
-        Files.createDirectories(signers.getParent());
-        Files.writeString(signers, "uc pinned-key\nother other-key\n");
-        if (reason.equals("gate")) {
-            runner.answering("for-each-ref", "refs/porelo/incoming/shell\n");
-        } else if (reason.equals("task")) {
-            task("porelo-uc-shell-1", "uc", "Exited (0) 2 minutes ago");
-        }
-
-        final ProjectDeletion.Result result =
-                new ProjectDeletion(context).unfollow("uc", reason.equals("preview"), false);
-
-        assertThat(result.outcome())
-                .as("the preview or refusal is preserved")
-                .isEqualTo(
-                        reason.equals("preview")
-                                ? ProjectDeletion.Outcome.PREVIEWED
-                                : ProjectDeletion.Outcome.HOLDS_WORK);
-        assertThat(projects.find("uc"))
-                .as("a preview or refusal keeps the complete follow record")
-                .isEqualTo(previous);
-        assertThat(Files.readString(signers))
-                .as("a preview or refusal keeps both projects' pinned keys")
-                .isEqualTo("uc pinned-key\nother other-key\n");
-        assertThat(dir.resolve("data/porelo/mirrors/uc.git"))
-                .as("a preview or refusal keeps the mirror")
-                .exists();
-    }
-
-    @Test
-    void anUnappliedFollowLosesItsCloneEvenWhenInventoryCannotListIt(@TempDir Path dir)
-            throws IOException {
-        // A failed inventory read must not leave configuration behind after updates stop.
-        final PoreloContext context = context(dir);
-        final FollowedProjects projects =
-                new FollowedProjects(context.paths().projects().followed());
-        final PoreloContext observed =
-                new PoreloContext(
-                        command -> {
-                            if (command.arguments().contains("ps")) {
-                                try {
-                                    projects.follow("uc", "git@example.org:uc.git");
-                                } catch (IOException ex) {
-                                    throw new java.io.UncheckedIOException(ex);
-                                }
-                            }
-                            return runner.run(command);
-                        },
-                        context.paths(),
-                        arguments -> 0);
-        final Path clone = Files.createDirectories(context.paths().projects().followedClone("uc"));
-        final Path lock = Files.writeString(context.paths().projects().followedCloneLock("uc"), "");
-        final Path accessClone =
-                Files.createDirectories(context.paths().projects().followedAccessClone("uc"));
-        Files.writeString(accessClone.resolve("access.yml"), "{}\n");
-
-        final ProjectDeletion.Result result =
-                new ProjectDeletion(observed).unfollow("uc", false, false);
-
-        assertThat(result.outcome())
-                .as("the inventory did not know the unapplied project")
-                .isEqualTo(ProjectDeletion.Outcome.NO_SUCH_PROJECT);
-        assertThat(projects.find("uc")).as("following has stopped").isNull();
-        assertThat(clone).as("an unapplied follow leaves no configuration clone").doesNotExist();
-        assertThat(lock).as("an unapplied follow leaves no clone lock").doesNotExist();
-        assertThat(accessClone).as("an unapplied follow leaves no access clone").doesNotExist();
-        assertThat(result.removes())
-                .as("the removed clone and lock are reported")
-                .contains(
-                        new ProjectDeletion.Removal("FOLLOWED_CLONE", clone.toString()),
-                        new ProjectDeletion.Removal("FOLLOWED_CLONE", accessClone.toString()),
-                        new ProjectDeletion.Removal("FOLLOWED_CLONE", lock.toString()));
-    }
-
-    @Test
-    void aReconcileWaitsUntilALateRefusalRestoresTheRecord(@TempDir Path dir) throws Exception {
-        // Seeing a temporary absence would make a watcher skip a still-followed project.
-        final PoreloContext base = context(dir);
-        project("uc");
-        task("porelo-uc-shell-1", "uc", "Exited (0) 2 minutes ago");
-        runner.answering("for-each-ref", "");
-        final FollowedProjects projects = new FollowedProjects(base.paths().projects().followed());
-        final FollowedProjects.Followed previous =
-                projects.follow("uc", dir.resolve("missing").toString());
-        runner.answering("container inspect", "exited");
-        final var pending =
-                new java.util.concurrent.atomic.AtomicReference<
-                        java.util.concurrent.Future<Reconcile.Result>>();
-        final var sawGap = new java.util.concurrent.atomic.AtomicBoolean();
-        try (var executor = Executors.newSingleThreadExecutor()) {
-            final PoreloContext observed =
-                    new PoreloContext(
-                            command -> {
-                                if (command.arguments().contains("inspect")
-                                        && !Files.exists(
-                                                base.paths()
-                                                        .projects()
-                                                        .followed()
-                                                        .resolve("uc.json"))
-                                        && pending.get() == null) {
-                                    final CountDownLatch started = new CountDownLatch(1);
-                                    final var reconcile =
-                                            executor.submit(
-                                                    () -> {
-                                                        started.countDown();
-                                                        return new Reconcile(base).run(previous);
-                                                    });
-                                    pending.set(reconcile);
-                                    try {
-                                        assertThat(started.await(5, TimeUnit.SECONDS))
-                                                .as("the watcher started")
-                                                .isTrue();
-                                        reconcile.get(300, TimeUnit.MILLISECONDS);
-                                        sawGap.set(true);
-                                    } catch (TimeoutException expected) {
-                                        // The clone lock should keep the watcher out until
-                                        // restoration finishes.
-                                    } catch (Exception ex) {
-                                        throw new java.io.UncheckedIOException(new IOException(ex));
-                                    }
-                                }
-                                return runner.run(command);
-                            },
-                            base.paths(),
-                            arguments -> 0);
-
-            final ProjectDeletion.Result result =
-                    new ProjectDeletion(observed).unfollow("uc", false, false);
-
-            assertThat(result.outcome())
-                    .as("the stopped task refuses removal")
-                    .isEqualTo(ProjectDeletion.Outcome.HOLDS_WORK);
-            assertThat(projects.find("uc"))
-                    .as("the complete follow record is restored")
-                    .isEqualTo(previous);
-            assertThat(pending.get()).as("reconciliation was attempted in the gap").isNotNull();
-            final Reconcile.Result reconciled = pending.get().get(5, TimeUnit.SECONDS);
-            assertThat(sawGap.get())
-                    .as("reconciliation cannot observe the removal and restore gap")
-                    .isFalse();
-            assertThat(reconciled.outcome())
-                    .as("the watcher reads the restored record")
-                    .isNotEqualTo(Reconcile.Outcome.NOT_FOLLOWED);
-        }
-    }
-
-    @Test
-    void aFailedRestoreKeepsTheTaskRefusalsReason(@TempDir Path dir) throws IOException {
-        // Losing the first refusal hides why work could not safely be removed.
-        final PoreloContext base = context(dir);
-        project("uc");
-        task("porelo-uc-shell-1", "uc", "Exited (0) 2 minutes ago");
-        runner.answering("for-each-ref", "");
-        final FollowedProjects projects = new FollowedProjects(base.paths().projects().followed());
-        projects.follow("uc", "git@example.org:uc.git");
-        runner.answering("container inspect", "exited");
-        final Path staged = base.paths().projects().followed().resolve(".uc.json.tmp");
-        final PoreloContext observed =
-                new PoreloContext(
-                        command -> {
-                            if (command.arguments().contains("inspect")
-                                    && !Files.exists(
-                                            base.paths()
-                                                    .projects()
-                                                    .followed()
-                                                    .resolve("uc.json"))) {
-                                try {
-                                    Files.createDirectories(staged);
-                                } catch (IOException ex) {
-                                    throw new java.io.UncheckedIOException(ex);
-                                }
-                            }
-                            return runner.run(command);
-                        },
-                        base.paths(),
-                        arguments -> 0);
-
-        final ProjectDeletion.Result result =
-                new ProjectDeletion(observed).unfollow("uc", false, false);
-
-        assertThat(result.outcome())
-                .as("restoration failed")
-                .isEqualTo(ProjectDeletion.Outcome.FAILED);
-        assertThat(result.detail())
-                .as("the first refusal survives a failed restore")
-                .contains(
-                        "task porelo-uc-shell-1 was not removed",
-                        "nothing knows",
-                        staged.toString());
-    }
-
-    @Test
-    void aFailedKeyCleanupKeepsTheDeletionFailure(@TempDir Path dir) throws IOException {
-        // Without the first failure the operator cannot tell what still needs cleanup.
-        final PoreloContext base = context(dir);
-        project("uc");
-        new FollowedProjects(base.paths().projects().followed())
-                .follow("uc", "git@example.org:uc.git");
-        Files.createDirectories(base.paths().projects().configurationSigners().getParent());
-        final Path signers =
-                Files.writeString(
-                        base.paths().projects().configurationSigners(),
-                        "uc ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIPinned\n");
-        final var permissions = Files.getPosixFilePermissions(signers);
-        final PoreloContext observed =
-                new PoreloContext(
-                        command -> {
-                            if (command.arguments().contains("rmi")) {
-                                try {
-                                    Files.setPosixFilePermissions(
-                                            signers, PosixFilePermissions.fromString("r--------"));
-                                } catch (IOException ex) {
-                                    throw new java.io.UncheckedIOException(ex);
-                                }
-                                throw new IllegalStateException("primary removal failure");
-                            }
-                            return runner.run(command);
-                        },
-                        base.paths(),
-                        arguments -> 0);
-        final ProjectDeletion.Result result;
-        try {
-            result = new ProjectDeletion(observed).unfollow("uc", false, false);
-        } finally {
-            Files.setPosixFilePermissions(signers, permissions);
-        }
-        assertThat(result.outcome())
-                .as("deletion and key cleanup failed")
-                .isEqualTo(ProjectDeletion.Outcome.FAILED);
-        assertThat(result.detail())
-                .as("the deletion failure survives a failed key cleanup")
-                .contains("primary removal failure", signers.toString());
-    }
-
     private final FakeCommandRunner runner = new FakeCommandRunner();
 
     private Path root;
@@ -479,7 +235,7 @@ class ProjectDeletionTest {
     void removesItsBuildLockAndItsRepositoriesUpstreamRecords(@TempDir Path dir)
             throws IOException {
 
-        // Leftovers keep project data after unfollow; a broad prefix would delete another
+        // Leftovers keep project data after a removal; a broad prefix would delete another
         // project's.
         final PoreloContext context = context(dir);
         project("uc");
@@ -540,37 +296,17 @@ class ProjectDeletionTest {
     }
 
     @Test
-    void deletingANeverFollowedProjectCreatesNoFollowState(@TempDir Path dir) throws IOException {
-
-        // Removing a local project must not create state that only following needs.
-        final PoreloContext context = context(dir);
-        project("uc");
-        runner.answering("for-each-ref", "");
-
-        final ProjectDeletion.Result result =
-                new ProjectDeletion(context).delete("uc", false, false);
-
-        assertThat(result.outcome())
-                .as("the local project can be removed")
-                .isEqualTo(ProjectDeletion.Outcome.DELETED);
-        assertThat(context.paths().projects().followedCloneLock("uc"))
-                .as("a never-followed project leaves no clone lock")
-                .doesNotExist();
-        assertThat(context.paths().projects().followed())
-                .as("deleting a never-followed project creates no follow directory")
-                .doesNotExist();
-    }
-
-    @Test
     void removesTheCloneLockEvenWhenDeletingTheCloneFails(@TempDir Path dir) throws IOException {
 
         // A failed deletion must not strand its synchronization file.
         final PoreloContext context = context(dir);
         project("uc");
         runner.answering("for-each-ref", "");
-        final Path clone = Files.createDirectories(context.paths().projects().followedClone("uc"));
+        final Path clone =
+                Files.createDirectories(context.paths().projects().organizationClone("uc"));
         Files.writeString(clone.resolve("project.yml"), "project data");
-        final Path lock = Files.writeString(context.paths().projects().followedCloneLock("uc"), "");
+        final Path lock =
+                Files.writeString(context.paths().projects().organizationCloneLock("uc"), "");
         final var permissions = Files.getPosixFilePermissions(clone);
         final ProjectDeletion.Result result;
         try {
@@ -594,8 +330,9 @@ class ProjectDeletionTest {
         final PoreloContext context = context(dir);
         project("uc");
         runner.answering("for-each-ref", "");
-        final Path clone = Files.createDirectories(context.paths().projects().followedClone("uc"));
-        final Path lock = context.paths().projects().followedCloneLock("uc");
+        final Path clone =
+                Files.createDirectories(context.paths().projects().organizationClone("uc"));
+        final Path lock = context.paths().projects().organizationCloneLock("uc");
         try (var executor = Executors.newSingleThreadExecutor()) {
             final var deletion =
                     FileLocks.holding(
@@ -639,62 +376,52 @@ class ProjectDeletionTest {
     }
 
     @Test
-    void removesTheFollowedClonesLockWithTheClone(@TempDir Path dir) throws IOException {
+    void removesThePlacedClonesLockWithTheClone(@TempDir Path dir) throws IOException {
 
         // Leftover locks keep state for a project the operator asked to remove.
         final PoreloContext context = context(dir);
         project("uc");
-        new FollowedProjects(context.paths().projects().followed())
-                .follow("uc", "git@example.org:uc.git");
-        final Path clone = Files.createDirectories(context.paths().projects().followedClone("uc"));
+        PlacedFixture.record(context, "uc");
+        final Path clone =
+                Files.createDirectories(context.paths().projects().organizationClone("uc"));
         final Path lock = Files.writeString(clone.resolveSibling("uc.git.lock"), "");
-        final Path accessClone =
-                Files.createDirectories(context.paths().projects().followedAccessClone("uc"));
-        Files.writeString(accessClone.resolve("access.yml"), "{}\n");
         runner.answering("for-each-ref", "");
 
         final ProjectDeletion.Result result =
                 new ProjectDeletion(context).delete("uc", false, false);
 
         assertThat(result.outcome())
-                .as("the followed project can be removed")
+                .as("the placed project can be removed")
                 .isEqualTo(ProjectDeletion.Outcome.DELETED);
-        assertThat(lock).as("the followed clone's lock goes with the clone").doesNotExist();
-        assertThat(clone).as("the followed clone goes too").doesNotExist();
-        assertThat(accessClone).as("the followed access clone goes too").doesNotExist();
+        assertThat(lock).as("the placed clone's lock goes with the clone").doesNotExist();
+        assertThat(clone).as("the placed clone goes too").doesNotExist();
         assertThat(result.removes())
                 .as("the deletion names the lock it removed")
-                .contains(
-                        new ProjectDeletion.Removal("FOLLOWED_CLONE", lock.toString()),
-                        new ProjectDeletion.Removal("FOLLOWED_CLONE", accessClone.toString()));
+                .contains(new ProjectDeletion.Removal("PLACED_CLONE", lock.toString()));
     }
 
     @Test
-    void previewsTheFollowedClonesLockWithoutRemovingIt(@TempDir Path dir) throws IOException {
+    void previewsThePlacedClonesLockWithoutRemovingIt(@TempDir Path dir) throws IOException {
 
         // Consent must cover the lock as well as the clone without deleting either yet.
         final PoreloContext context = context(dir);
         project("uc");
-        new FollowedProjects(context.paths().projects().followed())
-                .follow("uc", "git@example.org:uc.git");
-        final Path clone = Files.createDirectories(context.paths().projects().followedClone("uc"));
+        PlacedFixture.record(context, "uc");
+        final Path clone =
+                Files.createDirectories(context.paths().projects().organizationClone("uc"));
         final Path lock = Files.writeString(clone.resolveSibling("uc.git.lock"), "");
-        final Path accessClone =
-                Files.createDirectories(context.paths().projects().followedAccessClone("uc"));
         runner.answering("for-each-ref", "");
 
         final ProjectDeletion.Result result =
                 new ProjectDeletion(context).delete("uc", true, false);
 
         assertThat(result.removes())
-                .as("the preview names the followed clone and its lock")
+                .as("the preview names the placed clone and its lock")
                 .contains(
-                        new ProjectDeletion.Removal("FOLLOWED_CLONE", clone.toString()),
-                        new ProjectDeletion.Removal("FOLLOWED_CLONE", accessClone.toString()),
-                        new ProjectDeletion.Removal("FOLLOWED_CLONE", lock.toString()));
+                        new ProjectDeletion.Removal("PLACED_CLONE", clone.toString()),
+                        new ProjectDeletion.Removal("PLACED_CLONE", lock.toString()));
         assertThat(lock).as("preview leaves the clone's lock untouched").exists();
         assertThat(clone).as("preview leaves the clone untouched").exists();
-        assertThat(accessClone).as("preview leaves the access clone untouched").exists();
     }
 
     @Test

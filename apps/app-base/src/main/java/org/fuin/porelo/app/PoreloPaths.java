@@ -288,7 +288,7 @@ public record PoreloPaths(
     }
 
     /**
-     * Returns where the files of projects: what is followed, its clones, its signers and its
+     * Returns where the files of projects: what a start placed, its clones, its signers and its
      * records are.
      *
      * @return Their locations.

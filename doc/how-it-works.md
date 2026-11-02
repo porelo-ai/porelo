@@ -102,7 +102,7 @@ Every key is in [the project file](project-file.md). A project is not a containe
 its name is how everything else finds its things.
 
 **You do not need a project to start.** Every machine has the built-in project **`default`**, with
-Porelo's own settings. A `porelo task start` in a checkout no followed project names works in
+Porelo's own settings. A `porelo task start` in a checkout no project names works in
 `default`, and the checkout's `origin` becomes where approved work goes. `default` is `guarded`,
 reaches only the agent's provider, refuses blocked connections without asking, and has no
 conversation between tasks. Its settings cannot be changed: for other settings, make a project
@@ -252,7 +252,6 @@ ever edited. `porelo talk` shows and moves them; see [commands](commands.md#talk
 | Phantom token | The worthless stand-in a task gets instead of a credential, valid for that task only. |
 | Project | A followed repository with a `project.yml`: one security class and one set of destinations. |
 | Provider | Who serves the models; a credential belongs to the provider, not to the agent. |
-| Reconciliation | A machine pulling a followed project's repository and applying what it says, signed, never touching the vault, running tasks or a person's decisions. |
 | Repository | One git repository of a project; a task works on exactly one. |
 | Security class | Whether work leaves at all and who reads it first: `offline`, `guarded` or `online`. |
 | Task | One container doing one piece of work for one project, kept until removed. |

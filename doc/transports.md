@@ -60,8 +60,7 @@ has the message held; one that claims nothing has such a file ignored.
 
 Such a transport offers a lifecycle. Every verb takes the project's settings (what `project.yml` says under
 `mail.transports.<scheme>`) and the secrets Porelo kept for it, never as arguments, prints one JSON object, and
-exits with the codes above. **A setting named `*_file` is a path, never a value**: `porelo project inventory` hands
-such paths to the play that prepares a host (`files`), and nothing else of the settings. A setting that carries its
+exits with the codes above. **A setting named `*_file` is a path, never a value.** A setting that carries its
 value inline has another name, as a CA's text in `ca_certificate`. Any `secrets` it prints are kept in the account's vault and handed back; they are never
 shown, logged or put into a task.
 
@@ -141,16 +140,15 @@ message into `inbox/cur`, and asks `receipt` about what a task sent, by the reci
 
 With `--persons`, a person's words arrive unsigned as `<time>--<scheme>-person-<id>.json`, holding `sender` (the
 person's account), `body`, `to` (the accounts mentioned), and optionally `eventId`, `direct` and `account`. The
-sender must be an admitted person when the project has an access file, whether they joined manually or the room's maker keeps them in it:
+sender must be a person the project's members admit, whether they joined manually or the room's maker keeps them in it:
 `account` names that person's host account, only for a sender who is a person's own account on the project's server,
-and Porelo takes the words when it is a person neither locked nor revoked in the applied access file who did not join under another account,
+and Porelo takes the words when it is a person neither locked nor revoked among its members who did not join under another account,
 from a sender that is neither a task's account nor this machine's. It then keeps the sender as that person's account,
-apart from who joined, so a task can answer them while the applied access file names them, and not a moment longer;
+apart from who joined, so a task can answer them while its members name them, and not a moment longer;
 `porelo talk members` lists admitted persons with their known accounts. A manual join, a remembered account and a
-read receipt count only while the verified access file admits that login. A locked, revoked or unnamed login is
+read receipt count only while the members admit that login. A locked, revoked or unnamed login is
 neither heard nor answered, and `talk join`, including `--reset`, refuses it before any transport call. Its records
-stay for a later unlock. An unverified follow or an unreadable admission decision admits nobody, including for a
-registered project with an access file beside it. A project without an access file keeps its manual joins as before.
+stay for a later unlock. An unreadable admission decision admits nobody. A project of this machine alone keeps its manual joins.
 A room message with an empty `to` reaches every task.
 When the line names only the room's helper accounts, the transport instead includes `"helpers": true` and an
 empty `to`: exactly the JSON boolean `true` means no task reads it. Any other value, or no field, keeps the

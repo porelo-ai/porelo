@@ -152,8 +152,8 @@ public final class ProjectDeletion {
         if (dryRun || checked.outcome() != Outcome.PREVIEWED) {
             return checked;
         }
-        final Path lock = context.paths().projects().followedCloneLock(project);
-        if (!Files.exists(context.paths().projects().followedClone(project))
+        final Path lock = context.paths().projects().organizationCloneLock(project);
+        if (!Files.exists(context.paths().projects().organizationClone(project))
                 && !Files.exists(lock)) {
             return remove(project, prepared, force);
         }
@@ -161,7 +161,7 @@ public final class ProjectDeletion {
             return FileLocks.holding(
                     lock, () -> finishRemoval(project, remove(project, prepared, force)));
         } catch (IOException ex) {
-            return failed(checked, "could not lock the followed clone: " + ex.getMessage());
+            return failed(checked, "could not lock the placed clone: " + ex.getMessage());
         }
     }
 
@@ -215,12 +215,13 @@ public final class ProjectDeletion {
         // which of a project's things are Porelo's, and being wrong about ownership in a dialog
         // whose job is to say truthfully what is destroyed is the worst place for it.
         final List<String> keeps = new ArrayList<>();
-        // NOT a file that sits inside something being removed. A followed project's file is in the
-        // verified clone, and the clone goes - so naming it here said "kept" and "removed" about
-        // the same path, in the same preview. Found by running the published package.
+        // NOT a file that sits inside something being removed: naming it here said "kept" and
+        // "removed" about the same path, in the same preview. Found by running the published
+        // package.
         if (summary.file() != null
                 && !Path.of(summary.file())
-                        .startsWith(context.paths().projects().followedClone(project))) {
+                        .startsWith(context.paths().projects().organizationClone(project))
+                && !Path.of(summary.file()).equals(writtenFile(project))) {
             keeps.add(summary.file());
         }
         keeps.add("the checkout and the real upstream, wherever they are");
@@ -339,8 +340,9 @@ public final class ProjectDeletion {
                     }
                 }
             }
-            deleteTree(context.paths().projects().followedClone(project));
-            deleteTree(context.paths().projects().followedAccessClone(project));
+            deleteTree(context.paths().projects().organizationClone(project));
+            OrganizationProjects.of(context).forget(project);
+            removeWritten(project);
             Files.deleteIfExists(context.paths().projects().projectRegistry().resolve(project));
             for (final Path record : upstreamRecordsOf(project)) {
                 Files.deleteIfExists(record);
@@ -357,113 +359,10 @@ public final class ProjectDeletion {
         return new Result(Outcome.DELETED, removes, keeps, unreviewed, running, null);
     }
 
-    /**
-     * Stops following before removing project data, keeping previews and refusals followed.
-     *
-     * @param project Project name.
-     * @param dryRun Whether to report rather than remove.
-     * @param force Whether running tasks and unreviewed work may be removed.
-     * @return What happened, including any cleanup needed after following stopped.
-     */
-    public Result unfollow(String project, boolean dryRun, boolean force) {
-        final Prepared prepared = prepare(project, force);
-        final Result checked = prepared.result();
-        if (dryRun
-                || (checked.outcome() != Outcome.PREVIEWED
-                        && checked.outcome() != Outcome.NO_SUCH_PROJECT)) {
-            return checked;
-        }
-        if (!Files.isDirectory(context.paths().projects().followed())) {
-            return checked.outcome() == Outcome.PREVIEWED
-                    ? remove(project, prepared, force)
-                    : checked;
-        }
-        try {
-            // Reconciliation must never see the gap before a late refusal restores the record.
-            return FileLocks.holding(
-                    context.paths().projects().followedCloneLock(project),
-                    () -> unfollowLocked(project, prepared, force));
-        } catch (IOException ex) {
-            return failed(
-                    checked,
-                    "could not lock the followed clone; no project data was removed: "
-                            + ex.getMessage());
-        }
-    }
-
-    private Result unfollowLocked(String project, Prepared prepared, boolean force) {
-        final Result checked = prepared.result();
-        final FollowedProjects projects =
-                new FollowedProjects(context.paths().projects().followed());
-        final FollowedProjects.@Nullable Followed previous;
-        try {
-            previous = projects.find(project);
-            if (previous != null) {
-                projects.unfollow(project);
-            }
-        } catch (IOException ex) {
-            return failed(
-                    checked,
-                    "could not stop following "
-                            + project
-                            + "; no project data was removed: "
-                            + ex.getMessage());
-        }
-        final Result deleted =
-                checked.outcome() == Outcome.PREVIEWED
-                        ? remove(project, prepared, force)
-                        : removeUnappliedClone(project, checked);
-        if (previous == null) {
-            return finishRemoval(project, deleted);
-        }
-        try {
-            if (deleted.outcome() == Outcome.HOLDS_WORK
-                    || deleted.outcome() == Outcome.TASKS_RUNNING) {
-                // A task can refuse at removal time after the preview allowed deletion.
-                projects.write(previous);
-                return deleted;
-            }
-            projects.unfollow(project, context.paths().projects().configurationSigners());
-        } catch (IOException ex) {
-            return stoppedWithLeftovers(
-                    project,
-                    finishRemoval(
-                            project,
-                            failedAfter(
-                                    deleted,
-                                    "could not restore the record or remove its pinned keys: "
-                                            + ex.getMessage())));
-        }
-        final Result finished = finishRemoval(project, deleted);
-        return finished.outcome() == Outcome.FAILED
-                ? stoppedWithLeftovers(project, finished)
-                : finished;
-    }
-
-    private Result removeUnappliedClone(String project, Result checked) {
-        final List<Removal> removes = new ArrayList<>(checked.removes());
-        addFollowedCloneRemovals(project, removes);
-        final Result planned =
-                new Result(
-                        checked.outcome(),
-                        removes,
-                        checked.keeps(),
-                        checked.unreviewed(),
-                        checked.running(),
-                        checked.detail());
-        try {
-            deleteTree(context.paths().projects().followedClone(project));
-            deleteTree(context.paths().projects().followedAccessClone(project));
-            return planned;
-        } catch (IOException | RuntimeException ex) {
-            return failed(planned, "could not remove the followed clone: " + ex.getMessage());
-        }
-    }
-
     private Result finishRemoval(String project, Result result) {
         try {
             return FileLocks.holdingThenRemoving(
-                    context.paths().projects().followedCloneLock(project), () -> result);
+                    context.paths().projects().organizationCloneLock(project), () -> result);
         } catch (IOException ex) {
             return failedAfter(result, "could not remove the clone lock: " + ex.getMessage());
         }
@@ -481,19 +380,6 @@ public final class ProjectDeletion {
                 result.unreviewed(),
                 result.running(),
                 detail);
-    }
-
-    private static Result stoppedWithLeftovers(String project, Result result) {
-        return failed(
-                result,
-                "following "
-                        + project
-                        + " has stopped; "
-                        + result.detail()
-                        + ". Check and remove any remaining items by hand: "
-                        + result.removes().stream()
-                                .map(item -> item.kind() + " " + item.what())
-                                .collect(java.util.stream.Collectors.joining(", ")));
     }
 
     private List<Removal> plan(
@@ -526,27 +412,50 @@ public final class ProjectDeletion {
         for (final Path record : upstreamRecordsOf(project)) {
             removes.add(new Removal("UPSTREAM_RECORD", record.toString()));
         }
-        addFollowedCloneRemovals(project, removes);
+        addPlacedRemovals(project, removes);
+        if (Files.exists(writtenFile(project)) || Files.isSymbolicLink(writtenPlace(project))) {
+            removes.add(new Removal("FILE", writtenPlace(project).toString()));
+        }
         tasks.forEach(task -> removes.add(new Removal("TASK", task.name())));
         return removes;
     }
 
-    private void addFollowedCloneRemovals(String project, List<Removal> removes) {
-        if (Files.isDirectory(context.paths().projects().followedClone(project))) {
-            removes.add(
-                    new Removal(
-                            "FOLLOWED_CLONE",
-                            context.paths().projects().followedClone(project).toString()));
+    private void addPlacedRemovals(String project, List<Removal> removes) {
+        final Path clone = context.paths().projects().organizationClone(project);
+        if (Files.isDirectory(clone)) {
+            removes.add(new Removal("PLACED_CLONE", clone.toString()));
         }
-        if (Files.isDirectory(context.paths().projects().followedAccessClone(project))) {
-            removes.add(
-                    new Removal(
-                            "FOLLOWED_CLONE",
-                            context.paths().projects().followedAccessClone(project).toString()));
-        }
-        final Path cloneLock = context.paths().projects().followedCloneLock(project);
+        final Path cloneLock = context.paths().projects().organizationCloneLock(project);
         if (Files.exists(cloneLock)) {
-            removes.add(new Removal("FOLLOWED_CLONE", cloneLock.toString()));
+            removes.add(new Removal("PLACED_CLONE", cloneLock.toString()));
+        }
+    }
+
+    private Path writtenFile(String project) {
+        return context.paths().projects().defaultProjectFile(project);
+    }
+
+    private Path writtenPlace(String project) {
+        return writtenFile(project).resolveSibling("");
+    }
+
+    /**
+     * Removes the file a person wrote in a project's place. A place that is a link to a checkout
+     * goes as a link: what it points at is the person's.
+     */
+    private void removeWritten(String project) throws IOException {
+        final Path place = writtenPlace(project);
+        if (Files.isSymbolicLink(place)) {
+            Files.delete(place);
+            return;
+        }
+        Files.deleteIfExists(writtenFile(project));
+        if (Files.isDirectory(place)) {
+            try (var left = Files.list(place)) {
+                if (left.findAny().isEmpty()) {
+                    Files.delete(place);
+                }
+            }
         }
     }
 

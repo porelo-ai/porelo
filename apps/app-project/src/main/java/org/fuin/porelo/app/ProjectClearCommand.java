@@ -9,14 +9,14 @@ import picocli.CommandLine.Spec;
 
 /**
  * Clears one project from this machine in one step: its tasks with their workspaces and mailboxes,
- * its mirrors, the follow, its conversation and what this machine kept for it, and its deploy keys
- * from the vault. Lists it first; {@code --yes} clears it.
+ * its mirrors, its placed file, its conversation and what this machine kept for it, and its deploy
+ * keys from the vault. Lists it first; {@code --yes} clears it.
  */
 @Command(
         name = "clear",
         mixinStandardHelpOptions = true,
         description =
-                "Clears a project from this machine: tasks, mailboxes, mirrors, the follow, its conversation"
+                "Clears a project from this machine: tasks, mailboxes, mirrors, its placed file, its conversation"
                         + " and deploy keys. Lists it first; --yes clears it.")
 public class ProjectClearCommand
         implements Callable<Integer>, PoreloFactory.ContextAware, Suggests {

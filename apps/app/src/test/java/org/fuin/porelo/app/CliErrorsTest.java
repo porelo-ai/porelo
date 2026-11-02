@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import java.io.PrintWriter;
 import java.io.StringWriter;
+import java.util.Map;
 import org.junit.jupiter.api.Test;
 import picocli.CommandLine;
 
@@ -228,5 +229,46 @@ class CliErrorsTest {
                 .containsExactlyInAnyOrder(
                         java.nio.file.attribute.PosixFilePermission.OWNER_READ,
                         java.nio.file.attribute.PosixFilePermission.OWNER_WRITE);
+    }
+
+    private Map<?, ?> refusal(final int exit, final String... args) {
+        final StringWriter out = new StringWriter();
+        final StringWriter err = new StringWriter();
+        final CommandLine command = PoreloCli.commandLine(NoAccount.context());
+        command.setOut(new PrintWriter(out));
+        command.setErr(new PrintWriter(err));
+
+        assertThat(command.execute(args)).isEqualTo(exit);
+
+        assertThat(out.toString().strip().lines()).as("one line on standard output").hasSize(1);
+        final Map<?, ?> answer = (Map<?, ?>) org.fuin.porelo.wire.Json.parse(out.toString());
+        assertThat(answer.get("reason")).isEqualTo("usage");
+        assertThat(err.toString())
+                .as("its words there as well")
+                .contains((String) answer.get("words"));
+        return answer;
+    }
+
+    @Test
+    void a_missing_argument_with_json_is_the_contracts_refusal() {
+        assertThat((String) refusal(64, "project", "show", "--json").get("words")).isNotBlank();
+    }
+
+    @Test
+    void an_unknown_option_with_json_is_the_contracts_refusal() {
+        assertThat((String) refusal(64, "project", "list", "--json", "--bogus").get("words"))
+                .contains("--bogus");
+    }
+
+    @Test
+    void without_json_nothing_goes_to_standard_output() {
+        final StringWriter out = new StringWriter();
+        final CommandLine command = PoreloCli.commandLine(NoAccount.context());
+        command.setOut(new PrintWriter(out));
+        command.setErr(new PrintWriter(new StringWriter()));
+
+        assertThat(command.execute("project", "list", "--bogus")).isEqualTo(64);
+
+        assertThat(out.toString()).isEmpty();
     }
 }

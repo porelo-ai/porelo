@@ -22,11 +22,11 @@ import org.jspecify.annotations.Nullable;
 /**
  * Finds what nothing on this machine owns any more, and removes it when asked.
  *
- * <p><strong>Orphaned means, and only means:</strong> a project that is not followed, has no
- * running task, and whose project file is missing or unreadable - with everything kept for it, its
- * stopped tasks included; what is kept for a task whose container is gone; and an image, a build
- * context or a record named after a project that exists nowhere any more. A running task and a
- * followed project are never orphaned, whatever else is wrong with them.
+ * <p><strong>Orphaned means, and only means:</strong> a project with no running task, and whose
+ * project file is missing or unreadable - with everything kept for it, its stopped tasks included;
+ * what is kept for a task whose container is gone; and an image, a build context or a record named
+ * after a project that exists nowhere any more. A running task and a placed project are never
+ * orphaned, whatever else is wrong with them.
  *
  * <p><strong>Nothing that holds work is removed without being asked twice.</strong> A mirror with a
  * push nobody reviewed, a stopped task whose workspace may hold work, a mailbox with a message
@@ -171,8 +171,9 @@ public final class Prune {
             }
         }
         final Set<String> remaining = new TreeSet<>();
+        final Set<String> placed = placed();
         for (final ProjectInventory.Summary project : projects) {
-            if (!orphaned(project, running)) {
+            if (!orphaned(project, running) || placed.contains(project.name())) {
                 remaining.add(project.name());
                 continue;
             }
@@ -202,8 +203,7 @@ public final class Prune {
     }
 
     /**
-     * Returns whether a project is orphaned: not followed, no task of it running, and no file
-     * anybody can read.
+     * Returns whether a project is orphaned: no task of it running, and no file anybody can read.
      *
      * @param project The project as the inventory lists it.
      * @param running The projects that have a running task.
@@ -211,9 +211,17 @@ public final class Prune {
      */
     static boolean orphaned(final ProjectInventory.Summary project, final Set<String> running) {
         return !DefaultProject.is(project.name())
-                && project.following() == null
                 && !running.contains(project.name())
                 && (project.file() == null || project.repositories().isEmpty());
+    }
+
+    /** What a start placed stays until its project is removed, with a file to read or without. */
+    private Set<String> placed() {
+        try {
+            return Set.copyOf(OrganizationProjects.of(context).names());
+        } catch (final java.io.IOException ex) {
+            throw new java.io.UncheckedIOException(ex);
+        }
     }
 
     private Item project(final String name, final boolean apply, final boolean includingWork) {
@@ -496,12 +504,11 @@ public final class Prune {
                 apply,
                 removes,
                 keeps);
-        // A clone left beside no follow record: a refused first follow raced by the daemon's pass
-        // made one.
+        // A clone left beside no record: a project the organization no longer names leaves one.
         sweep(
-                context.paths().projects().followedClone("x").getParent(),
+                context.paths().projects().organizationClone("x").getParent(),
                 ".git",
-                "the clone it was followed into",
+                "the clone a start placed",
                 remaining,
                 apply,
                 removes,

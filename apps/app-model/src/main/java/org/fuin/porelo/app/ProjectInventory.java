@@ -69,8 +69,6 @@ public final class ProjectInventory {
             Readiness readiness,
             org.fuin.porelo.gate.UpstreamDistance.Distance behind,
             List<RepositorySummary> repositories,
-            FollowedProjects.@Nullable Followed following,
-            List<String> signers,
             String lastUsed) {
 
         /**
@@ -103,8 +101,6 @@ public final class ProjectInventory {
                     false,
                     Readiness.ABSENT,
                     org.fuin.porelo.gate.UpstreamDistance.Distance.neverChecked(),
-                    List.of(),
-                    null,
                     List.of(),
                     "");
         }
@@ -146,8 +142,6 @@ public final class ProjectInventory {
                     readiness,
                     behind,
                     List.of(),
-                    null,
-                    List.of(),
                     "");
         }
 
@@ -172,8 +166,6 @@ public final class ProjectInventory {
                             readiness,
                             behind,
                             repositories,
-                            following,
-                            signers,
                             lastUsed);
         }
 
@@ -190,8 +182,6 @@ public final class ProjectInventory {
                     state,
                     behind,
                     repositories,
-                    following,
-                    signers,
                     lastUsed);
         }
 
@@ -218,21 +208,16 @@ public final class ProjectInventory {
                     readiness,
                     behind,
                     named,
-                    following,
-                    signers,
                     lastUsed);
         }
 
         /**
-         * Returns this project with its follow state filled in.
+         * Returns this project with its last use filled in.
          *
-         * @param state What this account recorded, or {@code null} when it follows nothing here.
-         * @param pinned The fingerprints of the keys pinned for it.
          * @param used Latest recorded use, or "".
          * @return A copy.
          */
-        Summary following(
-                FollowedProjects.@Nullable Followed state, List<String> pinned, String used) {
+        Summary lastUsed(String used) {
             return new Summary(
                     name,
                     securityClass,
@@ -245,8 +230,6 @@ public final class ProjectInventory {
                     readiness,
                     behind,
                     repositories,
-                    state,
-                    List.copyOf(pinned),
                     used);
         }
 
@@ -318,11 +301,6 @@ public final class ProjectInventory {
                 }
             }
             map.put("credentials", credentials);
-            // Empty for a project this machine does not follow, which is the ordinary case. A
-            // project view reads its follow state from here rather than joining a second call.
-            map.put(
-                    "following",
-                    following == null ? Map.<String, Object>of() : followAsMap(following, signers));
             return map;
         }
     }
@@ -350,18 +328,14 @@ public final class ProjectInventory {
      */
     public List<Summary> projects() {
 
-        // Read first, because a followed project is in this list from the moment the follow is
-        // taken - before any mirror, task or registry entry exists. Found through the interface:
-        // their dialog followed a project, the follow applied, and the tree stayed empty.
-        final Map<String, FollowedProjects.Followed> followed = new LinkedHashMap<>();
+        // Read first, because a placed project is in this list from its first start on, whatever
+        // else exists of it.
+        final List<String> placed = new java.util.ArrayList<>();
         try {
-            new FollowedProjects(context.paths().projects().followed())
-                    .all()
-                    .forEach(one -> followed.put(one.name(), one));
+            placed.addAll(OrganizationProjects.of(context).names());
         } catch (final java.io.IOException ex) {
-            // A listing is not the place to fail over the follow record. Every project then answers
-            // "not followed", which reads as what it is rather than as an error here.
-            followed.clear();
+            // A listing is not the place to fail over a directory.
+            placed.clear();
         }
 
         final Map<String, String> files =
@@ -370,7 +344,7 @@ public final class ProjectInventory {
         ProjectSource.writtenNames(context).forEach(name -> files.putIfAbsent(name, ""));
         final Map<String, Summary> found = new LinkedHashMap<>();
 
-        // Always there, even with no repository in it: it is where work goes that no followed
+        // Always there, even with no repository in it: it is where work goes that no placed
         // project names. Counted for every project, not only one with a mirror of its own: the work
         // of every other repository - all of 'default''s - waits in a mirror below the project's
         // name.
@@ -384,7 +358,7 @@ public final class ProjectInventory {
                         pendingIn(DefaultProject.NAME),
                         0,
                         0));
-        for (final String name : followed.keySet()) {
+        for (final String name : placed) {
             found.put(name, new Summary(name, null, fileOf(name), null, pendingIn(name), 0, 0));
         }
         for (final String name : mirroredNames()) {
@@ -443,15 +417,11 @@ public final class ProjectInventory {
         // moment it was taken.
         final UpstreamRecords upstream =
                 new UpstreamRecords(context.paths().projects().upstreamRecords());
-        final Map<String, List<String>> signers =
-                PinnedSigners.of(context.paths().projects().configurationSigners());
         final Map<String, Instant> used = lastUses();
         return found.values().stream()
                 .sorted(java.util.Comparator.comparing(Summary::name))
                 .map(
                         summary -> {
-                            final List<String> pinned =
-                                    signers.getOrDefault(summary.name(), List.of());
                             final boolean built = images.contains("porelo/" + summary.name());
                             // The class of the file in force, which a new task starts with; a
                             // task's only where no file is read.
@@ -467,9 +437,7 @@ public final class ProjectInventory {
                                                     built))
                                     .behind(upstream.get(summary.name()))
                                     .repositories(repositoriesOf(summary, upstream))
-                                    .following(
-                                            followed.get(summary.name()),
-                                            pinned,
+                                    .lastUsed(
                                             used.containsKey(summary.name())
                                                     ? used.get(summary.name()).toString()
                                                     : "");
@@ -477,7 +445,7 @@ public final class ProjectInventory {
                 .toList();
     }
 
-    /** Reads durable use without asking containers or refreshing a follow. */
+    /** Reads durable use without asking containers. */
     private Map<String, Instant> lastUses() {
         final Map<String, Instant> used = new LinkedHashMap<>();
         final Path tasks = context.paths().tasks().taskRecord("");
@@ -813,47 +781,6 @@ public final class ProjectInventory {
         }
     }
 
-    /**
-     * Returns one project's follow state as plain values, for a caller that has to put it on a
-     * wire.
-     *
-     * <p><strong>One rendering, used by both `Following` and `Projects`.</strong> A project view
-     * asking "is what I am showing in force" and an account's list of what it follows are different
-     * questions, and they must not answer them from two mappings that can drift.
-     *
-     * @param followed What was recorded.
-     * @param signers The fingerprints of the keys pinned for it.
-     * @return The state.
-     */
-    public static Map<String, Object> followAsMap(
-            final FollowedProjects.Followed followed, final List<String> signers) {
-        final Map<String, Object> map = new LinkedHashMap<>();
-        map.put("name", followed.name());
-        map.put("url", followed.url());
-        map.put("commit", followed.commit());
-        map.put("at", followed.at());
-        map.put("outcome", followed.outcome());
-        map.put("detail", followed.detail());
-        map.put("refused", followed.refused());
-        map.put("refusedFile", followed.refusedFile());
-        map.put("accessRefused", followed.accessRefused());
-        map.put("accessRefusedFile", followed.accessRefusedFile());
-        map.put("signer", followed.signer());
-        // Every key a commit of it may be signed by, so the keys are told in one place.
-        map.put("signers", List.copyOf(signers));
-        // Reported wherever the project is, because it is a state rather than an error: without an
-        // anchor, whoever may push to that repository decides what tasks here may reach.
-        map.put("unverified", followed.unverified());
-        // Derived from the outcome rather than stored, so the two cannot come to disagree - and so
-        // an interface does not have to keep a list of which outcomes are stuck in step with ours.
-        map.put("needsAPerson", followed.needsAPerson());
-        // The access file's state beside the project's: a project naming one reaches no transport
-        // until a commit of it is in force.
-        map.put("accessCommit", followed.accessCommit());
-        map.put("accessOutcome", followed.accessOutcome());
-        return map;
-    }
-
     /** What an interface can say about a project's task image. */
     public enum Readiness {
 
@@ -919,7 +846,7 @@ public final class ProjectInventory {
      * Returns the path of a project's file, when there is one and it is still there.
      *
      * <p>Asked of {@link ProjectSource}, which is the single answer to where a project's file comes
-     * from: a followed project's verified clone beats whatever a task last recorded, and a followed
+     * from: a placed project's verified clone beats whatever a task last recorded, and a followed
      * project with nothing in force has no file at all rather than a stale one. A file that has
      * moved is reported as absent rather than as a path nothing can read - an interface that called
      * a gate method with it would be refused for a reason that looks like a bug in the daemon.

@@ -485,7 +485,7 @@ class OrgReadingCommandsTest {
         Files.writeString(file, LOCAL_PROJECT);
         new ProjectRegistry(context().paths().projects().projectRegistry()).remember("mine", file);
 
-        assertThat(run("org", "projects", "--json")).as("what it said: %s", err).isZero();
+        assertThat(run("project", "list", "--json")).as("what it said: %s", err).isZero();
 
         final List<?> rows = (List<?>) answer().get("projects");
         assertThat(rows.stream().map(row -> field(row, "project")))
@@ -509,7 +509,7 @@ class OrgReadingCommandsTest {
         registry.remember("demo", file);
         registry.remember("default", file);
 
-        assertThat(run("org", "projects", "--json")).as("what it said: %s", err).isZero();
+        assertThat(run("project", "list", "--json")).as("what it said: %s", err).isZero();
 
         assertThat(((List<?>) answer().get("projects")).stream().map(row -> field(row, "project")))
                 .containsExactly("demo", "default");
@@ -634,7 +634,7 @@ class OrgReadingCommandsTest {
 
     @Test
     void theProjectsOfAMachineWithNoOrganizationAreStillListed() {
-        assertThat(run("org", "projects", "--json")).as("what it said: %s", err).isZero();
+        assertThat(run("project", "list", "--json")).as("what it said: %s", err).isZero();
 
         assertThat(answer().get("revision")).isNull();
         assertThat(((List<?>) answer().get("projects")).stream().map(row -> field(row, "project")))
@@ -969,5 +969,19 @@ class OrgReadingCommandsTest {
 
         assertThat(exit).as("what it said: %s", out).isEqualTo(69);
         assertThat(out.toString()).contains("who may");
+    }
+
+    @Test
+    void aProjectFileWrittenByHandIsListedAsThisMachines() throws Exception {
+        final Path written = context().paths().projects().defaultProjectFile("handwritten");
+        Files.createDirectories(written.getParent());
+        Files.writeString(written, LOCAL_PROJECT);
+
+        assertThat(run("project", "list", "--json")).as("what it said: %s", err).isZero();
+
+        assertThat(((List<?>) answer().get("projects")).stream().map(row -> field(row, "project")))
+                .containsExactly("handwritten", "default");
+        assertThat(field(((List<?>) answer().get("projects")).getFirst(), "source"))
+                .isEqualTo("local");
     }
 }

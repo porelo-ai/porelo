@@ -163,7 +163,7 @@ public class ProjectShowCommand extends OrgReading {
         return answer;
     }
 
-    private static @Nullable String registrationEntry(final Project read) {
+    static @Nullable String registrationEntry(final Project read) {
         return read.mail().transports().get("matrix") instanceof Map<?, ?> matrix
                 ? LentEntry.name(REGISTRATION_TOKEN, matrix.get("homeserver"))
                 : null;

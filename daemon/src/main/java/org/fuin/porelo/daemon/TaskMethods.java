@@ -550,8 +550,16 @@ final class TaskMethods {
                     // whether work can start is a question a client is entitled to ask about a
                     // project that turns out not to exist, and making it throw would hand it an
                     // exception for asking.
+                    String refused = null;
+                    if (!project.isEmpty()) {
+                        try {
+                            org.fuin.porelo.app.ProjectTaking.take(context, project);
+                        } catch (final org.fuin.porelo.app.ProjectTaking.Refused ex) {
+                            refused = ex.reason() + ": " + ex.getMessage();
+                        }
+                    }
                     final java.nio.file.Path named =
-                            project.isEmpty()
+                            project.isEmpty() || refused != null
                                     ? null
                                     : org.fuin.porelo.app.ProjectSource.resolve(context, project)
                                             .file();
@@ -573,13 +581,15 @@ final class TaskMethods {
                                         "hostKeys",
                                         java.util.List.of(),
                                         "detail",
-                                        "no project '"
-                                                + project
-                                                + "' here. This machine has: "
-                                                + String.join(
-                                                        ", ",
-                                                        org.fuin.porelo.app.ProjectSource.names(
-                                                                context))));
+                                        refused != null
+                                                ? refused
+                                                : "no project '"
+                                                        + project
+                                                        + "' here. This machine has: "
+                                                        + String.join(
+                                                                ", ",
+                                                                org.fuin.porelo.app.ProjectSource
+                                                                        .names(context))));
                         return;
                     }
                     final Map<String, Object> answer =
@@ -646,6 +656,29 @@ final class TaskMethods {
                         reply.put("container", "");
                         reply.put("exitCode", 64);
                         // Refused as a start that would have created, as every refusal before one.
+                        reply.put("action", "CREATE");
+                        reply.put(
+                                "output",
+                                replies.streaming()
+                                        ? List.of()
+                                        : List.of(collected.toString().split("\n", -1)));
+                        progress.finish(reply);
+                        replies.last(reply);
+                        return;
+                    }
+                    // Every start of an organization's project reads it anew, before anything else
+                    // asks for its file.
+                    try {
+                        org.fuin.porelo.app.ProjectTaking.take(
+                                context, text(parameters, "project"));
+                    } catch (final org.fuin.porelo.app.ProjectTaking.Refused ex) {
+                        sink.println("porelo: " + ex.reason() + ": " + ex.getMessage());
+                        sink.println("porelo: nothing was created");
+                        sink.flush();
+                        System.out.println(startLine(text(parameters, "task"), "", ex.code()));
+                        final Map<String, Object> reply = new LinkedHashMap<>();
+                        reply.put("container", "");
+                        reply.put("exitCode", ex.code());
                         reply.put("action", "CREATE");
                         reply.put(
                                 "output",

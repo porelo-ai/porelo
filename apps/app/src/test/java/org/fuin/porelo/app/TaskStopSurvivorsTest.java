@@ -605,7 +605,7 @@ class TaskStopSurvivorsTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"remove", "unfollow"})
+    @ValueSource(strings = {"task remove", "project remove"})
     void anInteractiveStopNamesSurvivorsAndFails(String verb, @TempDir Path dir)
             throws IOException {
         final PoreloContext context = context(dir);
@@ -616,8 +616,8 @@ class TaskStopSurvivorsTest {
         final StringWriter err = new StringWriter();
         final picocli.CommandLine cli;
         final String[] args;
-        if (verb.equals("unfollow")) {
-            final ProjectUnfollowCommand command = new ProjectUnfollowCommand();
+        if (verb.equals("project remove")) {
+            final ProjectRemoveCommand command = new ProjectRemoveCommand();
             command.setContext(context);
             command.asker = question -> "y";
             cli = new picocli.CommandLine(command);

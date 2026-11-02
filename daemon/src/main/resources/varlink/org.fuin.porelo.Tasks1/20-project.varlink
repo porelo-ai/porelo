@@ -28,15 +28,8 @@ type Project (
   # it stands now. A project that has never run answers false, which is a normal state and not a
   # fault - it means the first task here will spend minutes building before anything happens.
   prepared: bool,
-  # Where this account has got following this project's repository, or an empty object when it
-  # follows nothing here - which is the ordinary case.
-  #
-  # Here as well as on Following() because they answer different questions: "what does this account
-  # follow" and "is what I am showing in force". Both are rendered from the same values, so they
-  # cannot drift.
-  following: ?Followed,
   # Latest recorded task start or message event of this project on this machine, ISO-8601 instant.
-  # "" when none can be read. Not a follow refresh time or a judgment that the project is unused.
+  # "" when none can be read. Not a judgment that the project is unused.
   lastUsed: string,
   # The repositories this project has, its own first.
   #
@@ -143,14 +136,6 @@ type Removal (
   # The thing itself - a path, an image name, a container name - as a person would recognise it.
   what: string
 )
-
-# DeleteProject is gone; Unfollow is the whole of it.
-#
-# A project exists on a machine because that machine follows its repository, so removing what Porelo
-# built while going on following it would only mean building it again at the next reconciliation.
-# Unfollow forgets the repository AND removes the mirrors, the image, the build directory, the
-# registry entry, the recorded distance, the followed clone and every task - with the same refusal
-# when work is held or a task is up, and the same --force past it.
 
 method Projects() -> (projects: []Project)
 
@@ -295,11 +280,11 @@ method DeleteBackup(
   detail: string
 )
 
-# The repositories of the project 'default': where work goes on a repository that no followed project
-# names. 'default' is the one project not followed - every machine has it, its settings are Porelo's
+# The repositories of the project 'default': where work goes on a repository that no other project
+# names. Every machine has 'default', its settings are Porelo's
 # ('guarded', nothing reachable beyond the agent's provider, blocked connections refused, no
 # conversation), and it is never removed. A task is started in it with Start(project: "default",
-# repository: <name>) like any other. Following a project named 'default', unfollowing it, giving its
+# repository: <name>) like any other. Removing it, giving its
 # tasks egress or a credential, and choosing another upstream are refused, naming a project
 # repository as the way.
 method DefaultRepositories() -> (repositories: []DefaultRepository)
@@ -316,7 +301,7 @@ method AddToDefault(
 
 # Takes a repository out of 'default'. Its mirror, and anything waiting in it, stays. 'removed' is
 # false when 'default' has no repository of that name. This machine's deploy key for it is forgotten
-# and answered in 'keys', as Unfollow answers them, so it is removed at the forge too.
+# and answered in 'keys', as RemoveProject answers them, so it is removed at the forge too.
 method RemoveFromDefault(
   # The repository's name in 'default'.
   name: string
@@ -336,16 +321,16 @@ type DefaultRepository (
   source: string,
   # The checkout's origin when it was added from one, shown only and never reached; else the address.
   remote: string,
-  # The followed project that names the same repository, or "". Its tasks then start there, and an
+  # The placed project that names the same repository, or "". Its tasks then start there, and an
   # interface offers to take the repository out of 'default'.
   claimedBy: string
 )
 
 # Shows what nothing on this machine owns any more, and removes it with apply - what 'porelo prune'
-# does. Orphaned means only: a project not followed, with no running task and no readable project
+# does. Orphaned means only: a project with no running task and no readable project
 # file, with its mirrors, image, build context and stopped tasks; what is kept for a task whose
 # container is gone; and images, build contexts, records and vault entries named after a project
-# that exists nowhere. A running task and a followed project are never in it.
+# that exists nowhere. A running task and a placed project are never in it.
 #
 # What holds work nobody has looked at - a push nobody reviewed, a stopped task's workspace, a
 # message waiting for a person - is in 'keeps', saying what in 'holds', and stays unless
@@ -449,197 +434,12 @@ type ResolvedLimits (
   pidsFrom: string
 )
 
-# ---------------------------------------------------------------- following a repository
-
-# Which project repositories this account takes its configuration from.
-#
-# Per account and not per machine: two people here follow different projects, reconcile at different
-# moments, and each reaches their own vault for the credential a private repository needs.
-method Following() -> (projects: []Followed)
-
-# Fetches a followed project's repository now, or every one's when no project is named, rather than at the next
-# round: right after a push to it, or after what kept it from being fetched was fixed. Answers the records of the
-# projects it fetched as they are afterwards; a fetch that failed is a record with its outcome and detail, never an
-# error. A named project this account does not follow is NoSuchProject.
-method RefreshProjects(project: ?string) -> (projects: []Followed)
-
-type Followed (
-  name: string,
-  # Where its repository is.
-  url: string,
-  # The last tip this machine accepted and applied, or "" when none ever was. WHAT IS RUNNING.
-  commit: string,
-  # When it last tried, RFC 3339, or "".
-  at: string,
-  # Why this project is where it is. "" when it never tried. New values may appear; render an
-  # unrecognised one rather than throwing.
-  #
-  #   APPLIED       the commit below is in force
-  #   UNCHANGED     it already held that commit
-  #   NOT_FOLLOWED  it was unfollowed before reconciliation acquired its clone lock
-  #   NOT_SIGNED    a commit requiring verification carries no signature
-  #   UNKNOWN_KEY   the signature is not authorized by the keys in force and revocation policy:
-  #                 a key that is unknown, retired or revoked, or a signature that did not verify
-  #   NO_ANCHOR     nothing is pinned here, so nothing can be verified
-  #   UNREADABLE    the commit or the repository could not be read
-  #   REWRITTEN     the tip is not a descendant of what is in force. Waits for acceptRewrite
-  #   UNREACHABLE   the repository could not be reached. Look at the network or the URL
-  #   VAULT_LOCKED  this account's vault is shut, so the credential a private repository needs is
-  #                 out of reach. NOT the same as UNREACHABLE: the action is to unlock, and
-  #                 nothing is wrong with the network or the URL
-  #   UNUSABLE      signed, and project.yml does not read as a project
-  #   FAILED        something else, said in detail
-  outcome: string,
-  # The commit that was TURNED AWAY, or "" when nothing was.
-  #
-  # Never the same field as 'commit': what is running and what was rejected are different
-  # questions, and a screen asks both. A project goes on running what it had.
-  refused: string,
-  # The fingerprint of the key that signed the refused commit - or, once one is applied or
-  # unchanged, the commit in force - or "" when there is none to name.
-  #
-  # Only the fingerprint, which is not a secret - it is what lets a person compare it with the key
-  # they meant to pin. Nothing else about the key is said, and nothing from the vault ever is.
-  signer: string,
-  # Every key pinned for this project, by fingerprint, in the order pinned: a commit signed by any
-  # of them is accepted. Empty for a project followed without an anchor. Said here so an interface
-  # tells a person's keys in one place.
-  signers: []string,
-  # Whether nothing will change about this project until somebody acts.
-  #
-  # NOT the same as "it failed": an unreachable repository may answer on the next pass by itself,
-  # a refused signature never will. Derived from 'outcome' on this side, so a client never has to
-  # keep a list of which outcomes are stuck in step with ours - read this, not the outcome.
-  needsAPerson: bool,
-  # Whether this project is followed WITHOUT an anchor: what its repository says is applied with
-  # no signature checked at all.
-  #
-  # A state, not an error - somebody asked for it. But show it wherever this project is: without a
-  # signature the rule is "whoever may push there decides what tasks here may reach", rather than
-  # "whoever holds the signing key". It is per project; one unverified project says nothing about
-  # another.
-  unverified: bool,
-  detail: string,
-  # The commit of the project's access file in force, or "" when the project names none or none is
-  # applied. A project naming an access file reaches no transport until this is set.
-  accessCommit: ?string,
-  # How the last attempt at the access file ended, with the values of 'outcome'; "" when the project
-  # names no access file. 'needsAPerson' counts it too.
-  accessOutcome: ?string,
-  # The protected project path refused, or "".
-  refusedFile: ?string,
-  # The access commit turned away, or "".
-  accessRefused: ?string,
-  # The protected access path refused, or "".
-  accessRefusedFile: ?string
-)
-
-# Starts following a project's repository, and reconciles once, now.
-#
-# A repository URL is not a secret, so it may travel over this socket - unlike a credential, which
-# never does. Following the same project at the same address again is not an error; the same name at
-# a different address is refused, because that is a different project wearing a name.
-method Follow(
-  name: string,
-  url: string,
-  # The public key this project's configuration is signed with, as "ssh-ed25519 AAAA...".
-  #
-  # Pins it for this project and follows in one command. The key must come from the PERSON - a
-  # colleague, a wiki, the team lead - and NEVER out of the repository it verifies: an anchor that
-  # travels with the thing it authenticates authenticates nothing.
-  #
-  # A FINGERPRINT is accepted here too, as "SHA256:...". That is the string a refusal names, so it
-  # is the one a person has in front of them. The key itself is then read out of the commit that
-  # was turned away - and only once its fingerprint is the one they typed, which is what keeps the
-  # anchor coming from the person. A commit signed by any other key is refused and nothing is
-  # pinned.
-  signedBy: ?string,
-  # Several keys, each as "ssh-ed25519 AAAA...", for a person who signs from more than one
-  # computer - all of their signing keys at the forge, read by the interface from the person's own
-  # account, never from the repository. All are pinned or none: a key that does not read refuses
-  # the follow. Whole keys only; a fingerprint names one key and goes in signedBy.
-  #
-  # Mutually exclusive with signedBy and with unverified, refused rather than one quietly winning.
-  signers: ?[]string,
-  # Follows without an anchor. Nothing is checked, and 'unverified' says so from then on.
-  #
-  # Mutually exclusive with signedBy, which is refused rather than one of them quietly winning.
-  unverified: ?bool,
-  # Accepts a history rewrite: forgets the commit in force, so the next reconcile has nothing to
-  # descend from and applies what it verifies.
-  #
-  # ONLY in answer to REWRITTEN, and only when a person has said they mean it. A properly signed
-  # commit that is not a descendant of the one in force is either somebody with the key having
-  # rebased, or somebody WITHOUT it re-serving an older signed configuration to put back a rule
-  # that was taken away - which needs no key at all, only control of the route. From here the two
-  # are indistinguishable, so this must never be sent automatically or as a retry.
-  acceptRewrite: ?bool,
-  # Asks whether following this would work, and records NOTHING.
-  #
-  # Everything a real follow does, against a scratch clone that is deleted afterwards: it fetches
-  # with the credential this machine would use, verifies the signature, reads the file and checks
-  # the egress sets. The answer is READY, or the same named reason the real follow would give -
-  # so a dialog can offer 'Follow it' only when it would work, and put the way out of each refusal
-  # beside it. Nothing this account follows moves, and no project is created.
-  dryRun: ?bool
-) -> (
-  # READY (only with dryRun), APPLIED, UNCHANGED, REWRITTEN, UNREACHABLE, VAULT_LOCKED,
-  # NO_CREDENTIAL, UNUSABLE, NOT_SIGNED, UNKNOWN_KEY, NO_ANCHOR, UNREADABLE or FAILED.
-  #
-  # A project this account was NOT already following and that does not end in APPLIED or UNCHANGED
-  # is NOT recorded: the refusal is the whole answer and the machine is as it was. 'recorded' says
-  # so. A refused request for a project already followed leaves its existing record unchanged.
-  #
-  # REWRITTEN is the one that needs a person: 'detail' says what was found, and the only way past
-  # it is calling again with acceptRewrite. Do not treat it as a transient failure.
-  #
-  # The full set is Followed.outcome's.
-  outcome: string,
-  commit: string,
-  detail: string,
-  # The project or access commit turned away, or "" when none was read. If access yielded no commit,
-  # this names the project snapshot whose follow was refused.
-  refused: string,
-  # With UNKNOWN_HOST_KEY and HOST_KEY_CHANGED: the host, spelled exactly as TrustHostKey wants
-  # it - with its port off port 22 - so a client passes it back unchanged. Answered rather than left to be read off the address
-  # again - 'user@host:path', a port, and an alias in somebody's ssh config are three readings of
-  # one thing. "" otherwise.
-  #
-  # It is the host of the repository that refused. An alias in ~/.ssh/config that points elsewhere is
-  # resolved by ssh and not by this, so on a machine that uses one, what ssh records and what this
-  # reports can differ - the one case where this name is not the last word.
-  host: string,
-  # With UNKNOWN_HOST_KEY and HOST_KEY_CHANGED: what that host offers right now. A person cannot
-  # confirm a fingerprint they have not been shown, and sending them to another call to see it
-  # would be making them fetch what this already has. Empty otherwise.
-  hostKeys: []HostKey,
-  # What to type on that machine to store the credential a follow needs, with NO_CREDENTIAL, and
-  # "" otherwise. Named by the machine: which vault entry a follow reads is the machine's
-  # knowledge, and the secret itself must never travel over this socket.
-  storeCommand: string,
-  # Whether anything was written. False for a dry run and for every refused follow.
-  recorded: bool,
-  # The fingerprints of the keys this call pinned - with dryRun, the ones it would pin - in the
-  # order given. Empty when it pinned none.
-  pinned: []string,
-  # The fingerprint of the key that signed it, or "".
-  signer: string,
-  # Whether nothing will change until somebody acts. NOT the same as "it failed": an unreachable
-  # repository may answer on the next pass by itself, a refused signature never will.
-  needsAPerson: bool
-)
-
-# Stops following, and removes the project.
+# Removes a project of this machine alone: a file a person wrote, and what Porelo built for it.
 #
 # It deletes, so it refuses first: a mirror may hold pushes nobody has reviewed and tasks may still
-# be up. The same refusal DeleteProject gives, from the same code.
-#
-# It answers for every project this machine LISTS, not only the ones it follows. A project made
-# before following existed - a task was started with a file, which wrote a mirror and a registry
-# entry - is in no follow record, and it used to get NoSuchProject here: an interface could offer
-# to clear it away and have nothing to show for it, while force would have swept it blind.
-# NoSuchProject now means what it says: this machine does not list that project at all.
-method Unfollow(
+# be up. A project of the organization and 'default' are refused with NotAllowed, and a name this
+# machine does not list with NoSuchProject.
+method RemoveProject(
   name: string,
   # Says what would go, and removes nothing.
   dryRun: ?bool,
@@ -653,16 +453,12 @@ method Unfollow(
   # Tasks that are up, with TASKS_RUNNING.
   running: []string,
   # What goes: the mirrors, the task image, the build directory, the registry entry, the recorded
-  # distance, the followed clone and every task. Filled for a REFUSAL too, so the cost stands
+  # distance, the project's file and every task. Filled for a REFUSAL too, so the cost stands
   # beside the reason.
   removes: []Removal,
   # What is deliberately NOT touched - the real upstream above all. Named so a confirmation never
   # lists the operator's own things among the casualties.
   keeps: []string,
-  # Whether this account was following it at all. False for a project that predates following:
-  # there is a mirror and an image to clear away, and no repository to stop taking from. A
-  # confirmation says "stop following and remove" or just "remove" from this.
-  following: bool,
   detail: string,
   # This machine's deploy keys for the project, which it forgot with it: remove each at the forge by its
   # title and fingerprint - that is what grants access. Empty with a refusal and a preview.
@@ -675,7 +471,7 @@ method Unfollow(
 # clear' and 'porelo clear', from the same code.
 #
 # Per project: its tasks with their workspaces and mailboxes (refused originals included), its mirrors and
-# image, the follow, its conversation through the transport's 'clear' and what this machine kept for it,
+# image, its conversation through the transport's 'clear' and what this machine kept for it,
 # and its deploy keys from the vault. The account: every project, the built-in project's tasks, then what
 # each transport keeps for the account. The vault, the person's keys and the packages stay.
 #
@@ -763,9 +559,12 @@ method CheckProjectFile(text: string) -> (refused: []string, refusedHere: []stri
 # The deploy key could not be had: no upstream a key can be for, or the vault is locked.
 error DeployKeyRefused(message: string)
 
-# This account does not follow a project of that name.
+# This machine lists no project of that name.
 #
 # An error rather than an empty answer, for the same reason NoSuchTask is one: a caller that asked
 # about something that is not there has a wrong argument, and reporting it as "nothing to do" lets
 # that wrong argument arrive as a legitimate result.
+# The acting person may not do this; 'message' says why.
+error NotAllowed(message: string)
+
 error NoSuchProject(project: string)

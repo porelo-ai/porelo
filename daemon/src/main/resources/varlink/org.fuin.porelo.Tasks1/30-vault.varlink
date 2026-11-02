@@ -211,8 +211,7 @@ method SshKeys() -> (
 
 # Which credential a destination would use, and whether it would work - before anything is tried.
 #
-# The call a dialog makes before offering 'Follow it' or 'Approve': it answers the same reasons
-# Follow(dryRun) does, without touching the network.
+# The call a dialog makes before offering 'Approve', without touching the network.
 method CredentialCheck(
   # Where something would connect, such as a project repository's URL.
   url: string,

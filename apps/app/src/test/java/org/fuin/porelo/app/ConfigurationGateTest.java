@@ -241,7 +241,6 @@ class ConfigurationGateTest {
         final var verdict = new ConfigurationGate(runner, signers).verify(repo, "HEAD", "demo");
 
         assertThat(verdict.outcome()).isEqualTo(ConfigurationGate.Outcome.UNKNOWN_KEY);
-        assertThat(PinnedSigners.of(signers)).isEmpty();
         final var historical =
                 runner.run(
                         Command.of(
@@ -268,7 +267,6 @@ class ConfigurationGateTest {
                 Files.readString(signers).replace("demo ", "demo namespaces=\"git,ssh\" "));
         assertThat(new ConfigurationGate(runner, signers).verify(repo, "HEAD", "demo").mayApply())
                 .isTrue();
-        assertThat(PinnedSigners.of(signers).get("demo")).hasSize(1);
         Files.writeString(signers, Files.readString(signers).replace("git,ssh", "ssh"));
         assertThat(new ConfigurationGate(runner, signers).verify(repo, "HEAD", "demo").mayApply())
                 .isFalse();

@@ -35,10 +35,10 @@ public final class MachineTransports {
                             scheme,
                             project.name(),
                             machine,
-                            ProjectAccess.settings(context, project, scheme));
+                            ProjectMembers.settings(context, project, scheme));
         } catch (TransportLifecycle.Refused ex) {
             throw new Conversations.Refused(String.valueOf(ex.getMessage()), ex.code(), null);
-        } catch (ProjectAccess.Withheld ex) {
+        } catch (ProjectMembers.Withheld ex) {
             throw new Conversations.Refused(String.valueOf(ex.getMessage()), 78, null);
         } catch (CommandException ex) {
             throw unrun(scheme, "admit", ex);
@@ -65,10 +65,10 @@ public final class MachineTransports {
                             scheme,
                             project.name(),
                             machine,
-                            ProjectAccess.settings(context, project, scheme));
+                            ProjectMembers.settings(context, project, scheme));
         } catch (TransportLifecycle.Refused ex) {
             throw new Conversations.Refused(String.valueOf(ex.getMessage()), ex.code(), null);
-        } catch (ProjectAccess.Withheld ex) {
+        } catch (ProjectMembers.Withheld ex) {
             throw new Conversations.Refused(String.valueOf(ex.getMessage()), 78, null);
         } catch (CommandException ex) {
             throw unrun(scheme, "dismiss", ex);

@@ -127,8 +127,8 @@ porelo task start             # a task on this repository, in the built-in proje
 ```
 
 Already signed in to Claude Code on this machine? `porelo vault import claude` copies that instead. An API key
-goes in with `porelo vault put anthropic --type api-key`. A project with settings of its own is followed from its
-repository: `porelo project follow <project> <git-url> --signed-by "ssh-ed25519 AAAA..."`.
+goes in with `porelo vault put anthropic --type api-key`. A project with settings of its own comes from your organization at each
+start, or from a `project.yml` you write: see [the project file](doc/project-file.md).
 
 [Getting started](doc/getting-started.md) explains each step and what goes wrong without it.
 

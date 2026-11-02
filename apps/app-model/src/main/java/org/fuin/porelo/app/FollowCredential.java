@@ -17,12 +17,12 @@ import org.jspecify.annotations.Nullable;
  * What a git command run on this host needs to reach a private repository, lent for its length.
  *
  * <p><strong>Why this exists.</strong> Every git command this host runs against a real remote - the
- * fetch that follows a project, the fetch that measures how far a mirror is behind, and the push
- * that forwards an approved change - ran in a plain environment: no agent, no token, nothing from
- * the vault. A private repository was therefore reachable exactly as far as the account's own ssh
- * setup reached, while the refusal said <em>"this account's vault is shut, so the credential a
- * private repository needs is out of reach"</em> - pointing at a vault that held nothing any of
- * those paths would have used. Found through the interface's dialog.
+ * fetch that takes a project, the fetch that measures how far a mirror is behind, and the push that
+ * forwards an approved change - ran in a plain environment: no agent, no token, nothing from the
+ * vault. A private repository was therefore reachable exactly as far as the account's own ssh setup
+ * reached, while the refusal said <em>"this account's vault is shut, so the credential a private
+ * repository needs is out of reach"</em> - pointing at a vault that held nothing any of those paths
+ * would have used. Found through the interface's dialog.
  *
  * <p><strong>Where the work comes from does not change the credential.</strong> An agent in a
  * container, a person at {@code gate approve}, the daemon reconciling on a timer: the connection is
@@ -607,7 +607,7 @@ public final class FollowCredential implements AutoCloseable {
         // In the runtime directory, because a unix socket path is short by nature and a state
         // directory nested under a home directory runs out of room at 108 characters. One of its
         // own per lend: under the label alone, a lend removed what another lent there a moment
-        // before - a follow by the daemon and one at the command line at once - and that one's
+        // before - a fetch by the daemon and one at the command line at once - and that one's
         // fetch failed.
         return context.paths()
                 .xdg()

@@ -56,7 +56,7 @@ class PersonsWordsTest {
     }
 
     @Test
-    void anAccountTheAccessFileDoesNotNameIsNobody(@TempDir Path dir) throws IOException {
+    void anAccountTheMembersDoNotNameIsNobody(@TempDir Path dir) throws IOException {
         final Path file = dir.resolve("person.json");
         Files.writeString(
                 file, "{\"sender\":\"@eve:hs\",\"account\":\"eve\",\"body\":\"Hi\",\"to\":[]}");
@@ -115,7 +115,7 @@ class PersonsWordsTest {
     }
 
     @Test
-    void anAccountIsNothingWithoutTheAccessFile(@TempDir Path dir) throws IOException {
+    void anAccountIsNothingWithoutTheMembers(@TempDir Path dir) throws IOException {
         final Path file = dir.resolve("person.json");
         Files.writeString(
                 file, "{\"sender\":\"@bob:hs\",\"account\":\"bob\",\"body\":\"Hi\",\"to\":[]}");

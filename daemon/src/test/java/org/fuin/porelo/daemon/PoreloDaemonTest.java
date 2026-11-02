@@ -34,56 +34,6 @@ import org.junit.jupiter.api.io.TempDir;
  */
 class PoreloDaemonTest {
 
-    @Test
-    void unfollowRemovesTheRecordBeforeDeletingProjectData(@TempDir Path dir) throws Exception {
-        // The socket must close the same stale-reconcile race as the command line.
-        final PoreloContext context = context(dir);
-        projectFile(dir);
-        final org.fuin.porelo.app.FollowedProjects projects =
-                new org.fuin.porelo.app.FollowedProjects(context.paths().projects().followed());
-        projects.follow(PROJECT, "git@example.org:uc.git");
-        final Path clone =
-                Files.createDirectories(context.paths().projects().followedClone(PROJECT));
-        final var sawRecord = new java.util.concurrent.atomic.AtomicBoolean();
-        final var removals = new java.util.concurrent.atomic.AtomicInteger();
-        final PoreloContext observed =
-                new PoreloContext(
-                        command -> {
-                            if (command.arguments().contains("rmi")) {
-                                removals.incrementAndGet();
-                                sawRecord.set(
-                                        Files.exists(
-                                                context.paths()
-                                                        .projects()
-                                                        .followed()
-                                                        .resolve("uc.json")));
-                            }
-                            return runner.run(command);
-                        },
-                        context.paths(),
-                        arguments -> 0);
-
-        servingContext(
-                observed,
-                dir,
-                socket -> {
-                    try (VarlinkClient client = new VarlinkClient(socket)) {
-                        assertThat(
-                                        client.call(
-                                                PoreloDaemon.INTERFACE + ".Unfollow",
-                                                Map.of("name", PROJECT)))
-                                .as("the daemon completes unfollowing")
-                                .containsEntry("outcome", "DELETED");
-                    }
-                });
-
-        assertThat(removals.get()).as("project deletion was observed").isPositive();
-        assertThat(sawRecord.get())
-                .as("the daemon stops following before deleting project data")
-                .isFalse();
-        assertThat(clone).as("the daemon removes the clone after the record").doesNotExist();
-    }
-
     private final FakeCommandRunner runner = new FakeCommandRunner();
 
     /** Written into and read back out of a vault that only exists for the length of one test. */
@@ -1832,56 +1782,6 @@ class PoreloDaemonTest {
     }
 
     @Test
-    void refreshProjectsAnswersTheRecordsOfWhatItFetchedAndANameNotFollowedIsNoSuchProject(
-            @TempDir Path dir) throws Exception {
-
-        // An interface had no way to re-check a follow at once; the person waited for a round.
-        final PoreloContext context = context(dir);
-        final org.fuin.porelo.app.FollowedProjects follows =
-                new org.fuin.porelo.app.FollowedProjects(context.paths().projects().followed());
-        follows.write(
-                new org.fuin.porelo.app.FollowedProjects.Followed(
-                        "p", dir.resolve("p.git").toString(), "", "", "", ""));
-        follows.write(
-                new org.fuin.porelo.app.FollowedProjects.Followed(
-                        "q", dir.resolve("q.git").toString(), "", "", "", ""));
-        servingContext(
-                context,
-                dir,
-                socket -> {
-                    try (VarlinkClient client = new VarlinkClient(socket)) {
-                        final Map<String, Object> one =
-                                client.call(
-                                        PoreloDaemon.INTERFACE + ".RefreshProjects",
-                                        Map.of("project", "p"));
-                        assertThat((java.util.List<?>) one.get("projects"))
-                                .as("the one named, whatever its fetch found")
-                                .singleElement()
-                                .satisfies(
-                                        record ->
-                                                assertThat(((Map<?, ?>) record).get("name"))
-                                                        .isEqualTo("p"));
-                        assertThat(
-                                        (java.util.List<?>)
-                                                client.call(
-                                                                PoreloDaemon.INTERFACE
-                                                                        + ".RefreshProjects",
-                                                                Map.of())
-                                                        .get("projects"))
-                                .as("every one")
-                                .hasSize(2);
-                        assertThatThrownBy(
-                                        () ->
-                                                client.call(
-                                                        PoreloDaemon.INTERFACE + ".RefreshProjects",
-                                                        Map.of("project", "nope")))
-                                .isInstanceOf(VarlinkException.class)
-                                .hasMessageContaining("NoSuchProject");
-                    }
-                });
-    }
-
-    @Test
     void anAddressThatReadsAsAnOptionIsRefusedBeforeAnyProgramSeesIt(@TempDir Path dir)
             throws Exception {
 
@@ -1891,19 +1791,6 @@ class PoreloDaemonTest {
                 dir,
                 socket -> {
                     try (VarlinkClient client = new VarlinkClient(socket)) {
-                        assertThatThrownBy(
-                                        () ->
-                                                client.call(
-                                                        PoreloDaemon.INTERFACE + ".Follow",
-                                                        Map.of(
-                                                                "name",
-                                                                "x",
-                                                                "url",
-                                                                "--upload-pack=touch /tmp/porelo-option",
-                                                                "dryRun",
-                                                                true)))
-                                .isInstanceOf(VarlinkException.class)
-                                .hasMessageContaining("InvalidParameter");
                         assertThatThrownBy(
                                         () ->
                                                 client.call(
@@ -4255,6 +4142,41 @@ class PoreloDaemonTest {
                                                 "formatted",
                                                 true));
                         assertThat(formatted.get("lines")).isEqualTo(java.util.List.of("two"));
+                    }
+                });
+    }
+
+    @Test
+    void aProjectTheOrganizationPlacedAndTheBuiltInOneAreNotRemovedHere(@TempDir Path dir)
+            throws Exception {
+        final PoreloContext context = context(dir);
+        org.fuin.porelo.app.OrganizationProjects.of(context)
+                .write(
+                        new org.fuin.porelo.app.OrganizationProjects.Placed(
+                                "placed",
+                                "c0",
+                                "https://forge.example/placed.git",
+                                null,
+                                List.of(),
+                                null,
+                                null));
+
+        servingContext(
+                context,
+                dir,
+                socket -> {
+                    try (VarlinkClient client = new VarlinkClient(socket)) {
+                        for (final String name : List.of("placed", "default")) {
+                            assertThatThrownBy(
+                                            () ->
+                                                    client.call(
+                                                            PoreloDaemon.INTERFACE
+                                                                    + ".RemoveProject",
+                                                            Map.of("name", name)))
+                                    .as(name)
+                                    .isInstanceOf(VarlinkException.class)
+                                    .hasMessageContaining("NotAllowed");
+                        }
                     }
                 });
     }

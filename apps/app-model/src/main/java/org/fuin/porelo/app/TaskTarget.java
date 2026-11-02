@@ -113,16 +113,16 @@ public final class TaskTarget {
                     RepositoryAddress.withoutCredential(
                             remote.successful() ? remote.standardOutput().strip() : "");
             if (!origin.isEmpty()) {
-                final WorkOrigin.Choice followed = WorkOrigin.followedNaming(context, origin);
+                final WorkOrigin.Choice placed = WorkOrigin.placedNaming(context, origin);
                 final DefaultProject.Entry earlier =
-                        followed == null ? new DefaultProject(context).withUpstream(origin) : null;
+                        placed == null ? new DefaultProject(context).withUpstream(origin) : null;
                 project =
-                        followed != null
-                                ? followed.project()
+                        placed != null
+                                ? placed.project()
                                 : earlier != null ? DefaultProject.NAME : null;
                 repository =
-                        followed != null
-                                ? followed.repository()
+                        placed != null
+                                ? placed.repository()
                                 : earlier != null ? earlier.name() : null;
             }
         }

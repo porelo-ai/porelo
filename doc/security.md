@@ -44,13 +44,12 @@ from it and pushes back into it, so both questions, how history gets in and how 
 answered on the host, by a person.
 
 **Getting a history in.** Nothing of Git connects out here, not even on the host: an offline project names no
-`upstream`, a start of its task takes no `--upstream`, and the project itself is followed only from a file,
-`porelo project follow NAME FILE`, a bundle of its repository or a directory on this machine, which is never
-fetched again. The mirror is seeded from one of these:
+`upstream`, a start of its task takes no `--upstream`, and its file is written on this machine, never fetched. The
+mirror is seeded from one of these:
 
 1. `porelo gate restore`, from a bundle carried here by whatever means a disconnected machine has;
-2. the followed project's own repository, from the file it was followed from, and the task's start says
-   so (`seed ... (the followed clone)`);
+2. the project's own repository, from the clone a start judged, and the task's start says so
+   (`seed ... (the judged clone)`);
 3. the checkout you are standing in. Committed history only, since a bare clone has no working tree.
    Porelo prints that it seeds from there rather than doing it silently, because the seed decides what
    the agent believes the project is.

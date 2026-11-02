@@ -15,12 +15,12 @@ import picocli.CommandLine.Command;
  * and {@code default}: what {@code project list} answers once nobody follows by hand.
  */
 @Command(
-        name = "projects",
+        name = "list",
         mixinStandardHelpOptions = true,
         exitCodeOnInvalidInput = 64,
         description =
                 "Lists the projects of the organization this person is in, then this machine's.")
-public class OrgProjectsCommand extends OrgReading {
+public class ProjectListCommand extends OrgReading {
 
     @Override
     Map<String, @Nullable Object> answer(final PoreloContext machine) throws IOException {

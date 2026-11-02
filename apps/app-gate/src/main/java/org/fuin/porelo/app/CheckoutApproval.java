@@ -176,7 +176,7 @@ final class CheckoutApproval {
                     ? null
                     : GateSupport.gate(context, project, repository, null, null);
         }
-        // Not its own source: a followed project naming its origin, or a repository added before
+        // Not its own source: a placed project naming its origin, or a repository added before
         // the checkout was one. Its work goes to the remote - pushed there only by a person who
         // says so, never by a question here.
         final CommandResult remote =
@@ -195,7 +195,7 @@ final class CheckoutApproval {
         if (origin.isEmpty()) {
             return null;
         }
-        WorkOrigin.Choice choice = WorkOrigin.followedNaming(context, origin);
+        WorkOrigin.Choice choice = WorkOrigin.placedNaming(context, origin);
         if (choice == null) {
             final DefaultProject.Entry entry = new DefaultProject(context).withUpstream(origin);
             if (entry == null) {

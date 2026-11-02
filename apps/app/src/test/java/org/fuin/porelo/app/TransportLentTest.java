@@ -603,4 +603,33 @@ class TransportLentTest {
                 .isEqualTo(77);
         assertThat(verbsRun()).as("the transport was not run").isEmpty();
     }
+
+    @Test
+    void theEntryAProjectShowsIsTheEntryAServerOfMixedCaseIsLent() throws Exception {
+        // Shown one way and looked for another, a person holds the token under the name they were
+        // told, and the transport goes without it.
+        final Map<String, Object> settings = Map.of("homeserver", "https://Chat.EXAMPLE:8448/base");
+        final org.fuin.porelo.core.project.Project read =
+                org.fuin.porelo.core.project.ProjectReader.read(
+                        new java.io.StringReader(
+                                """
+                        project:
+                          name: "p"
+                          security_class: "guarded"
+                        image:
+                          base_image: "ubuntu:24.04"
+                        mail:
+                          transports:
+                            matrix:
+                              homeserver: "https://Chat.EXAMPLE:8448/base"
+                        """),
+                        "project.yml");
+        assertThat(ProjectShowCommand.registrationEntry(read)).isEqualTo(ENTRY);
+        final PoreloContext context = open(fake, Map.of(ENTRY, TOKEN));
+        transport(context, described(",\"lent\":[\"setup\"]"));
+
+        lifecycle(context).setup("matrix", "p", settings);
+
+        assertThat(secretsOf(" setup ")).containsEntry(NAME, TOKEN);
+    }
 }

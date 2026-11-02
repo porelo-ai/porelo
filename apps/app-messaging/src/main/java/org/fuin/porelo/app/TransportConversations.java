@@ -488,7 +488,7 @@ final class TransportConversations {
                 member.scheme(),
                 failures);
         // Who is heard, and which accounts are tasks', are read after the poll: a wait may outlast
-        // a join, a remembered person, an access file that dropped one or a task enrolled.
+        // a join, a remembered person, a reading that dropped one or a task enrolled.
         final Map<String, String> accounts = lifecycle.addresses(member.scheme(), member.project());
         final java.util.Set<String> persons = lifecycle.persons(member.scheme(), member.project());
         final TransportLifecycle.Conversation conversation =

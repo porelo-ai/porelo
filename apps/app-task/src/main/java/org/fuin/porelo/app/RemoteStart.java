@@ -265,13 +265,13 @@ final class RemoteStart {
         final boolean projectless = TaskCertification.NO_PROJECT.equals(project);
         if (certifiers.isEmpty() && !projectless) {
             throw new TaskCertification.Refused(
-                    "the host named no key of the project's access file to certify with");
+                    "the host named no key of the project's members to certify with");
         }
         final String held =
                 TaskCertifying.agentHolds(agent, certifiers.isEmpty() ? null : certifiers);
         if (held == null) {
             throw new TaskCertification.Refused(
-                    "your agent holds no key the project's access file lets certify (ssh-add it)");
+                    "your agent holds no key the project's members may certify with (ssh-add it)");
         }
         return new AgentCertifier(held, agent).certify(key, principal, printable(keyId), before);
     }

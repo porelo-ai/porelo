@@ -34,28 +34,6 @@ class ShownTest {
     }
 
     @Test
-    void whyAFollowedProjectIsNotInForceIsSaidFromItsRecord() throws Exception {
-        final PoreloContext context = context();
-        new FollowedProjects(context.paths().projects().followed())
-                .write(
-                        new FollowedProjects.Followed(
-                                "shop",
-                                "git@forge.example.org:o/shop.git",
-                                "",
-                                "2026-10-10T11:00:00Z",
-                                "UNKNOWN_KEY",
-                                "signed by a key this machine was never given",
-                                "abc123",
-                                "",
-                                false));
-
-        assertThat(Shown.whyNotInForce(context, "shop"))
-                .contains("unknown_key")
-                .contains("signed by a key this machine was never given");
-        assertThat(Shown.followed(context)).isEqualTo("the projects followed here: shop");
-    }
-
-    @Test
     void aChangedPassphraseIsKeptWhereTheOldOneWasRatherThanDroppedForAnUnlock() {
         final java.util.List<String> kept = new java.util.ArrayList<>();
 

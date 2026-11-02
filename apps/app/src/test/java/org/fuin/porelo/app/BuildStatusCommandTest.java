@@ -162,19 +162,18 @@ class BuildStatusCommandTest {
     }
 
     @Test
-    void aFollowedCheckoutResolvesWithoutWritingADefaultEntry() throws Exception {
+    void aPlacedCheckoutResolvesWithoutWritingADefaultEntry() throws Exception {
         // Asking about a checkout must never add it to default or change the project registry.
-        final Path clone = context.paths().projects().followedClone("acme");
+        final Path clone = context.paths().projects().organizationClone("acme");
         Files.createDirectories(clone);
         Files.copy(directory.resolve("project.yml"), clone.resolve("project.yml"));
-        new FollowedProjects(context.paths().projects().followed())
-                .write(new FollowedProjects.Followed("acme", UPSTREAM, COMMIT, "", "APPLIED", ""));
+        PlacedFixture.record(context, "acme");
         runner.answering("--show-toplevel", directory.toString())
                 .answering("remote get-url origin", UPSTREAM);
         final Map<String, String> registry =
                 new ProjectRegistry(context.paths().projects().projectRegistry()).all();
         assertThat(execute("build", "status", "--branch=main"))
-                .as("a followed project's failed build")
+                .as("a placed project's failed build")
                 .isEqualTo(1);
         assertThat(reader.target.upstream())
                 .as("the project's own repository matches too")
@@ -188,16 +187,17 @@ class BuildStatusCommandTest {
     }
 
     @Test
-    void anUnfollowedCheckoutDoesNotBecomeADefaultProject() {
+    void aCheckoutOfNoProjectDoesNotBecomeADefaultProject() {
         // A read-only query may not silently enroll a checkout in default.
         runner.answering("--show-toplevel", directory.toString())
                 .answering("remote get-url origin", UPSTREAM);
         assertThat(execute("build", "status", "--branch=main"))
-                .as("no followed project matches")
+                .as("no project matches")
                 .isEqualTo(2);
         assertThat(err.toString())
                 .as("a way to select a project")
-                .contains("-p", "porelo project follow");
+                .contains("-p")
+                .doesNotContain("project follow");
         assertThat(context.paths().xdg().state().resolve("default"))
                 .as("no default file appeared")
                 .doesNotExist();

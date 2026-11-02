@@ -273,19 +273,22 @@ final class WorkspaceSetup {
             // A mirror that exists is never re-seeded, so saying it would be seeded is a lie.
             return null;
         }
-        // A followed project's own repository is seeded from the clone this machine verified. That
-        // clone IS its history, and nothing should fetch it twice from the forge - nor, now that a
-        // project is named rather than pointed at, can "the checkout you are standing in" mean
-        // anything: the command runs wherever somebody happened to be.
-        //
-        // Found by a rented machine: '/workspace' came up empty, because the old rule looked for a
-        // git repository in the working directory and there was none.
-        final java.nio.file.Path clone = context.paths().projects().followedClone(project.name());
+        // The organization's project's own repository is seeded from the clone its start judged.
+        // That clone IS its history, and nothing should fetch it twice from the forge.
+        final java.nio.file.Path clone =
+                context.paths().projects().organizationClone(project.name());
         if (java.nio.file.Files.isDirectory(clone.resolve(".git"))) {
-            out.println("seed      " + clone + " (the followed clone)");
+            out.println("seed      " + clone + " (the judged clone)");
             return clone.toString();
         }
-        final java.nio.file.Path local = ownCheckout(project.name(), java.nio.file.Path.of("."));
+        // A project of this machine alone: the checkout beside its file, wherever a person stands.
+        final java.nio.file.Path file = ProjectSource.resolve(context, project.name()).file();
+        final java.nio.file.Path local =
+                file == null
+                        ? null
+                        : ownCheckout(
+                                project.name(),
+                                file.toAbsolutePath().normalize().resolveSibling("."));
         if (local == null) {
             return null;
         }

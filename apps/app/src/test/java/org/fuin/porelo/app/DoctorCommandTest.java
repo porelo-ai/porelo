@@ -13,8 +13,6 @@ import org.fuin.porelo.core.config.XdgPaths;
 import org.fuin.porelo.testing.FakeCommandRunner;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.ValueSource;
 import picocli.CommandLine;
 
 /**
@@ -162,9 +160,7 @@ class DoctorCommandTest {
                         "keyring",
                         "selinux policy",
                         "transports",
-                        "message filter",
-                        "configuration key",
-                        "following");
+                        "message filter");
     }
 
     /**
@@ -231,151 +227,6 @@ class DoctorCommandTest {
                             assertThat(probe.detail())
                                     .contains("nothing a task writes ever leaves");
                             assertThat(probe.action()).contains(PoreloPaths.MESSAGE_FILTER);
-                        });
-    }
-
-    @ParameterizedTest
-    @ValueSource(
-            strings = {
-                "NOT_SIGNED",
-                "UNKNOWN_KEY",
-                "NO_ANCHOR",
-                "REWRITTEN",
-                "UNUSABLE",
-                "VAULT_LOCKED"
-            })
-    void reportsAnAccessOutcomeThatNeedsAPerson(final String outcome, @TempDir final Path dir)
-            throws IOException {
-        final PoreloContext context =
-                context(
-                        dir,
-                        dir.resolve("hooks"),
-                        dir.resolve("packaged-hooks"),
-                        dir.resolve("agents"));
-        new FollowedProjects(context.paths().projects().followed())
-                .write(
-                        new FollowedProjects.Followed(
-                                "p",
-                                "git@example.org:p.git",
-                                "c1",
-                                "",
-                                "APPLIED",
-                                "",
-                                "",
-                                "",
-                                false,
-                                "a1",
-                                outcome));
-        final DoctorCommand doctor = new DoctorCommand();
-        doctor.setContext(context);
-
-        assertThat(doctor.probes())
-                .filteredOn(probe -> "following".equals(probe.name()))
-                .as("an applied project cannot hide access settings that wait for a person")
-                .singleElement()
-                .satisfies(
-                        probe -> {
-                            assertThat(probe.state())
-                                    .as("the access outcome degrades following")
-                                    .isEqualTo(Probe.State.DEGRADED);
-                            assertThat(probe.detail())
-                                    .as("the access refusal is named")
-                                    .contains(
-                                            "p access ("
-                                                    + outcome.toLowerCase(java.util.Locale.ROOT)
-                                                    + ")");
-                            assertThat(probe.action())
-                                    .as("the action matches the access refusal")
-                                    .contains(
-                                            outcome.equals("VAULT_LOCKED")
-                                                    ? "porelo vault unlock"
-                                                    : "following");
-                        });
-    }
-
-    /**
-     * A record of followed projects that cannot be read is reported, not thrown: the probe once
-     * named no next action, which the probe itself refuses, so doctor failed where it should
-     * report.
-     */
-    @Test
-    void reportsFollowedProjectsItCannotReadWithSomethingToDo(@TempDir Path dir)
-            throws java.io.IOException {
-
-        final XdgPaths xdg =
-                XdgPaths.of(
-                        name ->
-                                switch (name) {
-                                    case "XDG_STATE_HOME" -> dir.resolve("state").toString();
-                                    default -> null;
-                                },
-                        dir);
-        final PoreloPaths paths = new PoreloPaths(xdg, dir.resolve("bin"));
-        final Path followed = java.nio.file.Files.createDirectories(paths.projects().followed());
-        java.nio.file.Files.setPosixFilePermissions(followed, java.util.Set.of());
-        try {
-            final DoctorCommand doctor = new DoctorCommand();
-            doctor.setContext(new PoreloContext(new FakeCommandRunner(), paths, arguments -> 0));
-
-            assertThat(doctor.probes())
-                    .filteredOn(probe -> "following".equals(probe.name()))
-                    .singleElement()
-                    .satisfies(
-                            probe -> {
-                                assertThat(probe.state()).isEqualTo(Probe.State.DEGRADED);
-                                assertThat(probe.detail()).contains("cannot be read");
-                                assertThat(probe.action()).contains(followed.toString());
-                            });
-        } finally {
-            java.nio.file.Files.setPosixFilePermissions(
-                    followed, java.nio.file.attribute.PosixFilePermissions.fromString("rwx------"));
-        }
-    }
-
-    /**
-     * A machine with nothing pinned does not break - it stops following its projects, which is the
-     * kind of failure that looks like nothing at all.
-     */
-    @Test
-    void saysWhenNoConfigurationKeyIsPinnedForAFollowedProjectAndNeedsNoneWithoutOne(
-            @TempDir Path dir) throws java.io.IOException {
-
-        final XdgPaths xdg =
-                XdgPaths.of(
-                        name ->
-                                switch (name) {
-                                    case "XDG_CONFIG_HOME" -> dir.resolve("config").toString();
-                                    default -> null;
-                                },
-                        dir);
-        final PoreloContext context =
-                new PoreloContext(
-                        new FakeCommandRunner(),
-                        new PoreloPaths(xdg, dir.resolve("bin")),
-                        arguments -> 0);
-        final DoctorCommand doctor = new DoctorCommand();
-        doctor.setContext(context);
-
-        // A machine that works only in 'default' needs no key: DEGRADED there was read by a
-        // newcomer before the guide had said a word about keys.
-        assertThat(doctor.probes())
-                .filteredOn(probe -> "configuration key".equals(probe.name()))
-                .singleElement()
-                .satisfies(
-                        probe -> {
-                            assertThat(probe.state()).isEqualTo(Probe.State.OK);
-                            assertThat(probe.detail()).contains("none needed yet");
-                        });
-
-        new FollowedProjects(context.paths().projects().followed())
-                .follow("demo", "https://forge.example/demo.git");
-        assertThat(doctor.probes())
-                .filteredOn(probe -> "configuration key".equals(probe.name()))
-                .singleElement()
-                .satisfies(
-                        probe -> {
-                            assertThat(probe.state()).isEqualTo(Probe.State.DEGRADED);
-                            assertThat(probe.detail()).contains("none pinned");
                         });
     }
 

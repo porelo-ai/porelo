@@ -1223,46 +1223,24 @@ public final class TaskLaunch {
                                 + " beyond the agent's provider, blocked connections refused");
             }
 
-            // If this machine FOLLOWS a project of that name, the file it verified wins - and the
-            // one in the directory is not consulted at all, not preferred and not merged. Following
-            // checks a signature against a key pinned out of band; reading anything else afterwards
-            // throws that check away, and two sources is how a machine comes to run something
-            // nobody chose.
+            // If the organization has a project of that name, the file its start judged wins - and
+            // the one in the directory is not consulted at all, not preferred and not merged.
             final ProjectSource.Found found = ProjectSource.resolve(context, project.name());
-            if (found.outcome() == ProjectSource.Outcome.FOLLOWED) {
-                if (found.file() == null) {
-                    // Followed and nothing in force: refused, unreachable, nothing pinned. Falling
-                    // back to the local file would run the very thing the machine declined to
-                    // apply, which is worse than not starting.
-                    err.println(
-                            "porelo: '"
-                                    + project.name()
-                                    + "' is followed and nothing of it is"
-                                    + " in force, so there is no configuration to start a task with: "
-                                    + Shown.whyNotInForce(context, project.name())
-                                    + ".");
-                    err.flush();
-                    return 2;
-                }
-                projectFile = found.file();
+            final boolean judged = found.outcome() == ProjectSource.Outcome.ORGANIZATION;
+            if (judged) {
+                projectFile = java.util.Objects.requireNonNull(found.file());
                 verifiedAt = found.commit();
                 project = ProjectReader.read(projectFile);
-                // Said as it is: a follow taken without an anchor checked no signature, and calling
-                // its commit verified is the one line that tells somebody who decides what this
-                // task may reach.
-                out.println(
-                        "source         "
-                                + verifiedAt
-                                + (found.verified()
-                                        ? " (followed, verified)"
-                                        : " (followed, unverified - whoever can push there decides what tasks here may reach)"));
+                out.println("source         " + verifiedAt + " (the organization's, judged)");
             }
 
             // Where this project's file is, for an interface that has no filesystem on this machine
             // to find it in. Recorded on every start rather than by a registration step nobody
             // would run.
-            new ProjectRegistry(context.paths().projects().projectRegistry())
-                    .remember(project.name(), projectFile.toAbsolutePath());
+            if (!judged) {
+                new ProjectRegistry(context.paths().projects().projectRegistry())
+                        .remember(project.name(), projectFile.toAbsolutePath());
+            }
         } catch (ProjectException ex) {
             // A bad project file is the user's problem to fix, not a defect: report it as one line,
             // not as a stack trace.

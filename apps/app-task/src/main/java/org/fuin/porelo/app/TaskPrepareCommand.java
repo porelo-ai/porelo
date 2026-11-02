@@ -71,6 +71,13 @@ public class TaskPrepareCommand implements Callable<Integer>, PoreloFactory.Cont
         final PrintWriter out = spec.commandLine().getOut();
         final PrintWriter err = spec.commandLine().getErr();
 
+        try {
+            ProjectTaking.take(context, projectName);
+        } catch (final ProjectTaking.Refused ex) {
+            err.println("porelo: " + ex.reason() + ": " + ex.getMessage());
+            err.flush();
+            return ex.code();
+        }
         final Preparation.Result result =
                 Preparation.prepare(
                         context,

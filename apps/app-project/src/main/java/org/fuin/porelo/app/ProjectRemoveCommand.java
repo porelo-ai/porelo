@@ -19,17 +19,16 @@ import picocli.CommandLine.Spec;
  * it wrong.
  */
 @Command(
-        name = "unfollow",
+        name = "remove",
         mixinStandardHelpOptions = true,
-        description = "Stops following a project's repository, and removes the project.")
-public class ProjectUnfollowCommand
+        description = "Removes a project of this machine alone.")
+public class ProjectRemoveCommand
         implements Callable<Integer>, PoreloFactory.ContextAware, Suggests {
 
     @Override
     public java.util.List<String> candidates() {
-        // Every project the machine LISTS, not only the followed ones - the same list the refusal
-        // prints, which is the rule completion follows everywhere here. A project that predates
-        // following is exactly the one somebody cannot remember the spelling of.
+        // Every project the machine LISTS - the same list the refusal prints, which is the rule
+        // completion follows everywhere here.
         return new ProjectInventory(context)
                 .projects().stream().map(ProjectInventory.Summary::name).toList();
     }
@@ -61,6 +60,9 @@ public class ProjectUnfollowCommand
             description = "Removes it although work is waiting for review. That work is destroyed.")
     private boolean force;
 
+    @Option(names = "--json", description = "Answers a program with what happened as JSON.")
+    private boolean json;
+
     @Spec private CommandSpec spec;
 
     private PoreloContext context = PoreloContext.real();
@@ -74,9 +76,9 @@ public class ProjectUnfollowCommand
     public Integer call() throws Exception {
         final PrintWriter out = spec.commandLine().getOut();
         final PrintWriter err = spec.commandLine().getErr();
-        final FollowedProjects projects =
-                new FollowedProjects(context.paths().projects().followed());
-        final FollowedProjects.Followed followed = projects.find(name);
+        if (DefaultProject.is(name) || OrganizationProjects.of(context).find(name) != null) {
+            return notAllowed(out, err);
+        }
         // Read before anything goes: which of this machine's keys the forge holds for it is said at
         // the end.
         org.fuin.porelo.core.project.Project project = null;
@@ -86,15 +88,7 @@ public class ProjectUnfollowCommand
             // A project whose file cannot be read has no keys this machine can name.
         }
 
-        // Asked for every project this machine LISTS, not only for the ones it follows. A project
-        // that came to be the old way - a task was started with a file - is in no follow record,
-        // and this used to refuse it outright: the project stayed in the listing, kept its mirror
-        // and its image, and no command ended it. Two of them were cleared by hand on a test
-        // machine, which is not a thing an interface can do. What is at risk is the same either
-        // way, so the checks are the same either way.
-        //
-        // Refusals are checked before following stops; the record goes before the clone.
-        ProjectDeletion.Result deleted = new ProjectDeletion(context).unfollow(name, dryRun, force);
+        ProjectDeletion.Result deleted = new ProjectDeletion(context).delete(name, dryRun, force);
         // What a refusal would tell a person to do first is offered instead, and the removal tried
         // again after it: at most once per kind of refusal, so a remedy that did not help ends in
         // that refusal rather than a loop.
@@ -123,13 +117,13 @@ public class ProjectUnfollowCommand
                     err.flush();
                     if (!result.clean()) return 70;
                 }
-                deleted = new ProjectDeletion(context).unfollow(name, false, force);
+                deleted = new ProjectDeletion(context).delete(name, false, force);
             } else {
-                deleted = new ProjectDeletion(context).unfollow(name, false, true);
+                deleted = new ProjectDeletion(context).delete(name, false, true);
             }
         }
 
-        if (followed == null && deleted.outcome() == ProjectDeletion.Outcome.NO_SUCH_PROJECT) {
+        if (deleted.outcome() == ProjectDeletion.Outcome.NO_SUCH_PROJECT) {
             if (force) {
                 // With --force this is the one command a cleanup trap can run blind: a trap fires
                 // after a failure, which is exactly when nobody knows how far the setup got.
@@ -139,8 +133,6 @@ public class ProjectUnfollowCommand
                 out.flush();
                 return 0;
             }
-            // A name this machine does not list at all. Kept distinct from "it is here but you do
-            // not follow it", because that distinction is the whole value of the answer.
             final java.util.List<String> known = ProjectSource.names(context);
             err.println(
                     "porelo: no project called '"
@@ -152,12 +144,20 @@ public class ProjectUnfollowCommand
             err.flush();
             return 70;
         }
+        if (json) {
+            out.println(org.fuin.porelo.wire.Json.write(deleted.asMap()));
+            out.flush();
+            return switch (deleted.outcome()) {
+                case DELETED, PREVIEWED -> 0;
+                default -> 70;
+            };
+        }
         switch (deleted.outcome()) {
             case HOLDS_WORK -> {
                 err.println("porelo: " + name + " holds work nobody has reviewed:");
                 deleted.unreviewed().forEach(ref -> err.println("    " + ref));
                 err.println(
-                        "       review it, or 'porelo projects unfollow "
+                        "       review it, or 'porelo project remove "
                                 + name
                                 + " --force' to destroy it");
                 err.flush();
@@ -170,18 +170,10 @@ public class ProjectUnfollowCommand
                 err.flush();
                 return 70;
             }
-            case NO_SUCH_PROJECT -> {
-                // Followed but never applied: there is no project to delete, and forgetting the
-                // record is the whole of it.
-                out.println("nothing of " + name + " was ever applied here");
-            }
             case PREVIEWED -> {
-                out.println(
-                        followed == null
-                                ? "would remove " + name + ", which this account does not follow"
-                                : "would remove " + name + " and stop following " + followed.url());
+                out.println("would remove " + name);
                 // The kind and the thing, not the record's toString: a preview that reads
-                // "Removal[kind=FOLLOWED_CLONE, what=/home/...]" is for a debugger, and this is the
+                // "Removal[kind=PLACED_CLONE, what=/home/...]" is for a debugger, and this is the
                 // screen somebody decides on.
                 deleted.removes()
                         .forEach(
@@ -216,12 +208,6 @@ public class ProjectUnfollowCommand
             }
         }
 
-        if (followed == null) {
-            out.println(name + " was not followed here; what Porelo built for it is gone");
-            out.flush();
-            return 0;
-        }
-        out.println("no longer following " + followed.url());
         if (project != null) {
             // Its deploy keys go from the vault; the forge still grants access by them until they
             // go there too.
@@ -239,8 +225,26 @@ public class ProjectUnfollowCommand
         return 0;
     }
 
+    private Integer notAllowed(final PrintWriter out, final PrintWriter err) {
+        final String words =
+                DefaultProject.is(name)
+                        ? "'" + name + "' is always there and is never removed"
+                        : name + " is the organization's: it goes with 'porelo org project remove'";
+        if (json) {
+            final java.util.Map<String, Object> answer = new java.util.LinkedHashMap<>();
+            answer.put("reason", "not-allowed");
+            answer.put("words", words);
+            out.println(org.fuin.porelo.wire.Json.write(answer));
+            out.flush();
+            return 65;
+        }
+        err.println("porelo: " + words);
+        err.flush();
+        return 65;
+    }
+
     /**
-     * Says what to do before unfollowing again, after asking, or nothing when the refusal stands.
+     * Says what to do before removing again, after asking, or nothing when the refusal stands.
      *
      * @param outcome Why the removal was refused.
      * @param what The running tasks, or the unreviewed work.

@@ -27,18 +27,12 @@ import picocli.CommandLine.Spec;
         aliases = {"projects"},
         mixinStandardHelpOptions = true,
         subcommands = {
-            ProjectListCommand.class,
-            ProjectFollowCommand.class,
-            ProjectFollowingCommand.class,
-            ProjectInventoryCommand.class,
-            ProjectVerifyCommand.class,
-            ProjectAccessCommand.class,
-            ProjectRefreshCommand.class,
-            ProjectUnfollowCommand.class,
+            ProjectRemoveCommand.class,
             ProjectClearCommand.class,
             ProjectDefaultCommand.class
         },
-        description = "Follows project repositories, and lists the projects this machine follows.")
+        description =
+                "Lists, opens and removes the projects of this machine and of the organization.")
 public class ProjectsCommand implements Callable<Integer>, PoreloFactory.ContextAware {
 
     @Spec private CommandSpec spec;
@@ -70,8 +64,8 @@ public class ProjectsCommand implements Callable<Integer>, PoreloFactory.Context
 
         if (projects.isEmpty()) {
             out.println(
-                    "No projects yet. One appears here when this machine follows its repository:"
-                            + " porelo project follow <name> <url>");
+                    "No projects yet. One comes through the organization, or a person writes its"
+                            + " file: see 'porelo project show'");
             out.flush();
             return 0;
         }
@@ -105,19 +99,6 @@ public class ProjectsCommand implements Callable<Integer>, PoreloFactory.Context
                                                                         + " waiting)"
                                                                 : ""))
                                 .collect(java.util.stream.Collectors.joining(", ")));
-            }
-            if (project.following() != null && project.following().unverified()) {
-                // On the listing and not only under 'project following'. This is the one line that
-                // says who decides what tasks here may reach: with no anchor it is whoever can push
-                // to that repository, rather than whoever holds the signing key. Somebody reading a
-                // list of projects is choosing one to work in, which is exactly the moment that
-                // matters.
-                out.printf(
-                        "%-"
-                                + width
-                                + "s  unverified - whoever can push there decides what"
-                                + " tasks here may reach%n",
-                        "");
             }
             if (project.pending() > 0 || project.tasks() > 0) {
                 // Only when there is something to act on: a line of zeroes under every project is a

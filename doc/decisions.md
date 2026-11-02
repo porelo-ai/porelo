@@ -9,7 +9,7 @@ would change the answer.
 | A task has a CPU quota and may still read the host's cores | accepted: `getconf` and `sysconf` see the host; the quota throttles, and pids and memory remain bounded | [entry](#a-task-has-a-cpu-quota-and-may-still-read-the-hosts-cores) |
 | A task is the container whose id Porelo recorded | never by name or label; a container with no record is acted on by nothing | [entry](#a-task-is-the-container-whose-id-porelo-recorded) |
 | A start at a terminal goes into a running task | as `attach` does; an option of creation is refused by name; a script still gets 65 | [entry](#a-start-at-a-terminal-goes-into-a-running-task) |
-| A host playbook reads Porelo as a contract | `project inventory` with its version, `vault status` by exit code, `--json` answers; the machine file holds a host's keys, and the host installs every agent and starts no task | [entry](#a-host-playbook-reads-porelo-as-a-contract) |
+| A host playbook reads Porelo as a contract | `vault status` by exit code, `--json` answers; the machine file holds a host's keys, and the host installs every agent and starts no task | [entry](#a-host-playbook-reads-porelo-as-a-contract) |
 | Waiting for a person is never inferred from silence | working and idle are observed from output; waiting only where something declares it; no status channel out of the container | [entry](#waiting-for-a-person-is-never-inferred-from-silence) |
 | Nothing comes back by itself after a reboot | only `start` brings a task back; no surprise restarts, no vault prompt at boot | [entry](#nothing-comes-back-by-itself-after-a-reboot) |
 | Only the last session is recorded, and a failed continuation is forgotten | a failed continuation is forgotten and the next start is fresh (not yet built) | [entry](#only-the-last-session-is-recorded-and-a-failed-continuation-is-forgotten) |
@@ -100,20 +100,14 @@ would change the answer.
 | **Projects and following** | | |
 | One agent works in one repository | a task holds one repository, so an agent that spans several is one per repository, its commits authored by the name it goes by | [entry](#one-agent-works-in-one-repository) |
 | A project file describes constraints, not instructions | no prompt or standing instruction belongs in `project.yml` | [entry](#a-project-file-describes-constraints-not-instructions) |
-| A project exists by being followed | every project beside `default` is followed from a repository or bundle; `CheckProjectFile` checks a draft without registering it | [entry](#a-project-exists-by-being-followed) |
 | A project is named, never pointed at | every command and call takes a project name; no path form exists | [entry](#a-project-is-named-never-pointed-at) |
-| Configuration coming in is checked by its signature, as work going out is checked by a person | every protected change on the first-parent line signed by a key in force before it, the first pinned out of band; document-only commits need none; git verifies; a rewrite waits for a person | [entry](#configuration-coming-in-is-checked-by-its-signature-as-work-going-out-is-checked-by-a-person) |
-| A signing key is never read from the repository it verifies | the anchor comes from the person; a fingerprint only selects a key the person named | [entry](#a-signing-key-is-never-read-from-the-repository-it-verifies) |
-| A project's signing key is handed on through the project file | a signers change counts only signed by a key in force before it; no task key changes configuration | [entry](#a-projects-signing-key-is-handed-on-through-the-project-file) |
 | A signature counts when it arrives, never when it says it was made | commits judged at arrival by the gate and the forge's pre-receive hook, messages when the receiver takes them; a date the signer writes decides nothing | [entry](#a-signature-counts-when-it-arrives-never-when-it-says-it-was-made) |
 | A host believes the forge about a member's first card | within `org fetch` it asks the forge's public key list, anonymously, and judges as a person's machine does; a forge with no such list leaves that person first-seen, so their commit waits | [entry](#a-host-believes-the-forge-about-a-members-first-card) |
-| A single admin keeps an offline backup key | for a project's one signer, a host's one admin and a registry's one owner; it may only replace the key it backs, signs nothing else and certifies no task | [entry](#a-single-admin-keeps-an-offline-backup-key) |
-| A project may be followed without a signing key | `--unverified` is allowed per project, as a loudly reported state, not an error | [entry](#a-project-may-be-followed-without-a-signing-key) |
-| Where a followed project's file comes from | only the verified clone; nothing in force means no task, never a fallback to a local file | [entry](#where-a-followed-projects-file-comes-from) |
+| A single admin keeps an offline backup key | for a host's one admin and a registry's one owner; it may only replace the key it backs, signs nothing else and certifies no task | [entry](#a-single-admin-keeps-an-offline-backup-key) |
 | Clearing names what only a person's credentials can remove, and never attempts it | keys made by earlier versions and `machine-signers` lines are named, not removed at the forge; git needs no administration right; the vault stays | [entry](#clearing-names-what-only-a-persons-credentials-can-remove-and-never-attempts-it) |
-| A digest pins an image; a tag-only image in a followed project needs a person's consent once | a followed tag-only project waits for one consent, then the digest is kept and a change said at every start (not yet built) | [entry](#a-digest-pins-an-image-a-tag-only-image-in-a-followed-project-needs-a-persons-consent-once) |
+| A digest pins an image; a tag-only image in a project needs a person's consent once | a tag-only project waits for one consent, then the digest is kept and a change said at every start (not yet built) | [entry](#a-digest-pins-an-image-a-tag-only-image-in-a-project-needs-a-persons-consent-once) |
 | What a build runs beside its secrets is fixed by its content | every action by commit with its version, Maven and GraalVM by checksum, Artifactory spoken to with curl; `check-actions` refuses a tag | [entry](#what-a-build-runs-beside-its-secrets-is-fixed-by-its-content) |
-| An offline project never connects, and its agent still reaches its provider | no upstream or external egress, followed only from a file; declared `host_services` reach the host on TCP 443, and the agent's model calls go through the broker as in every class | [entry](#an-offline-project-never-connects-and-its-agent-still-reaches-its-provider) |
+| An offline project never connects, and its agent still reaches its provider | no upstream or external egress, written on this machine; declared `host_services` reach the host on TCP 443, and the agent's model calls go through the broker as in every class | [entry](#an-offline-project-never-connects-and-its-agent-still-reaches-its-provider) |
 | **Messages** | | |
 | A task holds no key and sees no address | one mailbox in the container; messages and commits signed on the host by the task's own certified key, never a login key | [entry](#a-task-holds-no-key-and-sees-no-address) |
 | No model decides what a message may contain | rules accept or refuse, a person holds; a classifier may only ever hold | [entry](#no-model-decides-what-a-message-may-contain) |
@@ -151,12 +145,9 @@ would change the answer.
 ## A host playbook reads Porelo as a contract
 
 A playbook that puts a project on a server calls only Porelo's commands and never parses text meant for a person.
-`porelo project inventory` prints the second play's inventory with `porelo_inventory_version`, raised on any change of a
-name or a meaning, and names the project's transport packages (`porelo_transports`, `porelo-message-transport-<scheme>`)
-while leaving any homeserver package to the play; `vault status` answers by its exit code, 0 open, 3 shut, 4 none;
-`project following` and `agents` answer with `--json`; `task stop --all` answers by its exit code, 0 when nothing runs
-any more, 70 otherwise. The project file in the inventory is checked against its key exactly as `follow` checks it, and
-nothing is recorded. **Which keys go into a host's vault are the person's**, in their machine file on their drive, not
+`vault status` answers by its exit code, 0 open, 3 shut, 4 none;
+`agents` answers with `--json`; `task stop --all` answers by its exit code, 0 when nothing runs
+any more, 70 otherwise. **Which keys go into a host's vault are the person's**, in their machine file on their drive, not
 in `project.yml`, which is the project's. A key leaves only by its name and its path. **Bringing a host up and down is
 kept apart from starting tasks**, since the person decides which work runs: the first play takes `porelo-setup.sh` from
 the `porelo` package (`/usr/share/porelo/setup/porelo-setup.sh`, which keeps the channel the installed package came
@@ -614,21 +605,6 @@ Everything in `project.yml` bounds what work in the project may do; nothing in i
 or a standing instruction is the opposite kind of thing: standing instructions live in the repository the agent works
 on and are not Porelo's business.
 
-## A project exists by being followed
-
-Every project on a machine beside the built-in `default` project comes to be by
-`porelo project follow <name> <url|file>`, run by a person or through `Follow` on the daemon's socket (`ProjectSource`
-also resolves a path recorded in `ProjectRegistry` when a task ran there without a follow). For a followed project,
-Porelo writes no `project.yml`: a project is created by a commit, in an editor, and verified at `follow` (and
-`follow --dry-run`, which records nothing) and at every reconciliation. That check covers the name's shape, the security
-class, a base image named at all, an `online` project without an upstream, and an egress set this machine does not have,
-all refused at follow rather than at the first task start. On the daemon's socket, `CheckProjectFile` (with
-`ProjectFileSchema`) checks a draft `project.yml` before it is committed - separating what Porelo refuses anywhere, what
-this machine's `follow` would refuse, and warnings - and registers nothing. The first step for somebody trying Porelo is
-answered by `follow` working against a local repository or bundle with no forge, and by the built-in project `default`,
-which exists on every machine without being followed, with fixed `guarded` settings, and holds repositories added from a
-local checkout or by URL (`porelo project default`, `AddToDefault`).
-
 ## A project is named, never pointed at
 
 Every command and every daemon call that takes a project takes its name, as `porelo project list` prints it, and no
@@ -640,39 +616,6 @@ answers both. An unknown name is refused with the names the machine has; on `Can
 (`NO_PROJECT_FILE`), not an error, since asking about a project that turns out not to exist is a fair question. Where
 a running task already names its project (`shield egress --task`, `talk pass`, `talk hold`), the project is taken
 from the task rather than asked for again.
-
-## Configuration coming in is checked by its signature, as work going out is checked by a person
-
-A followed project's repository decides what runs on every machine following it - the image, the limits and the
-hosts a task may reach - so whoever can push there could otherwise open the firewall on all of them at the next
-fetch. A machine therefore applies a new `main` only when every commit on its first-parent line that changes a
-protected file is signed by a key in force before that commit, the first one pinned out of band (`--signed-by`), and
-keeps what it verified last when a commit is refused or the repository cannot be reached. A commit that changes only
-plans, issues or documents needs no signature, so a developer's pull request merged by fast-forward is applied without
-a signer signing on top of it. Every protected change is checked, not only the tip, since otherwise a later signed
-commit could carry an earlier unsigned change. The signature is checked by git
-(`verify-commit` against the pinned keys in `allowed_signers` format), not reimplemented, since a commit's signature
-covers the commit object and a second canonicalization would be a second implementation of what git already does
-exactly. A history that moves under the machine is refused until a person says `--accept-rewrite`, since a rebase and
-a replayed older signed file look the same from the machine.
-
-## A signing key is never read from the repository it verifies
-
-The key a followed project's configuration is checked against comes from the person, at `follow --signed-by`: never
-from a file, a commit or a branch of that repository, since an anchor that travels with what it authenticates
-authenticates nothing. A fingerprint is accepted in its place, and the key's bytes are then taken from the refused
-commit's own signature, but only when their fingerprint is the one the person typed: the person still says which key
-it must be.
-
-## A project's signing key is handed on through the project file
-
-After the first key, named once out of band at `project follow --signed-by`, the project's own `project.signers` says
-whose signed commits change it. A commit that changes the list counts only when it is signed by a key in force before
-it, and a key never vouches for the commit that adds it, so a change of key is two commits: the old key names both,
-then the new key alone retires the old one. Pinning a new key on every following machine by hand, one by one, would
-make every machine refuse the next commit after a key change. Messages are signed by each task's own key, certified by
-one of the project's certifiers, and no such key changes a project's configuration, so a machine that is taken over has
-no power over the others.
 
 ## A signature counts when it arrives, never when it says it was made
 
@@ -712,39 +655,13 @@ cards are asked about.
 
 ## A single admin keeps an offline backup key
 
-A project with one signer, a host with one host admin and an organization with one owner each keep a second key, made
-once as a file kept offline, by `porelo identity backup-key` for a host's or the organization's place and with
-`ssh-keygen` for a project's, and never put in the daily agent: a single key that is lost leaves nobody who may hand
+A host with one host admin and an organization with one owner each keep a second key, made once as a file kept
+offline, by `porelo identity backup-key`, and never put in the daily agent: a single key that is lost leaves nobody who may hand
 the place on. The backup key is held to the one change that recovers: a commit it
 signs may change only the entry it backs, and itself. It signs no other change and certifies no task.
-`project verify`, `registry read` and `identity show` warn while one is missing. **The exposure:** whoever holds the
+`registry read` and `identity show` warn while one is missing. **The exposure:** whoever holds the
 backup key can replace the key it backs and so take that place over, as with the main key; kept offline, it is
 harder to reach.
-
-## A project may be followed without a signing key
-
-`porelo project follow --unverified` applies what a project's repository says with no signature checked. **The
-exposure:** without a signature the rule is *whoever may push to this repository decides what tasks here may reach*,
-rather than *whoever holds the signing key*. The second set is much smaller: it excludes every CI token with write
-access, every leaked colleague's credential and the forge itself. And an agent working on the project's own
-repository edits the very file this verifies, so "an agent may propose configuration and never put it in force"
-holds without a key only as long as the gate's review catches it. **Why it stays:** access to a git repository is
-already authenticated, and common practice applies what comes out of an authenticated clone without checking
-signatures; refusing every unsigned follow would make every fixture and every first try sign commits. It is
-therefore a state, not an error, kept per project so that one unverified project never quietens another, and shown
-wherever the project is: `project following`, `doctor` (degraded) and `Projects().following.unverified`. **What
-would change the answer:** a deployment where the people who can push to a project repository are not the people
-who decide what tasks may reach, or evidence of configuration slipping past the gate's review.
-
-## Where a followed project's file comes from
-
-A task of a followed project reads `project.yml` from the clone this machine verified, never from the working
-directory or any other copy: a file elsewhere is not preferred, merged or warned about and then used, because two
-sources is how a machine comes to run something nobody chose. A followed project with nothing in force (refused,
-unreachable, nothing pinned) starts no task, and the local file is not a fallback: falling back would run exactly
-what the machine declined to apply and make a refusal look as though it had no effect. The commit a task's file was
-verified at is recorded with the task as a container label, because "what was this task running under" is asked
-after something went wrong, when the project has moved on.
 
 ## Clearing names what only a person's credentials can remove, and never attempts it
 
@@ -888,9 +805,8 @@ it back at once. **What would change it:** an admission that never leaves the tw
 
 ## The signed project file names a shared server
 
-A project's conversation on a shared server is named in its signed `project.yml`: the homeserver, the room, the CA's
-text as `ca_certificate` and a `registration_token_file`, and every machine that follows the project reaches that
-name. A machine sets none of it for itself.
+A project's conversation on a shared server is named in its signed `project.yml`: the homeserver, the room and the CA's
+text as `ca_certificate`, and every machine that starts the project reaches that name. A machine sets none of it for itself.
 
 ## Only a transport a peer names is polled
 
@@ -1280,12 +1196,12 @@ moves the pins weekly in one grouped pull request, merged by a person. The jobs 
 a step that needs a tool with no checksum to pin it by, which is then built from source or dropped, not trusted by its
 name.
 
-## A digest pins an image; a tag-only image in a followed project needs a person's consent once
+## A digest pins an image; a tag-only image in a project needs a person's consent once
 
 A digest names exactly one image, so a signed project file that carries one pins its content; podman's signature
-policy is an option a project may add. A followed project that names its image by tag only does not start until a
+policy is an option a project may add. A project that names its image by tag only does not start until a
 person allows it once; after that the digest is kept and a change of it is said at every start, so a moved tag never
-changes what runs silently. **Not yet built:** a followed project with a tag-only `base_image` still builds and starts
+changes what runs silently. **Not yet built:** a project with a tag-only `base_image` still builds and starts
 without asking for one-time consent or recording the resolved digest.
 
 ## One key signs everything a machine installs from Porelo
@@ -1332,7 +1248,7 @@ reach, which would bring a relay without a terminal of its own to the operator a
 
 In a `guarded` project, waiting work is read with `gate review` and `gate checkout` on the machine. For a task started
 from a local checkout in `default`, approved work goes back to that checkout as `porelo/<task>` (`porelo approve`),
-while `porelo gate approve` pushes approved work of a followed repository to its `upstream` branch. Porelo gets no
+while `porelo gate approve` pushes approved work of a repository to its `upstream` branch. Porelo gets no
 write access to an `upstream` for a review branch, and no `guarded` setting opts into one: a branch there would carry
 unreviewed work past the gate. A team that wants review on a forge's pull request uses [`online`](security.md#online),
 against a private company forge or
@@ -1360,8 +1276,8 @@ answer:** a way to see every push to the upstream, which would be the forge's, n
 ## An offline project never connects, and its agent still reaches its provider
 
 An `offline` project makes no external Git or egress connection out, neither from the task nor from the host on its
-behalf: it names no `upstream` or external `egress`, a start takes no `--upstream`, and it is followed only from a
-bundle or a directory and never fetched. Its code comes in by `gate restore` and leaves by `gate backup`. Declared
+behalf: it names no `upstream` or external `egress`, a start takes no `--upstream`, and its file is written on this
+machine and never fetched. Its code comes in by `gate restore` and leaves by `gate backup`. Declared
 `egress.host_services` still reach this host on TCP 443. Offline only after the first start, as it once was, is not
 what a person choosing it for a machine without a route expects. **The exposure:** the agent's model calls still reach
 its AI provider through the host's broker, as in every class, so the prompts and what the agent reads leave the machine

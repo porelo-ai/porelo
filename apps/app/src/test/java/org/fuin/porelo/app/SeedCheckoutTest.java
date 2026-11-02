@@ -46,4 +46,23 @@ class SeedCheckoutTest {
         assertThat(WorkspaceSetup.ownCheckout("uc", other)).isNull();
         assertThat(WorkspaceSetup.ownCheckout("uc", own)).isEqualTo(own.toRealPath());
     }
+
+    @Test
+    void aCheckoutReachedThroughALinkedDirectoryIsStillTheProjectsOwn(@TempDir Path dir)
+            throws Exception {
+        final Path own =
+                repository(
+                        Files.createDirectories(dir.resolve("own")),
+                        "project:\n  name: \"uc\"\n  security_class: \"guarded\"\nimage:\n  base_image: \"ubuntu:24.04\"\n");
+        final Path link = Files.createSymbolicLink(dir.resolve("link"), own);
+
+        assertThat(
+                        WorkspaceSetup.ownCheckout(
+                                "uc",
+                                link.resolve("project.yml")
+                                        .toAbsolutePath()
+                                        .normalize()
+                                        .resolveSibling(".")))
+                .isEqualTo(own.toRealPath());
+    }
 }

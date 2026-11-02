@@ -256,11 +256,11 @@ final class TaskConversations {
             boolean token,
             @Nullable String display)
             throws TransportLifecycle.Refused {
-        // Before setup, too: with no access file, nobody else checks the person's name.
+        // Before setup, too: nobody else checks the person's name.
         TransportLifecycle.login(person);
         try {
-            ProjectAccess.requireAdmitted(context, project, person);
-        } catch (final ProjectAccess.Withheld ex) {
+            ProjectMembers.requireAdmitted(context, project.name(), person);
+        } catch (final ProjectMembers.Withheld ex) {
             throw new TransportLifecycle.Refused(String.valueOf(ex.getMessage()), 69);
         }
         final String scheme = scheme(project);
@@ -405,7 +405,7 @@ final class TaskConversations {
 
     /**
      * Returns who is heard in a project's conversation: admitted joins and each admitted person of
-     * the applied access file taken by their host account.
+     * the project's members taken by their host account.
      *
      * @param context Where the state is.
      * @param project The project.
@@ -551,8 +551,8 @@ final class TaskConversations {
     private Map<String, Object> settings(Project project, String scheme)
             throws TransportLifecycle.Refused {
         try {
-            return ProjectAccess.settings(context, project, scheme);
-        } catch (ProjectAccess.Withheld ex) {
+            return ProjectMembers.settings(context, project, scheme);
+        } catch (ProjectMembers.Withheld ex) {
             throw new TransportLifecycle.Refused(String.valueOf(ex.getMessage()), 78);
         }
     }

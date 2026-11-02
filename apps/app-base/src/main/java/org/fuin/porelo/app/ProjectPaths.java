@@ -3,7 +3,7 @@ package org.fuin.porelo.app;
 import java.nio.file.Path;
 
 /**
- * Where Porelo keeps the files of projects: what is followed, its clones, its signers and its
+ * Where Porelo keeps the files of projects: what a start placed, its clones, its signers and its
  * records.
  *
  * <p>One class per area, beside {@link PoreloPaths}, which keeps only the roots and what belongs to
@@ -14,74 +14,47 @@ import java.nio.file.Path;
 public record ProjectPaths(PoreloPaths paths) {
 
     /**
-     * Returns where this account records the project repositories it follows.
+     * Returns where the organization's projects are placed: a record and a clone each.
      *
-     * <p>A directory with one file per project, like the registry beside it and for the same
-     * reason: two things can change at once, and a file each is a race that cannot happen.
-     *
-     * <p><strong>Per account, not per machine.</strong> Two people on one machine follow different
-     * projects, reconcile at different moments and open different vaults.
+     * <p>Per account, not per machine: two people on one machine read the organization with
+     * different credentials, and what a start judged is theirs.
      *
      * @return The directory.
      */
-    public Path followed() {
-        return paths.xdg().state().resolve("follow");
+    public Path organizationProjects() {
+        return paths.xdg().state().resolve("organization-projects");
     }
 
     /**
-     * Returns where a followed project's repository is cloned.
+     * Returns where the last revision of each project's file judged is remembered, so a file does
+     * not go back unnoticed, whichever command read it.
      *
-     * <p>Under the state directory because it is this machine's copy of a source of truth, not a
-     * working copy: nothing edits it and it is rebuilt by fetching. An agent that works <em>in</em>
-     * a project's repository gets its own checkout through the gate, like a task on any other
-     * repository.
+     * @return The directory.
+     */
+    public Path projectFileMemory() {
+        return paths.xdg().state().resolve("organization").resolve("project-files");
+    }
+
+    /**
+     * Returns where a start places an organization's project's repository, at the revision it
+     * judged. Under the state directory because nothing edits it and a start rebuilds it; an agent
+     * gets its own checkout through the gate.
      *
      * @param project The project's name.
      * @return The clone's directory, which need not exist.
      */
-    public Path followedClone(String project) {
-        return followed().resolve(project + ".git");
+    public Path organizationClone(String project) {
+        return organizationProjects().resolve(project + ".git");
     }
 
     /**
-     * Returns the access repository's clone, serialized by the project's existing clone lock.
-     *
-     * @param project The project's name.
-     * @return The clone's directory, which need not exist.
-     */
-    public Path followedAccessClone(String project) {
-        return followed().resolve(project + ".access.git");
-    }
-
-    /**
-     * Returns the lock that serializes changes to a followed project's clone.
+     * Returns the lock that serializes changes to a project's clone.
      *
      * @param project The project's name.
      * @return The lock file, which need not exist.
      */
-    public Path followedCloneLock(String project) {
-        final Path clone = followedClone(project);
-        return clone.resolveSibling(clone.getFileName() + ".lock");
-    }
-
-    /**
-     * Returns the file naming the keys whose commits this machine will apply as configuration.
-     *
-     * <p><strong>Pinned out of band, and never from the repository it authenticates.</strong> A
-     * trust anchor that travels with what it checks is not an anchor. An operator writes this when
-     * the machine is prepared, the same way a peer's key is pinned for messages, and it is in the
-     * configuration directory rather than the data one because it is a decision rather than
-     * something Porelo accumulated.
-     *
-     * <p>{@code allowed_signers} format, so it is the same file shape - and the same reader - as
-     * the one that decides which peers may send a message.
-     *
-     * @return The file, which need not exist. A machine with none applies nothing.
-     */
-    public Path configurationSigners() {
-        // The keys whose commits a followed project's configuration is taken from: people's, never
-        // a machine's.
-        return paths.xdg().config().resolve("project-signers");
+    public Path organizationCloneLock(String project) {
+        return organizationProjects().resolve(project + ".git.lock");
     }
 
     /**

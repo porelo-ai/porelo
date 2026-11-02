@@ -230,21 +230,7 @@ public final class ProjectReader {
 
         final Map<?, ?> project = section(root, "project", origin);
         final Map<?, ?> image = section(root, "image", origin);
-        signers(project, origin);
-        final Access access = access(root, origin);
         final Mail mail = mail(root, origin);
-        if (access != null && !mail.transports().isEmpty()) {
-            // Read from the public file once an access file is named, a server's name and room
-            // would be shown to everyone the access file was meant to hide them from.
-            throw new ProjectException(
-                    origin
-                            + ": 'mail.transports' is in the access file once 'access' names one;"
-                            + " move "
-                            + String.join(", ", mail.transports().keySet())
-                            + " into "
-                            + Access.FILE);
-        }
-
         final Project definition =
                 new Project(
                         required(project, "name", origin, "project"),
@@ -269,98 +255,12 @@ public final class ProjectReader {
                         null,
                         parameters(root, origin),
                         projectNickname(project, origin),
-                        branch(root.get("branch"), "branch", origin, null),
-                        access);
+                        branch(root.get("branch"), "branch", origin, null));
         for (final Repository repository : definition.repositories()) {
             definition.egressFor(repository);
         }
         goesByOnce(definition, origin);
         return definition;
-    }
-
-    /**
-     * Returns the keys a project file names under {@code project.signers}, each as its type and
-     * key, without its backup keys, which sign no change but the one {@link
-     * ProjectSigners#backedOnly} allows.
-     *
-     * <p>Read on its own, because a followed project's keys are read from a commit before anything
-     * else in the file is taken: whether the commit may change them is decided by the keys in force
-     * before it.
-     *
-     * @param text The file's content.
-     * @param origin Name used in error messages.
-     * @return The keys, in the order written; {@code null} when the file names none.
-     * @throws ProjectException If the file does not parse or an entry is no public key.
-     */
-    public static java.util.@Nullable List<String> signers(final String text, final String origin) {
-        final Object loaded = load(new java.io.StringReader(text), origin);
-        return loaded instanceof Map<?, ?> root && root.get("project") instanceof Map<?, ?> project
-                ? signers(project, origin)
-                : null;
-    }
-
-    private static java.util.@Nullable List<String> signers(
-            final Map<?, ?> project, final String origin) {
-        final java.util.List<ProjectSigners.Signer> entries = ProjectSigners.read(project, origin);
-        return entries == null ? null : ProjectSigners.keys(entries);
-    }
-
-    /**
-     * Reads the optional {@code access} section: where the project keeps its access file.
-     *
-     * @param root The whole document.
-     * @param origin Name used in error messages.
-     * @return The place, or {@code null} when the section is absent.
-     * @throws ProjectException Unless it names exactly one of {@code repository} and {@code file},
-     *     and nothing else.
-     */
-    private static @Nullable Access access(Map<?, ?> root, String origin) {
-        final Object value = root.get("access");
-        if (value == null) {
-            return null;
-        }
-        if (!(value instanceof Map<?, ?> access)) {
-            throw new ProjectException(
-                    origin
-                            + ": 'access' must be a mapping naming 'repository: <url>' or 'file: "
-                            + Access.FILE
-                            + "'");
-        }
-        for (final Object key : access.keySet()) {
-            if (!"repository".equals(key) && !"file".equals(key)) {
-                throw new ProjectException(
-                        origin
-                                + ": 'access."
-                                + String.valueOf(key).replaceAll("\\p{Cntrl}", "?")
-                                + "' is not known; 'access' names 'repository' or 'file'");
-            }
-        }
-        final Object repository = access.get("repository");
-        final Object file = access.get("file");
-        if ((repository == null) == (file == null)) {
-            throw new ProjectException(
-                    origin
-                            + ": 'access' names "
-                            + (repository == null
-                                    ? "neither 'repository' nor 'file'"
-                                    : "both 'repository' and 'file'")
-                            + "; it names exactly one place for "
-                            + Access.FILE);
-        }
-        if (!((repository == null ? file : repository) instanceof String place)) {
-            throw new ProjectException(
-                    origin
-                            + ": 'access."
-                            + (repository == null ? "file" : "repository")
-                            + "' is a string");
-        }
-        try {
-            return repository == null
-                    ? new Access.BesideProject(place)
-                    : new Access.InRepository(place);
-        } catch (final ProjectException ex) {
-            throw new ProjectException(origin + ": " + ex.getMessage(), ex);
-        }
     }
 
     /**

@@ -36,16 +36,8 @@ class TaskBuildsHelperTest {
                         dir);
         final PoreloContext context =
                 new PoreloContext(runner, new PoreloPaths(xdg, dir.resolve("bin")), arguments -> 0);
-        new FollowedProjects(context.paths().projects().followed())
-                .write(
-                        new FollowedProjects.Followed(
-                                "uc",
-                                "git@example.com:x/uc.git",
-                                "a1b2c3",
-                                "2026-10-06T00:00:00Z",
-                                "APPLIED",
-                                ""));
-        final Path clone = context.paths().projects().followedClone("uc");
+        PlacedFixture.record(context, "uc");
+        final Path clone = context.paths().projects().organizationClone("uc");
         Files.createDirectories(clone);
         Files.writeString(
                 clone.resolve("project.yml"),

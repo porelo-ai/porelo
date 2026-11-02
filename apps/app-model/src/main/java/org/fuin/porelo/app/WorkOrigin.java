@@ -15,11 +15,11 @@ import org.jspecify.annotations.Nullable;
  * Says which project and repository a task started in a checkout belongs to, when no project is
  * named.
  *
- * <p><strong>A followed project that names the repository comes first</strong>: its settings are
- * what somebody wrote for it and signed, and its work comes from its remote and goes there.
- * Otherwise the checkout goes into {@code default} as a repository of its own: its history comes
- * from the checkout and the approved work goes back into it, and its {@code origin} - if it has one
- * - is the person's own to pull and push. Two checkouts are two repositories.
+ * <p><strong>A placed project that names the repository comes first</strong>: its settings are what
+ * somebody wrote for it and signed, and its work comes from its remote and goes there. Otherwise
+ * the checkout goes into {@code default} as a repository of its own: its history comes from the
+ * checkout and the approved work goes back into it, and its {@code origin} - if it has one - is the
+ * person's own to pull and push. Two checkouts are two repositories.
  */
 public final class WorkOrigin {
 
@@ -70,14 +70,14 @@ public final class WorkOrigin {
                         ? ""
                         : "; its origin's address carried a credential, which Porelo"
                                 + " leaves out of everything it keeps or shows";
-        // A followed project's settings are what somebody wrote and signed for this repository: its
+        // A placed project's settings are what somebody wrote and signed for this repository: its
         // work comes from its remote and goes there, and this checkout is no part of it.
-        final Choice followed = origin.isEmpty() ? null : followedNaming(context, origin);
-        if (followed != null) {
+        final Choice placed = origin.isEmpty() ? null : placedNaming(context, origin);
+        if (placed != null) {
             return new Choice(
-                    followed.project(),
-                    followed.repository(),
-                    followed.said()
+                    placed.project(),
+                    placed.repository(),
+                    placed.said()
                             + "; its work comes from "
                             + origin
                             + " and goes there, not into this checkout");
@@ -108,22 +108,22 @@ public final class WorkOrigin {
     }
 
     /**
-     * Returns the followed project and repository whose upstream is this one, or {@code null}.
+     * Returns the placed project and repository whose upstream is this one, or {@code null}.
      *
      * @param context This machine.
      * @param upstream A repository's address.
      * @return Where it belongs, or {@code null}.
      */
-    public static @Nullable Choice followedNaming(
+    public static @Nullable Choice placedNaming(
             final PoreloContext context, final String upstream) {
-        final java.util.List<FollowedProjects.Followed> followed;
+        final java.util.List<String> placed;
         try {
-            followed = new FollowedProjects(context.paths().projects().followed()).all();
+            placed = OrganizationProjects.of(context).names();
         } catch (IOException ex) {
             return null;
         }
-        for (final FollowedProjects.Followed one : followed) {
-            final Path file = ProjectSource.resolve(context, one.name()).file();
+        for (final String one : placed) {
+            final Path file = ProjectSource.resolve(context, one).file();
             if (file == null) {
                 continue;
             }

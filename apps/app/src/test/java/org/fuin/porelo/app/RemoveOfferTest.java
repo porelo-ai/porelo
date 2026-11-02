@@ -8,10 +8,10 @@ import java.util.List;
 import org.junit.jupiter.api.Test;
 
 /**
- * Tests that unfollowing a project offers to stop its running tasks, and to destroy unreviewed work
+ * Tests that removing a project offers to stop its running tasks, and to destroy unreviewed work
  * only on an explicit yes, instead of naming what to do and ending.
  */
-class UnfollowOfferTest {
+class RemoveOfferTest {
 
     private final StringWriter said = new StringWriter();
 
@@ -22,7 +22,7 @@ class UnfollowOfferTest {
     @Test
     void runningTasksAreOfferedToBeStoppedWithYesAsTheDefault() {
         assertThat(
-                        ProjectUnfollowCommand.nextTry(
+                        ProjectRemoveCommand.nextTry(
                                 ProjectDeletion.Outcome.TASKS_RUNNING,
                                 List.of("porelo-uc-a"),
                                 answering("")))
@@ -32,13 +32,13 @@ class UnfollowOfferTest {
     @Test
     void unreviewedWorkIsDestroyedOnlyOnAnExplicitYesAndSaysWhatGoes() {
         assertThat(
-                        ProjectUnfollowCommand.nextTry(
+                        ProjectRemoveCommand.nextTry(
                                 ProjectDeletion.Outcome.HOLDS_WORK,
                                 List.of("refs/heads/porelo/uc-a"),
                                 answering("")))
                 .isNull();
         assertThat(
-                        ProjectUnfollowCommand.nextTry(
+                        ProjectRemoveCommand.nextTry(
                                 ProjectDeletion.Outcome.HOLDS_WORK,
                                 List.of("refs/heads/porelo/uc-a"),
                                 answering("y")))
@@ -49,13 +49,13 @@ class UnfollowOfferTest {
     @Test
     void nobodyToAskIsTheRefusalAsBefore() {
         assertThat(
-                        ProjectUnfollowCommand.nextTry(
+                        ProjectRemoveCommand.nextTry(
                                 ProjectDeletion.Outcome.TASKS_RUNNING,
                                 List.of("porelo-uc-a"),
                                 Offer.NOBODY))
                 .isNull();
         assertThat(
-                        ProjectUnfollowCommand.nextTry(
+                        ProjectRemoveCommand.nextTry(
                                 ProjectDeletion.Outcome.HOLDS_WORK, List.of("x"), Offer.NOBODY))
                 .isNull();
     }

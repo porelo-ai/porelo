@@ -54,9 +54,7 @@ class CompleteCommandTest {
     @Test
     void aSubcommandOffersItsOwnVerbs() {
         assertThat(completing("porelo", "task", "")).contains("start", "stop", "remove", "attach");
-        // 'delete' is gone: a project exists because the machine follows its repository, so
-        // removing what Porelo built while going on following it would only build it again.
-        assertThat(completing("porelo", "project", "")).contains("list", "unfollow");
+        assertThat(completing("porelo", "project", "")).contains("list", "remove");
     }
 
     @Test

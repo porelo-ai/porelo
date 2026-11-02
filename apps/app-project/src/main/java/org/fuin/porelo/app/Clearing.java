@@ -11,7 +11,7 @@ import org.jspecify.annotations.Nullable;
 /**
  * Clears a project from this machine, or the whole account, in one step, and answers what it did.
  *
- * <p>Every piece existed on its own - removing a task, unfollowing, forgetting a deploy key,
+ * <p>Every piece existed on its own - removing a task, removing a project, forgetting a deploy key,
  * clearing a transport - and a person had to know each and its order; clearing a test machine by
  * hand still left deploy keys at a forge (2026-10-02: "When I am done, I must be able to clear
  * everything on the server very simply").
@@ -194,13 +194,10 @@ public final class Clearing {
             // A project whose file cannot be read has no conversation or keys this machine can
             // name.
         }
-        final FollowedProjects followed =
-                new FollowedProjects(context.paths().projects().followed());
-        final @Nullable String url = followedUrl(followed, name);
         final List<ConversationSettings> settings =
                 known == null ? List.of() : conversationSettings(known, dryRun);
         final ProjectDeletion.Result deleted =
-                new ProjectDeletion(context).unfollow(name, dryRun, force);
+                new ProjectDeletion(context).delete(name, dryRun, force);
         boolean refusedListing = false;
         switch (deleted.outcome()) {
             case BUILT_IN -> {
@@ -213,9 +210,7 @@ public final class Clearing {
                 return new Result(items, List.of(), "", true);
             }
             case NO_SUCH_PROJECT -> {
-                if (url == null) {
-                    return new Result(List.of(), List.of(), "", false);
-                }
+                return new Result(List.of(), List.of(), "", false);
             }
             case HOLDS_WORK, TASKS_RUNNING -> {
                 items.add(
@@ -232,10 +227,7 @@ public final class Clearing {
                 refusedListing = true;
             }
             case FAILED -> {
-                if (url != null && noLongerFollowed(followed, name)) {
-                    items.add(new Item("follow", url, Status.REMOVED, ""));
-                }
-                // Following has stopped, but a failed removal must keep the conversation and keys.
+                // A failed removal must keep the conversation and keys.
                 items.add(
                         new Item(
                                 "project",
@@ -255,13 +247,6 @@ public final class Clearing {
                             removal.what(),
                             dryRun ? Status.WOULD_REMOVE : Status.REMOVED,
                             ""));
-        }
-        if (url != null) {
-            if (dryRun) {
-                items.add(new Item("follow", url, Status.WOULD_REMOVE, ""));
-            } else {
-                items.add(new Item("follow", url, Status.REMOVED, ""));
-            }
         }
         if (known == null) {
             return new Result(List.copyOf(items), List.of(), "", refusedListing);
@@ -297,18 +282,6 @@ public final class Clearing {
         boolean refused = false;
         final java.util.Set<String> names = new java.util.TreeSet<>();
         new ProjectInventory(context).projects().forEach(summary -> names.add(summary.name()));
-        try {
-            new FollowedProjects(context.paths().projects().followed())
-                    .all()
-                    .forEach(each -> names.add(each.name()));
-        } catch (final IOException ex) {
-            items.add(
-                    new Item(
-                            "follow",
-                            "the projects this account follows",
-                            Status.NOT_REMOVED,
-                            "their list cannot be read: " + ex.getMessage()));
-        }
         names.remove(DefaultProject.NAME);
         for (final String name : names) {
             final Result one = project(name, dryRun, force);
@@ -448,9 +421,9 @@ public final class Clearing {
                                 scheme,
                                 dryRun
                                         ? Map.of()
-                                        : ProjectAccess.settings(context, project, scheme),
+                                        : ProjectMembers.settings(context, project, scheme),
                                 ""));
-            } catch (final ProjectAccess.Withheld ex) {
+            } catch (final ProjectMembers.Withheld ex) {
                 settings.add(
                         new ConversationSettings(
                                 scheme, Map.of(), String.valueOf(ex.getMessage())));
@@ -576,24 +549,5 @@ public final class Clearing {
                         Status.FOR_A_PERSON,
                         "where it is listed, a signed commit in the project's repository removes it"));
         return line;
-    }
-
-    private static boolean noLongerFollowed(FollowedProjects followed, String name) {
-        try {
-            return followed.find(name) == null;
-        } catch (IOException | RuntimeException ex) {
-            // A failed lookup cannot claim that the follow was removed.
-            return false;
-        }
-    }
-
-    private static @Nullable String followedUrl(
-            final FollowedProjects followed, final String name) {
-        try {
-            final FollowedProjects.Followed one = followed.find(name);
-            return one == null ? null : one.url();
-        } catch (final IOException | RuntimeException ex) {
-            return null;
-        }
     }
 }

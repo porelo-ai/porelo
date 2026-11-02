@@ -30,7 +30,7 @@ import org.jspecify.annotations.Nullable;
  */
 public final class DefaultProject {
 
-    /** Its name, fixed and reserved: no followed project may take it. */
+    /** Its name, fixed and reserved: no other project may take it. */
     public static final String NAME = "default";
 
     /** The base image a task in it runs on. */
@@ -379,7 +379,7 @@ public final class DefaultProject {
                 .append("  name: \"")
                 .append(NAME)
                 .append("\"\n")
-                .append("  description: \"Work on a repository no followed project names\"\n")
+                .append("  description: \"Work on a repository no project names\"\n")
                 .append("  security_class: \"guarded\"\n")
                 .append("image:\n")
                 .append("  base_image: \"")

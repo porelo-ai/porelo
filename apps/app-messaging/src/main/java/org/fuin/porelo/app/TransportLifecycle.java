@@ -326,9 +326,9 @@ final class TransportLifecycle {
     }
 
     /**
-     * Returns the persons of a project's applied access file, where the transport keeps the room's
-     * persons with {@code members} and hands over their words: the room's maker keeps each of them
-     * in the room as a person, so their words are taken without a join.
+     * Returns the members of an organization's project, where the transport keeps the room's
+     * persons and hands over their words: a project admin keeps them in the room by hand, so their
+     * words are taken without a join.
      *
      * @param scheme The transport.
      * @param project The project.
@@ -345,13 +345,8 @@ final class TransportLifecycle {
             return java.util.Set.of();
         }
         try {
-            final org.fuin.porelo.core.project.Project followed =
-                    GateSupport.byName(context, project);
-            if (followed.access() == null) {
-                return java.util.Set.of();
-            }
-            return ProjectAccess.admitted(context, followed);
-        } catch (ProjectAccess.Withheld | RuntimeException ex) {
+            return ProjectMembers.admitted(context, project);
+        } catch (ProjectMembers.Withheld | RuntimeException ex) {
             // An unreadable admission decision grants nobody access by their host account.
             return java.util.Set.of();
         }
@@ -359,13 +354,13 @@ final class TransportLifecycle {
 
     /**
      * Returns who is heard in a project's conversation now: who joined, and each person taken by
-     * their host account while the applied access file still names them. Who was taken is kept
-     * apart from who joined, so a person the file drops is heard no more and answered no more at
-     * once, and a later join is never undone by it.
+     * their host account while the project's members still names them. Who was taken is kept apart
+     * from who joined, so a person the file drops is heard no more and answered no more at once,
+     * and a later join is never undone by it.
      *
      * @param scheme The transport.
      * @param project The project.
-     * @param persons The applied access file's persons, as {@link #persons} read them.
+     * @param persons The project's admitted members, as {@link #persons} read them.
      * @return Person to their account.
      */
     Map<String, String> heard(String scheme, String project, java.util.Set<String> persons) {
@@ -390,19 +385,11 @@ final class TransportLifecycle {
             return people;
         }
         try {
-            // A damaged record must not turn an authenticated project lock into an absent one.
-            final FollowedProjects follows =
-                    new FollowedProjects(context.paths().projects().followed());
-            if (follows.find(project) == null && !follows.absent(project)) {
-                return new LinkedHashMap<>();
-            }
-            final org.fuin.porelo.core.project.Project followed =
-                    GateSupport.byName(context, project);
-            if (followed.access() != null) {
-                people.keySet().retainAll(ProjectAccess.admitted(context, followed));
+            if (ProjectMembers.listed(context, project)) {
+                people.keySet().retainAll(ProjectMembers.admitted(context, project));
             }
             return people;
-        } catch (IOException | ProjectAccess.Withheld | RuntimeException ex) {
+        } catch (ProjectMembers.Withheld | RuntimeException ex) {
             // An unreadable access decision cannot count as permission to hear a joined account.
             return new LinkedHashMap<>();
         }
@@ -1026,22 +1013,10 @@ final class TransportLifecycle {
         }
         final Map<String, VaultEntry> held =
                 context.readableCredentials().orElseThrow(() -> shut(scheme, verb));
-        // Only a plain https address: read one way here and another by the client that connects,
-        // it would hand one server's token to the other.
-        final String server =
-                settings.get(LENT_SERVER) instanceof String named
-                                && org.fuin.porelo.core.project.AddressForm.isHttps(named)
-                        ? GitCredentialNames.hostOf(named)
-                        : null;
         final Map<String, String> found = new LinkedHashMap<>();
         for (final String name : names) {
-            final VaultEntry lent =
-                    server == null
-                            ? null
-                            : held.get(
-                                    lentEntry(name)
-                                            + "."
-                                            + server.toLowerCase(java.util.Locale.ROOT));
+            final String entry = LentEntry.name(lentEntry(name), settings.get(LENT_SERVER));
+            final VaultEntry lent = entry == null ? null : held.get(entry);
             if (lent != null) {
                 found.put(name, lent.value());
             }

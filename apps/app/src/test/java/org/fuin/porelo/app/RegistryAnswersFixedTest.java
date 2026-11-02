@@ -153,26 +153,6 @@ class RegistryAnswersFixedTest {
     }
 
     @Test
-    void registry_joinable_as_json_is_that_kept() throws Exception {
-        fixed();
-        final PoreloContext machine = serving(registry, accessRepository());
-
-        assertThat(
-                        registry.registry(
-                                machine,
-                                "joinable",
-                                registry.repo.toString(),
-                                "--login",
-                                "bob",
-                                "--json"))
-                .as(registry.err.toString())
-                .isZero();
-
-        assertThat(parsed(registry.out.toString())).isEqualTo(parsed(kept("joinable.json")));
-        assertThat(registry.err.toString()).isEqualTo(kept("joinable.err"));
-    }
-
-    @Test
     void registry_verify_as_json_is_that_kept() throws Exception {
         assertThat(
                         registry.registry(

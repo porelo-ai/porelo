@@ -624,18 +624,14 @@ class HostVaultSocketTest {
     void theDaemonAndItsWatchesShareTheInProcessOwner(@TempDir Path dir) {
         try (var watches =
                 PoreloDaemon.watches(
-                        context(dir),
-                        java.time.Duration.ZERO,
-                        java.time.Duration.ZERO,
-                        java.time.Duration.ZERO)) {
+                        context(dir), java.time.Duration.ZERO, java.time.Duration.ZERO)) {
             final PoreloContext context = watches.context();
             assertThat(context.hostVault())
                     .as("startup creates one in-process owner")
                     .isInstanceOf(HostVaultOwner.class);
             context.vault().write(Map.of(), new byte[32]);
             context.hostVault().keep(new byte[32]);
-            for (Object watch :
-                    new Object[] {watches.upstream(), watches.mail(), watches.configuration()}) {
+            for (Object watch : new Object[] {watches.upstream(), watches.mail()}) {
                 final var field = watch.getClass().getDeclaredField("context");
                 field.setAccessible(true);
                 final PoreloContext actual = (PoreloContext) field.get(watch);

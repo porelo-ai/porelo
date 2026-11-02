@@ -145,7 +145,7 @@ final class TaskCertification {
         // None named is no leave to take whichever key signed it: only a task without a project
         // is certified by its starting person alone.
         if (certifiers.isEmpty() && !NO_PROJECT.equals(project)) {
-            throw new Refused("no key of project " + project + "'s access file may certify it");
+            throw new Refused("no key of project " + project + "'s members may certify it");
         }
         final String principal = "task:" + project + ":" + task;
         final String keyId = "porelo task " + task + " by " + login;

@@ -114,7 +114,7 @@ type Task (
   repository: string,
   # The commit this task's configuration was verified at, or "" when nothing verified it.
   #
-  # A task of a followed project runs against the file the machine checked, and that file moves on.
+  # A task of an organization's project runs against the file its start judged, and that file moves on.
   # "What was this task actually running under" is asked after something went wrong, so it is kept
   # with the task rather than read back out of the project.
   commit: string,
@@ -711,7 +711,7 @@ type StartOutcome (
   # A repository was named and the project has none of that name. 'detail' lists what it has.
   UNKNOWN_REPOSITORY,
   # The chosen repository is reached over ssh at a host this machine never met. 'host' names it and
-  # 'hostKeys' says what it offers now, as Follow answers it: a person confirms one with TrustHostKey
+  # 'hostKeys' says what it offers now: a person confirms one with TrustHostKey
   # against what its owner publishes, then asks again. Before, the start went ahead without a gate.
   UNKNOWN_HOST_KEY,
   # The chosen repository's upstream was read as the gate's clone would read it, and could not be,

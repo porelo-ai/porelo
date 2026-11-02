@@ -251,7 +251,7 @@ public record BuildStatus(
                                             "origin"));
             if (origin.successful()) {
                 final WorkOrigin.Choice found =
-                        WorkOrigin.followedNaming(
+                        WorkOrigin.placedNaming(
                                 context,
                                 RepositoryAddress.withoutCredential(
                                         origin.standardOutput().strip()));
@@ -262,8 +262,7 @@ public record BuildStatus(
         }
         throw new Refused(
                 Reason.UNKNOWN_PROJECT,
-                "this checkout's origin matches no followed project; "
-                        + "name one with -p <project>, or follow it with 'porelo project follow <name> <url>'.");
+                "this checkout's origin matches no project of this machine; name one with -p <project>");
     }
 
     private static Repository repository(

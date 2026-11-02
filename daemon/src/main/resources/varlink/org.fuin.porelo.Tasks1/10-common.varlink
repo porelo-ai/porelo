@@ -126,16 +126,6 @@ type DeleteOutcome (
   FAILED
 )
 
-# CreateProject is gone.
-#
-# A project comes to be on a machine by that machine following its repository, and nothing else.
-# Porelo writes no project.yml anywhere: a person writes one in their repository and commits it, and
-# what is wrong with it comes back from Follow as a named reason. A call that rendered and checked
-# one beforehand would be a second place the same question could be answered differently - and a
-# second way to have a project the machine never verified.
-#
-# There is no replacement and no render-only form. Offer "follow this repository" instead.
-
 # Something wrong with one answer.
 type Problem (
   # Which answer, named as the call named it.
@@ -189,7 +179,7 @@ error NoSuchDestination(name: string)
 
 # One thing a clearing handled: of a project, the account or the vault.
 type ClearedItem (
-  # task, mirror, image, follow, conversation, transport, deploy key, signer, vault, keyring, grant and the
+  # task, mirror, image, conversation, transport, deploy key, signer, vault, keyring, grant and the
   # like.
   kind: string,
   # Which one, for a person.

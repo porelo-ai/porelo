@@ -75,7 +75,7 @@ public class ProjectDefaultCommand implements Callable<Integer>, PoreloFactory.C
                         continue;
                     }
                     final WorkOrigin.Choice claimed =
-                            WorkOrigin.followedNaming(context, entry.upstream());
+                            WorkOrigin.placedNaming(context, entry.upstream());
                     out.printf(
                             "%-20s %s%s%n",
                             entry.name(),

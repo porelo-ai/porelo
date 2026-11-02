@@ -9,8 +9,8 @@ import org.jspecify.annotations.Nullable;
  *
  * <p>{@code git@github.com:you/app.git}, {@code ssh://git@github.com/you/app} and {@code
  * https://github.com/you/app} are one repository. A checkout's {@code origin} is spelt however the
- * person cloned it, and a followed project's {@code upstream} however its author wrote it;
- * comparing the strings would put the same repository in two projects.
+ * person cloned it, and a placed project's {@code upstream} however its author wrote it; comparing
+ * the strings would put the same repository in two projects.
  */
 final class RepositoryAddress {
 

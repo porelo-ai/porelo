@@ -34,7 +34,7 @@ public final class EgressControl {
                     + DefaultProject.NAME
                     + "' reaches nothing beyond what its tasks' agents"
                     + " need, and that is not changed; a project repository is the way to give work more: write its"
-                    + " project.yml and follow it";
+                    + " project.yml";
 
     /** What to change about a project's declaration. Every list may be empty. */
     public record Change(

@@ -24,6 +24,13 @@ import org.fuin.porelo.core.project.ProjectReader;
  */
 public final class ProjectFileCheck {
 
+    /** What a project of the reserved name is told. */
+    private static final String RESERVED =
+            "'"
+                    + DefaultProject.NAME
+                    + "' is the project every machine has for work on a repository no other project"
+                    + " names; no other project may be called that. Name it differently.";
+
     /**
      * What a draft is, on this machine.
      *
@@ -69,8 +76,8 @@ public final class ProjectFileCheck {
             return new Result(refused, refusedHere, warnings);
         }
         if (DefaultProject.is(project.name())) {
-            // Refused anywhere: no machine follows a project of that name.
-            refused.add(FollowedProjects.RESERVED);
+            // Refused anywhere: every machine has a project of that name already.
+            refused.add(RESERVED);
         }
         try {
             for (final String unknown :

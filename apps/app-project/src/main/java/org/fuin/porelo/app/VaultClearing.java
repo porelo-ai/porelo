@@ -306,20 +306,6 @@ public final class VaultClearing {
     private List<Elsewhere> elsewhere(final List<Project> projects) {
         final List<Elsewhere> found = new ArrayList<>();
         for (final Project project : projects) {
-            if (project.access() != null) {
-                for (final String scheme : project.mail().conversations()) {
-                    try {
-                        final Map<String, Object> settings =
-                                ProjectAccess.settings(context, project, scheme);
-                        if (!settings.isEmpty()) {
-                            found.add(new Elsewhere(project.name(), scheme, settings));
-                        }
-                    } catch (final ProjectAccess.Withheld ex) {
-                        // Without applied settings no server elsewhere can be named.
-                    }
-                }
-                continue;
-            }
             project.mail()
                     .transports()
                     .forEach(

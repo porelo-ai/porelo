@@ -55,23 +55,6 @@ class AllowedSignerTest {
         }
     }
 
-    /**
-     * ssh-keygen parts a principal from its key only at a space or a tab, so a key parted by
-     * another blank is pinned for no project, and none trusts it for one.
-     */
-    @Test
-    void pins_no_key_for_a_project_whose_line_is_parted_by_another_blank(@TempDir final Path dir)
-            throws Exception {
-        final String key = SigningKey.generate("one").authorizedKeysLine();
-        final Path signers = dir.resolve("signers");
-        Files.writeString(
-                signers, "demo\u000b" + key + "\ndemo\u000c" + key + "\nother\t" + key + "\n");
-
-        assertThat(PinnedSigners.of(signers))
-                .as("only the line parted by a tab names a project")
-                .containsOnlyKeys("other");
-    }
-
     /** Reads a signers file with its scratch file in a directory, in a JVM of its own. */
     static final class UnwritableRead {
 

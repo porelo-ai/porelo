@@ -255,7 +255,7 @@ shows the commits and up to the first 120 diff lines, asks, and brings the work 
 as branch `porelo/myproject`, never touching your checked-out branch or any remote. `--yes` skips
 the question. Merge or cherry-pick `porelo/myproject` when you are ready.
 
-For a followed `guarded` project whose repository names a remote `upstream:` in `project.yml`, use
+For a `guarded` project whose repository names a remote `upstream:` in `project.yml`, use
 `porelo gate approve -p <project> [-r <repo>] <task>`: it pushes the approved work to that `upstream`
 (or `--upstream <url>`), onto `--branch` (`main` by default; in a project with a
 [`branch` block](project-file.md#branch), the task's own branch). With no `upstream` it refuses: "No
@@ -292,10 +292,9 @@ The image is built on the host, outside the task's firewall, so what a `snippet`
 fetches and pushes on the host, so the task's own git needs none either. A company's mirror is a `domains:` entry,
 not a set.
 
-**A machine gets the project by following that repository:**
+**A machine gets the project from its organization, at each start:**
 
 ```
-porelo project follow myproject <git-url> --signed-by "ssh-ed25519 AAAA..."
 porelo task start --project myproject --repository myproject
 ```
 
@@ -338,14 +337,13 @@ egress:
 ```
 git init ~/payments-project && cd ~/payments-project     # project.yml in it
 git add project.yml && git commit -S -m "The payments project"
-porelo project follow payments ~/payments-project --signed-by "ssh-ed25519 AAAA..."
 porelo task start --project payments --repository backend     # names the task after the repository: backend
 porelo gate review  -p payments -r backend backend
 porelo gate approve -p payments -r backend backend
 ```
 
-- **A commit is followed, never the working tree.** An edit to `project.yml` is read once it is committed; until then
-  the machine keeps the last commit it applied.
+- **A commit is read, never the working tree.** An edit to `project.yml` is read once it is committed and signed by the
+  project's admin; until then the machine keeps the last commit it placed.
 - The task works on `backend`, fetched from its `upstream` on the host; `porelo gate approve` forwards approved work
   back there (onto `main` by default, or `--branch <branch>`; the task's own branch where the project has a `branch`
   block). The project's own repository holds only the file, and no
@@ -354,12 +352,10 @@ porelo gate approve -p payments -r backend backend
 ### Working alone, with no forge
 
 In `default`, `porelo task start` and `porelo approve` in a local checkout need no forge or project
-file at all. When you want a followed `project.yml` of your own with no forge, your code's repository
-on this machine can be the whole setup. Commit `project.yml` into it, follow the path, and approve
-onto a branch of its own:
+file at all. When you want a `project.yml` of your own with no forge, your code's repository on this machine
+can be the whole setup. Commit `project.yml` into it, start there, and approve onto a branch of its own:
 
 ```
-porelo project follow myproject ~/myproject --signed-by "ssh-ed25519 AAAA..."   # or --unverified
 porelo task start --project myproject --repository myproject
 porelo gate approve -p myproject myproject --upstream ~/myproject --branch porelo/myproject
 git -C ~/myproject merge porelo/myproject
@@ -422,7 +418,7 @@ them pointing at binaries that are gone. Then:
 
 **What is left is yours**, and the packages do not remove it: the vault
 (`$XDG_DATA_HOME/porelo/vault.bin`, not recoverable; `porelo vault clear` removes it before you
-uninstall), the mirrors (`$XDG_DATA_HOME/porelo/mirrors/`), the followed projects
+uninstall), the mirrors (`$XDG_DATA_HOME/porelo/mirrors/`), the placed projects
 (`$XDG_DATA_HOME/porelo/projects/`) and agents you installed yourself
 (`$XDG_DATA_HOME/porelo/agents/`). **Check the mirrors first:** an unreviewed push exists only
 there, and `porelo gate pending` still answers while the package is installed.

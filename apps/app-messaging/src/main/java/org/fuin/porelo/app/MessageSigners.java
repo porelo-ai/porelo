@@ -281,21 +281,10 @@ public final class MessageSigners implements MessageDelivery.Signers {
      *
      * @param context The machine.
      * @param project The project.
-     * @return The admitted persons' keys of its verified access commit, empty without one.
+     * @return Its members' current keys, empty for a project of this machine alone.
      */
     public static List<String> certifiers(final PoreloContext context, final Project project) {
-        if (project.access() == null) {
-            return List.of();
-        }
-        try {
-            return ProjectAccess.persons(context, project).stream()
-                    .filter(org.fuin.porelo.vault.AccessPersons.Person::admitted)
-                    .map(org.fuin.porelo.vault.AccessPersons.Person::ssh)
-                    .filter(key -> !key.isBlank())
-                    .toList();
-        } catch (ProjectAccess.Withheld ex) {
-            return List.of();
-        }
+        return ProjectMembers.certifiers(context, project.name());
     }
 
     /**

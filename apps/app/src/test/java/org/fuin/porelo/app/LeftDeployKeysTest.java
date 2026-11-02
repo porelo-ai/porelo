@@ -168,12 +168,13 @@ class LeftDeployKeysTest {
     }
 
     @Test
-    void unfollowForgetsAnEarlierKeyAndNamesItOnce() throws Exception {
-        // Unfollowing must not leave a hidden credential that restores access later.
+    void removingAProjectForgetsAnEarlierKeyAndNamesItOnce() throws Exception {
+        // A removal must not leave a hidden credential that restores access later.
         final PoreloContext context = context();
         final String upstream = "git@forge.example.org:o/one.git";
         final LeftDeployKeys.Key key = earlierKey(context, "web", "api", upstream, false);
-        final Path file = context.paths().projects().followedClone("web").resolve("project.yml");
+        final Path file =
+                context.paths().projects().organizationClone("web").resolve("project.yml");
         Files.createDirectories(file.getParent());
         Files.writeString(
                 file,
@@ -182,24 +183,22 @@ class LeftDeployKeysTest {
                         + "\n");
         Files.createDirectories(context.paths().projects().projectRegistry());
         Files.writeString(context.paths().projects().projectRegistry().resolve("web"), file + "\n");
-        new FollowedProjects(context.paths().projects().followed())
-                .follow("web", "fixture.git", true);
         final StringWriter out = new StringWriter();
         final CommandLine command = PoreloCli.commandLine(context);
         command.setOut(new PrintWriter(out, true));
         command.setErr(new PrintWriter(out, true));
 
-        assertThat(command.execute("project", "unfollow", "web", "--force"))
-                .as("unfollow completes")
+        assertThat(command.execute("project", "remove", "web", "--force"))
+                .as("the removal completes")
                 .isZero();
         assertThat(out.toString())
                 .as("the person is told exactly once which forge key remains")
                 .containsOnlyOnce(key.fingerprint());
         assertThat(context.vault().read(PASSPHRASE))
-                .as("unfollow removes the private half")
+                .as("the removal takes the private half")
                 .doesNotContainKey(key.entry());
         assertThat(context.credentialRegistry().forUrl("git", upstream))
-                .as("unfollow removes its declaration")
+                .as("the removal takes its declaration")
                 .isNull();
     }
 
@@ -209,7 +208,8 @@ class LeftDeployKeysTest {
         final PoreloContext context = context();
         final String upstream = "git@forge.example.org:o/one.git";
         final LeftDeployKeys.Key key = earlierKey(context, "web", "api", upstream, false);
-        final Path file = context.paths().projects().followedClone("web").resolve("project.yml");
+        final Path file =
+                context.paths().projects().organizationClone("web").resolve("project.yml");
         Files.createDirectories(file.getParent());
         Files.writeString(
                 file,

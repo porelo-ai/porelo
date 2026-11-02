@@ -20,7 +20,7 @@ import picocli.CommandLine.Spec;
         name = "clear",
         mixinStandardHelpOptions = true,
         description =
-                "Clears this account: every project, task, mailbox, mirror and follow, and what the transports"
+                "Clears this account: every project, task, mailbox and mirror, and what the transports"
                         + " keep. Lists it first; --yes clears it.")
 public class ClearCommand implements Callable<Integer>, PoreloFactory.ContextAware {
 

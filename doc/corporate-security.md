@@ -35,8 +35,8 @@ hold the developer too, use device policy, as for any other software.
 - **The agent never holds a provider credential.** A broker on the host adds the real key. The
   container holds a token worthless elsewhere, cannot mint its own, and never sees a credential in an
   answer. See [authentication](credentials.md).
-- **A followed project's configuration is signed** by its maintainers and checked on every machine. A
-  project followed `--unverified` is marked so wherever shown. The built-in project `default` has fixed
+- **An organization's project's configuration is signed** by its admins and judged at each start, on every
+  machine. A project of one machine alone is judged by nobody, and is its own person's. The built-in project `default` has fixed
   settings.
 
 ### Telemetry, crash reports, analytics?

@@ -33,9 +33,8 @@ The task's `inboxWaiting` field counts those waiting messages, including while i
 ## Where the conversation lives
 
 A project gets its conversation from a transport named under `mail.transports` in its
-[project file](project-file.md), or under `transports` in its [access file](project-file.md#the-access-file)
-once the project file names one; for Matrix, the project's conversation is one room. A project naming an
-access file reaches no transport until that file is applied.
+[project file](project-file.md), or by its host's file where the project file names no homeserver or room; for
+Matrix, the project's conversation is one room.
 
 ```yaml
 mail:

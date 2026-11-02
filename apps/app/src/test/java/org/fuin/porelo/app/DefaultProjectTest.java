@@ -158,15 +158,6 @@ class DefaultProjectTest {
 
         assertThat(ProjectSource.resolve(context, DefaultProject.NAME).outcome())
                 .isEqualTo(ProjectSource.Outcome.BUILT_IN);
-        assertThatThrownBy(
-                        () ->
-                                new FollowedProjects(context.paths().projects().followed())
-                                        .follow(
-                                                DefaultProject.NAME,
-                                                "git@github.com:you/project.git",
-                                                false))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("no followed project");
         assertThat(new ProjectDeletion(context).delete(DefaultProject.NAME, false, true).outcome())
                 .isEqualTo(ProjectDeletion.Outcome.BUILT_IN);
         assertThat(
@@ -177,7 +168,7 @@ class DefaultProjectTest {
                                 .refused())
                 .singleElement()
                 .asString()
-                .contains("no followed project");
+                .contains("no other project");
         assertThat(new ProjectInventory(context).projects())
                 .anySatisfy(
                         summary -> {
@@ -261,7 +252,7 @@ class DefaultProjectTest {
     }
 
     @Test
-    void aCheckoutNoFollowedProjectNamesGoesIntoDefault() throws Exception {
+    void aCheckoutNoProjectNamesGoesIntoDefault() throws Exception {
         final PoreloContext context = context();
         final Path checkout = Files.createDirectories(dir.resolve("app"));
         git(checkout, "init", "-q");

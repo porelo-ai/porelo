@@ -73,7 +73,7 @@ comes back into it; its remote is yours to pull from and push to, and Porelo nev
 that names the repository takes it from its remote and sends approved work there instead. Elsewhere, name both:
 `porelo task start -p PROJECT -r REPOSITORY`. The same verb creates a task, brings back a stopped one
 with its workspace, and refuses a running one. Leaving the session keeps the container; `--rm` does
-not. For another project's settings, `porelo project follow NAME URL --signed-by KEY`.
+not. A project your organization names needs nothing first: `porelo project list` shows it.
 
 **Find and re-enter a task.** `porelo task list`, `porelo task status TASK`, `porelo task attach TASK`,
 `porelo task logs TASK gate.log -f` to follow one log.
@@ -117,7 +117,7 @@ takes `porelo approve TASK`; `--yes` answers for a script.
 | `porelo build status -p PROJECT [-r REPOSITORY] --commit=SHA` | Reads the build of a full 40- or 64-character hexadecimal object name. |
 
 Choose exactly one of `--branch` and `--commit`. `-p`/`--project` and `-r`/`--repository` take keys from the
-project file. Without `-p`, this checkout's origin must match a followed project; the query never adds the checkout
+project file. Without `-p`, this checkout's origin must match a project of this machine; the query never adds the checkout
 to `default`. Without `-r`, the matched repository is used, or the project's own when it is the only repository;
 otherwise the command names the keys to choose from.
 
@@ -136,7 +136,7 @@ At a terminal a shut vault asks for its passphrase; a script must unlock it firs
 |---|---|
 | 0 | A `success`, `queued`, `running` or `unknown` build answer. |
 | 1 | A `failure` or `cancelled` build answer. |
-| 2 | The project is unknown or no followed project matches the checkout. |
+| 2 | The project is unknown or no project matches the checkout. |
 | 64 | Invalid options, an abbreviated commit, or a repository that needs to be chosen. |
 | 69 | The reader is not installed, the branch is absent, or the forge refuses the query; the message names the next action. |
 | 70 | The reader gave no answer or another unexpected failure occurred; the trace is in `failures.log`. |
@@ -265,7 +265,7 @@ which otherwise stops or starts the task as removing it needs. `--no-input` asks
 **Elsewhere, what a refusal would send you to type is asked at a terminal**, by the same rules: `prune` and `clear`
 list what would go and then ask whether to remove it, no by default, where they said to run them again with `--yes`;
 `gate approve` onto a branch that already holds earlier work offers the next free one (`-2`, `-3` …), never a force;
-`project unfollow` offers to stop the project's running tasks, and to destroy unreviewed work only on an explicit yes
+`project remove` offers to stop the project's running tasks, and to destroy unreviewed work only on an explicit yes
 after naming it. Each takes `--no-input`; without a terminal each refuses as before. A start refused because earlier
 work of its name waits at the gate offers the next free name (`NAME-2` …), and one with no agent to run, or no gate for
 the agent to hand work back through, offers a shell in the task instead; on a yes the start goes on that way.
@@ -311,7 +311,7 @@ container runtime's own words; `activity` says what the work is doing:
 **A task's own key.** Every task with a gate gets an Ed25519 key of its own, held outside its container,
 and a certificate for it: valid seven days, for the one principal `task:<project>:<task>` (`default` for
 a task without a project), signed by your key through your own agent. A project's task is certified by a
-key of a person its [access file](project-file.md#the-access-file) admits, a task without a project by the first
+key of a person the [organization](project-file.md#how-the-file-reaches-a-machine) lists in it, a task without a project by the first
 Ed25519 key in your agent. The task's commits are signed at its gate, so the agent never holds the key,
 and the gate judges every commit that arrives by `ssh-keygen -Y verify` at its arrival, not by the date
 it carries: a commit arriving after its certificate ended is refused, naming the end. Each verdict is
@@ -475,7 +475,7 @@ into it, and the branch is `porelo/TASK`.
   several tasks wait and none was named where nobody can be asked (`--yes`).
 - **A `porelo/TASK` that exists moves only when the work fast-forwards it**; otherwise it says so before
   asking, and nothing moves. The branch checked out is never the target.
-- **Nothing reaches a forge through it.** A repository whose source is a remote - a followed project,
+- **Nothing reaches a forge through it.** A repository whose source is a remote - a project of an organization,
   or one added to `default` by its address - sends its work there with `porelo gate approve`, and
   `approve` in a checkout of it says so and moves nothing.
 - Nothing waiting, or no task started from this checkout: it says so and exits non-zero. When a task
@@ -602,7 +602,6 @@ exits 64 `usage`, 65 `not-allowed` or `refused-state`, 66 `not-found`, 69 `canno
 | `porelo org [--json]` | Answers the organization: `name`, `kept_in`, `vouched_by`, `revision`, `stale`, `me` (`null` for a person with no card), `owners`, `people`, `projects`, `hosts`, `warnings`, `refusals`, `sole_without_backup`. `vouched` is what the identity source says now, and `cannot-say` is never read as yes. |
 | `porelo org card LOGIN [--json]` | Answers a person's card as filed, whole, with `state`. |
 | `porelo org host-card HOST [--json]` | Answers a host's card as filed, whole. |
-| `porelo org projects [--json]` | Lists the organization's projects this person is in, then those registered on this machine alone, then `default`, each with `source`, `role`, `locked`, `host` and `opened`. |
 | `porelo org fetch --host HOST --settings FILE --ssh-key FILE --known-hosts FILE --pin FILE [--since REVISION] --json` | Run by a host as root, with no home, vault or person. Fetches with the host's read key alone, against the forge's pinned host key, judges by the same rules as a person's machine with the forge's public key list asked anonymously, and answers `revision`, `host_card`, `admins`, `persons` and `projects`. `refused-state` for anything older than `--since` or a change of the host's files not signed for the pin; `cannot-say` when it cannot be reached, never a stale state. A person's first card the forge cannot say of waits, and the answer stays at the earlier revision. |
 | `porelo org signers --state FILE --project PROJECT --json` | Builds from the state `org fetch` answered a project's `signers` and `certifiers`, in allowed signers format: only the keys in force, each until its card ends, and a locked member's not at all. |
 | `porelo org add-read-key --settings FILE --key FILE --json` | Adds a host's read-only deploy key to the organization's repository, with the host admin's token on standard input and nowhere else; the token is not kept. Asked again it answers `added: false`. A key the repository holds with write access is `not-allowed`. `revision` is the forge's word for the latest commit, or `null`; nothing is judged by it. |
@@ -626,7 +625,6 @@ exits 64 `usage`, 65 `not-allowed` or `refused-state`, 66 `not-found`, 69 `canno
 |---|---|
 | `porelo registry read CHECKOUT [--json]` | Reads a person's registry checkout at its checked-out commit, in a scratch clone so the checkout's own configuration and hooks never take effect; a symlink, a non-repository or a shallow history is refused. Only `owners.yml`, `people/LOGIN.card`, `hosts/HOST/card` and `hosts/HOST/access.yml` are read, every other path never. Every first-parent commit since the trusted one is judged path by path against the state before it: `owners.yml` by an owner it named, and never removed once accepted (the first one by its signer only when the forge plainly says they own the organisation and lists that key; when the forge cannot say, as without a token, the read stops before that commit with an `undecided` warning, keeps its state and trust record at the commit before, and judges it again next time), a card by its own key (a change of key also by its predecessor, a replacement of a lost or revoked key by a registry owner), a host's card and access file by a host admin `owners.yml` names for it. Removing a path that holds nothing accepted changes nothing. A refused path keeps its last good state and is named with commit and path as a warning; the walk goes on. A first card, and an owner's replacement, is `trusted` when the forge lists its key for the login (`<forge>/<login>.keys`, on GitHub its signing keys as well), `refused` with why when it lists all its keys and not this one, `first-seen` when it could not be asked or gave its list only in part; a `first-seen` card is asked again at every read and settled by any key of its accepted chain (each key once, at most 16 per card; a change of key handing on a 17th is refused), a warning when it settles to `refused`. A card whose key or any key it was handed on from is revoked is `refused` ("revoked key"), whatever the forge lists. A login's own card over a `first-seen` one that the forge cannot judge stops the read before that commit with an `undecided` warning, as a founding does. A `refused` card is answered but is no card and no accepted blob: the next card for the login is judged as a first one, and it is asked again at every read, `trusted` with a warning once the forge lists its key. The checkout's `origin` (`https://HOST/ORG/REPO`, `git@HOST:ORG/REPO` or `ssh://git@HOST/ORG/REPO`, optionally `.git`) names the forge `https://HOST` and the organisation; any other origin is refused, and so is an origin with more than one `url` or one git rewrites to another. Ownership is asked with a token declared in a variable or a file for the organisation at the forge's https address (`porelo credentials declare https://HOST/ORG/ --kind=token --env NAME`, for a GitHub App's installation token, which is never put in the vault), whether the checkout was cloned over https or ssh, else with the forge token the vault holds for that host (`git.token.HOST` or a token declared for the origin) when the vault opens without asking, else not at all; an origin naming a port gets only a token declared for that host and port; the token is never printed. On GitHub an organisation's own App installation token (granted Members: read) sees every membership, so a login it finds no membership for is no owner, as with an organisation admin's token. Every git on the checkout runs without the caller's `GIT_*`, account or system configuration, hooks, fsmonitor, `core.sshCommand`, credential helpers or a promisor remote's lazy fetch. What a read that ended trusted is kept in `$XDG_STATE_HOME/porelo/registry/<sha256 of the origin URL>.json` (owner-only, written whole), and the next read walks only the commits after it. A record that does not read, or fails any check (each field as a walk writes it, each file read again from its blob and judged as the walk judges it, each change on the first-parent line and signed by the signer named), is discarded with one warning naming why, and the registry is walked again from its founding commit; the fresh state replaces it, and a fresh walk that stops before its first commit deletes it. JSON answers `revision` (the commit read, `null` while none was accepted), `refused_commit` (`{commit, path, why}` of the last refusal still in force, or `null`), `people` (`login`, `name`, `email`, `key`, `fingerprint`, `state`, `why`), `owners` (`login`, `fingerprint`, `backup`), `host_admins` (`{HOST: [{login, fingerprint, backup}]}`, the admins `owners.yml` names for each host, who sign its files), `warnings` and `hosts` (`host`, `card` as `registry verify` answers `host_card` or `null`, `admins` (`login`, `fingerprint`), `projects` (`name`, `admin`, `access_repository`)). Without `--json` it prints a summary and each warning on a line of its own, `warning: ...`; with or without, each warning also goes to stderr, `porelo: warning: ...`. Text passes the same printable filter as `registry verify`. Exit 0 with an answer, refusals included; 65 when the history is refused as a whole (shallow, not continuing the trusted commit); 66 for a checkout that is not a readable Git repository; 64 for wrong use, an origin of another form or none. |
 | `porelo registry file card CHECKOUT --card FILE`, `porelo registry file host-card CHECKOUT --host HOST --card FILE`, `porelo registry file host-access CHECKOUT --host HOST --file FILE`, `porelo registry file host-card-remove CHECKOUT --host HOST`, `porelo registry file owners CHECKOUT --file FILE [--signing-key-file FILE]` `[--id ID] [--base COMMIT] [--json]` | Files a signed person card as `people/LOGIN.card`, a host card as `hosts/HOST/card`, an access file as `hosts/HOST/access.yml` or the owners file as `owners.yml` (by an owner's own key, never a backup key; with `--signing-key-file` by that backup key's file instead of the agent, for the one change it may make) into the checkout's current branch, each read first as `registry read` reads it (a card must be signed as it must be, a host card must name HOST). It commits that path alone with plain Git, never through a forge's API, signed through the ssh-agent `SSH_AUTH_SOCK` names (`gpg.format=ssh`, `user.signingkey=key::...`) with a key the registry's rule accepts for the path: a card's own key, for a host card the host admin who signed it, for an access file any admin the accepted `owners.yml` names for HOST, as `registry read` reads the checkout (its trust record kept, the same forge asked). It commits by Git's plumbing, the file's bytes as they are in a scratch index on `HEAD`, signed with `commit-tree -S`, author and committer the checkout's `user.name` and `user.email`; the checkout's hooks, filters and attributes do not take effect, and `HEAD` moves only from the commit it was read at. It writes onto the commit the read judged and moves `HEAD` only from it, checked before anything else; the work tree gets the file only after `HEAD` moved. A revoked key, by the registry or by this machine's revocation list, is never chosen to sign. When `HEAD` already holds those bytes at that path from a commit the rule refused, the path's removal is committed first, then the file, both signed by the filing key; for a person card the registry accepted another card for, it refuses with 65 naming the refused commit instead: revert it with git, then file again. `host-card-remove` removes the `hosts/HOST/card` the registry accepts by one such commit, signed by a host admin `owners.yml` names for HOST, whatever `HEAD` holds there (when `HEAD` holds none, a first commit puts the accepted card back), and refuses with 65 when the registry accepts no such card, saying so when `HEAD` holds one it refused. `--base COMMIT` is the full commit the change was made against, refused with 65 naming both when `HEAD` is another. `--id ID` (`[A-Za-z0-9._-]{1,64}`) goes into the commit as a `Porelo-Change-Id` trailer beside `Porelo-Change-Digest` (SHA-256 of the path, a NUL and the bytes); asked again, the last 1000 first parents are read as Git stores them, as bytes, never through `git log` or `verify-commit`, so no program the checkout's configuration names starts; a trailer counts only as written, once. A commit carrying the id with another digest refuses it with 65, before `--base` is looked at; every other commit carrying the id must be the path's last change the read accepted, its first-parent diff that path alone, its tree holding the bytes (none for a removal), its SSH signature verifying in-process against the signer the read took, for `owners.yml` a key that may file this change now, a backup key's file's alone with `--signing-key-file` (a removal: the last commit that changed the path, signed by a key that may remove it now, while none is accepted there), or it is refused with 65 by name; the one made on the same base is answered as made (exit 0, nothing written), and one made on another base refuses the id with 65 naming both, so an id is never committed twice. The removal before a filing again and the card put back before a removal carry only `Porelo-Change-Step: ID` and never answer for the id. It refuses with 65 when the agent holds none of those keys (naming their fingerprints), when the index holds another staged change, when a directory or file on the path is a symlink, when the file would be refused, when the path holds it already as accepted, when the card's key or the key it was handed on from is revoked or when `HEAD` is not the commit the read judged (both named); 66 for a checkout that is not a Git working tree or an unreadable file; 64 for wrong use, an `--id` or `--base` of another shape, a checkout without `user.name` and `user.email`, or an origin `registry read` refuses. Each warning of that read, such as a trust record discarded, goes to stderr, `porelo: warning: ...`. It prints `committed COMMIT PATH` (`{"commit", "path"}` with `--json`) and pushes nothing: push with git. |
-| `porelo registry joinable CHECKOUT --login LOGIN [--json]` | Answers the projects LOGIN may join. Reads the checkout exactly as `registry read` does (the same forge asked, its trust record kept, its warnings on stderr) and checks every project an accepted `hosts/HOST/access.yml` names, in that file's order, host by host. A project's access repository is checked as a first follow checks one: fetched with this account's credentials as a follow fetches (`HEAD`, full history), its head signed by the key of the project's admin as the registry holds it (the accepted card of the `admin` the host's access file names, whose key is the fingerprint that file pins for that login, and that card not `refused`), against this account's revocation list; its `access.yml` and `cards/` read from that commit as `project verify` reads them. Each repository is fetched into its own directory under a scratch directory in the system's temporary directory (`porelo-joinable-*`), which is removed before the answer; nothing is followed or pinned, and nothing is written but the registry's trust record and what a follow's fetch writes too (the known-hosts file's directory, the CA bundle git is given, a lent key's socket in the runtime directory, removed after the fetch). Every command of the check runs without the caller's `GIT_*` variables, account or system Git configuration (so no credential helper, `url.*.insteadOf` or `gpg.ssh.program` of theirs) or replace objects, and with no terminal prompt; of the caller's environment only `PATH`, `SSH_AUTH_SOCK`, the proxy variables and each variable a `source: env` token credential for git names reach it, never one git, libcurl, ssh, the loader, the shell or the JVM acts on (`GIT_*`, `LD_*`, `SSL*`, `CURL_*`, `SSH_*`, `XDG_*`, `PATH`, `HOME` and the like), beside what the fetch is lent. Its `HOME` is an empty directory in the scratch directory, so libcurl reads no `.netrc` and git no attributes of the account's; `porelo vault credential`, which git starts for a private `https://` repository, is told the account's home, XDG directories and vault on its own command line, and a vault opened only by a passphrase typed for this command answers such a repository `vault_locked`, since that helper is a process of its own. git and that helper run in the `C.UTF-8` locale, so an account whose paths hold a letter outside ASCII is still lent its token. JSON answers `projects`: each project whose verified access file admits LOGIN (neither locked nor revoked, HOST among their `hosts`) as `{"project", "host", "host_account", "host_card", "homeserver", "source", "access_repository", "revision", "signers", "admins"}`, with `host_account` LOGIN (a person's host account is their login), `host_card` the accepted card as `registry read` answers it, `homeserver` the verified access file's `transports.matrix.homeserver` (`null` when it names none; a file naming one that is neither an `https://` base URL with a real host, and no user part, query, fragment, blank or control character, nor an absolute `unix:` socket path of plain characters without a `.` or `..` segment, answers its project under `refused`), `source` the access file's `source` (an access file whose `source` holds a credential does not verify), `revision` the verified access commit, `signers` the keys it was verified with, and `admins` the access file's admitted admins as contacts `{"login", "name", "email"}` from their registry cards (`name` and `email` `null` without an accepted card, `email` `null` when the card has none); and `refused`: each project whose host has no accepted card, whose admin's key the registry does not hold, whose access repository cannot be fetched or does not verify, or whose verified access file names no `source` ("the access file names no project repository"), as `{"project", "host", "access_repository", "why", "admins"}`, `why` the outcome and its detail, `admins` the registry's contact for the admin the host's access file names; and each host whose `access.yml` a commit changed and the read refused, as the same object with `project` and `access_repository` `null`, `why` naming the path, the commit and the reason, and `admins` the contacts of the host admins `owners.yml` names for it. A project whose verified file does not admit LOGIN is in neither list; a refused one is never left out. Each URL answered (`access_repository`, `source`, `homeserver`) is answered as written, since the forms taken hold no credential. `why` has everything up to the last `@` of each word left out. Without `--json` it prints `joinable PROJECT on HOST at REVISION` and `refused PROJECT on HOST: WHY`, a line each. Exit 0 with an answer, refusals included; 64 for a LOGIN that is not `[a-z][a-z0-9-]{0,31}` (before anything is read) or wrong use as `registry read` has it; 65 when the registry's history is refused as a whole or the registry accepted no `owners.yml` (a founding `owners.yml` unsigned, signed by somebody else than an owner the forge confirms, or undecided, whatever card was accepted after it), with nothing on stdout and why on stderr; 66 for a checkout that is not a readable Git repository; 70 when no scratch directory can be made. |
 | `porelo registry verify --repository BUNDLE --host HOST --pinned SHA256:... [--since COMMIT] [--json]` | Checks a whole Git bundle in a regular file (v2 or v3, never a symlink or repository directory) in a temporary bare clone, without network, home or vault. The registry head is `refs/heads/main`; a bundle without it is refused. Every first-parent commit changing `hosts/HOST/` is compared with its own first parent and must be SSH-signed by the host admin in force; a new host card signed by a new key moves the pin only in a commit signed by the old key. Reads only `hosts/HOST/card`, `hosts/HOST/access.yml` (`admins: {login: fingerprint}`, `projects: [{name, admin, access_repository}]`) and the named `people/LOGIN.card` histories. Project names match `[a-z0-9][a-z0-9-]{0,62}` and are unique after lowercasing; access repositories are `ssh://`, `https://` or `user@host:path`, never options, commands or remote-helper transports, never with whitespace or a control character of any script anywhere, each with a real host (a name, or an IPv6 address in brackets, with its colons and an optional zone that begins `%25` or a `%` no two hex digits follow, since git decodes those) and no credential: an `https://` address has no user part, and an ssh one at most a plain user without `:`, `%` or `@`, not starting with `-`; an `https://` host ends at `/`, `?` or `#` and an `ssh://` one at `/`, as git reads them, and no `@` follows the host. JSON answers `commit`, `host_card` (including `signed_by`), `admins`, `projects`, `persons` (`login`, `ssh`, `expires`, `revoked`). Person cards must lead back to their access-file pins; missing, refused or over-limit cards answer empty `ssh` and `expires` with `revoked: true`. Every other card under `people/` is answered too, after the admins and by login, when its history leads back to the first key filed for that login: a project's developer has no pin in the host's access file, and the host's sync matches their key against the one their project's access file pins. Such a card that does not verify is left out, never answered revoked, since the host keeps a revoked login revoked; at most 1024 are read. Their full history is bounded to 64 changes. Diagnostics and JSON replace Unicode control, format and line or paragraph separator characters with `?`. `--since` is the full lowercase object name (40 or 64 hex digits) of the previously applied and verified commit, on main's first-parent line: `--pinned` must verify its host card, and only subsequent first-parent history is judged; without `--since`, history is judged from its root with the initial pin. Save the answered `host_card.signed_by` together with `commit` for the next call. Exit 65 on invalid state, naming commit and path for an unauthorized host change, or both commits for refused continuation; 66 for an unreadable or nonbundle source; 64 for bad options, including an empty repository value. |
 
 ## commit
@@ -677,153 +675,39 @@ program, as [A host a playbook brings up](hosts.md) says.
 ## project
 
 ```
-porelo project follow NAME URL|FILE [--signed-by=<key> | --unverified] [--access-repository PATH] [--dry-run]
-                      [--accept-rewrite]
-porelo project following [--json]
-porelo project inventory --machine-file FILE
-porelo project verify --repository PATH --signed-by KEY... [--project NAME] [--since COMMIT]
-                      [--access-repository PATH] [--access-since COMMIT] [--krl FILE] [--json]
-porelo project access init|add|remove|lock|unlock --project NAME --person LOGIN [--host HOST] [--card FILE]
-                      [--role admin|developer] [--base COMMIT] --id ID [--json]
-porelo project access replace --project NAME --person LOGIN --card FILE --base COMMIT --id ID [--json]
-porelo project refresh [NAME]
-porelo project list
+porelo project list [--json]
 porelo project show PROJECT [--json]
-porelo project unfollow NAME [--dry-run] [--force]
+porelo project remove NAME [--dry-run] [--force] [--json]
 porelo project clear NAME [--yes] [--dry-run] [--force]
 porelo project default [list | add ADDRESS [--name=NAME] | remove NAME]
 ```
 
-- **`follow`** takes the project's configuration from its repository, checked against the
-  `--signed-by` key. Every protected-file change in the first-parent range is checked against the
-  keys in force before it; an unsigned document tip passes. A refusal keeps the commit in force and
-  names the offending commit and path. New protected changes exclude retired keys and check
-  `$XDG_CONFIG_HOME/porelo/revoked.krl` when present; retired keys stay in the pinned file only for history.
-  `--unverified` skips the check, and Porelo says so wherever the project is shown.
-  Switching to verified checks both tips as a first follow, including unchanged tips. Shallow
-  repositories are refused. A named fingerprint must match a protected commit in the checked range,
-  and a refusal publishes no clone, key or followed-state changes.
-  From an address (`https://`, `file://`, `git@host:`), it is fetched again in the background. From a
-  file - a bundle of the repository, or a directory on this machine - it is read once and never fetched;
-  following it again from a newer file is how its settings change. An offline project is followed only
-  from a file, and a fetch from an address that turns a project offline is refused. `--access-repository`
-  gives a project followed from a file its access repository as a path or bundle, for a machine that cannot
-  fetch the URL the project names: it is checked as a fetched one, signed by a key the project holds and
-  descending from the access commit in force, and the URL is never fetched. A newer access bundle is applied
-  the same way, by following again. It is refused for a project followed from an address, which is fetched
-  again in the background, and for a project naming no access repository.
-  An access repository that holds no commit yet is followed with no access commit in force, so `project access init`
-  can write the first; the access file is taken at the next follow, and nothing reads access settings until then.
-  One that cannot be reached is refused, and so is one emptied while an access commit is in force.
-- **`verify`** checks a project and its access file as `follow` would, from local paths or bundles only, and
-  writes nothing: no follow, no pinned key, no clone left behind. It reads nothing of the account it runs as - no
-  git configuration, vault, credentials, pinned keys or egress sets of its own, so a project naming a set only a
-  machine defines is refused - and needs no home or network. It checks against the keys named alone, each the key
-  itself (`ssh-ed25519 AAAA...`), never a fingerprint as `follow` takes; they are the keys in force at `--since`
-  (or the ones pinned at the project's registration), and a handover after it is walked as `follow` walks it.
-  `--krl FILE` supplies a revocation list explicitly; a configured list that cannot be read refuses.
-  `signers` contains only keys in force, and retired keys never authorize a new protected change,
-  even when its commit is backdated. `backups` names each backup key of `project.signers` as
-  `{key, fingerprint, backup: true, backs, since}`; a backup key is never in `signers` nor among the
-  `certifiers`, even where the access file admits it. With one signer
-  and no backup key behind it, `warnings` holds a line saying so, also printed as `porelo: warning: ...`
-  on stderr; `warnings` is `[]` otherwise.
-  `--since` and `--access-since` are full commit hashes taken as in force: a newer one must descend from them, or
-  it is refused as a rewrite. The name checked is `--project`, or the one the commit at `--since` gives, or else
-  the tip's; a file under another name is refused. A project naming an access repository needs
-  `--access-repository`; its URL is never fetched, and an access option the project file has no use for is
-  refused rather than passed unchecked. An access repository that holds no commit yet, given without `--access-since`, is
-  answered with exit 0, an empty `access_commit` and nobody in `persons`, `admins` and `certifiers`: no access file
-  is in force, and `project access init` writes the first. With `--access-since` it is refused as a rewrite. `--json` answers a program, as
-  [A host a playbook brings up](hosts.md#a-project-verified-without-following-it) says; 65 names why a check
-  failed, 66 a path that is not there. It answers `persons` in access-file order with `login`, `ssh`,
-  `role`, `hosts`, `expires`, `revoked` and `locked`, checking `cards/<login>.card` and its history
-  from the verified access commit against its pinned fingerprint. Bad or missing cards revoke only
-  that person, leave their `ssh` and `expires` empty and name them on a separate stderr line.
-  `admins` lists admins neither locked nor revoked; `certifiers` lists every person neither locked
-  nor revoked as `task:<project>:* cert-authority,namespaces="git" ssh-ed25519 AAAA...`.
-  Diagnostics show control, format and line-separator characters as `?`; malformed YAML names its
-  file, line and column without a source excerpt. JSON strings and keys escape those characters as
-  Unicode escapes, preserving their values.
-- **`access`** writes one change to a followed project's access file in its access repository and answers
-  the commit it made, `{"revision": "<commit>"}` with `--json`, else `revision <commit>`. The project must be
-  followed with `--signed-by`; the repository is the one `project.yml` names at the project commit in force.
-  It clones the repository into a scratch directory under the temp directory, which is always removed, and
-  refuses (65, naming the commit) a head that does not descend from the access commit in force here or whose
-  commits since it the follow's check refuses; with no access commit in force, the head itself must be signed
-  by a project signer, and `init` writes only into an empty repository. It writes `access.yml` (persons by
-  login, keys in the documented order, `host`, `revoked` and `transports` as they read) and
-  `cards/LOGIN.card`, checks the file reads as `verify` reads it and the commit verifies as the follow checks
-  it, commits and pushes to the branch the repository's HEAD names, leased on the head it read; a detached
-  HEAD is refused, and so is a HEAD naming no commit beside other refs. No git it runs reads your git
-  configuration, hooks or `GIT_*` environment, follows a redirect, or reaches the repository by a transport
-  other than `file`, `git`, `http`, `https` and `ssh`. Git signs the commit through your ssh agent
-  (`SSH_AUTH_SOCK`) with the key it holds that this machine pinned for the project, under the project's name
-  alone, not retired, not in `revoked.krl` and revoked by no registry read here (66 when one of their trust
-  records cannot be read); no private key file is read. The commit is pushed only when both
-  a first follow and this machine's follow would take it, the pinned line's options judged as they judge them.
-  `init` makes the first file with LOGIN as `admin` on `--host`, needs `--card` and is refused when
-  `access.yml` exists. `add --host` puts a person in as `developer` (or `--role`) with `--card`, or adds the
-  host to theirs; without `--card` it takes the repository's card only of a person already in whose card
-  carries the key `access.yml` pins for them. A card whose key or predecessor `revoked:` lists is refused.
-  `remove --host` takes one host away and the person once none is left; `remove` alone takes them off every
-  host. Their card stays. `lock` and `unlock` set `locked`. `replace --card` pins a person already in to
-  the new card's key, keeping their role, hosts and lock, and writes the card as `cards/LOGIN.card`; the
-  commit, signed by a project signer, is the admin's acceptance. A change-of-key card (its predecessor the key
-  pinned, signed by both) leaves the old key out of `revoked:`, since the follow revokes a person whose card's
-  predecessor it lists; a lost key's card (no predecessor) puts every key of the person's chain at `--base` under
-  `revoked:`: each key `access.yml` pinned for them along the last 1000 first-parent changes of it, a change counting
-  only in a commit signed by a project signer as the follow checks one, and each key a
-  version of `cards/LOGIN.card` hands on to from one; a version counts only when it is that login's, a regular file
-  of at most 64 KiB, signed as a card must be, and its predecessor already a key of the chain (any other version is
-  skipped, never refused). More than 64 versions of the person's own card refuse the replacement, naming that bound;
-  another person's chain is read from their latest 64. It refuses a
-  person the follow answers revoked at `--base`, a card of the key already pinned, one changing from another key,
-  a key of another person (pinned, or in their chain so read), a new key or predecessor in `revoked.krl`
-  or named revoked by a registry `registry read` read here (66 when the trust records cannot all be read: a record
-  without its `.where.json`, a link, no regular file, or a linked or foreign directory on the way), and a
-  commit at which the follow would answer the person revoked; it takes no `--host` or `--role`. A refusal names a URL,
-  its own or one git names, without its user part. Every action
-  but `init` needs `--base`, the access commit it was made against, and is refused when the head is another,
-  naming both; a push that
-  someone else's beat is refused the same way. `--id` (`[A-Za-z0-9._-]{1,64}`) is carried as the
-  `Porelo-Change-Id` trailer beside `Porelo-Change-Digest`: a signed commit among the last 1000 first-parent
-  commits made on the same `--base`, carrying the id and the digest once each, answers the same change, and
-  under another change is refused. A card must name LOGIN, be signed as a card must be, and be a regular
-  file of at most 64 KiB; `cards`, a card and `access.yml` in the repository must be a directory and regular
-  files. An access file beside `project.yml` is refused: it changes with a signed project commit. 64 is wrong
-  use, 65 a refusal, 66 a project not followed or a repository not reached, 69 a push that failed otherwise.
-- **`following`** lists the follows; **`list`** (also `porelo projects`) lists the projects. `following --json`
-  answers a program, as [A host a playbook brings up](hosts.md) says.
-  `list --json`, `Projects()` and `WatchProjects()` carry `lastUsed`: the latest recorded task start or
-  message event here, an ISO-8601 instant, or `""` when none is recorded. It is not a follow refresh time.
+- **`list`** lists the organization's projects you are in, then those of this machine alone, then `default`.
+  `--json` answers `{"revision", "stale", "projects"}`, one row each: `project`, `source` (`organization`, `local` or
+  `built-in`), `role`, `locked`, `host`, `opened`. `Projects()` and `WatchProjects()` carry `lastUsed`: the latest
+  recorded task start or message event here, an ISO-8601 instant, or `""` when none is recorded.
   A project's conversation carries `messages.waitsOn` (`"vault"` while the vault is shut, or `""` otherwise)
   beside `messages.waits`, and `messages.vault`, the path of the vault file this daemon checked when
   `messages.waitsOn` is `"vault"`, or `""` otherwise; it identifies this account's vault on this machine.
-- **`inventory`** prints a host's second play's inventory from the person's machine file and the project file it
-  names, checked against its key and recording nothing ([A host a playbook brings up](hosts.md)).
-- **`refresh`** fetches a followed project's repository now, or every one's without a name, instead of
-  waiting for the next round. It prints what each fetch found and exits non-zero when one failed. A
-  project followed from a file is not fetched; it says `from_a_file` and how it changes.
-- **`unfollow`** removes the mirror, image, build directory and tasks. The repository and upstream
-  are untouched. It refuses while work waits at the gate or tasks run. `--force` removes it all the
-  same and destroys that work; with `--force` a project this account does not follow is not an error,
-  and whatever is left of it is swept, so it is the one command a cleanup script can run blind after
-  a failure.
+- **`remove`** removes a project of this machine alone: its file or link, mirror, image, build directory and tasks.
+  The repository and upstream are untouched. It refuses while work waits at the gate or tasks run. `--force` removes it
+  all the same and destroys that work; with `--force` a project that is not here is not an error, and whatever is left
+  of it is swept, so it is the one command a cleanup script can run blind after a failure. A project of the organization
+  and `default` are refused: 65 `not-allowed`.
 - **`clear`** clears the project from this machine in one step: its tasks with their workspaces and
-  mailboxes, its mirrors and image, the follow, its conversation and what this machine kept for it,
+  mailboxes, its mirrors and image, its placed file, its conversation and what this machine kept for it,
   and any deploy keys made by an earlier version from the vault. Without `--yes` it only lists what
   would go. Each earlier key is still forgotten here and named for you to remove at the forge,
   alongside this machine's line in a `machine-signers` an earlier version had the project list, which
   nothing reads any more. See [clear](#clear).
-- **`default`** is the project every machine has and nobody follows. It is `guarded`, reaches only
+- **`default`** is the project every machine has. It is `guarded`, reaches only
   the agent's provider, refuses blocked connections and has no conversation. `task start` without
-  `-p`, in a checkout no followed project names, adds that checkout's `origin` to it, never with its
+  `-p`, in a checkout no project names, adds that checkout's `origin` to it, never with its
   user part: of a URL all before its first `/` up to the last `@` there is left out but a plain ssh user, and all of
   it when `%40` follows that `@`; of `user@host:path`, split as git splits it at the first colon after its host,
   bracketed or not, a user that is no plain name, or without a user all up to the last `@` that a host and a colon
-  follow; an origin without a credential is kept as given. It cannot be unfollowed, and its settings cannot be changed: for other
-  settings, make a project repository and follow it.
+  follow; an origin without a credential is kept as given. It cannot be removed, and its settings cannot be changed: for other
+  settings, make a project of your own.
 - Approved work in `default` reaches `origin` with your own ssh agent or key, or a token stored with
   `porelo credentials`; never handed into the task. The daemon has no ssh agent, so through it only a
   key without a passphrase works. Trust an ssh host first with `porelo credentials trust-host`; until then the
@@ -865,7 +749,7 @@ journal holds, and exits 1 when a line was changed or removed afterwards; see
 `porelo doctor` reports paths, the daemon's hardening and whether this machine can run a task. Each
 dependency is checked by name: podman, the hook registration, podman's rootless network, dnsmasq's
 `nftset` support, `nft`, `git`, `nsenter`, the SELinux policy and the kernel keyring, beside the vault,
-the daemon and each followed project. Each line has one of four states:
+the daemon and each project. Each line has one of four states:
 
 | State | Meaning |
 |---|---|
@@ -909,9 +793,9 @@ It runs external programs, so it takes a moment and is not something to poll.
 porelo prune [--yes] [--including-work]
 ```
 
-Lists what nothing owns any more, and removes it only with `--yes`: unfollowed projects whose project
+Lists what nothing owns any more, and removes it only with `--yes`: projects no start placed whose project
 file is gone, leftovers of tasks whose container is gone (after 15 minutes unchanged), and images or
-records named after projects that no longer exist. Running tasks and followed projects are never
+records named after projects that no longer exist. Running tasks and placed projects are never
 touched.
 
 **Unreviewed work is kept**: an unreviewed push, a stopped task's workspace, a held or unsent

@@ -521,7 +521,16 @@ public class TaskRunCommand implements Callable<Integer>, PoreloFactory.ContextA
             }
             // A name, not a path: which project a task belongs to must not depend on which
             // directory somebody was standing in. Where the file comes from is ProjectSource's
-            // answer, and it prefers the one this machine verified.
+            // answer, and it prefers the one a start judged. Every start of an organization's
+            // project
+            // reads it anew.
+            try {
+                ProjectTaking.take(context, projectName);
+            } catch (final ProjectTaking.Refused ex) {
+                err.println("porelo: " + ex.reason() + ": " + ex.getMessage());
+                err.flush();
+                return ex.code();
+            }
             projectFile = ProjectSource.require(context, projectName);
             if ((repository == null || repository.isBlank())
                     && !noGate

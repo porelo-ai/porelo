@@ -135,7 +135,7 @@ final class OrgAccess {
      * @return The directory.
      */
     static Path projectFiles(final PoreloContext context) {
-        return state(context).resolve("project-files");
+        return context.paths().projects().projectFileMemory();
     }
 
     /** Lends what this person holds for the address, as a follow is lent it. */
@@ -284,6 +284,10 @@ final class OrgAccess {
         final Map<String, String> local =
                 new TreeMap<>(
                         new ProjectRegistry(context.paths().projects().projectRegistry()).all());
+        for (final String written : ProjectSource.writtenNames(context)) {
+            local.putIfAbsent(
+                    written, context.paths().projects().defaultProjectFile(written).toString());
+        }
         local.remove(DefaultProject.NAME);
         return local;
     }
