@@ -46,6 +46,9 @@ from its side, as *blocked by*.
 | <a id="b154"></a>[B154](B154-A-Tamper-Evident-Event-Log-Per-Node.md) | L | - | One hash-chained event log per account, anchored in the user's journal, optionally copied off the machine, kept by `porelo clear`; written by approve, reject, clearance, hand-in, credentials and project changes.; part 1 built, the copy off the machine after it |
 | <a id="b398"></a>[B398](B398-A-Test-That-Cannot-Reach-The-Persons-Vault.md) | - | - | A test that builds a command the wrong way falls to the real context, and so to the person's vault |
 | <a id="b391"></a>[B391](B391-The-Cut-To-The-New-Organization.md) | L | - | The cut: `identity` files through the store on `git-tree`, and everything that reads or writes the old registry goes |
+| <a id="b373"></a>[B373](B373-A-Token-Lent-To-A-Forge-On-Its-Own-Port.md) | S | - | A vault token is lent to an `https://` repository on a port of its own: the helper's key names the port |
+| <a id="b383"></a>[B383](B383-A-Build-That-Fits-Its-Old-Time.md) | S | - | The Build's verify takes about as long as it used to, not three times as long |
+| <a id="b220"></a>[B220](B220-Build-Tool-Plugins-Found-At-Run-Time.md) | M | - | Build-tool plugins as native executables of their own over `Ecosystem1` (`detect`, `configure`), found at run time; the contract, discovery and a stub. | 0 |
 | <a id="b392"></a>[B392](B392-Checks-Every-Organization-Adapter-Passes.md) | M | - | The store's security requirements as checks any adapter runs, failing against one that takes an unsigned change, an older state or a revoked card |
 
 ## Backlog
@@ -59,8 +62,6 @@ from its side, as *blocked by*.
 | <a id="b321"></a>[B321](B321-A-Long-Command-Says-What-It-Is-Doing.md) | M | - | A long command shows what it is doing while it runs: a transport's stderr streamed line by line, each line redacted against the secrets handed in, and a phase line for the other long commands a sweep finds |
 | <a id="b336"></a>[B336](B336-A-Repository-Says-Whether-A-Merge-Needs-A-Review.md) | S | - | `project.review` and `repositories.<name>.review` are `required` (the default) or `optional`, any other value refused, and answered to the host by `verify --json` |
 | <a id="b371"></a>[B371](B371-A-History-Judged-Under-The-Rules-Of-Its-Time.md) | M | - | A history mode of `porelo commit verify`: each commit judged by the keys and certificates in force at its own time, for a migrated history before the hook is armed |
-| <a id="b373"></a>[B373](B373-A-Token-Lent-To-A-Forge-On-Its-Own-Port.md) | S | - | A vault token is lent to an `https://` repository on a port of its own: the helper's key names the port |
-| <a id="b383"></a>[B383](B383-A-Build-That-Fits-Its-Old-Time.md) | S | - | The Build's verify takes about as long as it used to, not three times as long |
 | <a id="b385"></a>[B385](B385-A-KeePassXC-Key-That-Is-Usable.md) | L | [B391](README.md#b391) | `--keepassxc` asks the master password once, a retry takes the key already made, no empty entry left, a clear refusal under `su` or a redirected stderr, aligned exit codes |
 
 ## Analyzed
@@ -101,7 +102,6 @@ from its side, as *blocked by*.
 | <a id="b56"></a>[B56](B56-Programs-Porelo-Runs-That-Could-Be-Calls.md) | S | - | The table of programs Porelo runs completed, and a source-scanning test that fails on an unlisted one; each replacement its own issue. | - |
 | <a id="b116"></a>[B116](B116-A-Log-Read-Back-In-Windows.md) | M | - | `Tail` gets `before` to read back in windows, and a cap per line reported in `cut`. | - |
 | <a id="b165"></a>[B165](B165-A-Port-Of-A-Task-On-Loopback-Only.md) | M | - | `porelo task port`: a two-half relay, in the task's namespace and on host loopback only, over a `0700` socket, with `ports.log`, docs and a scenario. | - |
-| <a id="b220"></a>[B220](B220-Build-Tool-Plugins-Found-At-Run-Time.md) | M | - | Build-tool plugins as native executables of their own over `Ecosystem1` (`detect`, `configure`), found at run time and started without network; the contract, discovery and a stub. | 0 |
 | <a id="b222"></a>[B222](B222-A-Tasks-Tool-Settings-Written-At-Its-Start.md) | M | `porelo` [B220](README.md#b220), [B219](README.md#b219) | A task's start has the plugins `configure` it and places their tool settings, pointing at the broker with no credential. | 0 |
 | <a id="b221"></a>[B221](B221-A-Project-Proposed-From-A-Checkout.md) | L | `porelo` [B220](README.md#b220) | `porelo project init <checkout>`: the plugins' answers merged into a tools draft and a `project.yml` draft, each value with its source, disagreements named, no credential copied. | 0 |
 | <a id="b228"></a>[B228](B228-A-Key-Pasted-At-The-Prompt-Is-Read-Whole.md) | S | - | A private key pasted at `vault put`'s prompt is read whole, as from a file or a pipe, and an unreadable key is called unreadable, not the wrong algorithm. | 0 |

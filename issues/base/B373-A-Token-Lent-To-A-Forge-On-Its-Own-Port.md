@@ -1,6 +1,6 @@
 # B373 — A Token Lent To A Forge On Its Own Port
 
-**Status:** Backlog.
+**Status:** Implementing.
 **Size:** S - one module pair (`app-base`, `app-model`) and their tests, no contract other repositories read; the
 helper's key is built from the address git is given, and the vault entry names stay as they are.
 
