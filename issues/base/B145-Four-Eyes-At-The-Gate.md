@@ -27,6 +27,8 @@ review-approval principals and trust scope explicit.
 4. Add `porelo gate co-sign`: on the second person's machine, sign the exact reviewed commit in a dedicated signing
    namespace. Carry the commit, project/repository and policy context in the signed payload. `gate approve` and
    `Approve` in `35-gate.varlink` take the signature as an additive parameter.
+   `Pending` answers `approvalsNeeded: ?int` on each push, the number of people it takes: 1, or 2 when the project asks
+   for four eyes or the work is E0, unknown or C3; absent where the daemon has no such rule yet.
 5. `GitGate` verifies the second signature with `ssh-keygen -Y verify` against the configured allowed principals,
    alongside the authenticated approving person's principal. Require two distinct people; a second key belonging to
    the same person is insufficient. Check before either signed or ordinary forwarding. A new push invalidates both
