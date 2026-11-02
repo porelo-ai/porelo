@@ -31,12 +31,12 @@ A receipt, over one task or all of them:
 ## Plan
 
 Read in today's code: providers are data, found by `ProviderDirectory` (`agents/api`) in the person's
-`~/.local/share/porelo/providers` first, then the packaged directory (`AgentPaths.providerDirectory`). Nothing on the
+`$XDG_DATA_HOME/porelo/providers` first, then the packaged directory (`AgentPaths.providerDirectory`). Nothing on the
 host knows a price. [B148](README.md#b148)'s record has one line per request with agent, provider, credential,
 model answered and the five counts; its `UsageSums` (`core`) sums them.
 
 1. **The price table** is data, one file per provider, `prices/<provider>.yaml` in this repository and packaged
-   beside the provider files, the person's own `~/.local/share/porelo/prices` first, as providers are found: per
+   beside the provider files, the person's own `$XDG_DATA_HOME/porelo/prices` first, as providers are found: per
    model, `input`, `output`, `cache_read` and `cache_write` in US dollars per million tokens (a missing cache price
    is the input price; `cache_write` only where it differs), and the `taken` date the prices were read on. A change
    of price is a file, not a release. `PriceTable` and its reader in `core`, refusing a negative price, a model
@@ -78,7 +78,7 @@ file is owner-only and the saving per month is as computed by hand.
   lower.
 - A declared subscription shows its fee and what it saved per month; the file holds nothing but the declaration and
   is `rw-------`.
-- A price changed in `~/.local/share/porelo/prices` changes the next sum without a release.
+- A price changed in `$XDG_DATA_HOME/porelo/prices` changes the next sum without a release.
 - The pages named in step 6 say it.
 
 ## To be checked

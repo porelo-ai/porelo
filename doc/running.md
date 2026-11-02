@@ -222,11 +222,11 @@ agent that asked for the mouse. Measured with tmux 3.4, the version of the defau
 
 **Leaving without ending it.** Press Ctrl+b, then d: tmux detaches, the session and the agent go on, and
 `porelo task attach TASK` or `porelo task start TASK` at a terminal brings you back. Porelo sets no prefix of its
-own, so this is tmux's default; a prefix set in your own `~/.config/porelo/tmux.conf` (below) takes its place.
+own, so this is tmux's default; a prefix set in your own `$XDG_CONFIG_HOME/porelo/tmux.conf` (below) takes its place.
 Closing the terminal window detaches the same way. Leaving the agent itself, with its own quit command, ends the
 session.
 
-**Your own settings.** A file `~/.config/porelo/tmux.conf` is copied into each task you start, read-only for the agent,
+**Your own settings.** A file `$XDG_CONFIG_HOME/porelo/tmux.conf` is copied into each task you start, read-only for the agent,
 and read after Porelo's settings: key bindings, the prefix, the mouse and colours, set once for all your tasks with no
 image rebuilt. It takes effect for tasks started after you change it. Two things are set again after it, because
 Porelo depends on them: how much a session remembers (`history-limit`), which `porelo task attach` states, and the

@@ -14,7 +14,7 @@ into a draft, and the checkout's tracked files stay unchanged.
 
 - **A repository in `default` added by its address has no checkout**: only the gate's bare mirror holds it
   (`DefaultProject.Source.REMOTE`). The plugins then read the mirror's default branch, exported read-only into a
-  directory of the host's, and its tools draft goes to `~/.config/porelo/projects/default/<repository>/.porelo.yml`,
+  directory of the host's, and its tools draft goes to `$XDG_CONFIG_HOME/porelo/projects/default/<repository>/.porelo.yml`,
   which [B192](README.md#b192)'s order for `default` does not read yet.
 - **"The person's own files" are those of the account `porelod` runs as**, on the machine, which the interface may
   not run on; each value's origin says `YOURS` (that account's), `CHECKOUT` or `MACHINE`, and the answer names the
@@ -61,7 +61,7 @@ Read in the code on 2026-10-20 (`apps/app-project`, `apps/app-model`, `daemon`).
    `.porelo.yml` where [B192](README.md#b192) reads them, or a followed project naming the repository. `asMap()`
    carries it into `DefaultRepository`.
 6. **`TakeProposal`**: `TOOLS` and `TOOLS_AND_DRAFT` write `.porelo.yml` - into the checkout with a line in its
-   `.git/info/exclude` for a `CHECKOUT` entry, else to `~/.config/porelo/projects/default/<repository>/.porelo.yml`
+   `.git/info/exclude` for a `CHECKOUT` entry, else to `$XDG_CONFIG_HOME/porelo/projects/default/<repository>/.porelo.yml`
    (computed beside `ProjectPaths.defaultProjectFile`, `:88`) - and record `ASKED`; `NONE` records `ASKED` only.
    [B192](README.md#b192)'s order for a `REMOTE` entry of `default` gains that file as its first source.
 7. **The daemon**: `20-project.varlink` gains the two methods, the types `Proposal`, `ProposedValue` and
@@ -82,7 +82,7 @@ are byte for byte unchanged; a `REMOTE` entry's export holds the default branch,
 - `porelo project init <checkout>` with the stub plugin prints the tools draft and, where the stub reports a rule,
   the `project.yml` draft, each value with its file and line, and changes no tracked file.
 - A `default` entry added by address is proposed from the mirror's default branch, and `TOOLS` writes its
-  `.porelo.yml` under `~/.config/porelo/projects/default/<repository>/`, which the next start's image reads.
+  `.porelo.yml` under `$XDG_CONFIG_HOME/porelo/projects/default/<repository>/`, which the next start's image reads.
 - After `NONE`, `DefaultRepositories` answers `ASKED` and `task start` asks nothing.
 - A credential's value appears in no draft and no answer.
 

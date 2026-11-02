@@ -29,7 +29,7 @@ interface, the refusal names its executable, the build interfaces it serves and 
 ## What it answers
 
 - **`forge()`**: the name a project file gives under `builds.forge`, and the name the executable is installed
-  under: `/usr/libexec/porelo/builds/<forge>`, or `~/.local/share/porelo/builds/<forge>` for one account.
+  under: `/usr/libexec/porelo/builds/<forge>`, or `$XDG_DATA_HOME/porelo/builds/<forge>` for one account.
 - **`head(target, branch)`**: the commit a branch points at, "" when the forge has no such branch.
 - **`build(target, commit, logs)`**: what the build of one commit did, across everything the forge ran for it.
 - **`openPullRequest(target, branch, title)`**, optional: opens a pull request from the branch into the repository's

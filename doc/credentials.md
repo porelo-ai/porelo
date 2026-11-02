@@ -67,7 +67,7 @@ A **provider** is who serves the models: where it is and how to speak to it. It 
 program, found by scanning two directories, the first winning for a name both declare:
 
 ```
-~/.local/share/porelo/providers/<name>.yaml     your own, and it wins
+$XDG_DATA_HOME/porelo/providers/<name>.yaml     your own, and it wins
 /usr/share/porelo/providers/<name>.yaml         what a package installed
 ```
 
@@ -179,7 +179,7 @@ and login are explicit inputs; a host card is not read. A changed host key or lo
 
 The agent signs `host=<fingerprint> account=<login>` in the `porelo-vault` namespace; HKDF-SHA256 derives the
 32-byte share from that SSHSIG blob. Only the share travels over SSH's standard input, with no terminal or agent
-forwarding; the signature stays local. The remote command is `porelo` by default; `--remote-porelo '~/.local/bin/porelo'`
+forwarding; the signature stays local. The remote command is `porelo` by default; `--remote-porelo <path>`
 selects an account installation. The remote unlock answers exit 66 with `{"vault":"absent"}` when there is no vault,
 so `host unlock` sends the share to `vault init --share-stdin` instead. An existing vault takes `vault unlock --share-stdin`.
 Neither share nor signature appears in the command line.
@@ -232,7 +232,7 @@ missing. Porelo asks the kernel once per command, for a key nobody made, so it k
 **`vault put` never takes the value as an argument**, because an argument list is world-readable.
 At a terminal it asks without echoing, so a pasted key does not land in the scrollback. A piped
 value is read from standard input. An ssh key goes in as the file you were given
-(`porelo vault put github-work < ~/.ssh/id_ed25519`); the vault converts it to the 32-byte signing
+(`porelo vault put github-work < <your-key-file>`); the vault converts it to the 32-byte signing
 seed. A key with a passphrase, or of an algorithm Porelo does not sign with, is refused by name.
 `--from-file` reads a value as standard input would: stripped, so the newline an editor ends a file with is not
 part of it, and a private key whole. A value the entry already holds, with the same kind and settings, is not written
@@ -308,7 +308,7 @@ porelo vault authorize forge
   with who granted it and when (`vault list` shows who and when, never the token); the broker buys each access
   token per task in memory and writes a rotated refresh token back to the vault, or attaches an access token that
   has no expiry and no refresh token as it is (one that expires without a refresh token is refused). Whom a task
-  acted as is recorded in `task status` and in `~/.local/state/porelo/grants.log`, which outlives the task.
+  acted as is recorded in `task status` and in `$XDG_STATE_HOME/porelo/grants.log`, which outlives the task.
 - **The registration access token is kept hidden**, as `registration/<name>` beside the entry, shown in no listing.
 - **`vault remove` deletes the registration at the service too** (RFC 7592), after revoking the grant. If the
   service cannot be told, the entry is kept; `--without-revoking` removes it anyway.
@@ -318,7 +318,7 @@ porelo vault authorize forge
 **GitHub's remote MCP server**, measured on 2026-10-19: its document names `https://github.com/login/oauth` as its
 authorization server, which offers the device flow but no client registration. So the entry takes the client id of
 an installed agent that declares GitHub's grant, as `porelo vault authorize github-copilot` does, and the server is a
-destination of its own, `~/.local/share/porelo/destinations/github-mcp.yaml`:
+destination of its own, `$XDG_DATA_HOME/porelo/destinations/github-mcp.yaml`:
 
 ```
 name: github-mcp
@@ -362,7 +362,7 @@ error. `porelo vault list` shows the new end. A running task keeps its token unt
 A task can also hold credentials for other services, such as a search API, a forge or an MCP server.
 Each works like the agent's: the container gets a token worthless anywhere else.
 
-1. **Say where the service is** in `~/.local/share/porelo/destinations/<name>.yaml` (packages install
+1. **Say where the service is** in `$XDG_DATA_HOME/porelo/destinations/<name>.yaml` (packages install
    theirs in `/usr/share/porelo/destinations`). A model provider is a destination too.
 
    ```
@@ -436,8 +436,8 @@ forwarding an approved change. Whoever started it, the connection is made by thi
 credential is chosen here. A credential is a record plus a secret, kept apart:
 
 ```
-~/.config/porelo/credentials.yml     kind, destination, username, where the value lives
-~/.local/share/porelo/vault.bin      the value, when this machine keeps it
+$XDG_CONFIG_HOME/porelo/credentials.yml     kind, destination, username, where the value lives
+$XDG_DATA_HOME/porelo/vault.bin      the value, when this machine keeps it
 ```
 
 The record holds nothing secret and is readable with the vault shut, so Porelo can tell "unlock the
@@ -445,7 +445,7 @@ vault" from "nothing is configured, store one".
 
 ```
 porelo credentials declare "ssh://github.com" --kind ssh-key --vault github-work
-porelo vault put github-work < ~/.ssh/id_ed25519      # the value, separately
+porelo vault put github-work < <your-key-file>      # the value, separately
 porelo credentials declare "ssh://github.com" --kind ssh-key --agent   # or: use my own ssh-agent
 porelo credentials check git@github.com:acme/x.git    # what would be used, and whether it reads
 ```
@@ -453,7 +453,7 @@ porelo credentials check git@github.com:acme/x.git    # what would be used, and 
 - **The kind is said, not guessed:** `ssh-key`, `token`, `basic` or `oauth`.
 - **The longest `match` wins**, after normalising `git@host:path` to `ssh://host/path`; an IPv6 host stays whole in
   its brackets, so `git@[2001:db8::1]:x` and `ssh://[2001:db8::1]/x` are one destination.
-- **Four sources.** `vault` is encrypted and shut when idle. `file` (such as `~/.ssh/id_ed25519`)
+- **Four sources.** `vault` is encrypted and shut when idle. `file` (such as a key in the SSH folder)
   and `env` are not protected by Porelo, and `credentials list` says so. `agent` uses the account's
   own ssh-agent and reads nothing.
 - **With no `credentials.yml`** a git URL falls back to vault entries named after its host, an IPv6 host with
@@ -471,7 +471,7 @@ signs with an authority of its own, and a provider on your own machine may carry
 signed. Put that authority's certificate, in PEM, in
 
 ```
-~/.config/porelo/ca-certificates.pem
+$XDG_CONFIG_HOME/porelo/ca-certificates.pem
 ```
 
 and Porelo's clients on the host trust it beside the built-in ones; several certificates may follow one another in
@@ -489,10 +489,10 @@ To let a task trust the host's own authority, put only that authority's public c
 file owned by your account:
 
 ```
-~/.config/porelo/task-ca-certificates.pem
+$XDG_CONFIG_HOME/porelo/task-ca-certificates.pem
 ```
 
-Set its permissions with `chmod 600 ~/.config/porelo/task-ca-certificates.pem`.
+Set its permissions with `chmod 600 $XDG_CONFIG_HOME/porelo/task-ca-certificates.pem`.
 
 Several X.509 certificates may follow one another; private keys and other content are refused. A malformed file,
 a nonregular file, a file owned by another account, or any group or other permission refuses the start and names

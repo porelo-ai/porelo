@@ -30,7 +30,7 @@ to drive, and a suite that cannot run is one that quietly stops being maintained
 ```
 $ porelo agents
 no agents installed. Looked in:
-  ~/.local/share/porelo/agents
+  $XDG_DATA_HOME/porelo/agents
   /usr/libexec/porelo/agents
 
 $ sudo apt install porelo-agent-claude
@@ -144,7 +144,7 @@ install:                      # what the image build fetches, pinned and verifie
   artifacts:
     - url: https://example.com/releases/1.4.0/example-cli-linux-amd64
       sha256: "…64 lower-case hex…"
-      target: /home/agent/.local/bin/example-cli
+      target: <the-task-accounts-local-bin>/example-cli
       mode: "0755"
   as_root: |                  # anything else; shell, unavoidably
     RUN mkdir -p /opt/example && chown agent /opt/example
@@ -170,7 +170,7 @@ Where a publisher offers no digest, say so rather than dropping the field:
     - url: https://example.com/install.sh
       unverified: true
       reason: "the publisher offers no digest"
-      target: /home/agent/.local/bin/example-cli
+      target: <the-task-accounts-local-bin>/example-cli
 ```
 
 An artifact marked `unverified` with no `reason` is rejected. A gap that has to
@@ -186,7 +186,7 @@ be written down is a gap somebody notices; a missing field is a habit.
 ```
 
 A relative `source` is read beside the agent's binary, so a copy of the agent in
-one account's `~/.local/share/porelo/agents` ships its own tree, and `..` is
+one account's `$XDG_DATA_HOME/porelo/agents` ships its own tree, and `..` is
 refused. **A declared tree that is not there refuses the task**: an image built
 without it would start a task with no tool in it.
 `porelo agents --supply-chain` lists every artifact and marks the unverified ones,
@@ -406,7 +406,7 @@ executable: /opt/acme/bin/coder
 ```
 
 Nothing else goes in it: the agent describes itself when Porelo asks it, as every
-agent does. A file in `~/.local/share/porelo/agents.d/` wins over the system's of
+agent does. A file in `$XDG_DATA_HOME/porelo/agents.d/` wins over the system's of
 the same name, so a person can try their own build without root. A description
 whose path is not absolute, not a regular file or not executable is not taken;
 `porelo agents` and `porelo doctor` name the file and why. The `porelo-agent-*`

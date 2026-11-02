@@ -11,7 +11,7 @@ through the caller's `PATH`.
 [B239](README.md#b239) resolves `nsenter` and `nft` with `SystemProgram.find`. Two programs on the same path are still bare names:
 
 - **`dnsmasq`:** `SupervisorHook.run` and `DnsPolicy.command` hand `nsenter` the bare word `dnsmasq`, and `nsenter`
-  looks it up in `PATH`. A `dnsmasq` placed earlier in `PATH` (for example `~/.local/bin`) runs in the task's
+  looks it up in `PATH`. A `dnsmasq` placed earlier in `PATH` (for example the account's local `bin` folder) runs in the task's
   network namespace instead of the system's, and the task's DNS and nftset enforcement is then whatever it does.
 - **`podman`:** `EgressPolicy.inNamespace` starts `podman unshare` by name.
 

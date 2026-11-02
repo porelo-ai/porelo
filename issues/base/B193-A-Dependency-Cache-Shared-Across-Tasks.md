@@ -8,13 +8,13 @@ the start using it, docs and acceptance) and npm, pub and pip after it (an issue
 tasks and handed into each task read-only, so the next task does not download them again; what a task installs or
 builds itself stays its own and never reaches another task through the cache.
 
-It replaces the split `~/.m2` of today's host sessions with it.
+It replaces the split Maven folder of today's host sessions with it.
 
 ## Plan
 
 Read on 2026-10-21 in `ContainerSpec`, `TaskLaunch`, `GateSupport` and the Maven wrappers the Porelo repositories pin.
 
-1. **Never filled by a task.** A task's own `~/.m2` is what it wrote, and harvesting it would hand one task's
+1. **Never filled by a task.** A task's own Maven folder is what it wrote, and harvesting it would hand one task's
    downloads, or what it placed there, to every other task. The cache is filled only by a fill run on the host side:
    a throwaway container from the repository's image, on its mirror's reviewed default branch (as [B192](README.md#b192) reads
    `porelo.yml`), with the project's egress, writing into `data/cache/<project>/<repository>/maven` and nothing else.
@@ -42,14 +42,14 @@ Read on 2026-10-21 in `ContainerSpec`, `TaskLaunch`, `GateSupport` and the Maven
 5. **Commands:** `porelo project cache fill <project> [-r <repository>]`, `porelo project cache status`, and the cache
    removed by `clear` and project deletion with the project.
 6. **Docs and tests, red first:** a fill writes only the cache; a task's own download never reaches it (a file placed
-   in the task's `~/.m2` is absent from the cache and from a second task); the mount is read-only from inside; a task
+   in the task's Maven folder is absent from the cache and from a second task); the mount is read-only from inside; a task
    resolves an artifact from the cache with no egress to the repository's host.
 
 ## Acceptance
 
 - A second task of a project resolves its build from the cache with the repository host's egress withdrawn, where a
   task without the mount cannot.
-- A file a task writes into its own `~/.m2` is absent from the cache and from a second task; a write into
+- A file a task writes into its own Maven folder is absent from the cache and from a second task; a write into
   `/porelo/cache/maven` from inside a task is refused, as root too.
 - A start after the default branch moved fills first and says so; a start with no move fills nothing.
 - A fill runs no goal of the repository: a plugin the repository binds to a phase, writing a marker, leaves none

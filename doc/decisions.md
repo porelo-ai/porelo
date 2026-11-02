@@ -31,7 +31,7 @@ would change the answer.
 | A kernel of its own for a task is measured before it is decided | adopted only on measured answers: it works, the ruleset still fails closed, its cost | [entry](#a-kernel-of-its-own-for-a-task-is-measured-before-it-is-decided) |
 | A view of a task is guarded by Porelo's token, not by VNC's password | switched on per project, only through Porelo's relay, a strong one-time token before a byte reaches VNC | [entry](#a-view-of-a-task-is-guarded-by-porelos-token-not-by-vncs-password) |
 | A run left to itself comes back from a restart stopped | its session kept and shown as interrupted; only a task somebody drove comes back with `--restarted` | [entry](#a-run-left-to-itself-comes-back-from-a-restart-stopped) |
-| A task's terminal is tmux, and a person's own settings come after Porelo's | `~/.config/porelo/tmux.conf` read after Porelo's; `history-limit` and `default-terminal` set again after it | [entry](#a-tasks-terminal-is-tmux-and-a-persons-own-settings-come-after-porelos) |
+| A task's terminal is tmux, and a person's own settings come after Porelo's | `$XDG_CONFIG_HOME/porelo/tmux.conf` read after Porelo's; `history-limit` and `default-terminal` set again after it | [entry](#a-tasks-terminal-is-tmux-and-a-persons-own-settings-come-after-porelos) |
 | **The machine and the daemon** | | |
 | Declaring a host service opens the host's loopback 443 | accepted: every task of a project naming a host service reaches whatever listens there; one port, by signed declaration, including offline | [entry](#declaring-a-host-service-opens-the-hosts-loopback-443) |
 | A weaker machine is reported, not refused | `DEGRADED` exits zero and starts tasks; only `MISSING` fails | [entry](#a-weaker-machine-is-reported-not-refused) |
@@ -1252,7 +1252,7 @@ would spend tokens and push work at a moment nobody chose. A task somebody drove
 
 An agent runs in a tmux session in its container, because tmux carries reattaching, the screen Porelo reads for
 `at_rest` and the lines it types to wake an agent. Porelo's settings make it feel like the terminal outside; what they
-cannot close is written down in `running.md`. An account's own `~/.config/porelo/tmux.conf` is copied into each task
+cannot close is written down in `running.md`. An account's own `$XDG_CONFIG_HOME/porelo/tmux.conf` is copied into each task
 at its start, read-only for the agent, and read after Porelo's settings, so bindings, the prefix, the mouse and colours
 are set once with no image rebuilt. What Porelo depends on, `history-limit` and `default-terminal`, is set again after
 it, so a person's file cannot break it unawares. **What would change the answer:** something configuration cannot
@@ -1302,9 +1302,9 @@ plainly. **What would change the answer:** a model reached on the machine itself
 
 A vendor's package registers an agent with one file, `agents.d/<name>.yaml`, naming the absolute path of its
 executable, so the package, the program and its place keep the vendor's own names. Executables named `porelo-agent-*`
-in Porelo's agent directories are scanned first (the account's `~/.local/share/porelo/agents` winning by file name over
+in Porelo's agent directories are scanned first (the account's `$XDG_DATA_HOME/porelo/agents` winning by file name over
 `/usr/libexec/porelo/agents`), followed by `agents.d/*.yaml` descriptions (the account's
-`~/.local/share/porelo/agents.d` winning by file name over `/usr/share/porelo/agents.d`), and the first executable that
+`$XDG_DATA_HOME/porelo/agents.d` winning by file name over `/usr/share/porelo/agents.d`), and the first executable that
 reports a given agent name wins.
 
 ## A bound in the acceptance kit is about four times what was measured

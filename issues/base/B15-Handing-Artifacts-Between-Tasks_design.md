@@ -134,7 +134,7 @@ and never has to know which way it arrived.
    file. Doing anything else first is a race with a process that is still running.
 2. **Refuse anything that is not a regular file.** Opened with `LinkOption.NOFOLLOW_LINKS`, checked
    before it is read. **A symbolic link is refused, never followed** — an agent that drops a link to
-   the operator's vault file, `~/.ssh/id_ed25519` or `/etc/passwd` would otherwise have the helper
+   the operator's vault file, a key in the SSH folder or `/etc/passwd` would otherwise have the helper
    read it, hash it, store it and hand it to another project. This is the single most important line
    in this design.
 3. **Copy it to a private file, counting bytes as they are copied.** A rename is not enough on its
@@ -183,7 +183,7 @@ file carried.
 
 ## The record
 
-**`~/.local/state/porelo/artifacts/<project>.jsonl`**, `0600`, one JSON object per line, chained:
+**`$XDG_STATE_HOME/porelo/artifacts/<project>.jsonl`**, `0600`, one JSON object per line, chained:
 `prev` is the previous line's `hash`, the first line's `prev` is 64
 zeros, `hash` is SHA-256 over the line's canonical `Json.write` serialization with `hash` removed.
 `porelo store verify <project>` walks it and names the first line that does not verify.

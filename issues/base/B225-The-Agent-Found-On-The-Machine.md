@@ -39,7 +39,7 @@ Read in the code on 2026-10-20 (`agents/api`, `apps/app-agents`, `apps/app-task`
    `SIGNED_IN` or `ONLY_ONE`. `Find` is asked only when the first two do not decide, once per start, and every start
    asks again; nothing is remembered.
 4. **The start names it**: one line before anything is made, for example `agent claude, provider anthropic
-   (subscription), found in ~/.claude`; `StartCheck`'s answer carries `source` and the path, so the interface names
+   (subscription), found in the tool's folder`; `StartCheck`'s answer carries `source` and the path, so the interface names
    it without deriving it.
 5. **The import offered**: a start at a terminal whose chosen agent was found signed in but has no credential in
    the vault offers `vault import` for it (`CredentialImport`), as the start offers `vault login` today; without a

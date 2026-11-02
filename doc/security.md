@@ -35,7 +35,7 @@ person inside the container either.
 repository on the host:
 
 ```
-$XDG_DATA_HOME/porelo/mirrors/<project>.git     # ~/.local/share/porelo/mirrors/<project>.git by default
+$XDG_DATA_HOME/porelo/mirrors/<project>.git     # $XDG_DATA_HOME/porelo/mirrors/<project>.git by default
 ```
 
 Any further repository of the project has its own beside it, at
@@ -64,7 +64,7 @@ moment the task ends. From there:
 - `porelo gate backup <file> --project <project>` writes the whole mirror, pending pushes included,
   as one bundle, a single file to carry to a machine that has a route;
 - or fetch from the mirror into your own checkout, since it is an ordinary git repository:
-  `git fetch ~/.local/share/porelo/mirrors/<project>.git`.
+  `git fetch $XDG_DATA_HOME/porelo/mirrors/<project>.git`.
 
 **What the class is for.** A project whose upstream must not be reachable from a task, because the
 code is sensitive, the agent is not trusted with a route, or the machine has none. Also a project
@@ -297,7 +297,7 @@ agent can resolve nothing at all, and the hook records why.
 Every security-relevant event of an account - an approval or rejection of a task's work, a connection allowed or
 denied while a task ran and a change of its clearance mode, a file handed into a task or taken back, the credentials
 a start gave a task beyond its agent's own (names and destinations, never a value), a project file applied, a stop
-of all tasks at once - is one line of `~/.local/state/porelo/events.jsonl`. `porelo events` shows it, the daemon's
+of all tasks at once - is one line of `$XDG_STATE_HOME/porelo/events.jsonl`. `porelo events` shows it, the daemon's
 `Events` answers it.
 
 - **Each line carries the hash of the one before**, so a line changed in place breaks the chain from there on.

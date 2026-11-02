@@ -6,7 +6,7 @@ machine through the [kit](../kit/README.md).
 ```
 ./mvnw -pl acceptance/suite verify \
     -Dporelo.acceptance.host=user@host \
-    -Dporelo.acceptance.key=$HOME/.ssh/your_key
+    -Dporelo.acceptance.key=<your-key-file>
 ```
 
 Without `porelo.acceptance.host` the module is skipped, so an ordinary build is unaffected. The

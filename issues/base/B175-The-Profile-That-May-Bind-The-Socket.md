@@ -41,7 +41,7 @@ claims to be it.
 - **The lock is on the connecting side:** a task's profile may connect only to a peer in `porelo`. It holds the same
   property for a task; a host-side client that is not Porelo's code is not covered, as `doc/security.md` will say.
 - **`porelo` and `porelod` enter the profile `porelo` themselves** (the plan's step 5), so a leg, a developer's build
-  and a `~/.local` install are covered as `/usr` is. Any process of the account could enter it too, the same bound
+  and an account install are covered as `/usr` is. Any process of the account could enter it too, the same bound
   `chcon` gives on SELinux.
 
 ## Plan
@@ -52,7 +52,7 @@ Read in today's code. Sockets a task reaches are opened by `SocketContext.openUn
 built in `Podman` (runtime); a URL-only agent reaches the broker over TCP through `SocketRelay`, started by
 `VaultRelayCommand` through `podman unshare`. The `.deb` is laid out in `dist/dist-deb/pom.xml` (jdeb, control files in
 `dist/dist-deb/src/deb/control/`); [B135](README.md#b135) adds its `postinst` and `postrm`. The ubuntu leg installs
-into `~/.local/bin` and `~/.local/share/porelo/agents` (`ci/leg-install.sh`), not under `/usr`.
+into the account's local `bin` folder and `$XDG_DATA_HOME/porelo/agents` (`ci/leg-install.sh`), not under `/usr`.
 
 1. **Measure first, on the ubuntu leg** (to be checked below): the task profile's peer rule refuses a `connect` to a
    socket bound by an `unconfined` process and allows one bound by a process in `porelo`, across the bind mount into the
@@ -77,7 +77,7 @@ into `~/.local/bin` and `~/.local/share/porelo/agents` (`ci/leg-install.sh`), no
    `/proc/<pid>/attr/apparmor/current` is not `porelo`, where the profile is loaded.
 5. **A binary not under `/usr` enters `porelo` itself.** `porelo` and `porelod` at start, where AppArmor runs, the
    profile is loaded and they are not in it, write `exec porelo` to their own attribute and re-execute
-   `/proc/self/exe` with the same arguments. That covers a developer's build and the `~/.local` install the leg uses,
+   `/proc/self/exe` with the same arguments. That covers a developer's build and the account install the leg uses,
    names no developer's path in the profile, and is the counterpart of the decision "A developer's build labels
    itself" (see open questions).
 6. **`DoctorCommand`** gains an `apparmor profile` probe beside `selinux policy`, through a new `AppArmorProfile`
@@ -87,7 +87,7 @@ into `~/.local/bin` and `~/.local/share/porelo/agents` (`ci/leg-install.sh`), no
 7. **Packaging, `.deb` only** (Fedora and RHEL do not run AppArmor): `dist/dist-deb/pom.xml` ships both files under
    `/etc/apparmor.d/` as conffiles; the `postinst` of [B135](README.md#b135) runs `apparmor_parser -r -W` on both
    where AppArmor is enabled, a failure saying what failed and not failing the install; `postrm` unloads them on remove
-   and deletes them on purge. `apparmor/install-apparmor-profile.sh` does the same for a `~/.local` install, as
+   and deletes them on purge. `apparmor/install-apparmor-profile.sh` does the same for an account install, as
    `install-selinux-policy.sh` does. `Parity` in `dist/package-check` names the two files as `.deb`-only; the
    package check reads the scripts for the load and the unload. The leg (`Leg.run`, as root, on `--os ubuntu`) loads
    the profiles from the tree after `ci/leg-install.sh`.
@@ -99,7 +99,7 @@ into `~/.local/bin` and `~/.local/share/porelo/agents` (`ci/leg-install.sh`), no
 
 - On the ubuntu leg with the profiles loaded, a process of the operator's outside `porelo` binds the socket a task
   connects to, and the task's agent is refused. Seen to fail: the agent's request reaches that process.
-- A task served by Porelo reaches the vault proxy and the relay as today, on the leg, installed under `~/.local`. Seen
+- A task served by Porelo reaches the vault proxy and the relay as today, on the leg, installed in the account. Seen
   to fail: a `connect` of the task or the relay to Porelo's own socket is refused.
 - The agent in a task cannot leave `porelo-task`. Seen to fail: a process in the task writes `exec porelo` to its
   attribute and the next `exec` runs as `porelo`.

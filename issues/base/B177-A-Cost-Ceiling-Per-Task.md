@@ -55,7 +55,7 @@ start (`CredentialWiring`) passes each destination to `porelo vault serve` as `-
 4. **Refused at the start where it cannot hold.** A task with a cost ceiling whose model provider neither reports a
    cost nor has a price file does not start, and nor does one whose model, named by the start or the agent's
    definition, is missing from that file: `porelo: the cost ceiling needs a price for '<provider>' '<model>' - add it
-   to ~/.local/share/porelo/prices/<provider>.yaml or use limits.tokens`. A destination that is not a model provider is
+   to $XDG_DATA_HOME/porelo/prices/<provider>.yaml or use limits.tokens`. A destination that is not a model provider is
    outside the ceiling, and the docs say so.
 5. **Where it holds.** In `VaultProxy.handle`, beside [B138](README.md#b138)'s check: when the task's sum has reached
    the ceiling, the same refusal shape and status [B138](README.md#b138) settles, saying `Porelo: this task's cost

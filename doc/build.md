@@ -49,7 +49,7 @@ The hooks are linked statically against musl, which needs a cross-toolchain:
 ```
 
 It runs the installer the build tools carry, the same one a test machine's snapshot runs, with both downloads
-checked against their digests. It installs to `~/.local/opt/x86_64-linux-musl-native` (`MUSL_PREFIX` in the
+checked against their digests. It installs to `x86_64-linux-musl-native` in the account's local `opt` folder (`MUSL_PREFIX` in the
 environment moves it; tell the build with `-Dmusl.home=...`). Nothing needs to be added to `PATH`.
 
 `porelo` and `porelod` are dynamically linked, and deliberately so: they use the
@@ -108,7 +108,7 @@ The `porelo` package installs:
 
 It registers nothing. Podman reads OCI hook descriptors per user, so each
 operator runs `porelo setup` once; that writes the descriptors into
-`~/.config/containers` and points podman at them. Nothing in the package touches
+`$XDG_CONFIG_HOME/containers` and points podman at them. Nothing in the package touches
 a system-wide podman configuration.
 
 Agents are not part of it. They ship as separate `porelo-agent-*` packages that

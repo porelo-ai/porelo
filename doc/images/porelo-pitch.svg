@@ -26,7 +26,7 @@
       <rect x="216" y="70" width="128" height="40" rx="8" fill="#ffffff" stroke="#b0bec5" stroke-width="1.5"/>
       <text x="280" y="95" font-size="13" text-anchor="middle" fill="#455a64">your files</text>
       <rect x="368" y="70" width="128" height="40" rx="8" fill="#ffffff" stroke="#b0bec5" stroke-width="1.5"/>
-      <text x="432" y="95" font-size="13" text-anchor="middle" fill="#455a64">~/.ssh, your keys</text>
+      <text x="432" y="95" font-size="13" text-anchor="middle" fill="#455a64">the SSH folder, your keys</text>
 
       <path d="M200 178 L136 120" stroke="#c0504d" stroke-width="2" stroke-dasharray="5 4" fill="none" marker-end="url(#no)"/>
       <path d="M280 172 L280 120" stroke="#c0504d" stroke-width="2" stroke-dasharray="5 4" fill="none" marker-end="url(#no)"/>

@@ -66,7 +66,7 @@ all:
               -   scheme: matrix
                   package: porelo-message-transport-matrix
                   files:
-                      registration_token_file: ~/.config/porelo/matrix/host-registration-token
+                      registration_token_file: $XDG_CONFIG_HOME/porelo/matrix/host-registration-token
             porelo_vault_keys:
               -   name: github-deploy
                   path: /mnt/drive/keys/github-deploy
@@ -136,7 +136,7 @@ The answer, alone on standard output, for the newest commits that hold:
   A first check has no `--since`; a caller that knows the project names it with `--project`, or another project's
   bundles signed with the same key would pass under their own name.
 - **`--krl FILE`** supplies the SSH revocation list explicitly. The verifier reads no account's
-  `revoked.krl`; following reads `~/.config/porelo/revoked.krl` when present. A configured list that
+  `revoked.krl`; following reads `$XDG_CONFIG_HOME/porelo/revoked.krl` when present. A configured list that
   is empty, malformed, or unreadable refuses, even when no commit needs a signature. New protected
   changes use only keys in force, excluding every
   `valid-before` entry, even for a backdated commit. Retired keys remain available for historical

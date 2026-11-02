@@ -62,7 +62,7 @@ A rejected share answers exit 77 and, with `--json`, `{"vault":"other-key"}`; su
 `host unlock` initializes a new vault when the remote unlock answers exit 66 (`{"vault":"absent"}`). On exit 77
 it asks for a yes on the terminal; `--yes` authorizes clearing and recreating the vault with this key in scripts.
 Without consent it exits 77 and keeps every entry. A reset requires every sign-in again.
-The remote executable defaults to `porelo`; use `--remote-porelo '~/.local/bin/porelo'` for an account installation.
+The remote executable defaults to `porelo`; use `--remote-porelo <path>` for an account installation, naming the `porelo` in that account's local `bin` folder.
 `vault unlock` itself never resets a vault. See [credentials](credentials.md).
 
 **Start work.** In a checkout, `porelo task start` works in the project that names its repository,
@@ -667,7 +667,7 @@ porelo project default [list | add ADDRESS [--name=NAME] | remove NAME]
   `--signed-by` key. Every protected-file change in the first-parent range is checked against the
   keys in force before it; an unsigned document tip passes. A refusal keeps the commit in force and
   names the offending commit and path. New protected changes exclude retired keys and check
-  `~/.config/porelo/revoked.krl` when present; retired keys stay in the pinned file only for history.
+  `$XDG_CONFIG_HOME/porelo/revoked.krl` when present; retired keys stay in the pinned file only for history.
   `--unverified` skips the check, and Porelo says so wherever the project is shown.
   Switching to verified checks both tips as a first follow, including unchanged tips. Shallow
   repositories are refused. A named fingerprint must match a protected commit in the checked range,
@@ -801,7 +801,7 @@ porelo project default [list | add ADDRESS [--name=NAME] | remove NAME]
 ## providers
 
 `porelo providers` lists the model providers declared here (by agent packages or files under
-`~/.local/share/porelo/providers`), which agents use each, and what the vault holds for it. It never
+`$XDG_DATA_HOME/porelo/providers`), which agents use each, and what the vault holds for it. It never
 shows a value, and says when the vault is locked.
 
 ## setup
@@ -854,7 +854,7 @@ keeps it shut. A binary hidden by another copy is named with both halves:
 
 ```
 not used /usr/libexec/porelo/agents/porelo-agent-<name>
-         hidden by /home/<user>/.local/share/porelo/agents/porelo-agent-<name>
+         hidden by $XDG_DATA_HOME/porelo/agents/porelo-agent-<name>
 ```
 
 An agent's description in `agents.d/` hidden by the account's own is said the same way, and one that names no
@@ -934,8 +934,8 @@ and only waits for its parent to reap it (a zombie) counts as stopped.
 ## completion
 
 ```
-porelo completion bash > ~/.local/share/bash-completion/completions/porelo
-porelo completion zsh  > ~/.zfunc/_porelo     # with ~/.zfunc in $fpath before compinit
+porelo completion bash > $XDG_DATA_HOME/bash-completion/completions/porelo
+porelo completion zsh  > <a-folder-in-your-fpath>/_porelo     # in $fpath before compinit
 ```
 
 The deb and rpm packages already install completion; this is for a copied binary or a non-standard

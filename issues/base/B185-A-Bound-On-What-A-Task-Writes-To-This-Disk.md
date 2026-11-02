@@ -15,7 +15,7 @@ person's own filesystem, under `$XDG_STATE_HOME/porelo/mail/<container>/box`. A 
 the host's disk through it.
 
 The finding is real but wider than the mailbox. The container's own writable layer, under the account's
-`~/.local/share/containers`, is on the same disk and has no bound either. So a cap on the mailbox alone would leave the
+`$XDG_DATA_HOME/containers`, is on the same disk and has no bound either. So a cap on the mailbox alone would leave the
 same door open next to it.
 
 ## Plan

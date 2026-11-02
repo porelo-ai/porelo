@@ -17,11 +17,11 @@ asked.
 
 Measured on the Ubuntu test VM, on a machine that had run real tasks:
 
-    drwxrwxr-x  ~/.local/share/porelo
-    drwxrwxr-x  ~/.local/share/porelo/mirrors/<project>.git
-    -rw-rw-r--  ~/.local/share/porelo/mirrors/<project>.git/config, packed-refs, HEAD, …
-    -rw-rw-r--  ~/.local/share/porelo/projects/<name>
-    -rw-rw-r--  ~/.local/share/porelo/upstream/<name>
+    drwxrwxr-x  $XDG_DATA_HOME/porelo
+    drwxrwxr-x  $XDG_DATA_HOME/porelo/mirrors/<project>.git
+    -rw-rw-r--  $XDG_DATA_HOME/porelo/mirrors/<project>.git/config, packed-refs, HEAD, …
+    -rw-rw-r--  $XDG_DATA_HOME/porelo/projects/<name>
+    -rw-rw-r--  $XDG_DATA_HOME/porelo/upstream/<name>
 
 **Nobody chose those modes. They are the shell's umask**, which on this machine happens to be 002.
 

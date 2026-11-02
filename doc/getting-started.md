@@ -7,7 +7,8 @@ agent's work waits for your review before it goes anywhere.
 Debian, Ubuntu, Fedora and RHEL differ in two places only: how you install, and SELinux.
 Both are marked. Everything else is the same.
 
-For every command with a line each, see [commands](commands.md). For the whole setup as one
+`$XDG_CONFIG_HOME`, `$XDG_DATA_HOME` and `$XDG_STATE_HOME` in these pages are the XDG base directories, which Porelo
+follows; where one is not set, it is the XDG default in your home. For every command with a line each, see [commands](commands.md). For the whole setup as one
 block to paste, see
 [the README](https://github.com/porelo-ai/porelo/blob/main/README.md#getting-started).
 
@@ -399,7 +400,7 @@ destination. `--clearance` on `task start` sets `prompt` (default), `allow`, `de
 Every connection attempt the firewall stops is one line in `events.jsonl` in the task's state directory
 (`/run/user/<uid>/porelo/<container>/`, cleared when your session ends): when it was stopped, where it went, and its
 source port. A client sending the same attempt again is not a second line. Every decision is in
-`~/.local/state/porelo/clearance/<container>.jsonl`, which outlives the task. A resumed task
+`$XDG_STATE_HOME/porelo/clearance/<container>.jsonl`, which outlives the task. A resumed task
 does not ask again what you already answered. The full picture is in
 [what a task can reach](reach.md).
 
@@ -420,10 +421,10 @@ them pointing at binaries that are gone. Then:
 - Fedora and RHEL: `sudo dnf remove porelo 'porelo-agent-*'`
 
 **What is left is yours**, and the packages do not remove it: the vault
-(`~/.local/share/porelo/vault.bin`, not recoverable; `porelo vault clear` removes it before you
-uninstall), the mirrors (`~/.local/share/porelo/mirrors/`), the followed projects
-(`~/.local/share/porelo/projects/`) and agents you installed yourself
-(`~/.local/share/porelo/agents/`). **Check the mirrors first:** an unreviewed push exists only
+(`$XDG_DATA_HOME/porelo/vault.bin`, not recoverable; `porelo vault clear` removes it before you
+uninstall), the mirrors (`$XDG_DATA_HOME/porelo/mirrors/`), the followed projects
+(`$XDG_DATA_HOME/porelo/projects/`) and agents you installed yourself
+(`$XDG_DATA_HOME/porelo/agents/`). **Check the mirrors first:** an unreviewed push exists only
 there, and `porelo gate pending` still answers while the package is installed.
 
 ## Snapshots

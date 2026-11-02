@@ -323,7 +323,7 @@ image:
 - **Only the image.** Egress, limits, `package_sources`, the class and every other rule stay the project's: a
   repository that could name them would widen what its own tasks may do. Any other key is refused by its name, at the
   start, before an image is built. A variable Porelo sets in every task (`PATH`
-  `/home/agent/.local/bin:/usr/local/bin:/usr/bin:/bin`, `HOME` `/home/agent`, `LANG` `C.UTF-8`, or any `PORELO_*` set
+  the task account's local `bin` folder, then `/usr/local/bin:/usr/bin:/bin`, `HOME` `/home/agent`, `LANG` `C.UTF-8`, or any `PORELO_*` set
   per task) is refused too, naming the value and that the line must be removed.
 - **The image sees nothing of the repository:** the snippet runs in Porelo's own build directory, so a `COPY` or `ADD`
   of a repository file finds nothing there. What a repository ships for its tasks is installed at run time, or
@@ -337,7 +337,7 @@ image:
   `project follow` warns with the same words and still follows. Each gate refresh updates the mirror's `HEAD` from the
   upstream's symbolic `HEAD` once the mirror holds that branch.
 - **The project file can say it as well**, under `repositories.<name>.image`, with the same keys.
-- **A local override** lies in `~/.config/porelo/projects/<project>/<repository>/.porelo.yml`, in the same format,
+- **A local override** lies in `$XDG_CONFIG_HOME/porelo/projects/<project>/<repository>/.porelo.yml`, in the same format,
   never checked in.
 - **What wins, key by key:** the local override, then the project file's entry for the repository, then the
   repository's `porelo.yml`, then the project's `image`. In the built-in project `default`, a task started from a
@@ -503,7 +503,7 @@ their tips must verify, even when unchanged, and no unchecked commit supplies a 
 fingerprint must have signed a protected commit in the checked range; an earlier handover counts
 even when a successor signed the tip. A range with only document changes cannot match it.
 
-Following also checks new protected changes against `~/.config/porelo/revoked.krl` when present
+Following also checks new protected changes against `$XDG_CONFIG_HOME/porelo/revoked.krl` when present
 (`$XDG_CONFIG_HOME/porelo/revoked.krl` with that variable set), as Git's `gpg.ssh.revocationFile`.
 An empty, malformed, or unreadable KRL refuses the range, even when no commit needs a signature. The retained historical keys never
 appear as authority in `following --json`'s `signed_by` or `verify --json`'s `signers`. A commit
@@ -527,7 +527,7 @@ Porelo still runs on an older one. Porelo does not check the names under `creden
 ## project-signers, on each machine
 
 The keys pinned with `project follow --signed-by`, whose commits a followed project's configuration is
-taken from, are kept in `~/.config/porelo/project-signers`. **The trust anchor is a person's step:** the
+taken from, are kept in `$XDG_CONFIG_HOME/porelo/project-signers`. **The trust anchor is a person's step:** the
 signing key is given once, out of band, to `project follow --signed-by`. It is never read from the
 repository it verifies. A project lists no message keys: a task signs its messages with its own key,
 which one of the project's certifiers certified at its start (see [messages](messages.md)).
