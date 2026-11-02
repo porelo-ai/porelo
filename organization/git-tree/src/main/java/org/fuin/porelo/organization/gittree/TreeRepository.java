@@ -33,6 +33,8 @@ final class TreeRepository implements AutoCloseable {
 
     private static final int LIMIT = 1024 * 1024;
 
+    private static final String CHANGE_ID = "Porelo-Change-Id";
+
     private final Path scratch;
 
     private final Path repository;
@@ -256,6 +258,150 @@ final class TreeRepository implements AutoCloseable {
         final String key = "ssh-ed25519 " + Base64.getEncoder().encodeToString(blob);
         PersonCard.fingerprint(key);
         return key;
+    }
+
+    /**
+     * Returns the commit on the first-parent line that a person's key signed under this id.
+     *
+     * <p>Only the acting key counts: anybody with write access can write the words of an id into a
+     * commit, and a change asked for again must not be answered by theirs.
+     *
+     * @param id The change's id.
+     * @param fingerprint The acting key's fingerprint.
+     * @return The commit, or empty when this key made no change under the id.
+     * @throws IOException When a signature cannot be read.
+     */
+    Optional<String> changeNamed(final String id, final String fingerprint) throws IOException {
+        for (final String row :
+                require(
+                                "log",
+                                "--first-parent",
+                                "--format=%H %(trailers:key="
+                                        + CHANGE_ID
+                                        + ",valueonly,separator=,)",
+                                BRANCH)
+                        .lines()
+                        .toList()) {
+            final String[] fields = row.split(" ", 2);
+            if (fields.length == 2
+                    && List.of(fields[1].split(",")).contains(id)
+                    && signedBy(fields[0], fingerprint)) {
+                return Optional.of(fields[0]);
+            }
+        }
+        return Optional.empty();
+    }
+
+    private boolean signedBy(final String commit, final String fingerprint) throws IOException {
+        try {
+            return PersonCard.fingerprint(signer(commit)).equals(fingerprint);
+        } catch (CardException ex) {
+            return false;
+        }
+    }
+
+    /**
+     * Makes a signed commit on the branch's tip, in this clone alone.
+     *
+     * @param parent The tip.
+     * @param files What changes: a path and its new text, or {@code null} to remove it.
+     * @param subject The commit's subject.
+     * @param id The change's id.
+     * @param signing Whose agent signs.
+     * @param key The key that signs.
+     * @param login Who it is written as: the signature, not this, is what a reader checks.
+     * @return The commit, which the branch now names.
+     * @throws IOException When a file cannot be handed to git.
+     * @throws CardException When git cannot make it, an agent refusing to sign among the causes.
+     */
+    String commit(
+            final String parent,
+            final Map<String, @Nullable String> files,
+            final String subject,
+            final String id,
+            final CommitSigning signing,
+            final String key,
+            final String login)
+            throws IOException {
+        final Map<String, String> index =
+                Map.of("GIT_INDEX_FILE", scratch.resolve("index").toString());
+        written(git(index, "read-tree", parent));
+        final Path text = scratch.resolve("file");
+        for (final Map.Entry<String, @Nullable String> file : files.entrySet()) {
+            if (file.getValue() == null) {
+                written(git(index, "update-index", "--force-remove", "--", file.getKey()));
+                continue;
+            }
+            Files.writeString(text, file.getValue(), StandardCharsets.UTF_8);
+            final String blob =
+                    written(git("hash-object", "-w", "--no-filters", "--", text.toString()))
+                            .strip();
+            written(
+                    git(
+                            index,
+                            "update-index",
+                            "--add",
+                            "--cacheinfo",
+                            "100644," + blob + "," + file.getKey()));
+        }
+        final String tree = written(git(index, "write-tree")).strip();
+        final Map<String, String> identity = new java.util.HashMap<>(signing.environment());
+        final String email = login + "@users.noreply.invalid";
+        identity.put("GIT_AUTHOR_NAME", login);
+        identity.put("GIT_AUTHOR_EMAIL", email);
+        identity.put("GIT_COMMITTER_NAME", login);
+        identity.put("GIT_COMMITTER_EMAIL", email);
+        final String commit =
+                written(
+                                git(
+                                        identity,
+                                        "-c",
+                                        "user.signingkey=" + signing.signingKey(key),
+                                        "commit-tree",
+                                        "-S",
+                                        "-p",
+                                        parent,
+                                        "-m",
+                                        subject + "\n\n" + CHANGE_ID + ": " + id + "\n",
+                                        tree))
+                        .strip();
+        written(git("update-ref", BRANCH, commit, parent));
+        return commit;
+    }
+
+    /**
+     * Pushes the branch to the repository, as a plain step forward: never forced.
+     *
+     * @param address Where the repository is.
+     * @param access What the push may use, lent for its length.
+     * @return Whether it took it. Why not is not told: git's words may carry the address's secrets.
+     * @throws IOException When the access cannot be lent.
+     */
+    boolean push(final String address, final FetchAccess access) throws IOException {
+        try (FetchAccess.Lease lease = access.lend(address)) {
+            final List<String> arguments = new ArrayList<>(lease.arguments());
+            arguments.addAll(
+                    List.of("push", "-q", "--no-verify", "--", address, BRANCH + ":" + BRANCH));
+            return git(lease.environment(), arguments.toArray(String[]::new)).successful();
+        }
+    }
+
+    /**
+     * Returns the branch's tip.
+     *
+     * @return The commit.
+     */
+    String tip() {
+        return require("rev-parse", "--verify", BRANCH).strip();
+    }
+
+    private static String written(final CommandResult result) {
+        if (!result.successful()) {
+            throw new CardException(
+                    "cannot make the change: "
+                            + RegistryText.printable(result.standardError().strip()));
+        }
+        return result.standardOutput();
     }
 
     private String require(final String... arguments) {
