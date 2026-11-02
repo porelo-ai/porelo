@@ -20,6 +20,7 @@ import org.jspecify.annotations.Nullable;
  * @param holders The logins with an accepted card, the only ones a member's or a host admin's place
  *     counts for.
  * @param refusals What the walk refused, the latest last.
+ * @param warnings What the read has to say of itself.
  */
 record GitTreeOrganization(
         @Nullable String revision,
@@ -28,7 +29,8 @@ record GitTreeOrganization(
         Map<String, String> addresses,
         Map<String, Host> hosts,
         Set<String> holders,
-        List<Organization.Refusal> refusals)
+        List<Organization.Refusal> refusals,
+        List<String> warnings)
         implements OrganizationQuestions {
 
     /**
@@ -47,6 +49,7 @@ record GitTreeOrganization(
         hosts = Map.copyOf(hosts);
         holders = Set.copyOf(holders);
         refusals = List.copyOf(refusals);
+        warnings = List.copyOf(warnings);
     }
 
     @Override
@@ -116,6 +119,11 @@ record GitTreeOrganization(
     @Override
     public List<Organization.Refusal> getRefusals() {
         return refusals;
+    }
+
+    @Override
+    public List<String> getWarnings() {
+        return warnings;
     }
 
     /** The members who may act: not locked, and with an accepted card. */

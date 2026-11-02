@@ -6,6 +6,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.attribute.PosixFilePermissions;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Base64;
@@ -193,7 +194,7 @@ class GitTreeStoreTest {
     }
 
     private GitTreeStore store(final String address) {
-        return new GitTreeStore(runner, address, ORGANISATION, FetchAccess.NONE);
+        return new GitTreeStore(runner, address, ORGANISATION, FetchAccess.NONE, null);
     }
 
     private OrganizationQuestions read() throws IOException {
@@ -1169,7 +1170,8 @@ class GitTreeStoreTest {
                             }
                         };
         final GitTreeStore store =
-                new GitTreeStore(runner, dir.resolve("absent").toString(), ORGANISATION, access);
+                new GitTreeStore(
+                        runner, dir.resolve("absent").toString(), ORGANISATION, access, null);
 
         assertThatThrownBy(() -> store.read(forge)).isInstanceOf(IOException.class);
 
@@ -1638,6 +1640,396 @@ class GitTreeStoreTest {
         assertThat(answers.isProjectMember("demo", "carol")).as("no card at all").isEmpty();
         assertThat(answers.projectAdmins("demo")).as("nor as admin").contains(List.of("alice"));
         assertThat(answers.hostsFor("carol")).as("nor a host").isEmpty();
+    }
+
+    private Path state() {
+        return dir.resolve("state");
+    }
+
+    private Path trustRecord() {
+        return state().resolve("trust-record.json");
+    }
+
+    private GitTreeStore keeping() {
+        return new GitTreeStore(runner, repo.toString(), ORGANISATION, FetchAccess.NONE, state());
+    }
+
+    @Test
+    void aReadKeepsARecordOwnerOnlyAndWhole() throws Exception {
+        founded();
+        project();
+
+        keeping().read(forge);
+
+        assertThat(Files.getPosixFilePermissions(trustRecord()))
+                .as("the record is the person's alone")
+                .isEqualTo(PosixFilePermissions.fromString("rw-------"));
+        assertThat(Files.getPosixFilePermissions(state()))
+                .isEqualTo(PosixFilePermissions.fromString("rwx------"));
+        try (var left = Files.list(state())) {
+            assertThat(left).as("nothing staged stays").containsExactly(trustRecord());
+        }
+    }
+
+    @Test
+    void aKeyThatLeavesTheForgeLaterKeepsItsRightsOnAMachineThatTrustedIt() throws Exception {
+        founded();
+        project();
+        keeping().read(forge);
+        forge.keys.put("alice", List.of());
+        write("projects/demo/members.yml", "members:\n  - login: alice\n    role: admin\n");
+        commit("alice");
+
+        final OrganizationQuestions answers = keeping().read(forge);
+
+        assertThat(answers.isProjectMember("demo", "bob"))
+                .as("the record said alice's key was trusted, and she removed bob")
+                .isEmpty();
+        assertThat(answers.getWarnings()).as("nothing was read afresh").isEmpty();
+    }
+
+    @Test
+    void anOlderStateServedAgainIsRefusedAndTheRecordStays() throws Exception {
+        founded();
+        project();
+        final String earlier = git("rev-parse", "HEAD~1");
+        keeping().read(forge);
+        final String kept = Files.readString(trustRecord());
+        git("reset", "-q", "--hard", earlier);
+
+        assertThatThrownBy(() -> keeping().read(forge))
+                .as("a rollback hides a removal or a revocation")
+                .isInstanceOf(OrganizationException.class)
+                .hasMessageContaining("does not continue");
+        assertThat(Files.readString(trustRecord())).as("the record stays").isEqualTo(kept);
+    }
+
+    @Test
+    void aForkOfTheLineIsRefused() throws Exception {
+        founded();
+        person("alice");
+        keeping().read(forge);
+        git("reset", "-q", "--hard", "HEAD~1");
+        write("people/bob.card", card("bob", "bob"));
+        commit("bob");
+
+        assertThatThrownBy(() -> keeping().read(forge))
+                .as("what the record trusted is gone from the line")
+                .isInstanceOf(OrganizationException.class)
+                .hasMessageContaining("does not continue");
+    }
+
+    @Test
+    void anUnreadableRecordIsDiscardedSaidSoAndReadAfresh() throws Exception {
+        founded();
+        project();
+        keeping().read(forge);
+        Files.writeString(trustRecord(), "{\"address\": \"tok-4711\"");
+
+        final OrganizationQuestions answers = keeping().read(forge);
+
+        assertThat(answers.isProjectMember("demo", "bob")).as("read afresh").isPresent();
+        assertThat(answers.getWarnings())
+                .as("it says so, and quotes nothing")
+                .hasSize(1)
+                .noneMatch(warning -> warning.contains("tok-4711"));
+        assertThat(TreeRecord.read(Files.readString(trustRecord()), repo.toString()).commit())
+                .as("and keeps a good one")
+                .isEqualTo(answers.revision());
+    }
+
+    @Test
+    void aRecordOfAnotherAddressSpeaksForNothing() throws Exception {
+        founded();
+        project();
+        keeping().read(forge);
+        final Path other = dir.resolve("other");
+        Files.copy(trustRecord(), other);
+        Files.writeString(
+                trustRecord(),
+                Files.readString(other).replace(repo.toString(), "git@example.org:acme/other"));
+
+        assertThat(keeping().read(forge).getWarnings())
+                .as("another organization's trust says nothing of this one")
+                .hasSize(1);
+    }
+
+    @Test
+    void aRecordOthersCanWriteOrALinkIsDiscarded() throws Exception {
+        founded();
+        keeping().read(forge);
+        Files.setPosixFilePermissions(trustRecord(), PosixFilePermissions.fromString("rw-rw----"));
+
+        assertThat(keeping().read(forge).getWarnings()).as("group may write it").hasSize(1);
+
+        final Path elsewhere = dir.resolve("elsewhere");
+        Files.move(trustRecord(), elsewhere);
+        Files.createSymbolicLink(trustRecord(), elsewhere);
+
+        assertThat(keeping().read(forge).getWarnings()).as("a link is no record").hasSize(1);
+    }
+
+    @Test
+    void aCommitThatWaitedOnACardIsJudgedOnceTheSourceCanSay() throws Exception {
+        founded();
+        project();
+        write("people/carol.card", card("carol", "carol"));
+        commit("carol");
+        write(
+                "projects/demo/members.yml",
+                "members:\n  - login: alice\n    role: admin\n"
+                        + "  - login: bob\n    role: developer\n"
+                        + "  - login: carol\n    role: admin\n");
+        commit("alice");
+        write(
+                "projects/demo/members.yml",
+                "members:\n  - login: alice\n    role: admin\n"
+                        + "  - login: carol\n    role: admin\n");
+        final String waited = commit("carol");
+        final String stopped = git("rev-parse", "HEAD~1");
+
+        assertThat(keeping().read(forge).revision()).as("carol is first-seen").isEqualTo(stopped);
+
+        forge.keys.put("carol", List.of(key("carol")));
+        final OrganizationQuestions answers = keeping().read(forge);
+
+        assertThat(answers.revision()).as("the next read judges it").isEqualTo(waited);
+        assertThat(answers.isProjectMember("demo", "bob")).as("carol removed bob").isEmpty();
+    }
+
+    @Test
+    void aFirstSeenCardTheSourceNowDeniesIsAskedAboutAgainOnAContinuedWalk() throws Exception {
+        founded();
+        project();
+        write("people/carol.card", card("carol", "carol"));
+        commit("carol");
+        write(
+                "projects/demo/members.yml",
+                "members:\n  - login: alice\n    role: admin\n"
+                        + "  - login: carol\n    role: developer\n");
+        commit("alice");
+        assertThat(keeping().read(forge).isProjectMember("demo", "carol"))
+                .as("a listed member who is first-seen holds their role")
+                .contains("developer");
+
+        forge.keys.put("carol", List.of(key("mallory")));
+
+        final OrganizationQuestions answers = keeping().read(forge);
+
+        assertThat(answers.isProjectMember("demo", "carol")).as("the source says no").isEmpty();
+        assertThat(answers.getWarnings()).as("read afresh, and said").hasSize(1);
+    }
+
+    @Test
+    void aRefusedCardTheSourceNowListsCountsWithTheCommitsItSigned() throws Exception {
+        founded();
+        project();
+        forge.keys.put("carol", List.of(key("mallory")));
+        write("people/carol.card", card("carol", "carol"));
+        commit("carol");
+        write("projects/demo/card", "name: demo\nadmin: carol\n");
+        commit("mia");
+        write("projects/other/card", "name: other\nadmin: carol\n");
+        commit("mia");
+        write("projects/other/members.yml", "members:\n  - login: carol\n    role: admin\n");
+        commit("carol");
+        assertThat(keeping().read(forge).projectAdmins("other"))
+                .as("carol's card was refused, and her commit with it")
+                .contains(List.of());
+
+        forge.keys.put("carol", List.of(key("carol")));
+
+        assertThat(keeping().read(forge).projectAdmins("other"))
+                .as("a continued walk answers as a fresh one does")
+                .contains(List.of("carol"));
+    }
+
+    @Test
+    void aReadAtARevisionKeepsNothing() throws Exception {
+        founded();
+        project();
+        final String earlier = git("rev-parse", "HEAD~1");
+
+        keeping().read(forge, earlier);
+
+        assertThat(trustRecord()).as("a state asked for is no state trusted").doesNotExist();
+    }
+
+    @Test
+    void aReadAtARevisionAroundTheRecordAnswersThatRevisionAndLeavesIt() throws Exception {
+        founded();
+        project();
+        final String before = git("rev-parse", "HEAD~1");
+        final String at = git("rev-parse", "HEAD");
+        keeping().read(forge);
+        final String kept = Files.readString(trustRecord());
+        write("projects/demo/members.yml", "members:\n  - login: alice\n    role: admin\n");
+        final String later = commit("alice");
+
+        final OrganizationQuestions earlier = keeping().read(forge, before);
+        final OrganizationQuestions same = keeping().read(forge, at);
+        final OrganizationQuestions after = keeping().read(forge, later);
+
+        assertThat(earlier.revision()).isEqualTo(before);
+        assertThat(earlier.isProjectMember("demo", "bob"))
+                .as("the first members were not written yet")
+                .isEmpty();
+        assertThat(same.revision()).isEqualTo(at);
+        assertThat(same.isProjectMember("demo", "bob")).as("as the record has it").isPresent();
+        assertThat(after.isProjectMember("demo", "bob")).as("walked on").isEmpty();
+        assertThat(Files.readString(trustRecord())).as("none of them keeps").isEqualTo(kept);
+    }
+
+    @Test
+    void aRevokedKeyStaysRevokedAcrossARecord() throws Exception {
+        founded();
+        project();
+        write("people/alice.card", card("alice", "alice-new"));
+        commit("mia");
+        forge.keys.put("alice", List.of(key("alice"), key("alice-new")));
+        keeping().read(forge);
+        write("projects/demo/members.yml", "members:\n  - login: alice\n    role: admin\n");
+        commit("alice");
+
+        final OrganizationQuestions answers = keeping().read(forge);
+
+        assertThat(answers.isProjectMember("demo", "bob"))
+                .as("the record remembers what no file says")
+                .contains("developer");
+        assertThat(refusedPaths(answers)).contains("projects/demo/members.yml");
+    }
+
+    @Test
+    void theLastStateIsAnsweredWholeWithoutTheRepository() throws Exception {
+        founded();
+        project();
+        person("carol");
+        host();
+        carried();
+        write("hosts/build/card", hostCard("build", "alice"));
+        commit("alice");
+        write("projects/demo/repository.yml", "address: git@github.com:acme/demo.git\n");
+        commit("alice");
+        write("owners.yml", owners("mallory"));
+        commit("mallory");
+        final OrganizationQuestions read = keeping().read(forge);
+        git("reset", "-q", "--hard", "HEAD~1");
+        Files.walk(repo.resolve(".git"))
+                .sorted(java.util.Comparator.reverseOrder())
+                .forEach(path -> path.toFile().delete());
+
+        final OrganizationQuestions last = keeping().last().orElseThrow();
+
+        assertThat(last.revision()).isEqualTo(read.revision());
+        assertThat(last.isOrganizationOwner("mia")).isTrue();
+        assertThat(last.isProjectMember("demo", "bob")).contains("developer");
+        assertThat(last.projectAdmins("demo")).contains(List.of("alice"));
+        assertThat(last.isHostAdmin("build", "alice")).isTrue();
+        assertThat(last.hostOf("demo")).contains("build");
+        assertThat(last.reach("build")).isEqualTo(read.reach("build")).isPresent();
+        assertThat(last.getProjectRepository("demo")).contains("git@github.com:acme/demo.git");
+        assertThat(last.getRefusals()).isEqualTo(read.getRefusals()).isNotEmpty();
+    }
+
+    @Test
+    void aRecordKeepsEveryFieldAWalkLeaves() throws Exception {
+        founded();
+        project();
+        person("carol");
+        write(
+                "owners.yml",
+                owners("mia")
+                        + "  - login: mia\n    key: \""
+                        + key("mallory")
+                        + "\"\n    backup: true\n");
+        commit("mia");
+        write(
+                "projects/demo/members.yml",
+                "members:\n  - login: alice\n    role: admin\n"
+                        + "  - login: bob\n    role: developer\n    locked: true\n"
+                        + "  - login: carol\n    role: developer\n");
+        commit("alice");
+        write("people/carol.card", handedOn("carol", "carol-new", "carol"));
+        commit("carol-new");
+        host();
+        write(
+                "hosts/build/host.yml",
+                "admins:\n  - login: alice\n  - login: alice\n    key: \""
+                        + key("bob")
+                        + "\"\n    backup: true\nprojects: [demo]\n");
+        commit("alice");
+        write("hosts/build/card", hostCard("build", "alice"));
+        commit("alice");
+        write("projects/demo/repository.yml", "address: git@github.com:acme/demo.git\n");
+        commit("alice");
+        write("people/bob.card", card("bob", "alice-new"));
+        commit("mia");
+
+        keeping().read(forge);
+
+        final String written = Files.readString(trustRecord());
+        assertThat(TreeRecord.read(written, repo.toString()).toJson(repo.toString()))
+                .as(
+                        "what it reads is what it wrote, so a continued walk starts from the same state")
+                .isEqualTo(written);
+        assertThat(written)
+                .as("this state holds what a test of the fields must see")
+                .contains(
+                        "\"locked\":true", "backup_key", "\"backup\":true", "handed_on", "revoked");
+    }
+
+    @Test
+    void aFreshWalkTheSourceStopsEarlierLeavesTheRecordAtItsCommit() throws Exception {
+        founded();
+        project();
+        write("people/carol.card", card("carol", "carol"));
+        commit("carol");
+        keeping().read(forge);
+        final String kept = Files.readString(trustRecord());
+        forge.keys.put("carol", List.of(key("mallory")));
+        forge.keys.remove("alice");
+
+        final OrganizationQuestions answers = keeping().read(forge);
+
+        assertThat(answers.isProjectMember("demo", "bob"))
+                .as("alice's commit waits on the source again")
+                .isEmpty();
+        assertThat(Files.readString(trustRecord()))
+                .as("a record never goes back, or a rollback to there would pass")
+                .isEqualTo(kept);
+    }
+
+    @Test
+    void aRecordThatCannotBeWrittenFailsTheReadAndLeavesNothingStaged() throws Exception {
+        founded();
+        Files.createDirectories(trustRecord().resolve("in-the-way"));
+
+        assertThatThrownBy(() -> keeping().read(forge))
+                .as("a read that cannot keep its trust says so")
+                .isInstanceOf(IOException.class);
+
+        try (var left = Files.list(state())) {
+            assertThat(left).as("no half record stays").containsExactly(trustRecord());
+        }
+    }
+
+    @Test
+    void aRefusalStaysVisibleOnAContinuedWalk() throws Exception {
+        founded();
+        write("owners.yml", owners("mallory"));
+        commit("mallory");
+        keeping().read(forge);
+        write("people/mia.card", card("mia", "mia"));
+        commit("mia");
+
+        assertThat(refusedPaths(keeping().read(forge)))
+                .as("a change somebody tried and was refused is not forgotten by the next read")
+                .contains("owners.yml");
+    }
+
+    @Test
+    void noRecordMeansNoLastState() throws Exception {
+        assertThat(keeping().last()).isEmpty();
     }
 
     @Test

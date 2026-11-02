@@ -102,4 +102,11 @@ public interface OrganizationQuestions {
      * @return The refusals.
      */
     List<Organization.Refusal> getRefusals();
+
+    /**
+     * Returns what the read has to say of itself, in words to show.
+     *
+     * @return The warnings.
+     */
+    List<String> getWarnings();
 }

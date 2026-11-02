@@ -11,11 +11,9 @@ import java.util.TreeMap;
 import java.util.TreeSet;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import java.util.stream.Collectors;
 import org.fuin.porelo.core.project.Project;
 import org.fuin.porelo.organization.IdentitySource;
 import org.fuin.porelo.organization.Organization;
-import org.fuin.porelo.organization.OrganizationQuestions;
 import org.fuin.porelo.vault.CardException;
 import org.fuin.porelo.vault.HostCard;
 import org.fuin.porelo.vault.PersonCard;
@@ -64,14 +62,7 @@ final class TreeWalk {
 
     private final String organisation;
 
-    private Model model =
-            new Model(
-                    new ArrayList<>(),
-                    new TreeMap<>(),
-                    new TreeMap<>(),
-                    new TreeSet<>(),
-                    new TreeMap<>(),
-                    new TreeMap<>());
+    private TreeModel model = TreeModel.empty();
 
     /** For each login, each key's successors: the keys it was handed on to, read to the tip. */
     private final Map<String, Map<String, Set<String>>> steps = new TreeMap<>();
@@ -80,66 +71,6 @@ final class TreeWalk {
 
     /** The judged paths of the commit being judged. */
     private List<String> touched = List.of();
-
-    /** What has been accepted so far; copied before each commit, which is judged against it. */
-    private record Model(
-            List<TreeFiles.Owner> owners,
-            Map<String, Person> people,
-            Map<String, ProjectState> projects,
-            Set<String> revoked,
-            Map<String, String> cards,
-            Map<String, HostState> hosts) {
-
-        Model copy() {
-            return new Model(
-                    new ArrayList<>(owners),
-                    new TreeMap<>(people),
-                    new TreeMap<>(projects),
-                    new TreeSet<>(revoked),
-                    new TreeMap<>(cards),
-                    new TreeMap<>(hosts));
-        }
-
-        boolean owner(final String fingerprint) {
-            return owners.stream()
-                    .anyMatch(owner -> owner.fingerprint().equals(fingerprint) && !owner.backup());
-        }
-    }
-
-    /**
-     * A person's card as it stands.
-     *
-     * @param fingerprint The fingerprint of its key.
-     * @param state {@link Organization#TRUSTED}, {@link Organization#FIRST_SEEN} or {@link
-     *     Organization#REFUSED}.
-     * @param handedOn The keys it was handed on from, newest first, never its own.
-     * @param predecessor The fingerprint of the key the card names as its predecessor, or "".
-     */
-    private record Person(
-            String fingerprint, String state, List<String> handedOn, String predecessor) {
-
-        Person with(final String newState) {
-            return new Person(fingerprint, newState, handedOn, predecessor);
-        }
-    }
-
-    /**
-     * A project as it stands.
-     *
-     * @param admin The first admin an owner named.
-     * @param members Its members, or {@code null} before the first {@code members.yml}.
-     * @param address The address of its repository, or {@code null} until one is filed.
-     */
-    private record ProjectState(
-            String admin, @Nullable List<TreeFiles.Member> members, @Nullable String address) {}
-
-    /**
-     * A host as it stands.
-     *
-     * @param file Its admins and what it carries.
-     * @param card Its card, or {@code null} until an admin files one.
-     */
-    private record HostState(TreeFiles.HostFile file, @Nullable HostCard card) {}
 
     /** Why one path of one commit is refused. */
     private static final class Refused extends Exception {
@@ -169,17 +100,29 @@ final class TreeWalk {
     }
 
     /**
-     * Walks the line, stopping before a commit that could not be decided.
+     * Walks the line, stopping before a commit that could not be decided, on from a record whose
+     * commit the line must hold. {@link #readChains} comes first.
      *
      * @param revision Where the line ends, or {@code null} for the branch's tip.
+     * @param start The record to go on from, or {@code null} to walk from the founding commit.
      * @return What was accepted, at the last commit reached.
      * @throws IOException When a signature cannot be checked.
      * @throws CardException When the history proves nothing.
      */
-    GitTreeOrganization read(final @Nullable String revision) throws IOException {
-        readChains();
+    TreeRecord read(final @Nullable String revision, final @Nullable TreeRecord start)
+            throws IOException {
         String reached = null;
+        boolean past = start == null;
+        if (start != null) {
+            model = start.model().copy();
+            refusals.addAll(start.refusals());
+            reached = start.commit();
+        }
         for (final Map.Entry<String, String> entry : repository.line(revision)) {
+            if (!past) {
+                past = entry.getKey().equals(reached);
+                continue;
+            }
             if (!commit(entry.getKey(), entry.getValue())) {
                 break;
             }
@@ -187,11 +130,39 @@ final class TreeWalk {
         }
         if (revision != null && !revision.equals(reached)) {
             throw new CardException(
-                    "the identity source could not say enough to reach the revision asked for: the"
-                            + " walk stopped at "
+                    "cannot say: the identity source could not say enough to reach the revision"
+                            + " asked for, and the walk stopped at "
                             + (reached == null ? "the first commit, accepting nothing" : reached));
         }
-        return answers(reached);
+        return new TreeRecord(reached, model, refusals);
+    }
+
+    /**
+     * Whether the identity source now says otherwise of a card a record could not settle. A commit
+     * the old answer stopped or refused would then be judged otherwise, so the record's walk is not
+     * the one a fresh read would make.
+     *
+     * @param record The record.
+     * @return Whether a card's state would change.
+     */
+    boolean unsettled(final TreeRecord record) {
+        model = record.model().copy();
+        boolean changed = false;
+        for (final Map.Entry<String, TreeModel.Person> each : model.people().entrySet()) {
+            final TreeModel.Person person = each.getValue();
+            if (!person.state().equals(Organization.TRUSTED)
+                    && !revoked(person)
+                    && !person.state()
+                            .equals(
+                                    chain(
+                                            each.getKey(),
+                                            person.fingerprint(),
+                                            person.handedOn()))) {
+                changed = true;
+            }
+        }
+        model = TreeModel.empty();
+        return changed;
     }
 
     /**
@@ -200,7 +171,7 @@ final class TreeWalk {
      * the new key signed the commit and both keys signed the card, so vouching for a key reaches
      * back only from a key its holder handed on to.
      */
-    private void readChains() throws IOException {
+    void readChains() throws IOException {
         for (final Map.Entry<String, String> entry : repository.line(null)) {
             for (final String path : repository.changed(entry.getKey(), entry.getValue())) {
                 final Matcher person = PERSON.matcher(path);
@@ -235,54 +206,6 @@ final class TreeWalk {
         }
     }
 
-    private GitTreeOrganization answers(final @Nullable String reached) {
-        final Set<String> owners = new LinkedHashSet<>();
-        model.owners().stream()
-                .filter(owner -> !owner.backup())
-                .forEach(owner -> owners.add(owner.login()));
-        final Map<String, List<TreeFiles.Member>> members = new TreeMap<>();
-        final Map<String, String> addresses = new TreeMap<>();
-        model.projects()
-                .forEach(
-                        (name, project) -> {
-                            final List<TreeFiles.Member> listed = project.members();
-                            members.put(name, listed == null ? List.of() : listed);
-                            if (project.address() != null) {
-                                addresses.put(name, project.address());
-                            }
-                        });
-        final Map<String, GitTreeOrganization.Host> hosts = new TreeMap<>();
-        model.hosts()
-                .forEach(
-                        (name, host) ->
-                                hosts.put(
-                                        name,
-                                        new GitTreeOrganization.Host(
-                                                host.file().admins().stream()
-                                                        .filter(admin -> !admin.backup())
-                                                        .map(TreeFiles.HostAdmin::login)
-                                                        .collect(Collectors.toSet()),
-                                                host.file().projects(),
-                                                reach(host.card()))));
-        final Set<String> holders = new TreeSet<>();
-        model.people()
-                .forEach(
-                        (login, person) -> {
-                            if (!person.state().equals(Organization.REFUSED)) {
-                                holders.add(login);
-                            }
-                        });
-        return new GitTreeOrganization(
-                reached, owners, members, addresses, hosts, holders, refusals);
-    }
-
-    private static OrganizationQuestions.@Nullable Reach reach(final @Nullable HostCard card) {
-        return card == null
-                ? null
-                : new OrganizationQuestions.Reach(
-                        card.address(), card.sshPort(), card.sshHostKey());
-    }
-
     private boolean commit(final String commit, final String parent) throws IOException {
         final List<String> paths =
                 repository.changed(commit, parent).stream().filter(TreeWalk::judged).toList();
@@ -302,7 +225,7 @@ final class TreeWalk {
             return true;
         }
         touched = paths;
-        final Model before = model.copy();
+        final TreeModel before = model.copy();
         final List<Organization.Refusal> refusedBefore = List.copyOf(refusals);
         for (final String path : paths) {
             try {
@@ -334,7 +257,7 @@ final class TreeWalk {
 
     /** Judges one path; returns whether it was accepted. */
     private boolean judge(
-            final Model before, final String commit, final String path, final String signer)
+            final TreeModel before, final String commit, final String path, final String signer)
             throws Refused, Undecided, IOException {
         final Matcher person = PERSON.matcher(path);
         final Matcher project = PROJECT_FILE.matcher(path);
@@ -368,7 +291,7 @@ final class TreeWalk {
         return false;
     }
 
-    private void owners(final Model before, final String commit, final String signer)
+    private void owners(final TreeModel before, final String commit, final String signer)
             throws Refused, Undecided {
         final Optional<String> text = text(commit, OWNERS);
         if (text.isEmpty()) {
@@ -392,7 +315,7 @@ final class TreeWalk {
      * of the key of the login it backs, and everything else must stay as it was.
      */
     private static void backedOnly(
-            final Model before, final List<TreeFiles.Owner> file, final String signer)
+            final TreeModel before, final List<TreeFiles.Owner> file, final String signer)
             throws Refused {
         final String login =
                 before.owners().stream()
@@ -471,15 +394,15 @@ final class TreeWalk {
 
     /** Judges a person's card; returns whether it was accepted. */
     private boolean person(
-            final Model before,
+            final TreeModel before,
             final String commit,
             final String path,
             final String login,
             final String signer)
             throws Refused, Undecided {
-        final Person held = before.people().get(login);
+        final TreeModel.Person held = before.people().get(login);
         // A refused card is no card: the next card for the login is judged as a first one.
-        final Person prior =
+        final TreeModel.Person prior =
                 held == null || held.state().equals(Organization.REFUSED) ? null : held;
         final Optional<String> object = object(commit, path);
         if (object.isEmpty()) {
@@ -518,8 +441,9 @@ final class TreeWalk {
             // An owner's replacement vouches for the login, not the key: the source says.
             state = trust(login, card.fingerprint());
         }
-        final Person read = new Person(card.fingerprint(), state, handedOn, named(card));
-        final Person judged = revoked(read) ? read.with(Organization.REFUSED) : read;
+        final TreeModel.Person read =
+                new TreeModel.Person(card.fingerprint(), state, handedOn, named(card));
+        final TreeModel.Person judged = revoked(read) ? read.with(Organization.REFUSED) : read;
         model.people().put(login, judged);
         if (judged.state().equals(Organization.REFUSED)) {
             // Answered, but not the path's accepted card; whatever it replaced is gone.
@@ -537,7 +461,7 @@ final class TreeWalk {
             final String path,
             final String login,
             final String signer,
-            final Model before)
+            final TreeModel before)
             throws Refused {
         final PersonCard card;
         try {
@@ -568,9 +492,9 @@ final class TreeWalk {
      *     refused, and the login's own card lost for good.
      */
     private @Nullable String owned(
-            final Model before,
+            final TreeModel before,
             final String path,
-            final @Nullable Person prior,
+            final TreeModel.@Nullable Person prior,
             final PersonCard card,
             final String login,
             final String signer)
@@ -591,7 +515,10 @@ final class TreeWalk {
 
     /** Whether the prior's key handed the card on, through no revoked key. */
     private boolean handsOn(
-            final Model before, final String path, final PersonCard card, final Person prior) {
+            final TreeModel before,
+            final String path,
+            final PersonCard card,
+            final TreeModel.Person prior) {
         try {
             PersonCardChain.check(
                     card, earlier(before, path), prior.fingerprint(), before.revoked()::contains);
@@ -608,10 +535,10 @@ final class TreeWalk {
      * @return Whether the old key handed it on; {@code false} for an owner's replacement.
      */
     private boolean changeOfKey(
-            final Model before,
+            final TreeModel before,
             final String path,
             final PersonCard card,
-            final Person prior,
+            final TreeModel.Person prior,
             final String signer)
             throws Refused {
         if (signer.equals(card.fingerprint()) && handsOn(before, path, card, prior)) {
@@ -621,7 +548,8 @@ final class TreeWalk {
             throw new Refused("signed by " + signer + ", the old key did not hand the card on");
         }
         model.revoked().add(prior.fingerprint());
-        for (final Map.Entry<String, Person> held : List.copyOf(model.people().entrySet())) {
+        for (final Map.Entry<String, TreeModel.Person> held :
+                List.copyOf(model.people().entrySet())) {
             if (!held.getValue().state().equals(Organization.REFUSED) && revoked(held.getValue())) {
                 model.people().put(held.getKey(), held.getValue().with(Organization.REFUSED));
                 model.cards().remove("people/" + held.getKey() + ".card");
@@ -631,7 +559,7 @@ final class TreeWalk {
     }
 
     /** The card last accepted for the path, the one a change of key must lead back to. */
-    private List<PersonCard> earlier(final Model before, final String path) {
+    private List<PersonCard> earlier(final TreeModel before, final String path) {
         final String object = before.cards().get(path);
         if (object == null) {
             return List.of();
@@ -644,7 +572,8 @@ final class TreeWalk {
     }
 
     /** The keys a card handed on from the prior's was handed on from, each once. */
-    private static List<String> handedOn(final PersonCard card, final Person prior) throws Refused {
+    private static List<String> handedOn(final PersonCard card, final TreeModel.Person prior)
+            throws Refused {
         final List<String> all = new ArrayList<>(List.of(prior.fingerprint()));
         all.addAll(prior.handedOn());
         final List<String> chain =
@@ -661,7 +590,7 @@ final class TreeWalk {
     }
 
     /** Whether a card's key, a key it was handed on from, or its predecessor is revoked. */
-    private boolean revoked(final Person person) {
+    private boolean revoked(final TreeModel.Person person) {
         return model.revoked().contains(person.fingerprint())
                 || model.revoked().contains(person.predecessor())
                 || person.handedOn().stream().anyMatch(model.revoked()::contains);
@@ -716,7 +645,7 @@ final class TreeWalk {
     }
 
     private void projectCard(
-            final Model before,
+            final TreeModel before,
             final String commit,
             final String path,
             final String project,
@@ -732,23 +661,24 @@ final class TreeWalk {
             return;
         }
         final String admin = parsed(() -> TreeFiles.projectAdmin(text.orElseThrow(), project));
-        final ProjectState prior = before.projects().get(project);
+        final TreeModel.ProjectState prior = before.projects().get(project);
         model.projects()
                 .put(
                         project,
                         prior == null
-                                ? new ProjectState(admin, null, null)
-                                : new ProjectState(admin, prior.members(), prior.address()));
+                                ? new TreeModel.ProjectState(admin, null, null)
+                                : new TreeModel.ProjectState(
+                                        admin, prior.members(), prior.address()));
     }
 
     private void members(
-            final Model before,
+            final TreeModel before,
             final String commit,
             final String path,
             final String project,
             final String signer)
             throws Refused, Undecided {
-        final ProjectState prior = before.projects().get(project);
+        final TreeModel.ProjectState prior = before.projects().get(project);
         if (prior == null) {
             throw new Refused("no such project");
         }
@@ -770,18 +700,19 @@ final class TreeWalk {
                 throw new Refused("signed by " + signer + ", neither its admin nor an owner");
             }
         }
-        model.projects().put(project, new ProjectState(prior.admin(), file, prior.address()));
+        model.projects()
+                .put(project, new TreeModel.ProjectState(prior.admin(), file, prior.address()));
     }
 
     /** A project's address counts from its admins alone, and goes only with the project. */
     private void address(
-            final Model before,
+            final TreeModel before,
             final String commit,
             final String path,
             final String project,
             final String signer)
             throws Refused, Undecided {
-        final ProjectState prior = before.projects().get(project);
+        final TreeModel.ProjectState prior = before.projects().get(project);
         if (prior == null) {
             throw new Refused("no such project");
         }
@@ -796,8 +727,9 @@ final class TreeWalk {
             throw new Refused("signed by " + signer + ", not its admin");
         }
         final String address = parsed(() -> TreeFiles.repositoryAddress(text.orElseThrow()));
-        final ProjectState now = model.projects().getOrDefault(project, prior);
-        model.projects().put(project, new ProjectState(now.admin(), now.members(), address));
+        final TreeModel.ProjectState now = model.projects().getOrDefault(project, prior);
+        model.projects()
+                .put(project, new TreeModel.ProjectState(now.admin(), now.members(), address));
     }
 
     /** A project that goes leaves its host, so that one made again under its name is not on it. */
@@ -805,7 +737,7 @@ final class TreeWalk {
         model.hosts()
                 .replaceAll(
                         (name, host) ->
-                                new HostState(
+                                new TreeModel.HostState(
                                         new TreeFiles.HostFile(
                                                 host.file().admins(),
                                                 host.file().projects().stream()
@@ -819,13 +751,13 @@ final class TreeWalk {
      * everything between is its admins'.
      */
     private void hostFile(
-            final Model before,
+            final TreeModel before,
             final String commit,
             final String path,
             final String host,
             final String signer)
             throws Refused, Undecided {
-        final HostState prior = before.hosts().get(host);
+        final TreeModel.HostState prior = before.hosts().get(host);
         final Optional<String> text = text(commit, path);
         if (text.isEmpty()) {
             if (prior == null) {
@@ -845,7 +777,7 @@ final class TreeWalk {
             if (file.admins().size() != 1 || !file.projects().isEmpty()) {
                 throw new Refused("a new host holds its first admin and nothing else");
             }
-            model.hosts().put(host, new HostState(file, null));
+            model.hosts().put(host, new TreeModel.HostState(file, null));
             return;
         }
         if (!hostAdmin(before, prior, signer)) {
@@ -854,12 +786,15 @@ final class TreeWalk {
         for (final String project : file.projects()) {
             carriable(before, host, prior, project);
         }
-        model.hosts().put(host, new HostState(file, prior.card()));
+        model.hosts().put(host, new TreeModel.HostState(file, prior.card()));
     }
 
     /** A project newly on a host must stand, and be on no other host. */
     private static void carriable(
-            final Model before, final String host, final HostState prior, final String project)
+            final TreeModel before,
+            final String host,
+            final TreeModel.HostState prior,
+            final String project)
             throws Refused {
         if (prior.file().projects().contains(project)) {
             return;
@@ -883,13 +818,13 @@ final class TreeWalk {
 
     /** A host's card counts from its admins; an owner removes it only with the host. */
     private void hostCard(
-            final Model before,
+            final TreeModel before,
             final String commit,
             final String path,
             final String host,
             final String signer)
             throws Refused, Undecided {
-        final HostState prior = before.hosts().get(host);
+        final TreeModel.HostState prior = before.hosts().get(host);
         if (prior == null) {
             throw new Refused("no such host");
         }
@@ -903,13 +838,13 @@ final class TreeWalk {
             throw new Refused("signed by " + signer + ", not its admin");
         }
         if (object.isEmpty()) {
-            model.hosts().put(host, new HostState(prior.file(), null));
+            model.hosts().put(host, new TreeModel.HostState(prior.file(), null));
             return;
         }
         model.hosts()
                 .put(
                         host,
-                        new HostState(
+                        new TreeModel.HostState(
                                 prior.file(),
                                 readHostCard(object.orElseThrow(), path, host, signer)));
     }
@@ -936,7 +871,8 @@ final class TreeWalk {
     }
 
     /** Whether the key is that of an admin of the host on their card; a backup key never is. */
-    private static boolean hostAdmin(final Model before, final HostState host, final String signer)
+    private static boolean hostAdmin(
+            final TreeModel before, final TreeModel.HostState host, final String signer)
             throws Undecided {
         for (final TreeFiles.HostAdmin admin : host.file().admins()) {
             if (!admin.backup() && holds(before, admin.login(), signer)) {
@@ -948,7 +884,9 @@ final class TreeWalk {
 
     /** Whether the key is that of an unlocked admin among these members. */
     private static boolean admin(
-            final Model before, final @Nullable List<TreeFiles.Member> members, final String signer)
+            final TreeModel before,
+            final @Nullable List<TreeFiles.Member> members,
+            final String signer)
             throws Undecided {
         if (members == null) {
             return false;
@@ -967,9 +905,9 @@ final class TreeWalk {
      * Whether the key is the login's on its card. A card the identity source has not vouched for
      * yet gives no right: anybody with write access could have filed it first, so the commit waits.
      */
-    private static boolean holds(final Model before, final String login, final String signer)
+    private static boolean holds(final TreeModel before, final String login, final String signer)
             throws Undecided {
-        final Person person = before.people().get(login);
+        final TreeModel.Person person = before.people().get(login);
         if (person == null || !person.fingerprint().equals(signer)) {
             return false;
         }

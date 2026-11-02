@@ -1,0 +1,343 @@
+package org.fuin.porelo.organization.gittree;
+
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.regex.Pattern;
+import org.fuin.porelo.core.project.AddressForm;
+import org.fuin.porelo.organization.Organization;
+import org.fuin.porelo.vault.CardException;
+import org.fuin.porelo.vault.HostCard;
+import org.fuin.porelo.vault.PersonCard;
+import org.fuin.porelo.wire.Json;
+import org.jspecify.annotations.Nullable;
+
+/**
+ * Where a walk ended, and what it accepted: the trust record kept between reads, written through
+ * plain maps so that a native image needs no reflection for it. Anything malformed refuses the
+ * whole record, naming the field and never quoting it, so a damaged one is never half-used.
+ *
+ * @param commit The commit reached, or {@code null} when nothing was accepted yet.
+ * @param model What was accepted.
+ * @param refusals What was refused, the latest last.
+ */
+record TreeRecord(@Nullable String commit, TreeModel model, List<Organization.Refusal> refusals) {
+
+    private static final Pattern OBJECT = Pattern.compile("[0-9a-f]{40}([0-9a-f]{24})?");
+
+    private static final Pattern FINGERPRINT = Pattern.compile("SHA256:[A-Za-z0-9+/]{43}");
+
+    TreeRecord {
+        refusals = List.copyOf(refusals);
+    }
+
+    /**
+     * Writes the record.
+     *
+     * @param address The repository's address, the only one this record speaks for.
+     * @return The JSON document.
+     */
+    String toJson(final String address) {
+        final Map<String, Object> record = new LinkedHashMap<>();
+        record.put("address", address);
+        record.put("commit", commit);
+        record.put(
+                "owners",
+                model.owners().stream()
+                        .map(
+                                owner ->
+                                        Map.of(
+                                                "login",
+                                                owner.login(),
+                                                "key",
+                                                owner.key(),
+                                                "backup",
+                                                owner.backup()))
+                        .toList());
+        final Map<String, Object> people = new LinkedHashMap<>();
+        model.people()
+                .forEach(
+                        (login, person) ->
+                                people.put(
+                                        login,
+                                        Map.of(
+                                                "fingerprint",
+                                                person.fingerprint(),
+                                                "state",
+                                                person.state(),
+                                                "handed_on",
+                                                person.handedOn(),
+                                                "predecessor",
+                                                person.predecessor())));
+        record.put("people", people);
+        final Map<String, Object> projects = new LinkedHashMap<>();
+        model.projects().forEach((name, project) -> projects.put(name, project(project)));
+        record.put("projects", projects);
+        record.put("revoked", List.copyOf(model.revoked()));
+        record.put("cards", model.cards());
+        final Map<String, Object> hosts = new LinkedHashMap<>();
+        model.hosts().forEach((name, host) -> hosts.put(name, host(host)));
+        record.put("hosts", hosts);
+        record.put(
+                "refusals",
+                refusals.stream()
+                        .map(
+                                refusal ->
+                                        Map.of(
+                                                "commit",
+                                                refusal.revision(),
+                                                "path",
+                                                refusal.path(),
+                                                "why",
+                                                refusal.why()))
+                        .toList());
+        return Json.write(record);
+    }
+
+    private static Map<String, Object> project(final TreeModel.ProjectState project) {
+        final Map<String, Object> written = new LinkedHashMap<>();
+        written.put("admin", project.admin());
+        final List<TreeFiles.Member> members = project.members();
+        written.put(
+                "members",
+                members == null
+                        ? null
+                        : members.stream()
+                                .map(
+                                        member ->
+                                                Map.of(
+                                                        "login",
+                                                        member.login(),
+                                                        "role",
+                                                        member.role(),
+                                                        "locked",
+                                                        member.locked()))
+                                .toList());
+        written.put("address", project.address());
+        return written;
+    }
+
+    private static Map<String, Object> host(final TreeModel.HostState host) {
+        final Map<String, Object> written = new LinkedHashMap<>();
+        final List<Map<String, Object>> admins = new ArrayList<>();
+        for (final TreeFiles.HostAdmin admin : host.file().admins()) {
+            final Map<String, Object> entry = new LinkedHashMap<>();
+            entry.put("login", admin.login());
+            entry.put("backup_key", admin.backupKey());
+            admins.add(entry);
+        }
+        written.put("admins", admins);
+        written.put("projects", host.file().projects());
+        final HostCard card = host.card();
+        written.put("card", card == null ? null : card.body() + card.signature());
+        return written;
+    }
+
+    /**
+     * Reads a record {@link #toJson} wrote.
+     *
+     * @param text The JSON document.
+     * @param address The repository's address the caller reads.
+     * @return The record.
+     * @throws CardException Naming the field that is wrong, never quoting its value.
+     */
+    static TreeRecord read(final String text, final String address) {
+        final Object parsed;
+        try {
+            parsed = Json.parse(text);
+        } catch (RuntimeException ex) {
+            throw new CardException("the trust record is not well-formed JSON");
+        }
+        final Map<?, ?> record = map(parsed, "the record");
+        require(address.equals(record.get("address")), "address");
+        final String commit = string(record.get("commit"), "commit");
+        require(OBJECT.matcher(commit).matches(), "commit");
+        final TreeModel model = TreeModel.empty();
+        for (final Object each : list(record.get("owners"), "owners")) {
+            model.owners().add(owner(map(each, "owners")));
+        }
+        map(record.get("people"), "people")
+                .forEach(
+                        (login, person) ->
+                                model.people()
+                                        .put(
+                                                login(login, "people"),
+                                                person(map(person, "people"))));
+        map(record.get("projects"), "projects")
+                .forEach(
+                        (name, project) -> {
+                            final String named = string(name, "projects");
+                            require(
+                                    named.matches(
+                                            org.fuin.porelo.core.project.Project.NAME_PATTERN),
+                                    "projects");
+                            model.projects().put(named, project(map(project, "projects")));
+                        });
+        for (final Object each : list(record.get("revoked"), "revoked")) {
+            model.revoked().add(fingerprint(each, "revoked"));
+        }
+        map(record.get("cards"), "cards")
+                .forEach(
+                        (path, object) -> {
+                            final String blob = string(object, "cards");
+                            require(OBJECT.matcher(blob).matches(), "cards");
+                            model.cards().put(string(path, "cards"), blob);
+                        });
+        map(record.get("hosts"), "hosts")
+                .forEach(
+                        (name, host) -> {
+                            final String named = string(name, "hosts");
+                            require(TreeFiles.host(named), "hosts");
+                            model.hosts().put(named, host(named, map(host, "hosts")));
+                        });
+        final List<Organization.Refusal> refusals = new ArrayList<>();
+        for (final Object each : list(record.get("refusals"), "refusals")) {
+            final Map<?, ?> refusal = map(each, "refusals");
+            refusals.add(
+                    new Organization.Refusal(
+                            string(refusal.get("commit"), "refusals"),
+                            string(refusal.get("path"), "refusals"),
+                            string(refusal.get("why"), "refusals")));
+        }
+        return new TreeRecord(commit, model, refusals);
+    }
+
+    private static TreeFiles.Owner owner(final Map<?, ?> entry) {
+        final String key = string(entry.get("key"), "owners");
+        final String fingerprint;
+        try {
+            fingerprint = PersonCard.fingerprint(key);
+        } catch (RuntimeException ex) {
+            throw new CardException("the trust record's owners are malformed");
+        }
+        return new TreeFiles.Owner(
+                login(entry.get("login"), "owners"),
+                key,
+                fingerprint,
+                flag(entry.get("backup"), "owners"));
+    }
+
+    private static TreeModel.Person person(final Map<?, ?> entry) {
+        final String state = string(entry.get("state"), "people");
+        require(
+                Set.of(Organization.TRUSTED, Organization.FIRST_SEEN, Organization.REFUSED)
+                        .contains(state),
+                "people");
+        final String predecessor = string(entry.get("predecessor"), "people");
+        final List<String> handedOn = new ArrayList<>();
+        for (final Object each : list(entry.get("handed_on"), "people")) {
+            handedOn.add(fingerprint(each, "people"));
+        }
+        require(predecessor.isEmpty() || FINGERPRINT.matcher(predecessor).matches(), "people");
+        return new TreeModel.Person(
+                fingerprint(entry.get("fingerprint"), "people"),
+                state,
+                List.copyOf(handedOn),
+                predecessor);
+    }
+
+    private static TreeModel.ProjectState project(final Map<?, ?> entry) {
+        List<TreeFiles.Member> members = null;
+        if (entry.get("members") != null) {
+            final List<TreeFiles.Member> read = new ArrayList<>();
+            for (final Object each : list(entry.get("members"), "projects")) {
+                final Map<?, ?> member = map(each, "projects");
+                final String role = string(member.get("role"), "projects");
+                require(
+                        role.equals(TreeFiles.ADMIN) || role.equals(TreeFiles.DEVELOPER),
+                        "projects");
+                read.add(
+                        new TreeFiles.Member(
+                                login(member.get("login"), "projects"),
+                                role,
+                                flag(member.get("locked"), "projects")));
+            }
+            members = List.copyOf(read);
+        }
+        String address = null;
+        if (entry.get("address") != null) {
+            address = string(entry.get("address"), "projects");
+            require(AddressForm.isRepository(address), "projects");
+        }
+        return new TreeModel.ProjectState(login(entry.get("admin"), "projects"), members, address);
+    }
+
+    private static TreeModel.HostState host(final String name, final Map<?, ?> entry) {
+        final List<TreeFiles.HostAdmin> admins = new ArrayList<>();
+        for (final Object each : list(entry.get("admins"), "hosts")) {
+            final Map<?, ?> admin = map(each, "hosts");
+            final Object backup = admin.get("backup_key");
+            admins.add(
+                    new TreeFiles.HostAdmin(
+                            login(admin.get("login"), "hosts"),
+                            backup == null ? null : string(backup, "hosts")));
+        }
+        final List<String> projects = new ArrayList<>();
+        for (final Object each : list(entry.get("projects"), "hosts")) {
+            projects.add(string(each, "hosts"));
+        }
+        HostCard card = null;
+        if (entry.get("card") != null) {
+            try {
+                card = HostCard.read(string(entry.get("card"), "hosts"), "the trust record");
+            } catch (CardException ex) {
+                throw new CardException("the trust record's hosts are malformed");
+            }
+            require(card.host().equals(name), "hosts");
+        }
+        return new TreeModel.HostState(
+                new TreeFiles.HostFile(List.copyOf(admins), List.copyOf(projects)), card);
+    }
+
+    private static String fingerprint(final @Nullable Object value, final String field) {
+        final String text = string(value, field);
+        require(FINGERPRINT.matcher(text).matches(), field);
+        return text;
+    }
+
+    private static String login(final @Nullable Object value, final String field) {
+        final String text = string(value, field);
+        require(TreeFiles.login(text), field);
+        return text;
+    }
+
+    private static String string(final @Nullable Object value, final String field) {
+        if (!(value instanceof String text)) {
+            throw malformed(field);
+        }
+        return text;
+    }
+
+    private static boolean flag(final @Nullable Object value, final String field) {
+        if (!(value instanceof Boolean each)) {
+            throw malformed(field);
+        }
+        return each;
+    }
+
+    private static Map<?, ?> map(final @Nullable Object value, final String field) {
+        if (!(value instanceof Map<?, ?> each)) {
+            throw malformed(field);
+        }
+        return each;
+    }
+
+    private static List<?> list(final @Nullable Object value, final String field) {
+        if (!(value instanceof List<?> each)) {
+            throw malformed(field);
+        }
+        return each;
+    }
+
+    private static void require(final boolean holds, final String field) {
+        if (!holds) {
+            throw malformed(field);
+        }
+    }
+
+    private static CardException malformed(final String field) {
+        return new CardException("the trust record's " + field + " are malformed");
+    }
+}
