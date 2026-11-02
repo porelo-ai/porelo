@@ -84,12 +84,10 @@ public final class RegistryVerifier {
             // one their project's access file pins, refusing the person where they differ. One that
             // does not verify is left out, never answered revoked: the host keeps a revoked login
             // revoked for good, and a card filed wrongly once must not lock its person out.
-            for (String login : filed(repository, head)) {
-                if (!access.admins().containsKey(login)) {
-                    final Map<String, Object> filed = person(repository, head, login, null);
-                    if (Boolean.FALSE.equals(filed.get("revoked"))) {
-                        persons.add(filed);
-                    }
+            for (String login : filed(repository, head, access.admins().keySet())) {
+                final Map<String, Object> filed = person(repository, head, login, null);
+                if (Boolean.FALSE.equals(filed.get("revoked"))) {
+                    persons.add(filed);
                 }
             }
             answer.put("persons", List.copyOf(persons));
@@ -229,13 +227,18 @@ public final class RegistryVerifier {
     private static final int MAX_FILED = 1024;
 
     /** The logins with a card under {@code people/} at the head, in name order. */
-    private static List<String> filed(RegistryRepository repository, String head) {
+    private static List<String> filed(
+            RegistryRepository repository, String head, java.util.Set<String> admins) {
         final List<String> logins = new ArrayList<>();
         for (String name :
                 repository.require("ls-tree", "--name-only", head, "people/").lines().toList()) {
             final String file = name.substring(name.lastIndexOf('/') + 1);
-            if (file.matches("[a-z][a-z0-9-]{0,31}\\.card") && logins.size() < MAX_FILED) {
-                logins.add(file.substring(0, file.length() - ".card".length()));
+            final String login =
+                    file.endsWith(".card")
+                            ? file.substring(0, file.length() - ".card".length())
+                            : "";
+            if (PersonCard.isLogin(login) && !admins.contains(login) && logins.size() < MAX_FILED) {
+                logins.add(login);
             }
         }
         return logins;
@@ -288,13 +291,15 @@ public final class RegistryVerifier {
                     // An unusable older card grants no link in the chain.
                 }
             }
-            // Unpinned, the card's chain leads back to the first key filed for the login.
-            final String anchor =
-                    pinned != null
-                            ? pinned
-                            : earlier.isEmpty()
-                                    ? card.fingerprint()
-                                    : earlier.getLast().fingerprint();
+            // Unpinned, the card's chain leads back to the first card filed for the login that is
+            // its own and signed as it must be: one filed wrongly before it anchors nothing.
+            String first = card.fingerprint();
+            for (final PersonCard each : earlier) {
+                if (each.login().equals(login) && each.signedAsItMustBe()) {
+                    first = each.fingerprint();
+                }
+            }
+            final String anchor = pinned != null ? pinned : first;
             PersonCardChain.check(card, earlier, anchor);
             answer.put("ssh", card.key());
             answer.put("expires", card.expires().toString());

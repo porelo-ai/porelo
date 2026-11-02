@@ -850,6 +850,42 @@ class RegistryVerifyCommandTest {
     }
 
     @Test
+    void a_developers_card_filed_wrongly_first_does_not_lock_them_out() throws Exception {
+        final SigningKey developer = key(keygen("bob"));
+        final SigningKey other = key(keygen("other"));
+        // First a card under bob's name that is someone else's, then bob's own.
+        write(
+                "people/bob.card",
+                PersonCard.write(
+                        "alice",
+                        "Not Bob",
+                        "",
+                        other,
+                        LocalDate.of(2026, 1, 1),
+                        LocalDate.of(2030, 1, 1),
+                        null));
+        commit(adminFile);
+        write(
+                "people/bob.card",
+                PersonCard.write(
+                        "bob",
+                        "Bob",
+                        "",
+                        developer,
+                        LocalDate.of(2026, 1, 1),
+                        LocalDate.of(2030, 1, 1),
+                        null));
+        commit(adminFile);
+
+        assertThat(verify(bundle("--all"))).as(err.toString()).isZero();
+        final List<?> persons = (List<?>) answer().get("persons");
+        assertThat(persons.stream().map(entry -> ((Map<?, ?>) entry).get("login")).toList())
+                .as(
+                        "the chain is anchored at bob's first card that is his and signed as it must be")
+                .isEqualTo(List.of("alice", "bob"));
+    }
+
+    @Test
     void walks_a_persons_key_changes_through_earlier_cards_in_history() throws Exception {
         final SigningKey middle = key(keygen("middle"));
         final SigningKey latest = key(keygen("latest"));
