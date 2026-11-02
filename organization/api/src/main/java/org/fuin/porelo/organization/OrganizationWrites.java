@@ -81,7 +81,9 @@ public interface OrganizationWrites {
      * Changes the acting person's card, or hands it on to a new key.
      *
      * @param change Who acts, against which state, under which id.
-     * @param card The card, already signed by their agent, and by the old key when the key changes.
+     * @param card The card, already signed by their agent, and by the old key when the key changes;
+     *     where no card stands for the login, because the identity source no longer lists the old
+     *     key, its word for the new key stands in for the old key's signature.
      * @return What the change made, or made before under this id.
      * @throws IOException When something unexpected happened; the change may have been made, so ask
      *     again with the same id.
