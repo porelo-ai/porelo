@@ -158,14 +158,16 @@ What each Maven module is, in a few sentences of its own:
 - [runtime](runtime/README.md), [shield](shield/README.md), [clearance](clearance/README.md),
   [vault](vault/README.md), [gate](gate/README.md), [supervisor](supervisor/README.md) - what runs around a task
 - [organization](organization/README.md) - who may do what, behind an API
-- [agents](agents/README.md), [builds](builds/README.md) - the contracts agents and build readers are written against
+- [agents](agents/README.md), [builds](builds/README.md), [ecosystems](ecosystems/README.md) - the contracts agents,
+  build readers and build-tool plugins are written against
 - [apps](apps/README.md) - the `porelo` command line, area by area
 - [daemon](daemon/README.md), [hooks](hooks/README.md) - `porelod` and the OCI hooks
 - [acceptance](acceptance/README.md) - scenarios at a real terminal
 - [dist](dist/README.md) - the packages
 
 ## Licence
-GNU General Public License v3.0 or later — see [LICENSE](LICENSE).
+GNU General Public License v3.0 or later — see [LICENSE](LICENSE). [wire](wire/README.md) and
+[ecosystems/api](ecosystems/api/README.md) are under Apache-2.0, each with a `LICENSE` of its own.
 
 -----
 

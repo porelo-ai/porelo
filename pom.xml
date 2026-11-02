@@ -123,6 +123,7 @@
         <module>supervisor</module>
         <module>agents</module>
         <module>builds</module>
+        <module>ecosystems</module>
         <module>apps</module>
         <module>daemon</module>
         <module>hooks</module>
@@ -277,6 +278,11 @@
             <dependency>
                 <groupId>org.fuin.porelo</groupId>
                 <artifactId>porelo-build-api</artifactId>
+                <version>${porelo.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.fuin.porelo</groupId>
+                <artifactId>porelo-ecosystem-api</artifactId>
                 <version>${porelo.version}</version>
             </dependency>
 

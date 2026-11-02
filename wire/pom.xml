@@ -15,6 +15,16 @@
     <name>Porelo Wire</name>
     <description>Porelo - Cross-boundary records, varlink and socket labeling (WIRE)</description>
 
+    <!-- Apache-2.0, unlike the parent's license this replaces: the plugin contract, under the same license, builds on it. -->
+
+    <licenses>
+        <license>
+            <name>Apache-2.0</name>
+            <url>https://www.apache.org/licenses/LICENSE-2.0.txt</url>
+            <distribution>repo</distribution>
+        </license>
+    </licenses>
+
     <properties>
         <!-- Deployed to Central. Not interesting on its own - it is deployed because
              porelo-agent-api's pom names it, so resolving the agent API needs it too. -->
@@ -23,6 +33,21 @@
     </properties>
 
     <build>
+
+        <!-- The module's own license, in the jar, beside the classes it covers. -->
+
+        <resources>
+            <resource>
+                <directory>src/main/resources</directory>
+            </resource>
+            <resource>
+                <directory>${project.basedir}</directory>
+                <targetPath>META-INF</targetPath>
+                <includes>
+                    <include>LICENSE</include>
+                </includes>
+            </resource>
+        </resources>
 
         <plugins>
 

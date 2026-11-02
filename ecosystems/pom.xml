@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>org.fuin.porelo</groupId>
+        <artifactId>porelo</artifactId>
+        <version>0.5.1-SNAPSHOT</version>
+    </parent>
+
+    <artifactId>porelo-ecosystems</artifactId>
+    <packaging>pom</packaging>
+    <name>Porelo Ecosystems</name>
+    <description>Porelo - Build-tool plugins (PARENT)</description>
+
+    <!-- The contract a build-tool plugin and Porelo share, and the stub the tests drive. Every real plugin lives
+         in a repository of its own and is found at run time; nothing in Porelo names a build tool. -->
+
+    <modules>
+        <module>api</module>
+        <module>stub</module>
+    </modules>
+
+</project>

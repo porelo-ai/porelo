@@ -84,7 +84,7 @@ Where SELinux is enforcing, a task container cannot reach porelo's sockets until
                             <forceRelease>true</forceRelease>
                             <architecture>x86_64</architecture>
                             <group>Applications/System</group>
-                            <license>GPL-3.0-or-later</license>
+                            <license>GPL-3.0-or-later AND Apache-2.0</license>
                             <packager>Michael Schnell &lt;michael@fuin.org&gt;</packager>
                             <requires>
                                 <!-- Podman 5 as setup demands, with Fedora's epoch: without one rpm reads epoch 0 and 5:4.9 passes. -->
@@ -252,6 +252,15 @@ exit 0
                                 <entry>
                                     <name>/usr/share/licenses/${package.name}/LICENSE</name>
                                     <file>${project.basedir}/../../LICENSE</file>
+                                    <mode>0644</mode>
+                                    <user>root</user>
+                                    <group>root</group>
+                                    <license>true</license>
+                                </entry>
+                                <!-- The classes of porelo-wire in the executables are under this one. -->
+                                <entry>
+                                    <name>/usr/share/licenses/${package.name}/LICENSE.Apache-2.0</name>
+                                    <file>${project.basedir}/../../wire/LICENSE</file>
                                     <mode>0644</mode>
                                     <user>root</user>
                                     <group>root</group>

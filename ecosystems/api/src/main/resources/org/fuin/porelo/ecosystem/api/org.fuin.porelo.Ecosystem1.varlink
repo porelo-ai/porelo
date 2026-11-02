@@ -1,0 +1,51 @@
+# What a build-tool plugin answers: what it recognizes of its tool in a directory, and the settings files that tool
+# needs in a task. A plugin runs without network, never runs the project's code, and holds no credential.
+# Every field is required and of its declared type, an int being whole: an answer with one missing or of another type is
+# refused, never read as empty or false.
+interface org.fuin.porelo.Ecosystem1
+
+# Which ecosystem, the name its executable is installed under, and the version of this contract it was built against.
+method Describe() -> (protocolVersion: int, ecosystem: string)
+
+# One value a plugin recognized. part says what it belongs to; file and line where it is set, line 0 when the file has
+# no line for it. origin says who wrote it: YOURS the person, file relative to the home; CHECKOUT the checkout, file
+# relative to the directory; MACHINE neither, such as a parent in a local repository or the tool's built-in default, file
+# relative to the home, absolute when it lies outside the home, or "" with line 0 when the value comes from no file. Only
+# MACHINE may have no file or an absolute one, and no file holds "..". unknown says
+# the key is set where it cannot be read without running something; value is then "", and refused otherwise. A
+# credential is named by its id only: never its value.
+type Finding (
+    part: (TOOLS, RULES),
+    key: string,
+    value: string,
+    file: string,
+    line: int,
+    origin: (YOURS, CHECKOUT, MACHINE),
+    unknown: bool,
+    note: string
+)
+
+# Something a plugin read and can place in no part: where it is, and what it is. A file that keeps the plugin from
+# trusting what it read of the checkout is reported here, naming that file, with a note. Never a credential's value.
+type Unplaced (file: string, line: int, note: string)
+
+# What the plugin recognizes of its tool in a directory, and in the files of the home the person's own settings are in.
+# It reads them and writes nothing.
+method Detect(directory: string, home: string) -> (findings: []Finding, unplaced: []Unplaced)
+
+# A repository a task's tool reaches: its name and its URL inside the task.
+type Repository (name: string, url: string)
+
+# A settings file for the task. path is relative to the task user's home: names joined by single slashes, none blank,
+# "." or "..", with no quote, backslash or control character. ownerOnly says whether only that user may read it.
+type File (path: string, content: string, ownerOnly: bool)
+
+# The files the tool's settings need so that it reaches these repositories. Given no directory, since nothing reads a
+# task's workspace from the host, it answers whenever a repository is declared, and it writes nothing itself.
+method Configure(repositories: []Repository) -> (files: []File)
+
+# The directory holds nothing of this plugin's tool.
+error NotRecognized ()
+
+# A file it needs cannot be read: detail says which and why, never what the file holds.
+error Unreadable (detail: string)

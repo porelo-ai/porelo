@@ -229,7 +229,7 @@
                             <forceRelease>true</forceRelease>
                             <architecture>x86_64</architecture>
                             <group>Applications/System</group>
-                            <license>GPL-3.0-or-later</license>
+                            <license>GPL-3.0-or-later AND Apache-2.0</license>
                             <packager>Michael Schnell &lt;michael@fuin.org&gt;</packager>
                             <requires>
                                 <require>porelo</require>
@@ -263,6 +263,15 @@
                                 <entry>
                                     <name>/usr/share/licenses/${project.artifactId}/LICENSE</name>
                                     <file>${project.basedir}/../../LICENSE</file>
+                                    <mode>0644</mode>
+                                    <user>root</user>
+                                    <group>root</group>
+                                    <license>true</license>
+                                </entry>
+                                <!-- The classes of porelo-wire in the executable are under this one. -->
+                                <entry>
+                                    <name>/usr/share/licenses/${project.artifactId}/LICENSE.Apache-2.0</name>
+                                    <file>${project.basedir}/../../wire/LICENSE</file>
                                     <mode>0644</mode>
                                     <user>root</user>
                                     <group>root</group>

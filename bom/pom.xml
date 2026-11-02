@@ -36,6 +36,11 @@
             </dependency>
             <dependency>
                 <groupId>org.fuin.porelo</groupId>
+                <artifactId>porelo-ecosystem-api</artifactId>
+                <version>${porelo.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.fuin.porelo</groupId>
                 <artifactId>porelo-wire</artifactId>
                 <version>${porelo.version}</version>
             </dependency>
