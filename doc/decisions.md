@@ -1041,7 +1041,7 @@ A file `project.yml` names, such as `image.snippet_file`, may change with no adm
 with the network an image build has, outside the project's `egress`, on the machine of whoever next starts a task. The
 same is said of a repository's own `porelo.yml` above. The running task stays behind its firewall, but what the build fetched is in its image. **Why it stays:**
 a person who can write to the repository is one the project gave that access, and signing every file a project file
-names has no end. **What would change the answer:** building the image within the project's egress and trusted package
+names has no end. The operator took this on 2026-11-02, told of the exposure. **What would change the answer:** building the image within the project's egress and trusted package
 sources.
 
 ## Several attempts share one credential
