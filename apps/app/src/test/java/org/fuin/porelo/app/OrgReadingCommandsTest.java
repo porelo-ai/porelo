@@ -306,6 +306,31 @@ class OrgReadingCommandsTest {
     }
 
     @Test
+    void aServiceTakenOffAHostsCardIsNullNotAPortNobodyListensOn() throws Exception {
+        organizationYml(ORGANIZATION_YML);
+        host();
+        write(
+                "hosts/build/card",
+                HostCard.writeOffered(
+                        "build",
+                        "build.example.org",
+                        22,
+                        key("carol"),
+                        HostCard.NO_SERVICE,
+                        HostCard.NO_SERVICE,
+                        8448,
+                        keys.get("alice")));
+        commit("alice");
+
+        assertThat(run("org", "--json")).as("what it said: %s", err).isZero();
+
+        final Object services = field(((List<?>) answer().get("hosts")).getFirst(), "services");
+        assertThat(((Map<?, ?>) services).containsKey("forge")).as("null, never left out").isTrue();
+        assertThat(field(services, "forge")).isNull();
+        assertThat(field(services, "matrix")).isEqualTo(Map.of("port", 8448.0));
+    }
+
+    @Test
     void whatTheForgeSaysNowIsShownBesideTheCardAndCannotSayIsNeverYes() throws Exception {
         organizationYml(ORGANIZATION_YML);
         run("org", "--json");
