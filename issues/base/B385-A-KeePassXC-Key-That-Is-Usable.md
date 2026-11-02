@@ -1,6 +1,6 @@
 # B385 — A KeePassXC Key That Is Usable
 
-**Status:** Analyzed.
+**Status:** Backlog; blocked by [B391](README.md#b391).
 **Severity:** medium.
 **Size:** L - one unlock serving three or more `keepassxc-cli` commands without Porelo reading the master password, proved
 first against the real program, then `KeePassXcKey`, the three verbs, the stand-in and about a dozen tests; the
@@ -13,7 +13,8 @@ are usable by a person at their terminal:
 - A retry of `rotate` or `create` after `key-not-served` takes the key the first run put into the database, and never
   makes a second one.
 - No orphaned or empty KeePassXC entry is left: when the entry was added but an attachment is refused, the entry is
-  removed again, and the answer says what is left in the database, if anything.
+  removed again, and the answer says what is left in the database: a private key stays in its recycle bin until the bin is
+  emptied.
 - Under `su` or `sudo -u`, or with standard error redirected, the answer is a clear refusal that says why, never a
   `keepassxc-cli` that waits on a terminal nobody sees or reads the wrong one.
 - A person who never types the master password gets a refusal that says so, not a process killed after ten minutes;
@@ -23,97 +24,55 @@ are usable by a person at their terminal:
 
 ## Plan
 
-Read on 2026-11-02 in `apps/app-vault` and measured against `keepassxc-cli` 2.7.10. What holds today:
-`KeePassXcKey.make` (`KeePassXcKey.java:117-180`) generates the key (193), then runs `keepassxc-cli` three times through a
-`sh -c 'exec 3<&0 <"$1" >>"$2" 2>&1; ...'` wrapper (258-276): `add`, then `attachment-import` for `id_ed25519` and for
-`KeeAgent.settings`, the key and the settings on descriptor 3. Each process asks the master password on the person's
-terminal, so three prompts, measured. Nothing removes an entry when an attachment fails (239-248); a second `make` makes a
-second key (193) under a new default entry name (392-398), or is refused when the same `--entry` exists (measured: `add`
-exits 1). `identity create` has no `--id`; a re-run of rotate/revoke with the same `--id` is answered by
-`IdentityChange.kept`/`finish` without the entry (`IdentityRotateCommand.java:92-96`), and the operation holds no entry.
-The terminal is judged by file descriptor 0 only (`StandardInput.java:45-52`), while the wrapper reopens
-`/proc/<pid>/fd/0` and appends to `/proc/<pid>/fd/2`.
+Read in `apps/app-vault` and measured against `keepassxc-cli` 2.7.10. Today `KeePassXcKey.make` (`:117-180`) generates the key
+(`:193`), then runs `keepassxc-cli` three times through a `sh` wrapper (`:258-276`): `add` and two `attachment-import`, each
+asking the password. Nothing removes an entry when an attachment fails (`:239-248`), a second `make` makes a second key, and
+only standard input is judged a terminal (`StandardInput.java:45-52`), while the wrapper also appends to standard error. A
+timeout reads as exit 127, `key-store-missing` (`:273-275`).
 
-1. **Typed refusals for the terminal (the part that needs no design).** `KeePassXcKey.make` refuses before it runs
-   anything, with the one exit code 64 and typed reasons, in all three verbs:
-   - standard input and standard error must both be a terminal and the same one (`/proc/self/fd/0` and `/proc/self/fd/2`
-     resolve to a `/dev/pts/*` or `/dev/tty*` that this user can open for reading and appending); otherwise `no-terminal`
-     with the words saying which of the two is not (standard error redirected is the case the issue names);
-   - the pts must belong to this process's user (`Files.getOwner`), otherwise a refusal `terminal-not-yours` ("under su or sudo
-     -u the terminal is the other account's");
-   - `/proc/self/fd` must be readable: if the link cannot be read (`hidepid` or no `/proc`), a refusal that says so; how
-     `hidepid` shows is not established (To be checked).
-   Tests: `IdentityKeePassXcTest` gets one test per refusal, run through the stand-in with the context's input a terminal and
-   `terminalOut` a regular file, and with a terminal owned by another user (a fake `StandardInput`), each seen to fail
-   first (today the stand-in is run and the answer is not a refusal).
-2. **One master password per create.** `keepassxc-cli open DB`
-   as one process fed `add`, `attachment-import` with the key on descriptor 3 and the settings on descriptor 4, and `exit`
-   from a pipe, the password from the terminal; works with a pause between the password and the commands (measured), so
-   the wrapper must first let `keepassxc-cli` read the password from the terminal and only then feed the commands. Porelo
-   never sees the password (`KeePassXcKey.java:30`). This is proved first by a spike against the real `keepassxc-cli` in a
-   pseudo-terminal (`script`). If no way that does not depend on timing is found, three prompts stay and the answer says so. In every case the stand-in counts its prompts (one per invocation of `keepassxc-cli` that reads the terminal path).
-3. **A retry takes the key already made.** Before a key is generated, `make` looks for the entry named by `--entry` (an
-   entry is named by the first answer's `entry`, which `key-not-served` already carries): with `attachment-export DB ENTRY
-   id_ed25519 --stdout` it reads the key back, parses it (`OpenSshPrivateKey`, vault module), and takes its fingerprint
-   when the entry holds both attachments; the agent is then waited for as in a first run and no second key is made. An
-   entry that exists without both attachments is not trusted: a refusal that names it and what is in it. Without `--entry`
-   the default name has a timestamp, so a retry cannot find it; the first answer therefore says to give `--entry` for a
-   retry (it names it already), and the three verbs do the same. The key read back is held in memory as it was at
-   generation and cleared the same way (`Arrays.fill`).
-4. **No orphan entry.** In `handOver` (187-250) an attachment that is refused removes the entry again, in the same unlocked
-   session as step 2 if that is built, with one `rm`: KeePassXC moves it to the database's recycle bin, and no second `rm`
-   follows, since that one depends on the database's language. The private key stays there until the person empties the bin,
-   and the answer says so: "in the recycle bin as <group>/<entry> with the private key attached, until you empty it", "removed"
-   for a database with no bin, or "not removed: remove <entry> in KeePassXC". Test with a
-   stand-in mode that refuses the second `attachment-import`, seen to fail first (today the entry stays and the words only
-   say to remove it).
-5. **A person who never types the password.** The `keepassxc-cli` runs through the wrapper get their own bound (the
-   default ten-minute kill is `ProcessCommandRunner`'s), 120 s per prompt, and a timeout is answered as a typed refusal
-   `no-password` "the master password was not typed in 120 s; nothing was kept" -- not as exit 127 (today
-   `CommandException` is mapped to 127 = `key-store-missing`, `KeePassXcKey.java:273-275`, which would blame a missing
-   program). With neither an agent nor a terminal the answer is `no-terminal` before the agent is asked (the order at
-   124-144 already does this; pinned by a test). A re-run with the same `--id` answers its `entry`: the operation record gets
-   the entry (an optional field of `IdentityOperation`, read back by `kept`), and `IdentityChange.print` is given it; for
-   `create`, which has no `--id`, nothing is added (it makes no operation).
-6. **The three verbs answer the same refusal with the same exit code.** One method maps `IdentityChange.Refused` to the answer
-   (typed fields, `reason`, `words`, code); `IdentityCreateCommand.made` (257-283) and its own `Refused` class (101-122) use it
-   instead of re-wrapping. A parameterized test runs each of the three verbs through each refusal of steps 1, 4 and 5 and
-   asserts the same reason and the same code; seen to fail first on whichever differs.
-7. **Acceptance in the stand-in.** `KeePassXcStandIn` counts prompts; its "no file holds the key" check watches while the key
-   exists (a `WatchService` on the temp directory and the account's directories, started before the verb runs, reading each
-   created file's head for the armour) instead of one look at `attachment-import` time; and a test makes the stand-in read
-   from the terminal path given to it, so the redirection of standard input is tested without the real program.
+1. **Refusals before anything runs**, exit 64 and typed, in all three verbs: standard input and standard error must be one
+   terminal this user can open (`no-terminal`, saying which is not); the terminal must be this user's (`terminal-not-yours`,
+   for `su` and `sudo -u`); an unreadable `/proc/self/fd` says so.
+2. **One password per create.** One `keepassxc-cli open DB`, the password read by it from the terminal, then `add`, both
+   `attachment-import`s and `exit` fed from a pipe with the key and the settings on their own descriptors. Porelo never sees the
+   password. Commands sent with the password are lost (measured), so a spike against the real program in a pseudo-terminal
+   comes first. If no way that does not depend on timing is found, three prompts stay and the answer says so.
+3. **A retry takes the key already made.** Before generating, `make` looks in that session for the entry `--entry` names and
+   reads its key back with `attachment-export --stdout`; the agent is then waited for as in a first run. An entry without
+   both attachments is refused, naming what is in it. Without `--entry` the default name has a timestamp, so the first answer
+   says to give it.
+4. **No orphan entry.** A refused attachment removes the entry in the same session with one `rm`, which moves it to the
+   database's recycle bin. There is no second `rm`, which would depend on the database's language. The private key stays in
+   the bin until the person empties it, and the answer says so, naming the group; or says "removed", for a database with no
+   bin; or "not removed: remove <entry> in KeePassXC".
+5. **A password never typed.** 120 s per prompt, then `no-password`, exit 64, nothing kept, rather than 127. With neither agent
+   nor terminal, `no-terminal` before the agent is asked. A re-run with the same `--id` answers its `entry`, an optional field
+   of `IdentityOperation`.
+6. **One refusal, one code.** One method maps `IdentityChange.Refused` to the answer, used by `IdentityCreateCommand.made`
+   (`:257-283`) in place of its own `Refused` (`:101-122`).
+7. **The stand-in** counts prompts, reads from the terminal path it is given, and watches for a file holding the key while the
+   key exists (`WatchService`), rather than one look at `attachment-import`.
 
-Files: `KeePassXcKey.java`, `IdentityCreateCommand.java`, `IdentityRotateCommand.java`, `IdentityRevokeCommand.java`,
-`IdentityChange.java` (print/refuse), `IdentityOperation.java` (the entry), `StandardInput.java` (the owner of the terminal);
-tests `IdentityKeePassXcTest`, `IdentityRotateCommandTest`, `IdentityCreateCommandTest`, `KeePassXcStandIn`.
-Overlap with the move of commit filing into `organization/git`: `IdentityRotateCommand`, `IdentityRevokeCommand`,
-`IdentityChange`, `IdentityRotateCommandTest`, `RegistryCheckout`; this issue is built after that move or on its result, and
-keeps its edits in those files to the lines named above.
+**Files:** `KeePassXcKey`, the three `Identity*Command`s, `IdentityChange`, `IdentityOperation`, `StandardInput`; tests
+`IdentityKeePassXcTest`, `IdentityRotateCommandTest`, `IdentityCreateCommandTest`, `KeePassXcStandIn`. Built after
+[B391](README.md#b391), which rewrites `IdentityChange` and gives `create` its `--id`; line numbers are read again then.
+
+**Red first:** one test per refusal of step 1 through the stand-in, its `arguments` file empty.
 
 ## Acceptance
 
-- Tests with the stand-in `keepassxc-cli` count one password prompt for a whole create, see a retry after
-  `key-not-served` make no second key, and see no entry left after a refused attachment; each seen to fail first.
-- The stand-in's check that no file holds the key at any time also catches a temporary file that is deleted before
-  it looks (`IdentityKeePassXcTest`, `KeePassXcStandIn`); today it would miss one.
-- The redirection of `keepassxc-cli`'s standard input to the person's terminal is tested; today only a run against
-  the real keepassxc-cli 2.7.10 shows it.
-- A refusal for standard error redirected away from the terminal, for a terminal that belongs to another account, and for an
-  unreadable `/proc/self/fd` is answered before `keepassxc-cli` is started (the stand-in's `arguments` file is empty),
-  with the same reason and the same exit code from `create`, `rotate` and `revoke --lost`; each seen to fail first.
-- A master password that is not typed within the bound is answered `no-password` with exit code 64 and nothing kept, not
-  as `key-store-missing`; seen to fail first (today a timeout is read as exit 127).
-- After a refused attachment the database holds no entry of that path, or the answer names where the key is left (the
-  recycle bin group by its name in that database); the stand-in database is read afterwards, not only the words.
-- A re-run of `rotate` or `revoke --lost` with the same `--id` answers the `entry` of the first run, in the plain and in
-  the JSON answer.
-- A retry with the same `--entry` after `key-not-served` makes no second key: the fingerprint it waits for is the first
-  run's, and the stand-in saw exactly one `add`.
-- The stand-in's check that no file holds the key runs while the key exists: a test that writes the key to a temporary file
-  and deletes it before `attachment-import` makes the check fail.
-- Against the real `keepassxc-cli` 2.7.10 in a pseudo-terminal (not only the stand-in), one create asks the password once;
-  where the fall-back holds, three times, and the answer says so.
+- With the stand-in: one prompt for a whole create; a retry after `key-not-served` makes no second key, exactly one `add`, and
+  waits for the first run's fingerprint; each seen to fail first.
+- Against the real `keepassxc-cli` 2.7.10 in a pseudo-terminal: one create asks once; where the fall-back holds, three times, and
+  the answer says so.
+- Standard error redirected, a terminal of another account and an unreadable `/proc/self/fd` are refused before `keepassxc-cli`
+  starts, with the same reason and code from `create`, `rotate` and `revoke --lost`; each seen to fail first.
+- A password not typed in time answers `no-password`, exit 64, nothing kept, not `key-store-missing`; seen to fail first.
+- After a refused attachment the stand-in's database, read afterwards, holds no such entry outside the recycle bin, and the
+  answer says the private key stays in the bin until it is emptied.
+- A re-run with the same `--id` answers the first run's `entry`, plain and as JSON.
+- A test writing the key to a temporary file and deleting it before `attachment-import` makes the stand-in's check fail, and the
+  redirection of standard input to the terminal is tested without the real program.
 
 ## To be checked
 
