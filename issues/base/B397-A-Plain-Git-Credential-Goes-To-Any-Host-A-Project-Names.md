@@ -6,3 +6,10 @@
 `GitCredentialNames` falls back from the entry named for a host to the plain one, so a project's file, by naming a host, can
 receive the person's plain credential; the fallback exists for a machine with one credential. A lent registration token
 was bound to its server for this reason, with no plain fallback.
+
+## To be checked
+
+- `GitCredentialNames.hostOf` reads `https://evil.example?@github.com/x.git` as `github.com`, where git 2.53 connects to
+  `evil.example`. Measured with `git credential fill` and a helper keyed `credential.https://github.com`: git does not run
+  it for that address, so a helper keyed by host lends nothing there. Every other way a credential chosen by `hostOf` leaves
+  is still to be read.
