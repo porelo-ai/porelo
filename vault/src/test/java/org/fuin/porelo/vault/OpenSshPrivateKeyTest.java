@@ -133,8 +133,8 @@ class OpenSshPrivateKeyTest {
                 "bob",
                 "kim7",
                 "abcdef",
-                "ms-test-reviewer",
-                "michael-schnell"
+                "an-invented-user",
+                "one-more-person"
             })
     void aKeyWrittenHereIsOneSshKeygenReadsWithItsPublicHalf(final String login) throws Exception {
         final SigningKey key = SigningKey.generate(login);
