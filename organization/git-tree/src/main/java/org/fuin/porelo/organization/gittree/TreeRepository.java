@@ -39,6 +39,15 @@ final class TreeRepository implements AutoCloseable {
                             + "|does not appear to be a git repository");
 
     /** Only what fetches an organization's repository; {@code ext::} would run a program. */
+    /** What git says of a repository that lacks the branch: it was reached, and holds nothing. */
+    private static final Pattern NO_BRANCH = Pattern.compile("couldn't find remote ref");
+
+    /** What git and ssh-keygen say when a signature could not be made, as against anything else. */
+    private static final Pattern NOT_SIGNED =
+            Pattern.compile(
+                    "(?i)failed to sign|signing failed|agent|public key|couldn't sign|no such"
+                            + " identity");
+
     private static final String PROTOCOLS = "file:ssh:https";
 
     private static final String BRANCH = "refs/heads/main";
@@ -160,6 +169,9 @@ final class TreeRepository implements AutoCloseable {
                             BRANCH + ":" + BRANCH));
             final CommandResult fetched =
                     git(lease.environment(), arguments.toArray(String[]::new));
+            if (!fetched.successful() && NO_BRANCH.matcher(fetched.standardError()).find()) {
+                throw new GitTreeStore.Empty("the organization's repository holds nothing yet");
+            }
             if (!fetched.successful()) {
                 throw new GitTreeStore.Unreachable(
                         "cannot read the organization's repository: "
@@ -233,6 +245,47 @@ final class TreeRepository implements AutoCloseable {
      */
     String dated(final String commit) {
         return require("show", "-s", "--format=%cI", "--end-of-options", commit).strip();
+    }
+
+    /**
+     * Returns a commit's subject.
+     *
+     * @param commit The commit.
+     * @return Its first line.
+     */
+    String subject(final String commit) {
+        return require("show", "-s", "--format=%s", "--end-of-options", commit).strip();
+    }
+
+    /**
+     * Returns a commit's subject that names what was asked, so that an id asked again with anything
+     * else is seen. A card or another long text goes in by its digest.
+     *
+     * @param subject What the change does.
+     * @param asked What it was asked with.
+     * @return The subject.
+     */
+    static String asked(final String subject, final @Nullable String... asked) {
+        final StringBuilder named = new StringBuilder(subject).append(':');
+        for (final String each : asked) {
+            named.append(' ')
+                    .append(
+                            each != null && each.matches("[\\x21-\\x7e]{1,64}")
+                                    ? each
+                                    : digest(String.valueOf(each)));
+        }
+        return named.toString();
+    }
+
+    private static String digest(final String text) {
+        try {
+            return java.util.HexFormat.of()
+                    .formatHex(
+                            java.security.MessageDigest.getInstance("SHA-256")
+                                    .digest(text.getBytes(StandardCharsets.UTF_8)));
+        } catch (java.security.NoSuchAlgorithmException ex) {
+            throw new IllegalStateException("SHA-256 is not available", ex);
+        }
     }
 
     /**
@@ -442,7 +495,14 @@ final class TreeRepository implements AutoCloseable {
             arguments.addAll(List.of("-p", parent));
         }
         arguments.addAll(List.of("-m", subject + "\n\n" + CHANGE_ID + ": " + id + "\n", tree));
-        final String commit = written(git(identity, arguments.toArray(String[]::new))).strip();
+        final CommandResult made = git(identity, arguments.toArray(String[]::new));
+        if (!made.successful() && NOT_SIGNED.matcher(made.standardError()).find()) {
+            throw new Refused(
+                    Refused.NO_KEY,
+                    "the ssh-agent did not sign with " + PersonCard.fingerprint(key),
+                    null);
+        }
+        final String commit = written(made).strip();
         if (parent.isEmpty()) {
             written(git("update-ref", BRANCH, commit));
         } else {

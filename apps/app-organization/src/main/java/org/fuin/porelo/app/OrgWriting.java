@@ -17,6 +17,7 @@ import org.fuin.porelo.organization.gittree.CommitSigning;
 import org.fuin.porelo.organization.gittree.FetchAccess;
 import org.fuin.porelo.organization.gittree.GitTreeStore;
 import org.fuin.porelo.organization.gittree.GitTreeWrites;
+import org.fuin.porelo.organization.gittree.ProjectFile;
 import org.fuin.porelo.vault.AgentKey;
 import org.fuin.porelo.vault.CardException;
 import org.fuin.porelo.vault.PersonCard;
@@ -37,8 +38,13 @@ public abstract class OrgWriting extends OrgReading {
      * @param writes The changes.
      * @param acting The person.
      * @param key Their key as the agent serves it, which signs what a change carries.
+     * @param files A project's own file, changed by that key.
      */
-    record Session(OrganizationWrites writes, OrganizationWrites.Acting acting, AgentKey key) {}
+    record Session(
+            OrganizationWrites writes,
+            OrganizationWrites.Acting acting,
+            AgentKey key,
+            ProjectFile files) {}
 
     /** Opens the changes; replaced by a test, which has no agent or forge. */
     @FunctionalInterface
@@ -94,7 +100,7 @@ public abstract class OrgWriting extends OrgReading {
         answer.put("revision", written.revision());
         answer.put("id", written.id());
         answer.put("again", written.again());
-        answer.put("of", "organization");
+        answer.put("of", of());
         return answer;
     }
 
@@ -106,6 +112,15 @@ public abstract class OrgWriting extends OrgReading {
                         + answer.get("revision")
                         + ", under the id "
                         + answer.get("id"));
+    }
+
+    /**
+     * Returns whose revision the answer's is.
+     *
+     * @return {@code organization}, unless a command changes something else.
+     */
+    String of() {
+        return "organization";
     }
 
     /** Reads a file a person names, saying nothing of what it holds. */
@@ -148,16 +163,19 @@ public abstract class OrgWriting extends OrgReading {
         final AgentKey key = served(socket, card.fingerprint());
         final String own = PersonCard.keyLine(key);
         final OrgAccess.Opened opened = OrgAccess.real(machine, repository);
+        final FetchAccess pushing = pushing(machine, String.valueOf(socket));
+        final CommitSigning signing = CommitSigning.agent(String.valueOf(socket));
         return new Session(
                 new GitTreeWrites(
                         machine.runner(),
                         repository,
                         RegistryOrigin.of(repository).organisation(),
-                        pushing(machine, String.valueOf(socket)),
+                        pushing,
                         opened.identities(),
-                        CommitSigning.agent(String.valueOf(socket))),
+                        signing),
                 new OrganizationWrites.Acting(card.login(), own),
-                key);
+                key,
+                new ProjectFile(machine.runner(), pushing, signing));
     }
 
     /**
@@ -218,7 +236,7 @@ public abstract class OrgWriting extends OrgReading {
     }
 
     /** What the person holds for the address, and their agent, which a push over ssh signs with. */
-    private static FetchAccess pushing(final PoreloContext machine, final String socket) {
+    static FetchAccess pushing(final PoreloContext machine, final String socket) {
         final FetchAccess lent = OrgAccess.lent(machine);
         return address -> {
             final FetchAccess.Lease lease = lent.lend(address);

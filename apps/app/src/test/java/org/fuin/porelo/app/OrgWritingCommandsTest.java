@@ -114,6 +114,15 @@ class OrgWritingCommandsTest {
         if (line.getCommand() instanceof OrgCreateCommand create) {
             create.founder = (machine, address) -> opener.open(machine);
         }
+        if (line.getCommand() instanceof ProjectRepositoryCommand.Changing changing) {
+            changing.places =
+                    (machine, project, login) -> {
+                        if ("unknown".equals(project)) {
+                            throw new Refused(Refused.NOT_FOUND, "no such project", REVISION);
+                        }
+                        return new ProjectRepositoryCommand.Place("/nowhere/" + project, List.of());
+                    };
+        }
         if (line.getCommand() instanceof ProjectAddressCommand address) {
             address.filed = (machine, project) -> !"new".equals(project);
         }
@@ -142,7 +151,12 @@ class OrgWritingCommandsTest {
                         new OrgWriting.Session(
                                 writes(),
                                 new OrganizationWrites.Acting("mia", PersonCard.keyLine(KEY)),
-                                KEY));
+                                KEY,
+                                new org.fuin.porelo.organization.gittree.ProjectFile(
+                                        new ProcessCommandRunner(),
+                                        org.fuin.porelo.organization.gittree.FetchAccess.NONE,
+                                        org.fuin.porelo.organization.gittree.CommitSigning.agent(
+                                                ""))));
         return line.execute(arguments);
     }
 
@@ -560,5 +574,44 @@ class OrgWritingCommandsTest {
     void aSshAddressWithItsGitUserAndPortIsNoSecret() {
         assertThat(OrgAccess.settable("ssh://git@github.com:22/acme/organization.git"))
                 .isNotBlank();
+    }
+
+    @Test
+    void aProjectsFileAnswersThePlaceFirstAndNothingOfTheOrganization() {
+        assertThat(
+                        run(
+                                "project",
+                                "repository",
+                                "add",
+                                "unknown",
+                                "app",
+                                "--upstream",
+                                ADDRESS,
+                                "--json"))
+                .isEqualTo(66);
+        assertThat(calls).as("the organization is not written to").isEmpty();
+
+        out.getBuffer().setLength(0);
+        assertThat(run("project", "repository", "remove", "demo", "app", "--json", "--id", "one"))
+                .as("nowhere to fetch from, so it cannot say and asks for the id")
+                .isEqualTo(69);
+        assertThat(out.toString()).contains("one");
+    }
+
+    @Test
+    void aChangeOfAProjectsFileAnswersThatItsRevisionIsTheProjects() {
+        assertThat(new ProjectRepositoryCommand.Add().of()).isEqualTo("project");
+        assertThat(new ProjectRepositoryCommand.Remove().of()).isEqualTo("project");
+    }
+
+    @Test
+    void aPushIsLentTheAgentThatSigns() throws Exception {
+        try (var lease =
+                OrgWriting.pushing(context(), "/run/agent.sock")
+                        .lend("git@github.com:acme/organization.git")) {
+            assertThat(lease.environment())
+                    .as("over ssh a push has no other way to the person's key")
+                    .containsEntry("SSH_AUTH_SOCK", "/run/agent.sock");
+        }
     }
 }
