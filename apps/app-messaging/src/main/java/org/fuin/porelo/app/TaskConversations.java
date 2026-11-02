@@ -49,6 +49,11 @@ final class TaskConversations {
     }
 
     @Nullable String enroll(Project project, String container, StartSteps steps) {
+        // 'default' has no room as its normal case: a task there talks to nobody, whatever a file
+        // of that name says and whatever this machine has.
+        if (DefaultProject.is(project.name())) {
+            return null;
+        }
         for (final String scheme : project.mail().conversations()) {
             steps.conversation(scheme);
             final java.nio.file.Path adapter =

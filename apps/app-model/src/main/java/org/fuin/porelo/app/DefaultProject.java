@@ -158,6 +158,12 @@ public final class DefaultProject {
                     if (each instanceof Map<?, ?> entry
                             && entry.get("name") instanceof String name
                             && entry.get("upstream") instanceof String upstream) {
+                        // A name goes into the written file as it stands, so one that is no name
+                        // could write a section of its own there: a room, for a project with none.
+                        if (!name.matches(Repository.NAME_PATTERN)) {
+                            throw new IllegalArgumentException(
+                                    "'" + name + "' is not a repository name");
+                        }
                         final String checkout =
                                 entry.get("checkout") instanceof String given ? given : "";
                         entries.add(

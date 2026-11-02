@@ -1,6 +1,6 @@
 # B393 — A Task Of The Default Project Never Joins A Room
 
-**Status:** Backlog.
+**Status:** Review.
 **Size:** S - a check where the project's file is written, a read-side refusal and tests.
 
 **What must be true.** A task of the project `default` talks to nobody, whatever this machine or host has: a homeserver
@@ -29,11 +29,14 @@ No test says that `default` has no conversation (`DefaultProjectTest` names none
 ## Acceptance
 
 - A test fails when `default`'s project has a conversation or a peer, with a homeserver configured for the account and
-  a transport installed, and when a task of `default` asks a transport for anything.
+  a transport installed, and when a task of `default` asks a transport for anything. No setting of this machine or
+  host reaches a project's `mail`, so `default`'s file having none is that case.
 - A name in `repositories.json` that does not match the repository name pattern is refused where it is read, and never
   reaches the written file; a test shows it red first with the name that put `mail` into the file.
-- `upstream` is written as one quoted value whatever it holds.
+- `upstream` is written as one quoted value whatever it holds, and the reader refuses it there.
+- `TaskConversations.enroll` asks nothing of a transport for `default`, whatever a file of that name says.
 
-## To be checked
+## Checked
 
-- A resumed task of `default`: that it reads its project through `ProjectSource`, not a kept copy. Not traced.
+- A resumed task reads its project by name (`TaskControl`, `GateSupport.byName`), and a start through
+  `ProjectSource.require`, so a `project.yml` in the directory is not read for `default`; tried, `task start` refuses it.

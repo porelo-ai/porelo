@@ -434,4 +434,82 @@ class DefaultProjectTest {
 
         assertThat(new DefaultProject(context()).entries()).hasSize(16);
     }
+
+    private Path record() throws Exception {
+        final Path record = dir.resolve("state/porelo/default/repositories.json");
+        Files.createDirectories(record.getParent());
+        return record;
+    }
+
+    @Test
+    void itHasNoConversationAndNobodyToReach() {
+        final Project project = ProjectReader.read(new DefaultProject(context()).file());
+
+        assertThat(project.mail().conversations())
+                .as("no room, whatever this machine has")
+                .isEmpty();
+        assertThat(project.mail().peers()).isEmpty();
+    }
+
+    @Test
+    void aNameInTheRecordThatWouldWriteASectionIsRefusedAndNeverWritten() throws Exception {
+        // A name goes into the written file as it stands, so a line end in it wrote a 'mail'
+        // section with a room peer, and the reader read it.
+        final String name =
+                "x:\n    upstream: \"a\"\nmail:\n  peers:\n    room:\n      address: \"matrix:\"\n    z";
+        Files.writeString(
+                record(),
+                org.fuin.porelo.wire.Json.write(
+                        java.util.List.of(
+                                java.util.Map.of(
+                                        "name", name, "upstream", "https://example.org/r.git"))));
+        final DefaultProject project = new DefaultProject(context());
+
+        assertThatThrownBy(project::file)
+                .as("refused where it is read")
+                .hasMessageContaining("is not a repository name");
+        assertThat(dir.resolve("state/porelo/default/project.yml"))
+                .as("never reaches the written file")
+                .doesNotExist();
+    }
+
+    @Test
+    void anUpstreamIsWrittenAsOneValueWhateverItHolds() throws Exception {
+        final String upstream = "https://example.org/r.git\"\nmail:\n  peers: {}";
+        Files.writeString(
+                record(),
+                org.fuin.porelo.wire.Json.write(
+                        java.util.List.of(java.util.Map.of("name", "app", "upstream", upstream))));
+
+        final Path file = new DefaultProject(context()).file();
+
+        assertThatThrownBy(() -> ProjectReader.read(file))
+                .as("it stays one value, which the reader then refuses as an upstream")
+                .isInstanceOf(ProjectException.class)
+                .hasMessageContaining("'upstream' is");
+    }
+
+    @Test
+    void aTaskOfItIsEnrolledNowhereWhateverAFileNamedSoSays() throws Exception {
+        final Path file = dir.resolve("project.yml");
+        Files.writeString(
+                file,
+                """
+                project:
+                  name: "default"
+                  security_class: "guarded"
+                image:
+                  base_image: "ubuntu:24.04"
+                mail:
+                  peers:
+                    room:
+                      address: "matrix:"
+                """);
+        final Project named = ProjectReader.read(file);
+        assertThat(named.mail().conversations()).as("the file does name a room").isNotEmpty();
+
+        assertThat(new TaskConversations(context()).enroll(named, "porelo-default-fix"))
+                .as("nothing is asked of a transport, so nothing is refused either")
+                .isNull();
+    }
 }
