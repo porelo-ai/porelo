@@ -73,6 +73,9 @@ final class TreeWalk {
                     new TreeMap<>(),
                     new TreeMap<>());
 
+    /** For each login, each key's successors: the keys it was handed on to, read to the tip. */
+    private final Map<String, Map<String, Set<String>>> steps = new TreeMap<>();
+
     private final List<Organization.Refusal> refusals = new ArrayList<>();
 
     /** The judged paths of the commit being judged. */
@@ -174,6 +177,7 @@ final class TreeWalk {
      * @throws CardException When the history proves nothing.
      */
     GitTreeOrganization read(final @Nullable String revision) throws IOException {
+        readChains();
         String reached = null;
         for (final Map.Entry<String, String> entry : repository.line(revision)) {
             if (!commit(entry.getKey(), entry.getValue())) {
@@ -181,7 +185,54 @@ final class TreeWalk {
             }
             reached = entry.getKey();
         }
+        if (revision != null && !revision.equals(reached)) {
+            throw new CardException(
+                    "the identity source could not say enough to reach the revision asked for: the"
+                            + " walk stopped at "
+                            + (reached == null ? "the first commit, accepting nothing" : reached));
+        }
         return answers(reached);
+    }
+
+    /**
+     * The first pass: every change of key on the whole line, to the tip, whatever revision is asked
+     * for, so that a new machine and an old one judge a past commit alike. A step counts only where
+     * the new key signed the commit and both keys signed the card, so vouching for a key reaches
+     * back only from a key its holder handed on to.
+     */
+    private void readChains() throws IOException {
+        for (final Map.Entry<String, String> entry : repository.line(null)) {
+            for (final String path : repository.changed(entry.getKey(), entry.getValue())) {
+                final Matcher person = PERSON.matcher(path);
+                if (person.matches() && TreeFiles.login(person.group(1))) {
+                    readStep(entry.getKey(), path, person.group(1));
+                }
+            }
+        }
+    }
+
+    private void readStep(final String commit, final String path, final String login)
+            throws IOException {
+        try {
+            final Optional<String> object = repository.object(commit, path);
+            if (object.isEmpty()) {
+                return;
+            }
+            final PersonCard card = PersonCard.read(repository.text(object.orElseThrow()), path);
+            if (card.predecessor().isEmpty()
+                    || !card.login().equals(login)
+                    || !card.signedAsItMustBe()
+                    || !PersonCard.fingerprint(repository.signer(commit))
+                            .equals(card.fingerprint())) {
+                return;
+            }
+            steps.computeIfAbsent(login, each -> new TreeMap<>())
+                    .computeIfAbsent(named(card), each -> new TreeSet<>())
+                    .add(card.fingerprint());
+        } catch (CardException ex) {
+            // What the walk refuses vouches for nothing; the second pass says why.
+            return;
+        }
     }
 
     private GitTreeOrganization answers(final @Nullable String reached) {
@@ -409,13 +460,11 @@ final class TreeWalk {
         if (owns.isPresent() && !owns.orElseThrow()) {
             throw new Refused(founder.login() + " does not own " + organisation);
         }
-        final Optional<IdentitySource.Keys> keys = identities.keys(founder.login(), signer);
-        final boolean listed =
-                keys.isPresent() && PersonCard.lists(keys.orElseThrow().keys(), signer);
-        if (keys.isPresent() && keys.orElseThrow().complete() && !listed) {
+        final String state = trust(founder.login(), signer);
+        if (state.equals(Organization.REFUSED)) {
             throw new Refused("no key " + signer + " is listed for " + founder.login());
         }
-        if (owns.isEmpty() || !listed) {
+        if (owns.isEmpty() || state.equals(Organization.FIRST_SEEN)) {
             throw new Undecided("the identity source could not say who founded it");
         }
     }
@@ -618,15 +667,16 @@ final class TreeWalk {
                 || person.handedOn().stream().anyMatch(model.revoked()::contains);
     }
 
-    /** Trusted when the source lists any of a chain's keys, refused when it plainly lists none. */
+    /** Trusted when the source lists any key of the chain, refused when it plainly lists none. */
     private String chain(
             final String login, final String fingerprint, final List<String> handedOn) {
-        final List<String> all = new ArrayList<>(List.of(fingerprint));
+        final Set<String> all = new LinkedHashSet<>(List.of(fingerprint));
         all.addAll(handedOn);
+        List.copyOf(all).forEach(key -> successors(login, key, all));
         String current = null;
         boolean undecided = false;
-        for (final String key : all.stream().distinct().limit(CHAIN).toList()) {
-            final String state = trust(login, key);
+        for (final String key : all.stream().limit(CHAIN).toList()) {
+            final String state = listed(login, key);
             if (state.equals(Organization.TRUSTED)) {
                 return state;
             }
@@ -638,8 +688,22 @@ final class TreeWalk {
         return undecided || current == null ? Organization.FIRST_SEEN : current;
     }
 
-    /** What the identity source says about a login's key. */
+    /** Adds the keys this one was handed on to, and theirs, up to the limit of a chain. */
+    private void successors(final String login, final String key, final Set<String> all) {
+        for (final String next : steps.getOrDefault(login, Map.of()).getOrDefault(key, Set.of())) {
+            if (all.size() < CHAIN && all.add(next)) {
+                successors(login, next, all);
+            }
+        }
+    }
+
+    /** What the identity source says about a key, or any it was handed on to by the tip. */
     private String trust(final String login, final String fingerprint) {
+        return chain(login, fingerprint, List.of());
+    }
+
+    /** What the identity source says about this key alone. */
+    private String listed(final String login, final String fingerprint) {
         final Optional<IdentitySource.Keys> keys = identities.keys(login, fingerprint);
         if (keys.isEmpty()) {
             return Organization.FIRST_SEEN;

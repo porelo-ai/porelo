@@ -90,6 +90,8 @@ would change the answer.
 | The organization's adapter is linked into Porelo | it decides whom Porelo trusts, so it is no executable that would have to be trusted first; a second one comes with a release; its API carries plain data, so one can stand behind a process later | [entry](#the-organizations-adapter-is-linked-into-porelo) |
 | A new key goes straight into KeePassXC, and a running KeePassXC is locked to serve it | accepted: no key file and no master password in Porelo; every database the running KeePassXC has open is locked, and the others stay locked until the person unlocks them | [entry](#a-new-key-goes-straight-into-keepassxc-and-a-running-keepassxc-is-locked-to-serve-it) |
 | A registry's trust record is checked, not hardened against whoever writes the state directory | accepted: a record that fails a check is discarded and the registry walked again from its founding commit; a writer of `$XDG_STATE_HOME` can change Porelo's config and binaries too | [entry](#a-registrys-trust-record-is-checked-not-hardened-against-whoever-writes-the-state-directory) |
+| A project's lock does not bind an organization owner | accepted: an owner may name any admin, and an admin may unlock; every step is a signed commit | [entry](#a-projects-lock-does-not-bind-an-organization-owner) |
+| A past commit is judged by the whole chain of its key, read to the tip | a key handed on keeps its commits on a new machine; a lost key's stay refused, and an owner adds the project's admins again | [entry](#a-past-commit-is-judged-by-the-whole-chain-of-its-key-read-to-the-tip) |
 | **Projects and following** | | |
 | One agent works in one repository | a task holds one repository, so an agent that spans several is one per repository, its commits authored by the name it goes by | [entry](#one-agent-works-in-one-repository) |
 | A project file describes constraints, not instructions | no prompt or standing instruction belongs in `project.yml` | [entry](#a-project-file-describes-constraints-not-instructions) |
@@ -1179,6 +1181,27 @@ the check is there against a damaged or stale record, and further ways a hand-ed
 Ideas, not fixed one by one. **What would change the answer:** a record that crosses a boundary the state directory
 does not, such as one shared between machines or people, which would then have to be signed or proven against the
 history in full.
+
+## A project's lock does not bind an organization owner
+
+A locked member of a project is listed but may do nothing until one of the project's admins unlocks them, and a commit of
+an owner to `members.yml` that changes a lock is refused. **The exposure:** an owner may add and remove a project's admins,
+so an owner can remove a locked admin and add them back unlocked, or add themselves as an admin and sign the unlock in that
+role. **Why it stays:** an owner must be able to name admins, so that a project whose admins all lost their keys can be
+recovered, and a remembered lock would stop only the first way. Every step is a commit the owner signed, so it can be seen
+and answered for, and the refusal still stops a plain edit of a lock. **What would change the answer:** a lock that must hold
+against the organization's owners, which would narrow what an owner may do to recovery alone.
+
+## A past commit is judged by the whole chain of its key, read to the tip
+
+A read walks the organization's first-parent line twice. The first pass reads every change of key to the tip, whatever
+revision was asked for. A step counts only where the new key signed the commit and both keys signed the card, for the login
+whose card it is. The second pass judges rights in order, and asks the identity source about a key and every key it was handed
+on to, so a person whose old key has left the forge keeps their past commits, and a new machine and an old one agree.
+
+**A lost key is no such step.** When an owner replaces a card, nothing leads from the old key to the new one, so on a new
+machine the old key's past commits stay refused if the forge no longer lists it. The recovery is a new signed commit: an owner
+adds the project's admins again, and they add the rest.
 
 ## What a build runs beside its secrets is fixed by its content
 

@@ -68,7 +68,8 @@ class GitTreeStoreTest {
     @BeforeEach
     void repository() throws Exception {
         repo = Files.createDirectory(dir.resolve("organization"));
-        for (final String login : List.of("mia", "alice", "alice-new", "bob", "carol", "mallory")) {
+        for (final String login :
+                List.of("mia", "alice", "alice-new", "bob", "carol", "carol-new", "mallory")) {
             final Path file = dir.resolve(login);
             runner.runOrFail(
                     Command.of(
@@ -955,6 +956,118 @@ class GitTreeStoreTest {
     }
 
     @Test
+    void aRevisionTheWalkCouldNotReachIsRefusedNamingWhereItStopped() throws Exception {
+        founded();
+        project();
+        final String reached = git("rev-parse", "HEAD");
+        write("people/carol.card", card("carol", "carol"));
+        commit("carol");
+        write("projects/demo/card", "name: demo\nadmin: carol\n");
+        commit("mia");
+        write("hosts/build/host.yml", "admins:\n  - login: carol\nprojects: []\n");
+        commit("mia");
+        write("hosts/build/host.yml", "admins:\n  - login: bob\nprojects: []\n");
+        final String undecided = commit("carol");
+        final String stoppedAt = git("rev-parse", "HEAD~1");
+
+        assertThat(read().revision()).as("the tip answers where it stopped").isEqualTo(stoppedAt);
+        assertThat(reached).as("the walk went past this").isNotEqualTo(stoppedAt);
+        assertThatThrownBy(() -> store(repo.toString()).read(forge, undecided))
+                .as("a caller who named a revision is not answered about another")
+                .isInstanceOf(OrganizationException.class)
+                .hasMessageContaining(stoppedAt);
+    }
+
+    @Test
+    void anOldKeyHandedOnKeepsItsPastCommitsWhenOnlyTheNewOneIsListed() throws Exception {
+        founded();
+        project();
+        write("people/alice.card", handedOn("alice", "alice-new", "alice"));
+        commit("alice-new");
+        forge.keys.put("alice", List.of(key("alice-new")));
+
+        final OrganizationQuestions answers = read();
+
+        assertThat(answers.getRefusals()).as("a new machine agrees with an old one").isEmpty();
+        assertThat(answers.isProjectMember("demo", "bob"))
+                .as("alice's old key added bob")
+                .contains("developer");
+    }
+
+    /** A project with carol as a member, whose card comes from the test. */
+    private void projectWithCarol() throws IOException {
+        project();
+        write(
+                "projects/demo/members.yml",
+                "members:\n  - login: alice\n    role: admin\n"
+                        + "  - login: carol\n    role: developer\n");
+        commit("alice");
+        forge.keys.put("carol", List.of(key("carol-new")));
+    }
+
+    @Test
+    void aKeyIsNotVouchedForByACardItCopiedInACommitOfItsOwn() throws Exception {
+        founded();
+        projectWithCarol();
+        write("people/carol.card", card("carol", "mallory"));
+        commit("mallory");
+        write("people/carol.card", handedOn("carol", "carol-new", "mallory"));
+        commit("mallory");
+
+        assertThat(read().isProjectMember("demo", "carol"))
+                .as("the listed key signed no commit handing anything on")
+                .isEmpty();
+    }
+
+    @Test
+    void aKeyHandedOnUnderOneLoginIsNotVouchedForUnderAnother() throws Exception {
+        founded();
+        projectWithCarol();
+        write("people/mallory.card", card("mallory", "mallory"));
+        commit("mallory");
+        write("people/mallory.card", handedOn("mallory", "carol-new", "mallory"));
+        commit("carol-new");
+        write("people/carol.card", card("carol", "mallory"));
+        commit("mallory");
+
+        assertThat(read().isProjectMember("demo", "carol"))
+                .as("a step counts for the login whose card it is")
+                .isEmpty();
+    }
+
+    @Test
+    void afterALostKeyItsPastCommitsStayRefusedUntilAnOwnerAddsTheAdminsAgain() throws Exception {
+        founded();
+        project();
+        write("people/alice.card", card("alice", "alice-new"));
+        commit("mia");
+        forge.keys.put("alice", List.of(key("alice-new")));
+
+        final OrganizationQuestions lost = read();
+
+        assertThat(lost.projectAdmins("demo"))
+                .as("the lost key's commits count for nothing on a new machine")
+                .contains(List.of());
+
+        write("projects/demo/members.yml", "members:\n  - login: alice\n    role: admin\n");
+        commit("mia");
+        write(
+                "projects/demo/members.yml",
+                "members:\n  - login: alice\n    role: admin\n"
+                        + "  - login: bob\n    role: developer\n");
+        commit("alice-new");
+
+        final OrganizationQuestions recovered = read();
+
+        assertThat(recovered.projectAdmins("demo"))
+                .as("the owner added the admin again in a new signed commit")
+                .contains(List.of("alice"));
+        assertThat(recovered.isProjectMember("demo", "bob"))
+                .as("and the new key adds the rest")
+                .contains("developer");
+    }
+
+    @Test
     void aRevisionOffTheLineIsRefused() throws Exception {
         founded();
         git("checkout", "-q", "-b", "aside");
@@ -1268,6 +1381,28 @@ class GitTreeStoreTest {
     }
 
     @Test
+    void aLoginNamedOnlyWithABackupKeyHoldsNoHostAdminsPlace() throws Exception {
+        founded();
+        project();
+        host();
+        write(
+                "hosts/build/host.yml",
+                "admins:\n  - login: alice\n  - login: bob\n    key: \""
+                        + key("carol")
+                        + "\"\n    backup: true\nprojects: []\n");
+        commit("alice");
+        write("hosts/build/host.yml", "admins:\n  - login: bob\nprojects: []\n");
+        commit("bob");
+
+        final OrganizationQuestions answers = read();
+
+        assertThat(answers.isHostAdmin("build", "bob"))
+                .as("bob's own card key is no place")
+                .isFalse();
+        assertThat(answers.isHostAdmin("build", "alice")).isTrue();
+    }
+
+    @Test
     void aHostAdminWhoseCardIsNotVouchedForYetStopsTheWalk() throws Exception {
         founded();
         write("projects/demo/card", "name: demo\nadmin: bob\n");
@@ -1347,6 +1482,7 @@ class GitTreeStoreTest {
         assertThat(read().reach("build"))
                 .as("the owner takes no card off a host that stays")
                 .isPresent();
+        assertThat(refusedPaths(read())).as("and is told so").contains("hosts/build/card");
 
         carried();
         write("hosts/build/card", hostCard("build", "alice"));
