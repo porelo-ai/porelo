@@ -1,6 +1,6 @@
 # B225 — The Agent Found On The Machine
 
-**Status:** Backlog; blocked by [B224](README.md#b224).
+**Status:** Implementing; blocked by [B224](README.md#b224).
 **Size:** L - a method in the contract three agent repositories implement, the choice every start, its dry run and
 the shield share, a new `project.yml` key, the import offered at the start, and the daemon's answers naming the
 choice and the findings; several modules and two contracts.

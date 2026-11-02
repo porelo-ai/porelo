@@ -39,6 +39,8 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b225"></a>[B225](B225-The-Agent-Found-On-The-Machine.md) | L | `porelo` [B224](README.md#b224) | A start without `--agent` and `--provider` takes the agent signed in on the machine and names where it was found; `Agent1.Find` answers presence only, with "cannot say". | 0 |
+| <a id="b226"></a>[B226](B226-An-Imported-Credential-Names-Its-Provider.md) | M | `porelo` [B224](README.md#b224) | `ExtractCredential` takes an optional provider, so an agent signed in to several imports the one named, stored under that provider. | 0 |
 | <a id="b214"></a>[B214](B214-A-Vault-Entry-Put-Again-Unchanged.md) | M | - | `vault put` given the value an entry already holds says `unchanged` and exits 0, so a second play reports nothing changed |
 | <a id="b154"></a>[B154](B154-A-Tamper-Evident-Event-Log-Per-Node.md) | L | - | One hash-chained event log per account, anchored in the user's journal, optionally copied off the machine, kept by `porelo clear`; written by approve, reject, clearance, hand-in, credentials and project changes.; part 1 built, the copy off the machine after it |
 
@@ -56,8 +58,6 @@ from its side, as *blocked by*.
 | <a id="b336"></a>[B336](B336-A-Repository-Says-Whether-A-Merge-Needs-A-Review.md) | S | - | `project.review` and `repositories.<name>.review` are `required` (the default) or `optional`, any other value refused, and answered to the host by `verify --json` |
 | <a id="b371"></a>[B371](B371-A-History-Judged-Under-The-Rules-Of-Its-Time.md) | M | - | A history mode of `porelo commit verify`: each commit judged by the keys and certificates in force at its own time, for a migrated history before the hook is armed |
 | <a id="b395"></a>[B395](B395-A-Transport-Borrows-The-Token-Its-Lifecycle-Needs.md) | S | - | A transport says in `describe` which secret of the person's a lifecycle verb needs, and Porelo lends it from the vault for that verb alone. |
-| <a id="b225"></a>[B225](B225-The-Agent-Found-On-The-Machine.md) | L | `porelo` [B224](README.md#b224) | A start without `--agent` and `--provider` takes the agent signed in on the machine and names where it was found; `Agent1.Find` answers presence only, with "cannot say". | 0 |
-| <a id="b226"></a>[B226](B226-An-Imported-Credential-Names-Its-Provider.md) | M | `porelo` [B224](README.md#b224) | `ExtractCredential` takes an optional provider, so an agent signed in to several imports the one named, stored under that provider. | 0 |
 
 ## Analyzed
 
