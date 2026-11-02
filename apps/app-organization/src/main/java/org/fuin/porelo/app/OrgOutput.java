@@ -27,9 +27,11 @@ final class OrgOutput {
                     Map.entry(Refused.NO_CARD, 65),
                     Map.entry(Refused.REFUSED_STATE, 65),
                     Map.entry(Refused.NOT_FOUND, 66),
+                    Map.entry(Refused.NOT_OPENED, 66),
                     Map.entry(Refused.NO_REPOSITORY, 66),
                     Map.entry(Refused.CANNOT_SAY, 69),
                     Map.entry(Refused.NO_KEY, 69),
+                    Map.entry(Refused.VAULT_SHUT, 77),
                     Map.entry(Refused.NO_ORGANIZATION, 78));
 
     /** A reason this table does not know is nobody's expectation. */

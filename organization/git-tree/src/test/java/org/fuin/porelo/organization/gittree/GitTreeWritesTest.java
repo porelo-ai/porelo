@@ -24,6 +24,7 @@ import org.fuin.porelo.organization.OrganizationQuestions.Refused;
 import org.fuin.porelo.organization.OrganizationWrites.Acting;
 import org.fuin.porelo.organization.OrganizationWrites.Change;
 import org.fuin.porelo.organization.OrganizationWrites.Written;
+import org.fuin.porelo.vault.HostCard;
 import org.fuin.porelo.vault.OpenSshPrivateKey;
 import org.fuin.porelo.vault.PersonCard;
 import org.fuin.porelo.vault.SigningKey;
@@ -1257,5 +1258,150 @@ class GitTreeWritesTest {
                                 .successful())
                 .as("nothing was pushed")
                 .isFalse();
+    }
+
+    private String hostCard(final String name, final String signer) {
+        return HostCard.write(
+                name, "build.example.org", 22, key("carol"), 3000, 2222, 8448, keys.get(signer));
+    }
+
+    @Test
+    void aBackupKeyOfSomeoneElseDoesNotCountAsAnOwnerLeft() throws Exception {
+        write(
+                "owners.yml",
+                "owners:\n  - login: mia\n    key: \""
+                        + key("mia")
+                        + "\"\n  - login: carol\n    key: \""
+                        + key("backup")
+                        + "\"\n    backup: true\n");
+        git("add", "-A");
+        git("-c", "user.signingkey=" + keyFiles.get("mia"), "commit", "-q", "-S", "-m", "backup");
+
+        refusedAs(
+                "last-of-its-kind",
+                () -> as("mia").removeOrganizationOwner(change("mia", "mia", "x"), "mia"));
+    }
+
+    @Test
+    void aRemovedHostLeavesNoCardForOneMadeAgainUnderItsName() throws Exception {
+        build();
+        as("alice")
+                .changeHost(change("alice", "alice", "card"), "build", hostCard("build", "alice"));
+        assertThat(repo.resolve("hosts/build/card")).exists();
+
+        as("mia").removeHost(change("mia", "mia", "off"), "build");
+
+        assertThat(repo.resolve("hosts/build/card")).doesNotExist();
+    }
+
+    @Test
+    void aCardOfAnotherHostIsUsage() throws Exception {
+        build();
+
+        refusedAs(
+                "usage",
+                () ->
+                        as("alice")
+                                .changeHost(
+                                        change("alice", "alice", "x"),
+                                        "build",
+                                        hostCard("other", "alice")));
+    }
+
+    @Test
+    void aCardTheForgeNoLongerStandsByHoldsNoRole() throws Exception {
+        aliceFiled();
+        forge.keys.put("alice", List.of(key("mallory")));
+
+        refusedAs("no-card", () -> as("mia").addHost(change("mia", "mia", "x"), "build", "alice"));
+    }
+
+    @Test
+    void aRepositoryThatIsNotThereIsNoRepositoryAndAFailureIsNot() {
+        final Change first = new Change(new Acting("mia", key("mia")), null, "found");
+
+        refusedAs(
+                "no-repository",
+                () ->
+                        founding(dir.resolve("never-made"))
+                                .createOrganization(first, card("mia", "mia")));
+
+        final GitTreeWrites answering =
+                new GitTreeWrites(
+                        command -> {
+                            if (command.arguments().contains("ls-remote")) {
+                                return new org.fuin.porelo.core.process.CommandResult(
+                                        command, 128, "", "fatal: unable to access: timed out");
+                            }
+                            return runner.run(command);
+                        },
+                        dir.resolve("hanging").toString(),
+                        "acme",
+                        FetchAccess.NONE,
+                        forge,
+                        new CommitSigning(Map.of(), Map.of()));
+        assertThatThrownBy(() -> answering.createOrganization(first, card("mia", "mia")))
+                .as("a forge that says nothing has said no repository is there")
+                .isInstanceOf(GitTreeStore.Unreachable.class);
+    }
+
+    @Test
+    void anIdAskedAgainForAnotherChangeIsRefusedRatherThanAnsweredAsMade() throws Exception {
+        forge.keys.put("carol", List.of(key("carol")));
+        aliceFiled();
+        as("mia").addOrganizationOwner(change("mia", "mia", "one"), "alice");
+        final String tip = tip();
+
+        refusedAs(
+                "usage",
+                () -> as("mia").addOrganizationOwner(change("mia", "mia", "one"), "carol"));
+        refusedAs(
+                "usage",
+                () -> as("mia").removeOrganizationOwner(change("mia", "mia", "one"), "alice"));
+
+        assertThat(tip()).isEqualTo(tip);
+        assertThat(as("mia").addOrganizationOwner(change("mia", "mia", "one"), "alice").again())
+                .as("the same change asked again stays the same answer")
+                .isTrue();
+    }
+
+    @Test
+    void aBackupKeyAskedAgainUnderItsIdWithAnotherKeyIsNotAnsweredAsFiled() throws Exception {
+        final Change first = change("mia", "mia", "one");
+        as("mia").addBackupKey(first, null, key("backup"));
+
+        refusedAs("usage", () -> as("mia").addBackupKey(first, null, key("carol")));
+        assertThat(as("mia").addBackupKey(first, null, key("backup")).again()).isTrue();
+    }
+
+    @Test
+    void aRepositoryWithNoBranchSaysItIsEmptyRatherThanThatItCannotBeReached() throws Exception {
+        final Path bare = dir.resolve("bare.git");
+        runner.runOrFail(Command.of("git", "init", "-q", "--bare", "-b", "main", bare.toString()));
+
+        assertThatThrownBy(
+                        () ->
+                                GitTreeStore.at(
+                                                runner,
+                                                bare.toString(),
+                                                "acme",
+                                                "forge.example",
+                                                FetchAccess.NONE,
+                                                dir.resolve("empty-state"))
+                                        .read(forge))
+                .as("a first card can be prepared for it")
+                .isInstanceOf(GitTreeStore.Empty.class);
+        assertThatThrownBy(
+                        () ->
+                                GitTreeStore.at(
+                                                runner,
+                                                dir.resolve("gone").toString(),
+                                                "acme",
+                                                "forge.example",
+                                                FetchAccess.NONE,
+                                                dir.resolve("gone-state"))
+                                        .read(forge))
+                .isInstanceOf(GitTreeStore.Unreachable.class)
+                .isNotInstanceOf(GitTreeStore.Empty.class);
     }
 }

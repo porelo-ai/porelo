@@ -2645,6 +2645,31 @@ class GitTreeStoreTest {
     }
 
     @Test
+    void aCardThatDoesNotReadNeverReachesAHostsPersonsAndTheOthersStay() throws Exception {
+        carryingHost();
+        write(
+                "projects/demo/members.yml",
+                "members:\n  - login: alice\n    role: admin\n  - login: broken\n    role: developer\n");
+        write("people/broken.card", "login: broken\nkey: not a key\n");
+        commit("alice");
+
+        final List<?> persons = (List<?>) fetch("", "alice").get("persons");
+
+        assertThat(persons)
+                .as("a host stops revoking for everyone if one person's row cannot be read")
+                .extracting(row -> (Object) ((Map<?, ?>) row).get("login"))
+                .doesNotContain("broken")
+                .contains("alice");
+        for (final Object each : persons) {
+            final Map<?, ?> row = (Map<?, ?>) each;
+            assertThat(String.valueOf(row.get("login"))).matches("[a-z][a-z0-9-]{0,31}");
+            assertThat(String.valueOf(row.get("key"))).startsWith("ssh-ed25519 ");
+            assertThat(java.time.LocalDate.parse(String.valueOf(row.get("expires")))).isNotNull();
+            assertThat(row.get("revoked")).isInstanceOf(Boolean.class);
+        }
+    }
+
+    @Test
     void aFirstSeenAdminIsNotAnsweredWithAKeyForRootsLogin() throws Exception {
         carryingHost();
         write("people/carol.card", card("carol", "mallory"));
@@ -2884,5 +2909,38 @@ class GitTreeStoreTest {
         assertThat(read.getPersons())
                 .extracting(OrganizationQuestions.Person::login)
                 .containsExactly("mallory");
+    }
+
+    @Test
+    void aForgeThatHangsIsUnreachableAndNoRefusalToJudge() throws Exception {
+        final String taken = carryingHost();
+        final org.fuin.porelo.core.process.CommandRunner hanging =
+                command -> {
+                    if (command.arguments().contains("fetch")) {
+                        throw new org.fuin.porelo.core.process.CommandException(
+                                command, new IOException("Timed out after 60 s"), "");
+                    }
+                    return runner.run(command);
+                };
+        final GitTreeStore store =
+                GitTreeStore.at(
+                        hanging,
+                        repo.toString(),
+                        "acme",
+                        "forge.example",
+                        FetchAccess.NONE,
+                        dir.resolve("state-hanging"));
+
+        assertThatThrownBy(
+                        () ->
+                                new GitTreeOffline(store, forge)
+                                        .check(
+                                                "build",
+                                                java.util.Set.of(
+                                                        PersonCard.fingerprint(key("alice"))),
+                                                taken))
+                .as("a host's admin must not be shown a slow forge as something to judge")
+                .isInstanceOf(GitTreeStore.Unreachable.class);
+        assertThatThrownBy(() -> store.read(forge)).isInstanceOf(GitTreeStore.Unreachable.class);
     }
 }

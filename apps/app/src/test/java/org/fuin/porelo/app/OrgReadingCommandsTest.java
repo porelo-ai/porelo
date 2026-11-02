@@ -1,6 +1,7 @@
 package org.fuin.porelo.app;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.io.IOException;
 import java.io.PrintWriter;
@@ -18,8 +19,10 @@ import org.fuin.porelo.core.config.XdgPaths;
 import org.fuin.porelo.core.process.Command;
 import org.fuin.porelo.core.process.ProcessCommandRunner;
 import org.fuin.porelo.organization.IdentitySource;
+import org.fuin.porelo.organization.OrganizationQuestions.Refused;
 import org.fuin.porelo.organization.gittree.FetchAccess;
 import org.fuin.porelo.organization.gittree.GitTreeStore;
+import org.fuin.porelo.organization.gittree.ProjectFile;
 import org.fuin.porelo.vault.HostCard;
 import org.fuin.porelo.vault.OpenSshPrivateKey;
 import org.fuin.porelo.vault.PersonCard;
@@ -232,6 +235,9 @@ class OrgReadingCommandsTest {
         return new PoreloContext(runner, new PoreloPaths(xdg, dir.resolve("bin")), arguments -> 0);
     }
 
+    private ProjectFile.Read projectFile =
+            new ProjectFile.Read(ProjectFile.CANNOT_SAY, null, null, null);
+
     private void wire(final CommandLine line) {
         if (line.getCommand() instanceof OrgReading reading) {
             reading.opener =
@@ -245,6 +251,9 @@ class OrgReadingCommandsTest {
                                             FetchAccess.NONE,
                                             machine.paths().xdg().state().resolve("organization")),
                                     forge);
+        }
+        if (line.getCommand() instanceof ProjectShowCommand show) {
+            show.files = (machine, at, keys) -> projectFile;
         }
         line.getSubcommands().values().forEach(this::wire);
     }
@@ -714,5 +723,251 @@ class OrgReadingCommandsTest {
                 .as("a reader prints what it is given")
                 .doesNotContain("u001b")
                 .contains("lory\\nsecond");
+    }
+
+    private int setup(final String... args) {
+        out.getBuffer().setLength(0);
+        err.getBuffer().setLength(0);
+        final CommandLine line = PoreloCli.commandLine(context());
+        line.setOut(new PrintWriter(out));
+        line.setErr(new PrintWriter(err));
+        final CommandLine setup = line.getSubcommands().get("setup");
+        ((OrgSetup) setup.getMixins().get("organization")).opener =
+                (machine, ignored) ->
+                        new OrgAccess.Opened(
+                                GitTreeStore.at(
+                                        runner,
+                                        address,
+                                        "acme",
+                                        "github.com",
+                                        FetchAccess.NONE,
+                                        machine.paths().xdg().state().resolve("organization")),
+                                forge);
+        return line.execute(args);
+    }
+
+    private static final String NAMED = "git@github.com:acme/organization.git";
+
+    private Path settings() {
+        return dir.resolve("config/porelo/organization.yml");
+    }
+
+    @Test
+    void setupWritesTheSettingsOnceTheOrganizationAnswersAndOrgThenReadsThem() throws Exception {
+        assertThat(settings()).doesNotExist();
+
+        assertThat(setup("setup", "--organization", NAMED, "--json"))
+                .as("what it said: %s", err)
+                .isZero();
+
+        assertThat(answer().get("address"))
+                .as("as org answers it, with nothing of who connects")
+                .isEqualTo("github.com:acme/organization.git");
+        assertThat(answer().get("name")).isEqualTo("acme");
+        assertThat(OrgAccess.repository(context())).contains(NAMED);
+        assertThat(run("org", "--json")).as("what it said: %s", err).isZero();
+    }
+
+    @Test
+    void setupOfAnOrganizationThatDoesNotAnswerWritesNothing() throws Exception {
+        address = dir.resolve("gone").toString();
+
+        assertThat(setup("setup", "--organization", NAMED, "--json"))
+                .as("a machine pointed at nothing fails later, where it is harder to see")
+                .isEqualTo(69);
+
+        assertThat(answer().get("reason")).isEqualTo("cannot-say");
+        assertThat(settings()).doesNotExist();
+    }
+
+    @Test
+    void aSecondOrganizationTakesReplaceAndTheSameOneIsAskedAgainFreely() throws Exception {
+        organizationYml(ORGANIZATION_YML);
+        final String other = "git@github.com:other/organization.git";
+
+        assertThat(setup("setup", "--organization", other, "--json")).isEqualTo(65);
+        assertThat(answer().get("reason")).isEqualTo("exists");
+        assertThat(OrgAccess.repository(context()))
+                .as("the machine has one organization")
+                .isNotEqualTo(java.util.Optional.of(other));
+
+        assertThat(setup("setup", "--organization", other, "--replace", "--json")).isZero();
+        assertThat(OrgAccess.repository(context())).contains(other);
+        assertThat(setup("setup", "--organization", other, "--json")).isZero();
+    }
+
+    private void opened() throws Exception {
+        organizationYml(ORGANIZATION_YML);
+        iAm("alice");
+        write("projects/demo/repository.yml", "address: git@github.com:acme/demo.git\n");
+        commit("alice");
+    }
+
+    @Test
+    void anOpenedProjectAnswersItsFilesRepositoriesAtItsOwnRevision() throws Exception {
+        opened();
+        projectFile =
+                new ProjectFile.Read(
+                        ProjectFile.READ,
+                        "b".repeat(40),
+                        org.fuin.porelo.core.project.ProjectReader.read(
+                                new java.io.StringReader(
+                                        LOCAL_PROJECT.replace("mine", "demo")
+                                                + "\nrepositories:\n  app:\n    upstream:"
+                                                + " git@github.com:acme/app.git\n"),
+                                "test"),
+                        null);
+
+        assertThat(run("project", "show", "demo", "--json")).as("what it said: %s", err).isZero();
+
+        final Object repositories = answer().get("repositories");
+        assertThat(field(repositories, "state")).isEqualTo("read");
+        assertThat(field(repositories, "revision"))
+                .as("the --base of project repository, and not the organization's")
+                .isEqualTo("b".repeat(40));
+        assertThat(answer().get("revision")).isNotEqualTo("b".repeat(40));
+        assertThat(((List<?>) field(repositories, "names"))).hasSize(1);
+    }
+
+    @Test
+    void aRefusedProjectFileIsSaidWithWhyAndNamesNothing() throws Exception {
+        opened();
+        projectFile = new ProjectFile.Read(ProjectFile.REFUSED, null, null, "signed by nobody");
+
+        assertThat(run("project", "show", "demo", "--json")).as("what it said: %s", err).isZero();
+
+        final Object repositories = answer().get("repositories");
+        assertThat(field(repositories, "state")).isEqualTo("refused");
+        assertThat(field(repositories, "why")).isEqualTo("signed by nobody");
+        assertThat(((List<?>) field(repositories, "names"))).isEmpty();
+        assertThat(answer().get("matrix_registration_entry")).isNull();
+    }
+
+    @Test
+    void onlyAnUnlockedAdminOfAnOpenedProjectMayChangeItsFile() throws Exception {
+        opened();
+        final org.fuin.porelo.organization.OrganizationQuestions state =
+                OrgAccess.read(
+                                context(),
+                                (machine, ignored) ->
+                                        new OrgAccess.Opened(
+                                                GitTreeStore.at(
+                                                        runner,
+                                                        address,
+                                                        "acme",
+                                                        "github.com",
+                                                        FetchAccess.NONE,
+                                                        machine.paths()
+                                                                .xdg()
+                                                                .state()
+                                                                .resolve("organization")),
+                                                forge))
+                        .answers();
+
+        assertThat(ProjectRepositoryCommand.place(state, "demo", "alice").address())
+                .isEqualTo("git@github.com:acme/demo.git");
+        assertThatThrownBy(() -> ProjectRepositoryCommand.place(state, "demo", "bob"))
+                .as("a developer may not")
+                .isInstanceOfSatisfying(
+                        Refused.class,
+                        ex -> assertThat(ex.reason()).isEqualTo(Refused.NOT_ALLOWED));
+        assertThatThrownBy(() -> ProjectRepositoryCommand.place(state, "demo", "stranger"))
+                .isInstanceOfSatisfying(
+                        Refused.class,
+                        ex -> assertThat(ex.reason()).isEqualTo(Refused.NOT_ALLOWED));
+        assertThatThrownBy(() -> ProjectRepositoryCommand.place(state, "demo", "carol"))
+                .as("carol is the fixture's locked member")
+                .isInstanceOfSatisfying(
+                        Refused.class, ex -> assertThat(ex.reason()).isEqualTo(Refused.LOCKED));
+        assertThatThrownBy(() -> ProjectRepositoryCommand.place(state, "none", "alice"))
+                .isInstanceOfSatisfying(
+                        Refused.class, ex -> assertThat(ex.reason()).isEqualTo(Refused.NOT_FOUND));
+    }
+
+    private org.fuin.porelo.organization.OrganizationQuestions read() throws Exception {
+        return OrgAccess.read(
+                        context(),
+                        (machine, ignored) ->
+                                new OrgAccess.Opened(
+                                        GitTreeStore.at(
+                                                runner,
+                                                address,
+                                                "acme",
+                                                "github.com",
+                                                FetchAccess.NONE,
+                                                machine.paths()
+                                                        .xdg()
+                                                        .state()
+                                                        .resolve("organization")),
+                                        forge))
+                .answers();
+    }
+
+    @Test
+    void aProjectNotOpenedHasNoFileToChange() throws Exception {
+        organizationYml(ORGANIZATION_YML);
+        iAm("alice");
+
+        final org.fuin.porelo.organization.OrganizationQuestions state = read();
+
+        assertThatThrownBy(() -> ProjectRepositoryCommand.place(state, "demo", "alice"))
+                .isInstanceOfSatisfying(
+                        Refused.class, ex -> assertThat(ex.reason()).isEqualTo(Refused.NOT_OPENED));
+    }
+
+    @Test
+    void whoMayChangeAProjectsFileIsNotDecidedByAStaleOrganization() throws Exception {
+        opened();
+        assertThat(run("org", "--json")).as("what it said: %s", err).isZero();
+        Files.move(repo, dir.resolve("moved-away"));
+        final CommandLine line = PoreloCli.commandLine(context());
+        line.setOut(new PrintWriter(out));
+        line.setErr(new PrintWriter(err));
+        wire(line);
+        final CommandLine add =
+                line.getSubcommands()
+                        .get("project")
+                        .getSubcommands()
+                        .get("repository")
+                        .getSubcommands()
+                        .get("add");
+        ((OrgWriting) add.getCommand()).session =
+                machine ->
+                        new OrgWriting.Session(
+                                (org.fuin.porelo.organization.OrganizationWrites)
+                                        java.lang.reflect.Proxy.newProxyInstance(
+                                                getClass().getClassLoader(),
+                                                new Class<?>[] {
+                                                    org.fuin.porelo.organization.OrganizationWrites
+                                                            .class
+                                                },
+                                                (proxy, method, arguments) -> {
+                                                    throw new AssertionError(
+                                                            "the organization is not written to");
+                                                }),
+                                new org.fuin.porelo.organization.OrganizationWrites.Acting(
+                                        "alice", key("alice")),
+                                keys.get("alice"),
+                                new ProjectFile(
+                                        runner,
+                                        FetchAccess.NONE,
+                                        org.fuin.porelo.organization.gittree.CommitSigning.agent(
+                                                ""),
+                                        dir.resolve("memory")));
+        out.getBuffer().setLength(0);
+
+        final int exit =
+                line.execute(
+                        "project",
+                        "repository",
+                        "add",
+                        "demo",
+                        "app",
+                        "--upstream",
+                        "git@github.com:acme/app.git",
+                        "--json");
+
+        assertThat(exit).as("what it said: %s", out).isEqualTo(69);
+        assertThat(out.toString()).contains("who may");
     }
 }
