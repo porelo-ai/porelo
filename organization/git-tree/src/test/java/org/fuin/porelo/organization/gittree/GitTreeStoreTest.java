@@ -2974,4 +2974,13 @@ class GitTreeStoreTest {
                 .isInstanceOf(GitTreeStore.Unreachable.class);
         assertThatThrownBy(() -> store.read(forge)).isInstanceOf(GitTreeStore.Unreachable.class);
     }
+
+    @org.junit.jupiter.api.Test
+    void what_a_forge_said_through_git_is_left_out_of_git_s_words() {
+        org.assertj.core.api.Assertions.assertThat(
+                        TreeRepository.gitsOwnWords(
+                                "remote: your token is secret-of-the-person\n"
+                                        + "fatal: unable to access the repository\n"))
+                .isEqualTo("fatal: unable to access the repository");
+    }
 }

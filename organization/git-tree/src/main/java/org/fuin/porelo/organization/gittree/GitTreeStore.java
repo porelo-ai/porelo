@@ -228,7 +228,8 @@ public final class GitTreeStore {
             if (revision == null && keeps(line, commit, walked.commit())) {
                 keep(walked);
             }
-            return answers(walked, warnings);
+            return answers(
+                    walked, warnings, revision != null || line.getLast().equals(walked.commit()));
         } catch (CommandException ex) {
             // Git did not end in time: a forge that hangs says nothing of the state.
             throw new Unreachable("the organization's repository did not answer in time");
@@ -300,8 +301,13 @@ public final class GitTreeStore {
     }
 
     private OrganizationQuestions answers(final TreeRecord walked, final List<String> warnings) {
+        return answers(walked, warnings, true);
+    }
+
+    private OrganizationQuestions answers(
+            final TreeRecord walked, final List<String> warnings, final boolean whole) {
         return new GitTreeOrganization(
-                walked.commit(), walked.model(), walked.refusals(), warnings, description);
+                walked.commit(), walked.model(), walked.refusals(), warnings, description, whole);
     }
 
     /** The record to go on from: none for a revision before it, or when a card it held changed. */

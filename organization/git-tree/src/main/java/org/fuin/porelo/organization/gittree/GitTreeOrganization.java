@@ -26,7 +26,8 @@ record GitTreeOrganization(
         TreeModel model,
         List<Organization.Refusal> refusals,
         List<String> warnings,
-        Description description)
+        Description description,
+        boolean whole)
         implements OrganizationQuestions {
 
     GitTreeOrganization {

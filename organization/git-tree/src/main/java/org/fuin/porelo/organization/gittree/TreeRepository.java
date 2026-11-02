@@ -175,9 +175,22 @@ final class TreeRepository implements AutoCloseable {
             if (!fetched.successful()) {
                 throw new GitTreeStore.Unreachable(
                         "cannot read the organization's repository: "
-                                + RegistryText.printable(fetched.standardError().strip()));
+                                + RegistryText.printable(gitsOwnWords(fetched.standardError())));
             }
         }
+    }
+
+    /**
+     * Leaves out what the forge said through git: it was just lent a token and can say it back.
+     *
+     * @param said What git wrote on its standard error.
+     * @return Git's own lines.
+     */
+    static String gitsOwnWords(final String said) {
+        return said.lines()
+                .filter(line -> !line.stripLeading().startsWith("remote:"))
+                .collect(java.util.stream.Collectors.joining("\n"))
+                .strip();
     }
 
     /**

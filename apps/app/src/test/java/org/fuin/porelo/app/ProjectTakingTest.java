@@ -335,6 +335,117 @@ class ProjectTakingTest {
     }
 
     @Test
+    void a_file_naming_another_project_is_refused_and_reaches_none_of_its_tasks() throws Exception {
+        commit("michael", FILE.replace("\"demo\"", "\"other\""));
+
+        assertThatThrownBy(() -> taking().taken("demo"))
+                .isInstanceOfSatisfying(
+                        ProjectTaking.Refused.class,
+                        ex -> {
+                            assertThat(ex.code()).isEqualTo(65);
+                            assertThat(ex.getMessage()).contains("names another project");
+                        });
+        assertThat(ProjectSource.resolve(context, "demo").file()).isNull();
+    }
+
+    private static final String WITH_SNIPPET = FILE + "  snippet_file: \"Containerfile\"\n";
+
+    private void snippet(final String signer, final String lines) throws IOException {
+        Files.writeString(repository.resolve("Containerfile"), lines);
+        commit(signer, WITH_SNIPPET);
+    }
+
+    @Test
+    void a_snippet_file_an_admin_signed_is_read_from_the_repository() throws Exception {
+        snippet("michael", "RUN true\n");
+
+        taking().taken("demo");
+
+        assertThat(ProjectSource.resolve(context, "demo").file()).hasContent(WITH_SNIPPET);
+    }
+
+    @Test
+    void a_snippet_file_changed_by_a_writer_alone_changes_no_image() throws Exception {
+        snippet("michael", "RUN true\n");
+        // The file naming it stays what the admin signed: the image is what would change.
+        snippet("alice", "RUN evil\n");
+
+        refused(65, "refused-state");
+    }
+
+    @Test
+    void the_repositorys_attributes_turn_nothing_the_file_judged() throws Exception {
+        Files.writeString(repository.resolve(".gitattributes"), "project.yml ident\n");
+        final String text = FILE + "# $Id$\n";
+        commit("michael", text);
+
+        taking().taken("demo");
+
+        assertThat(ProjectSource.resolve(context, "demo").file()).hasContent(text);
+    }
+
+    @Test
+    void a_walk_the_identity_source_stopped_decides_nothing() throws Exception {
+        taking().taken("demo");
+        // A machine reading afresh, whose source no longer says who founded it.
+        machine.forge.owners.remove("michael");
+        org.fuin.porelo.wire.Directories.create(context.paths().xdg().state());
+        try (var state = Files.walk(context.paths().xdg().state().resolve("organization"))) {
+            state.sorted(java.util.Comparator.reverseOrder())
+                    .forEach(path -> path.toFile().delete());
+        }
+
+        refused(69, "cannot-say");
+    }
+
+    @Test
+    void a_start_judged_older_does_not_place_over_a_newer_one() throws Exception {
+        final List<String> newer = new ArrayList<>();
+        final List<Thread> second = new ArrayList<>();
+        final PoreloContext racing =
+                new PoreloContext(
+                        command -> {
+                            final CommandResult result = context.runner().run(command);
+                            if (second.isEmpty() && command.arguments().contains("fetch")) {
+                                // This start has read; another reads something newer and ends
+                                // first.
+                                final Thread other =
+                                        new Thread(
+                                                () -> {
+                                                    try {
+                                                        taking().taken("demo");
+                                                    } catch (final Exception ex) {
+                                                        throw new IllegalStateException(ex);
+                                                    }
+                                                });
+                                second.add(other);
+                                try {
+                                    newer.add(commit("michael", FILE + "# newer\n"));
+                                    other.start();
+                                    other.join(5000);
+                                } catch (final IOException | InterruptedException ex) {
+                                    throw new IllegalStateException(ex);
+                                }
+                            }
+                            return result;
+                        },
+                        context.paths(),
+                        args -> 0,
+                        machine.environment());
+
+        new ProjectTaking(
+                        racing,
+                        organization.opener(),
+                        FetchAccess.NONE,
+                        new OrganizationProjects(
+                                context.paths().projects().organizationProjects(), hostFiles))
+                .taken("demo");
+        second.getFirst().join();
+
+        assertThat(ProjectSource.resolve(context, "demo").commit()).isEqualTo(newer.getFirst());
+    }
+
+    @Test
     void a_question_reads_nothing_about_a_project_already_here() throws Exception {
         taking().taken("demo");
         organization.outOfReach();

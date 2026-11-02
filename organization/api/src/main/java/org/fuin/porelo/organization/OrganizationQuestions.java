@@ -317,6 +317,16 @@ public interface OrganizationQuestions {
     List<Organization.Refusal> getRefusals();
 
     /**
+     * Tells whether this reaches the newest state: the identity source could not say enough for a
+     * read to go past a commit, so what came after it, a revocation too, is not in this answer.
+     *
+     * @return Whether nothing was left unread.
+     */
+    default boolean whole() {
+        return true;
+    }
+
+    /**
      * Returns what the read has to say of itself, in words to show.
      *
      * @return The warnings.

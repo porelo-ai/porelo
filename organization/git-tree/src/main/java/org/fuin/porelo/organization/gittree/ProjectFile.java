@@ -11,14 +11,18 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.function.UnaryOperator;
 import org.fuin.porelo.core.process.CommandException;
 import org.fuin.porelo.core.process.CommandRunner;
 import org.fuin.porelo.core.project.Project;
+import org.fuin.porelo.core.project.ProjectException;
 import org.fuin.porelo.core.project.ProjectReader;
+import org.fuin.porelo.core.project.SnippetFiles;
 import org.fuin.porelo.organization.OrganizationQuestions.Refused;
 import org.fuin.porelo.organization.OrganizationQuestions.SigningKey;
 import org.fuin.porelo.organization.OrganizationWrites;
@@ -115,7 +119,7 @@ public final class ProjectFile {
             throws IOException {
         try {
             final String tip = clone.tip();
-            final Optional<String> newest = newestChange(clone);
+            final Optional<String> newest = newestChange(clone, PATH);
             if (newest.isEmpty()) {
                 return refused("the project repository holds no project.yml");
             }
@@ -144,7 +148,25 @@ public final class ProjectFile {
                                 + accepted
                                 + ": an admin signs it anew");
             }
-            final Read read = new Read(READ, tip, parsed(clone.text(blob.orElseThrow())), null);
+            final Set<String> named = new LinkedHashSet<>();
+            final Project project =
+                    parsed(clone.text(blob.orElseThrow()), inClone(clone, tip, named));
+            for (final String each : named) {
+                final Optional<String> changed = newestChange(clone, each);
+                if (changed.isPresent()
+                        && !anAdminsKey(
+                                clone.signer(changed.orElseThrow()),
+                                keys,
+                                clone.dated(changed.orElseThrow()))) {
+                    return refused(
+                            each
+                                    + ", which project.yml names, was changed by "
+                                    + changed.orElseThrow()
+                                    + ", not signed by the key of an admin of this project now: an"
+                                    + " admin signs it anew");
+                }
+            }
+            final Read read = new Read(READ, tip, project, null);
             remember(address, dated);
             return read;
         } catch (CardException ex) {
@@ -190,15 +212,32 @@ public final class ProjectFile {
         return new Read(REFUSED, null, null, why);
     }
 
-    private static Project parsed(final String text) {
-        return ProjectReader.read(new StringReader(text), PATH);
+    private static Project parsed(final String text, final SnippetFiles snippets) {
+        return ProjectReader.read(new StringReader(text), PATH, snippets);
     }
 
-    private static Optional<String> newestChange(final TreeRepository clone) {
+    /** Reads what the file names from the commit judged, noting it: it is judged as the file is. */
+    private static SnippetFiles inClone(
+            final TreeRepository clone, final String tip, final Set<String> named) {
+        return (path, origin) -> {
+            final Path normal = Path.of(path).normalize();
+            if (normal.isAbsolute() || normal.startsWith("..")) {
+                throw new ProjectException(origin + ": a snippet file leaves the repository");
+            }
+            final Optional<String> object = clone.object(tip, normal.toString());
+            if (object.isEmpty()) {
+                throw new ProjectException(origin + ": no such snippet file");
+            }
+            named.add(normal.toString());
+            return clone.text(object.orElseThrow());
+        };
+    }
+
+    private static Optional<String> newestChange(final TreeRepository clone, final String path) {
         final List<Map.Entry<String, String>> line = clone.line(null);
         for (int each = line.size() - 1; each >= 0; each--) {
             final Map.Entry<String, String> step = line.get(each);
-            if (clone.changed(step.getKey(), step.getValue()).contains(PATH)) {
+            if (clone.changed(step.getKey(), step.getValue()).contains(path)) {
                 return Optional.of(step.getKey());
             }
         }
@@ -408,7 +447,8 @@ public final class ProjectFile {
         block.setDefaultFlowStyle(DumperOptions.FlowStyle.BLOCK);
         final String written = new Yaml(block).dump(file);
         try {
-            parsed(written);
+            // Only the file's shape: what it names is judged when it is read.
+            parsed(written, (path, origin) -> "");
         } catch (RuntimeException ex) {
             throw new Refused(Refused.USAGE, "that would make no project file", null);
         }

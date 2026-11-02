@@ -218,6 +218,19 @@ public final class ProjectReader {
      * @throws ProjectException If the content does not describe a usable project.
      */
     public static Project read(Reader reader, String origin) {
+        return read(reader, origin, SnippetFiles.beside(Path.of(origin)));
+    }
+
+    /**
+     * Reads a project from YAML whose snippet files lie somewhere other than beside its origin.
+     *
+     * @param reader Source of the YAML.
+     * @param origin Name used in error messages.
+     * @param snippets Where a {@code snippet_file} is read from.
+     * @return The project.
+     * @throws ProjectException If the content does not describe a usable project.
+     */
+    public static Project read(Reader reader, String origin, SnippetFiles snippets) {
         final Object loaded = load(reader, origin);
         if (!(loaded instanceof Map<?, ?> root)) {
             throw new ProjectException(origin + " is empty or is not a YAML mapping");
@@ -237,7 +250,7 @@ public final class ProjectReader {
                         text(project.get("description")),
                         SecurityClass.parse(required(project, "security_class", origin, "project")),
                         image(required(image, "base_image", origin, "image")),
-                        snippet(image, origin),
+                        snippet(image, origin, snippets),
                         text(project.get("upstream")).isEmpty()
                                 ? null
                                 : address(text(project.get("upstream"))),
@@ -245,7 +258,7 @@ public final class ProjectReader {
                         egress(root, origin),
                         packageSources(image, origin),
                         mail,
-                        repositories(root, origin),
+                        repositories(root, origin, snippets),
                         credentials(root, origin),
                         builds(
                                 root,
@@ -393,7 +406,8 @@ public final class ProjectReader {
      * @param origin Name used in error messages.
      * @return What the project declared, empty when it declared nothing.
      */
-    private static java.util.List<Repository> repositories(Map<?, ?> root, String origin) {
+    private static java.util.List<Repository> repositories(
+            Map<?, ?> root, String origin, SnippetFiles snippets) {
         final Object value = root.get("repositories");
         if (value == null) {
             return java.util.List.of();
@@ -426,7 +440,7 @@ public final class ProjectReader {
                             egress(repository, origin, "repositories." + name + "."),
                             declaredLimits(repository, origin, name),
                             issues(repository, origin, name),
-                            repositoryImage(repository, origin, name),
+                            repositoryImage(repository, origin, name, snippets),
                             word(repository, "agent", origin, name),
                             word(repository, "nickname", origin, name),
                             branch(
@@ -1019,7 +1033,7 @@ public final class ProjectReader {
      * long snippet reads better in a file its own syntax highlighting understands.
      */
     @Nullable
-    private static String snippet(Map<?, ?> image, String origin) {
+    private static String snippet(Map<?, ?> image, String origin, SnippetFiles snippets) {
         final Object inline = image.get("snippet");
         final Object file = image.get("snippet_file");
         if (inline != null && file != null) {
@@ -1032,7 +1046,7 @@ public final class ProjectReader {
         if (file == null) {
             return null;
         }
-        return SnippetFiles.beside(Path.of(origin)).read(String.valueOf(file), origin);
+        return snippets.read(String.valueOf(file), origin);
     }
 
     /**
@@ -1040,7 +1054,7 @@ public final class ProjectReader {
      * by, with the same keys and refusals as a repository's own {@code porelo.yml}.
      */
     private static @Nullable ImageSource repositoryImage(
-            Map<?, ?> repository, String origin, String name) {
+            Map<?, ?> repository, String origin, String name, SnippetFiles snippets) {
         final Object image = repository.get("image");
         if (image == null) {
             return null;
@@ -1050,9 +1064,7 @@ public final class ProjectReader {
                     origin + ": 'repositories." + name + ".image' must be a mapping");
         }
         return RepositoryImageReader.image(
-                map,
-                origin + " (repositories." + name + ".image)",
-                SnippetFiles.beside(Path.of(origin)));
+                map, origin + " (repositories." + name + ".image)", snippets);
     }
 
     private static String text(@Nullable Object value) {

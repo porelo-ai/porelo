@@ -191,7 +191,7 @@ public final class ProjectTaking {
         final OrganizationQuestions answers = reading.answers();
         final boolean named =
                 answers.getProjects().stream().anyMatch(each -> each.project().equals(name));
-        if (reading.stale() && (named || projects.find(name) != null)) {
+        if ((reading.stale() || !answers.whole()) && (named || projects.find(name) != null)) {
             // Even with the project's own repository in reach: its keys are what is stale.
             throw cannotSay(name);
         }
@@ -243,33 +243,51 @@ public final class ProjectTaking {
                         fetching,
                         CommitSigning.agent(""),
                         context.paths().projects().projectFileMemory());
-        ProjectFile.Read read = file.read(from, questionKeys(keys));
-        for (int left = tries - 1;
-                left > 0 && ProjectFile.CANNOT_SAY.equals(read.state());
-                left--) {
-            read = file.read(from, questionKeys(keys));
-        }
+        final Path clone = context.paths().projects().organizationClone(name);
+        // Judged under the lock as well: a start judged older must not place over a newer one.
+        final ProjectFile.Read read =
+                FileLocks.holding(
+                        context.paths().projects().organizationCloneLock(name),
+                        () -> {
+                            ProjectFile.Read judged = file.read(from, questionKeys(keys));
+                            for (int left = tries - 1;
+                                    left > 0 && ProjectFile.CANNOT_SAY.equals(judged.state());
+                                    left--) {
+                                judged = file.read(from, questionKeys(keys));
+                            }
+                            final String revision = judged.revision();
+                            if (ProjectFile.READ.equals(judged.state())
+                                    && revision != null
+                                    && namesItself(judged, name)) {
+                                fill(clone, from, revision, fetching, tries);
+                                projects.write(
+                                        new OrganizationProjects.Placed(
+                                                name,
+                                                revision,
+                                                address,
+                                                null,
+                                                List.copyOf(keys),
+                                                homeserver,
+                                                room));
+                            }
+                            return judged;
+                        });
         if (ProjectFile.REFUSED.equals(read.state())) {
             throw new Refused(
                     65,
                     OrganizationQuestions.Refused.REFUSED_STATE,
                     name + " is not started: " + read.why());
         }
-        final String revision = read.revision();
-        if (!ProjectFile.READ.equals(read.state()) || revision == null) {
+        if (!ProjectFile.READ.equals(read.state()) || read.revision() == null) {
             throw cannotSay(name);
         }
-        final Path clone = context.paths().projects().organizationClone(name);
-        final OrganizationProjects.Placed placed =
-                new OrganizationProjects.Placed(
-                        name, revision, address, null, List.copyOf(keys), homeserver, room);
-        FileLocks.holding(
-                context.paths().projects().organizationCloneLock(name),
-                () -> {
-                    fill(clone, from, revision, fetching, tries);
-                    projects.write(placed);
-                    return placed;
-                });
+        if (!namesItself(read, name)) {
+            // Tasks are found by the name in the file: it would reach another project's.
+            throw new Refused(
+                    65,
+                    OrganizationQuestions.Refused.REFUSED_STATE,
+                    name + " is not started: its project.yml names another project");
+        }
         final Project project =
                 org.fuin.porelo.core.project.ProjectReader.read(clone.resolve("project.yml"));
         for (final String scheme : project.mail().conversations()) {
@@ -279,6 +297,11 @@ public final class ProjectTaking {
                 throw new Refused(78, "no-homeserver", String.valueOf(ex.getMessage()));
             }
         }
+    }
+
+    private static boolean namesItself(final ProjectFile.Read read, final String name) {
+        final Project project = read.project();
+        return project != null && name.equals(project.name());
     }
 
     private void fill(
@@ -297,6 +320,11 @@ public final class ProjectTaking {
                 Files.deleteIfExists(template);
             }
         }
+        // The file judged is the bytes placed: the repository's attributes turn nothing at
+        // checkout.
+        final Path attributes = clone.resolve(".git/info/attributes");
+        org.fuin.porelo.wire.Directories.create(attributes.getParent());
+        Files.writeString(attributes, "* -text -ident -working-tree-encoding -filter\n");
         CommandResult fetched = fetch(clone, from, fetching);
         for (int left = tries - 1; left > 0 && !fetched.successful(); left--) {
             fetched = fetch(clone, from, fetching);
