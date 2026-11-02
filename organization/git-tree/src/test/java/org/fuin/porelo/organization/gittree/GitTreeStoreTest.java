@@ -190,8 +190,12 @@ class GitTreeStoreTest {
         commit("alice");
     }
 
+    private GitTreeStore store(final String address) {
+        return new GitTreeStore(runner, address, ORGANISATION, FetchAccess.NONE);
+    }
+
     private OrganizationQuestions read() throws IOException {
-        return new GitTreeStore(runner, repo.toString(), ORGANISATION).read(forge);
+        return store(repo.toString()).read(forge);
     }
 
     private static List<String> refusedPaths(final OrganizationQuestions answers) {
@@ -935,6 +939,136 @@ class GitTreeStoreTest {
     }
 
     @Test
+    void aGivenRevisionAnswersAsItsStateStood() throws Exception {
+        founded();
+        project();
+        final String earlier = git("rev-parse", "HEAD");
+        write("projects/demo/members.yml", "members:\n  - login: alice\n    role: admin\n");
+        commit("alice");
+
+        final OrganizationQuestions answers = store(repo.toString()).read(forge, earlier);
+
+        assertThat(answers.revision()).isEqualTo(earlier);
+        assertThat(answers.isProjectMember("demo", "bob")).as("bob was a member then").isPresent();
+        assertThat(read().isProjectMember("demo", "bob")).as("and is not now").isEmpty();
+    }
+
+    @Test
+    void aRevisionOffTheLineIsRefused() throws Exception {
+        founded();
+        git("checkout", "-q", "-b", "aside");
+        write("owners.yml", owners("mia", "mallory"));
+        final String aside = commit("mia");
+        git("checkout", "-q", "main");
+        write("people/mia.card", card("mia", "mia"));
+        commit("mia");
+
+        assertThatThrownBy(() -> store(repo.toString()).read(forge, aside))
+                .as("a state nobody walked to is no answer")
+                .isInstanceOf(OrganizationException.class)
+                .hasMessageContaining("not on the organization's line");
+    }
+
+    @Test
+    void anAddressIsReadForItsOrganisationAndTheAccessIsLentForTheFetchAlone() throws Exception {
+        founded();
+        final String address = "https://example.invalid/acme/organization";
+        final boolean[] open = {false};
+        final List<String> asked = new ArrayList<>();
+        final FetchAccess access =
+                lent -> {
+                    asked.add(lent);
+                    open[0] = true;
+                    return new FetchAccess.Lease() {
+                        @Override
+                        public List<String> arguments() {
+                            return List.of("-c", "url." + repo + ".insteadOf=" + address);
+                        }
+
+                        @Override
+                        public void close() {
+                            open[0] = false;
+                        }
+                    };
+                };
+        final boolean[] openWhileWalking = {false};
+        final IdentitySource watching =
+                new IdentitySource() {
+                    @Override
+                    public Optional<Keys> keys(final String login) {
+                        return forge.keys(login);
+                    }
+
+                    @Override
+                    public Optional<Boolean> owns(final String organisation, final String login) {
+                        openWhileWalking[0] |= open[0];
+                        return Optional.of(
+                                "acme".equals(organisation)
+                                        && forge.owns(organisation, login).orElse(false));
+                    }
+                };
+
+        final OrganizationQuestions answers =
+                GitTreeStore.open(runner, address, access).read(watching);
+
+        assertThat(answers.isOrganizationOwner("mia")).as("read through what was lent").isTrue();
+        assertThat(asked).as("asked by its address").containsExactly(address);
+        assertThat(open[0]).as("returned after the fetch").isFalse();
+        assertThat(openWhileWalking[0]).as("not held while the walk asks others").isFalse();
+    }
+
+    @Test
+    void aLeaseLendsItsEnvironmentToTheFetch() throws Exception {
+        founded();
+        final String address = "https://example.invalid/acme/organization";
+        final FetchAccess access =
+                lent ->
+                        new FetchAccess.Lease() {
+                            @Override
+                            public Map<String, String> environment() {
+                                return Map.of(
+                                        "GIT_CONFIG_COUNT",
+                                        "1",
+                                        "GIT_CONFIG_KEY_0",
+                                        "url." + repo + ".insteadOf",
+                                        "GIT_CONFIG_VALUE_0",
+                                        address);
+                            }
+                        };
+
+        assertThat(
+                        GitTreeStore.open(runner, address, access)
+                                .read(forge)
+                                .isOrganizationOwner("mia"))
+                .isTrue();
+    }
+
+    @Test
+    void aLeaseIsReturnedWhenTheFetchFails() {
+        final boolean[] closed = {false};
+        final FetchAccess access =
+                lent ->
+                        new FetchAccess.Lease() {
+                            @Override
+                            public void close() {
+                                closed[0] = true;
+                            }
+                        };
+        final GitTreeStore store =
+                new GitTreeStore(runner, dir.resolve("absent").toString(), ORGANISATION, access);
+
+        assertThatThrownBy(() -> store.read(forge)).isInstanceOf(IOException.class);
+
+        assertThat(closed[0]).as("nothing stays lent").isTrue();
+    }
+
+    @Test
+    void anAddressThatNamesNoForgeAndOrganisationIsRefusedAtTheOpening() {
+        assertThatThrownBy(() -> GitTreeStore.open(runner, "ext::sh -c id", FetchAccess.NONE))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
     void aShallowHistoryIsRefusedWhole() throws Exception {
         founded();
         person("alice");
@@ -951,10 +1085,7 @@ class GitTreeStoreTest {
                         "file://" + repo,
                         shallow.toString()));
 
-        assertThatThrownBy(
-                        () ->
-                                new GitTreeStore(runner, shallow.toString(), ORGANISATION)
-                                        .read(forge))
+        assertThatThrownBy(() -> store(shallow.toString()).read(forge))
                 .as("a shallow history proves nothing")
                 .isInstanceOf(OrganizationException.class)
                 .hasMessageContaining("shallow");
@@ -962,13 +1093,7 @@ class GitTreeStoreTest {
 
     @Test
     void aRepositoryThatCannotBeFetchedIsAnError() {
-        assertThatThrownBy(
-                        () ->
-                                new GitTreeStore(
-                                                runner,
-                                                dir.resolve("absent").toString(),
-                                                ORGANISATION)
-                                        .read(forge))
+        assertThatThrownBy(() -> store(dir.resolve("absent").toString()).read(forge))
                 .as("an empty answer would read as no owners at all")
                 .isInstanceOf(IOException.class);
     }
@@ -977,13 +1102,7 @@ class GitTreeStoreTest {
     void aProgramAsTheRepositorysAddressIsNotRun() throws Exception {
         final Path planted = dir.resolve("planted");
 
-        assertThatThrownBy(
-                        () ->
-                                new GitTreeStore(
-                                                runner,
-                                                "ext::sh -c touch% " + planted,
-                                                ORGANISATION)
-                                        .read(forge))
+        assertThatThrownBy(() -> store("ext::sh -c touch% " + planted).read(forge))
                 .isInstanceOf(IOException.class);
 
         assertThat(planted).as("ext:: stays forbidden").doesNotExist();

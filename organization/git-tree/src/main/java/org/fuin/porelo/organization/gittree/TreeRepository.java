@@ -18,6 +18,7 @@ import org.fuin.porelo.vault.CardException;
 import org.fuin.porelo.vault.PersonCard;
 import org.fuin.porelo.vault.RegistryText;
 import org.fuin.porelo.vault.SshSignature;
+import org.jspecify.annotations.Nullable;
 
 /**
  * An owned bare clone in a scratch directory: only objects come over, so nothing of a checkout's or
@@ -49,15 +50,17 @@ final class TreeRepository implements AutoCloseable {
      *
      * @param address Where the repository is.
      * @param runner How git runs.
+     * @param access What the fetch may use, lent for its length.
      * @return The clone.
      * @throws IOException When it cannot be fetched.
      */
-    static TreeRepository fetch(final String address, final CommandRunner runner)
+    static TreeRepository fetch(
+            final String address, final CommandRunner runner, final FetchAccess access)
             throws IOException {
         final TreeRepository clone =
                 new TreeRepository(Files.createTempDirectory("porelo-organization-"), runner);
         try {
-            clone.fill(address);
+            clone.fill(address, access);
             return clone;
         } catch (IOException | RuntimeException ex) {
             clone.close();
@@ -65,38 +68,45 @@ final class TreeRepository implements AutoCloseable {
         }
     }
 
-    private void fill(final String address) throws IOException {
+    private void fill(final String address, final FetchAccess access) throws IOException {
         final Path template = Files.createDirectory(scratch.resolve("empty-template"));
         final CommandResult init =
                 git("init", "-q", "--bare", "--template=" + template, repository.toString());
         if (!init.successful()) {
             throw new IOException("cannot make the organization's clone");
         }
-        final CommandResult fetched =
-                git(
-                        "fetch",
-                        "-q",
-                        "--no-tags",
-                        "--no-recurse-submodules",
-                        "--no-write-fetch-head",
-                        "--update-shallow",
-                        "--",
-                        address,
-                        BRANCH + ":" + BRANCH);
-        if (!fetched.successful()) {
-            throw new IOException(
-                    "cannot read the organization's repository: "
-                            + RegistryText.printable(fetched.standardError().strip()));
+        try (FetchAccess.Lease lease = access.lend(address)) {
+            final List<String> arguments = new ArrayList<>(lease.arguments());
+            arguments.addAll(
+                    List.of(
+                            "fetch",
+                            "-q",
+                            "--no-tags",
+                            "--no-recurse-submodules",
+                            "--no-write-fetch-head",
+                            "--update-shallow",
+                            "--",
+                            address,
+                            BRANCH + ":" + BRANCH));
+            final CommandResult fetched =
+                    git(lease.environment(), arguments.toArray(String[]::new));
+            if (!fetched.successful()) {
+                throw new IOException(
+                        "cannot read the organization's repository: "
+                                + RegistryText.printable(fetched.standardError().strip()));
+            }
         }
     }
 
     /**
-     * Returns the first-parent line up to the branch's tip, oldest first, each with its parent.
+     * Returns the first-parent line, oldest first, each with its parent.
      *
+     * @param revision Where the line ends, or {@code null} for the branch's tip.
      * @return Each commit and its first parent, "" for the founding one.
-     * @throws CardException When the history is shallow, and so proves nothing.
+     * @throws CardException When the history is shallow, and so proves nothing, or the revision is
+     *     not on the line.
      */
-    List<Map.Entry<String, String>> line() {
+    List<Map.Entry<String, String>> line(final @Nullable String revision) {
         if (!require("rev-parse", "--is-shallow-repository").strip().equals("false")) {
             throw new CardException("a shallow organization cannot prove its history");
         }
@@ -107,6 +117,12 @@ final class TreeRepository implements AutoCloseable {
                         .toList()) {
             final String[] ancestry = entry.split(" ");
             line.add(Map.entry(ancestry[0], ancestry.length > 1 ? ancestry[1] : ""));
+            if (ancestry[0].equals(revision)) {
+                return List.copyOf(line);
+            }
+        }
+        if (revision != null) {
+            throw new CardException("the revision asked for is not on the organization's line");
         }
         return List.copyOf(line);
     }
@@ -243,6 +259,10 @@ final class TreeRepository implements AutoCloseable {
     }
 
     private CommandResult git(final String... arguments) {
+        return git(Map.of(), arguments);
+    }
+
+    private CommandResult git(final Map<String, String> variables, final String... arguments) {
         final List<String> all =
                 new ArrayList<>(
                         List.of(
@@ -271,6 +291,7 @@ final class TreeRepository implements AutoCloseable {
         return runner.run(
                 Command.of(all)
                         .in(scratch)
+                        .withEnvironment(variables)
                         .withChosenEnvironment(
                                 Map.of(
                                         "PATH",

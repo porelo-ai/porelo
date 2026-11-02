@@ -146,13 +146,14 @@ final class TreeWalk {
     /**
      * Walks the line, stopping before a commit that could not be decided.
      *
+     * @param revision Where the line ends, or {@code null} for the branch's tip.
      * @return What was accepted, at the last commit reached.
      * @throws IOException When a signature cannot be checked.
      * @throws CardException When the history proves nothing.
      */
-    GitTreeOrganization read() throws IOException {
+    GitTreeOrganization read(final @Nullable String revision) throws IOException {
         String reached = null;
-        for (final Map.Entry<String, String> entry : repository.line()) {
+        for (final Map.Entry<String, String> entry : repository.line(revision)) {
             if (!commit(entry.getKey(), entry.getValue())) {
                 break;
             }
