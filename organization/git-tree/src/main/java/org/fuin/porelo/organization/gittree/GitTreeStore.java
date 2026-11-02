@@ -51,10 +51,13 @@ public final class GitTreeStore {
 
     private final @Nullable Path state;
 
+    private final OrganizationQuestions.Description description;
+
     GitTreeStore(
             final CommandRunner runner,
             final String repository,
             final String organisation,
+            final String forge,
             final FetchAccess access,
             final @Nullable Path state) {
         this.runner = runner;
@@ -62,6 +65,22 @@ public final class GitTreeStore {
         this.organisation = organisation;
         this.access = access;
         this.state = state;
+        final String vouchedBy = "github.com".equals(forge) ? "GitHub" : forge;
+        this.description =
+                new OrganizationQuestions.Description(
+                        organisation,
+                        "the " + vouchedBy + " organization " + organisation,
+                        vouchedBy);
+    }
+
+    private static GitTreeStore opened(
+            final CommandRunner runner,
+            final String repository,
+            final FetchAccess access,
+            final @Nullable Path state) {
+        final RegistryOrigin origin = RegistryOrigin.of(repository);
+        return new GitTreeStore(
+                runner, repository, origin.organisation(), origin.forge().getHost(), access, state);
     }
 
     /**
@@ -75,8 +94,7 @@ public final class GitTreeStore {
      */
     public static GitTreeStore open(
             final CommandRunner runner, final String repository, final FetchAccess access) {
-        return new GitTreeStore(
-                runner, repository, RegistryOrigin.of(repository).organisation(), access, null);
+        return opened(runner, repository, access, null);
     }
 
     /**
@@ -94,8 +112,7 @@ public final class GitTreeStore {
             final String repository,
             final FetchAccess access,
             final Path state) {
-        return new GitTreeStore(
-                runner, repository, RegistryOrigin.of(repository).organisation(), access, state);
+        return opened(runner, repository, access, state);
     }
 
     /**
@@ -138,9 +155,7 @@ public final class GitTreeStore {
     public Optional<OrganizationQuestions> last() throws IOException {
         final List<String> warnings = new ArrayList<>();
         final TreeRecord kept = kept(warnings);
-        return kept == null
-                ? Optional.empty()
-                : Optional.of(kept.model().answers(kept.commit(), kept.refusals(), warnings));
+        return kept == null ? Optional.empty() : Optional.of(answers(kept, warnings));
     }
 
     private OrganizationQuestions walk(
@@ -163,10 +178,15 @@ public final class GitTreeStore {
             if (revision == null && keeps(line, commit, walked.commit())) {
                 keep(walked);
             }
-            return walked.model().answers(walked.commit(), walked.refusals(), warnings);
+            return answers(walked, warnings);
         } catch (CardException | CommandException ex) {
             throw new OrganizationException(ex.getMessage(), ex);
         }
+    }
+
+    private OrganizationQuestions answers(final TreeRecord walked, final List<String> warnings) {
+        return new GitTreeOrganization(
+                walked.commit(), walked.model(), walked.refusals(), warnings, description);
     }
 
     /** The record to go on from: none for a revision before it, or when a card it held changed. */

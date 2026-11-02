@@ -424,6 +424,12 @@ final class TreeWalk {
             if (!signer.equals(card.fingerprint()) && !(held != null && before.owner(signer))) {
                 throw new Refused("signed by " + signer + ", not the card's own key");
             }
+            if (held != null
+                    && !signer.equals(card.fingerprint())
+                    && !held.fingerprint().equals(card.fingerprint())) {
+                // A new machine refuses a lost key's card first; the key goes all the same.
+                revoke(held.fingerprint());
+            }
             state = trust(login, card.fingerprint());
         } else if (prior.fingerprint().equals(card.fingerprint())) {
             if (!signer.equals(card.fingerprint())) {
@@ -442,7 +448,13 @@ final class TreeWalk {
             state = trust(login, card.fingerprint());
         }
         final TreeModel.Person read =
-                new TreeModel.Person(card.fingerprint(), state, handedOn, named(card));
+                new TreeModel.Person(
+                        card.fingerprint(),
+                        state,
+                        handedOn,
+                        named(card),
+                        repository.text(object.orElseThrow()),
+                        earlierKeys(commit, path, held, card));
         final TreeModel.Person judged = revoked(read) ? read.with(Organization.REFUSED) : read;
         model.people().put(login, judged);
         if (judged.state().equals(Organization.REFUSED)) {
@@ -453,6 +465,30 @@ final class TreeWalk {
         }
         model.cards().put(path, object.orElseThrow());
         return true;
+    }
+
+    /** The keys the login held before, with the one this card replaces. */
+    private List<TreeModel.EarlierKey> earlierKeys(
+            final String commit,
+            final String path,
+            final TreeModel.@Nullable Person held,
+            final PersonCard card) {
+        if (held == null) {
+            return List.of();
+        }
+        if (held.fingerprint().equals(card.fingerprint())
+                || held.state().equals(Organization.REFUSED)) {
+            return held.earlier();
+        }
+        final PersonCard replaced = PersonCard.read(held.card(), path);
+        final List<TreeModel.EarlierKey> earlier = new ArrayList<>(held.earlier());
+        earlier.add(
+                new TreeModel.EarlierKey(
+                        replaced.key(),
+                        replaced.created(),
+                        replaced.expires(),
+                        repository.dated(commit)));
+        return List.copyOf(earlier);
     }
 
     /** Reads a card as it must be held: the path's login, signed by its key and any predecessor. */
@@ -547,7 +583,13 @@ final class TreeWalk {
         if (!before.owner(signer)) {
             throw new Refused("signed by " + signer + ", the old key did not hand the card on");
         }
-        model.revoked().add(prior.fingerprint());
+        revoke(prior.fingerprint());
+        return false;
+    }
+
+    /** Revokes a key from this commit on: no card holding it stands. */
+    private void revoke(final String fingerprint) {
+        model.revoked().add(fingerprint);
         for (final Map.Entry<String, TreeModel.Person> held :
                 List.copyOf(model.people().entrySet())) {
             if (!held.getValue().state().equals(Organization.REFUSED) && revoked(held.getValue())) {
@@ -555,7 +597,6 @@ final class TreeWalk {
                 model.cards().remove("people/" + held.getKey() + ".card");
             }
         }
-        return false;
     }
 
     /** The card last accepted for the path, the one a change of key must lead back to. */

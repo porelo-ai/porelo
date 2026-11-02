@@ -194,7 +194,8 @@ class GitTreeStoreTest {
     }
 
     private GitTreeStore store(final String address) {
-        return new GitTreeStore(runner, address, ORGANISATION, FetchAccess.NONE, null);
+        return new GitTreeStore(
+                runner, address, ORGANISATION, "github.com", FetchAccess.NONE, null);
     }
 
     private OrganizationQuestions read() throws IOException {
@@ -1171,7 +1172,12 @@ class GitTreeStoreTest {
                         };
         final GitTreeStore store =
                 new GitTreeStore(
-                        runner, dir.resolve("absent").toString(), ORGANISATION, access, null);
+                        runner,
+                        dir.resolve("absent").toString(),
+                        ORGANISATION,
+                        "github.com",
+                        access,
+                        null);
 
         assertThatThrownBy(() -> store.read(forge)).isInstanceOf(IOException.class);
 
@@ -1223,6 +1229,11 @@ class GitTreeStoreTest {
     private void carried() throws IOException {
         write("hosts/build/host.yml", "admins:\n  - login: alice\nprojects: [demo]\n");
         commit("alice");
+    }
+
+    private static OrganizationQuestions.SigningKey row(
+            final List<OrganizationQuestions.SigningKey> rows, final String key) {
+        return rows.stream().filter(each -> each.key().equals(key)).findFirst().orElseThrow();
     }
 
     private String hostCard(final String name, final String signer) {
@@ -1651,7 +1662,8 @@ class GitTreeStoreTest {
     }
 
     private GitTreeStore keeping() {
-        return new GitTreeStore(runner, repo.toString(), ORGANISATION, FetchAccess.NONE, state());
+        return new GitTreeStore(
+                runner, repo.toString(), ORGANISATION, "github.com", FetchAccess.NONE, state());
     }
 
     @Test
@@ -1752,6 +1764,24 @@ class GitTreeStoreTest {
         assertThat(keeping().read(forge).getWarnings())
                 .as("another organization's trust says nothing of this one")
                 .hasSize(1);
+    }
+
+    @Test
+    void aRecordWhoseCardIsNotTheOneItNamesIsDiscarded() throws Exception {
+        founded();
+        project();
+        keeping().read(forge);
+        Files.writeString(
+                trustRecord(),
+                Files.readString(trustRecord())
+                        .replace(
+                                PersonCard.fingerprint(key("alice")),
+                                PersonCard.fingerprint(key("mallory"))));
+
+        final OrganizationQuestions answers = keeping().read(forge);
+
+        assertThat(answers.getWarnings()).as("the card says another key").hasSize(1);
+        assertThat(answers.isProjectMember("demo", "alice")).as("read afresh").contains("admin");
     }
 
     @Test
@@ -2025,6 +2055,278 @@ class GitTreeStoreTest {
         assertThat(refusedPaths(keeping().read(forge)))
                 .as("a change somebody tried and was refused is not forgotten by the next read")
                 .contains("owners.yml");
+    }
+
+    @Test
+    void signingKeysAreTheActingMembersKeysWithTheirDates() throws Exception {
+        founded();
+        project();
+
+        final List<OrganizationQuestions.SigningKey> rows = read().signingKeys("demo");
+
+        assertThat(rows)
+                .extracting(OrganizationQuestions.SigningKey::login)
+                .containsExactly("alice", "bob");
+        assertThat(row(rows, key("alice")))
+                .isEqualTo(
+                        new OrganizationQuestions.SigningKey(
+                                "alice",
+                                "admin",
+                                key("alice"),
+                                LocalDate.of(2026, 1, 1),
+                                LocalDate.of(2030, 1, 1),
+                                null));
+        assertThat(read().signingKeys("ghost")).as("no such project").isEmpty();
+    }
+
+    @Test
+    void anEarlierKeyGetsARowSayingSinceWhenItNoLongerHolds() throws Exception {
+        founded();
+        project();
+        write("people/alice.card", handedOn("alice", "alice-new", "alice"));
+        final String handed = commit("alice-new");
+        final String date = git("show", "-s", "--format=%cI", handed);
+
+        final List<OrganizationQuestions.SigningKey> rows = read().signingKeys("demo");
+
+        assertThat(row(rows, key("alice")).revokedSince())
+                .as("the commit that replaced it says when")
+                .isEqualTo(date);
+        assertThat(row(rows, key("alice-new")).revokedSince()).as("in force").isNull();
+    }
+
+    @Test
+    void aLockedMemberAndOneWithNoAcceptedCardGetNoSigningKey() throws Exception {
+        founded();
+        project();
+        person("carol");
+        write(
+                "projects/demo/members.yml",
+                "members:\n  - login: alice\n    role: admin\n"
+                        + "  - login: bob\n    role: developer\n    locked: true\n"
+                        + "  - login: carol\n    role: developer\n"
+                        + "  - login: mallory\n    role: developer\n");
+        commit("alice");
+        forge.keys.put("carol", List.of(key("mallory")));
+
+        assertThat(read().signingKeys("demo"))
+                .as("only a key that may sign is handed on to judge commits with")
+                .extracting(OrganizationQuestions.SigningKey::login)
+                .containsExactly("alice");
+    }
+
+    @Test
+    void aHostAdminsBackupKeyIsNoSigningKey() throws Exception {
+        founded();
+        project();
+        write("people/bob.card", card("bob", "bob"));
+        commit("bob");
+        host();
+        write(
+                "hosts/build/host.yml",
+                "admins:\n  - login: alice\n  - login: alice\n    key: \""
+                        + key("carol")
+                        + "\"\n    backup: true\nprojects: []\n");
+        commit("alice");
+
+        final OrganizationQuestions answers = read();
+
+        assertThat(answers.signingKeys("demo"))
+                .extracting(OrganizationQuestions.SigningKey::key)
+                .doesNotContain(key("carol"));
+        assertThat(answers.getHosts().getFirst().admins())
+                .as("one row per key, the pin of a host's first start")
+                .containsExactly(
+                        new Organization.Owner(
+                                "alice", key("alice"), PersonCard.fingerprint(key("alice")), false),
+                        new Organization.Owner(
+                                "alice", key("carol"), PersonCard.fingerprint(key("carol")), true));
+    }
+
+    @Test
+    void trustsSaysYesNoOrCannotSayAndNeverGuesses() throws Exception {
+        founded();
+        project();
+        write("people/carol.card", card("carol", "carol"));
+        commit("carol");
+        forge.keys.put("mallory", List.of(key("alice")));
+        write("people/mallory.card", card("mallory", "mallory"));
+        commit("mallory");
+
+        final OrganizationQuestions answers = read();
+
+        assertThat(answers.trusts("alice", key("alice")).answer()).isEqualTo("yes");
+        assertThat(answers.trusts("alice", key("bob")).answer()).as("another key").isEqualTo("no");
+        assertThat(answers.trusts("ghost", key("bob")).answer()).as("no card").isEqualTo("no");
+        assertThat(answers.trusts("alice", "not a key").answer()).as("no key").isEqualTo("no");
+        assertThat(answers.trusts("carol", key("carol")).answer())
+                .as("the source has not said")
+                .isEqualTo("cannot-say");
+        assertThat(answers.trusts("mallory", key("mallory")))
+                .as("the source said no, and why comes along")
+                .satisfies(trust -> assertThat(trust.answer()).isEqualTo("no"))
+                .satisfies(trust -> assertThat(trust.why()).isNotBlank());
+    }
+
+    @Test
+    void keyHolderIsWhoHoldsAKeyOnAnAcceptedCard() throws Exception {
+        founded();
+        project();
+        forge.keys.put("mallory", List.of(key("alice")));
+        write("people/mallory.card", card("mallory", "mallory"));
+        commit("mallory");
+
+        final OrganizationQuestions answers = read();
+
+        assertThat(answers.keyHolder(key("alice"))).contains("alice");
+        assertThat(answers.keyHolder(key("mallory"))).as("a refused card holds none").isEmpty();
+        assertThat(answers.keyHolder(key("carol"))).as("nobody").isEmpty();
+        assertThat(answers.keyHolder("not a key")).isEmpty();
+    }
+
+    @Test
+    void personsAreAnsweredARefusedOneSayingWhy() throws Exception {
+        founded();
+        project();
+        forge.keys.put("mallory", List.of(key("alice")));
+        write("people/mallory.card", card("mallory", "mallory"));
+        commit("mallory");
+
+        final List<OrganizationQuestions.Person> persons = read().getPersons();
+
+        assertThat(persons)
+                .extracting(OrganizationQuestions.Person::login)
+                .containsExactly("alice", "bob", "mallory");
+        assertThat(persons.getFirst().state()).isEqualTo(Organization.TRUSTED);
+        assertThat(persons.getFirst().expires()).isEqualTo(LocalDate.of(2030, 1, 1));
+        assertThat(persons.getLast().state()).isEqualTo(Organization.REFUSED);
+        assertThat(persons.getLast().why()).as("a refused card says why").isNotBlank();
+    }
+
+    @Test
+    void aRevokedKeyIsSaidOfItsCard() throws Exception {
+        founded();
+        project();
+        forge.keys.put("carol", List.of(key("alice")));
+        write("people/carol.card", card("carol", "alice"));
+        commit("alice");
+        forge.keys.put("alice", List.of(key("alice-new")));
+        write("people/alice.card", card("alice", "alice-new"));
+        commit("mia");
+
+        final OrganizationQuestions.Person carol =
+                read().getPersons().stream()
+                        .filter(each -> each.login().equals("carol"))
+                        .findFirst()
+                        .orElseThrow();
+
+        assertThat(carol.revoked()).as("carol's card held the key the owner replaced").isTrue();
+        assertThat(carol.state())
+                .as("a new machine agrees with one that saw the key in force")
+                .isEqualTo(Organization.REFUSED);
+    }
+
+    @Test
+    void projectsAndTheirMembersAreAnsweredAsListed() throws Exception {
+        founded();
+        project();
+        host();
+        carried();
+        write("projects/demo/repository.yml", "address: git@github.com:acme/demo.git\n");
+        commit("alice");
+        write(
+                "projects/demo/members.yml",
+                "members:\n  - login: alice\n    role: admin\n"
+                        + "  - login: bob\n    role: developer\n    locked: true\n");
+        commit("alice");
+
+        final OrganizationQuestions answers = read();
+
+        assertThat(answers.getProjects())
+                .containsExactly(
+                        new OrganizationQuestions.Project(
+                                "demo", List.of("alice"), List.of("bob"), "alice", true, "build"));
+        assertThat(answers.getProjectMembers("demo"))
+                .as("a locked member stays listed")
+                .contains(
+                        List.of(
+                                new OrganizationQuestions.Member("alice", "admin", false),
+                                new OrganizationQuestions.Member("bob", "developer", true)));
+        assertThat(answers.getProjectMembers("ghost")).isEmpty();
+    }
+
+    @Test
+    void cardsAreAnsweredAsTheyWereFiled() throws Exception {
+        founded();
+        project();
+        host();
+        final String text = hostCard("build", "alice");
+        write("hosts/build/card", text);
+        commit("alice");
+
+        final OrganizationQuestions answers = read();
+
+        assertThat(answers.getCard("alice")).contains(card("alice", "alice"));
+        assertThat(answers.getCard("ghost")).isEmpty();
+        assertThat(answers.getHostCard("build")).contains(text);
+        assertThat(answers.getHostCard("ghost")).isEmpty();
+        assertThat(answers.getHosts().getFirst().card().matrixPort()).isEqualTo(8448);
+    }
+
+    @Test
+    void ownersAreAnsweredWithTheirBackupKeys() throws Exception {
+        founded();
+        write(
+                "owners.yml",
+                owners("mia")
+                        + "  - login: mia\n    key: \""
+                        + key("carol")
+                        + "\"\n    backup: true\n");
+        commit("mia");
+
+        assertThat(read().getOrganizationOwners())
+                .extracting(Organization.Owner::key, Organization.Owner::backup)
+                .containsExactly(
+                        org.assertj.core.groups.Tuple.tuple(key("mia"), false),
+                        org.assertj.core.groups.Tuple.tuple(key("carol"), true));
+    }
+
+    @Test
+    void aPlaceHeldByOneKeyWithNoBackupIsNamed() throws Exception {
+        founded();
+        project();
+        host();
+
+        assertThat(read().getSoleWithoutBackup())
+                .containsExactly(
+                        new Organization.Sole("owner", null, "mia"),
+                        new Organization.Sole("host-admin", "build", "alice"));
+
+        write(
+                "owners.yml",
+                owners("mia")
+                        + "  - login: mia\n    key: \""
+                        + key("carol")
+                        + "\"\n    backup: true\n");
+        commit("mia");
+        write(
+                "hosts/build/host.yml",
+                "admins:\n  - login: alice\n  - login: alice\n    key: \""
+                        + key("bob")
+                        + "\"\n    backup: true\nprojects: []\n");
+        commit("alice");
+
+        assertThat(read().getSoleWithoutBackup()).as("both now have a way back").isEmpty();
+    }
+
+    @Test
+    void theOrganizationIsDescribedInWords() throws Exception {
+        founded();
+
+        assertThat(read().describe())
+                .isEqualTo(
+                        new OrganizationQuestions.Description(
+                                ORGANISATION, "the GitHub organization acme", "GitHub"));
     }
 
     @Test

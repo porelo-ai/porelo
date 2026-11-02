@@ -156,6 +156,16 @@ final class TreeRepository implements AutoCloseable {
     }
 
     /**
+     * Returns a commit's date, as its signer wrote it.
+     *
+     * @param commit The commit.
+     * @return The date, ISO 8601.
+     */
+    String dated(final String commit) {
+        return require("show", "-s", "--format=%cI", "--end-of-options", commit).strip();
+    }
+
+    /**
      * Returns the blob a regular file at this path is.
      *
      * @param commit The commit.

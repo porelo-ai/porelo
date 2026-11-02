@@ -1,5 +1,7 @@
 package org.fuin.porelo.organization.gittree;
 
+import java.time.LocalDate;
+import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -57,20 +59,7 @@ record TreeRecord(@Nullable String commit, TreeModel model, List<Organization.Re
                                                 owner.backup()))
                         .toList());
         final Map<String, Object> people = new LinkedHashMap<>();
-        model.people()
-                .forEach(
-                        (login, person) ->
-                                people.put(
-                                        login,
-                                        Map.of(
-                                                "fingerprint",
-                                                person.fingerprint(),
-                                                "state",
-                                                person.state(),
-                                                "handed_on",
-                                                person.handedOn(),
-                                                "predecessor",
-                                                person.predecessor())));
+        model.people().forEach((login, person) -> people.put(login, person(person)));
         record.put("people", people);
         final Map<String, Object> projects = new LinkedHashMap<>();
         model.projects().forEach((name, project) -> projects.put(name, project(project)));
@@ -94,6 +83,31 @@ record TreeRecord(@Nullable String commit, TreeModel model, List<Organization.Re
                                                 refusal.why()))
                         .toList());
         return Json.write(record);
+    }
+
+    private static Map<String, Object> person(final TreeModel.Person person) {
+        final Map<String, Object> written = new LinkedHashMap<>();
+        written.put("fingerprint", person.fingerprint());
+        written.put("state", person.state());
+        written.put("handed_on", person.handedOn());
+        written.put("predecessor", person.predecessor());
+        written.put("card", person.card());
+        written.put(
+                "earlier",
+                person.earlier().stream()
+                        .map(
+                                each ->
+                                        Map.of(
+                                                "key",
+                                                each.key(),
+                                                "valid_from",
+                                                each.validFrom().toString(),
+                                                "valid_until",
+                                                each.validUntil().toString(),
+                                                "revoked_since",
+                                                each.revokedSince()))
+                        .toList());
+        return written;
     }
 
     private static Map<String, Object> project(final TreeModel.ProjectState project) {
@@ -164,7 +178,9 @@ record TreeRecord(@Nullable String commit, TreeModel model, List<Organization.Re
                                 model.people()
                                         .put(
                                                 login(login, "people"),
-                                                person(map(person, "people"))));
+                                                person(
+                                                        string(login, "people"),
+                                                        map(person, "people"))));
         map(record.get("projects"), "projects")
                 .forEach(
                         (name, project) -> {
@@ -219,7 +235,7 @@ record TreeRecord(@Nullable String commit, TreeModel model, List<Organization.Re
                 flag(entry.get("backup"), "owners"));
     }
 
-    private static TreeModel.Person person(final Map<?, ?> entry) {
+    private static TreeModel.Person person(final String login, final Map<?, ?> entry) {
         final String state = string(entry.get("state"), "people");
         require(
                 Set.of(Organization.TRUSTED, Organization.FIRST_SEEN, Organization.REFUSED)
@@ -231,11 +247,32 @@ record TreeRecord(@Nullable String commit, TreeModel model, List<Organization.Re
             handedOn.add(fingerprint(each, "people"));
         }
         require(predecessor.isEmpty() || FINGERPRINT.matcher(predecessor).matches(), "people");
+        final String card = string(entry.get("card"), "people");
+        final String fingerprint = fingerprint(entry.get("fingerprint"), "people");
+        final List<TreeModel.EarlierKey> earlier = new ArrayList<>();
+        for (final Object each : list(entry.get("earlier"), "people")) {
+            earlier.add(earlier(map(each, "people")));
+        }
+        try {
+            final PersonCard read = PersonCard.read(card, "the trust record");
+            require(read.login().equals(login) && read.fingerprint().equals(fingerprint), "people");
+        } catch (CardException ex) {
+            throw malformed("people");
+        }
         return new TreeModel.Person(
-                fingerprint(entry.get("fingerprint"), "people"),
-                state,
-                List.copyOf(handedOn),
-                predecessor);
+                fingerprint, state, List.copyOf(handedOn), predecessor, card, List.copyOf(earlier));
+    }
+
+    private static TreeModel.EarlierKey earlier(final Map<?, ?> entry) {
+        try {
+            return new TreeModel.EarlierKey(
+                    string(entry.get("key"), "people"),
+                    LocalDate.parse(string(entry.get("valid_from"), "people")),
+                    LocalDate.parse(string(entry.get("valid_until"), "people")),
+                    string(entry.get("revoked_since"), "people"));
+        } catch (DateTimeParseException ex) {
+            throw malformed("people");
+        }
     }
 
     private static TreeModel.ProjectState project(final Map<?, ?> entry) {
