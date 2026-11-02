@@ -25,7 +25,8 @@ import picocli.CommandLine.Command;
             OrgCardCommand.class,
             OrgHostCardCommand.class,
             OrgProjectsCommand.class,
-            OrgFetchCommand.class
+            OrgFetchCommand.class,
+            OrgSignersCommand.class
         })
 public class OrgCommand extends OrgReading {
 

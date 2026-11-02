@@ -2440,9 +2440,18 @@ class GitTreeStoreTest {
     void aChangeOfTheHostsFilesNotSignedForThePinIsRefused() throws Exception {
         final String taken = carryingHost();
         write("hosts/build/card", hostCard("build", "mia"));
-        commit("mia");
+        final String changed = commit("mia");
 
-        refusedAs("refused-state", () -> fetch(taken, "alice"));
+        assertThatThrownBy(() -> fetch(taken, "alice"))
+                .as("the host's admin must see what was changed and by whom, to judge it")
+                .isInstanceOfSatisfying(
+                        OrganizationQuestions.Refused.class,
+                        refused -> {
+                            assertThat(refused.reason()).isEqualTo("refused-state");
+                            assertThat(refused.getMessage())
+                                    .contains(changed)
+                                    .contains(PersonCard.fingerprint(key("mia")));
+                        });
     }
 
     @Test
