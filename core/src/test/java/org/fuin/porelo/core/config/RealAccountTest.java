@@ -33,4 +33,14 @@ class RealAccountTest {
         org.assertj.core.api.Assertions.assertThat(System.getenv("DBUS_SESSION_BUS_ADDRESS"))
                 .isNull();
     }
+
+    /** A key with a passphrase would otherwise open a window on the person's desktop. */
+    @Test
+    void nothingAsksThePersonOnTheirDesktop() {
+        org.assertj.core.api.Assertions.assertThat(System.getenv("DISPLAY")).isNull();
+        org.assertj.core.api.Assertions.assertThat(System.getenv("WAYLAND_DISPLAY")).isNull();
+        org.assertj.core.api.Assertions.assertThat(System.getenv("SSH_ASKPASS")).isNull();
+        org.assertj.core.api.Assertions.assertThat(System.getenv("SSH_ASKPASS_REQUIRE"))
+                .isEqualTo("never");
+    }
 }
