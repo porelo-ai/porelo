@@ -136,6 +136,7 @@ from its side, as *blocked by*.
 |---|---|---|---|
 | <a id="b397"></a>[B397](B397-A-Plain-Git-Credential-Goes-To-Any-Host-A-Project-Names.md) | - | - | A plain `git.token` or `git.ssh` reaches only a host the person meant it for, not whatever host a project's file names. |
 | <a id="b394"></a>[B394](B394-An-Online-Task-On-A-Host-With-No-Forge-Passes-On-To-Its-Upstream.md) | S | - | An `online` task on a host with no forge passes on to its `upstream` instead of pushing to a forge that is not there. |
+| <a id="b399"></a>[B399](B399-A-Maven-Server-Password-Brought-Into-The-Vault-On-Command.md) | - | - | A person brings one named Maven server's password from their own settings into the vault, at their explicit command |
 | <a id="b386"></a>[B386](B386-A-Project-Access-Contract-Without-Guessing.md) | S | - | A read-only lookup by `Porelo-Change-Id`, the head `project verify` takes from a bundle written down, `access add --role admin` for a listed admin defined, and verify naming the access commit's signer |
 | <a id="b384"></a>[B384](B384-A-Start-That-Waits-For-Its-Helpers.md) | S | - | A start and a resume wait for their helpers and fail with 70 when one does not come up, a host's refusals come before the resume record, and a racing start stops only its own task |
 | <a id="b380"></a>[B380](B380-Small-Edge-Cases-Left-By-Readings-And-Fixes.md) | - | - | The small edge cases readings and fixes left, gathered to be placed |
