@@ -324,9 +324,8 @@ The command line and the daemon's logic are modules by area, `app-<area>`, submo
 - **A tail sends 64 KB chunks 200 ms apart**, so a backlog drains at about 320 KB/s.
 - **A registry two processes write is a directory of files**, one per entry.
 - **The daemon hands out paths and takes back only those**, reporting a moved file as absent.
-- **A refusal is a named value, never a sentence to parse**: a follow carries its outcome, the commit it refused
-  beside the one in force, the signer's fingerprint and `needsAPerson`, and `Following()`, `Projects().following`
-  and `doctor` render the same values rather than deciding again.
+- **A refusal is a named value, never a sentence to parse**, and every interface renders that value rather than
+  deciding again.
 - **An agent's end is asked only of a log quiet for ten seconds, and once per size**: asking at every pass would
   start every agent for every running task twice a second.
 - **A long-lived background pass runs on a platform thread of its own (`BackgroundPass`), and every `VarlinkServer`
@@ -365,7 +364,7 @@ The command line and the daemon's logic are modules by area, `app-<area>`, submo
   version is refused.
 - **`project.yml` is edited as text**, never round-tripped through a YAML model (`EgressEdit`).
 - **A process wrapper streams a long command's lines as they arrive**, so a killed one leaves them.
-- **A verb that ends something answers for everything the machine lists**, followed or not.
+- **A verb that ends something answers for everything the machine lists**, whoever filed it.
 
 ## The rented test machines
 
