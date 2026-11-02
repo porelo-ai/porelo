@@ -5,16 +5,15 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.Path;
-import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import org.fuin.porelo.organization.OrganizationQuestions.Refused;
 import org.fuin.porelo.organization.OrganizationWrites;
-import org.fuin.porelo.organization.git.RegistryOrigin;
 import org.fuin.porelo.organization.gittree.CommitSigning;
 import org.fuin.porelo.organization.gittree.FetchAccess;
+import org.fuin.porelo.organization.gittree.ForgeAddress;
 import org.fuin.porelo.organization.gittree.GitTreeStore;
 import org.fuin.porelo.organization.gittree.GitTreeWrites;
 import org.fuin.porelo.organization.gittree.ProjectFile;
@@ -209,13 +208,13 @@ public abstract class OrgWriting extends OrgReading {
         final AgentKey key = served(socket, card.fingerprint());
         final String own = PersonCard.keyLine(key);
         final OrgAccess.Opened opened = OrgAccess.real(machine, repository);
-        final FetchAccess pushing = pushing(machine, String.valueOf(socket));
+        final FetchAccess pushing = OrganizationAccess.lent(machine, String.valueOf(socket));
         final CommitSigning signing = CommitSigning.agent(String.valueOf(socket));
         return new Session(
                 new GitTreeWrites(
                         machine.runner(),
                         repository,
-                        RegistryOrigin.of(repository).organisation(),
+                        ForgeAddress.of(repository).organization(),
                         pushing,
                         opened.identities(),
                         signing),
@@ -280,32 +279,5 @@ public abstract class OrgWriting extends OrgReading {
                 Refused.NO_KEY,
                 "the ssh-agent does not serve " + fingerprint + ", your card's key",
                 null);
-    }
-
-    /** What the person holds for the address, and their agent, which a push over ssh signs with. */
-    static FetchAccess pushing(final PoreloContext machine, final String socket) {
-        final FetchAccess lent = OrgAccess.lent(machine);
-        return address -> {
-            final FetchAccess.Lease lease = lent.lend(address);
-            return new FetchAccess.Lease() {
-                @Override
-                public Map<String, String> environment() {
-                    final Map<String, String> all = new HashMap<>();
-                    all.put(AGENT, socket);
-                    all.putAll(lease.environment());
-                    return all;
-                }
-
-                @Override
-                public List<String> arguments() {
-                    return lease.arguments();
-                }
-
-                @Override
-                public void close() {
-                    lease.close();
-                }
-            };
-        };
     }
 }

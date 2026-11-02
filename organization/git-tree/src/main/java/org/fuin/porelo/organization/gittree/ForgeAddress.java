@@ -1,4 +1,4 @@
-package org.fuin.porelo.organization.git;
+package org.fuin.porelo.organization.gittree;
 
 import java.net.URI;
 import java.util.List;
@@ -6,24 +6,24 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * The forge and organisation a registry checkout's {@code origin} names.
+ * The forge and organization an organization's address names.
  *
  * <p>Only the three forms a forge hands out for a repository are read, so nothing in a URL can make
  * the forge another host than the one git fetches from.
  *
- * @param url The origin URL, as the checkout's configuration has it.
+ * @param url The address, as the settings name it.
  * @param forge The forge, {@code https://<host>}.
- * @param organisation The organisation owning the registry.
+ * @param organization The forge's organization owning the repository.
  * @param port The port the URL names, or {@code -1} when it names none.
  */
-public record RegistryOrigin(String url, URI forge, String organisation, int port) {
+public record ForgeAddress(String url, URI forge, String organization, int port) {
 
     /** A host name: dot-separated DNS labels. */
     private static final String HOST =
             "[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?"
                     + "(?:\\.[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?)*";
 
-    /** An organisation or repository: what the forge directory accepts as a name. */
+    /** An organization or repository: what the forge directory accepts as a name. */
     private static final String NAME = "[A-Za-z0-9][A-Za-z0-9._-]{0,99}";
 
     private static final String PATH = "/(?<org>" + NAME + ")/(?:" + NAME + ")";
@@ -38,14 +38,14 @@ public record RegistryOrigin(String url, URI forge, String organisation, int por
                     Pattern.compile("ssh://git@(?<host>" + HOST + ")" + PORT + PATH + "/?"));
 
     /**
-     * Reads an origin URL.
+     * Reads an address.
      *
      * @param url The URL.
-     * @return Its forge and organisation.
+     * @return Its forge and organization.
      * @throws IllegalArgumentException Naming the URL, made printable, when it is none of the
      *     forms.
      */
-    public static RegistryOrigin of(final String url) {
+    public static ForgeAddress of(final String url) {
         for (final Pattern form : FORMS) {
             final Matcher matcher = form.matcher(url);
             if (matcher.matches()) {
@@ -53,7 +53,7 @@ public record RegistryOrigin(String url, URI forge, String organisation, int por
                 final String port =
                         https || url.startsWith("ssh://") ? matcher.group("port") : null;
                 // An ssh port is the forge's git over ssh; its web interface is asked on 443.
-                return new RegistryOrigin(
+                return new ForgeAddress(
                         url,
                         URI.create(
                                 "https://"
@@ -64,7 +64,7 @@ public record RegistryOrigin(String url, URI forge, String organisation, int por
             }
         }
         throw new IllegalArgumentException(
-                "the checkout's origin '"
+                "the address '"
                         + org.fuin.porelo.vault.RegistryText.printable(withoutUserinfo(url))
                         + "' is not https://HOST/ORG/REPO, git@HOST:ORG/REPO or"
                         + " ssh://git@HOST/ORG/REPO");

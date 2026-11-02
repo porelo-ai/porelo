@@ -376,6 +376,10 @@ from the helper is 69 `cannot-say`. The helper takes back this person's other to
 fail a fetch: it is tried once more with a new token. The homeserver and the room in that file count only when
 `project.yml` names none.
 
+**A change at the central forge waits on a host with a forge of its own.** There, a start fetches from the host's
+forge, so a commit at the central address reaches it only after `porelo-host-push --pull` and a merged task. A deploy
+key can stay listed at the central forge after a project goes: porelo-host's documentation has the detail.
+
 **A name both the organization and this machine use is the organization's.** `porelo project list` shows that one row,
 with its `source`. A person the organization does not list under that name gets no row for it.
 

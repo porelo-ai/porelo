@@ -7,7 +7,6 @@ import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.util.LinkedHashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import org.fuin.porelo.core.process.CommandException;
@@ -15,12 +14,12 @@ import org.fuin.porelo.organization.IdentitySource;
 import org.fuin.porelo.organization.OrganizationException;
 import org.fuin.porelo.organization.OrganizationQuestions;
 import org.fuin.porelo.organization.OrganizationWrites;
-import org.fuin.porelo.organization.git.HttpForgeDirectory;
-import org.fuin.porelo.organization.git.RegistryOrigin;
 import org.fuin.porelo.organization.gittree.CommitSigning;
 import org.fuin.porelo.organization.gittree.FetchAccess;
+import org.fuin.porelo.organization.gittree.ForgeAddress;
 import org.fuin.porelo.organization.gittree.GitTreeStore;
 import org.fuin.porelo.organization.gittree.GitTreeWrites;
+import org.fuin.porelo.organization.gittree.HttpForgeDirectory;
 import org.jspecify.annotations.Nullable;
 import org.yaml.snakeyaml.LoaderOptions;
 import org.yaml.snakeyaml.Yaml;
@@ -304,21 +303,21 @@ final class IdentityOrganization {
      * @return The store and who it asks.
      */
     static Opened real(final PoreloContext context, final String repository) {
-        final RegistryOrigin origin;
+        final ForgeAddress origin;
         try {
-            origin = RegistryOrigin.of(repository);
+            origin = ForgeAddress.of(repository);
         } catch (IllegalArgumentException ex) {
             throw new OrganizationQuestions.Refused(
                     OrganizationQuestions.Refused.USAGE,
                     "the organization's address in the settings is none",
                     null);
         }
-        final FetchAccess access = lent(context);
+        final FetchAccess access = OrganizationAccess.lent(context);
         final IdentitySource identities =
                 new HttpForgeDirectory(
                         origin.forge(),
-                        RegistryReadCommand.token(context, origin),
-                        RegistryReadCommand.http(context));
+                        OrganizationAccess.forgeToken(context, origin),
+                        OrganizationAccess.http(context));
         return new Opened(
                 GitTreeStore.open(
                         context.runner(),
@@ -331,43 +330,10 @@ final class IdentityOrganization {
                         new GitTreeWrites(
                                 context.runner(),
                                 repository,
-                                origin.organisation(),
+                                origin.organization(),
                                 access,
                                 identities,
                                 signing));
-    }
-
-    /**
-     * Lends what this person holds for the address, and their agent, which a push over ssh goes
-     * through when the vault lends no key of its own.
-     */
-    static FetchAccess lent(final PoreloContext context) {
-        return address -> {
-            final FollowCredential credential =
-                    FollowCredential.open(context, address, "organization");
-            return new FetchAccess.Lease() {
-                @Override
-                public Map<String, String> environment() {
-                    final Map<String, String> environment =
-                            new LinkedHashMap<>(credential.environment());
-                    final String agent = context.environment().apply(IdentityChange.AGENT);
-                    if (agent != null && !agent.isEmpty()) {
-                        environment.putIfAbsent(IdentityChange.AGENT, agent);
-                    }
-                    return environment;
-                }
-
-                @Override
-                public List<String> arguments() {
-                    return credential.arguments();
-                }
-
-                @Override
-                public void close() {
-                    credential.close();
-                }
-            };
-        };
     }
 
     /**

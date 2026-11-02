@@ -53,11 +53,11 @@ public class HostWhoamiCommand implements Callable<Integer>, PoreloFactory.Conte
                 final Map<String, Object> refusal = new LinkedHashMap<>();
                 refusal.put("reason", "no-daemon");
                 refusal.put("words", words);
-                out.println(Json.write(RegistryVerifyCommand.printable(refusal)));
+                out.println(Json.write(AnswerText.printable(refusal)));
                 out.flush();
             }
             final PrintWriter err = spec.commandLine().getErr();
-            err.println("porelo: " + RegistryVerifyCommand.printable(words));
+            err.println("porelo: " + AnswerText.printable(words));
             err.flush();
             return 66;
         }
@@ -66,10 +66,10 @@ public class HostWhoamiCommand implements Callable<Integer>, PoreloFactory.Conte
         answer.put("uid", SocketPeer.ownUid());
         answer.put("return_socket", socket.toString());
         if (json) {
-            out.println(Json.write(RegistryVerifyCommand.printable(answer)));
+            out.println(Json.write(AnswerText.printable(answer)));
         } else {
             out.println(
-                    RegistryVerifyCommand.printable(
+                    AnswerText.printable(
                             answer.get("login")
                                     + " (uid "
                                     + answer.get("uid")

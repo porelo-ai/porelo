@@ -21,7 +21,6 @@ import org.fuin.porelo.core.process.CommandRunner;
 import org.fuin.porelo.organization.IdentitySource;
 import org.fuin.porelo.organization.OrganizationException;
 import org.fuin.porelo.organization.OrganizationQuestions;
-import org.fuin.porelo.organization.git.RegistryOrigin;
 import org.fuin.porelo.vault.CardException;
 import org.jspecify.annotations.Nullable;
 
@@ -102,9 +101,9 @@ public final class GitTreeStore {
             final String repository,
             final FetchAccess access,
             final @Nullable Path state) {
-        final RegistryOrigin origin = RegistryOrigin.of(repository);
+        final ForgeAddress origin = ForgeAddress.of(repository);
         return new GitTreeStore(
-                runner, repository, origin.organisation(), origin.forge().getHost(), access, state);
+                runner, repository, origin.organization(), origin.forge().getHost(), access, state);
     }
 
     /**

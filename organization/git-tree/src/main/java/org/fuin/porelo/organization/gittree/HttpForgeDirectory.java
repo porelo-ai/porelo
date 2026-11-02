@@ -1,4 +1,4 @@
-package org.fuin.porelo.organization.git;
+package org.fuin.porelo.organization.gittree;
 
 import java.io.ByteArrayOutputStream;
 import java.net.URI;

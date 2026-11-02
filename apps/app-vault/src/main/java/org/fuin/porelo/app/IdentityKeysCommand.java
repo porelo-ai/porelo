@@ -80,8 +80,7 @@ public class IdentityKeysCommand implements Callable<Integer>, PoreloFactory.Con
             return IdentityChange.refuse(spec, json, ex);
         } catch (IOException ex) {
             err.println(
-                    "porelo: cannot read "
-                            + RegistryVerifyCommand.printable(String.valueOf(ex.getMessage())));
+                    "porelo: cannot read " + AnswerText.printable(String.valueOf(ex.getMessage())));
             err.flush();
             return 66;
         }
@@ -90,11 +89,11 @@ public class IdentityKeysCommand implements Callable<Integer>, PoreloFactory.Con
             answer.put("revision", organization == null ? null : organization.revision());
             answer.put("stale", organization != null && organization.stale());
             answer.put("keys", keys);
-            out.println(Json.write(RegistryVerifyCommand.printable(answer)));
+            out.println(Json.write(AnswerText.printable(answer)));
         } else {
             for (final Map<String, @Nullable Object> key : keys) {
                 out.println(
-                        RegistryVerifyCommand.printable(
+                        AnswerText.printable(
                                 key.get("fingerprint")
                                         + " "
                                         + key.get("comment")

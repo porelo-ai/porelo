@@ -1,4 +1,4 @@
-package org.fuin.porelo.organization.git;
+package org.fuin.porelo.organization.gittree;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;

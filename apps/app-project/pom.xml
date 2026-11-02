@@ -20,11 +20,6 @@
 
         <dependency>
             <groupId>org.fuin.porelo</groupId>
-            <artifactId>porelo-organization-git</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>org.fuin.porelo</groupId>
             <artifactId>porelo-app-base</artifactId>
         </dependency>
         <dependency>

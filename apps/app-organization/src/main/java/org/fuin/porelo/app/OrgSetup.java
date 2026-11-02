@@ -98,7 +98,8 @@ public final class OrgSetup {
         answer.put("name", state.describe().name());
         answer.put("revision", state.revision());
         answer.put(
-                "address", org.fuin.porelo.organization.git.RegistryOrigin.withoutUserinfo(named));
+                "address",
+                org.fuin.porelo.organization.gittree.ForgeAddress.withoutUserinfo(named));
         answer.put("login", login);
         return answer;
     }

@@ -1,3 +1,0 @@
-porelo: warning: ac503aff222ded4099e181cfad2fb334023ee617 hosts/other/access.yml: signed by SHA256:UtBzmHt3d5YowNrPQ4Kk35tWQc3VaAGLsTRzB7BpLiU, not a host admin owners.yml names for other
-porelo: warning: owners.yml names michael as the registry's only owner, without a backup key; make one with porelo identity backup-key --organization
-porelo: warning: owners.yml names hank as the only admin of wharf6, without a backup key; make one with porelo identity backup-key --host wharf6

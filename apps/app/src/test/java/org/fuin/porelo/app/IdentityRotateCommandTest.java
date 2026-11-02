@@ -6,10 +6,12 @@ import static org.assertj.core.api.Assertions.catchThrowableOfType;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.attribute.PosixFilePermissions;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import org.fuin.porelo.core.process.Command;
+import org.fuin.porelo.organization.OrganizationWrites;
 import org.fuin.porelo.vault.PersonCard;
 import org.fuin.porelo.wire.Json;
 import org.junit.jupiter.api.AfterEach;
@@ -1280,5 +1282,60 @@ class IdentityRotateCommandTest {
 
         assertThat(identity("rotate", "--key", registry.pin("alice-new"))).isEqualTo(66);
         assertThat(keptText()).isEqualTo(card);
+    }
+
+    /**
+     * Harm guarded: a change of key that reaches the organization any other way than through its
+     * store's writes, or under another person's name.
+     */
+    @Test
+    void a_rotation_goes_through_the_stores_writes_alone() throws Exception {
+        registry.agent("alice", "alice-new");
+        final PersonCard before = PersonCard.read(filed(), "the first card");
+        final List<String> calls = new ArrayList<>();
+        final List<OrganizationWrites.Change> changes = new ArrayList<>();
+        final List<String> cards = new ArrayList<>();
+        final OrganizationWrites standIn =
+                (OrganizationWrites)
+                        java.lang.reflect.Proxy.newProxyInstance(
+                                OrganizationWrites.class.getClassLoader(),
+                                new Class<?>[] {OrganizationWrites.class},
+                                (proxy, method, arguments) -> {
+                                    calls.add(method.getName());
+                                    changes.add((OrganizationWrites.Change) arguments[0]);
+                                    cards.add((String) arguments[1]);
+                                    return new OrganizationWrites.Written("r1", "c1", false);
+                                });
+        final IdentityOrganization.Opener opener =
+                (context, repository) -> {
+                    final IdentityOrganization.Opened real =
+                            organization.opener().open(context, repository);
+                    return new IdentityOrganization.Opened(
+                            real.store(), real.identities(), real.forge(), signing -> standIn);
+                };
+        final String tip = organization.tip();
+
+        assertThat(
+                        IdentityRun.identity(
+                                organization,
+                                opener,
+                                "rotate",
+                                "--key",
+                                registry.pin("alice-new"),
+                                "--id",
+                                "c1",
+                                "--json"))
+                .as(err())
+                .isZero();
+
+        assertThat(calls).containsExactly("changeCard");
+        final OrganizationWrites.Change change = changes.getFirst();
+        assertThat(change.id()).isEqualTo("c1");
+        assertThat(change.base()).isEqualTo(tip);
+        assertThat(change.acting().login()).isEqualTo("alice");
+        final PersonCard filed = PersonCard.read(cards.getFirst(), "the card filed");
+        assertThat(filed.key()).isEqualTo(registry.key("alice-new"));
+        assertThat(filed.predecessor()).isEqualTo(before.key());
+        assertThat(organization.tip()).as("nothing else wrote to the repository").isEqualTo(tip);
     }
 }

@@ -173,7 +173,7 @@ final class IdentityFacts {
         if (Files.notExists(krl, LinkOption.NOFOLLOW_LINKS)) {
             return false;
         }
-        ConfigurationGate.requireRevocations(context.runner(), krl);
+        Revocations.requireRevocations(context.runner(), krl);
         final Path scratch = Files.createTempDirectory("porelo-identity-");
         try {
             final Path pub = scratch.resolve("key.pub");
@@ -379,7 +379,7 @@ final class IdentityFacts {
                                     java.util.Arrays.stream(card.split("\n", -1))
                                             .map(RegistryText::printable)
                                             .toList())
-                            : RegistryVerifyCommand.printable(value));
+                            : AnswerText.printable(value));
         }
         return safe;
     }
@@ -411,10 +411,10 @@ final class IdentityFacts {
             answer.put("words", words);
             answer.put("revision", null);
             answer.putAll(more);
-            out.println(Json.write(RegistryVerifyCommand.printable(answer)));
+            out.println(Json.write(AnswerText.printable(answer)));
             out.flush();
         }
-        err.println("porelo: " + RegistryVerifyCommand.printable(words));
+        err.println("porelo: " + AnswerText.printable(words));
         err.flush();
         return code;
     }

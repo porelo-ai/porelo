@@ -21,6 +21,14 @@ final class IdentityRun {
         return run(organization.machine, organization.opener(), null, args);
     }
 
+    /** Runs the verb on the organization's machine, its store opened by this. */
+    static int identity(
+            final TestOrganization organization,
+            final IdentityOrganization.Opener opener,
+            final String... args) {
+        return run(organization.machine, opener, null, args);
+    }
+
     /** Runs the verb on the organization's machine, a stand-in KeePassXC beside it. */
     static int identity(
             final TestOrganization organization, final KeePassXcKey store, final String... args) {

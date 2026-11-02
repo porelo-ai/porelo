@@ -74,22 +74,22 @@ public class CardMakeHostCommand implements Callable<Integer>, PoreloFactory.Con
             names = "--forge-web-port",
             required = true,
             paramLabel = "PORT",
-            description = "The port of the forge's web interface.")
-    private int forgeWebPort;
+            description = "The port of the forge's web interface, or 'none' for no forge.")
+    private String forgeWebPort = "";
 
     @Option(
             names = "--forge-git-port",
             required = true,
             paramLabel = "PORT",
-            description = "The port of the forge's git over ssh.")
-    private int forgeGitPort;
+            description = "The port of the forge's git over ssh, or 'none' for no forge.")
+    private String forgeGitPort = "";
 
     @Option(
             names = "--matrix-port",
             required = true,
             paramLabel = "PORT",
-            description = "The port of the host's Matrix server.")
-    private int matrixPort;
+            description = "The port of the host's Matrix server, or 'none' for no Matrix.")
+    private String matrixPort = "";
 
     @Option(
             names = "--key",
@@ -114,6 +114,16 @@ public class CardMakeHostCommand implements Callable<Integer>, PoreloFactory.Con
         this.context = context;
     }
 
+    /** What a service's port says: its number, no service, or -1 for neither. */
+    private static int port(final String given) {
+        if ("none".equals(given)) {
+            return HostCard.NO_SERVICE;
+        }
+        return given.matches("[1-9][0-9]{0,4}") && Integer.parseInt(given) <= 65535
+                ? Integer.parseInt(given)
+                : -1;
+    }
+
     @Override
     public Integer call() {
         final PrintWriter out = spec.commandLine().getOut();
@@ -126,6 +136,17 @@ public class CardMakeHostCommand implements Callable<Integer>, PoreloFactory.Con
                     64,
                     "card make-host signs with exactly one of --key FILE and --agent-key"
                             + " FINGERPRINT|PUBFILE");
+        }
+        final int web = port(forgeWebPort);
+        final int git = port(forgeGitPort);
+        final int matrix = port(matrixPort);
+        if (web < 0 || git < 0 || matrix < 0) {
+            final String named =
+                    web < 0 ? "--forge-web-port" : git < 0 ? "--forge-git-port" : "--matrix-port";
+            return refuse(err, 64, named + " takes a port from 1 to 65535, or none");
+        }
+        if ((web == HostCard.NO_SERVICE) != (git == HostCard.NO_SERVICE)) {
+            return refuse(err, 64, "a forge has both its ports, or none is both");
         }
         final String hostKey;
         final AgentKey signer;
@@ -154,16 +175,7 @@ public class CardMakeHostCommand implements Callable<Integer>, PoreloFactory.Con
         }
         final String card;
         try {
-            card =
-                    HostCard.write(
-                            host,
-                            address,
-                            sshPort,
-                            hostKey,
-                            forgeWebPort,
-                            forgeGitPort,
-                            matrixPort,
-                            signer);
+            card = HostCard.writeOffered(host, address, sshPort, hostKey, web, git, matrix, signer);
         } catch (final CardException ex) {
             return refuse(err, 65, String.valueOf(ex.getMessage()));
         } catch (final VaultException ex) {

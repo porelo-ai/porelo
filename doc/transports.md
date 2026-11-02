@@ -127,8 +127,8 @@ under `secrets` or `account` is dropped, and it stays where the person put it wi
   naming the transport, without running a lifecycle verb.
 - **`"admitted": false`** from `setup`, exiting 0 with its `account` secrets, means a person still has to let this
   machine in; Porelo starts no task of the project until it is true, and absent means true.
-- **`--persons`** is what `members` is given, always, with every admitted person's login from the applied access
-  file, comma separated and sorted, of either role; it is also their login on the homeserver. With no admitted person
+- **`--persons`** is what `members` is given, always, with every admitted person's login from the project's
+  members, comma separated and sorted, of either role; it is also their login on the homeserver. With no admitted person
   left it is given empty, `--persons ""`, and the room keeps no person but its maker. `poll` is given `--persons` for
   a transport whose `takes` list names `persons` or that announces `"persons": true`. Porelo has no verb of its own to
   invite or remove a person.

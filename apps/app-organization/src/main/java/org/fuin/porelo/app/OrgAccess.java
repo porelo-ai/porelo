@@ -5,7 +5,6 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.Path;
-import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.TreeMap;
@@ -14,10 +13,9 @@ import org.fuin.porelo.organization.IdentitySource;
 import org.fuin.porelo.organization.OrganizationException;
 import org.fuin.porelo.organization.OrganizationQuestions;
 import org.fuin.porelo.organization.OrganizationQuestions.Refused;
-import org.fuin.porelo.organization.git.HttpForgeDirectory;
-import org.fuin.porelo.organization.git.RegistryOrigin;
-import org.fuin.porelo.organization.gittree.FetchAccess;
+import org.fuin.porelo.organization.gittree.ForgeAddress;
 import org.fuin.porelo.organization.gittree.GitTreeStore;
+import org.fuin.porelo.organization.gittree.HttpForgeDirectory;
 import org.fuin.porelo.vault.CardException;
 import org.fuin.porelo.vault.PersonCard;
 import org.jspecify.annotations.Nullable;
@@ -111,17 +109,23 @@ final class OrgAccess {
      * @return The store and who it asks.
      */
     static Opened real(final PoreloContext context, final String repository) {
-        final RegistryOrigin origin;
+        final ForgeAddress origin;
         try {
-            origin = RegistryOrigin.of(repository);
+            origin = ForgeAddress.of(repository);
         } catch (IllegalArgumentException ex) {
             throw new Refused(
                     Refused.USAGE, "the organization's address in the settings is none", null);
         }
         return new Opened(
-                GitTreeStore.open(context.runner(), repository, lent(context), state(context)),
+                GitTreeStore.open(
+                        context.runner(),
+                        repository,
+                        OrganizationAccess.lent(context),
+                        state(context)),
                 new HttpForgeDirectory(
-                        origin.forge(), OrgForgeToken.of(context, origin), http(context)));
+                        origin.forge(),
+                        OrganizationAccess.forgeToken(context, origin),
+                        OrganizationAccess.http(context)));
     }
 
     /** Where the adapter keeps what the last read trusted. */
@@ -137,38 +141,6 @@ final class OrgAccess {
      */
     static Path projectFiles(final PoreloContext context) {
         return context.paths().projects().projectFileMemory();
-    }
-
-    /** Lends what this person holds for the address, as a follow is lent it. */
-    static FetchAccess lent(final PoreloContext context) {
-        return address -> {
-            final FollowCredential credential =
-                    FollowCredential.open(context, address, "organization");
-            return new FetchAccess.Lease() {
-                @Override
-                public Map<String, String> environment() {
-                    return credential.environment();
-                }
-
-                @Override
-                public List<String> arguments() {
-                    return credential.arguments();
-                }
-
-                @Override
-                public void close() {
-                    credential.close();
-                }
-            };
-        };
-    }
-
-    static java.net.http.HttpClient http(final PoreloContext context) {
-        return org.fuin.porelo.core.net.TrustedCertificates.builder(
-                        org.fuin.porelo.core.net.TrustedCertificates.file(context.paths().xdg()))
-                .connectTimeout(java.time.Duration.ofSeconds(10))
-                .followRedirects(java.net.http.HttpClient.Redirect.NEVER)
-                .build();
     }
 
     /**
@@ -193,7 +165,7 @@ final class OrgAccess {
      */
     static String settable(final String address) {
         try {
-            RegistryOrigin.of(address);
+            ForgeAddress.of(address);
         } catch (IllegalArgumentException ex) {
             throw new Refused(Refused.USAGE, "that address is none", null);
         }

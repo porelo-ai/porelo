@@ -635,7 +635,7 @@ class OrgWritingCommandsTest {
     @Test
     void aPushIsLentTheAgentThatSigns() throws Exception {
         try (var lease =
-                OrgWriting.pushing(context(), "/run/agent.sock")
+                OrganizationAccess.lent(context(), "/run/agent.sock")
                         .lend("git@github.com:acme/organization.git")) {
             assertThat(lease.environment())
                     .as("over ssh a push has no other way to the person's key")

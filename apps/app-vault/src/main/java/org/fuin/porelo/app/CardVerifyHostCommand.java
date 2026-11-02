@@ -67,12 +67,19 @@ public class CardVerifyHostCommand implements Callable<Integer> {
                     66,
                     "cannot read '" + printable(card.toString()) + "': " + ex.getMessage());
         }
-        final Map<String, Object> forge = new LinkedHashMap<>();
-        forge.put("web_port", checked.forgeWebPort());
-        forge.put("git_port", checked.forgeGitPort());
+        final boolean hasForge = checked.forgeWebPort() != HostCard.NO_SERVICE;
+        final boolean hasMatrix = checked.matrixPort() != HostCard.NO_SERVICE;
+        // A service the card does not offer is not there at all: no program forwards to port 0.
         final Map<String, Object> services = new LinkedHashMap<>();
-        services.put("forge", forge);
-        services.put("matrix", Map.of("port", checked.matrixPort()));
+        if (hasForge) {
+            final Map<String, Object> forge = new LinkedHashMap<>();
+            forge.put("web_port", checked.forgeWebPort());
+            forge.put("git_port", checked.forgeGitPort());
+            services.put("forge", forge);
+        }
+        if (hasMatrix) {
+            services.put("matrix", Map.of("port", checked.matrixPort()));
+        }
         final Map<String, Object> answer = new LinkedHashMap<>();
         answer.put("host", checked.host());
         answer.put("address", checked.address());
@@ -89,12 +96,13 @@ public class CardVerifyHostCommand implements Callable<Integer> {
                             + checked.address()
                             + ", ssh "
                             + checked.sshPort()
-                            + ", forge "
-                            + checked.forgeWebPort()
-                            + " and "
-                            + checked.forgeGitPort()
-                            + ", matrix "
-                            + checked.matrixPort()
+                            + (hasForge
+                                    ? ", forge "
+                                            + checked.forgeWebPort()
+                                            + " and "
+                                            + checked.forgeGitPort()
+                                    : ", no forge")
+                            + (hasMatrix ? ", matrix " + checked.matrixPort() : ", no matrix")
                             + ", signed by "
                             + signer);
         }

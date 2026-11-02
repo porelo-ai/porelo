@@ -393,7 +393,7 @@ class ProjectOpenCommandTest {
                                         projectFile());
                 open.maker =
                         (machine, origin, name) -> {
-                            assertThat(origin.organisation())
+                            assertThat(origin.organization())
                                     .as(
                                             "the forge request must stay in the configured"
                                                     + " organization")

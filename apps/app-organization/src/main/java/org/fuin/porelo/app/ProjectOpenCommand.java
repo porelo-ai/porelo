@@ -6,7 +6,7 @@ import java.util.Map;
 import org.fuin.porelo.organization.OrganizationQuestions;
 import org.fuin.porelo.organization.OrganizationQuestions.Refused;
 import org.fuin.porelo.organization.OrganizationWrites;
-import org.fuin.porelo.organization.git.RegistryOrigin;
+import org.fuin.porelo.organization.gittree.ForgeAddress;
 import org.jspecify.annotations.Nullable;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Parameters;
@@ -25,7 +25,7 @@ public class ProjectOpenCommand extends OrgWriting {
     /** Makes the repository; replaced by a test, which has no forge. */
     @FunctionalInterface
     interface Maker {
-        void make(PoreloContext machine, RegistryOrigin origin, String name);
+        void make(PoreloContext machine, ForgeAddress origin, String name);
     }
 
     @Parameters(paramLabel = "PROJECT", description = "The project.")
@@ -57,7 +57,7 @@ public class ProjectOpenCommand extends OrgWriting {
             throw new Refused(Refused.MOVED_ON, "the organization has moved on", state.revision());
         }
         final String organization = OrgAccess.repository(machine).orElseThrow();
-        final RegistryOrigin origin = RegistryOrigin.of(organization);
+        final ForgeAddress origin = ForgeAddress.of(organization);
         final String at =
                 state.getProjectRepository(project).orElseGet(() -> beside(organization, project));
         address = at;
@@ -95,8 +95,8 @@ public class ProjectOpenCommand extends OrgWriting {
     }
 
     private static void made(
-            final PoreloContext machine, final RegistryOrigin origin, final String name) {
-        final String token = OrgForgeToken.of(machine, origin);
+            final PoreloContext machine, final ForgeAddress origin, final String name) {
+        final String token = OrganizationAccess.forgeToken(machine, origin);
         if (token == null) {
             if (machine.readableCredentials().isEmpty()) {
                 throw new Refused(
@@ -110,7 +110,7 @@ public class ProjectOpenCommand extends OrgWriting {
                     null);
         }
         final URI forge = origin.forge();
-        new ForgeRepositoryMaker(OrgAccess.http(machine))
-                .make(forge, token, origin.organisation(), name);
+        new ForgeRepositoryMaker(OrganizationAccess.http(machine))
+                .make(forge, token, origin.organization(), name);
     }
 }

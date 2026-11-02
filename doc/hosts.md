@@ -65,7 +65,7 @@ porelo task check-certificate --task <task> --login <login> --keys <file> [--krl
 ```
 
 - **`--keys`** is the person's keys in force, one OpenSSH public key line each, as the host applied them from its
-  verified registry; an empty file refuses every certificate. **`--krl`** is the revocation list in force.
+  verified organization; an empty file refuses every certificate. **`--krl`** is the revocation list in force.
 - **Standard input** is one line of at most 16 KiB, ending in at most one line end; anything longer, a second line
   or no line is refused before anything parses it.
 - **Accepted** only as `porelo task start` issues it: one `ssh-ed25519-cert-v01@openssh.com` user certificate,

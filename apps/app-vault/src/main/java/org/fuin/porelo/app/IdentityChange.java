@@ -31,7 +31,7 @@ import org.jspecify.annotations.Nullable;
 final class IdentityChange {
 
     /** The agent's variable, read from the context's environment and nowhere else. */
-    static final String AGENT = "SSH_AUTH_SOCK";
+    static final String AGENT = OrganizationAccess.AGENT;
 
     /** How long a card is valid from the day it is made. */
     private static final int DAYS = 30;
@@ -224,12 +224,10 @@ final class IdentityChange {
             }
             out.println(Json.write(IdentityFacts.printable(all)));
         } else {
-            text.forEach(line -> out.println(RegistryVerifyCommand.printable(line)));
+            text.forEach(line -> out.println(AnswerText.printable(line)));
             if (made != null) {
                 out.println(
-                        "entry "
-                                + RegistryVerifyCommand.printable(made.entry())
-                                + ", served by the agent");
+                        "entry " + AnswerText.printable(made.entry()) + ", served by the agent");
             }
         }
         out.flush();
@@ -389,13 +387,12 @@ final class IdentityChange {
                         66,
                         null,
                         "cannot read '"
-                                + RegistryVerifyCommand.printable(named)
+                                + AnswerText.printable(named)
                                 + "': expected a public key file");
             }
             text = Files.readString(file, StandardCharsets.UTF_8);
         } catch (IOException | java.io.UncheckedIOException ex) {
-            throw new Refused(
-                    66, null, "cannot read '" + RegistryVerifyCommand.printable(named) + "'");
+            throw new Refused(66, null, "cannot read '" + AnswerText.printable(named) + "'");
         }
         final String[] words = text.strip().split("\\s+");
         final byte[] blob;
@@ -403,21 +400,17 @@ final class IdentityChange {
             blob = words.length >= 2 ? Base64.getDecoder().decode(words[1]) : new byte[0];
         } catch (IllegalArgumentException ex) {
             throw new Refused(
-                    64,
-                    null,
-                    "'" + RegistryVerifyCommand.printable(named) + "' is not a public key file");
+                    64, null, "'" + AnswerText.printable(named) + "' is not a public key file");
         }
         if (blob.length == 0) {
             throw new Refused(
-                    64,
-                    null,
-                    "'" + RegistryVerifyCommand.printable(named) + "' is not a public key file");
+                    64, null, "'" + AnswerText.printable(named) + "' is not a public key file");
         }
         if (!words[0].equals("ssh-ed25519")) {
             throw new Refused(
                     65,
                     "key-not-ed25519",
-                    "'" + RegistryVerifyCommand.printable(named) + "' is not an Ed25519 key");
+                    "'" + AnswerText.printable(named) + "' is not an Ed25519 key");
         }
         return fingerprint(blob);
     }
@@ -927,7 +920,7 @@ final class IdentityChange {
         final Map<String, @Nullable Object> typed = refused.answer();
         if (json && typed != null) {
             final var out = spec.commandLine().getOut();
-            out.println(Json.write(RegistryVerifyCommand.printable(typed)));
+            out.println(Json.write(AnswerText.printable(typed)));
             out.flush();
         }
         final IOException failure = refused.failure();
@@ -935,7 +928,7 @@ final class IdentityChange {
             throw failure;
         }
         final var err = spec.commandLine().getErr();
-        err.println("porelo: " + RegistryVerifyCommand.printable(refused.words()));
+        err.println("porelo: " + AnswerText.printable(refused.words()));
         err.flush();
         return refused.code();
     }

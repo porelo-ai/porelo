@@ -22,9 +22,9 @@ class OrganizationBoundaryTest {
     /** What only the Git adapter may name. */
     private static final Pattern ADAPTER_STATE =
             Pattern.compile(
-                    "org\\.fuin\\.porelo\\.organization\\.git\\."
-                            + "(RegistryState|RegistryHistory|TrustRecords)\\b"
-                            + "|import org\\.fuin\\.porelo\\.organization\\.git\\.\\*"
+                    "org\\.fuin\\.porelo\\.organization\\.gittree\\."
+                            + "(TreeModel|TreeWalk|TreeFiles|TreeRecord|TreeRepository)\\b"
+                            + "|import org\\.fuin\\.porelo\\.organization\\.gittree\\.\\*"
                             + "|\\bwalked\\(|\\.walk\\(opened|store\\(\\)\\.walk\\(");
 
     /** Every area with sources of its own, apart from the Git adapter. */
@@ -49,8 +49,8 @@ class OrganizationBoundaryTest {
     /** A host's forge port, which a host's card names: of a host's reach, not of how it is kept. */
     private static final String FORGE_PORT = "forgeGitPort";
 
-    /** What writes to the organization: it keeps its Git until its writes move. */
-    private static final Set<String> WRITERS = Set.of("RegistryFileCommand.java");
+    /** What may name the adapter's state outside it: nothing. */
+    private static final Set<String> WRITERS = Set.of();
 
     /** Words that say how an organization is kept: a path, a commit, Git or a process. */
     private static final Pattern HOW_IT_IS_KEPT =
@@ -93,14 +93,44 @@ class OrganizationBoundaryTest {
     void the_check_finds_a_name_of_the_adapters_state() {
         assertThat(
                         ADAPTER_STATE
-                                .matcher("new org.fuin.porelo.organization.git.RegistryHistory(r)")
+                                .matcher("new org.fuin.porelo.organization.gittree.TreeWalk(r)")
                                 .find())
                 .isTrue();
-        assertThat(ADAPTER_STATE.matcher("import org.fuin.porelo.organization.git.*;").find())
+        assertThat(ADAPTER_STATE.matcher("import org.fuin.porelo.organization.gittree.*;").find())
                 .isTrue();
         assertThat(ADAPTER_STATE.matcher("var state = RegistryFileCommand.walked(c);").find())
                 .isTrue();
         assertThat(ADAPTER_STATE.matcher("store.read(identities)").find()).isFalse();
+    }
+
+    /** Git started by the code around the organization, which only the adapter may do. */
+    private static final Pattern RUNS_GIT =
+            Pattern.compile("(Command\\.of|List\\.of)\\(\\s*\"git\"" + "|\\bTreeRepository\\b");
+
+    /**
+     * Harm guarded: a commit or a fetch of the organization's repository that the adapter's sealed
+     * git and its checks never saw. The code asking the organization runs no git of its own.
+     */
+    @Test
+    void no_class_around_the_organization_runs_git_on_it() throws IOException {
+        final List<String> running = new ArrayList<>();
+        for (final String area : List.of("apps/app-vault", "apps/app-organization")) {
+            for (final Path source : sources(root().resolve(area))) {
+                if (RUNS_GIT.matcher(Files.readString(source)).find()) {
+                    running.add(root().relativize(source).toString());
+                }
+            }
+        }
+
+        assertThat(running).isEmpty();
+    }
+
+    @Test
+    void the_check_finds_a_class_that_runs_git() {
+        assertThat(RUNS_GIT.matcher("Command.of(\"git\", \"fetch\")").find()).isTrue();
+        assertThat(RUNS_GIT.matcher("List.of(\n    \"git\",\n \"push\")").find()).isTrue();
+        assertThat(RUNS_GIT.matcher("new TreeRepository(runner)").find()).isTrue();
+        assertThat(RUNS_GIT.matcher("Command.of(\"ssh-keygen\")").find()).isFalse();
     }
 
     @Test

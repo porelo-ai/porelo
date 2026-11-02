@@ -44,8 +44,10 @@ from it and pushes back into it, so both questions, how history gets in and how 
 answered on the host, by a person.
 
 **Getting a history in.** Nothing of Git connects out here, not even on the host: an offline project names no
-`upstream`, a start of its task takes no `--upstream`, and its file is written on this machine, never fetched. The
-mirror is seeded from one of these:
+`upstream`, a start of its task takes no `--upstream`, and a file written on this machine is never fetched. A project
+the organization names is the one exception to nothing connecting: its start reads the organization and the project's
+repository, as every start does, before the file's class is known, so a machine with no route has its project written
+here. The mirror is seeded from one of these:
 
 1. `porelo gate restore`, from a bundle carried here by whatever means a disconnected machine has;
 2. the project's own repository, from the clone a start judged, and the task's start says so

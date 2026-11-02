@@ -464,7 +464,7 @@ public class IdentityBackupKeyCommand implements Callable<Integer>, PoreloFactor
 
     private int answer(final Map<String, @Nullable Object> answer, final String text) {
         final PrintWriter said = spec.commandLine().getOut();
-        said.println(json ? Json.write(RegistryVerifyCommand.printable(answer)) : text);
+        said.println(json ? Json.write(AnswerText.printable(answer)) : text);
         said.flush();
         return 0;
     }

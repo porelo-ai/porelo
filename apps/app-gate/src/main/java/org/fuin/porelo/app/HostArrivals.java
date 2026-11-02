@@ -259,7 +259,7 @@ final class HostArrivals {
         final List<AllowedSigner> certifierLines;
         final Path scratch = scratchDirectory(scratchRoot);
         try {
-            ConfigurationGate.requireRevocations(runner, krl, keygenEnvironment(environment));
+            Revocations.requireRevocations(runner, krl, keygenEnvironment(environment));
             for (final AllowedSigner each : signerLines(runner, signers, environment, scratch)) {
                 // A person signs with a plain key, and only a key in force signs a new commit.
                 if (!each.retired() && !option(each, "cert-authority")) {

@@ -6,7 +6,7 @@ import java.util.Map;
 import java.util.UUID;
 import org.fuin.porelo.organization.OrganizationQuestions.Refused;
 import org.fuin.porelo.organization.OrganizationWrites;
-import org.fuin.porelo.organization.git.RegistryOrigin;
+import org.fuin.porelo.organization.gittree.ForgeAddress;
 import org.fuin.porelo.organization.gittree.GitTreeStore;
 import org.jspecify.annotations.Nullable;
 import picocli.CommandLine.Command;
@@ -71,7 +71,7 @@ public class OrgCreateCommand extends OrgReading {
         answer.put("id", written.id());
         answer.put("again", written.again());
         answer.put("of", "organization");
-        answer.put("address", RegistryOrigin.withoutUserinfo(settable));
+        answer.put("address", ForgeAddress.withoutUserinfo(settable));
         return answer;
     }
 

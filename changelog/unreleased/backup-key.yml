@@ -1,2 +1,2 @@
-title: "`porelo identity backup-key --registry|--host H` makes an offline backup key for the one owner of a registry or the one admin of a host, files it in `owners.yml`, and with `--use` replaces the person's own key by it; `registry file owners` files the owners file, and `registry read` and `identity show` name a sole owner or admin without a backup key"
+title: "`porelo identity backup-key --organization|--host H` makes an offline backup key for the one owner of an organization or the one admin of a host, files it in `owners.yml`, and with `--use` replaces the person's own key by it; `org` and `identity show` name a sole owner or admin without a backup key"
 type: added

@@ -98,7 +98,7 @@ public final class ProjectTaking {
         new ProjectTaking(
                         context,
                         IdentityOrganization::real,
-                        IdentityOrganization.lent(context),
+                        OrganizationAccess.lent(context),
                         OrganizationProjects.of(context))
                 .taken(name);
     }
@@ -118,7 +118,7 @@ public final class ProjectTaking {
         new ProjectTaking(
                         context,
                         IdentityOrganization::real,
-                        IdentityOrganization.lent(context),
+                        OrganizationAccess.lent(context),
                         OrganizationProjects.of(context))
                 .takenToAsk(name);
     }

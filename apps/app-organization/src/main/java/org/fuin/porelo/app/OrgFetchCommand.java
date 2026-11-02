@@ -15,11 +15,11 @@ import org.fuin.porelo.core.project.AddressForm;
 import org.fuin.porelo.organization.OfflineOrganization;
 import org.fuin.porelo.organization.OrganizationException;
 import org.fuin.porelo.organization.OrganizationQuestions.Refused;
-import org.fuin.porelo.organization.git.HttpForgeDirectory;
-import org.fuin.porelo.organization.git.RegistryOrigin;
 import org.fuin.porelo.organization.gittree.FetchAccess;
+import org.fuin.porelo.organization.gittree.ForgeAddress;
 import org.fuin.porelo.organization.gittree.GitTreeOffline;
 import org.fuin.porelo.organization.gittree.GitTreeStore;
+import org.fuin.porelo.organization.gittree.HttpForgeDirectory;
 import org.fuin.porelo.vault.CardException;
 import org.fuin.porelo.vault.PersonCard;
 import org.jspecify.annotations.Nullable;
@@ -109,7 +109,7 @@ public class OrgFetchCommand extends OrgReading {
                         access,
                         context.paths().xdg().state().resolve("organization-host")),
                 new HttpForgeDirectory(
-                        RegistryOrigin.of(address).forge(), null, OrgAccess.http(context)));
+                        ForgeAddress.of(address).forge(), null, OrganizationAccess.http(context)));
     }
 
     private static Refused usage(final String words) {
@@ -171,7 +171,7 @@ public class OrgFetchCommand extends OrgReading {
                 throw usage("--settings names an address --ssh-key cannot reach");
             }
             try {
-                RegistryOrigin.of(repository);
+                ForgeAddress.of(repository);
             } catch (IllegalArgumentException ex) {
                 throw usage("--settings names no address");
             }

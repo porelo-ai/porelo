@@ -9,7 +9,7 @@ import java.util.Optional;
 import org.fuin.porelo.organization.IdentitySource;
 import org.fuin.porelo.organization.Organization;
 import org.fuin.porelo.organization.OrganizationQuestions;
-import org.fuin.porelo.organization.git.RegistryOrigin;
+import org.fuin.porelo.organization.gittree.ForgeAddress;
 import org.fuin.porelo.organization.gittree.TreeServices;
 import org.fuin.porelo.vault.PersonCard;
 import org.jspecify.annotations.Nullable;
@@ -43,8 +43,8 @@ public class OrgCommand extends OrgReading {
         final Map<String, @Nullable Object> answer =
                 answer(reading, OrgAccess.ownLogin(machine).orElse(null));
         final String address = OrgAccess.repository(machine).orElseThrow();
-        answer.put("address", RegistryOrigin.withoutUserinfo(address));
-        answer.put("forge", RegistryOrigin.of(address).forge().getHost());
+        answer.put("address", ForgeAddress.withoutUserinfo(address));
+        answer.put("forge", ForgeAddress.of(address).forge().getHost());
         answer.put("settings", OrgAccess.settings(machine));
         return answer;
     }

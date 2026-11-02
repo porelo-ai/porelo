@@ -129,17 +129,17 @@ public class IdentityCreateCommand implements Callable<Integer>, PoreloFactory.C
         if (json) {
             out.println(Json.write(IdentityFacts.printable(answer)));
         } else {
-            out.println("login " + RegistryVerifyCommand.printable(login));
+            out.println("login " + AnswerText.printable(login));
             out.println("fingerprint " + answer.get("fingerprint"));
             if (answer.get("entry") instanceof String made) {
-                out.println("entry " + RegistryVerifyCommand.printable(made));
+                out.println("entry " + AnswerText.printable(made));
             }
             if (answer.get("revision") != null) {
                 out.println("filed in the organization at " + answer.get("revision"));
             } else {
                 out.println(
                         "card kept at "
-                                + RegistryVerifyCommand.printable(
+                                + AnswerText.printable(
                                         new IdentityStore(machine).cardFile().toString()));
                 out.println(
                         "next: name your organization with porelo setup, or found one with porelo"
@@ -376,7 +376,7 @@ public class IdentityCreateCommand implements Callable<Integer>, PoreloFactory.C
         if (!LOGIN.matcher(login).matches()) {
             throw new IllegalArgumentException(
                     "'"
-                            + RegistryVerifyCommand.printable(login)
+                            + AnswerText.printable(login)
                             + "' is not a login: a lower-case letter, then up to 31 lower-case"
                             + " letters, digits or dashes");
         }
@@ -405,7 +405,7 @@ public class IdentityCreateCommand implements Callable<Integer>, PoreloFactory.C
         if (!Files.isRegularFile(file) || Files.size(file) > LIMIT) {
             throw new IOException(
                     "'"
-                            + RegistryVerifyCommand.printable(given)
+                            + AnswerText.printable(given)
                             + "': --key is neither a SHA256 fingerprint nor a public key file");
         }
         final String line =
@@ -421,20 +421,20 @@ public class IdentityCreateCommand implements Callable<Integer>, PoreloFactory.C
             blob = words.length < 2 ? new byte[0] : Base64.getDecoder().decode(words[1]);
         } catch (IllegalArgumentException ex) {
             throw new IllegalArgumentException(
-                    "'" + RegistryVerifyCommand.printable(given) + "' holds no public key", ex);
+                    "'" + AnswerText.printable(given) + "' holds no public key", ex);
         }
         if (blob.length == 0 || !IdentityFacts.type(blob).equals(words[0])) {
             throw new IllegalArgumentException(
-                    "'" + RegistryVerifyCommand.printable(given) + "' holds no public key");
+                    "'" + AnswerText.printable(given) + "' holds no public key");
         }
         if (!words[0].equals("ssh-ed25519")) {
             throw new IdentityChange.Refused(
                     65,
                     "key-not-ed25519",
                     "the key in '"
-                            + RegistryVerifyCommand.printable(given)
+                            + AnswerText.printable(given)
                             + "' is "
-                            + RegistryVerifyCommand.printable(words[0])
+                            + AnswerText.printable(words[0])
                             + "; a card takes an Ed25519 key");
         }
         return IdentityFacts.fingerprint(blob);
@@ -461,8 +461,7 @@ public class IdentityCreateCommand implements Callable<Integer>, PoreloFactory.C
                             "the key "
                                     + fingerprint
                                     + " is "
-                                    + RegistryVerifyCommand.printable(
-                                            IdentityFacts.type(each.keyBlob()))
+                                    + AnswerText.printable(IdentityFacts.type(each.keyBlob()))
                                     + "; a card takes an Ed25519 key");
                 }
                 return each;
@@ -477,7 +476,7 @@ public class IdentityCreateCommand implements Callable<Integer>, PoreloFactory.C
     }
 
     private static int plain(final PrintWriter err, final int code, final String message) {
-        err.println("porelo: " + RegistryVerifyCommand.printable(message));
+        err.println("porelo: " + AnswerText.printable(message));
         err.flush();
         return code;
     }

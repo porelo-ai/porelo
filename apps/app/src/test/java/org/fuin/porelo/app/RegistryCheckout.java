@@ -1,7 +1,6 @@
 package org.fuin.porelo.app;
 
 import java.io.IOException;
-import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -17,18 +16,16 @@ import org.fuin.porelo.core.config.XdgPaths;
 import org.fuin.porelo.core.process.Command;
 import org.fuin.porelo.core.process.ProcessCommandRunner;
 import org.fuin.porelo.organization.IdentitySource;
-import org.fuin.porelo.vault.HostCard;
 import org.fuin.porelo.vault.OpenSshPrivateKey;
 import org.fuin.porelo.vault.PersonCard;
 import org.fuin.porelo.vault.SigningKey;
 import org.fuin.porelo.wire.Json;
 import org.jspecify.annotations.Nullable;
-import picocli.CommandLine;
 
 /**
- * A person's registry checkout for the registry verbs' tests: a real Git repository with an origin,
- * throwaway Ed25519 keys, SSH-signed commits, a forge that answers what a test sets, and a real
- * ssh-agent when a test starts one.
+ * A person's machine beside a real Git repository, for the organization's tests: a real Git
+ * repository with an origin, throwaway Ed25519 keys, SSH-signed commits, a forge that answers what
+ * a test sets, and a real ssh-agent when a test starts one.
  */
 final class RegistryCheckout implements AutoCloseable {
 
@@ -44,12 +41,6 @@ final class RegistryCheckout implements AutoCloseable {
     final StringWriter err = new StringWriter();
     final PoreloPaths paths;
     private @Nullable Process agent;
-
-    /** What {@code registry file} runs between its read and its write. */
-    Runnable afterRead = () -> {};
-
-    /** What {@code registry file} runs just before it moves HEAD. */
-    Runnable beforeUpdate = () -> {};
 
     private @Nullable Path socket;
 
@@ -177,25 +168,6 @@ final class RegistryCheckout implements AutoCloseable {
         return PersonCard.fingerprint(key(login));
     }
 
-    /** michael owns the registry, which the forge confirms; hank administers wharf6. */
-    String founded() throws IOException {
-        forge.owners.put("michael", true);
-        forge.keys.put("michael", List.of(key("michael")));
-        write("owners.yml", owners());
-        return commit("michael");
-    }
-
-    /**
-     * What every read of the owners file below warns of: neither michael nor hank has a backup key.
-     */
-    List<String> soleWarnings() {
-        return List.of(
-                "owners.yml names michael as the registry's only owner, without a backup key; make"
-                        + " one with porelo identity backup-key --organization",
-                "owners.yml names hank as the only admin of wharf6, without a backup key; make one"
-                        + " with porelo identity backup-key --host wharf6");
-    }
-
     /** The owners file naming michael as owner and hank as wharf6's admin. */
     String owners() {
         return "owners:\n  - login: michael\n    key: \""
@@ -219,21 +191,6 @@ final class RegistryCheckout implements AutoCloseable {
                 LocalDate.of(2026, 1, 1),
                 LocalDate.of(2030, 1, 1),
                 predecessor == null ? null : keys.get(predecessor));
-    }
-
-    String hostCard(String host, String signer) {
-        return HostCard.write(
-                host, host + ".example.org", 2201, key("hank"), 3000, 2222, 8448, keys.get(signer));
-    }
-
-    String access(String project) {
-        return "admins:\n  alice: \""
-                + pin("alice")
-                + "\"\nprojects:\n  - name: "
-                + project
-                + "\n    admin: alice\n    access_repository: ssh://git@example.org/"
-                + project
-                + ".git\n";
     }
 
     /** Starts a real ssh-agent holding these logins' keys. */
@@ -290,39 +247,8 @@ final class RegistryCheckout implements AutoCloseable {
         return new PoreloContext(runner, paths, terminal, environment());
     }
 
-    /** Runs {@code porelo registry ...} with the test's forge in place of the real one. */
-    int registry(String... args) {
-        return registry(context(), args);
-    }
-
-    int registry(PoreloContext context, String... args) {
-        out.getBuffer().setLength(0);
-        err.getBuffer().setLength(0);
-        final CommandLine cli = PoreloCli.commandLine(context);
-        cli.setOut(new PrintWriter(out));
-        cli.setErr(new PrintWriter(err));
-        final RegistryReadCommand.Forges forges =
-                (address, token) -> {
-                    forge.opened.add(address + " " + token);
-                    return forge;
-                };
-        final var verbs = cli.getSubcommands().get("registry").getSubcommands();
-        ((RegistryReadCommand) verbs.get("read").getCommand()).forges = forges;
-        final RegistryFileCommand file = (RegistryFileCommand) verbs.get("file").getCommand();
-        file.forges = forges;
-        file.afterRead = afterRead;
-        file.beforeUpdate = beforeUpdate;
-        final List<String> all = new ArrayList<>(List.of("registry"));
-        all.addAll(List.of(args));
-        return cli.execute(all.toArray(String[]::new));
-    }
-
     Map<?, ?> answer() {
         return (Map<?, ?>) Json.parse(out.toString());
-    }
-
-    Path record() {
-        return RegistryReadCommand.trustRecord(context(), ORIGIN);
     }
 
     @Override

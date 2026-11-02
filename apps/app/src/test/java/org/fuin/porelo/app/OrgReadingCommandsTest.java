@@ -599,40 +599,44 @@ class OrgReadingCommandsTest {
 
     @Test
     void theForgeIsAskedWithTheTokenDeclaredForTheOrganizationAndNoOther() throws Exception {
-        final org.fuin.porelo.organization.git.RegistryOrigin origin =
-                org.fuin.porelo.organization.git.RegistryOrigin.of(
+        final org.fuin.porelo.organization.gittree.ForgeAddress origin =
+                org.fuin.porelo.organization.gittree.ForgeAddress.of(
                         "git@forge.example.org:acme/organization.git");
-        assertThat(OrgForgeToken.of(context(), origin)).as("none declared or held").isNull();
+        assertThat(OrganizationAccess.forgeToken(context(), origin))
+                .as("none declared or held")
+                .isNull();
 
         final Path token = dir.resolve("installation-token");
         Files.writeString(token, "tok-installation\n");
         declareToken("https://forge.example.org/acme/", token);
-        assertThat(OrgForgeToken.of(context(), origin))
+        assertThat(OrganizationAccess.forgeToken(context(), origin))
                 .as("found however the repository is cloned")
                 .isEqualTo("tok-installation");
 
         declareToken("https://elsewhere.example.org/acme/", token);
-        assertThat(OrgForgeToken.of(context(), origin))
+        assertThat(OrganizationAccess.forgeToken(context(), origin))
                 .as("another forge's token is not sent here")
                 .isNull();
 
         declareToken("https://forge.example.org/acme/", token);
         assertThat(
-                        OrgForgeToken.of(
+                        OrganizationAccess.forgeToken(
                                 context(),
-                                org.fuin.porelo.organization.git.RegistryOrigin.of(
+                                org.fuin.porelo.organization.gittree.ForgeAddress.of(
                                         "ssh://git@forge.example.org:2222/acme/organization.git")))
                 .as("an address with a port is another server")
                 .isNull();
 
         declare("https://forge.example.org/acme/", "ssh-key", token);
-        assertThat(OrgForgeToken.of(context(), origin))
+        assertThat(OrganizationAccess.forgeToken(context(), origin))
                 .as("what is declared as something else is no token to send")
                 .isNull();
 
         declareToken("https://forge.example.org/acme/", token);
         Files.writeString(token, "  \n");
-        assertThat(OrgForgeToken.of(context(), origin)).as("a blank file holds none").isNull();
+        assertThat(OrganizationAccess.forgeToken(context(), origin))
+                .as("a blank file holds none")
+                .isNull();
     }
 
     @Test
@@ -1083,7 +1087,8 @@ class OrgReadingCommandsTest {
         declareToken("https://forge.example.org/acme/", token);
 
         try (var lease =
-                OrgAccess.lent(context()).lend("https://forge.example.org/acme/organization")) {
+                OrganizationAccess.lent(context())
+                        .lend("https://forge.example.org/acme/organization")) {
             assertThat(lease.arguments())
                     .as("a private repository could not be fetched or pushed to without it")
                     .isNotEmpty();

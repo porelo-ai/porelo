@@ -148,7 +148,7 @@ record KeePassXcKey(
                     65,
                     "key-store-refused",
                     "no KeePassXC database at "
-                            + RegistryVerifyCommand.printable(file.toString())
+                            + AnswerText.printable(file.toString())
                             + "; nothing was made");
         }
         final String fingerprint = handOver(context, file.toString(), path, login);
@@ -166,10 +166,10 @@ record KeePassXcKey(
         show(context, file.toString());
         say(
                 "KeePassXC loads the new key only when "
-                        + RegistryVerifyCommand.printable(file.toString())
+                        + AnswerText.printable(file.toString())
                         + " is unlocked again, so Porelo has locked KeePassXC's databases:"
                         + " unlock "
-                        + RegistryVerifyCommand.printable(file.toString())
+                        + AnswerText.printable(file.toString())
                         + " in KeePassXC's window; Porelo waits up to "
                         + patience.toSeconds()
                         + " s.\n");
@@ -197,7 +197,7 @@ record KeePassXcKey(
             throw new IdentityChange.Refused(
                     65,
                     "key-store-missing",
-                    RegistryVerifyCommand.printable(program)
+                    AnswerText.printable(program)
                             + " is not installed; install KeePassXC from the package"
                             + " keepassxc-full, then ask again");
         }
@@ -206,7 +206,7 @@ record KeePassXcKey(
                     65,
                     "key-store-refused",
                     "keepassxc-cli did not add the entry "
-                            + RegistryVerifyCommand.printable(entry)
+                            + AnswerText.printable(entry)
                             + " (a wrong password, or an entry of that path exists); nothing was"
                             + " kept");
         }
@@ -241,7 +241,7 @@ record KeePassXcKey(
                     65,
                     "key-store-refused",
                     "keepassxc-cli made the entry "
-                            + RegistryVerifyCommand.printable(entry)
+                            + AnswerText.printable(entry)
                             + " but did not take "
                             + (keyTaken != 0 ? "the key" : "its agent settings")
                             + "; remove that entry in KeePassXC, nothing was kept here");
@@ -347,14 +347,14 @@ record KeePassXcKey(
         final Map<String, @Nullable Object> more = new LinkedHashMap<>();
         more.put("entry", entry);
         more.put("fingerprint", fingerprint);
-        final String shown = String.valueOf(RegistryVerifyCommand.printable(database));
+        final String shown = String.valueOf(AnswerText.printable(database));
         return new IdentityChange.Refused(
                 65,
                 "key-not-served",
                 "KeePassXC holds the key "
                         + fingerprint
                         + " in "
-                        + RegistryVerifyCommand.printable(entry)
+                        + AnswerText.printable(entry)
                         + (locked
                                 ? ", but its agent did not serve it within "
                                         + patience.toSeconds()

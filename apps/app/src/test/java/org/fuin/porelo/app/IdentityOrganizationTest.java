@@ -35,7 +35,7 @@ class IdentityOrganizationTest {
     void the_lease_of_a_push_carries_the_persons_agent() throws Exception {
         machine.agent();
 
-        final FetchAccess access = IdentityOrganization.lent(machine.context());
+        final FetchAccess access = OrganizationAccess.lent(machine.context());
         try (FetchAccess.Lease lease = access.lend(RegistryCheckout.ORIGIN)) {
             assertThat(lease.environment())
                     .as("the agent of the person who acts")
@@ -83,5 +83,18 @@ class IdentityOrganizationTest {
         assertThat(refused.code()).isEqualTo(70);
         assertThat(refused.reason()).isEqualTo("failed");
         assertThat(refused.nothingPushed()).as("nobody knows that").isFalse();
+    }
+
+    @Test
+    void the_org_commands_fetch_is_lent_the_agent_as_well() throws Exception {
+        // Over ssh a fetch runs with a chosen environment, and has no other way to the person's
+        // key: a person with no key in the vault could read no organization at an ssh address.
+        machine.agent();
+        try (FetchAccess.Lease lease =
+                OrganizationAccess.lent(machine.context()).lend(RegistryCheckout.ORIGIN)) {
+            assertThat(lease.environment())
+                    .as("the agent of the person who reads")
+                    .containsEntry("SSH_AUTH_SOCK", machine.environment().apply("SSH_AUTH_SOCK"));
+        }
     }
 }

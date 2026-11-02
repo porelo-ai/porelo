@@ -11,7 +11,7 @@ import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.fuin.porelo.organization.OrganizationQuestions.Refused;
-import org.fuin.porelo.organization.git.RegistryOrigin;
+import org.fuin.porelo.organization.gittree.ForgeAddress;
 import org.fuin.porelo.organization.gittree.ForgeReadKey;
 import org.jspecify.annotations.Nullable;
 import picocli.CommandLine.Command;
@@ -53,7 +53,7 @@ public class OrgAddReadKeyCommand extends OrgReading {
     Forge forge =
             (address, token, client) ->
                     new ForgeReadKey(
-                            ForgeReadKey.api(RegistryOrigin.of(address).forge()),
+                            ForgeReadKey.api(ForgeAddress.of(address).forge()),
                             address,
                             token,
                             client);
@@ -65,7 +65,7 @@ public class OrgAddReadKeyCommand extends OrgReading {
         final String address = OrgFetchCommand.address(settings);
         final ForgeReadKey asked;
         try {
-            asked = forge.at(address, token, OrgAccess.http(machine));
+            asked = forge.at(address, token, OrganizationAccess.http(machine));
         } catch (IllegalArgumentException ex) {
             throw new Refused(Refused.USAGE, "--settings names no repository's ssh address", null);
         }

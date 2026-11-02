@@ -86,10 +86,10 @@ would change the answer.
 | A credential is entered only in a terminal | no daemon method takes a provider credential or passphrase; only a device's keyslot share crosses the socket | [entry](#a-credential-is-entered-only-in-a-terminal) |
 | A credential with no expiry is stored and named | accepted, never refused; the store says so and the list marks it (not yet built) | [entry](#a-credential-with-no-expiry-is-stored-and-named) |
 | A storage class Porelo cannot prove is shown as user-scoped | stronger only by a slot the node enrolled or evidence it checks; a client's claim is recorded and shown as user-scoped (not yet built) | [entry](#a-storage-class-porelo-cannot-prove-is-shown-as-user-scoped) |
-| A registry is judged path by path, and a first card by the forge's public key list | each path by the signers its rule names, never the commit's signer alone; a first card trusted from `<forge>/<login>.keys`, not the forge's API; written by plain signed Git | [entry](#a-registry-is-judged-path-by-path-and-a-first-card-by-the-forges-public-key-list) |
+| An organization is judged path by path, and a first card by the forge's public key list | each path by the signers its rule names, never the commit's signer alone; a first card trusted from `<forge>/<login>.keys`, not the forge's API; written by plain signed Git | [entry](#an-organization-is-judged-path-by-path-and-a-first-card-by-the-forges-public-key-list) |
 | The organization's adapter is linked into Porelo | it decides whom Porelo trusts, so it is no executable that would have to be trusted first; a second one comes with a release; its API carries plain data, so one can stand behind a process later | [entry](#the-organizations-adapter-is-linked-into-porelo) |
 | A new key goes straight into KeePassXC, and a running KeePassXC is locked to serve it | accepted: no key file and no master password in Porelo; every database the running KeePassXC has open is locked, and the others stay locked until the person unlocks them | [entry](#a-new-key-goes-straight-into-keepassxc-and-a-running-keepassxc-is-locked-to-serve-it) |
-| A registry's trust record is checked, not hardened against whoever writes the state directory | accepted: a record that fails a check is discarded and the registry walked again from its founding commit; a writer of `$XDG_STATE_HOME` can change Porelo's config and binaries too | [entry](#a-registrys-trust-record-is-checked-not-hardened-against-whoever-writes-the-state-directory) |
+| An organization's trust record is checked, not hardened against whoever writes the state directory | accepted: a record that fails a check is discarded and the registry walked again from its founding commit; a writer of `$XDG_STATE_HOME` can change Porelo's config and binaries too | [entry](#an-organizations-trust-record-is-checked-not-hardened-against-whoever-writes-the-state-directory) |
 | A backup key replaces only the card of the person who filed it | it replaces that login's key and nothing else, revoking the old one; an owner's backup signs `owners.yml` and the new key the card; nobody may name a backup for someone else | [entry](#a-backup-key-replaces-only-the-card-of-the-person-who-filed-it) |
 | An owner handing on a key changes the owners first | two commits in one push: the old key signs `owners.yml` with the new key, the new key signs the card; no rule lets a non-owner's key change `owners.yml` | [entry](#an-owner-handing-on-a-key-changes-the-owners-first) |
 | An owner does not move a host's pin | the pin follows only a chain the old key signed, or a backup that key filed; an owner's replacement leaves the host at `refused-state` until its admin renews the pin on the machine | [entry](#an-owner-does-not-move-a-hosts-pin) |
@@ -103,11 +103,11 @@ would change the answer.
 | A project is named, never pointed at | every command and call takes a project name; no path form exists | [entry](#a-project-is-named-never-pointed-at) |
 | A signature counts when it arrives, never when it says it was made | commits judged at arrival by the gate and the forge's pre-receive hook, messages when the receiver takes them; a date the signer writes decides nothing | [entry](#a-signature-counts-when-it-arrives-never-when-it-says-it-was-made) |
 | A host believes the forge about a member's first card | within `org fetch` it asks the forge's public key list, anonymously, and judges as a person's machine does; a forge with no such list leaves that person first-seen, so their commit waits | [entry](#a-host-believes-the-forge-about-a-members-first-card) |
-| A single admin keeps an offline backup key | for a host's one admin and a registry's one owner; it may only replace the key it backs, signs nothing else and certifies no task | [entry](#a-single-admin-keeps-an-offline-backup-key) |
+| A single admin keeps an offline backup key | for a host's one admin and an organization's one owner; it may only replace the key it backs, signs nothing else and certifies no task | [entry](#a-single-admin-keeps-an-offline-backup-key) |
 | Clearing names what only a person's credentials can remove, and never attempts it | keys made by earlier versions and `machine-signers` lines are named, not removed at the forge; git needs no administration right; the vault stays | [entry](#clearing-names-what-only-a-persons-credentials-can-remove-and-never-attempts-it) |
 | A digest pins an image; a tag-only image in a project needs a person's consent once | a tag-only project waits for one consent, then the digest is kept and a change said at every start (not yet built) | [entry](#a-digest-pins-an-image-a-tag-only-image-in-a-project-needs-a-persons-consent-once) |
 | What a build runs beside its secrets is fixed by its content | every action by commit with its version, Maven and GraalVM by checksum, Artifactory spoken to with curl; `check-actions` refuses a tag | [entry](#what-a-build-runs-beside-its-secrets-is-fixed-by-its-content) |
-| An offline project never connects, and its agent still reaches its provider | no upstream or external egress, written on this machine; declared `host_services` reach the host on TCP 443, and the agent's model calls go through the broker as in every class | [entry](#an-offline-project-never-connects-and-its-agent-still-reaches-its-provider) |
+| An offline project never connects, and its agent still reaches its provider | no upstream or external egress, and once started no fetch; a start of one the organization names reads it first; declared `host_services` reach the host on TCP 443, and the agent's model calls go through the broker as in every class | [entry](#an-offline-project-never-connects-and-its-agent-still-reaches-its-provider) |
 | **Messages** | | |
 | A task holds no key and sees no address | one mailbox in the container; messages and commits signed on the host by the task's own certified key, never a login key | [entry](#a-task-holds-no-key-and-sees-no-address) |
 | No model decides what a message may contain | rules accept or refuse, a person holds; a classifier may only ever hold | [entry](#no-model-decides-what-a-message-may-contain) |
@@ -659,7 +659,7 @@ A host with one host admin and an organization with one owner each keep a second
 offline, by `porelo identity backup-key`, and never put in the daily agent: a single key that is lost leaves nobody who may hand
 the place on. The backup key is held to the one change that recovers: a commit it
 signs may change only the entry it backs, and itself. It signs no other change and certifies no task.
-`registry read` and `identity show` warn while one is missing. **The exposure:** whoever holds the
+`org` and `identity show` warn while one is missing. **The exposure:** whoever holds the
 backup key can replace the key it backs and so take that place over, as with the main key; kept offline, it is
 harder to reach.
 
@@ -1077,15 +1077,15 @@ and the interface show it exactly like a user-scoped slot: a label that reads st
 an honest weaker one. **Not yet built:** `EnrollDevice` and `vault devices` still record and display the storage class
 a client claims without proof instead of showing unproven claims as user-scoped.
 
-## A registry is judged path by path, and a first card by the forge's public key list
+## An organization is judged path by path, and a first card by the forge's public key list
 
-Many people can write to a registry repository, so a commit's signer alone proves nothing. `registry read` judges each
+Many people can write to an organization's repository, so a commit's signer alone proves nothing. Every read judges each
 commit on the first-parent line path by path: a card is changed by its own key, and a change of key by its
 predecessor too; `owners.yml` by an owner it names; a host's card and access file by a host admin `owners.yml` names
 for that host; any other path is never read. A first card is trusted only when the central forge lists its key for
 that login on the public `<forge>/<login>.keys` page. The page is read, not the forge's API, because Forgejo's API
 asks for a token even for another person's public keys; until the forge has been asked, the card is `first-seen`.
-`registry file` commits with plain Git, signed through the person's agent, never through a forge's contents API: the
+A change commits with plain Git, signed through the person's agent, never through a forge's contents API: the
 signed commit is the proof, and it is made where the key is.
 
 ## A new key goes straight into KeePassXC, and a running KeePassXC is locked to serve it
@@ -1102,16 +1102,16 @@ the others stay locked until the person unlocks them. **Why it stays:** unlockin
 password in Porelo, which only `keepassxc-cli` reads. **What would change the answer:** a KeePassXC that serves an
 entry added to an open database.
 
-## A registry's trust record is checked, not hardened against whoever writes the state directory
+## An organization's trust record is checked, not hardened against whoever writes the state directory
 
-`porelo registry read` keeps the state a walk of the registry ended with as a trust record in the person's
-`$XDG_STATE_HOME/porelo/registry/`, owner-only, and the next read walks only the commits after it. Before that, the
+A read keeps the state a walk of the organization ended with as a trust record in the person's
+`$XDG_STATE_HOME/porelo/organization/`, owner-only, and the next read walks only the commits after it. Before that, the
 record is checked whole: every field as a walk writes it, each file it names read again from the blob it names and
 judged as the walk judges it, each change on the first-parent line, touching its path and signed by the signer named.
-A record that fails any check, or does not read, is discarded, said so in one warning naming why, and the registry is
+A record that fails any check, or does not read, is discarded, said so in one warning naming why, and the organization is
 walked again from its founding commit; the fresh state replaces it. Slower, never weaker. A head that does not continue
 the record's commit still refuses the read, since then the history, not the record, is what is wrong.
-**The exposure:** the check is not a proof. What the walk knew at the time, such as which keys owned the registry
+**The exposure:** the check is not a proof. What the walk knew at the time, such as which keys owned the organization
 when an owner replaced a card, or what the forge said, is not in the history, so a hand-edited record can still pass
 in ways a walk would not: one is the signer of an owners or access file, which the record check does not judge
 against the owners before it. **Why it stays:** who can write the state directory can change the person's Porelo
@@ -1276,8 +1276,9 @@ answer:** a way to see every push to the upstream, which would be the forge's, n
 ## An offline project never connects, and its agent still reaches its provider
 
 An `offline` project makes no external Git or egress connection out, neither from the task nor from the host on its
-behalf: it names no `upstream` or external `egress`, a start takes no `--upstream`, and its file is written on this
-machine and never fetched. Its code comes in by `gate restore` and leaves by `gate backup`. Declared
+behalf: it names no `upstream` or external `egress`, and a start takes no `--upstream`. A file written on this machine is
+never fetched; one the organization names is read at its start as every other is, before its class is known, so a
+machine with no route has its project written there. Its code comes in by `gate restore` and leaves by `gate backup`. Declared
 `egress.host_services` still reach this host on TCP 443. Offline only after the first start, as it once was, is not
 what a person choosing it for a machine without a route expects. **The exposure:** the agent's model calls still reach
 its AI provider through the host's broker, as in every class, so the prompts and what the agent reads leave the machine

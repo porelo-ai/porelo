@@ -636,4 +636,130 @@ class CardHostCommandTest {
                 .isEqualTo(66);
         assertThat(err.toString()).doesNotContain("\u001b").contains("key?[2J");
     }
+
+    /** A make-host with these ports for the forge's two and Matrix. */
+    private int makeWithPorts(
+            final Path key,
+            final Path hostKeyFile,
+            final String web,
+            final String git,
+            final String matrix) {
+        return card(
+                "make-host",
+                "--host",
+                "walk-9",
+                "--address",
+                "walk-9.example.org",
+                "--ssh-port",
+                "2201",
+                "--ssh-host-key",
+                hostKeyFile.toString(),
+                "--forge-web-port",
+                web,
+                "--forge-git-port",
+                git,
+                "--matrix-port",
+                matrix,
+                "--key",
+                key.toString());
+    }
+
+    /**
+     * Harm guarded: a program reading the answer of a card with no Matrix forwards to port 0, or a
+     * person told a host offers what it does not.
+     */
+    @Test
+    void a_service_a_card_does_not_offer_is_no_port_in_the_answer() throws Exception {
+        final Path key = keygen("admin", "");
+        final Path hostKeyFile =
+                keygen("ssh_host_ed25519_key", "").resolveSibling("ssh_host_ed25519_key.pub");
+
+        assertThat(makeWithPorts(key, hostKeyFile, "3000", "2222", "none"))
+                .as(err.toString())
+                .isZero();
+        final Path made = file("walk-9.card", out.toString());
+
+        assertThat(card("verify-host", made.toString(), "--signer", pinOf(key), "--json"))
+                .as(err.toString())
+                .isZero();
+        assertThat(((Map<?, ?>) Json.parse(out.toString())).get("services"))
+                .isEqualTo(Map.of("forge", Map.of("web_port", 3000.0, "git_port", 2222.0)));
+
+        assertThat(card("verify-host", made.toString(), "--signer", pinOf(key))).isZero();
+        assertThat(out.toString()).contains("no matrix").doesNotContain("matrix 0");
+    }
+
+    @Test
+    void a_card_of_no_services_at_all_answers_none_and_says_so() throws Exception {
+        final Path key = keygen("admin", "");
+        final Path hostKeyFile =
+                keygen("ssh_host_ed25519_key", "").resolveSibling("ssh_host_ed25519_key.pub");
+
+        assertThat(makeWithPorts(key, hostKeyFile, "none", "none", "none"))
+                .as(err.toString())
+                .isZero();
+        final Path made = file("walk-9.card", out.toString());
+
+        assertThat(card("verify-host", made.toString(), "--signer", pinOf(key), "--json")).isZero();
+        assertThat(((Map<?, ?>) Json.parse(out.toString())).get("services")).isEqualTo(Map.of());
+
+        assertThat(card("verify-host", made.toString(), "--signer", pinOf(key))).isZero();
+        assertThat(out.toString()).contains("no forge").contains("no matrix");
+    }
+
+    /**
+     * Harm guarded: a service taken off a card by a slip of the hand. Off is said in words, and
+     * every port is still asked for.
+     */
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"0", "65536", "-1", "x", "", "NONE"})
+    void a_port_that_is_no_port_and_not_none_is_wrong_use(final String port) throws Exception {
+        final Path key = keygen("admin", "");
+        final Path hostKeyFile =
+                keygen("ssh_host_ed25519_key", "").resolveSibling("ssh_host_ed25519_key.pub");
+
+        assertThat(makeWithPorts(key, hostKeyFile, "3000", "2222", port)).isEqualTo(64);
+
+        assertThat(out.toString()).isEmpty();
+        assertThat(err.toString()).contains("--matrix-port");
+    }
+
+    @Test
+    void one_of_the_forges_two_ports_alone_is_wrong_use() throws Exception {
+        final Path key = keygen("admin", "");
+        final Path hostKeyFile =
+                keygen("ssh_host_ed25519_key", "").resolveSibling("ssh_host_ed25519_key.pub");
+
+        assertThat(makeWithPorts(key, hostKeyFile, "3000", "none", "8448")).isEqualTo(64);
+
+        assertThat(out.toString()).isEmpty();
+    }
+
+    @Test
+    void every_port_is_asked_for_though_a_service_may_be_off() throws Exception {
+        final Path key = keygen("admin", "");
+        final Path hostKeyFile =
+                keygen("ssh_host_ed25519_key", "").resolveSibling("ssh_host_ed25519_key.pub");
+
+        assertThat(
+                        card(
+                                "make-host",
+                                "--host",
+                                "walk-9",
+                                "--address",
+                                "walk-9.example.org",
+                                "--ssh-port",
+                                "2201",
+                                "--ssh-host-key",
+                                hostKeyFile.toString(),
+                                "--forge-web-port",
+                                "3000",
+                                "--forge-git-port",
+                                "2222",
+                                "--key",
+                                key.toString()))
+                .isNotZero();
+
+        assertThat(err.toString()).contains("--matrix-port");
+    }
 }

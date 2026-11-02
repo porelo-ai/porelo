@@ -77,8 +77,7 @@ public class IdentityShowCommand implements Callable<Integer>, PoreloFactory.Con
             return IdentityChange.refuse(spec, json, ex);
         } catch (IOException | CardException ex) {
             err.println(
-                    "porelo: cannot read "
-                            + RegistryVerifyCommand.printable(String.valueOf(ex.getMessage())));
+                    "porelo: cannot read " + AnswerText.printable(String.valueOf(ex.getMessage())));
             err.flush();
             return 66;
         }
@@ -264,7 +263,7 @@ public class IdentityShowCommand implements Callable<Integer>, PoreloFactory.Con
                         "card_refused")) {
             final Object value = answer.get(field);
             if (value != null) {
-                out.println(field + " " + RegistryVerifyCommand.printable(value.toString()));
+                out.println(field + " " + AnswerText.printable(value.toString()));
             }
         }
         if (answer.get("organization") instanceof List<?> organizations) {
@@ -272,7 +271,7 @@ public class IdentityShowCommand implements Callable<Integer>, PoreloFactory.Con
                 if (each instanceof Map<?, ?> entry) {
                     out.println(
                             "organization "
-                                    + RegistryVerifyCommand.printable(
+                                    + AnswerText.printable(
                                             entry.get("address") + " " + entry.get("filed")));
                 }
             }
@@ -280,7 +279,7 @@ public class IdentityShowCommand implements Callable<Integer>, PoreloFactory.Con
         if (answer.get("forge") instanceof Map<?, ?> forge) {
             out.println(
                     "forge "
-                            + RegistryVerifyCommand.printable(
+                            + AnswerText.printable(
                                     forge.get("keys_url") + " listed " + forge.get("key_listed")));
         }
         if (answer.get("pending") instanceof List<?> operations) {
@@ -288,7 +287,7 @@ public class IdentityShowCommand implements Callable<Integer>, PoreloFactory.Con
                 if (each instanceof Map<?, ?> operation) {
                     out.println(
                             "pending "
-                                    + RegistryVerifyCommand.printable(
+                                    + AnswerText.printable(
                                             operation.get("id")
                                                     + " "
                                                     + operation.get("action")
