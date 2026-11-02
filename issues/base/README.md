@@ -134,6 +134,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b400"></a>[B400](B400-A-Revoked-Key-Stops-Certifying-Off-A-Host-Before-A-Start.md) | - | - | Off a host, a key revoked in the organization stops being believed as a certifier of messages soon after, not only at the project's next start |
 | <a id="b397"></a>[B397](B397-A-Plain-Git-Credential-Goes-To-Any-Host-A-Project-Names.md) | - | - | A plain `git.token` or `git.ssh` reaches only a host the person meant it for, not whatever host a project's file names. |
 | <a id="b394"></a>[B394](B394-An-Online-Task-On-A-Host-With-No-Forge-Passes-On-To-Its-Upstream.md) | S | - | An `online` task on a host with no forge passes on to its `upstream` instead of pushing to a forge that is not there. |
 | <a id="b399"></a>[B399](B399-A-Maven-Server-Password-Brought-Into-The-Vault-On-Command.md) | - | - | A person brings one named Maven server's password from their own settings into the vault, at their explicit command |
