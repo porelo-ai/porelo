@@ -33,7 +33,7 @@ Feature: The project commands
         And a script runs:
             """
             porelo project list --json | python3 -c 'import json,sys
-            project = next(p for p in json.load(sys.stdin)["projects"] if p["name"] == "listed")
+            project = next(p for p in json.load(sys.stdin)["projects"] if p["project"] == "listed")
             print("source:", project["source"])'
             """
         Then it exits zero

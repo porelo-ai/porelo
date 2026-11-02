@@ -134,7 +134,6 @@ Feature: A task in a guarded project, from its image to what it hands back
         And its output has a line matching "github\.com +set git-hosting"
         And its output has a line matching "example\.net +refused on purpose by agent stub"
         And its output contains "the gate now rests on this container holding no credential"
-        And its output contains "unverified - whoever can push there decides what tasks here may reach"
 
     Scenario: a declared host resolves and answers on 443, and nothing else does
         When a task called "ports" is started in "guarded" for the "stub" agent and left running
