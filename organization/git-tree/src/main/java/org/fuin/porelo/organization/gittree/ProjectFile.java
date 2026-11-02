@@ -298,13 +298,14 @@ public final class ProjectFile {
         final Optional<TreeRepository> empty = TreeRepository.founding(address, runner, access);
         if (empty.isEmpty()) {
             try (TreeRepository clone = TreeRepository.fetch(address, runner, access)) {
-                final Optional<String> made =
-                        clone.changeNamed(change.id(), PersonCard.fingerprint(acting));
+                final Optional<String> made = own(clone, change);
                 if (made.isPresent()) {
                     return new OrganizationWrites.Written(made.orElseThrow(), change.id(), true);
                 }
                 throw new Refused(
                         Refused.EXISTS, "the project's repository holds something", clone.tip());
+            } catch (GitTreeStore.Empty ex) {
+                throw new Refused(Refused.EXISTS, "the project's repository holds something", null);
             } catch (CardException ex) {
                 throw new IOException(ex.getMessage(), ex);
             }
@@ -338,8 +339,7 @@ public final class ProjectFile {
             throws IOException {
         final String acting = change.acting().key();
         try (TreeRepository clone = TreeRepository.fetch(address, runner, access)) {
-            final Optional<String> made =
-                    clone.changeNamed(change.id(), PersonCard.fingerprint(acting));
+            final Optional<String> made = own(clone, change);
             if (made.isPresent()) {
                 if (!clone.subject(made.orElseThrow()).equals(subject)) {
                     throw new Refused(
@@ -351,6 +351,13 @@ public final class ProjectFile {
             final String tip = clone.tip();
             if (!READ.equals(read.state())) {
                 throw new Refused(Refused.REFUSED_STATE, String.valueOf(read.why()), tip);
+            }
+            // Signed by a key that is no admin's, the file would be refused by its next reader.
+            if (!anAdminsKey(acting, keys, OffsetDateTime.now().toString())) {
+                throw new Refused(
+                        Refused.NOT_ALLOWED,
+                        "the key that acts is no key of this project's admin",
+                        tip);
             }
             if (change.base() != null && !change.base().equals(tip)) {
                 throw new Refused(Refused.MOVED_ON, "the project repository moved on", tip);
@@ -373,6 +380,19 @@ public final class ProjectFile {
         } catch (CardException ex) {
             throw new IOException(ex.getMessage(), ex);
         }
+    }
+
+    /**
+     * A change here is one commit, signed by the key that acts. Anyone with write access can append
+     * a commit carrying the same id, which must not be answered as that person's.
+     */
+    private static Optional<String> own(
+            final TreeRepository clone, final OrganizationWrites.Change change) throws IOException {
+        final String fingerprint = PersonCard.fingerprint(change.acting().key());
+        final Optional<String> made = clone.changeNamed(change.id(), fingerprint);
+        return made.isPresent() && clone.signedBy(made.orElseThrow(), fingerprint)
+                ? made
+                : Optional.empty();
     }
 
     /** The file is written anew from what it says, so a comment in it does not survive. */

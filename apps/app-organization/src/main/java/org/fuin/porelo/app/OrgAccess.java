@@ -5,6 +5,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.Path;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.TreeMap;
@@ -147,6 +148,11 @@ final class OrgAccess {
                 @Override
                 public Map<String, String> environment() {
                     return credential.environment();
+                }
+
+                @Override
+                public List<String> arguments() {
+                    return credential.arguments();
                 }
 
                 @Override

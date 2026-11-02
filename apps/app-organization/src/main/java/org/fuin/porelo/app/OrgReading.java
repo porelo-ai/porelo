@@ -41,7 +41,7 @@ public abstract class OrgReading implements Callable<Integer>, PoreloFactory.Con
             return 0;
         } catch (Refused refused) {
             return OrgOutput.refuse(spec, json, refused);
-        } catch (IOException ex) {
+        } catch (IOException | RuntimeException ex) {
             OrgOutput.failed(spec, json, String.valueOf(ex.getMessage()));
             throw ex;
         }
@@ -56,6 +56,17 @@ public abstract class OrgReading implements Callable<Integer>, PoreloFactory.Con
      * @throws Refused When it says no.
      */
     abstract Map<String, @Nullable Object> answer(PoreloContext machine) throws IOException;
+
+    /**
+     * Says, beside what it shows, that a state is only the last one trusted.
+     *
+     * @param answer The answer.
+     */
+    final void staleness(final Map<String, @Nullable Object> answer) {
+        if (Boolean.TRUE.equals(answer.get("stale"))) {
+            line("Stale: the organization cannot be reached, this is the last state trusted here");
+        }
+    }
 
     /**
      * Says an answer to a person.

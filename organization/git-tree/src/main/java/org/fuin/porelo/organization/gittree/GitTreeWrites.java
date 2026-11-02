@@ -333,7 +333,7 @@ public final class GitTreeWrites implements OrganizationWrites {
                             signing,
                             change.acting().key(),
                             change.acting().login());
-            judged(clone, List.of(commit), "");
+            judged(clone, List.of(commit), "", TreeModel.empty(), change.acting().login());
             if (!clone.push(address, access)) {
                 throw new GitTreeStore.Unreachable(
                         "the organization's repository did not take the change");
@@ -355,6 +355,8 @@ public final class GitTreeWrites implements OrganizationWrites {
                 return new Written(made.orElseThrow(), change.id(), true);
             }
             throw new Refused(Refused.EXISTS, "the repository is not empty", record.commit());
+        } catch (GitTreeStore.Empty ex) {
+            throw new Refused(Refused.EXISTS, "the repository is not empty", null);
         } catch (CardException ex) {
             throw new IOException(ex.getMessage(), ex);
         }
@@ -969,7 +971,14 @@ public final class GitTreeWrites implements OrganizationWrites {
                                 change.acting().login());
                 commits.add(commit);
             }
-            judged(clone, commits, tip);
+            if (clone.changed(commit, tip).isEmpty()) {
+                throw new Refused(
+                        Refused.REFUSED_STATE,
+                        "the file says this already, in a commit no reader accepts: an owner sets"
+                                + " the project's admin anew first",
+                        tip);
+            }
+            judged(clone, commits, tip, before.model(), change.acting().login());
             if (!clone.push(address, access)) {
                 return afterRefusedPush(change, commit, tip);
             }
@@ -988,12 +997,17 @@ public final class GitTreeWrites implements OrganizationWrites {
     }
 
     /** Refuses what every reader would refuse, before anybody has to. */
-    private void judged(final TreeRepository clone, final List<String> commits, final String tip)
+    private void judged(
+            final TreeRepository clone,
+            final List<String> commits,
+            final String tip,
+            final TreeModel model,
+            final String login)
             throws IOException {
         final TreeRecord after = walk(clone);
         for (final var refusal : after.refusals()) {
             if (commits.contains(refusal.revision())) {
-                throw new Refused(Refused.NOT_ALLOWED, refusal.why(), tip);
+                throw new Refused(reason(model, login, refusal.path()), refusal.why(), tip);
             }
         }
         if (!commits.getLast().equals(after.commit())) {
@@ -1004,12 +1018,28 @@ public final class GitTreeWrites implements OrganizationWrites {
         }
     }
 
+    /** A lock is said as one: someone locked asks why, someone without the role asks for it. */
+    private static String reason(final TreeModel model, final String login, final String path) {
+        final String[] parts = path.split("/");
+        final TreeModel.ProjectState project =
+                parts.length > 1 && parts[0].equals("projects")
+                        ? model.projects().get(parts[1])
+                        : null;
+        final List<TreeFiles.Member> members = project == null ? null : project.members();
+        return members != null
+                        && members.stream()
+                                .anyMatch(each -> each.login().equals(login) && each.locked())
+                ? Refused.LOCKED
+                : Refused.NOT_ALLOWED;
+    }
+
     /** A push refused says nothing of why: what the repository now holds says it. */
     private Written afterRefusedPush(final Change change, final String commit, final String tip)
             throws IOException {
         try (TreeRepository again = TreeRepository.fetch(address, runner, access)) {
             final String now = again.tip();
-            if (now.equals(commit)) {
+            // Another writer may have gone on from it before this look.
+            if (again.line(null).stream().anyMatch(each -> each.getKey().equals(commit))) {
                 return new Written(commit, change.id(), false);
             }
             if (!now.equals(tip)) {
