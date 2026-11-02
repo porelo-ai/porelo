@@ -421,6 +421,9 @@ class IdentityBackupKeyCommandTest {
 
         assertThat(answer().get("again")).isEqualTo(true);
         assertThat(answer().get("revision")).isEqualTo(revision);
+        assertThat(answer().get("replaced"))
+                .as("what the change replaced, not what stands since")
+                .isEqualTo(registry.pin("michael"));
     }
 
     /** Any other key names nothing in the owner's place: the store and the verb both say no. */
@@ -514,6 +517,152 @@ class IdentityBackupKeyCommandTest {
                 .isEqualTo(65);
         assertThat(answer().get("reason")).isEqualTo("revoked");
         assertThat(organization.tip()).isEqualTo(before);
+    }
+
+    /**
+     * The grave one: a person told their other file is the backup keeps that file and loses the
+     * real one, and on the day it counts neither replaces anything. The id answers what it made.
+     */
+    @Test
+    void the_same_id_with_another_key_file_claims_nothing_and_leaves_the_file() throws Exception {
+        owner();
+        final Path file = dir.resolve("backup");
+        assertThat(backupKey("--organization", "--out", file.toString(), "--id", "b1", "--json"))
+                .as(err())
+                .isZero();
+        final String tip = organization.tip();
+        final Path other = registry.keyFiles.get("bob");
+        final String held = Files.readString(other);
+
+        assertThat(backupKey("--organization", "--out", other.toString(), "--id", "b1", "--json"))
+                .as(registry.out.toString())
+                .isEqualTo(65);
+
+        assertThat(answer().get("reason")).isEqualTo("exists");
+        assertThat(answer().get("id")).isEqualTo("b1");
+        assertThat(answer().get("fingerprint")).as("no claim about that key").isNull();
+        assertThat(organization.owners()).doesNotContain(registry.key("bob"));
+        assertThat(organization.tip()).isEqualTo(tip);
+        assertThat(Files.readString(other)).isEqualTo(held);
+    }
+
+    /** The same for a replacement: the id made one card stand, and another is not claimed. */
+    @Test
+    void the_same_id_with_another_card_claims_no_replacement() throws Exception {
+        owner();
+        final Path file = backup();
+        final Path next = nextCard();
+        assertThat(
+                        backupKey(
+                                "--organization",
+                                "--use",
+                                file.toString(),
+                                "--card",
+                                next.toString(),
+                                "--id",
+                                "u1",
+                                "--json"))
+                .as(err())
+                .isZero();
+        final Path other =
+                Files.writeString(dir.resolve("other.card"), registry.card("michael", "bob"));
+
+        assertThat(
+                        backupKey(
+                                "--organization",
+                                "--use",
+                                file.toString(),
+                                "--card",
+                                other.toString(),
+                                "--id",
+                                "u1",
+                                "--json"))
+                .as(registry.out.toString())
+                .isEqualTo(65);
+
+        assertThat(answer().get("reason")).isEqualTo("exists");
+        assertThat(answer().get("by")).isNull();
+    }
+
+    /** An id another key made a change under is no change of this backup key's to answer. */
+    @Test
+    void an_id_answers_no_replacement_another_key_than_the_backup_key_signed() throws Exception {
+        owner();
+        final Path file = backup();
+        organization.listed("michael", "alice-new");
+        final String card = registry.card("michael", "alice-new", "michael");
+        organization
+                .writes()
+                .changeCard(
+                        new org.fuin.porelo.organization.OrganizationWrites.Change(
+                                new org.fuin.porelo.organization.OrganizationWrites.Acting(
+                                        "michael", registry.key("alice-new")),
+                                organization.tip(),
+                                "lost-1"),
+                        card);
+        final String byOwner = organization.tip();
+        final Path next =
+                Files.writeString(dir.resolve("new.card"), registry.card("michael", "alice-new"));
+        registry.close();
+        registry.agent("alice-new");
+
+        final int code =
+                backupKey(
+                        "--organization",
+                        "--use",
+                        file.toString(),
+                        "--card",
+                        next.toString(),
+                        "--id",
+                        "lost-1",
+                        "--json");
+
+        assertThat(code)
+                .as("lost-1 was signed by michael's own keys, not the backup key: " + registry.out)
+                .isEqualTo(65);
+        assertThat(organization.tip()).as("nothing is committed").isEqualTo(byOwner);
+    }
+
+    /** The store lost, the file kept, "ask again with the same id": which, if none was given? */
+    @Test
+    void a_made_id_is_named_in_the_refusal_and_the_retry_can_use_it() throws Exception {
+        owner();
+        final Path file = dir.resolve("backup");
+        organization.unreachableForChanges = true;
+
+        assertThat(backupKey("--organization", "--out", file.toString(), "--json")).isEqualTo(69);
+
+        final String id = (String) answer().get("id");
+        assertThat(id).as("named, so a retry can name it").isNotNull();
+        assertThat(err()).contains(id);
+        organization.unreachableForChanges = false;
+
+        assertThat(backupKey("--organization", "--out", file.toString(), "--id", id, "--json"))
+                .as(err())
+                .isZero();
+        assertThat(answer().get("id")).isEqualTo(id);
+        assertThat(ran).as("the same key").hasSize(1);
+    }
+
+    /** Named in a plain refusal too, for it is the same answer whatever the reason. */
+    @Test
+    void a_made_id_is_named_when_the_store_refuses() throws Exception {
+        owner();
+        final String base = organization.tip();
+        organization.filed("alice");
+
+        assertThat(
+                        backupKey(
+                                "--organization",
+                                "--out",
+                                dir.resolve("backup").toString(),
+                                "--base",
+                                base,
+                                "--json"))
+                .isEqualTo(65);
+
+        assertThat(answer().get("reason")).isEqualTo("moved-on");
+        assertThat((String) answer().get("id")).startsWith("bk-");
     }
 
     /** A file that does not open says that, so the person types it again, not that it is wrong. */

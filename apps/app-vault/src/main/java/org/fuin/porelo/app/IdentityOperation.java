@@ -35,6 +35,9 @@ import org.jspecify.annotations.Nullable;
  * @param revision The revision it stands at once done, or {@code null}.
  * @param kept Whether the card is kept here as the person's own: a run stopped before it was is
  *     finished by the next run of the same id.
+ * @param pushTried Whether a run may have pushed its card: written before each try, and cleared
+ *     only by an answer that says nothing was pushed. What the store shows later proves nothing
+ *     here, since a forge may serve an older state again.
  */
 record IdentityOperation(
         String id,
@@ -44,7 +47,8 @@ record IdentityOperation(
         String card,
         boolean done,
         @Nullable String revision,
-        boolean kept) {
+        boolean kept,
+        boolean pushTried) {
 
     /** A first card, signed by its key. */
     static final String CREATE = "create";
@@ -99,7 +103,8 @@ record IdentityOperation(
      * @return The operation.
      */
     IdentityOperation filedAt(final String at) {
-        return new IdentityOperation(id, action, fingerprint, predecessor, card, true, at, kept);
+        return new IdentityOperation(
+                id, action, fingerprint, predecessor, card, true, at, kept, pushTried);
     }
 
     /**
@@ -109,7 +114,18 @@ record IdentityOperation(
      */
     IdentityOperation keptHere() {
         return new IdentityOperation(
-                id, action, fingerprint, predecessor, card, done, revision, true);
+                id, action, fingerprint, predecessor, card, done, revision, true, pushTried);
+    }
+
+    /**
+     * The same operation, saying whether a run may have pushed its card.
+     *
+     * @param tried Whether one may have.
+     * @return The operation.
+     */
+    IdentityOperation pushTried(final boolean tried) {
+        return new IdentityOperation(
+                id, action, fingerprint, predecessor, card, done, revision, kept, tried);
     }
 
     /**
@@ -140,6 +156,7 @@ record IdentityOperation(
         record.put("done", done);
         record.put("revision", revision);
         record.put("kept", kept);
+        record.put("push_tried", pushTried);
         return Json.write(record);
     }
 
@@ -209,7 +226,8 @@ record IdentityOperation(
                 done,
                 map.get("revision") instanceof String at ? at : null,
                 // A record written before this field was kept its card at once.
-                !(map.get("kept") instanceof Boolean kept) || kept);
+                !(map.get("kept") instanceof Boolean kept) || kept,
+                Boolean.TRUE.equals(map.get("push_tried")));
     }
 
     private static String text(final Map<?, ?> map, final String key) {

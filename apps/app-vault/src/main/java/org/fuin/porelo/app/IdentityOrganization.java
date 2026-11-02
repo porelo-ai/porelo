@@ -52,6 +52,9 @@ final class IdentityOrganization {
     /** How the adapter says a commit could not be made, which is how a signature fails. */
     private static final String UNSIGNED = "cannot make the change";
 
+    /** How the adapter says its fetch failed, before anything could be pushed. */
+    private static final String UNFETCHED = "cannot read the organization's repository";
+
     private IdentityOrganization() {
         throw new UnsupportedOperationException("Utility class");
     }
@@ -217,13 +220,18 @@ final class IdentityOrganization {
         try {
             return filing.file();
         } catch (OrganizationQuestions.Refused ex) {
-            throw refused(ex);
+            // The adapter refuses before it pushes: what is left after a push is only a failure.
+            throw refused(ex).beforeAnyPush();
         } catch (GitTreeStore.Unreachable ex) {
-            throw new IdentityChange.Refused(
-                    69,
-                    OrganizationQuestions.Refused.CANNOT_SAY,
-                    "the organization cannot be reached; the change may have been made, so ask"
-                            + " again with the same id");
+            final IdentityChange.Refused lost =
+                    new IdentityChange.Refused(
+                            69,
+                            OrganizationQuestions.Refused.CANNOT_SAY,
+                            "the organization cannot be reached; the change may have been made, so"
+                                    + " ask again with the same id");
+            throw String.valueOf(ex.getMessage()).startsWith(UNFETCHED)
+                    ? lost.beforeAnyPush()
+                    : lost;
         } catch (OrganizationException | CommandException ex) {
             throw new IdentityChange.Refused(
                     65,
@@ -232,10 +240,12 @@ final class IdentityOrganization {
         } catch (IOException ex) {
             if (String.valueOf(ex.getMessage()).startsWith(UNSIGNED)) {
                 throw new IdentityChange.Refused(
-                        69,
-                        OrganizationQuestions.Refused.NO_KEY,
-                        "the agent did not sign the change: serve its key, then ask again with the"
-                                + " same id, or begin again with a new id and another key");
+                                69,
+                                OrganizationQuestions.Refused.NO_KEY,
+                                "the agent did not sign the change: serve its key, then ask again"
+                                        + " with the same id, or begin again with a new id and"
+                                        + " another key")
+                        .beforeAnyPush();
             }
             throw new IdentityChange.Refused(ex);
         }

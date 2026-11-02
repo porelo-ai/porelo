@@ -323,6 +323,183 @@ class IdentityRotateCommandTest {
         assertThat(organization.tip()).isEqualTo(revision);
     }
 
+    /**
+     * The store took the card and the answer was lost; then the forge serves the state from before.
+     * That state cannot prove the change reached nowhere, so the record that could finish it stays
+     * and no second key goes over it.
+     */
+    @Test
+    void a_change_whose_answer_was_lost_is_exists_under_a_new_id_though_the_forge_went_back()
+            throws Exception {
+        registry.agent("alice", "alice-new", "bob");
+        filed();
+        final String before = organization.tip();
+        organization.afterPush = new java.io.IOException("the connection went away");
+
+        assertThat(rotate("c1")).isEqualTo(70);
+        assertThat(answer().get("reason")).isEqualTo("failed");
+        assertThat(answer().get("id")).isEqualTo("c1");
+        organization.servesAgain(before);
+
+        assertThat(identity("rotate", "--key", registry.pin("bob"), "--id", "c2", "--json"))
+                .isEqualTo(65);
+
+        assertThat(answer().get("reason")).isEqualTo("exists");
+        assertThat(answer().get("id")).isEqualTo("c1");
+        assertThat((String) answer().get("words")).contains("c1");
+        assertThat(IdentityOperation.read(registry.context(), "c1")).isNotNull();
+        assertThat(organization.tip()).isEqualTo(before);
+    }
+
+    /** The same when the run died right after the push: it had no moment to write anything. */
+    @Test
+    void a_run_that_died_after_its_push_is_exists_under_a_new_id_though_the_forge_went_back()
+            throws Exception {
+        registry.agent("alice", "alice-new", "bob");
+        filed();
+        final String before = organization.tip();
+        organization.afterPush = new IllegalStateException("the run ends here");
+
+        assertThat(rotate("c1")).isNotZero();
+        organization.servesAgain(before);
+
+        assertThat(identity("rotate", "--key", registry.pin("bob"), "--id", "c2", "--json"))
+                .isEqualTo(65);
+
+        assertThat(answer().get("reason")).isEqualTo("exists");
+        assertThat(answer().get("id")).isEqualTo("c1");
+        assertThat(IdentityOperation.read(registry.context(), "c1")).isNotNull();
+    }
+
+    /**
+     * A push the repository did not take may still have reached it: git's word ends at the wire.
+     */
+    @Test
+    void a_push_that_failed_keeps_its_change_and_a_new_id_is_exists() throws Exception {
+        registry.agent("alice", "alice-new", "bob");
+        filed();
+        organization.git("config", "receive.denyCurrentBranch", "refuse");
+
+        assertThat(rotate("c1")).isEqualTo(69);
+        assertThat(answer().get("id")).isEqualTo("c1");
+        organization.git("config", "receive.denyCurrentBranch", "updateInstead");
+
+        assertThat(identity("rotate", "--key", registry.pin("bob"), "--id", "c2", "--json"))
+                .isEqualTo(65);
+        assertThat(answer().get("reason")).isEqualTo("exists");
+        assertThat(answer().get("id")).isEqualTo("c1");
+    }
+
+    /** A refusal now says nothing of the push an earlier run may have made: the record stays. */
+    @Test
+    void a_refusal_of_a_later_try_does_not_delete_a_change_that_may_stand() throws Exception {
+        registry.agent("alice", "alice-new");
+        filed();
+        final String before = organization.tip();
+        organization.afterPush = new java.io.IOException("the connection went away");
+        assertThat(rotate("c1")).isEqualTo(70);
+        organization.servesAgain(before);
+        organization.filed("hank");
+
+        assertThat(
+                        identity(
+                                "rotate",
+                                "--key",
+                                registry.pin("alice-new"),
+                                "--id",
+                                "c1",
+                                "--base",
+                                before,
+                                "--json"))
+                .isEqualTo(65);
+
+        assertThat(answer().get("reason")).isEqualTo("moved-on");
+        assertThat(IdentityOperation.read(registry.context(), "c1")).isNotNull();
+    }
+
+    /**
+     * The way out under a lost key stays open, and takes the record of the first change with it.
+     */
+    @Test
+    void a_lost_key_goes_past_a_change_that_may_stand_and_keeps_its_record() throws Exception {
+        registry.agent("alice", "alice-new", "bob");
+        filed();
+        final String before = organization.tip();
+        organization.afterPush = new java.io.IOException("the connection went away");
+        assertThat(rotate("c1")).isEqualTo(70);
+        organization.servesAgain(before);
+
+        assertThat(
+                        identity(
+                                "revoke",
+                                "--lost",
+                                "--key",
+                                registry.pin("bob"),
+                                "--id",
+                                "l1",
+                                "--json"))
+                .as(err())
+                .isZero();
+
+        assertThat(answer().get("predecessor")).isEqualTo(registry.pin("alice"));
+        assertThat(IdentityOperation.read(registry.context(), "c1")).isNotNull();
+        assertThat(kept().fingerprint()).isEqualTo(registry.pin("bob"));
+
+        organization.listed("alice", "alice-new");
+        identity("rotate", "--key", registry.pin("alice-new"), "--id", "c3", "--json");
+        assertThat(answer().get("reason"))
+                .as("the first change hands on from a key this card no longer is")
+                .isNotEqualTo("exists");
+    }
+
+    /** The disk filling up after the push leaves the person a change to ask about, by its id. */
+    @Test
+    void a_local_write_failing_after_the_push_is_failed_with_the_id_and_the_id_finishes_it()
+            throws Exception {
+        registry.agent("alice", "alice-new");
+        final String card = filed();
+        final Path pub = new IdentityStore(registry.context()).cardFile().resolveSibling("key.pub");
+        Files.delete(pub);
+        Files.createDirectories(pub.resolve("in-the-way"));
+
+        assertThat(rotate("c1")).isEqualTo(70);
+
+        assertThat(answer().get("reason")).isEqualTo("failed");
+        assertThat(answer().get("id")).isEqualTo("c1");
+        final String revision = organization.tip();
+        Files.delete(pub.resolve("in-the-way"));
+        Files.delete(pub);
+
+        assertThat(rotate("c1")).as(err()).isZero();
+
+        assertThat(answer().get("again")).isEqualTo(true);
+        assertThat(answer().get("revision")).isEqualTo(revision);
+        assertThat(keptText()).isNotEqualTo(card);
+        assertThat(kept().fingerprint()).isEqualTo(registry.pin("alice-new"));
+    }
+
+    /** And when the record already says done and only the card is left to keep. */
+    @Test
+    void a_local_write_failing_for_a_change_noted_done_is_failed_with_the_id() throws Exception {
+        registry.agent("alice", "alice-new");
+        final String old = filed();
+        assertThat(rotate("c1")).as(err()).isZero();
+        final Path file = ops().resolve("c1.json");
+        final Map<String, Object> noted =
+                new LinkedHashMap<>((Map<String, Object>) Json.parse(Files.readString(file)));
+        noted.put("kept", false);
+        Files.writeString(file, Json.write(noted));
+        new IdentityStore(registry.context()).keep(old);
+        final Path pub = new IdentityStore(registry.context()).cardFile().resolveSibling("key.pub");
+        Files.delete(pub);
+        Files.createDirectories(pub.resolve("in-the-way"));
+
+        assertThat(rotate("c1")).isEqualTo(70);
+
+        assertThat(answer().get("reason")).isEqualTo("failed");
+        assertThat(answer().get("id")).isEqualTo("c1");
+    }
+
     /** The old key signs the handing on; without it, a card only half signed would be made. */
     @Test
     void the_old_key_must_be_served_too() throws Exception {
@@ -381,6 +558,43 @@ class IdentityRotateCommandTest {
         assertThat((List<?>) plan.get("who_may"))
                 .extracting(owner -> ((Map<?, ?>) owner).get("login"))
                 .isEqualTo(List.of("michael"));
+    }
+
+    /**
+     * A card the forge refuses names nobody: its words are whoever wrote them, so neither name nor
+     * address goes before the person as one to ask.
+     */
+    @Test
+    void who_may_shows_nothing_of_an_owners_refused_card() throws Exception {
+        registry.agent("alice", "alice-new");
+        filed();
+        organization.filed("michael");
+        organization.filed("bob");
+        organization
+                .writes()
+                .addOrganizationOwner(organization.change("michael", "michael", "o1"), "bob");
+        registry.forge.keys.put("bob", List.of(registry.key("hank")));
+
+        assertThat(
+                        identity(
+                                "revoke",
+                                "--lost",
+                                "--key",
+                                registry.pin("alice-new"),
+                                "--dry-run",
+                                "--json"))
+                .as(err())
+                .isZero();
+
+        final List<?> whoMay = (List<?>) ((Map<?, ?>) answer().get("plan")).get("who_may");
+        final Map<?, ?> bob =
+                whoMay.stream()
+                        .map(each -> (Map<?, ?>) each)
+                        .filter(each -> "bob".equals(each.get("login")))
+                        .findFirst()
+                        .orElseThrow();
+        assertThat(bob.get("name")).as("of a refused card").isNull();
+        assertThat(bob.get("email")).as("of a refused card").isNull();
     }
 
     /** Both ways at once, an entry without KeePassXC, or a bad id, is wrong use. */
@@ -967,6 +1181,7 @@ class IdentityRotateCommandTest {
                         lost.card(),
                         false,
                         null,
+                        false,
                         false);
 
         final IdentityChange.Refused refused =

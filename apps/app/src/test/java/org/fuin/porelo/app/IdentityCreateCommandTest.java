@@ -155,6 +155,35 @@ class IdentityCreateCommandTest {
         assertThat(registry.answer().get("revision")).isEqualTo(organization.tip());
     }
 
+    /** The disk filling up after the push leaves the person a change to ask about, by its id. */
+    @Test
+    void a_local_write_failing_after_the_first_card_is_filed_is_failed_as_an_object_with_the_id()
+            throws Exception {
+        registry.agent("alice");
+        organization = new TestOrganization(registry);
+        registry.forge.keys.put("alice", List.of(registry.key("alice")));
+        final Path pub = cardFile().resolveSibling("key.pub");
+        Files.createDirectories(pub.resolve("in-the-way"));
+
+        assertThat(createInOrganization("--key", registry.pin("alice"), "--id", "c1", "--json"))
+                .isEqualTo(70);
+
+        assertThat(reason()).isEqualTo("failed");
+        assertThat(registry.answer().get("id")).isEqualTo("c1");
+    }
+
+    /** Kept here and nowhere else: the same object, for a machine naming no organization. */
+    @Test
+    void a_card_that_cannot_be_kept_is_failed_as_an_object() throws Exception {
+        registry.agent("alice");
+        final Path pub = cardFile().resolveSibling("key.pub");
+        Files.createDirectories(pub.resolve("in-the-way"));
+
+        assertThat(create("--key", registry.pin("alice"), "--json")).isEqualTo(70);
+
+        assertThat(reason()).isEqualTo("failed");
+    }
+
     /** A card made before the machine had an organization goes in once it has: never a second. */
     @Test
     void a_card_kept_before_the_organization_was_named_is_filed_as_it_is() throws Exception {

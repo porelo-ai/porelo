@@ -174,6 +174,7 @@ public class IdentityRevokeCommand implements Callable<Integer>, PoreloFactory.C
                                     text,
                                     false,
                                     null,
+                                    false,
                                     false));
             final IdentityOperation operation =
                     begun.fresh() ? change.keep(begun.operation()) : begun.operation();

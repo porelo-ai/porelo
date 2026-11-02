@@ -51,6 +51,9 @@ public class IdentityBackupKeyCommand implements Callable<Integer>, PoreloFactor
      */
     private static final String NO_KEY = OrganizationQuestions.Refused.NO_KEY;
 
+    /** A base no store stands at: the id is looked for first, and nothing is made without it. */
+    private static final String NO_REVISION = "0".repeat(40);
+
     /** Where the backup key goes: exactly one. */
     static final class Scope {
         @Option(names = "--host", paramLabel = "HOST", description = "A host you are an admin of.")
@@ -121,6 +124,13 @@ public class IdentityBackupKeyCommand implements Callable<Integer>, PoreloFactor
     public Integer call() throws IOException {
         final PoreloContext machine =
                 java.util.Objects.requireNonNull(context, "picocli's factory sets the context");
+        final String change =
+                id != null
+                        ? id
+                        : "bk-"
+                                + IdentityChange.today()
+                                + "-"
+                                + HexFormat.of().toHexDigits(ThreadLocalRandom.current().nextInt());
         try {
             IdentityChange.checkId(id);
             if ((out == null) == (use == null) || (use != null) != (card != null)) {
@@ -132,35 +142,36 @@ public class IdentityBackupKeyCommand implements Callable<Integer>, PoreloFactor
             final PersonCard own = new IdentityChange(machine).card();
             final IdentityOrganization.Reading organization =
                     IdentityOrganization.required(machine, opener);
-            final String change =
-                    id != null
-                            ? id
-                            : "bk-"
-                                    + IdentityChange.today()
-                                    + "-"
-                                    + HexFormat.of()
-                                            .toHexDigits(ThreadLocalRandom.current().nextInt());
             return use == null
                     ? make(machine, organization, own, change)
                     : replace(machine, organization, own, change);
         } catch (IdentityChange.Refused ex) {
             kept = kept || ex.mayHaveBeenMade();
-            return IdentityChange.refuse(spec, json, ex);
+            return refused(ex, change);
         } catch (CardException | IllegalArgumentException ex) {
-            return IdentityChange.refuse(
-                    spec,
-                    json,
-                    new IdentityChange.Refused(65, null, String.valueOf(ex.getMessage())));
+            return refused(
+                    new IdentityChange.Refused(65, null, String.valueOf(ex.getMessage())), change);
         } catch (IOException ex) {
-            return IdentityChange.refuse(
-                    spec,
-                    json,
-                    new IdentityChange.Refused(66, null, String.valueOf(ex.getMessage())));
+            return refused(
+                    new IdentityChange.Refused(66, null, String.valueOf(ex.getMessage())), change);
         } finally {
             if (written && !kept) {
                 forgetUnfiled();
             }
         }
+    }
+
+    /** Answers a refusal naming the change's id, which may be one nobody has seen yet. */
+    private int refused(final IdentityChange.Refused refused, final String change)
+            throws IOException {
+        if (id == null) {
+            final PrintWriter err = spec.commandLine().getErr();
+            err.println("porelo: this change's id is " + change);
+            err.flush();
+        }
+        final Map<String, @Nullable Object> named = new LinkedHashMap<>();
+        named.put("id", change);
+        return IdentityChange.refuse(spec, json, refused.saying(named));
     }
 
     /** A key made and never filed is no backup of anything: the file goes, so none is kept. */
@@ -218,6 +229,16 @@ public class IdentityBackupKeyCommand implements Callable<Integer>, PoreloFactor
                         change);
         final OrganizationWrites.Written filed =
                 IdentityOrganization.filed(() -> writes.addBackupKey(made, scope.host, key));
+        if (filed.again() && !holds(machine, login, PersonCard.fingerprint(key))) {
+            throw new IdentityChange.Refused(
+                    65,
+                    OrganizationQuestions.Refused.EXISTS,
+                    "the id "
+                            + change
+                            + " made another change, and the key in "
+                            + outFile()
+                            + " is not filed; the file is left as it is");
+        }
         kept = true;
         final Map<String, @Nullable Object> answer = new LinkedHashMap<>();
         answer.put("id", filed.id());
@@ -231,6 +252,20 @@ public class IdentityBackupKeyCommand implements Callable<Integer>, PoreloFactor
         return answer(
                 answer,
                 "filed backup key " + PersonCard.fingerprint(key) + " in " + filed.revision());
+    }
+
+    /**
+     * Whether the store now holds this key as this login's backup in the place. It is asked because
+     * the store knows a change again by its id and acting key alone, not by what it was asked for.
+     */
+    private boolean holds(final PoreloContext machine, final String login, final String fingerprint)
+            throws IdentityChange.Refused, IOException {
+        return place(IdentityOrganization.required(machine, opener).answers()).stream()
+                .anyMatch(
+                        row ->
+                                row.backup()
+                                        && row.login().equals(login)
+                                        && row.fingerprint().equals(fingerprint));
     }
 
     /** Everything that would refuse the key, so none is made for a change that cannot be made. */
@@ -385,10 +420,13 @@ public class IdentityBackupKeyCommand implements Callable<Integer>, PoreloFactor
                         .opened()
                         .writes()
                         .signingWith(new CommitSigning(agent, Map.of(key, file)));
+        // A card that stands already can be this id's own change, or another's. Only the first may
+        // be answered, and no base lets the store make anything of the second.
+        final boolean standing = old.equals(next.fingerprint());
         final OrganizationWrites.Change made =
                 new OrganizationWrites.Change(
                         new OrganizationWrites.Acting(login, key),
-                        base != null ? base : organization.revision(),
+                        standing ? NO_REVISION : base != null ? base : organization.revision(),
                         change);
         final OrganizationWrites.Written filed;
         try {
@@ -401,6 +439,13 @@ public class IdentityBackupKeyCommand implements Callable<Integer>, PoreloFactor
                                             Files.readString(
                                                     java.util.Objects.requireNonNull(card))));
         } catch (IdentityChange.Refused ex) {
+            if (standing && OrganizationQuestions.Refused.MOVED_ON.equals(ex.reason())) {
+                throw new IdentityChange.Refused(
+                        65,
+                        OrganizationQuestions.Refused.EXISTS,
+                        "the new card's key stands already, by a change this backup key did not"
+                                + " make");
+            }
             if (NO_KEY.equals(ex.reason())) {
                 throw new IdentityChange.Refused(
                         65,
@@ -410,6 +455,12 @@ public class IdentityBackupKeyCommand implements Callable<Integer>, PoreloFactor
             }
             throw ex;
         }
+        if (filed.again() && !cardStands(machine, login, next.fingerprint())) {
+            throw new IdentityChange.Refused(
+                    65,
+                    OrganizationQuestions.Refused.EXISTS,
+                    "the id " + change + " made another change, and this card does not stand");
+        }
         final Map<String, @Nullable Object> answer = new LinkedHashMap<>();
         answer.put("id", filed.id());
         answer.put("scope", scope(organization));
@@ -417,11 +468,27 @@ public class IdentityBackupKeyCommand implements Callable<Integer>, PoreloFactor
         answer.put("again", filed.again());
         answer.put("of", "organization");
         answer.put("pushed", true);
-        answer.put("replaced", old);
+        // Asked again, the place holds the new key; what it replaced is on the card kept here.
+        answer.put("replaced", standing ? own.fingerprint() : old);
         answer.put("by", next.fingerprint());
         return answer(
                 answer,
-                "replaced " + old + " by " + next.fingerprint() + " in " + filed.revision());
+                "replaced "
+                        + answer.get("replaced")
+                        + " by "
+                        + next.fingerprint()
+                        + " in "
+                        + filed.revision());
+    }
+
+    private boolean cardStands(
+            final PoreloContext machine, final String login, final String fingerprint)
+            throws IdentityChange.Refused, IOException {
+        return IdentityOrganization.required(machine, opener).answers().getPersons().stream()
+                .anyMatch(
+                        person ->
+                                person.login().equals(login)
+                                        && person.fingerprint().equals(fingerprint));
     }
 
     private Map<String, @Nullable Object> scope(final IdentityOrganization.Reading organization) {

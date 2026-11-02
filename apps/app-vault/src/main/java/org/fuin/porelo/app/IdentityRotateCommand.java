@@ -87,7 +87,7 @@ public class IdentityRotateCommand implements Callable<Integer>, PoreloFactory.C
             final IdentityOperation again =
                     IdentityChange.kept(machine, id, IdentityOperation.ROTATE);
             if (again != null && again.done()) {
-                answer(IdentityChange.finish(machine, again), true, null);
+                answer(IdentityChange.finished(machine, again), true, null);
                 return 0;
             }
             final IdentityChange change = new IdentityChange(machine);
@@ -156,6 +156,7 @@ public class IdentityRotateCommand implements Callable<Integer>, PoreloFactory.C
                                     text,
                                     false,
                                     null,
+                                    false,
                                     false));
             try {
                 final IdentityChange.Filed filed =

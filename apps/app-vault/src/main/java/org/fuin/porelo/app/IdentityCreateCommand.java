@@ -125,9 +125,6 @@ public class IdentityCreateCommand implements Callable<Integer>, PoreloFactory.C
                     new IdentityChange.Refused(64, null, String.valueOf(ex.getMessage())));
         } catch (IOException ex) {
             return plain(spec.commandLine().getErr(), 66, "cannot read " + ex.getMessage());
-        } catch (java.io.UncheckedIOException ex) {
-            return plain(
-                    spec.commandLine().getErr(), 70, "cannot keep the card: " + ex.getMessage());
         }
         if (json) {
             out.println(Json.write(IdentityFacts.printable(answer)));
@@ -168,7 +165,7 @@ public class IdentityCreateCommand implements Callable<Integer>, PoreloFactory.C
         if (again != null && again.done()) {
             return answer(
                     machine,
-                    IdentityChange.finish(machine, again),
+                    IdentityChange.finished(machine, again),
                     true,
                     IdentityOrganization.read(machine, opener),
                     null);
@@ -239,7 +236,8 @@ public class IdentityCreateCommand implements Callable<Integer>, PoreloFactory.C
             try {
                 store.keep(card);
             } catch (IOException ex) {
-                throw new java.io.UncheckedIOException(ex);
+                throw new IdentityChange.Refused(
+                        70, "failed", "the card could not be kept: " + ex.getMessage());
             }
             final IdentityOperation unfiled =
                     new IdentityOperation(
@@ -250,7 +248,8 @@ public class IdentityCreateCommand implements Callable<Integer>, PoreloFactory.C
                             card,
                             false,
                             null,
-                            true);
+                            true,
+                            false);
             return answer(machine, unfiled, false, null, made);
         }
         change.replaceWhatReachedNowhere(organization, login, id);
@@ -265,6 +264,7 @@ public class IdentityCreateCommand implements Callable<Integer>, PoreloFactory.C
                                 card,
                                 false,
                                 null,
+                                false,
                                 false));
         try {
             final IdentityChange.Filed filed =

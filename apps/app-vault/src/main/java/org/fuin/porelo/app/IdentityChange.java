@@ -56,6 +56,8 @@ final class IdentityChange {
 
         private final @Nullable IOException failure;
 
+        private final boolean nothingPushed;
+
         Refused(final int code, final @Nullable String reason, final String words) {
             this(code, reason, words, Map.of());
         }
@@ -67,6 +69,7 @@ final class IdentityChange {
             this.reason = "failed";
             this.extra = Map.of();
             this.failure = failure;
+            this.nothingPushed = false;
         }
 
         Refused(
@@ -79,16 +82,34 @@ final class IdentityChange {
             this.reason = reason;
             this.extra = new LinkedHashMap<>(extra);
             this.failure = null;
+            this.nothingPushed = false;
         }
 
-        /** The same refusal, saying more; what nobody expected stays as it is. */
+        private Refused(
+                final Refused of, final Map<String, @Nullable Object> extra, final boolean none) {
+            super(of.getMessage(), of.failure);
+            this.code = of.code;
+            this.reason = of.reason;
+            this.extra = extra;
+            this.failure = of.failure;
+            this.nothingPushed = none;
+        }
+
+        /** The same refusal, it being known that no push was tried or none went out. */
+        Refused beforeAnyPush() {
+            return new Refused(this, extra, true);
+        }
+
+        /** Whether this answer says nothing was pushed. */
+        boolean nothingPushed() {
+            return nothingPushed;
+        }
+
+        /** The same refusal, saying more. */
         Refused saying(final Map<String, @Nullable Object> more) {
-            if (failure != null) {
-                return this;
-            }
             final Map<String, @Nullable Object> all = new LinkedHashMap<>(extra);
             all.putAll(more);
-            return new Refused(code, reason, String.valueOf(getMessage()), all);
+            return new Refused(this, all, nothingPushed);
         }
 
         int code() {
@@ -431,8 +452,10 @@ final class IdentityChange {
     }
 
     /**
-     * Refuses a new change while an earlier one of another id already stands in the organization:
-     * its card is there, and a new one under another key cannot be put over it from here.
+     * Refuses a new change while an earlier one of another id stands in the organization, or may: a
+     * run that may have pushed its card is not disproved by a state that lacks it, since a forge
+     * may serve an older state again. It holds only while its card hands on from the card kept
+     * here.
      *
      * @param organization What the organization says.
      * @param login The person's login.
@@ -444,10 +467,14 @@ final class IdentityChange {
             final String login,
             final @Nullable String id)
             throws Refused, IOException {
+        final String held = heldCard(context).map(PersonCard::fingerprint).orElse("");
         for (final IdentityOperation pending : IdentityOperation.pending(context)) {
             if (filing(pending)
                     && !pending.id().equals(id)
-                    && reached(organization, login, pending)) {
+                    && (reached(organization, login, pending)
+                            || pending.pushTried()
+                                    && (pending.predecessor().isEmpty()
+                                            || pending.predecessor().equals(held)))) {
                 final Map<String, @Nullable Object> more = new HashMap<>();
                 more.put("revision", organization.revision());
                 more.put("id", pending.id());
@@ -456,8 +483,8 @@ final class IdentityChange {
                         OrganizationQuestions.Refused.EXISTS,
                         "the change "
                                 + pending.id()
-                                + " reached the organization, whose card stands: ask again with"
-                                + " that id",
+                                + " reached the organization or may have: go on with that id, or"
+                                + " with porelo identity revoke --lost",
                         more);
             }
         }
@@ -479,6 +506,7 @@ final class IdentityChange {
             throws IOException {
         for (final IdentityOperation pending : IdentityOperation.pending(context)) {
             if (filing(pending)
+                    && !pending.pushTried()
                     && !pending.id().equals(id)
                     && !reached(organization, login, pending)) {
                 pending.forget(context);
@@ -543,16 +571,17 @@ final class IdentityChange {
 
     /**
      * Files an operation's card through the store, signed through the agent, and only then keeps it
-     * as the person's own. A refusal made nothing, so its record goes; after one that may have made
-     * the change the record stays, to be asked again by its id.
+     * as the person's own. The record says a push may be tried before one is. An answer that says
+     * nothing was pushed takes that back, unless an earlier run may have pushed: then this answer
+     * cannot say. Such a record stays, whatever the store says.
      *
      * @param organization What the organization says.
      * @param operation The operation.
      * @param base The revision asked for, or {@code null} for the one read.
      * @param socket The agent.
      * @return What it ended with.
-     * @throws Refused With the contract's code and reason.
-     * @throws IOException When the card or the record cannot be written.
+     * @throws Refused With the contract's code and reason, naming the id.
+     * @throws IOException When the record cannot be written before the push.
      */
     Filed file(
             final IdentityOrganization.Reading organization,
@@ -568,6 +597,10 @@ final class IdentityChange {
                         operation.id());
         final OrganizationWrites writes =
                 organization.opened().writes().signingWith(CommitSigning.agent(socket));
+        final IdentityOperation trying = operation.pushTried(true);
+        trying.keep(context);
+        final Map<String, @Nullable Object> named = new HashMap<>();
+        named.put("id", operation.id());
         final OrganizationWrites.Written written;
         try {
             written =
@@ -577,14 +610,46 @@ final class IdentityChange {
                                             ? writes.addCard(change, operation.card())
                                             : writes.changeCard(change, operation.card()));
         } catch (Refused ex) {
-            if (!ex.mayHaveBeenMade()) {
-                operation.forget(context);
+            if (ex.nothingPushed() && !operation.pushTried()) {
+                if (ex.mayHaveBeenMade()) {
+                    operation.keep(context);
+                } else {
+                    operation.forget(context);
+                }
             }
-            throw ex;
+            throw ex.saying(named);
         }
-        final IdentityOperation done = finish(context, operation).filedAt(written.revision());
-        done.keep(context);
+        final IdentityOperation done = finished(context, trying.filedAt(written.revision()));
         return new Filed(done, written.again());
+    }
+
+    /**
+     * Keeps a filed operation's card and notes that it is done. A write failing here leaves a
+     * change that stands: the same id finishes it.
+     *
+     * @param context The machine.
+     * @param filed The operation, which the organization took.
+     * @return It, its card kept.
+     * @throws Refused 70 {@code failed} naming the id.
+     */
+    static IdentityOperation finished(final PoreloContext context, final IdentityOperation filed)
+            throws Refused {
+        try {
+            final IdentityOperation kept = finish(context, filed);
+            kept.keep(context);
+            return kept;
+        } catch (IOException ex) {
+            final Map<String, @Nullable Object> more = new HashMap<>();
+            more.put("revision", filed.revision());
+            more.put("id", filed.id());
+            throw new Refused(
+                    70,
+                    "failed",
+                    "the organization took the change, but it could not be kept here: ask again"
+                            + " with the id "
+                            + filed.id(),
+                    more);
+        }
     }
 
     /**
@@ -687,6 +752,7 @@ final class IdentityChange {
                 made.card(),
                 made.done(),
                 made.revision(),
+                false,
                 false);
     }
 

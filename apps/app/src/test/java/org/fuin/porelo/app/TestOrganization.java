@@ -34,6 +34,9 @@ final class TestOrganization {
     /** Whether a change finds it out of reach, the read before it having found it. */
     boolean unreachableForChanges;
 
+    /** What the next change ends with once the store took it: its answer lost, or the run dead. */
+    @org.jspecify.annotations.Nullable Exception afterPush;
+
     TestOrganization(final RegistryCheckout machine) throws IOException {
         this.machine = machine;
         repo = Files.createDirectory(machine.dir.resolve("organization"));
@@ -107,14 +110,42 @@ final class TestOrganization {
                     machine.forge,
                     URI.create("https://forge.example.org"),
                     signing ->
-                            new GitTreeWrites(
-                                    machine.runner,
-                                    whereChangesGo(),
-                                    "acme",
-                                    FetchAccess.NONE,
-                                    machine.forge,
-                                    signing));
+                            interrupted(
+                                    new GitTreeWrites(
+                                            machine.runner,
+                                            whereChangesGo(),
+                                            "acme",
+                                            FetchAccess.NONE,
+                                            machine.forge,
+                                            signing)));
         };
+    }
+
+    /** The writes as they are, but for what {@link #afterPush} says of the next change. */
+    private OrganizationWrites interrupted(final OrganizationWrites writes) {
+        return (OrganizationWrites)
+                java.lang.reflect.Proxy.newProxyInstance(
+                        OrganizationWrites.class.getClassLoader(),
+                        new Class<?>[] {OrganizationWrites.class},
+                        (proxy, method, args) -> {
+                            final Object written;
+                            try {
+                                written = method.invoke(writes, args);
+                            } catch (java.lang.reflect.InvocationTargetException ex) {
+                                throw ex.getCause();
+                            }
+                            final Exception then = afterPush;
+                            if (then != null) {
+                                afterPush = null;
+                                throw then;
+                            }
+                            return written;
+                        });
+    }
+
+    /** Serves an older state again, as a forge may: whatever came after it is gone from here. */
+    void servesAgain(final String revision) {
+        git("reset", "-q", "--hard", revision);
     }
 
     /** The writes of someone holding these logins' key files, for what a test sets up. */
