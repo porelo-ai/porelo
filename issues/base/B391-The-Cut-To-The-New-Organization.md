@@ -15,7 +15,7 @@ Nothing is moved into the old adapter first: what it would move goes at this cut
 
 - **`identity create|rotate|revoke --lost|backup-key`** (`apps/app-vault`) file through `OrganizationWrites` on
   `organization/git-tree`. A card stays signed before it is filed: a change of key takes the old and the new key's signatures
-  through the agent. `--registry` becomes `--organization` and `--project` goes on `backup-key`; `identity show` says
+  through the agent. `create` and `rotate` take `--key`, `--id` and `--json`. `--registry` becomes `--organization` and `--project` goes on `backup-key`; `identity show` says
   `organization` for `registry`, its `pending` rows gain the new key's `fingerprint`, and a new `--id` with another key replaces a
   pending change that reached the organization nowhere. `identity revoke --lost` files nothing and answers the new card, which
   an owner files with `org person replace`.

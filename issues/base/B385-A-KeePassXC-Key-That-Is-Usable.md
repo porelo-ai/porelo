@@ -36,18 +36,22 @@ timeout reads as exit 127, `key-store-missing` (`:273-275`).
 2. **One password per create.** One `keepassxc-cli open DB`, the password read by it from the terminal, then `add`, both
    `attachment-import`s and `exit` fed from a pipe with the key and the settings on their own descriptors. Porelo never sees the
    password. Commands sent with the password are lost (measured), so a spike against the real program in a pseudo-terminal
-   comes first. If no way that does not depend on timing is found, three prompts stay and the answer says so.
-3. **A retry takes the key already made.** Before generating, `make` looks in that session for the entry `--entry` names and
-   reads its key back with `attachment-export --stdout`; the agent is then waited for as in a first run. An entry without
-   both attachments is refused, naming what is in it. Without `--entry` the default name has a timestamp, so the first answer
-   says to give it.
+   comes first. If no way that does not depend on timing is found, three prompts stay and the answer says so. The walk's test asks for one
+   prompt, so the spike's result is said in the room as soon as it is known.
+3. **A retry takes the key its own operation made, and no other.** Once a key is generated and before `add`, the record of the
+   `--id` is written with the entry and the key's fingerprint, an optional field of `IdentityOperation`. All three verbs are
+   bound this way: the cut gives `create` its `--id`, by the contract's section 3, and without one the answer prints a new id.
+   Asked again with that `--id`, `make` reads the recorded entry's key back with `attachment-export --stdout` and takes it only
+   if its fingerprint is the recorded one and it is neither the card's current key nor a revoked one; the agent is then waited
+   for as in a first run. Everything else is refused, naming the entry: an `--entry` that exists under a new `--id` or no record,
+   as `add` refuses it today; a fingerprint that differs; an entry without both attachments. So `rotate --entry <the old key's
+   entry>` never rotates onto the key being replaced.
 4. **No orphan entry.** A refused attachment removes the entry in the same session with one `rm`, which moves it to the
    database's recycle bin. There is no second `rm`, which would depend on the database's language. The private key stays in
    the bin until the person empties it, and the answer says so, naming the group; or says "removed", for a database with no
    bin; or "not removed: remove <entry> in KeePassXC".
 5. **A password never typed.** 120 s per prompt, then `no-password`, exit 64, nothing kept, rather than 127. With neither agent
-   nor terminal, `no-terminal` before the agent is asked. A re-run with the same `--id` answers its `entry`, an optional field
-   of `IdentityOperation`.
+   nor terminal, `no-terminal` before the agent is asked. A re-run with the same `--id` answers the `entry` of its record.
 6. **One refusal, one code.** One method maps `IdentityChange.Refused` to the answer, used by `IdentityCreateCommand.made`
    (`:257-283`) in place of its own `Refused` (`:101-122`).
 7. **The stand-in** counts prompts, reads from the terminal path it is given, and watches for a file holding the key while the
@@ -57,12 +61,16 @@ timeout reads as exit 127, `key-store-missing` (`:273-275`).
 `IdentityKeePassXcTest`, `IdentityRotateCommandTest`, `IdentityCreateCommandTest`, `KeePassXcStandIn`. Built after
 [B391](README.md#b391), which rewrites `IdentityChange` and gives `create` its `--id`; line numbers are read again then.
 
-**Red first:** one test per refusal of step 1 through the stand-in, its `arguments` file empty.
+**Red first:** one test per refusal of step 1 through the stand-in, its `arguments` file empty; and for step 3, `rotate`
+with `--entry` naming the old key's entry, which today's plan would have adopted.
 
 ## Acceptance
 
-- With the stand-in: one prompt for a whole create; a retry after `key-not-served` makes no second key, exactly one `add`, and
-  waits for the first run's fingerprint; each seen to fail first.
+- With the stand-in: one prompt for a whole create; a retry with the same `--id` after `key-not-served`, on `create` and on
+  `rotate`, makes no second key, exactly one `add`, and waits for the first run's fingerprint; each seen to fail first.
+- `rotate` and `create` with a new `--id` and an `--entry` that exists, one holding the card's current key, one a revoked key and
+  one any other, are refused with no `add` and the card unchanged; and so is a retry whose entry's fingerprint is no longer the
+  recorded one; each seen to fail first.
 - Against the real `keepassxc-cli` 2.7.10 in a pseudo-terminal: one create asks once; where the fall-back holds, three times, and
   the answer says so.
 - Standard error redirected, a terminal of another account and an unreadable `/proc/self/fd` are refused before `keepassxc-cli`
