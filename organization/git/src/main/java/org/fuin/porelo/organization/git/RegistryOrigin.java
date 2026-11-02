@@ -1,4 +1,4 @@
-package org.fuin.porelo.app;
+package org.fuin.porelo.organization.git;
 
 import java.net.URI;
 import java.util.List;
@@ -16,7 +16,7 @@ import java.util.regex.Pattern;
  * @param organisation The organisation owning the registry.
  * @param port The port the URL names, or {@code -1} when it names none.
  */
-record RegistryOrigin(String url, URI forge, String organisation, int port) {
+public record RegistryOrigin(String url, URI forge, String organisation, int port) {
 
     /** A host name: dot-separated DNS labels. */
     private static final String HOST =
@@ -45,7 +45,7 @@ record RegistryOrigin(String url, URI forge, String organisation, int port) {
      * @throws IllegalArgumentException Naming the URL, made printable, when it is none of the
      *     forms.
      */
-    static RegistryOrigin of(final String url) {
+    public static RegistryOrigin of(final String url) {
         for (final Pattern form : FORMS) {
             final Matcher matcher = form.matcher(url);
             if (matcher.matches()) {
@@ -65,7 +65,7 @@ record RegistryOrigin(String url, URI forge, String organisation, int port) {
         }
         throw new IllegalArgumentException(
                 "the checkout's origin '"
-                        + RegistryVerifyCommand.printable(withoutUserinfo(url))
+                        + org.fuin.porelo.vault.RegistryText.printable(withoutUserinfo(url))
                         + "' is not https://HOST/ORG/REPO, git@HOST:ORG/REPO or"
                         + " ssh://git@HOST/ORG/REPO");
     }
@@ -77,7 +77,7 @@ record RegistryOrigin(String url, URI forge, String organisation, int port) {
      * @param url The URL.
      * @return It, any user information left out.
      */
-    static String withoutUserinfo(final String url) {
+    public static String withoutUserinfo(final String url) {
         return org.fuin.porelo.vault.Userinfo.leftOutOf(url);
     }
 
@@ -88,7 +88,7 @@ record RegistryOrigin(String url, URI forge, String organisation, int port) {
      * @param text The text.
      * @return It, each user part left out.
      */
-    static String withoutUserinfoIn(final String text) {
+    public static String withoutUserinfoIn(final String text) {
         return org.fuin.porelo.vault.Userinfo.leftOutOf(text);
     }
 }

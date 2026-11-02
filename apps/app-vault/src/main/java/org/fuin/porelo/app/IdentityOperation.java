@@ -15,6 +15,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.regex.Pattern;
+import org.fuin.porelo.organization.git.RegistryOrigin;
 import org.fuin.porelo.wire.Json;
 import org.jspecify.annotations.Nullable;
 

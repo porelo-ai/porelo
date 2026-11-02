@@ -1,17 +1,15 @@
-package org.fuin.porelo.organization.git;
+package org.fuin.porelo.organization;
 
 import java.util.List;
 import java.util.Optional;
-import org.fuin.porelo.vault.CardException;
-import org.fuin.porelo.vault.PersonCard;
 
 /**
- * What the central forge says about its accounts: the keys it lists for a login, and who owns an
- * organisation. A registry reader asks it when a card or the first owners file is first seen, and
- * again for a card it could not settle yet; an empty answer means the forge could not be asked,
- * never that it said no.
+ * Who says whose keys are whose, today the central forge about its accounts: the keys it lists for
+ * a login, and who owns an organisation. A registry reader asks it when a card or the first owners
+ * file is first seen, and again for a card it could not settle yet; an empty answer means the forge
+ * could not be asked, never that it said no.
  */
-public interface ForgeDirectory {
+public interface IdentitySource {
 
     /**
      * The keys the forge lists for a login.
@@ -24,29 +22,6 @@ public interface ForgeDirectory {
         /** Compact constructor: the keys are copied and cannot be changed afterwards. */
         public Keys {
             keys = List.copyOf(keys);
-        }
-
-        /**
-         * Returns whether the list holds the key of a fingerprint, a comment after it or not; a
-         * line that is no Ed25519 key holds none.
-         *
-         * @param fingerprint The key's fingerprint, {@code SHA256:...}.
-         * @return Whether it is listed.
-         */
-        public boolean lists(String fingerprint) {
-            for (String key : keys) {
-                try {
-                    final String[] fields = key.strip().split("\\s+");
-                    if (fields.length >= 2
-                            && PersonCard.fingerprint(fields[0] + " " + fields[1])
-                                    .equals(fingerprint)) {
-                        return true;
-                    }
-                } catch (CardException ex) {
-                    // A line that is no Ed25519 key lists no key a card can carry.
-                }
-            }
-            return false;
         }
     }
 

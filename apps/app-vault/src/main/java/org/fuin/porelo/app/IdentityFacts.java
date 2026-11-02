@@ -18,7 +18,8 @@ import java.util.Map;
 import java.util.Optional;
 import org.fuin.porelo.core.process.Command;
 import org.fuin.porelo.core.process.CommandResult;
-import org.fuin.porelo.organization.git.ForgeDirectory;
+import org.fuin.porelo.organization.IdentitySource;
+import org.fuin.porelo.organization.git.RegistryOrigin;
 import org.fuin.porelo.organization.git.RegistryState;
 import org.fuin.porelo.vault.AgentKey;
 import org.fuin.porelo.vault.CardException;
@@ -344,13 +345,13 @@ final class IdentityFacts {
      * @param fingerprint The key asked about, or {@code null} for the whole list.
      * @return The keys, or empty when the forge could not be asked.
      */
-    static Optional<ForgeDirectory.Keys> keys(
+    static Optional<IdentitySource.Keys> keys(
             final RegistryReadCommand.Forges forges,
             final URI forge,
             final String login,
             final @Nullable String fingerprint) {
         try {
-            final ForgeDirectory directory = forges.open(forge, null);
+            final IdentitySource directory = forges.open(forge, null);
             return fingerprint == null ? directory.keys(login) : directory.keys(login, fingerprint);
         } catch (IllegalArgumentException ex) {
             // A login the forge's path cannot carry is a list nobody could be asked for.
@@ -367,11 +368,11 @@ final class IdentityFacts {
      * @return {@code true}, {@code false} or {@code null}.
      */
     static @Nullable Boolean listed(
-            final Optional<ForgeDirectory.Keys> keys, final String fingerprint) {
+            final Optional<IdentitySource.Keys> keys, final String fingerprint) {
         if (keys.isEmpty()) {
             return null;
         }
-        if (keys.get().lists(fingerprint)) {
+        if (org.fuin.porelo.vault.PersonCard.lists(keys.get().keys(), fingerprint)) {
             return true;
         }
         return keys.get().complete() ? Boolean.FALSE : null;

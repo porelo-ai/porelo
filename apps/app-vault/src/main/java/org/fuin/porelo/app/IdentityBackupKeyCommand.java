@@ -12,6 +12,7 @@ import java.util.Map;
 import java.util.concurrent.Callable;
 import java.util.function.BooleanSupplier;
 import org.fuin.porelo.organization.git.HttpForgeDirectory;
+import org.fuin.porelo.organization.git.RegistryGit;
 import org.fuin.porelo.organization.git.RegistryState;
 import org.fuin.porelo.vault.CardException;
 import org.fuin.porelo.vault.OpenSshPrivateKey;

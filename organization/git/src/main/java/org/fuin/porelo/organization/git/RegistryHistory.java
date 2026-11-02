@@ -14,6 +14,7 @@ import java.util.TreeSet;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.fuin.porelo.core.process.CommandRunner;
+import org.fuin.porelo.organization.IdentitySource;
 import org.fuin.porelo.vault.CardException;
 import org.fuin.porelo.vault.HostCard;
 import org.fuin.porelo.vault.PersonCard;
@@ -86,7 +87,7 @@ public final class RegistryHistory {
     public RegistryState read(
             Path checkout,
             @Nullable RegistryState trusted,
-            ForgeDirectory forge,
+            IdentitySource forge,
             String organisation)
             throws IOException {
         return readClone(checkout, trusted, null, forge, organisation);
@@ -101,7 +102,7 @@ public final class RegistryHistory {
      * @param where What names the record in a warning, such as its file.
      * @param forge What the central forge says about its accounts.
      * @param organisation The forge organisation the registry belongs to.
-     * @return The state, as {@link #read(Path, RegistryState, ForgeDirectory, String)} answers it.
+     * @return The state, as {@link #read(Path, RegistryState, IdentitySource, String)} answers it.
      * @throws IOException If the checkout cannot be read or the clone cannot be removed.
      * @throws CardException If the history is shallow, or does not continue the trusted commit.
      */
@@ -109,7 +110,7 @@ public final class RegistryHistory {
             Path checkout,
             @Nullable String record,
             String where,
-            ForgeDirectory forge,
+            IdentitySource forge,
             String organisation)
             throws IOException {
         RegistryState trusted = null;
@@ -128,7 +129,7 @@ public final class RegistryHistory {
             Path checkout,
             @Nullable RegistryState trusted,
             @Nullable String discarded,
-            ForgeDirectory forge,
+            IdentitySource forge,
             String organisation)
             throws IOException {
         final Path scratch = Files.createTempDirectory("porelo-registry-");
@@ -157,7 +158,7 @@ public final class RegistryHistory {
             String head,
             @Nullable RegistryState trusted,
             @Nullable String discarded,
-            ForgeDirectory forge,
+            IdentitySource forge,
             String organisation)
             throws IOException {
         if (!repository.require("rev-parse", "--is-shallow-repository").strip().equals("false")) {
@@ -676,7 +677,7 @@ public final class RegistryHistory {
     /** One walk along the first parent, accepting path by path. */
     private static final class Walk {
         private final RegistryRepository repository;
-        private final ForgeDirectory forge;
+        private final IdentitySource forge;
         private final String organisation;
         private Model model;
         private final List<String> warnings = new ArrayList<>();
@@ -689,7 +690,7 @@ public final class RegistryHistory {
 
         Walk(
                 RegistryRepository repository,
-                ForgeDirectory forge,
+                IdentitySource forge,
                 String organisation,
                 RegistryState start) {
             this.repository = repository;
@@ -1129,8 +1130,11 @@ public final class RegistryHistory {
                                 + " is not an owner of the forge organisation "
                                 + organisation);
             }
-            final Optional<ForgeDirectory.Keys> keys = forge.keys(founder.login(), signer);
-            final boolean listed = keys.isPresent() && keys.orElseThrow().lists(signer);
+            final Optional<IdentitySource.Keys> keys = forge.keys(founder.login(), signer);
+            final boolean listed =
+                    keys.isPresent()
+                            && org.fuin.porelo.vault.PersonCard.lists(
+                                    keys.orElseThrow().keys(), signer);
             if (keys.isPresent() && keys.orElseThrow().complete() && !listed) {
                 throw new Refused("the forge lists no key " + signer + " for " + founder.login());
             }
@@ -1330,11 +1334,11 @@ public final class RegistryHistory {
 
         /** What the forge's key list says about a login's key. */
         private Trust trust(String login, String fingerprint) {
-            final Optional<ForgeDirectory.Keys> keys = forge.keys(login, fingerprint);
+            final Optional<IdentitySource.Keys> keys = forge.keys(login, fingerprint);
             if (keys.isEmpty()) {
                 return new Trust(RegistryState.FIRST_SEEN, "");
             }
-            if (keys.orElseThrow().lists(fingerprint)) {
+            if (org.fuin.porelo.vault.PersonCard.lists(keys.orElseThrow().keys(), fingerprint)) {
                 return new Trust(RegistryState.TRUSTED, "");
             }
             if (!keys.orElseThrow().complete()) {

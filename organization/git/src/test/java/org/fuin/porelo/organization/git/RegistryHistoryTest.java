@@ -18,6 +18,7 @@ import java.util.Set;
 import org.fuin.porelo.core.process.Command;
 import org.fuin.porelo.core.process.CommandRunner;
 import org.fuin.porelo.core.process.ProcessCommandRunner;
+import org.fuin.porelo.organization.IdentitySource;
 import org.fuin.porelo.vault.CardException;
 import org.fuin.porelo.vault.HostCard;
 import org.fuin.porelo.vault.OpenSshPrivateKey;
@@ -40,7 +41,7 @@ class RegistryHistoryTest {
     private final Forge forge = new Forge();
 
     /** A forge that answers what a test sets, and "could not be asked" otherwise. */
-    private static final class Forge implements ForgeDirectory {
+    private static final class Forge implements IdentitySource {
         final Map<String, List<String>> keys = new HashMap<>();
         final Map<String, Boolean> owners = new HashMap<>();
         final List<String> asked = new ArrayList<>();

@@ -17,6 +17,7 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Executors;
+import org.fuin.porelo.organization.IdentitySource;
 import org.fuin.porelo.vault.PersonCard;
 import org.fuin.porelo.vault.SigningKey;
 import org.jspecify.annotations.Nullable;
@@ -191,7 +192,7 @@ class HttpForgeDirectoryTest {
         // when a rate limit spent by others keeps the signing keys back; a key it lacks may be a
         // signing key, so the list is marked incomplete and proves no key missing.
         assertThat(gitHub(null).keys("alice"))
-                .contains(new ForgeDirectory.Keys(List.of(ONE), false));
+                .contains(new IdentitySource.Keys(List.of(ONE), false));
     }
 
     @Test
@@ -204,11 +205,11 @@ class HttpForgeDirectoryTest {
 
         // The API's rate limit is anybody's to spend; a key the page lists must not depend on it.
         assertThat(gitHub(null).keys("alice", PersonCard.fingerprint(listed)))
-                .contains(new ForgeDirectory.Keys(List.of(listed), false));
+                .contains(new IdentitySource.Keys(List.of(listed), false));
         assertThat(seen).extracting(Seen::path).containsExactly("/alice.keys");
         assertThat(gitHub(null).keys("alice", PersonCard.fingerprint(other)))
                 .as("a key the page lacks is asked of the API")
-                .contains(new ForgeDirectory.Keys(List.of(listed), false));
+                .contains(new IdentitySource.Keys(List.of(listed), false));
         assertThat(seen)
                 .extracting(Seen::path)
                 .containsExactly("/alice.keys", "/alice.keys", "/api/users/alice/ssh_signing_keys");
@@ -221,7 +222,7 @@ class HttpForgeDirectoryTest {
         replies.put("/api/users/alice/ssh_signing_keys", Reply.of(200, "[{\"key\": "));
 
         assertThat(gitHub(null).keys("alice"))
-                .contains(new ForgeDirectory.Keys(List.of(ONE), false));
+                .contains(new IdentitySource.Keys(List.of(ONE), false));
     }
 
     @Test
@@ -566,8 +567,8 @@ class HttpForgeDirectoryTest {
                 .doesNotContain(TOKEN);
     }
 
-    private static ForgeDirectory.Keys complete(final String... keys) {
-        return new ForgeDirectory.Keys(List.of(keys), true);
+    private static IdentitySource.Keys complete(final String... keys) {
+        return new IdentitySource.Keys(List.of(keys), true);
     }
 
     @Test

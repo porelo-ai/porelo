@@ -24,6 +24,8 @@ import org.fuin.porelo.core.process.CommandResult;
 import org.fuin.porelo.core.process.CommandRunner;
 import org.fuin.porelo.core.project.Access;
 import org.fuin.porelo.core.project.AccessFile;
+import org.fuin.porelo.organization.git.RegistryGit;
+import org.fuin.porelo.organization.git.RegistryOrigin;
 import org.fuin.porelo.organization.git.RegistryState;
 import org.fuin.porelo.vault.AccessPersons;
 import org.fuin.porelo.vault.AgentKey;

@@ -19,6 +19,7 @@ import org.fuin.porelo.core.process.CommandRunner;
 import org.fuin.porelo.core.process.ProcessCommandRunner;
 import org.fuin.porelo.organization.git.HttpForgeDirectory;
 import org.fuin.porelo.organization.git.RegistryFiles;
+import org.fuin.porelo.organization.git.RegistryGit;
 import org.fuin.porelo.organization.git.RegistryState;
 import org.fuin.porelo.vault.CardException;
 import org.fuin.porelo.vault.PersonCard;

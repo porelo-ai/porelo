@@ -1,4 +1,4 @@
-package org.fuin.porelo.app;
+package org.fuin.porelo.organization.git;
 
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -16,10 +16,10 @@ import org.fuin.porelo.core.process.Command;
  * objects; none of it reaches these commands, and no program the checkout's configuration names is
  * started by them.
  */
-final class RegistryGit {
+public final class RegistryGit {
 
     /** What every command starts from: nothing of the caller's but where programs are found. */
-    static final Map<String, String> ENVIRONMENT =
+    public static final Map<String, String> ENVIRONMENT =
             Map.of(
                     "PATH", System.getenv().getOrDefault("PATH", "/usr/bin:/bin"),
                     "LC_ALL", "C",
@@ -37,7 +37,7 @@ final class RegistryGit {
      * command that may reach a remote, and allow no protocol at all: a command that needs one
      * allows it after these.
      */
-    static final List<String> SEALED =
+    public static final List<String> SEALED =
             List.of(
                     "-c",
                     "core.hooksPath=/dev/null",
@@ -64,7 +64,7 @@ final class RegistryGit {
      * @param arguments Git's arguments.
      * @return The command.
      */
-    static Command git(
+    public static Command git(
             final Path checkout, final Map<String, String> variables, final String... arguments) {
         final List<String> all = new ArrayList<>(List.of("git", "-C", checkout.toString()));
         all.addAll(SEALED);
@@ -80,7 +80,7 @@ final class RegistryGit {
      * @param arguments Git's arguments.
      * @return The command.
      */
-    static Command sealed(final Path checkout, final String... arguments) {
+    public static Command sealed(final Path checkout, final String... arguments) {
         return git(checkout, Map.of(), arguments);
     }
 
@@ -92,7 +92,7 @@ final class RegistryGit {
      * @param runner The runner that runs them.
      * @return The sealing runner.
      */
-    static org.fuin.porelo.core.process.CommandRunner sealing(
+    public static org.fuin.porelo.core.process.CommandRunner sealing(
             final org.fuin.porelo.core.process.CommandRunner runner) {
         return command -> {
             final List<String> given = command.arguments();

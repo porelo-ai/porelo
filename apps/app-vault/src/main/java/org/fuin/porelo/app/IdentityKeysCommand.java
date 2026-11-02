@@ -9,7 +9,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.Callable;
-import org.fuin.porelo.organization.git.ForgeDirectory;
+import org.fuin.porelo.organization.IdentitySource;
 import org.fuin.porelo.organization.git.HttpForgeDirectory;
 import org.fuin.porelo.vault.AgentKey;
 import org.fuin.porelo.vault.CardException;
@@ -78,7 +78,7 @@ public class IdentityKeysCommand implements Callable<Integer>, PoreloFactory.Con
             final @Nullable String login = login(machine);
             final Optional<URI> forge = IdentityFacts.forge(registries);
             // One list for every key: the forge is asked once, not once per key.
-            final Optional<ForgeDirectory.Keys> listed =
+            final Optional<IdentitySource.Keys> listed =
                     login == null || forge.isEmpty()
                             ? Optional.empty()
                             : IdentityFacts.keys(forges, forge.get(), login, null);
@@ -127,7 +127,7 @@ public class IdentityKeysCommand implements Callable<Integer>, PoreloFactory.Con
             final PoreloContext machine,
             final List<IdentityFacts.Registry> registries,
             final @Nullable String login,
-            final Optional<ForgeDirectory.Keys> listed,
+            final Optional<IdentitySource.Keys> listed,
             final AgentKey key)
             throws IOException {
         final String fingerprint = IdentityFacts.fingerprint(key.keyBlob());

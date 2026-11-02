@@ -1,6 +1,6 @@
 # B390 — The Organization's API Apart From Its Git Reading
 
-**Status:** Backlog.
+**Status:** Implementing.
 **Size:** L - a new module group, about 4300 lines moved out of `vault`, and every command that holds a `RegistryState`
 moved onto the API.
 

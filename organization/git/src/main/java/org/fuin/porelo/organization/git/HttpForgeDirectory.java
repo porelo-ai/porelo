@@ -21,6 +21,7 @@ import java.util.concurrent.Flow;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.regex.Pattern;
+import org.fuin.porelo.organization.IdentitySource;
 import org.fuin.porelo.vault.RegistryText;
 import org.fuin.porelo.wire.Json;
 import org.fuin.porelo.wire.JsonException;
@@ -49,7 +50,7 @@ import org.jspecify.annotations.Nullable;
  * TrustedCertificates}) and must follow no redirects, so an answer cannot move to another host or
  * to plain HTTP. A redirect is then another status, and so "cannot say".
  */
-public final class HttpForgeDirectory implements ForgeDirectory {
+public final class HttpForgeDirectory implements IdentitySource {
 
     /** The most an answer may hold, in bytes. */
     static final int LIMIT = 1024 * 1024;
@@ -153,7 +154,7 @@ public final class HttpForgeDirectory implements ForgeDirectory {
             return listed.map(keys -> new Keys(keys, true));
         }
         final Keys onPage = new Keys(listed.get(), false);
-        if (wanted != null && onPage.lists(wanted)) {
+        if (wanted != null && org.fuin.porelo.vault.PersonCard.lists(onPage.keys(), wanted)) {
             // The page vouches for the key already; the API's rate limit is not spent on it.
             return Optional.of(onPage);
         }

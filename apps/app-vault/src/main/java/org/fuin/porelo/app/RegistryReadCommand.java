@@ -21,9 +21,11 @@ import org.fuin.porelo.core.process.CommandException;
 import org.fuin.porelo.core.process.CommandResult;
 import org.fuin.porelo.core.process.CommandRunner;
 import org.fuin.porelo.core.process.ProcessCommandRunner;
-import org.fuin.porelo.organization.git.ForgeDirectory;
+import org.fuin.porelo.organization.IdentitySource;
 import org.fuin.porelo.organization.git.HttpForgeDirectory;
+import org.fuin.porelo.organization.git.RegistryGit;
 import org.fuin.porelo.organization.git.RegistryHistory;
+import org.fuin.porelo.organization.git.RegistryOrigin;
 import org.fuin.porelo.organization.git.RegistryState;
 import org.fuin.porelo.vault.CardException;
 import org.fuin.porelo.vault.VaultEntry;
@@ -52,7 +54,7 @@ public class RegistryReadCommand implements Callable<Integer>, PoreloFactory.Con
     /** How a forge is asked: its address and the token ownership is asked with. */
     @FunctionalInterface
     interface Forges {
-        ForgeDirectory open(URI forge, @Nullable String token);
+        IdentitySource open(URI forge, @Nullable String token);
     }
 
     @Parameters(index = "0", paramLabel = "CHECKOUT", description = "The registry checkout.")
@@ -411,7 +413,7 @@ public class RegistryReadCommand implements Callable<Integer>, PoreloFactory.Con
         }
     }
 
-    private static ForgeDirectory forge(
+    private static IdentitySource forge(
             final PoreloContext context,
             final RegistryOrigin origin,
             final Forges forges,

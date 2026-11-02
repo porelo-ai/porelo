@@ -388,4 +388,27 @@ public record PersonCard(
     private static String printable(final String value) {
         return value.replaceAll("\\p{Cntrl}", "?");
     }
+
+    /**
+     * Returns whether a list of keys holds the key of a fingerprint, a comment after it or not; a
+     * line that is no Ed25519 key holds none.
+     *
+     * @param keys The keys, {@code ssh-ed25519 AAAA...} each.
+     * @param fingerprint The key's fingerprint, {@code SHA256:...}.
+     * @return Whether it is listed.
+     */
+    public static boolean lists(final java.util.List<String> keys, final String fingerprint) {
+        for (final String key : keys) {
+            try {
+                final String[] fields = key.strip().split("\\s+");
+                if (fields.length >= 2
+                        && fingerprint(fields[0] + " " + fields[1]).equals(fingerprint)) {
+                    return true;
+                }
+            } catch (CardException ex) {
+                // A line that is no Ed25519 key lists no key a card can carry.
+            }
+        }
+        return false;
+    }
 }
