@@ -532,13 +532,26 @@ class GitTreeStoreTest {
     }
 
     @Test
-    void anOwnerCannotLockAnAdminOrMakeADeveloperAnAdmin() throws Exception {
+    void anOwnerMayMakeADeveloperAnAdminAndUnmakeOne() throws Exception {
         founded();
         project();
         write(
                 "projects/demo/members.yml",
-                "members:\n  - login: alice\n    role: admin\n  - login: bob\n    role: admin\n");
+                "members:\n  - login: alice\n    role: developer\n  - login: bob\n    role: admin\n");
         commit("mia");
+
+        final OrganizationQuestions answers = read();
+
+        assertThat(answers.isProjectMember("demo", "bob")).as("made an admin").contains("admin");
+        assertThat(answers.isProjectMember("demo", "alice"))
+                .as("unmade as an admin")
+                .contains("developer");
+    }
+
+    @Test
+    void anOwnerCannotLockAnAdmin() throws Exception {
+        founded();
+        project();
         write(
                 "projects/demo/members.yml",
                 "members:\n  - login: alice\n    role: admin\n    locked: true\n"
@@ -547,8 +560,44 @@ class GitTreeStoreTest {
 
         final OrganizationQuestions answers = read();
 
-        assertThat(answers.isProjectMember("demo", "bob")).contains("developer");
-        assertThat(answers.isProjectMember("demo", "alice")).contains("admin");
+        assertThat(answers.isProjectMember("demo", "alice")).as("not locked").contains("admin");
+        assertThat(refusedPaths(answers)).containsExactly("projects/demo/members.yml");
+    }
+
+    @Test
+    void anOwnerCannotUnlockAMember() throws Exception {
+        founded();
+        project();
+        write(
+                "projects/demo/members.yml",
+                "members:\n  - login: alice\n    role: admin\n"
+                        + "  - login: bob\n    role: developer\n    locked: true\n");
+        commit("alice");
+        write(
+                "projects/demo/members.yml",
+                "members:\n  - login: alice\n    role: admin\n  - login: bob\n    role: developer\n");
+        commit("mia");
+
+        assertThat(read().isProjectMember("demo", "bob")).as("the lock stays").isEmpty();
+    }
+
+    @Test
+    void anOwnerCannotAddADeveloperOrALockedAdmin() throws Exception {
+        founded();
+        project();
+        final String kept =
+                "members:\n  - login: alice\n    role: admin\n  - login: bob\n    role: developer\n";
+        write("projects/demo/members.yml", kept + "  - login: carol\n    role: developer\n");
+        commit("mia");
+        write(
+                "projects/demo/members.yml",
+                kept + "  - login: carol\n    role: admin\n    locked: true\n");
+        commit("mia");
+
+        final OrganizationQuestions answers = read();
+
+        assertThat(answers.isProjectMember("demo", "carol")).as("not added").isEmpty();
+        assertThat(refusedPaths(answers)).hasSize(2);
     }
 
     @Test

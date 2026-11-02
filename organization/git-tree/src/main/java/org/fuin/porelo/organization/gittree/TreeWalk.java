@@ -40,6 +40,10 @@ final class TreeWalk {
     /** No project of an organization may carry the name of the one each machine has by itself. */
     private static final String RESERVED = "default";
 
+    private static final String OWNER_LIMIT =
+            "an owner may add and remove a project's admins and change a role to or from admin,"
+                    + " nothing else there";
+
     private final TreeRepository repository;
 
     private final IdentitySource identities;
@@ -402,16 +406,31 @@ final class TreeWalk {
         }
     }
 
-    /** An owner may add and remove a project's admins, and nothing else there. */
+    /**
+     * An owner may add and remove a project's admins and change a role to or from admin. Anything
+     * else on an entry, a lock above all, stays the project's own.
+     */
     private static void adminsOnly(
             final List<TreeFiles.Member> before, final List<TreeFiles.Member> after)
             throws Refused {
-        final Set<TreeFiles.Member> others = new LinkedHashSet<>(before);
-        others.removeIf(TreeWalk::unlockedAdmin);
-        final Set<TreeFiles.Member> kept = new LinkedHashSet<>(after);
-        kept.removeIf(TreeWalk::unlockedAdmin);
-        if (!others.equals(kept)) {
-            throw new Refused("an owner may add and remove a project's admins, nothing else there");
+        final Map<String, TreeFiles.Member> was = new TreeMap<>();
+        before.forEach(member -> was.put(member.login(), member));
+        final Map<String, TreeFiles.Member> is = new TreeMap<>();
+        after.forEach(member -> is.put(member.login(), member));
+        for (final TreeFiles.Member member : before) {
+            final TreeFiles.Member now = is.get(member.login());
+            final boolean kept =
+                    now == null
+                            ? member.role().equals(TreeFiles.ADMIN)
+                            : now.locked() == member.locked();
+            if (!kept) {
+                throw new Refused(OWNER_LIMIT);
+            }
+        }
+        for (final TreeFiles.Member member : after) {
+            if (!was.containsKey(member.login()) && !unlockedAdmin(member)) {
+                throw new Refused(OWNER_LIMIT);
+            }
         }
     }
 
