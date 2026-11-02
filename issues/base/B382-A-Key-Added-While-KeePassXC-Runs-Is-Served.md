@@ -28,8 +28,8 @@ own window.
   the database, say on the terminal to unlock it in KeePassXC's window, and wait; once it is unlocked the card is
   made, exit 0, with no `--key` run.
 - A key served within the 3 seconds locks nothing.
-- With KeePassXC not running, no window is started, and `key-not-served` says KeePassXC is not running and names
-  `--key`.
+- With KeePassXC not running, no window is started, and `key-not-served` comes at once, saying KeePassXC is not
+  running and naming `--key`.
 - Seen to fail first: `IdentityKeePassXcTest`'s two new tests and the changed `key-not-served` test.
 
 ## Done
@@ -41,5 +41,7 @@ own window.
   running.
 - Tests (`IdentityKeePassXcTest`): a stand-in `keepassxc` that is running or not; a stand-in `keepassxc-cli` that
   keeps the key in memory until the stand-in window stands for the person unlocking the database, then serves it.
+- The stand-in that holds the key until the unlock gives up after 30 s or once its test's directory is gone, so no
+  stand-in outlives its test.
 - Not claimed: a run against the real KeePassXC window; the person's other databases stay locked until they unlock
   them.

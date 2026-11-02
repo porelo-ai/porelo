@@ -34,7 +34,8 @@ final class KeePassXcStandIn {
         HOLDS,
         /**
          * The database is open, and KeePassXC loads the new entry only once it is locked and
-         * unlocked: the key is held in memory until the database is unlocked again.
+         * unlocked: the key is held in memory until the database is unlocked again, at most 30 s
+         * and never past the test's directory, so no stand-in outlives its test.
          */
         SERVES_AFTER_UNLOCK,
         /** A wrong master password: nothing is added. */
@@ -72,7 +73,9 @@ final class KeePassXcStandIn {
                     case SERVES_LATE ->
                             "( sleep 1; SSH_AUTH_SOCK=\"$sock\" ssh-add -q - ) < \"$5\" &";
                     case SERVES_AFTER_UNLOCK ->
-                            "( k=$(cat); while [ ! -e \"$here/unlocked\" ]; do sleep 0.1; done;"
+                            "( k=$(cat); n=0; while [ ! -e \"$here/unlocked\" ]; do"
+                                    + " n=$((n+1)); [ $n -gt 300 ] || [ ! -d \"$here\" ] && exit 0;"
+                                    + " sleep 0.1; done;"
                                     + " printf '%s\\n' \"$k\" | SSH_AUTH_SOCK=\"$sock\" ssh-add -q - )"
                                     + " < \"$5\" &";
                     case HOLDS, REFUSES -> "head -n 1 \"$5\" >> \"$here/seen\"";

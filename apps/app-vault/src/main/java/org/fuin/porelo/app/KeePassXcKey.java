@@ -159,22 +159,24 @@ record KeePassXcKey(
         // KeePassXC loads an entry added while the database is open only once the database is
         // locked and unlocked: lock it, show the database's unlock view, and wait for the person.
         final boolean locked = lock(context);
-        if (locked) {
-            show(context, file.toString());
-            say(
-                    "KeePassXC loads the new key only when "
-                            + RegistryVerifyCommand.printable(file.toString())
-                            + " is unlocked again, so Porelo has locked KeePassXC's databases:"
-                            + " unlock "
-                            + RegistryVerifyCommand.printable(file.toString())
-                            + " in KeePassXC's window; Porelo waits up to "
-                            + patience.toSeconds()
-                            + " s.\n");
+        if (!locked) {
+            // No KeePassXC runs to load the entry, and nobody can unlock it there: said at once.
+            throw notServed(path, file.toString(), fingerprint, false);
         }
+        show(context, file.toString());
+        say(
+                "KeePassXC loads the new key only when "
+                        + RegistryVerifyCommand.printable(file.toString())
+                        + " is unlocked again, so Porelo has locked KeePassXC's databases:"
+                        + " unlock "
+                        + RegistryVerifyCommand.printable(file.toString())
+                        + " in KeePassXC's window; Porelo waits up to "
+                        + patience.toSeconds()
+                        + " s.\n");
         if (served(socket, fingerprint, patience)) {
             return new Made(path, fingerprint);
         }
-        throw notServed(path, file.toString(), fingerprint, locked);
+        throw notServed(path, file.toString(), fingerprint, true);
     }
 
     /**
@@ -353,14 +355,13 @@ record KeePassXcKey(
                         + fingerprint
                         + " in "
                         + RegistryVerifyCommand.printable(entry)
-                        + ", but its agent did not serve it within "
-                        + patience.toSeconds()
-                        + " s: "
                         + (locked
-                                ? "Porelo locked KeePassXC's databases; unlock "
+                                ? ", but its agent did not serve it within "
+                                        + patience.toSeconds()
+                                        + " s: Porelo locked KeePassXC's databases; unlock "
                                         + shown
                                         + " in KeePassXC's window with its SSH agent integration on"
-                                : "KeePassXC is not running; open "
+                                : ", and KeePassXC is not running to give it to the agent: open "
                                         + shown
                                         + " in KeePassXC with its SSH agent integration on")
                         + ", then name the key with --key "

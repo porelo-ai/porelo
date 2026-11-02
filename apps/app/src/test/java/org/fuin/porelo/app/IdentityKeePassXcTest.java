@@ -335,10 +335,11 @@ class IdentityKeePassXcTest {
             throws Exception {
         final KeePassXcStandIn keepass = standIn(KeePassXcStandIn.Mode.HOLDS);
         keepass.running(false);
+        final long started = System.nanoTime();
 
         assertThat(
                         create(
-                                keepass.store(Duration.ofMillis(600)),
+                                keepass.store(Duration.ofSeconds(30)),
                                 "--keepassxc",
                                 keepass.database.toString(),
                                 "--entry",
@@ -351,6 +352,11 @@ class IdentityKeePassXcTest {
                 .contains("not running")
                 .contains("--key " + answer.get("fingerprint"));
         assertThat(keepass.guiCalls()).as("no window is started").containsExactly("--lock");
+        assertThat(Duration.ofNanos(System.nanoTime() - started))
+                .as(
+                        "nobody can unlock a database no KeePassXC has open: it is said at once, not after the wait")
+                .isLessThan(Duration.ofSeconds(15));
+        assertThat((String) answer.get("words")).doesNotContain("within");
         assertThat(cardFile()).doesNotExist();
     }
 
