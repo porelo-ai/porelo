@@ -129,7 +129,7 @@ final class OrgAccess {
     }
 
     /** Lends what this person holds for the address, as a follow is lent it. */
-    private static FetchAccess lent(final PoreloContext context) {
+    static FetchAccess lent(final PoreloContext context) {
         return address -> {
             final FollowCredential credential =
                     FollowCredential.open(context, address, "organization");
