@@ -16,6 +16,10 @@
     <description>Porelo - the command line's organization area: what `porelo org` and a project's new verbs answer. Its place among the
         areas is its dependencies: an area that is not one of them cannot be reached from here, and the build says so.</description>
 
+    <properties>
+        <porelo-forge-clients.version>0.1.0-SNAPSHOT</porelo-forge-clients.version>
+    </properties>
+
     <dependencies>
 
         <dependency>
@@ -33,6 +37,16 @@
         <dependency>
             <groupId>org.fuin.porelo</groupId>
             <artifactId>porelo-organization-git-tree</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.fuin.porelo</groupId>
+            <artifactId>porelo-forge-client-github</artifactId>
+            <version>${porelo-forge-clients.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.fuin.porelo</groupId>
+            <artifactId>porelo-forge-client-forgejo</artifactId>
+            <version>${porelo-forge-clients.version}</version>
         </dependency>
         <dependency>
             <groupId>info.picocli</groupId>

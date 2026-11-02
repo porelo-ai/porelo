@@ -77,6 +77,9 @@ public interface OrganizationQuestions {
         /** The agent does not serve the key that must sign. */
         public static final String NO_KEY = "no-key";
 
+        /** The vault is shut, and a token it holds is needed. */
+        public static final String VAULT_SHUT = "vault-shut";
+
         private final String reason;
 
         private final @Nullable String revision;

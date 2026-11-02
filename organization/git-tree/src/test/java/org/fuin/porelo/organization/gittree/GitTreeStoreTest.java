@@ -2645,6 +2645,31 @@ class GitTreeStoreTest {
     }
 
     @Test
+    void aCardThatDoesNotReadNeverReachesAHostsPersonsAndTheOthersStay() throws Exception {
+        carryingHost();
+        write(
+                "projects/demo/members.yml",
+                "members:\n  - login: alice\n    role: admin\n  - login: broken\n    role: developer\n");
+        write("people/broken.card", "login: broken\nkey: not a key\n");
+        commit("alice");
+
+        final List<?> persons = (List<?>) fetch("", "alice").get("persons");
+
+        assertThat(persons)
+                .as("a host stops revoking for everyone if one person's row cannot be read")
+                .extracting(row -> (Object) ((Map<?, ?>) row).get("login"))
+                .doesNotContain("broken")
+                .contains("alice");
+        for (final Object each : persons) {
+            final Map<?, ?> row = (Map<?, ?>) each;
+            assertThat(String.valueOf(row.get("login"))).matches("[a-z][a-z0-9-]{0,31}");
+            assertThat(String.valueOf(row.get("key"))).startsWith("ssh-ed25519 ");
+            assertThat(java.time.LocalDate.parse(String.valueOf(row.get("expires")))).isNotNull();
+            assertThat(row.get("revoked")).isInstanceOf(Boolean.class);
+        }
+    }
+
+    @Test
     void aFirstSeenAdminIsNotAnsweredWithAKeyForRootsLogin() throws Exception {
         carryingHost();
         write("people/carol.card", card("carol", "mallory"));

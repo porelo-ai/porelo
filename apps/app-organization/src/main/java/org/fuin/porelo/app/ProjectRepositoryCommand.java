@@ -143,6 +143,26 @@ public class ProjectRepositoryCommand {
      */
     static Place place(
             final OrganizationQuestions state, final String project, final String login) {
+        final OrganizationQuestions.Project held = admin(state, project, login);
+        final String revision = state.revision();
+        if (!held.filed()) {
+            throw new Refused(
+                    Refused.NOT_OPENED, "the project has no address yet: open it first", revision);
+        }
+        return new Place(
+                state.getProjectRepository(project).orElseThrow(), state.signingKeys(project));
+    }
+
+    /**
+     * Judges whether a person is an unlocked admin of a project.
+     *
+     * @param state The organization.
+     * @param project The project.
+     * @param login Who acts.
+     * @return The project.
+     */
+    static OrganizationQuestions.Project admin(
+            final OrganizationQuestions state, final String project, final String login) {
         final String revision = state.revision();
         final OrganizationQuestions.Project held =
                 state.getProjects().stream()
@@ -166,11 +186,6 @@ public class ProjectRepositoryCommand {
         if (!"admin".equals(member.role())) {
             throw new Refused(Refused.NOT_ALLOWED, "a project admin may change this", revision);
         }
-        if (!held.filed()) {
-            throw new Refused(
-                    Refused.NOT_OPENED, "the project has no address yet: open it first", revision);
-        }
-        return new Place(
-                state.getProjectRepository(project).orElseThrow(), state.signingKeys(project));
+        return held;
     }
 }

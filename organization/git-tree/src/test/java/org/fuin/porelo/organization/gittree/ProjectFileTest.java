@@ -134,7 +134,11 @@ class ProjectFileTest {
     private ProjectFile file() {
         final Map<String, Path> files = new HashMap<>();
         keys.keySet().forEach(each -> files.put(key(each), keyFiles.get(each)));
-        return new ProjectFile(runner, FetchAccess.NONE, new CommitSigning(Map.of(), files));
+        return new ProjectFile(
+                runner,
+                FetchAccess.NONE,
+                new CommitSigning(Map.of(), files),
+                dir.resolve("memory"));
     }
 
     private ProjectFile.Read read() throws IOException {
@@ -416,7 +420,11 @@ class ProjectFileTest {
     }
 
     private ProjectFile throughAgent(final Path socket) {
-        return new ProjectFile(runner, FetchAccess.NONE, CommitSigning.agent(socket.toString()));
+        return new ProjectFile(
+                runner,
+                FetchAccess.NONE,
+                CommitSigning.agent(socket.toString()),
+                dir.resolve("memory"));
     }
 
     @Test
@@ -473,5 +481,201 @@ class ProjectFileTest {
                                         rows(),
                                         "app",
                                         UPSTREAM));
+    }
+
+    private Path empty() {
+        final Path bare = dir.resolve("empty.git");
+        runner.runOrFail(Command.of("git", "init", "-q", "--bare", "-b", "main", bare.toString()));
+        return bare;
+    }
+
+    @Test
+    void anEmptyRepositoryIsFoundedWithASignedFileAReaderBelieves() throws Exception {
+        final Path bare = empty();
+
+        final Written first = file().found(change("alice", "one"), bare.toString(), TEXT);
+
+        assertThat(first.again()).isFalse();
+        final ProjectFile.Read read = file().read(bare.toString(), rows());
+        assertThat(read.state()).as(String.valueOf(read.why())).isEqualTo(ProjectFile.READ);
+        assertThat(read.revision()).isEqualTo(first.revision());
+    }
+
+    @Test
+    void foundingAskedAgainUnderItsIdAnswersWhatItMadeAndAnotherIdIsExists() throws Exception {
+        final Path bare = empty();
+        final Written first = file().found(change("alice", "one"), bare.toString(), TEXT);
+
+        final Written again = file().found(change("alice", "one"), bare.toString(), TEXT);
+
+        assertThat(again.revision()).isEqualTo(first.revision());
+        assertThat(again.again()).isTrue();
+        refusedAs(
+                Refused.EXISTS, () -> file().found(change("alice", "two"), bare.toString(), TEXT));
+        refusedAs(
+                Refused.EXISTS, () -> file().found(change("carol", "one"), bare.toString(), TEXT));
+    }
+
+    @Test
+    void foundingWhatIsNotThereIsNoRepository() {
+        refusedAs(
+                Refused.NO_REPOSITORY,
+                () -> file().found(change("alice", "one"), dir.resolve("none").toString(), TEXT));
+    }
+
+    /**
+     * A commit whose first parent is the older state and whose second is the tip: a plain
+     * fast-forward anyone with write access can push, showing no change against its first parent.
+     */
+    private void servedOlderByAMerge(final String older, final String signer) {
+        final String tip = git("rev-parse", "HEAD");
+        final String tree = git("rev-parse", older + "^{tree}");
+        final String merge =
+                git(
+                        "-c",
+                        "user.signingkey=" + keyFiles.get(signer),
+                        "commit-tree",
+                        "-S",
+                        "-p",
+                        older,
+                        "-p",
+                        tip,
+                        "-m",
+                        "back",
+                        tree);
+        git("reset", "-q", "--hard", merge);
+    }
+
+    private void aLaterChange(final String seconds) throws IOException {
+        Files.writeString(repo.resolve("project.yml"), TEXT.replace("first", "later"));
+        git("add", "-A");
+        runner.runOrFail(
+                Command.of(
+                                "git",
+                                "-c",
+                                "user.signingkey=" + keyFiles.get("alice"),
+                                "commit",
+                                "-q",
+                                "-S",
+                                "-m",
+                                "later")
+                        .in(repo)
+                        .withEnvironment(
+                                Map.of(
+                                        "GIT_CONFIG_GLOBAL",
+                                        "/dev/null",
+                                        "GIT_CONFIG_NOSYSTEM",
+                                        "1",
+                                        "GIT_COMMITTER_DATE",
+                                        seconds)));
+    }
+
+    @Test
+    void aMergeThatBringsBackAnOlderFileIsRefusedOnceANewerWasAccepted() throws Exception {
+        final String older = git("rev-parse", "HEAD");
+        aLaterChange("2090-01-01T00:00:00Z");
+        assertThat(read().project().repositories()).extracting("name").containsExactly("later");
+
+        servedOlderByAMerge(older, "mallory");
+
+        final ProjectFile.Read read = read();
+        assertThat(read.state())
+                .as("a host's repositories and where a token is lent would go back with it")
+                .isEqualTo(ProjectFile.REFUSED);
+        assertThat(read.why()).contains("older");
+    }
+
+    @Test
+    void anAdminSigningAnewGetsOutOfARefusedOlderFile() throws Exception {
+        final String older = git("rev-parse", "HEAD");
+        aLaterChange("2090-01-01T00:00:00Z");
+        read();
+        servedOlderByAMerge(older, "mallory");
+        assertThat(read().state()).isEqualTo(ProjectFile.REFUSED);
+
+        aLaterChange("2090-01-02T00:00:00Z");
+
+        assertThat(read().state()).isEqualTo(ProjectFile.READ);
+    }
+
+    @Test
+    void theSameFileReadAgainAndAnotherFilesChangeStayRead() throws Exception {
+        assertThat(read().state()).isEqualTo(ProjectFile.READ);
+        assertThat(read().state()).isEqualTo(ProjectFile.READ);
+
+        commit("notes.txt", "by a developer", "carol");
+
+        assertThat(read().state()).isEqualTo(ProjectFile.READ);
+    }
+
+    @Test
+    void whatARefusalDidNotAcceptIsNotRemembered() throws Exception {
+        aLaterChange("2090-01-01T00:00:00Z");
+
+        final ProjectFile unknowing =
+                new ProjectFile(
+                        runner,
+                        FetchAccess.NONE,
+                        new CommitSigning(Map.of(), Map.of()),
+                        dir.resolve("memory"));
+        assertThat(unknowing.read(repo.toString(), List.of()).state())
+                .isEqualTo(ProjectFile.REFUSED);
+
+        assertThat(dir.resolve("memory")).doesNotExist();
+    }
+
+    @Test
+    void aRepositoryIsRememberedApartFromAnother() throws Exception {
+        aLaterChange("2090-01-01T00:00:00Z");
+        read();
+        final Path bare = empty();
+        file().found(change("alice", "one"), bare.toString(), TEXT);
+
+        assertThat(file().read(bare.toString(), rows()).state())
+                .as("an older file in another repository goes back from nothing")
+                .isEqualTo(ProjectFile.READ);
+    }
+
+    @Test
+    void aKeyFileThatDoesNotOpenIsNoKey() throws Exception {
+        final Path locked = dir.resolve("locked");
+        runner.runOrFail(
+                Command.of(
+                        "ssh-keygen",
+                        "-q",
+                        "-t",
+                        "ed25519",
+                        "-N",
+                        "secret",
+                        "-f",
+                        locked.toString()));
+        final String key =
+                Files.readString(dir.resolve("locked.pub")).strip().replaceAll(" [^ ]*$", "");
+        final List<SigningKey> theirs =
+                List.of(
+                        row("alice", "admin"),
+                        new SigningKey(
+                                "locked",
+                                "admin",
+                                key,
+                                LocalDate.of(2000, 1, 1),
+                                LocalDate.of(2999, 1, 1),
+                                null));
+        final ProjectFile file =
+                new ProjectFile(
+                        runner,
+                        FetchAccess.NONE,
+                        new CommitSigning(Map.of(), Map.of(key, locked)),
+                        dir.resolve("memory"));
+
+        refusedAs(
+                Refused.NO_KEY,
+                () ->
+                        file.add(
+                                new Change(new Acting("locked", key), null, "one"),
+                                repo.toString(),
+                                theirs,
+                                "app",
+                                UPSTREAM));
     }
 }

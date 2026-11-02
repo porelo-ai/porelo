@@ -92,7 +92,8 @@ public class PoreloCli implements Callable<Integer> {
                 .addSubcommand(ProjectShowCommand.class)
                 .addSubcommand(ProjectMemberCommand.class)
                 .addSubcommand(ProjectAddressCommand.class)
-                .addSubcommand(ProjectRepositoryCommand.class);
+                .addSubcommand(ProjectRepositoryCommand.class)
+                .addSubcommand(ProjectOpenCommand.class);
         return line.setParameterExceptionHandler(CliErrors.handler())
                 .setExecutionExceptionHandler(CliErrors.failures(context.paths()));
     }

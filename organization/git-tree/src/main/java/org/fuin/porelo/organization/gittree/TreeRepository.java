@@ -45,7 +45,7 @@ final class TreeRepository implements AutoCloseable {
     /** What git and ssh-keygen say when a signature could not be made, as against anything else. */
     private static final Pattern NOT_SIGNED =
             Pattern.compile(
-                    "(?i)failed to sign|signing failed|agent|public key|couldn't sign|no such"
+                    "(?i)failed to sign|signing failed|agent|public key|couldn't sign|load key|no such"
                             + " identity");
 
     private static final String PROTOCOLS = "file:ssh:https";
@@ -277,7 +277,7 @@ final class TreeRepository implements AutoCloseable {
         return named.toString();
     }
 
-    private static String digest(final String text) {
+    static String digest(final String text) {
         try {
             return java.util.HexFormat.of()
                     .formatHex(
