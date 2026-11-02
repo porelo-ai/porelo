@@ -91,6 +91,7 @@ would change the answer.
 | A new key goes straight into KeePassXC, and a running KeePassXC is locked to serve it | accepted: no key file and no master password in Porelo; every database the running KeePassXC has open is locked, and the others stay locked until the person unlocks them | [entry](#a-new-key-goes-straight-into-keepassxc-and-a-running-keepassxc-is-locked-to-serve-it) |
 | A registry's trust record is checked, not hardened against whoever writes the state directory | accepted: a record that fails a check is discarded and the registry walked again from its founding commit; a writer of `$XDG_STATE_HOME` can change Porelo's config and binaries too | [entry](#a-registrys-trust-record-is-checked-not-hardened-against-whoever-writes-the-state-directory) |
 | A project's lock does not bind an organization owner | accepted: an owner may name any admin, and an admin may unlock; every step is a signed commit | [entry](#a-projects-lock-does-not-bind-an-organization-owner) |
+| Every organization store passes one set of checks | `organization/contract` holds what any store must guarantee, and each adapter runs it against itself through a fixture; the offline checks run against stand-ins until `organization/git-tree` has an offline check | [entry](#every-organization-store-passes-one-set-of-checks) |
 | A past commit is judged by the whole chain of its key, read to the tip | a key handed on keeps its commits on a new machine; a lost key's stay refused, and an owner adds the project's admins again | [entry](#a-past-commit-is-judged-by-the-whole-chain-of-its-key-read-to-the-tip) |
 | **Projects and following** | | |
 | One agent works in one repository | a task holds one repository, so an agent that spans several is one per repository, its commits authored by the name it goes by | [entry](#one-agent-works-in-one-repository) |
@@ -1181,6 +1182,31 @@ the check is there against a damaged or stale record, and further ways a hand-ed
 Ideas, not fixed one by one. **What would change the answer:** a record that crosses a boundary the state directory
 does not, such as one shared between machines or people, which would then have to be signed or proven against the
 history in full.
+
+## Every organization store passes one set of checks
+
+What keeps an organization is an adapter's own, so what it must guarantee is written as checks over the API, which need
+neither `git` nor a class of an adapter. Each check has been seen to fail against a stand-in that breaks what it guards.
+
+- **A change counts only signed by the one allowed to make it, wherever it lies in the history.** An unsigned change, or
+  one signed by a key the place's rule does not allow, gives no role and no owner's place, under a later honest change as
+  well, and the read names the refused revision and nothing before it. An admin has no right in another project and a
+  locked admin none in their own; an owner names admins, adds nobody else and touches no lock.
+- **A person's card stands against everybody else.** A card overwritten, removed or replaced by somebody who may not, or
+  filed for its person by another key, holds nothing; nor does one the identity source denies, and a card squatted in
+  another's name gives way to the person's own.
+- **A revoked key signs nothing, wherever else it is held and after a read as well**, an owner's though the list of owners
+  still names it, and an older card played back gives it nothing. The revocation lies in the history, so this holds from a
+  machine's first read on.
+- **A state that does not continue what this machine trusted is refused each time it is served**: an older one, a fork,
+  or one without a revocation. A machine that has trusted nothing yet has nothing to compare, so a state rolled back
+  before its first read is not noticed.
+- **A host's offline check answers only for its pinned key.** It answers the host's admins, projects, persons and card
+  under that key. It refuses a copy under another person's pin, one holding a change nobody allowed, also under a later
+  change, and one that does not continue the state the host applied last.
+
+`organization/git-tree` runs the reading checks on real commits. It has no offline check yet, so the offline checks run
+against the contract's stand-ins alone until it does.
 
 ## A project's lock does not bind an organization owner
 

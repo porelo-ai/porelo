@@ -53,6 +53,12 @@
 
         <dependency>
             <groupId>org.fuin.porelo</groupId>
+            <artifactId>porelo-organization-contract</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.fuin.porelo</groupId>
             <artifactId>porelo-testing</artifactId>
             <scope>test</scope>
         </dependency>

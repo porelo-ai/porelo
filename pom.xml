@@ -253,6 +253,12 @@
 
             <dependency>
                 <groupId>org.fuin.porelo</groupId>
+                <artifactId>porelo-organization-contract</artifactId>
+                <version>${porelo.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.fuin.porelo</groupId>
                 <artifactId>porelo-organization-git</artifactId>
                 <version>${porelo.version}</version>
             </dependency>
