@@ -446,6 +446,31 @@ class RegistryReadCommandTest {
                     .as(ssh)
                     .isEqualTo("https://forge.example.org ghs_installation4711");
         }
+        // Declared for the registry's own address, it is found for that repository too, cloned
+        // over https or over ssh.
+        Files.writeString(
+                declared,
+                Files.readString(declared)
+                        .replace(
+                                "https://forge.example.org/acme/",
+                                "https://forge.example.org/acme/registry.git"));
+        for (final String origin :
+                List.of(
+                        "https://forge.example.org/acme/registry.git",
+                        "git@forge.example.org:acme/registry.git")) {
+            registry.git("remote", "set-url", "origin", origin);
+            Files.deleteIfExists(registry.record());
+            assertThat(registry.registry(context, "read", registry.repo.toString())).isZero();
+            assertThat(registry.forge.opened.getLast())
+                    .as(origin)
+                    .isEqualTo("https://forge.example.org ghs_installation4711");
+        }
+        Files.writeString(
+                declared,
+                Files.readString(declared)
+                        .replace(
+                                "https://forge.example.org/acme/registry.git",
+                                "https://forge.example.org/acme/"));
         registry.git("remote", "set-url", "origin", "https://forge.example.org/acme/registry.git");
 
         // Declared for the host alone, it is not sent to the same host on another port, though
@@ -456,7 +481,7 @@ class RegistryReadCommandTest {
                         .replace("https://forge.example.org/acme/", "https://forge.example.org"));
         registry.git(
                 "remote", "set-url", "origin", "https://forge.example.org:9999/acme/registry.git");
-        Files.delete(registry.record());
+        Files.deleteIfExists(registry.record());
         registry.registry(context, "read", registry.repo.toString());
         assertThat(registry.forge.opened.getLast())
                 .isEqualTo("https://forge.example.org:9999 null");

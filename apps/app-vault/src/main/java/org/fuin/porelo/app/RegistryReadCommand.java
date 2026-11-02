@@ -487,7 +487,7 @@ public class RegistryReadCommand implements Callable<Integer>, PoreloFactory.Con
     private static final long TOKEN_FILE_LIMIT = 64 * 1024;
 
     /**
-     * The token declared in a variable or a file for the organisation at the forge's https address,
+     * The token declared in a variable or a file for the registry at the forge's https address,
      * where it is sent, whether the checkout was cloned over https or over ssh (no token is
      * declared for an ssh address), with the same rule for a port as a token in the vault; {@code
      * null} when none is declared there or it is unset, unreadable or blank.
@@ -495,8 +495,7 @@ public class RegistryReadCommand implements Callable<Integer>, PoreloFactory.Con
     private static @Nullable String outside(
             final PoreloContext context, final RegistryOrigin origin) {
         final Credential declared =
-                context.credentialRegistry()
-                        .forUrl("git", origin.forge() + "/" + origin.organisation() + "/");
+                context.credentialRegistry().forUrl("git", httpsAddress(origin));
         if (declared == null
                 || declared.kind() != Credential.Kind.TOKEN
                 || (origin.forge().getPort() >= 0 && !namesPort(declared.match(), origin))) {
@@ -509,6 +508,16 @@ public class RegistryReadCommand implements Callable<Integer>, PoreloFactory.Con
                     case VAULT, AGENT -> null;
                 };
         return value == null || value.isBlank() ? null : value.strip();
+    }
+
+    /**
+     * The registry's address at the forge's https address, however the checkout was cloned, so a
+     * token declared for the forge, the organisation or the repository itself is found.
+     */
+    private static String httpsAddress(final RegistryOrigin origin) {
+        final String url = origin.url().replaceAll("/+$", "");
+        final String repository = url.substring(url.lastIndexOf('/') + 1);
+        return origin.forge() + "/" + origin.organisation() + "/" + repository;
     }
 
     private static @Nullable String file(final Path path) {
