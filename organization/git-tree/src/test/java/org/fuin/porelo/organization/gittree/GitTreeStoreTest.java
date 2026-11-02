@@ -67,7 +67,7 @@ class GitTreeStoreTest {
     @BeforeEach
     void repository() throws Exception {
         repo = Files.createDirectory(dir.resolve("organization"));
-        for (final String login : List.of("mia", "alice", "bob", "carol", "mallory")) {
+        for (final String login : List.of("mia", "alice", "alice-new", "bob", "carol", "mallory")) {
             final Path file = dir.resolve(login);
             runner.runOrFail(
                     Command.of(
@@ -165,6 +165,17 @@ class GitTreeStoreTest {
                 LocalDate.of(2026, 1, 1),
                 LocalDate.of(2030, 1, 1),
                 null);
+    }
+
+    private String handedOn(final String login, final String own, final String from) {
+        return PersonCard.write(
+                login,
+                login,
+                "",
+                keys.get(own),
+                LocalDate.of(2026, 1, 1),
+                LocalDate.of(2030, 1, 1),
+                keys.get(from));
     }
 
     /** A project whose card names alice, with alice as admin and bob as developer. */
@@ -729,23 +740,198 @@ class GitTreeStoreTest {
     }
 
     @Test
-    void aChangeOfKeyIsRefusedUntilThisReaderTakesIt() throws Exception {
+    void aKeyNobodyHandedOnTakesNoCard() throws Exception {
         founded();
-        person("alice");
+        project();
         write("people/alice.card", card("alice", "mallory"));
         commit("mallory");
-        write("projects/demo/card", "name: demo\nadmin: alice\n");
-        commit("mia");
-        write("projects/demo/members.yml", "members:\n  - login: alice\n    role: admin\n");
+        write("projects/demo/members.yml", "members:\n  - login: mallory\n    role: admin\n");
         commit("mallory");
 
         final OrganizationQuestions answers = read();
 
-        assertThat(answers.isProjectMember("demo", "alice"))
-                .as("mallory's key is no one's")
-                .isEmpty();
+        assertThat(answers.isProjectMember("demo", "alice")).as("alice stays").contains("admin");
         assertThat(refusedPaths(answers))
                 .containsExactly("people/alice.card", "projects/demo/members.yml");
+    }
+
+    @Test
+    void aKeyHandedOnCarriesTheRightsAndTheOldKeyHoldsNoneAgain() throws Exception {
+        founded();
+        project();
+        write("people/alice.card", handedOn("alice", "alice-new", "alice"));
+        commit("alice-new");
+        final String removedBob = "members:\n  - login: alice\n    role: admin\n";
+        write("projects/demo/members.yml", removedBob + "  - login: carol\n    role: developer\n");
+        commit("alice");
+
+        final OrganizationQuestions old = read();
+
+        assertThat(old.isProjectMember("demo", "bob"))
+                .as("the old key changed nothing")
+                .isPresent();
+
+        write("projects/demo/members.yml", removedBob);
+        commit("alice-new");
+
+        assertThat(read().isProjectMember("demo", "bob")).as("the new key holds it").isEmpty();
+    }
+
+    @Test
+    void aCardNamingAPredecessorThatIsNotTheOldKeyIsRefused() throws Exception {
+        founded();
+        person("alice");
+        write("people/alice.card", handedOn("alice", "alice-new", "mallory"));
+        commit("alice-new");
+
+        assertThat(refusedPaths(read())).containsExactly("people/alice.card");
+    }
+
+    @Test
+    void anOwnersReplacementRevokesTheOldKeyEverywhere() throws Exception {
+        founded();
+        project();
+        forge.keys.put("carol", List.of(key("alice")));
+        write("people/carol.card", card("carol", "alice"));
+        commit("alice");
+        forge.keys.put("alice", List.of(key("alice"), key("alice-new")));
+        write("people/alice.card", card("alice", "alice-new"));
+        final String replaced = commit("mia");
+        write("projects/demo/members.yml", "members:\n  - login: alice\n    role: admin\n");
+        commit("alice");
+
+        final OrganizationQuestions answers = read();
+
+        assertThat(answers.revision()).as("the walk went on").isNotEqualTo(replaced);
+        assertThat(answers.isProjectMember("demo", "bob"))
+                .as("the lost key signs nothing any more")
+                .isPresent();
+        assertThat(answers.getRefusals())
+                .as("it is refused for being revoked")
+                .anySatisfy(refusal -> assertThat(refusal.why()).contains("revoked"));
+        assertThat(refusedPaths(answers))
+                .as("nothing else in the project was refused")
+                .containsExactly("projects/demo/members.yml");
+
+        // Other text than the refused commit left in the tree, or there is no change to judge.
+        write(
+                "projects/demo/members.yml",
+                "members:\n  - login: alice\n    role: admin\n  - login: carol\n    role: developer\n");
+        commit("alice-new");
+
+        assertThat(read().isProjectMember("demo", "bob")).as("the replacement holds it").isEmpty();
+    }
+
+    @Test
+    void aCardHandedOnFromARevokedKeyIsRefusedUnderAnyLogin() throws Exception {
+        founded();
+        person("alice");
+        forge.keys.put("alice", List.of(key("alice"), key("alice-new")));
+        write("people/alice.card", card("alice", "alice-new"));
+        commit("mia");
+        forge.keys.put("carol", List.of(key("mallory")));
+        write("people/carol.card", handedOn("carol", "mallory", "alice"));
+        commit("mallory");
+
+        assertThat(refusedPaths(read()))
+                .as("the revoked key vouches for nothing, whatever the source lists")
+                .containsExactly("people/carol.card");
+    }
+
+    @Test
+    void anOwnersReplacementTheSourceDoesNotListHoldsNoRight() throws Exception {
+        founded();
+        project();
+        write("people/alice.card", card("alice", "alice-new"));
+        commit("mia");
+        write("projects/demo/members.yml", "members:\n  - login: alice\n    role: admin\n");
+        commit("alice-new");
+
+        assertThat(read().isProjectMember("demo", "bob"))
+                .as("an owner vouches for the login, not the key")
+                .isPresent();
+    }
+
+    @Test
+    void anOwnerCannotPutACardWhereNoneWasHeld() throws Exception {
+        founded();
+        forge.keys.put("alice", List.of(key("alice")));
+        write("people/alice.card", card("alice", "alice"));
+        commit("mia");
+
+        assertThat(refusedPaths(read())).containsExactly("people/alice.card");
+    }
+
+    @Test
+    void aFirstSeenCardGivesWayToTheLoginsOwnListedCard() throws Exception {
+        founded();
+        write("people/alice.card", card("alice", "mallory"));
+        commit("mallory");
+        write("projects/demo/card", "name: demo\nadmin: alice\n");
+        commit("mia");
+        forge.keys.put("alice", List.of(key("alice")));
+        write("people/alice.card", card("alice", "alice"));
+        commit("alice");
+        write("projects/demo/members.yml", "members:\n  - login: alice\n    role: admin\n");
+        commit("alice");
+
+        final OrganizationQuestions answers = read();
+
+        assertThat(answers.isProjectMember("demo", "alice"))
+                .as("the card filed first was only holding the login")
+                .contains("admin");
+    }
+
+    @Test
+    void aCardsRemovalCountsFromItsKeyOrAnOwnerAlone() throws Exception {
+        founded();
+        project();
+        Files.delete(repo.resolve("people/alice.card"));
+        commit("mallory");
+        write("projects/demo/members.yml", "members:\n  - login: alice\n    role: admin\n");
+        commit("alice");
+
+        assertThat(read().isProjectMember("demo", "bob"))
+                .as("the card stands, so alice still acts")
+                .isEmpty();
+    }
+
+    @Test
+    void aBackupKeyReplacesOnlyTheKeyItBacks() throws Exception {
+        founded();
+        final String backup =
+                "  - login: mia\n    key: \"" + key("carol") + "\"\n    backup: true\n";
+        write("owners.yml", owners("mia", "bob") + backup);
+        commit("mia");
+        write(
+                "owners.yml",
+                owners("bob") + "  - login: mia\n    key: \"" + key("alice") + "\"\n" + backup);
+        final String replaced = commit("carol");
+
+        final OrganizationQuestions answers = read();
+
+        assertThat(answers.revision()).isEqualTo(replaced);
+        assertThat(refusedPaths(answers)).as("it replaced the key it backs").isEmpty();
+        assertThat(answers.isOrganizationOwner("mia")).isTrue();
+    }
+
+    @Test
+    void aBackupKeyCannotTouchAnotherOwner() throws Exception {
+        founded();
+        final String backup =
+                "  - login: mia\n    key: \"" + key("carol") + "\"\n    backup: true\n";
+        write("owners.yml", owners("mia", "bob") + backup);
+        commit("mia");
+        // A proper replacement of the key it backs, with another owner gone beside it.
+        write(
+                "owners.yml",
+                "owners:\n  - login: mia\n    key: \"" + key("alice") + "\"\n" + backup);
+        commit("carol");
+
+        final OrganizationQuestions answers = read();
+
+        assertThat(answers.isOrganizationOwner("bob")).as("bob stays an owner").isTrue();
+        assertThat(refusedPaths(answers)).containsExactly("owners.yml");
     }
 
     @Test
