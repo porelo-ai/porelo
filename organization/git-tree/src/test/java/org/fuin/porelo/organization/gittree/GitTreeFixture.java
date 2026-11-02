@@ -502,6 +502,20 @@ final class GitTreeFixture implements OrganizationFixture, OfflineFixture {
         commit(nameOf(owner));
     }
 
+    /** The source has no entry for the login, which is how it says nothing of a person. */
+    @Override
+    public void firstSeenPerson(
+            final String admin, final String host, final String project, final String login)
+            throws IOException {
+        addMember(admin, project, login, "developer");
+        write("people/" + login + ".card", card(login, nameOf(login)));
+        commit(nameOf(login));
+        final List<String> admins = new ArrayList<>(hostAdmins);
+        admins.add(login);
+        writeHost(host, admins, hostProjects);
+        commit(nameOf(admin));
+    }
+
     @Override
     public void handOverHost(final String admin, final String host, final String login)
             throws IOException {

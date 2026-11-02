@@ -28,6 +28,7 @@ final class StandIn implements OrganizationFixture, OfflineFixture {
         FOUND,
         CARD,
         PROJECT,
+        FIRST_SEEN_CARD,
         DENIED_CARD,
         SQUATTED_CARD,
         REMOVED_CARD,
@@ -93,6 +94,7 @@ final class StandIn implements OrganizationFixture, OfflineFixture {
         final Set<String> revoked = new HashSet<>();
         final Map<String, Map<String, String>> members = new HashMap<>();
         final Set<String> locked = new HashSet<>();
+        final Set<String> firstSeen = new HashSet<>();
         final Map<String, Set<String>> hostAdmins = new HashMap<>();
         final Set<String> pin;
         final List<Organization.Refusal> refusals = new ArrayList<>();
@@ -138,7 +140,7 @@ final class StandIn implements OrganizationFixture, OfflineFixture {
         private @Nullable String judge(final Entry entry) {
             final List<String> args = entry.args();
             return switch (entry.kind()) {
-                case FOUND -> null;
+                case FOUND, FIRST_SEEN_CARD -> null;
                 case CARD -> judgeCard(entry);
                 case PROJECT, OWNER, REPLACE, HOST -> judgeBy(entry, owners);
                 case HOST_ADMIN -> judgeHostChange(entry);
@@ -268,6 +270,11 @@ final class StandIn implements OrganizationFixture, OfflineFixture {
                     cards.put(args.get(0), args.get(1));
                     hold(args.get(1), args.get(0));
                     revoked.remove(args.get(1));
+                }
+                case FIRST_SEEN_CARD -> {
+                    cards.put(args.get(0), args.get(1));
+                    hold(args.get(1), args.get(0));
+                    firstSeen.add(args.get(0));
                 }
                 case REMOVED_CARD -> cards.remove(args.get(0));
                 case LOCK -> locked.add(args.get(0) + "/" + args.get(1));
@@ -491,6 +498,14 @@ final class StandIn implements OrganizationFixture, OfflineFixture {
     }
 
     @Override
+    public void firstSeenPerson(
+            final String admin, final String host, final String project, final String login) {
+        add(Kind.MEMBER, key(admin), project, login, "developer");
+        add(Kind.FIRST_SEEN_CARD, key(login), login, key(login));
+        add(Kind.HOST_ADMIN, key(admin), host, login);
+    }
+
+    @Override
     public void handOverHost(final String admin, final String host, final String login) {
         add(Kind.HOST_ADMIN, key(admin), host, login);
         add(Kind.HOST_CHANGE, key(login), host);
@@ -566,6 +581,7 @@ final class StandIn implements OrganizationFixture, OfflineFixture {
                 Map.of("host", host, "address", host + ".example.org"),
                 "admins",
                 admins.stream()
+                        .filter(each -> given(walk, each, Break.OFFLINE_GIVES_FIRST_SEEN_ADMIN))
                         .map(
                                 each ->
                                         Map.of(
@@ -575,9 +591,33 @@ final class StandIn implements OrganizationFixture, OfflineFixture {
                                                 "SHA256:" + walk.cards.get(each)))
                         .toList(),
                 "projects",
-                walk.members.keySet().stream().map(name -> Map.of("project", name)).toList(),
+                walk.members.keySet().stream().map(name -> project(walk, name)).toList(),
                 "persons",
-                admins.stream().map(each -> Map.of("login", each, "revoked", false)).toList());
+                walk.cards.keySet().stream()
+                        .filter(each -> given(walk, each, Break.OFFLINE_GIVES_FIRST_SEEN_PERSON))
+                        .map(each -> Map.of("login", each, "revoked", false))
+                        .toList());
+    }
+
+    private boolean given(final Walk walk, final String login, final Break unless) {
+        return !walk.firstSeen.contains(login) || broken(unless);
+    }
+
+    private Map<String, Object> project(final Walk walk, final String name) {
+        final List<Map<String, String>> members =
+                walk.members.get(name).keySet().stream()
+                        .filter(
+                                each ->
+                                        !walk.firstSeen.contains(each)
+                                                || !broken(Break.OFFLINE_DROPS_A_FIRST_SEEN_ROLE))
+                        .map(each -> Map.of("login", each))
+                        .toList();
+        final List<Map<String, String>> signingKeys =
+                walk.members.get(name).keySet().stream()
+                        .filter(each -> given(walk, each, Break.OFFLINE_GIVES_FIRST_SEEN_SIGNER))
+                        .map(each -> Map.of("login", each))
+                        .toList();
+        return Map.of("project", name, "members", members, "signing_keys", signingKeys);
     }
 
     private void refuseUnlessItContinues(final List<Entry> brought, final String since) {

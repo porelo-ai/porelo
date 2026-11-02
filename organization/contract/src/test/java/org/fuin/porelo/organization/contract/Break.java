@@ -9,7 +9,7 @@ enum Break {
                     "aDeveloperCannotRaiseThemselves",
                     "anAllowedChangeIsAnswered",
                     "anOwnerUnlocksNoMember"),
-            Set.of()),
+            Set.of("aHostIsGivenNoKeyOfAFirstSeenPerson")),
     ACCEPTS_UNSIGNED(
             Set.of(
                     "anUnsignedChangeGivesNoAdminRight",
@@ -129,13 +129,22 @@ enum Break {
             Set.of("aCardFiledByAStrangerHoldsNothing", "aCardFiledByAnOwnerHoldsNothing"),
             Set.of()),
     OFFLINE_ANSWERS_NOTHING(
-            Set.of(), Set.of("thePinFollowsAHandoverItSigned", "thePinnedKeyAnswersTheHostsState")),
+            Set.of(),
+            Set.of(
+                    "aHostIsGivenNoKeyOfAFirstSeenPerson",
+                    "thePinFollowsAHandoverItSigned",
+                    "thePinnedKeyAnswersTheHostsState")),
     OFFLINE_OWNER_PASSES_THE_PIN(Set.of(), Set.of("anOwnersChangeIsRefusedUnderThePin")),
     OFFLINE_TRUSTS_THE_WHOLE_SET(Set.of(), Set.of("aStrangersKeyBesideThePinSignsNothing")),
     OFFLINE_PIN_STAYS_PUT(Set.of(), Set.of("thePinFollowsAHandoverItSigned")),
+    OFFLINE_GIVES_FIRST_SEEN_ADMIN(Set.of(), Set.of("aHostIsGivenNoKeyOfAFirstSeenPerson")),
+    OFFLINE_GIVES_FIRST_SEEN_PERSON(Set.of(), Set.of("aHostIsGivenNoKeyOfAFirstSeenPerson")),
+    OFFLINE_GIVES_FIRST_SEEN_SIGNER(Set.of(), Set.of("aHostIsGivenNoKeyOfAFirstSeenPerson")),
+    OFFLINE_DROPS_A_FIRST_SEEN_ROLE(Set.of(), Set.of("aHostIsGivenNoKeyOfAFirstSeenPerson")),
     OFFLINE_REFUSES_THE_PIN(
             Set.of(),
             Set.of(
+                    "aHostIsGivenNoKeyOfAFirstSeenPerson",
                     "aRewrittenHistoryIsRefused",
                     "anOlderStateThanTheOneAppliedIsRefused",
                     "anOwnersChangeIsRefusedUnderThePin",

@@ -70,6 +70,19 @@ public interface OfflineFixture {
     void handOverHost(String admin, String host, String login) throws IOException;
 
     /**
+     * The host's admin lists a person as a member of the project and as the host's admin too, and a
+     * card is filed in that person's name, of which the identity source cannot say anything.
+     *
+     * @param admin The host's admin.
+     * @param host The host's name.
+     * @param project The project's name.
+     * @param login The person.
+     * @throws IOException When a change cannot be made.
+     */
+    void firstSeenPerson(String admin, String host, String project, String login)
+            throws IOException;
+
+    /**
      * A person's allowed change, so that the history has one more state.
      *
      * @param login The person, who files their own first card.

@@ -10,6 +10,7 @@ import java.util.Set;
 import java.util.stream.Stream;
 import org.assertj.core.api.InstanceOfAssertFactories;
 import org.fuin.porelo.organization.OrganizationQuestions.Refused;
+import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.DynamicTest;
 import org.junit.jupiter.api.TestFactory;
 
@@ -67,6 +68,7 @@ public abstract class OfflineContract {
                 new Check<>("aStrangersKeyBesideThePinSignsNothing", OfflineContract::besidePin),
                 new Check<>("anOwnersChangeIsRefusedUnderThePin", OfflineContract::byOwner),
                 new Check<>("thePinFollowsAHandoverItSigned", OfflineContract::handover),
+                new Check<>("aHostIsGivenNoKeyOfAFirstSeenPerson", OfflineContract::firstSeen),
                 new Check<>("anOlderStateThanTheOneAppliedIsRefused", OfflineContract::older),
                 new Check<>("aRewrittenHistoryIsRefused", OfflineContract::rewritten));
     }
@@ -201,6 +203,40 @@ public abstract class OfflineContract {
                 .as("the pin followed to the new admin")
                 .asInstanceOf(InstanceOfAssertFactories.list(Map.class))
                 .anySatisfy(admin -> assertThat(admin.get("login")).isEqualTo(LATER));
+    }
+
+    /**
+     * Anyone with write access could file that card while the source says nothing, and whoever did
+     * would get in as the host's admin, and their pushes be taken as that person's.
+     */
+    private static void firstSeen(final OfflineFixture store) throws Exception {
+        arranged(store);
+        store.firstSeenPerson(ADMIN, HOST, PROJECT, LATER);
+
+        final Map<String, Object> answer = answered(store, "");
+
+        assertThat(logins(answer.get("persons"))).as("no key of theirs").doesNotContain(LATER);
+        assertThat(logins(answer.get("admins"))).as("no way in as admin").containsExactly(ADMIN);
+        final Map<?, ?> project =
+                assertThat(answer.get("projects"))
+                        .asInstanceOf(InstanceOfAssertFactories.list(Map.class))
+                        .hasSize(1)
+                        .actual()
+                        .get(0);
+        assertThat(logins(project.get("signing_keys")))
+                .as("no push taken as theirs")
+                .contains(ADMIN)
+                .doesNotContain(LATER);
+        assertThat(logins(project.get("members"))).as("the role stays said").contains(ADMIN, LATER);
+    }
+
+    private static List<Object> logins(final @Nullable Object rows) {
+        return assertThat(rows)
+                .asInstanceOf(InstanceOfAssertFactories.list(Map.class))
+                .actual()
+                .stream()
+                .map(row -> row.get("login"))
+                .toList();
     }
 
     private static void older(final OfflineFixture store) throws Exception {

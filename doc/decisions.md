@@ -1251,6 +1251,8 @@ neither `git` nor a class of an adapter. Each check has been seen to fail agains
   under that key. It refuses a copy under another person's pin, one holding a change nobody allowed, also under a later
   change or with a stranger's key named beside the pin, an owner's change of the host's files, and one that does not continue
   the state the host applied last. The pin follows a new admin only through a commit it signed itself.
+  A first-seen person's key reaches no host while the identity source cannot say: no row in `admins`, `persons` or
+  `signing_keys`, and the role stays in `members`.
 
 `organization/git-tree` runs the reading and the offline checks on real commits.
 
