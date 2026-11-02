@@ -2885,4 +2885,37 @@ class GitTreeStoreTest {
                 .extracting(OrganizationQuestions.Person::login)
                 .containsExactly("mallory");
     }
+
+    @Test
+    void aForgeThatHangsIsUnreachableAndNoRefusalToJudge() throws Exception {
+        final String taken = carryingHost();
+        final org.fuin.porelo.core.process.CommandRunner hanging =
+                command -> {
+                    if (command.arguments().contains("fetch")) {
+                        throw new org.fuin.porelo.core.process.CommandException(
+                                command, new IOException("Timed out after 60 s"), "");
+                    }
+                    return runner.run(command);
+                };
+        final GitTreeStore store =
+                GitTreeStore.at(
+                        hanging,
+                        repo.toString(),
+                        "acme",
+                        "forge.example",
+                        FetchAccess.NONE,
+                        dir.resolve("state-hanging"));
+
+        assertThatThrownBy(
+                        () ->
+                                new GitTreeOffline(store, forge)
+                                        .check(
+                                                "build",
+                                                java.util.Set.of(
+                                                        PersonCard.fingerprint(key("alice"))),
+                                                taken))
+                .as("a host's admin must not be shown a slow forge as something to judge")
+                .isInstanceOf(GitTreeStore.Unreachable.class);
+        assertThatThrownBy(() -> store.read(forge)).isInstanceOf(GitTreeStore.Unreachable.class);
+    }
 }

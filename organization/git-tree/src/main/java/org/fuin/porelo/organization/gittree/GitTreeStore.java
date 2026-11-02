@@ -33,11 +33,25 @@ import org.jspecify.annotations.Nullable;
 public final class GitTreeStore {
 
     /** The repository could not be reached: the one failure {@link #last} is an answer to. */
-    public static final class Unreachable extends IOException {
+    public static class Unreachable extends IOException {
 
         private static final long serialVersionUID = 1L;
 
         Unreachable(final String message) {
+            super(message);
+        }
+    }
+
+    /**
+     * The repository was reached and holds nothing yet: a person may still prepare a first card for
+     * it. Anyone with no use for that goes on treating it as unreachable, since nothing can be
+     * read.
+     */
+    public static final class Empty extends Unreachable {
+
+        private static final long serialVersionUID = 1L;
+
+        Empty(final String message) {
             super(message);
         }
     }
@@ -216,7 +230,10 @@ public final class GitTreeStore {
                 keep(walked);
             }
             return answers(walked, warnings);
-        } catch (CardException | CommandException ex) {
+        } catch (CommandException ex) {
+            // Git did not end in time: a forge that hangs says nothing of the state.
+            throw new Unreachable("the organization's repository did not answer in time");
+        } catch (CardException ex) {
             throw new OrganizationException(ex.getMessage(), ex);
         }
     }
@@ -275,7 +292,10 @@ public final class GitTreeStore {
                 keep(walked);
             }
             return answers(walked, warnings);
-        } catch (CardException | CommandException ex) {
+        } catch (CommandException ex) {
+            // Git did not end in time: a forge that hangs says nothing of the state.
+            throw new Unreachable("the organization's repository did not answer in time");
+        } catch (CardException ex) {
             throw new OrganizationException(ex.getMessage(), ex);
         }
     }

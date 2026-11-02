@@ -129,7 +129,7 @@ final class OrgAccess {
     }
 
     /** Lends what this person holds for the address, as a follow is lent it. */
-    private static FetchAccess lent(final PoreloContext context) {
+    static FetchAccess lent(final PoreloContext context) {
         return address -> {
             final FollowCredential credential =
                     FollowCredential.open(context, address, "organization");
@@ -165,6 +165,51 @@ final class OrgAccess {
     static String settings(final PoreloContext context) throws IOException {
         return Files.readString(
                 context.paths().xdg().config().resolve("organization.yml"), StandardCharsets.UTF_8);
+    }
+
+    /**
+     * Returns an address settings may name. They are handed to hosts, and the address forms hold no
+     * place for a password or token, so none travels with them.
+     *
+     * @param address The address a person named.
+     * @return The address.
+     * @throws Refused When it is none of the forms.
+     */
+    static String settable(final String address) {
+        try {
+            RegistryOrigin.of(address);
+        } catch (IllegalArgumentException ex) {
+            throw new Refused(Refused.USAGE, "that address is none", null);
+        }
+        return address;
+    }
+
+    /**
+     * Writes this machine's {@code organization.yml}, whole, so that no reader sees half of it.
+     *
+     * @param context The machine.
+     * @param address The address.
+     * @throws IOException When it cannot be written.
+     */
+    static void settle(final PoreloContext context, final String address) throws IOException {
+        final Path file = context.paths().xdg().config().resolve("organization.yml");
+        final org.yaml.snakeyaml.DumperOptions block = new org.yaml.snakeyaml.DumperOptions();
+        block.setDefaultFlowStyle(org.yaml.snakeyaml.DumperOptions.FlowStyle.BLOCK);
+        final Map<String, Object> settings = new java.util.LinkedHashMap<>();
+        settings.put("adapter", ADAPTER);
+        settings.put("settings", Map.of("repository", address));
+        Files.createDirectories(file.getParent());
+        final Path temporary = Files.createTempFile(file.getParent(), "organization", ".yml");
+        try {
+            Files.writeString(temporary, new Yaml(block).dump(settings), StandardCharsets.UTF_8);
+            Files.move(
+                    temporary,
+                    file,
+                    java.nio.file.StandardCopyOption.REPLACE_EXISTING,
+                    java.nio.file.StandardCopyOption.ATOMIC_MOVE);
+        } finally {
+            Files.deleteIfExists(temporary);
+        }
     }
 
     /**

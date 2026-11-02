@@ -10,6 +10,8 @@ import org.fuin.porelo.core.project.Project;
 import org.fuin.porelo.core.project.ProjectReader;
 import org.fuin.porelo.organization.OrganizationQuestions;
 import org.fuin.porelo.organization.OrganizationQuestions.Refused;
+import org.fuin.porelo.organization.gittree.CommitSigning;
+import org.fuin.porelo.organization.gittree.ProjectFile;
 import org.jspecify.annotations.Nullable;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Parameters;
@@ -23,6 +25,22 @@ import picocli.CommandLine.Parameters;
 public class ProjectShowCommand extends OrgReading {
 
     private static final String REGISTRATION_TOKEN = "matrix-registration-token";
+
+    /** Reads a project's own file; replaced by a test, which has no forge to read it from. */
+    @FunctionalInterface
+    interface Files {
+        ProjectFile.Read read(
+                PoreloContext machine, String address, List<OrganizationQuestions.SigningKey> keys)
+                throws IOException;
+    }
+
+    Files files =
+            (machine, address, keys) ->
+                    new ProjectFile(
+                                    machine.runner(),
+                                    OrgAccess.lent(machine),
+                                    CommitSigning.agent(""))
+                            .read(address, keys);
 
     @Parameters(index = "0", paramLabel = "PROJECT", description = "The project.")
     private String project = "";
@@ -40,7 +58,8 @@ public class ProjectShowCommand extends OrgReading {
                         .filter(each -> each.project().equals(project))
                         .findFirst();
         if (held.isPresent()) {
-            return filed(reading, held.orElseThrow(), OrgAccess.ownLogin(machine).orElse(null));
+            return filed(
+                    machine, reading, held.orElseThrow(), OrgAccess.ownLogin(machine).orElse(null));
         }
         if (localFile != null) {
             return local(localFile);
@@ -56,9 +75,11 @@ public class ProjectShowCommand extends OrgReading {
     }
 
     private Map<String, @Nullable Object> filed(
+            final PoreloContext machine,
             final OrgAccess.Reading reading,
             final OrganizationQuestions.Project held,
-            final @Nullable String login) {
+            final @Nullable String login)
+            throws IOException {
         final OrganizationQuestions state = reading.answers();
         final List<OrganizationQuestions.Member> members =
                 state.getProjectMembers(project).orElse(List.of());
@@ -95,11 +116,25 @@ public class ProjectShowCommand extends OrgReading {
                                                 "locked",
                                                 member.locked()))
                         .toList());
-        // Porelo does not yet fetch project.yml and check it with signingKeys: said as such, never
-        // as an empty project read.
-        answer.put(
-                "repositories",
-                repositories(held.filed() ? "cannot-say" : "not-opened", List.of()));
+        if (!held.filed()) {
+            answer.put("repositories", repositories("not-opened", List.of()));
+            answer.put("matrix_registration_entry", null);
+            return answer;
+        }
+        final ProjectFile.Read read =
+                files.read(
+                        machine,
+                        state.getProjectRepository(project).orElseThrow(),
+                        state.signingKeys(project));
+        final Project file = read.project();
+        final Map<String, @Nullable Object> repositories =
+                repositories(read.state(), file == null ? List.of() : names(file));
+        repositories.put("revision", read.revision());
+        if (read.why() != null) {
+            repositories.put("why", read.why());
+        }
+        answer.put("repositories", repositories);
+        answer.put("matrix_registration_entry", file == null ? null : registrationEntry(file));
         return answer;
     }
 

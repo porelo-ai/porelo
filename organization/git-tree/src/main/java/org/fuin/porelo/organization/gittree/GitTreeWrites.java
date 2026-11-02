@@ -90,7 +90,7 @@ public final class GitTreeWrites implements OrganizationWrites {
         final String path = ownCard(change, card);
         return change(
                 change,
-                "Add a person's card",
+                TreeRepository.asked("Add a person's card", card),
                 model -> {
                     final TreeModel.Person held = model.people().get(change.acting().login());
                     if (held != null && !Organization.REFUSED.equals(held.state())) {
@@ -114,7 +114,7 @@ public final class GitTreeWrites implements OrganizationWrites {
         final String path = ownCard(change, card);
         return change(
                 change,
-                "Change a person's card",
+                TreeRepository.asked("Change a person's card", card),
                 model -> {
                     final String login = change.acting().login();
                     final TreeModel.Person held = model.people().get(login);
@@ -170,7 +170,7 @@ public final class GitTreeWrites implements OrganizationWrites {
         final String fingerprint = PersonCard.fingerprint(key);
         return change(
                 change,
-                "Add a backup key",
+                TreeRepository.asked("Add a backup key", host, key),
                 model ->
                         List.of(
                                 new Step(
@@ -194,7 +194,7 @@ public final class GitTreeWrites implements OrganizationWrites {
     public Written revokeCard(final Change change, final String login) throws IOException {
         return change(
                 change,
-                "Withdraw a person's card",
+                TreeRepository.asked("Withdraw a person's card", login),
                 model -> {
                     final TreeModel.Person held = model.people().get(login);
                     if (held == null || Organization.REFUSED.equals(held.state())) {
@@ -232,7 +232,7 @@ public final class GitTreeWrites implements OrganizationWrites {
         final String path = cardOf(login, card).path;
         return change(
                 change,
-                "Replace a person's card",
+                TreeRepository.asked("Replace a person's card", login, card),
                 model -> {
                     if (model.owners().stream()
                             .noneMatch(
@@ -270,7 +270,7 @@ public final class GitTreeWrites implements OrganizationWrites {
         final String backup = PersonCard.fingerprint(change.acting().key());
         return change(
                 change,
-                "Replace a key with its backup",
+                TreeRepository.asked("Replace a key with its backup", host, card),
                 model -> {
                     if (!model.people().containsKey(login)) {
                         throw new Refused(Refused.NO_CARD, "this login has no card", null);
@@ -310,9 +310,10 @@ public final class GitTreeWrites implements OrganizationWrites {
         if (!filed.fingerprint.equals(PersonCard.fingerprint(change.acting().key()))) {
             throw new Refused(Refused.USAGE, "the card is not of the key that acts", null);
         }
+        final String subject = TreeRepository.asked("Found the organization", card);
         final Optional<TreeRepository> empty = TreeRepository.founding(address, runner, access);
         if (empty.isEmpty()) {
-            return filledAlready(change);
+            return filledAlready(change, subject);
         }
         try (TreeRepository clone = empty.orElseThrow()) {
             final String owners =
@@ -327,7 +328,7 @@ public final class GitTreeWrites implements OrganizationWrites {
                     clone.commit(
                             "",
                             Map.of("owners.yml", owners, filed.path, card),
-                            "Found the organization",
+                            subject,
                             change.id(),
                             signing,
                             change.acting().key(),
@@ -344,12 +345,13 @@ public final class GitTreeWrites implements OrganizationWrites {
     }
 
     /** Asked again, the founding is answered; anything else already there is somebody's. */
-    private Written filledAlready(final Change change) throws IOException {
+    private Written filledAlready(final Change change, final String subject) throws IOException {
         try (TreeRepository clone = TreeRepository.fetch(address, runner, access)) {
             final TreeRecord record = walk(clone);
             final Optional<String> made =
                     clone.changeNamed(change.id(), PersonCard.fingerprint(change.acting().key()));
             if (made.isPresent() && !refused(record, made.orElseThrow())) {
+                sameChange(clone, made.orElseThrow(), subject);
                 return new Written(made.orElseThrow(), change.id(), true);
             }
             throw new Refused(Refused.EXISTS, "the repository is not empty", record.commit());
@@ -363,7 +365,7 @@ public final class GitTreeWrites implements OrganizationWrites {
             throws IOException {
         return one(
                 change,
-                "Add an owner",
+                TreeRepository.asked("Add an owner", login),
                 model -> {
                     final TreeModel.Person person = standing(model, login);
                     if (model.owners().stream()
@@ -386,7 +388,7 @@ public final class GitTreeWrites implements OrganizationWrites {
             throws IOException {
         return one(
                 change,
-                "Remove an owner",
+                TreeRepository.asked("Remove an owner", login),
                 model -> {
                     if (model.owners().stream()
                             .noneMatch(each -> !each.backup() && each.login().equals(login))) {
@@ -413,7 +415,7 @@ public final class GitTreeWrites implements OrganizationWrites {
         final String key = change.acting().key();
         return change(
                 change,
-                "Add a project",
+                TreeRepository.asked("Add a project", project, admin),
                 model -> {
                     if (model.projects().containsKey(project)) {
                         throw new Refused(Refused.EXISTS, "this project stands", null);
@@ -440,7 +442,7 @@ public final class GitTreeWrites implements OrganizationWrites {
     public Written removeProject(final Change change, final String project) throws IOException {
         return one(
                 change,
-                "Remove a project",
+                TreeRepository.asked("Remove a project", project),
                 model -> {
                     final TreeModel.ProjectState state = project(model, project);
                     final String prefix = "projects/" + project + "/";
@@ -462,7 +464,7 @@ public final class GitTreeWrites implements OrganizationWrites {
         final String key = change.acting().key();
         return change(
                 change,
-                "Change a project's first admin",
+                TreeRepository.asked("Change a project's first admin", project, admin),
                 model -> {
                     final TreeModel.ProjectState state = project(model, project);
                     standing(model, admin);
@@ -497,7 +499,7 @@ public final class GitTreeWrites implements OrganizationWrites {
         }
         return one(
                 change,
-                "File a project's address",
+                TreeRepository.asked("File a project's address", project, repository),
                 model -> {
                     project(model, project);
                     return Map.of(
@@ -513,7 +515,7 @@ public final class GitTreeWrites implements OrganizationWrites {
         role(role);
         return one(
                 change,
-                "Add a project's member",
+                TreeRepository.asked("Add a project's member", project, login, role),
                 model -> {
                     final TreeModel.ProjectState state = project(model, project);
                     standing(model, login);
@@ -533,7 +535,7 @@ public final class GitTreeWrites implements OrganizationWrites {
         role(role);
         return memberChange(
                 change,
-                "Change a project member's role",
+                TreeRepository.asked("Change a project member's role", project, login, role),
                 project,
                 login,
                 member -> new TreeFiles.Member(login, role, member.locked()));
@@ -550,7 +552,7 @@ public final class GitTreeWrites implements OrganizationWrites {
             throws IOException {
         return memberChange(
                 change,
-                "Lock a project's member",
+                TreeRepository.asked("Lock a project's member", project, login),
                 project,
                 login,
                 member -> new TreeFiles.Member(login, member.role(), true));
@@ -561,7 +563,7 @@ public final class GitTreeWrites implements OrganizationWrites {
             final Change change, final String project, final String login) throws IOException {
         return memberChange(
                 change,
-                "Unlock a project's member",
+                TreeRepository.asked("Unlock a project's member", project, login),
                 project,
                 login,
                 member -> new TreeFiles.Member(login, member.role(), false));
@@ -625,7 +627,7 @@ public final class GitTreeWrites implements OrganizationWrites {
         }
         return one(
                 change,
-                "Add a host",
+                TreeRepository.asked("Add a host", host, admin),
                 model -> {
                     if (model.hosts().containsKey(host)) {
                         throw new Refused(Refused.EXISTS, "this host stands", null);
@@ -642,7 +644,7 @@ public final class GitTreeWrites implements OrganizationWrites {
     public Written removeHost(final Change change, final String host) throws IOException {
         return one(
                 change,
-                "Remove a host",
+                TreeRepository.asked("Remove a host", host),
                 model -> {
                     final TreeModel.HostState state = host(model, host);
                     final Map<String, @Nullable String> files = new HashMap<>();
@@ -666,7 +668,7 @@ public final class GitTreeWrites implements OrganizationWrites {
         }
         return one(
                 change,
-                "Change a host's card",
+                TreeRepository.asked("Change a host's card", host, card),
                 model -> {
                     host(model, host);
                     return Map.of("hosts/" + host + "/card", card);
@@ -678,7 +680,7 @@ public final class GitTreeWrites implements OrganizationWrites {
             throws IOException {
         return one(
                 change,
-                "Add a host's admin",
+                TreeRepository.asked("Add a host's admin", host, login),
                 model -> {
                     final TreeFiles.HostFile file = host(model, host).file();
                     standing(model, login);
@@ -697,7 +699,7 @@ public final class GitTreeWrites implements OrganizationWrites {
             throws IOException {
         return one(
                 change,
-                "Remove a host's admin",
+                TreeRepository.asked("Remove a host's admin", host, login),
                 model -> {
                     final TreeFiles.HostFile file = host(model, host).file();
                     if (file.admins().stream()
@@ -721,7 +723,7 @@ public final class GitTreeWrites implements OrganizationWrites {
             throws IOException {
         return one(
                 change,
-                "Put a project on a host",
+                TreeRepository.asked("Put a project on a host", host, project),
                 model -> {
                     final TreeFiles.HostFile file = host(model, host).file();
                     project(model, project);
@@ -743,7 +745,7 @@ public final class GitTreeWrites implements OrganizationWrites {
             final Change change, final String host, final String project) throws IOException {
         return one(
                 change,
-                "Take a project off a host",
+                TreeRepository.asked("Take a project off a host", host, project),
                 model -> {
                     final TreeFiles.HostFile file = host(model, host).file();
                     if (!file.projects().contains(project)) {
@@ -939,6 +941,7 @@ public final class GitTreeWrites implements OrganizationWrites {
             final TreeRecord before = walk(clone);
             final Optional<String> made = clone.changeNamed(change.id(), fingerprint);
             if (made.isPresent() && !refused(before, made.orElseThrow())) {
+                sameChange(clone, made.orElseThrow(), subject);
                 return new Written(made.orElseThrow(), change.id(), true);
             }
             final String tip = clone.tip();
@@ -973,6 +976,14 @@ public final class GitTreeWrites implements OrganizationWrites {
             return new Written(commit, change.id(), false);
         } catch (CardException ex) {
             throw new IOException(ex.getMessage(), ex);
+        }
+    }
+
+    /** An id names one change: answering another as made would say what never happened. */
+    private static void sameChange(
+            final TreeRepository clone, final String made, final String subject) {
+        if (!clone.subject(made).equals(subject)) {
+            throw new Refused(Refused.USAGE, "this --id named another change", made);
         }
     }
 
