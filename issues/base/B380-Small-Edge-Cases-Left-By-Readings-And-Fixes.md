@@ -42,3 +42,10 @@ key wrongly or loses data. Each one placed is split out with its own size.
 - Low: three cases of a commit signature are left open and not measured: a commit in another `encoding`, every
   `gpgsig` header appended, and text after the armor's end or a non-empty reserved field. As the code reads, each
   refuses a commit git accepts and accepts none git refuses.
+- Low: on an https origin with a host-wide token in the vault and a more specific one declared in a variable that is
+  unset, `registry read` asks ownership with no token rather than the vault's.
+- Low: `Directories.create` walks a path with `..` after a missing part as it stands, so such a path could take the
+  group's write from a directory that was there; every caller passes a clean path.
+- Low, for the tests only: `DirectoriesTest` and the tests of the directories made show a fault only under a umask
+  that leaves the group's write, such as 002; `SocketPeerTest` cannot show a peer of another account, which takes a
+  second uid.

@@ -318,6 +318,8 @@ class ProjectAccessCommandTest {
                                             + Files.readString(file));
                         });
         assertThat(named).isNotEqualTo(first);
+        // Followed from another address here, the file's own word still stands.
+        followedFrom("git@forge.example.org:demo/project.git");
 
         change("lock", "--person", "alice", "--base", named, "--id", "lock-keeps");
 
