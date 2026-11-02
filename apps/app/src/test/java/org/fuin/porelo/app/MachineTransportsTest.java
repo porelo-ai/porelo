@@ -208,14 +208,11 @@ class MachineTransportsTest {
     // Harm guarded: join and reset must not create credentials for a person the project denies.
     @org.junit.jupiter.params.ParameterizedTest
     @org.junit.jupiter.params.provider.MethodSource("deniedJoins")
-    void aDeniedJoinRefusesBeforeAnyTransportCall(
-            final String denial, final boolean reset, final boolean room) throws Exception {
+    void aDeniedJoinRefusesBeforeAnyTransportCall(final String denial, final boolean reset)
+            throws Exception {
         final PoreloContext context = unlockedVault();
         personsTransport("{\"invited\":[],\"removed\":[]}");
-        final Project project = followed(context);
-        if (room) {
-            MachineTransports.createRoom(context, project);
-        }
+        followed(context);
         runner.answering("show a1:access.yml", deniedBob(denial));
         runner.answering(" join", "{\"shown\":\"" + TOKEN + "\"}");
         final int before = runner.invocations().size();
@@ -242,19 +239,10 @@ class MachineTransportsTest {
                 .flatMap(
                         denial ->
                                 java.util.stream.Stream.of(false, true)
-                                        .flatMap(
+                                        .map(
                                                 reset ->
-                                                        java.util.stream.Stream.of(false, true)
-                                                                .map(
-                                                                        room ->
-                                                                                org.junit.jupiter
-                                                                                        .params
-                                                                                        .provider
-                                                                                        .Arguments
-                                                                                        .of(
-                                                                                                denial,
-                                                                                                reset,
-                                                                                                room))));
+                                                        org.junit.jupiter.params.provider.Arguments
+                                                                .of(denial, reset)));
     }
 
     // Harm guarded: a saved join must not turn an admission refusal into an existing-account
@@ -337,17 +325,6 @@ class MachineTransportsTest {
         assertThat(kept(context, "members"))
                 .as("the join survives for later verification")
                 .isEqualTo(Map.of("bob", "@bob:hs"));
-        if (readable) {
-            MachineTransports.keepMembers(context, GateSupport.byName(context, "p"));
-            assertThat(
-                            runner.invocations().stream()
-                                    .filter(command -> command.arguments().contains("members"))
-                                    .toList()
-                                    .getLast()
-                                    .arguments())
-                    .as("a local access file without verified persons removes everyone")
-                    .containsSubsequence("--persons", "");
-        }
     }
 
     // Harm guarded: unsigned project state must never grant a person access to a task.
@@ -376,7 +353,6 @@ class MachineTransportsTest {
         said(context, "t1--room-person-one.json", "@bob:hs", "bob");
 
         conversations(context).pass(group(review));
-        MachineTransports.keepMembers(context, GateSupport.byName(context, "p"));
 
         assertThat(fromIn(review))
                 .as("an unsigned follow grants no access by join or card")
@@ -384,14 +360,6 @@ class MachineTransportsTest {
         assertThat(Conversations.members(context, GateSupport.byName(context, "p")))
                 .as("unsigned persons receive no answers")
                 .isEmpty();
-        assertThat(
-                        runner.invocations().stream()
-                                .filter(command -> command.arguments().contains("members"))
-                                .toList()
-                                .getLast()
-                                .arguments())
-                .as("the room removes every person, retaining its machines")
-                .containsSubsequence("--persons", "");
     }
 
     // Harm guarded: read-receipt polling must not contact a denied person's account.
@@ -463,10 +431,6 @@ class MachineTransportsTest {
                         + org.fuin.porelo.vault.PersonCard.fingerprint(
                                 org.fuin.porelo.vault.PersonCard.keyLine(BOB))
                         + "\"]\n");
-        assertThat(execute(context, "talk", "room", "p")).as(err.toString()).isZero();
-        assertThat(membersOption("--persons"))
-                .as("neither locked nor revoked is invited")
-                .isEmpty();
         assertThat(
                         new TransportLifecycle(
                                         context, context.paths().messaging().transportDirectory())
@@ -484,84 +448,13 @@ class MachineTransportsTest {
         runner.answering(
                 " describe",
                 "{\"scheme\":\"room\",\"lifecycle\":[\"setup\",\"settings\",\"members\"],"
-                        + "\"takes\":[\"login\",\"create-room\"]}");
+                        + "\"takes\":[\"login\"]}");
         runner.answering(" settings", "{\"refused\":[],\"warnings\":[]}");
         runner.answering(
                 " setup",
                 "{\"conversation\":\"!r\",\"room\":\"#p:access.example\",\"login\":\"made-here\","
                         + "\"admitted\":true}");
         runner.answering(" members", "{\"invited\":[\"x\"],\"removed\":[]}");
-    }
-
-    @Test
-    void theAdminsMachineMakesTheRoomAndKeepsItsPersonsToTheAppliedList() throws Exception {
-        final PoreloContext context = unlockedVault();
-        roomTransport();
-        followed(context);
-
-        final int code = execute(context, "talk", "room", "p");
-
-        assertThat(code).as("the room is made: " + err).isZero();
-        final List<String> setup = only("setup").arguments();
-        assertThat(setup).as("made as the room's maker").contains("--create-room");
-        final List<String> members = only("members").arguments();
-        assertThat(members.subList(members.indexOf("members"), members.indexOf("--persons") + 2))
-                .as("each person's login, sorted")
-                .containsExactly("members", "--project", "p", "--persons", "alice,bob");
-        assertThat(members).as("and no machine").doesNotContain("--machines");
-        assertThat(out.toString())
-                .as("says what it made and whom it invited and removed")
-                .contains("#p:access.example")
-                .contains("invited    x")
-                .contains("removed    -");
-    }
-
-    @Test
-    void anAppliedCommitKeepsTheRoomOnlyWhereThisAccountMadeIt() throws Exception {
-        final PoreloContext context = unlockedVault();
-        roomTransport();
-        final Project project = followed(context);
-        final FollowedProjects.Followed before =
-                new FollowedProjects.Followed(
-                        "p",
-                        "git@example.org:p/project.git",
-                        "c0",
-                        "",
-                        "APPLIED",
-                        "",
-                        "",
-                        "",
-                        false,
-                        "a0",
-                        "APPLIED");
-        final Reconcile.Result applied =
-                new Reconcile.Result(Reconcile.Outcome.APPLIED, "c1", "", "", "", "a1", "APPLIED");
-
-        Reconcile.recordApplied(context, before, applied);
-
-        assertThat(runner.lines())
-                .as("an account that did not make the room asks nothing of it")
-                .noneMatch(line -> line.contains(" members"));
-
-        MachineTransports.createRoom(context, project);
-        Reconcile.recordApplied(context, before, applied);
-
-        assertThat(runner.lines().stream().filter(line -> line.contains(" members")))
-                .as("the maker keeps the room to the list after the commit")
-                .hasSize(1);
-    }
-
-    @Test
-    void aRoomIsMadeOnlyWhereTheTransportTakesIt() throws Exception {
-        final PoreloContext context = unlockedVault();
-        transport();
-        followed(context);
-
-        assertThat(execute(context, "talk", "room", "p"))
-                .as("refused before anything is run")
-                .isEqualTo(69);
-        assertThat(err.toString()).as("says why").contains("does not take --create-room");
-        assertThat(runner.lines()).as("no setup ran").noneMatch(line -> line.contains(" setup"));
     }
 
     /** The transport {@code room}, keeping persons in its rooms beside machines. */
@@ -573,7 +466,7 @@ class MachineTransportsTest {
                 " describe",
                 "{\"scheme\":\"room\",\"poll\":true,\"persons\":true,"
                         + "\"lifecycle\":[\"setup\",\"settings\",\"members\"],"
-                        + "\"takes\":[\"login\",\"create-room\"]}");
+                        + "\"takes\":[\"login\"]}");
         runner.answering(" members", members);
     }
 
@@ -587,177 +480,6 @@ class MachineTransportsTest {
                         .arguments();
         final int at = members.indexOf(option);
         return at < 0 ? null : members.get(at + 1);
-    }
-
-    @Test
-    void aTransportTakingPersonsKeepsEveryPersonInTheRoomAsAPerson() throws Exception {
-        final PoreloContext context = unlockedVault();
-        personsTransport(
-                "{\"invited\":[],\"removed\":[],"
-                        + "\"persons_invited\":[\"alice\",\"bob\"],\"persons_removed\":[]}");
-        followed(context);
-
-        final int code = execute(context, "talk", "room", "p");
-
-        assertThat(code).as("the room is made: " + err).isZero();
-        final List<String> members = only("members").arguments();
-        final int persons = members.indexOf("--persons");
-        assertThat(members.subList(persons, persons + 2))
-                .as("every person's login, sorted")
-                .containsExactly("--persons", "alice,bob");
-        assertThat(members).as("given once").containsOnlyOnce("--persons");
-        assertThat(out.toString())
-                .as("the persons on lines of their own")
-                .contains("persons invited  alice, bob\n")
-                .contains("persons removed  -\n");
-    }
-
-    @Test
-    void aPersonDroppedFromTheAccessFileIsPassedNoMoreAndShownRemoved() throws Exception {
-        final PoreloContext context = unlockedVault();
-        personsTransport(
-                "{\"invited\":[],\"removed\":[],"
-                        + "\"persons_invited\":[],\"persons_removed\":[\"bob\"]}");
-        followed(context);
-        runner.answering(
-                "show a1:access.yml",
-                PERSONS.substring(0, PERSONS.indexOf("  bob:"))
-                        + PERSONS.substring(PERSONS.indexOf("  alice:")));
-
-        assertThat(execute(context, "talk", "room", "p")).as(err.toString()).isZero();
-
-        assertThat(membersOption("--persons")).as("bob is passed no more").isEqualTo("alice");
-        assertThat(out.toString())
-                .as("the transport's answer names him removed")
-                .contains("persons removed  bob\n");
-    }
-
-    @Test
-    void anAppliedAccessCommitKeepsThePersonsTooWhereTheTransportTakesThem() throws Exception {
-        final PoreloContext context = unlockedVault();
-        personsTransport("{\"invited\":[],\"removed\":[]}");
-        final Project project = followed(context);
-        MachineTransports.createRoom(context, project);
-
-        Reconcile.recordApplied(
-                context,
-                new FollowedProjects.Followed(
-                        "p",
-                        "git@example.org:p/project.git",
-                        "c0",
-                        "",
-                        "APPLIED",
-                        "",
-                        "",
-                        "",
-                        false,
-                        "a0",
-                        "APPLIED"),
-                new Reconcile.Result(Reconcile.Outcome.APPLIED, "c1", "", "", "", "a1", "APPLIED"));
-
-        assertThat(membersOption("--persons"))
-                .as("every developer of the applied access file")
-                .isEqualTo("alice,bob");
-    }
-
-    @Test
-    void aTransportIsGivenThePersonsAloneWhetherItsListNamesThemOrNot() throws Exception {
-        final PoreloContext context = unlockedVault();
-        roomTransport();
-        followed(context);
-
-        assertThat(execute(context, "talk", "room", "p")).as(err.toString()).isZero();
-
-        assertThat(membersOption("--persons")).as("every person").isEqualTo("alice,bob");
-        assertThat(membersOption("--machines")).as("no machine is named any more").isNull();
-        assertThat(out.toString()).as("no person said").doesNotContain("persons");
-    }
-
-    @Test
-    void anAppliedAccessCommitAloneKeepsThePersons() throws Exception {
-        final PoreloContext context = unlockedVault();
-        personsTransport(
-                "{\"invited\":[\"m\\u001b[2J\"],\"removed\":[],\"persons_removed\":[\"bob\\u2028\"]}");
-        final Project project = followed(context);
-        MachineTransports.createRoom(context, project);
-        runner.answering(
-                "show a2:access.yml",
-                PERSONS.substring(0, PERSONS.indexOf("  bob:"))
-                        + PERSONS.substring(PERSONS.indexOf("  alice:")));
-        new FollowedProjects(context.paths().projects().followed())
-                .write(
-                        new FollowedProjects.Followed(
-                                "p",
-                                "git@example.org:p/project.git",
-                                "c1",
-                                "",
-                                "APPLIED",
-                                "",
-                                "",
-                                "",
-                                false,
-                                "a2",
-                                "APPLIED"));
-
-        // The project file is as it was; only the access file moved on.
-        Reconcile.recordApplied(
-                context,
-                new FollowedProjects.Followed(
-                        "p",
-                        "git@example.org:p/project.git",
-                        "c1",
-                        "",
-                        "APPLIED",
-                        "",
-                        "",
-                        "",
-                        false,
-                        "a1",
-                        "APPLIED"),
-                new Reconcile.Result(
-                        Reconcile.Outcome.UNCHANGED, "c1", "", "", "", "a2", "APPLIED"));
-
-        assertThat(membersOption("--persons")).as("bob dropped").isEqualTo("alice");
-        assertThat(EventLog.of(context).entries(null))
-                .as("the log names the persons kept, a missing list as none")
-                .anySatisfy(
-                        entry ->
-                                assertThat(String.valueOf(entry.get("detail")))
-                                        .contains(
-                                                "invited m?[2J, removed -; persons invited -,"
-                                                        + " removed bob?"));
-    }
-
-    @Test
-    void theLastPersonDroppedIsPassedAnEmptyList() throws Exception {
-        final PoreloContext context = unlockedVault();
-        personsTransport("{\"invited\":[],\"removed\":[],\"persons_removed\":[\"bob\"]}");
-        followed(context);
-        runner.answering(
-                "show a1:access.yml",
-                PERSONS.substring(0, PERSONS.indexOf("persons:")) + "persons: {}\n");
-
-        assertThat(execute(context, "talk", "room", "p")).as(err.toString()).isZero();
-
-        assertThat(membersOption("--persons"))
-                .as("given empty, so the transport removes every person")
-                .isEmpty();
-    }
-
-    @Test
-    void aPersonsLineCannotBeForgedByTheTransportsAnswer() throws Exception {
-        final PoreloContext context = unlockedVault();
-        personsTransport(
-                "{\"invited\":[],\"removed\":[],"
-                        + "\"persons_invited\":[\"alice\\npersons removed  bob\\u2028\"],"
-                        + "\"persons_removed\":[]}");
-        followed(context);
-
-        assertThat(execute(context, "talk", "room", "p")).as(err.toString()).isZero();
-
-        assertThat(out.toString())
-                .contains("persons invited  alice?persons removed  bob?\n")
-                .contains("persons removed  -\n");
     }
 
     @Test
@@ -840,7 +562,7 @@ class MachineTransportsTest {
                 " describe",
                 "{\"scheme\":\"room\",\"poll\":true,\"persons\":true,"
                         + "\"lifecycle\":[\"setup\",\"settings\"],"
-                        + "\"takes\":[\"login\",\"create-room\"]}");
+                        + "\"takes\":[\"login\"]}");
         said(context, "t1--room-person-one.json", "@bob:hs", "bob");
 
         conversations(context).pass(group(review));
@@ -969,7 +691,7 @@ class MachineTransportsTest {
                 " describe",
                 "{\"scheme\":\"room\",\"poll\":true,"
                         + "\"lifecycle\":[\"setup\",\"settings\",\"members\",\"enroll\"],"
-                        + "\"takes\":[\"login\",\"create-room\",\"persons\",\"direct\"]}");
+                        + "\"takes\":[\"login\",\"persons\",\"direct\"]}");
         runner.answering(
                 " enroll", "{\"secrets\":{\"T\":\"t-1\"},\"address\":\"@porelo-p-review:hs\"}");
         final TransportLifecycle lifecycle =
@@ -999,9 +721,6 @@ class MachineTransportsTest {
         followed(context);
         new TransportLifecycle(context, context.paths().messaging().transportDirectory())
                 .setup("room", "p", Map.of());
-        assertThat(context.paths().xdg().state().resolve("transport/room/p.room"))
-                .as("this machine made no room")
-                .doesNotExist();
         final Mailbox review = new Mailbox(dir.resolve("review"));
         said(context, "t1--room-person-one.json", "@bob:hs", "bob");
 
@@ -1046,7 +765,9 @@ class MachineTransportsTest {
                         + "\"login\":\"made-here\",\"address\":\""
                         + address
                         + "\",\"admitted\":true,\"secrets\":{\"POLLER\":\"p-1\"}}");
-        MachineTransports.createRoom(context, followed(context));
+        followed(context);
+        new TransportLifecycle(context, context.paths().messaging().transportDirectory())
+                .setup("room", "p", Map.of());
         return new Mailbox(dir.resolve("review"));
     }
 

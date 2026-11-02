@@ -280,13 +280,12 @@ class TransportLentTest {
             case "part" -> lifecycle.part("matrix", "p", "alice", SETTINGS, false);
             case "admit" -> lifecycle.admit("matrix", "p", "m", SETTINGS);
             case "dismiss" -> lifecycle.dismiss("matrix", "p", "m", SETTINGS);
-            case "members" -> lifecycle.members("matrix", "p", List.of("alice"), SETTINGS);
             default -> throw new IllegalArgumentException(verb);
         }
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"setup", "enroll", "retire", "part", "admit", "dismiss", "members"})
+    @ValueSource(strings = {"setup", "enroll", "retire", "part", "admit", "dismiss"})
     void aShutVaultAnswers77AndTheTransportIsNotRun(final String name) throws Exception {
         final PoreloContext context = shut(Map.of(ENTRY, TOKEN));
         transport(context, described(",\"lent\":[\"" + name + "\"]"));
@@ -581,20 +580,15 @@ class TransportLentTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"join", "room", "admit"})
+    @ValueSource(strings = {"join", "admit"})
     void aShutVaultExits77OnTheCommandLine(final String talk) throws Exception {
         final PoreloContext context = shut(Map.of(ENTRY, TOKEN));
         registered(context);
-        transport(
-                context,
-                described(",\"lent\":[\"setup\",\"admit\"]")
-                        .replace(
-                                "\"secrets\":\"input\",",
-                                "\"secrets\":\"input\",\"takes\":[\"create-room\"],"));
+        transport(context, described(",\"lent\":[\"setup\",\"admit\"]"));
         final String[] arguments =
                 switch (talk) {
                     case "join" -> new String[] {"join", "p", "alice"};
-                    case "admit" ->
+                    default ->
                             new String[] {
                                 "admit",
                                 "p",
@@ -602,7 +596,6 @@ class TransportLentTest {
                                 "--into",
                                 dir.resolve("admission").toString()
                             };
-                    default -> new String[] {"room", "p"};
                 };
 
         assertThat(command(context, arguments))
