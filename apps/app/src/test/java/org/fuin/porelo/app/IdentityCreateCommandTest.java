@@ -26,6 +26,7 @@ import picocli.CommandLine;
 class IdentityCreateCommandTest {
     @TempDir Path dir;
     private RegistryCheckout registry;
+    private TestOrganization organization;
 
     @BeforeEach
     void checkout() throws Exception {
@@ -49,6 +50,17 @@ class IdentityCreateCommandTest {
         return IdentityRun.identity(registry, args.toArray(String[]::new));
     }
 
+    /** As {@link #create}, on a machine that names the organization. */
+    private int createInOrganization(String... more) throws Exception {
+        if (organization == null) {
+            organization = new TestOrganization(registry);
+        }
+        final List<String> args =
+                new ArrayList<>(List.of("create", "--login", "alice", "--name", "Alice Doe"));
+        args.addAll(List.of(more));
+        return IdentityRun.identity(organization, args.toArray(String[]::new));
+    }
+
     private Path cardFile() {
         return new IdentityStore(registry.context()).cardFile();
     }
@@ -66,12 +78,23 @@ class IdentityCreateCommandTest {
                 .isZero();
         final Map<?, ?> answer = registry.answer();
         assertThat(keys(answer))
-                .containsExactly("login", "fingerprint", "key", "card", "agent", "forge", "next");
+                .containsExactly(
+                        "revision",
+                        "id",
+                        "again",
+                        "login",
+                        "fingerprint",
+                        "key",
+                        "card",
+                        "agent",
+                        "forge",
+                        "next");
         assertThat(answer.get("fingerprint")).isEqualTo(registry.pin("alice"));
         assertThat(answer.get("key")).isEqualTo(registry.key("alice"));
         assertThat(answer.get("agent")).isEqualTo("holds");
-        assertThat(answer.get("forge")).as("no registry read").isNull();
-        assertThat(answer.get("next")).isEqualTo(List.of("file-card"));
+        assertThat(answer.get("revision")).as("no organization to file in").isNull();
+        assertThat(answer.get("forge")).as("no organization names one").isNull();
+        assertThat(answer.get("next")).isEqualTo(List.of("setup"));
         assertThat(answer.get("card")).isEqualTo(Files.readString(cardFile()));
         assertThat(PosixFilePermissions.toString(Files.getPosixFilePermissions(cardFile())))
                 .isEqualTo("rw-------");
@@ -100,19 +123,137 @@ class IdentityCreateCommandTest {
         assertThat(out.toString()).contains("alice (Alice Doe)");
     }
 
+    /** With an organization named, a first card goes there; kept here alone nobody knows it. */
+    @Test
+    void a_first_card_files_through_the_store_when_this_machine_names_an_organization()
+            throws Exception {
+        registry.agent("alice");
+        organization = new TestOrganization(registry);
+        registry.forge.keys.put("alice", List.of(registry.key("alice")));
+        final String before = organization.tip();
+
+        assertThat(createInOrganization("--key", registry.pin("alice"), "--id", "c1", "--json"))
+                .as(registry.err.toString())
+                .isZero();
+
+        final Map<?, ?> answer = registry.answer();
+        assertThat(answer.get("id")).isEqualTo("c1");
+        assertThat(answer.get("again")).isEqualTo(false);
+        assertThat(organization.tip()).isNotEqualTo(before);
+        assertThat(answer.get("revision")).isEqualTo(organization.tip());
+        assertThat(answer.get("next")).isEqualTo(List.of());
+        assertThat(organization.card("alice")).isEqualTo(answer.get("card"));
+        assertThat(Files.readString(cardFile())).isEqualTo(answer.get("card"));
+        assertThat(organization.signer("HEAD")).isEqualTo("alice");
+        final Map<?, ?> forge = (Map<?, ?>) answer.get("forge");
+        assertThat(forge.get("key_listed")).isEqualTo(true);
+
+        assertThat(createInOrganization("--key", registry.pin("alice"), "--id", "c1", "--json"))
+                .as(registry.err.toString())
+                .isZero();
+        assertThat(registry.answer().get("again")).isEqualTo(true);
+        assertThat(registry.answer().get("revision")).isEqualTo(organization.tip());
+    }
+
+    /** A card made before the machine had an organization goes in once it has: never a second. */
+    @Test
+    void a_card_kept_before_the_organization_was_named_is_filed_as_it_is() throws Exception {
+        registry.agent("alice");
+        assertThat(create("--key", registry.pin("alice"), "--json")).isZero();
+        final String kept = Files.readString(cardFile());
+        organization = new TestOrganization(registry);
+        registry.forge.keys.put("alice", List.of(registry.key("alice")));
+
+        assertThat(createInOrganization("--key", registry.pin("alice"), "--json"))
+                .as(registry.err.toString())
+                .isZero();
+
+        assertThat(organization.card("alice")).isEqualTo(kept);
+        assertThat(Files.readString(cardFile())).isEqualTo(kept);
+    }
+
+    /** A forge not listing the key must be told apart from a refusal the person cannot act on. */
+    @Test
+    void a_key_the_forge_does_not_list_is_refused_and_nothing_is_kept() throws Exception {
+        registry.agent("alice");
+        organization = new TestOrganization(registry);
+        registry.forge.keys.put("alice", List.of(registry.key("bob")));
+        final String before = organization.tip();
+
+        assertThat(createInOrganization("--key", registry.pin("alice"), "--json")).isEqualTo(65);
+
+        assertThat(reason()).isEqualTo("not-allowed");
+        assertThat(organization.tip()).isEqualTo(before);
+        assertThat(cardFile()).doesNotExist();
+    }
+
+    /**
+     * A new key cannot be on the forge before it is made, and a first card has no old key to hand
+     * on from: the person must learn which key to add, and go on with it, not make a second.
+     */
+    @Test
+    void a_key_made_into_keepassxc_the_forge_does_not_list_names_it_to_go_on_with()
+            throws Exception {
+        registry.agent();
+        organization = new TestOrganization(registry);
+        registry.terminal = true;
+        final KeePassXcStandIn keepass =
+                new KeePassXcStandIn(
+                        dir,
+                        KeePassXcStandIn.Mode.SERVES,
+                        registry.environment().apply("SSH_AUTH_SOCK"));
+        registry.forge.keys.put("alice", List.of(registry.key("bob")));
+
+        assertThat(
+                        IdentityRun.identity(
+                                organization,
+                                keepass.store(java.time.Duration.ofMillis(800)),
+                                "create",
+                                "--login",
+                                "alice",
+                                "--name",
+                                "Alice Doe",
+                                "--keepassxc",
+                                keepass.database.toString(),
+                                "--entry",
+                                "ssh/alice",
+                                "--id",
+                                "c1",
+                                "--json"))
+                .as(registry.err.toString())
+                .isEqualTo(65);
+
+        final Map<?, ?> refused = registry.answer();
+        assertThat(refused.get("reason")).isEqualTo("not-allowed");
+        assertThat(refused.get("entry")).isEqualTo("ssh/alice");
+        assertThat(cardFile()).doesNotExist();
+        final String fingerprint = (String) refused.get("fingerprint");
+        final String listed =
+                new org.fuin.porelo.vault.SshAgentClient(
+                                Path.of(registry.environment().apply("SSH_AUTH_SOCK")))
+                        .identities().stream()
+                                .map(PersonCard::keyLine)
+                                .filter(key -> PersonCard.fingerprint(key).equals(fingerprint))
+                                .findFirst()
+                                .orElseThrow();
+        registry.forge.keys.put("alice", List.of(listed));
+        final int calls = keepass.calls().size();
+
+        assertThat(createInOrganization("--key", fingerprint, "--id", "c1", "--json"))
+                .as(registry.err.toString())
+                .isZero();
+
+        assertThat(keepass.calls()).as("no second key").hasSize(calls);
+        assertThat(PersonCard.read(organization.card("alice"), "filed").fingerprint())
+                .isEqualTo(fingerprint);
+    }
+
     /** A person names the key by its .pub file as often as by its fingerprint. */
     @Test
-    void takes_the_key_by_its_public_key_file_and_answers_the_forge_listing() throws Exception {
-        registry.founded();
-        assertThat(registry.registry("read", registry.repo.toString())).isZero();
-        registry.forge.keys.put("alice", List.of(registry.key("bob")));
+    void takes_the_key_by_its_public_key_file() throws Exception {
         registry.agent("alice");
-
         assertThat(create("--key", registry.keyFiles.get("alice") + ".pub", "--json")).isZero();
         assertThat(registry.answer().get("fingerprint")).isEqualTo(registry.pin("alice"));
-        final Map<?, ?> forge = (Map<?, ?>) registry.answer().get("forge");
-        assertThat(keys(forge)).containsExactly("login", "key_listed", "keys_url", "account_url");
-        assertThat(forge.get("key_listed")).as("not a refusal: added later").isEqualTo(false);
     }
 
     /** A second create would throw away the identity the registry knows. */
@@ -129,13 +270,13 @@ class IdentityCreateCommandTest {
 
     /** A locked KeePassXC serves nothing; the person is told, and nothing is kept. */
     @Test
-    void a_key_the_agent_does_not_serve_is_refused_key_not_in_agent() throws Exception {
-        assertThat(create("--key", registry.pin("alice"), "--json")).isEqualTo(65);
-        assertThat(reason()).as("no agent").isEqualTo("key-not-in-agent");
+    void a_key_the_agent_does_not_serve_is_refused_no_key() throws Exception {
+        assertThat(create("--key", registry.pin("alice"), "--json")).isEqualTo(69);
+        assertThat(reason()).as("no agent").isEqualTo("no-key");
 
         registry.agent("bob");
-        assertThat(create("--key", registry.pin("alice"), "--json")).isEqualTo(65);
-        assertThat(reason()).isEqualTo("key-not-in-agent");
+        assertThat(create("--key", registry.pin("alice"), "--json")).isEqualTo(69);
+        assertThat(reason()).isEqualTo("no-key");
         assertThat(cardFile()).doesNotExist();
     }
 
@@ -168,15 +309,12 @@ class IdentityCreateCommandTest {
     /** One key on two logins' cards would let one person sign as the other. */
     @Test
     void a_key_on_another_logins_accepted_card_is_refused_naming_the_login() throws Exception {
-        registry.founded();
-        registry.forge.keys.put("bob", List.of(registry.key("bob")));
-        registry.write("people/bob.card", registry.card("bob", "bob"));
-        registry.commit("bob");
-        assertThat(registry.registry("read", registry.repo.toString())).isZero();
         registry.agent("bob");
+        organization = new TestOrganization(registry);
+        organization.filed("bob");
 
-        assertThat(create("--key", registry.pin("bob"), "--json")).isEqualTo(65);
-        assertThat(keys(registry.answer())).containsExactly("reason", "words", "login");
+        assertThat(createInOrganization("--key", registry.pin("bob"), "--json")).isEqualTo(65);
+        assertThat(keys(registry.answer())).containsExactly("reason", "words", "revision", "login");
         assertThat(reason()).isEqualTo("key-on-another-card");
         assertThat(registry.answer().get("login")).isEqualTo("bob");
         assertThat(cardFile()).doesNotExist();
@@ -185,13 +323,12 @@ class IdentityCreateCommandTest {
     /** A revoked key's card is accepted nowhere; the person is told whom to ask. */
     @Test
     void a_revoked_key_is_refused_naming_who_may_replace_it() throws Exception {
-        registry.founded();
-        assertThat(registry.registry("read", registry.repo.toString())).isZero();
         IdentityRun.revoke(registry, "alice");
         registry.agent("alice");
 
-        assertThat(create("--key", registry.pin("alice"), "--json")).isEqualTo(65);
-        assertThat(keys(registry.answer())).containsExactly("reason", "words", "who_may");
+        assertThat(createInOrganization("--key", registry.pin("alice"), "--json")).isEqualTo(65);
+        assertThat(keys(registry.answer()))
+                .containsExactly("reason", "words", "revision", "who_may");
         assertThat(reason()).isEqualTo("revoked");
         assertThat((List<?>) registry.answer().get("who_may"))
                 .extracting(owner -> ((Map<?, ?>) owner).get("login"))

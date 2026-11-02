@@ -56,7 +56,6 @@ class IdentityKeePassXcTest {
                                 .getSubcommands()
                                 .get("create")
                                 .getCommand();
-        create.forges = (address, token) -> registry.forge;
         create.store = store;
         final List<String> all =
                 new ArrayList<>(
@@ -93,7 +92,17 @@ class IdentityKeePassXcTest {
         final Map<?, ?> answer = registry.answer();
         assertThat(new ArrayList<Object>(answer.keySet()))
                 .containsExactly(
-                        "login", "fingerprint", "key", "card", "agent", "entry", "forge", "next");
+                        "revision",
+                        "id",
+                        "again",
+                        "login",
+                        "fingerprint",
+                        "key",
+                        "card",
+                        "agent",
+                        "entry",
+                        "forge",
+                        "next");
         assertThat(answer.get("agent")).isEqualTo("holds");
         assertThat(answer.get("entry")).isEqualTo("ssh/alice");
         assertThat(served())

@@ -47,40 +47,40 @@ class IdentityChangeTest {
 
     /** A card the agent signed with another key verifies nowhere; it must never be kept. */
     @Test
-    void an_agent_signing_with_another_key_is_key_not_in_agent() {
+    void an_agent_signing_with_another_key_is_no_key() {
         final IdentityChange.Refused refused =
                 catchThrowableOfType(
                         IdentityChange.Refused.class,
                         () ->
                                 IdentityChange.signed(
                                         "alice", "Alice", "", new Agent(own, other), MADE, null));
-        assertThat(refused.code()).isEqualTo(65);
-        assertThat(refused.reason()).isEqualTo("key-not-in-agent");
+        assertThat(refused.code()).isEqualTo(69);
+        assertThat(refused.reason()).isEqualTo("no-key");
     }
 
     /** The predecessor's signature is what hands the key on; a wrong one hands nothing on. */
     @Test
-    void a_predecessor_signing_wrongly_is_key_not_in_agent() {
+    void a_predecessor_signing_wrongly_is_no_key() {
         final IdentityChange.Refused refused =
                 catchThrowableOfType(
                         IdentityChange.Refused.class,
                         () ->
                                 IdentityChange.signed(
                                         "alice", "Alice", "", own, MADE, new Agent(other, own)));
-        assertThat(refused.reason()).isEqualTo("key-not-in-agent");
+        assertThat(refused.reason()).isEqualTo("no-key");
     }
 
     /** An agent that will not sign is the person's to unlock, typed, never an internal error. */
     @Test
-    void an_agent_refusing_to_sign_is_key_not_in_agent() {
+    void an_agent_refusing_to_sign_is_no_key() {
         final IdentityChange.Refused refused =
                 catchThrowableOfType(
                         IdentityChange.Refused.class,
                         () ->
                                 IdentityChange.signed(
                                         "alice", "Alice", "", new Agent(own, null), MADE, null));
-        assertThat(refused.code()).isEqualTo(65);
-        assertThat(refused.answer()).containsEntry("reason", "key-not-in-agent");
+        assertThat(refused.code()).isEqualTo(69);
+        assertThat(refused.answer()).containsEntry("reason", "no-key");
     }
 
     @Test
@@ -90,21 +90,18 @@ class IdentityChangeTest {
     }
 
     /**
-     * A refusal may quote a URL with its token; what a place's why says is printed and kept, so no
-     * token, with a slash in it or in an scp-style address, stays in it. The rule itself is {@code
-     * UserinfoTest}'s.
+     * A refusal may quote a URL with its token; what it says is printed, so no token, with a slash
+     * in it or in an scp-style address, stays in it. The rule itself is {@code UserinfoTest}'s.
      */
     @Test
-    void no_token_stays_in_a_places_why() {
-        final IdentityOperation.Place place =
-                new IdentityOperation.Place(
-                        "registry",
-                        "https://forge.example.org/acme/registry.git",
-                        "refused",
+    void no_token_stays_in_a_refusals_words() {
+        final IdentityChange.Refused refused =
+                new IdentityChange.Refused(
+                        65,
+                        "refused-state",
                         "git said 'https://alice:to/k3n@forge.example.org/acme/r.git' and"
-                                + " alice:s3cret@forge.example.org:acme/r.git, mail a@example.org, now",
-                        java.util.List.of());
-        assertThat(place.why())
+                                + " alice:s3cret@forge.example.org:acme/r.git, mail a@example.org, now");
+        assertThat(refused.words())
                 .doesNotContain("k3n", "s3cret", "alice")
                 .contains(
                         "forge.example.org/acme/r.git'",

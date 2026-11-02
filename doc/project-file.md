@@ -459,8 +459,8 @@ pinned and unpinned, by fingerprint.
 
 ### A backup key for the one signer
 
-A project with one signer keeps a second, offline key behind it, made by
-`porelo identity backup-key --project NAME --out FILE` and filed beside the key it backs:
+A project with one signer keeps a second, offline key behind it, made with `ssh-keygen` and listed
+beside the key it backs in a commit that key signs:
 
 ```yaml
 project:

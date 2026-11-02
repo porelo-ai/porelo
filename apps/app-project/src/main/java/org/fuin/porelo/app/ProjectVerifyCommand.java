@@ -351,9 +351,8 @@ public class ProjectVerifyCommand implements Callable<Integer>, PoreloFactory.Co
                             + ProjectSigners.fingerprint(sole)
                             + " as the only signer of "
                             + name
-                            + ", without a backup key; make one with porelo identity backup-key"
-                            + " --project "
-                            + name);
+                            + ", without a backup key; list one in project.signers with backup:"
+                            + " true");
         }
         return warnings;
     }

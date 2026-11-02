@@ -15,25 +15,24 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.regex.Pattern;
-import org.fuin.porelo.organization.git.RegistryOrigin;
 import org.fuin.porelo.wire.Json;
 import org.jspecify.annotations.Nullable;
 
 /**
- * A change of the person's own key, kept until every place took it: {@code
+ * A card on its way to the organization, or waiting there for an owner: {@code
  * $XDG_STATE_HOME/porelo/identity/ops/<id>.json}, owner-only and written whole.
  *
- * <p>The record is what makes a rotation safe to interrupt: it holds the new card before the card
- * is kept or sent anywhere, so a second run of the same id answers this operation instead of making
- * another key, and a retry sends this card again to the places it has not reached.
+ * <p>The record is what makes a change safe to interrupt: it holds the new card before the card is
+ * kept or filed, so a second run of the same id answers this operation instead of making another
+ * key, and goes on from where it stopped.
  *
  * @param id The operation's id.
- * @param action {@code rotate} or {@code revoke-lost}.
+ * @param action {@code create}, {@code rotate} or {@code revoke-lost}.
  * @param fingerprint The new key's fingerprint.
- * @param predecessor The old key's fingerprint.
+ * @param predecessor The old key's fingerprint, "" for a first card.
  * @param card The new card, as written.
- * @param done Whether every place took it.
- * @param published Each place, as last tried.
+ * @param done Whether the organization took it.
+ * @param revision The revision it stands at once done, or {@code null}.
  * @param kept Whether the card is kept here as the person's own: a run stopped before it was is
  *     finished by the next run of the same id.
  */
@@ -44,8 +43,11 @@ record IdentityOperation(
         String predecessor,
         String card,
         boolean done,
-        List<Place> published,
+        @Nullable String revision,
         boolean kept) {
+
+    /** A first card, signed by its key. */
+    static final String CREATE = "create";
 
     /** A rotation: the new card signed by both keys. */
     static final String ROTATE = "rotate";
@@ -59,16 +61,11 @@ record IdentityOperation(
     /** The longest record read. */
     private static final long LIMIT = 1024 * 1024;
 
-    /** Compact constructor: the places are copied and cannot be changed afterwards. */
-    IdentityOperation {
-        published = List.copyOf(published);
-    }
-
     /**
-     * A person the place waits for.
+     * A person who may accept a card.
      *
      * @param login Their login.
-     * @param name What they are called, or {@code null} when no card a registry accepted says it.
+     * @param name What they are called, or {@code null} when no accepted card says it.
      * @param email How to reach them, or {@code null} when their card names nothing.
      */
     record Contact(String login, @Nullable String name, @Nullable String email) {
@@ -96,69 +93,13 @@ record IdentityOperation(
     }
 
     /**
-     * A place the new card goes to.
+     * The same operation, the organization having taken its card.
      *
-     * @param where {@code registry}, {@code project} or {@code host}.
-     * @param name The registry's origin, the project's or the host's name.
-     * @param status {@code planned}, {@code done}, {@code pending} or {@code refused}.
-     * @param why Why it is not done, or {@code null}.
-     * @param whoMay Who may accept it there; none when the person's own key does.
-     */
-    record Place(
-            String where, String name, String status, @Nullable String why, List<Contact> whoMay) {
-
-        /**
-         * Compact constructor: the contacts are copied and cannot be changed afterwards, and no URL
-         * in why keeps its user part, which is printed and kept.
-         */
-        Place {
-            why = why == null ? null : RegistryOrigin.withoutUserinfoIn(why);
-            whoMay = List.copyOf(whoMay);
-        }
-
-        /** The field naming the place, by what it is. */
-        private String nameField() {
-            return switch (where) {
-                case "registry" -> "address";
-                case "project" -> "project";
-                default -> "host";
-            };
-        }
-
-        Place with(final String newStatus, final @Nullable String newWhy) {
-            return new Place(where, name, newStatus, newWhy, whoMay);
-        }
-
-        Map<String, @Nullable Object> answer() {
-            final Map<String, @Nullable Object> answer = new LinkedHashMap<>();
-            answer.put("where", where);
-            answer.put(nameField(), name);
-            answer.put("status", status);
-            answer.put("why", why);
-            answer.put("who_may", whoMay.stream().map(Contact::answer).toList());
-            return answer;
-        }
-    }
-
-    /**
-     * Whether every place took the card.
-     *
-     * @param places The places.
-     * @return {@code true} when each is {@code done}.
-     */
-    static boolean allDone(final List<Place> places) {
-        return places.stream().allMatch(place -> place.status().equals("done"));
-    }
-
-    /**
-     * The same operation, its places as tried now.
-     *
-     * @param places The places.
+     * @param at The revision it stands at.
      * @return The operation.
      */
-    IdentityOperation publishedTo(final List<Place> places) {
-        return new IdentityOperation(
-                id, action, fingerprint, predecessor, card, allDone(places), places, kept);
+    IdentityOperation filedAt(final String at) {
+        return new IdentityOperation(id, action, fingerprint, predecessor, card, true, at, kept);
     }
 
     /**
@@ -168,17 +109,24 @@ record IdentityOperation(
      */
     IdentityOperation keptHere() {
         return new IdentityOperation(
-                id, action, fingerprint, predecessor, card, done, published, true);
+                id, action, fingerprint, predecessor, card, done, revision, true);
     }
 
-    /** The answer of rotate, revoke, publish and status, in the contract's order. */
-    Map<String, @Nullable Object> answer() {
+    /**
+     * The answer of a change: what section one of the commands asks of a write, and its keys.
+     *
+     * @param again Whether its id had already made it.
+     * @return The answer, in the contract's order.
+     */
+    Map<String, @Nullable Object> answer(final boolean again) {
         final Map<String, @Nullable Object> answer = new LinkedHashMap<>();
+        answer.put("revision", revision);
         answer.put("id", id);
+        answer.put("again", again);
+        answer.put("of", "organization");
         answer.put("action", action);
         answer.put("fingerprint", fingerprint);
         answer.put("predecessor", predecessor);
-        answer.put("published", published.stream().map(Place::answer).toList());
         return answer;
     }
 
@@ -190,7 +138,7 @@ record IdentityOperation(
         record.put("predecessor", predecessor);
         record.put("card", card);
         record.put("done", done);
-        record.put("published", published.stream().map(Place::answer).toList());
+        record.put("revision", revision);
         record.put("kept", kept);
         return Json.write(record);
     }
@@ -241,44 +189,6 @@ record IdentityOperation(
         if (!(read instanceof Map<?, ?> map)) {
             throw new IllegalArgumentException("not an object");
         }
-        final List<Place> places = new ArrayList<>();
-        if (!(map.get("published") instanceof List<?> listed)) {
-            throw new IllegalArgumentException("no places");
-        }
-        for (final Object each : listed) {
-            if (!(each instanceof Map<?, ?> place)) {
-                throw new IllegalArgumentException("a place is not an object");
-            }
-            final String where = text(place, "where");
-            final String field =
-                    switch (where) {
-                        case "registry" -> "address";
-                        case "project" -> "project";
-                        case "host" -> "host";
-                        default -> throw new IllegalArgumentException("no such place");
-                    };
-            final List<Contact> contacts = new ArrayList<>();
-            if (!(place.get("who_may") instanceof List<?> who)) {
-                throw new IllegalArgumentException("no contacts");
-            }
-            for (final Object contact : who) {
-                if (!(contact instanceof Map<?, ?> person)) {
-                    throw new IllegalArgumentException("a contact is not an object");
-                }
-                contacts.add(
-                        new Contact(
-                                text(person, "login"),
-                                person.get("name") instanceof String name ? name : null,
-                                person.get("email") instanceof String email ? email : null));
-            }
-            places.add(
-                    new Place(
-                            where,
-                            text(place, field),
-                            text(place, "status"),
-                            place.get("why") instanceof String why ? why : null,
-                            contacts));
-        }
         if (!(map.get("done") instanceof Boolean done)) {
             throw new IllegalArgumentException("no done");
         }
@@ -287,7 +197,7 @@ record IdentityOperation(
             throw new IllegalArgumentException("not an id");
         }
         final String action = text(map, "action");
-        if (!action.equals(ROTATE) && !action.equals(REVOKE_LOST)) {
+        if (!action.equals(CREATE) && !action.equals(ROTATE) && !action.equals(REVOKE_LOST)) {
             throw new IllegalArgumentException("no such action");
         }
         return new IdentityOperation(
@@ -297,7 +207,7 @@ record IdentityOperation(
                 text(map, "predecessor"),
                 text(map, "card"),
                 done,
-                places,
+                map.get("revision") instanceof String at ? at : null,
                 // A record written before this field was kept its card at once.
                 !(map.get("kept") instanceof Boolean kept) || kept);
     }
@@ -349,6 +259,55 @@ record IdentityOperation(
         }
     }
 
+    /**
+     * Lets the operation go: it made nothing, or another took its place.
+     *
+     * @param context The machine.
+     * @throws IOException When its record cannot be removed.
+     */
+    void forget(final PoreloContext context) throws IOException {
+        Files.deleteIfExists(directory(context).resolve(id + ".json"));
+    }
+
+    /**
+     * Reads the operations not done, sorted by id. One that does not read is no operation anything
+     * could go on from, and is left where it is.
+     *
+     * @param context The machine.
+     * @return The operations.
+     * @throws IOException When the directory cannot be listed.
+     */
+    static List<IdentityOperation> pending(final PoreloContext context) throws IOException {
+        final Path directory = directory(context);
+        if (!IdentityStore.privateDirectoryFound(context.paths().xdg().state(), directory)) {
+            return List.of();
+        }
+        final List<Path> records;
+        try (var listed = Files.list(directory)) {
+            records =
+                    listed.filter(path -> path.getFileName().toString().endsWith(".json"))
+                            .filter(path -> Files.isRegularFile(path, LinkOption.NOFOLLOW_LINKS))
+                            .sorted()
+                            .toList();
+        }
+        final List<IdentityOperation> pending = new ArrayList<>();
+        for (final Path record : records) {
+            final String name = record.getFileName().toString();
+            if (ID.matcher(name.substring(0, name.length() - ".json".length())).matches()) {
+                try {
+                    final IdentityOperation read =
+                            read(context, name.substring(0, name.length() - ".json".length()));
+                    if (read != null && !read.done()) {
+                        pending.add(read);
+                    }
+                } catch (IOException ex) {
+                    continue;
+                }
+            }
+        }
+        return pending;
+    }
+
     private Path staged(final PoreloContext context) throws IOException {
         final Path directory =
                 IdentityStore.privateDirectory(context.paths().xdg().state(), directory(context));
@@ -364,8 +323,8 @@ record IdentityOperation(
     }
 
     /**
-     * Makes an id of the action and the day, {@code rot-<yyyymmdd>-<n>} or {@code
-     * lost-<yyyymmdd>-<n>}, with the first number no operation kept here carries.
+     * Makes an id of the action and the day, {@code new-<yyyymmdd>-<n>}, {@code rot-<yyyymmdd>-<n>}
+     * or {@code lost-<yyyymmdd>-<n>}, with the first number no operation kept here carries.
      *
      * @param context The machine.
      * @param action The action.
@@ -374,7 +333,11 @@ record IdentityOperation(
      */
     static String newId(final PoreloContext context, final String action, final LocalDate today) {
         final String prefix =
-                (action.equals(ROTATE) ? "rot-" : "lost-")
+                switch (action) {
+                            case CREATE -> "new-";
+                            case ROTATE -> "rot-";
+                            default -> "lost-";
+                        }
                         + today.format(DateTimeFormatter.BASIC_ISO_DATE)
                         + "-";
         for (int number = 1; ; number++) {

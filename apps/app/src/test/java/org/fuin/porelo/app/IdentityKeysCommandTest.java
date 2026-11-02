@@ -44,15 +44,14 @@ class IdentityKeysCommandTest {
     /** The person picks a key from this list; one the card cannot take must say why. */
     @Test
     void answers_each_key_in_the_agents_order_with_whether_a_card_takes_it() throws Exception {
-        registry.founded();
-        registry.forge.keys.put("bob", List.of(registry.key("bob")));
-        registry.write("people/bob.card", registry.card("bob", "bob"));
-        registry.commit("bob");
-        assertThat(registry.registry("read", registry.repo.toString())).isZero();
+        final TestOrganization organization = new TestOrganization(registry);
+        organization.filed("bob");
         registry.agent("alice", "bob");
 
-        assertThat(IdentityRun.identity(registry, "keys", "--json")).isZero();
-        assertThat(keys(registry.answer())).containsExactly("keys");
+        assertThat(IdentityRun.identity(organization, "keys", "--json")).isZero();
+        assertThat(keys(registry.answer())).containsExactly("revision", "stale", "keys");
+        assertThat(registry.answer().get("revision")).isEqualTo(organization.tip());
+        assertThat(registry.answer().get("stale")).isEqualTo(false);
         assertThat(listed()).hasSize(2);
         assertThat(keys(listed(0)))
                 .containsExactly("fingerprint", "key", "comment", "usable", "reason", "key_listed");
@@ -105,18 +104,31 @@ class IdentityKeysCommandTest {
     /** With a card kept here, its own login's key is usable and the forge is asked about it. */
     @Test
     void the_kept_cards_login_is_no_other_card_and_names_the_forge_listing() throws Exception {
-        registry.founded();
-        registry.forge.keys.put("alice", List.of(registry.key("alice")));
-        registry.write("people/alice.card", registry.card("alice", "alice"));
-        registry.commit("alice");
-        assertThat(registry.registry("read", registry.repo.toString())).isZero();
-        IdentityRun.keep(registry, registry.card("alice", "alice"));
+        final TestOrganization organization = new TestOrganization(registry);
+        IdentityRun.keep(registry, organization.filed("alice"));
         registry.agent("alice", "bob");
 
-        assertThat(IdentityRun.identity(registry, "keys", "--json")).isZero();
+        assertThat(IdentityRun.identity(organization, "keys", "--json")).isZero();
         assertThat(listed(0).get("usable")).isEqualTo(true);
         assertThat(listed(0).get("key_listed")).isEqualTo(true);
         assertThat(listed(1).get("key_listed")).isEqualTo(false);
+    }
+
+    /**
+     * An answer of what was last read says so; a forge it could not ask lists nothing either way.
+     */
+    @Test
+    void a_store_out_of_reach_answers_the_last_state_as_stale() throws Exception {
+        final TestOrganization organization = new TestOrganization(registry);
+        IdentityRun.keep(registry, organization.filed("alice"));
+        registry.agent("alice");
+        assertThat(IdentityRun.identity(organization, "keys", "--json")).isZero();
+        organization.outOfReach();
+
+        assertThat(IdentityRun.identity(organization, "keys", "--json")).isZero();
+
+        assertThat(registry.answer().get("stale")).isEqualTo(true);
+        assertThat(listed(0).get("key_listed")).isNull();
     }
 
     /** No agent is told apart from an agent with no keys. */
@@ -139,22 +151,6 @@ class IdentityKeysCommandTest {
         Files.move(config, elsewhere);
         Files.createSymbolicLink(config, elsewhere);
         registry.agent("alice");
-
-        assertThat(IdentityRun.identity(registry, "keys", "--json")).isEqualTo(66);
-    }
-
-    /** Registries read through a linked state directory may not be the ones read here. */
-    @Test
-    void a_linked_state_directory_is_refused() throws Exception {
-        registry.founded();
-        registry.write("people/bob.card", registry.card("bob", "bob"));
-        registry.commit("bob");
-        assertThat(registry.registry("read", registry.repo.toString())).isZero();
-        final Path state = registry.paths.xdg().state();
-        final Path elsewhere = dir.resolve("elsewhere-state");
-        Files.move(state, elsewhere);
-        Files.createSymbolicLink(state, elsewhere);
-        registry.agent("alice", "bob");
 
         assertThat(IdentityRun.identity(registry, "keys", "--json")).isEqualTo(66);
     }

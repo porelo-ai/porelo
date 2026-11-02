@@ -191,7 +191,7 @@ final class RegistryCheckout implements AutoCloseable {
     List<String> soleWarnings() {
         return List.of(
                 "owners.yml names michael as the registry's only owner, without a backup key; make"
-                        + " one with porelo identity backup-key --registry",
+                        + " one with porelo identity backup-key --organization",
                 "owners.yml names hank as the only admin of wharf6, without a backup key; make one"
                         + " with porelo identity backup-key --host wharf6");
     }

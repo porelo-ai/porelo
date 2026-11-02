@@ -12,13 +12,12 @@ import java.util.Base64;
 import java.util.List;
 import java.util.Map;
 import org.fuin.porelo.core.process.Command;
+import org.fuin.porelo.vault.PersonCard;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.io.TempDir;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.ValueSource;
 import picocli.CommandLine;
 
 /**
@@ -30,24 +29,17 @@ import picocli.CommandLine;
 class IdentityBackupKeyCommandTest {
     @TempDir Path dir;
     private RegistryCheckout registry;
+    private TestOrganization organization;
 
     /** What the verb ran on the terminal. */
     private final List<List<String>> ran = new ArrayList<>();
 
     private boolean terminal = true;
 
-    /** What happens while ssh-keygen asks the passphrase, as another process might act then. */
-    private Runnable whileAsked = () -> {};
-
-    /** What the verb runs its commands through, as the machine's runner may fail. */
-    private java.util.function.UnaryOperator<org.fuin.porelo.core.process.CommandRunner> machine =
-            runner -> runner;
-
     @BeforeEach
-    void checkout() throws Exception {
+    void founded() throws Exception {
         registry = new RegistryCheckout(dir);
-        registry.founded();
-        assertThat(registry.registry("read", registry.repo.toString())).isZero();
+        organization = new TestOrganization(registry);
     }
 
     @AfterEach
@@ -66,29 +58,26 @@ class IdentityBackupKeyCommandTest {
         final CommandLine cli =
                 PoreloCli.commandLine(
                         new PoreloContext(
-                                machine.apply(registry.runner),
+                                registry.runner,
                                 registry.paths,
                                 command -> {
                                     ran.add(command);
                                     final List<String> keygen = new ArrayList<>(command);
                                     keygen.addAll(List.of("-N", ""));
-                                    final int made =
-                                            registry.runner.run(Command.of(keygen)).exitCode();
-                                    whileAsked.run();
-                                    return made;
+                                    return registry.runner.run(Command.of(keygen)).exitCode();
                                 },
                                 registry.environment()));
         cli.setOut(new PrintWriter(registry.out));
         cli.setErr(new PrintWriter(registry.err));
-        final IdentityBackupKeyCommand verb =
-                (IdentityBackupKeyCommand)
-                        cli.getSubcommands()
-                                .get("identity")
-                                .getSubcommands()
-                                .get("backup-key")
-                                .getCommand();
-        verb.forges = (address, token) -> registry.forge;
-        verb.terminal = () -> terminal;
+        IdentityRun.wire(cli, organization.opener(), null);
+        ((IdentityBackupKeyCommand)
+                                cli.getSubcommands()
+                                        .get("identity")
+                                        .getSubcommands()
+                                        .get("backup-key")
+                                        .getCommand())
+                        .terminal =
+                () -> terminal;
         final List<String> all = new ArrayList<>(List.of("identity", "backup-key"));
         all.addAll(List.of(args));
         return cli.execute(all.toArray(String[]::new));
@@ -125,28 +114,54 @@ class IdentityBackupKeyCommandTest {
                         + "\n");
     }
 
-    private Map<?, ?> read() {
-        assertThat(registry.registry("read", registry.repo.toString(), "--json")).isZero();
+    private Map<?, ?> answer() {
         return registry.answer();
     }
 
-    @Test
-    void the_one_owner_makes_a_backup_key_into_a_file_filed_beside_their_key() throws Exception {
-        IdentityRun.keep(registry, registry.card("michael", "michael"));
+    private String err() {
+        return registry.err.toString();
+    }
+
+    /** michael's first card accepted and kept here, as an owner's is. */
+    private void owner() throws Exception {
+        new IdentityStore(registry.context()).keep(organization.filed("michael"));
         registry.agent("michael");
+    }
+
+    /** michael has filed the key in a file of the test's own as his backup. */
+    private Path backup() throws Exception {
+        final Path file = dir.resolve("backup");
+        assertThat(backupKey("--organization", "--out", file.toString(), "--json"))
+                .as(err())
+                .isZero();
+        return file;
+    }
+
+    /** A new card of michael's, on a key his agent serves and the forge lists. */
+    private Path nextCard() throws Exception {
+        organization.listed("michael", "alice-new");
+        registry.close();
+        registry.agent("alice-new");
+        return Files.writeString(dir.resolve("next.card"), registry.card("michael", "alice-new"));
+    }
+
+    /** Why the verb is here: the owner's place with a second key that no daily agent holds. */
+    @Test
+    void an_owner_makes_a_backup_key_into_a_file_filed_beside_their_key() throws Exception {
+        owner();
         final Path file = dir.resolve("backup");
 
-        assertThat(backupKey("--registry", "--out", file.toString(), "--json"))
-                .as(registry.err.toString())
+        assertThat(backupKey("--organization", "--out", file.toString(), "--json"))
+                .as(err())
                 .isZero();
-        final Map<?, ?> answer = registry.answer();
-        final Map<String, Object> registryScope = new java.util.HashMap<>();
-        registryScope.put("kind", "registry");
-        registryScope.put("name", null);
-        assertThat(answer.get("scope")).isEqualTo(registryScope);
+
+        final Map<?, ?> answer = answer();
+        assertThat(answer.get("scope"))
+                .isEqualTo(Map.of("kind", "organization", "name", TestOrganization.ADDRESS));
         assertThat(answer.get("file")).isEqualTo(file.toString());
-        assertThat(answer.get("pushed")).isEqualTo(false);
-        assertThat(answer.get("revision")).isEqualTo(registry.head());
+        assertThat(answer.get("pushed")).isEqualTo(true);
+        assertThat(answer.get("again")).isEqualTo(false);
+        assertThat(answer.get("revision")).isEqualTo(organization.tip());
         assertThat(ran)
                 .singleElement()
                 .asInstanceOf(org.assertj.core.api.InstanceOfAssertFactories.LIST)
@@ -157,32 +172,27 @@ class IdentityBackupKeyCommandTest {
         assertThat(dir.resolve("backup.pub"))
                 .as("only the file is the person's to keep")
                 .doesNotExist();
-
-        final Map<?, ?> read = read();
-        assertThat(read.get("owners"))
-                .asInstanceOf(org.assertj.core.api.InstanceOfAssertFactories.LIST)
+        assertThat(organization.owners())
                 .contains(
-                        Map.of(
-                                "login",
-                                "michael",
-                                "fingerprint",
-                                answer.get("fingerprint"),
-                                "backup",
-                                true));
-        assertThat(read.get("warnings"))
-                .asInstanceOf(org.assertj.core.api.InstanceOfAssertFactories.LIST)
-                .containsExactly(registry.soleWarnings().getLast());
+                        org.fuin.porelo.vault.OpenSshPrivateKey.publicKey(Files.readString(file)));
+        assertThat(organization.signer("HEAD")).isEqualTo("michael");
 
-        assertThat(backupKey("--registry", "--out", dir.resolve("again").toString(), "--json"))
+        assertThat(backupKey("--organization", "--out", dir.resolve("again").toString(), "--json"))
                 .isEqualTo(65);
-        assertThat(registry.answer().get("reason")).isEqualTo("backup-exists");
+        assertThat(answer().get("reason")).isEqualTo("exists");
         assertThat(dir.resolve("again")).doesNotExist();
     }
 
+    /** A host's admin holds a place of their own, which goes by the same verb. */
     @Test
-    void a_host_admins_backup_key_is_filed_by_an_owner() throws Exception {
-        IdentityRun.keep(registry, registry.card("hank", "hank"));
-        registry.agent("michael");
+    void a_host_admin_files_a_backup_key_for_their_host() throws Exception {
+        organization.filed("michael");
+        new IdentityStore(registry.context()).keep(organization.filed("hank"));
+        organization
+                .writes()
+                .addHost(organization.change("michael", "michael", "h1"), "wharf6", "hank");
+        registry.agent("hank");
+
         assertThat(
                         backupKey(
                                 "--host",
@@ -190,613 +200,367 @@ class IdentityBackupKeyCommandTest {
                                 "--out",
                                 dir.resolve("backup").toString(),
                                 "--json"))
-                .as(registry.err.toString())
+                .as(err())
                 .isZero();
-        assertThat(registry.answer().get("scope"))
-                .isEqualTo(Map.of("kind", "host", "name", "wharf6"));
-        assertThat(read().get("warnings"))
-                .asInstanceOf(org.assertj.core.api.InstanceOfAssertFactories.LIST)
-                .containsExactly(registry.soleWarnings().getFirst());
+
+        assertThat(answer().get("scope")).isEqualTo(Map.of("kind", "host", "name", "wharf6"));
+        assertThat(organization.signer("HEAD")).isEqualTo("hank");
     }
 
+    /** No key file is left behind for a place the person does not hold, or a host not there. */
     @Test
-    void nobody_but_the_one_owner_and_nothing_without_a_terminal_or_over_a_file() throws Exception {
-        IdentityRun.keep(registry, registry.card("alice", "alice"));
-        registry.agent("michael");
-        assertThat(backupKey("--registry", "--out", dir.resolve("a").toString(), "--json"))
+    void nobody_who_does_not_hold_the_place_and_nothing_over_a_file_or_without_a_terminal()
+            throws Exception {
+        new IdentityStore(registry.context()).keep(organization.filed("alice"));
+        registry.agent("alice");
+        assertThat(backupKey("--organization", "--out", dir.resolve("a").toString(), "--json"))
                 .isEqualTo(65);
-        assertThat(registry.answer().get("reason")).isEqualTo("not-sole");
+        assertThat(answer().get("reason")).isEqualTo("not-allowed");
+        assertThat(backupKey("--host", "wharf6", "--out", dir.resolve("a").toString(), "--json"))
+                .isEqualTo(66);
+        assertThat(answer().get("reason")).isEqualTo("not-found");
 
-        IdentityRun.keep(registry, registry.card("michael", "michael"));
+        registry.close();
+        owner();
         final Path taken = Files.writeString(dir.resolve("taken"), "mine");
-        assertThat(backupKey("--registry", "--out", taken.toString(), "--json")).isEqualTo(65);
-        assertThat(registry.answer().get("reason")).isEqualTo("file-exists");
+        assertThat(backupKey("--organization", "--out", taken.toString(), "--json")).isEqualTo(65);
+        assertThat(answer().get("reason")).isEqualTo("file-exists");
         assertThat(Files.readString(taken)).isEqualTo("mine");
 
         terminal = false;
-        assertThat(backupKey("--registry", "--out", dir.resolve("b").toString(), "--json"))
+        assertThat(backupKey("--organization", "--out", dir.resolve("b").toString(), "--json"))
                 .isEqualTo(65);
-        assertThat(registry.answer().get("reason")).isEqualTo("no-terminal");
+        assertThat(answer().get("reason")).isEqualTo("no-terminal");
         assertThat(ran).isEmpty();
-        assertThat(backupKey("--registry", "--json")).isEqualTo(64);
-        assertThat(backupKey("--registry", "--host", "wharf6", "--out", "x")).isEqualTo(64);
+        assertThat(backupKey("--organization", "--json")).isEqualTo(64);
+        assertThat(backupKey("--organization", "--host", "wharf6", "--out", "x")).isEqualTo(64);
     }
 
+    /** The word the old registry had is gone from the verb, and with it its projects. */
     @Test
-    void the_backup_key_replaces_the_key_it_backs_and_nothing_else() throws Exception {
-        IdentityRun.keep(registry, registry.card("michael", "michael"));
-        registry.agent("michael");
-        final Path file = dir.resolve("backup");
-        assertThat(backupKey("--registry", "--out", file.toString())).isZero();
-        assertThat(read().get("warnings")).isNotNull();
-        registry.close();
-        final Path card =
-                Files.writeString(dir.resolve("new.card"), registry.card("michael", "alice-new"));
-
-        assertThat(
-                        backupKey(
-                                "--registry",
-                                "--use",
-                                file.toString(),
-                                "--card",
-                                card.toString(),
-                                "--id",
-                                "lost-1",
-                                "--json"))
-                .as(registry.err.toString())
-                .isZero();
-        final Map<?, ?> answer = registry.answer();
-        assertThat(answer.get("replaced")).isEqualTo(registry.pin("michael"));
-        assertThat(answer.get("by")).isEqualTo(registry.pin("alice-new"));
-        final Map<?, ?> read = read();
-        assertThat(((List<?>) read.get("owners")).getFirst())
-                .isEqualTo(
-                        Map.of(
-                                "login",
-                                "michael",
-                                "fingerprint",
-                                registry.pin("alice-new"),
-                                "backup",
-                                false));
-        assertThat(read.get("refused_commit")).isNull();
-
-        final Path other = dir.resolve("other");
-        registry.runner.runOrFail(
-                Command.of("ssh-keygen", "-q", "-t", "ed25519", "-N", "", "-f", other.toString()));
-        assertThat(
-                        backupKey(
-                                "--registry",
-                                "--use",
-                                other.toString(),
-                                "--card",
-                                card.toString(),
-                                "--id",
-                                "lost-2",
-                                "--json"))
-                .isEqualTo(65);
-        assertThat(registry.answer().get("reason")).isEqualTo("not-the-backup");
-        final Path locked = misread(file, dir.resolve("locked"));
-        final Path newer =
-                Files.writeString(dir.resolve("newer.card"), registry.card("michael", "bob"));
-        assertThat(
-                        backupKey(
-                                "--registry",
-                                "--use",
-                                locked.toString(),
-                                "--card",
-                                newer.toString(),
-                                "--id",
-                                "lost-3",
-                                "--json"))
-                .as("a file whose passphrase is not given does not sign")
-                .isEqualTo(65);
-        final Map<?, ?> misread = registry.answer();
-        assertThat(misread.get("reason")).as(misread.toString()).isEqualTo("wrong-passphrase");
-        assertThat(backupKey("--registry", "--use", file.toString(), "--card", card.toString()))
-                .as("--use names its change")
+    void the_old_scopes_are_wrong_use() throws Exception {
+        owner();
+        assertThat(backupKey("--registry", "--out", dir.resolve("a").toString())).isEqualTo(64);
+        assertThat(backupKey("--project", "demo", "--out", dir.resolve("a").toString()))
                 .isEqualTo(64);
-
-        // Signed by the backup key itself, outside the verb: it makes itself michael's own key.
-        final String backupKey =
-                org.fuin.porelo.vault.OpenSshPrivateKey.publicKey(Files.readString(file));
-        registry.write(
-                "owners.yml",
-                "owners:\n  - login: michael\n    key: \""
-                        + backupKey
-                        + "\"\nhost_admins:\n  wharf6:\n    - login: hank\n      key: \""
-                        + registry.key("hank")
-                        + "\"\n");
-        registry.keyFiles.put("backup", file);
-        final String promoted = registry.commit("backup");
-        final Map<?, ?> refused = read();
-        assertThat(refused.get("owners"))
-                .as("the backup key changes nothing but the key it backs")
-                .isEqualTo(read.get("owners"));
-        assertThat(((Map<?, ?>) refused.get("refused_commit")).get("commit")).isEqualTo(promoted);
+        assertThat(dir.resolve("a")).doesNotExist();
     }
 
+    /** A person who could not sign would hold a key that backs nothing. */
     @Test
-    void a_key_the_revocation_list_names_replaces_nothing() throws Exception {
-        IdentityRun.keep(registry, registry.card("michael", "michael"));
-        registry.agent("michael");
-        final Path file = dir.resolve("backup");
-        assertThat(backupKey("--registry", "--out", file.toString())).isZero();
-        assertThat(registry.registry("read", registry.repo.toString())).isZero();
-        registry.close();
-        final String before = registry.head();
-        final Path card =
-                Files.writeString(dir.resolve("new.card"), registry.card("michael", "alice-new"));
-        IdentityRun.revoke(registry, "alice-new");
-        assertThat(
-                        backupKey(
-                                "--registry",
-                                "--use",
-                                file.toString(),
-                                "--card",
-                                card.toString(),
-                                "--id",
-                                "lost-1",
-                                "--json"))
-                .isEqualTo(65);
-        assertThat(registry.answer().get("reason"))
-                .as("the new card's key is revoked here")
-                .isEqualTo("revoked");
-
-        final Path pub = dir.resolve("backup-public");
-        Files.writeString(
-                Path.of(pub + ".pub"),
-                org.fuin.porelo.vault.OpenSshPrivateKey.publicKey(Files.readString(file)) + "\n");
-        registry.keyFiles.put("backup-public", pub);
-        IdentityRun.revoke(registry, "backup-public");
-        assertThat(
-                        backupKey(
-                                "--registry",
-                                "--use",
-                                file.toString(),
-                                "--card",
-                                card.toString(),
-                                "--id",
-                                "lost-2",
-                                "--json"))
-                .isEqualTo(65);
-        assertThat(registry.answer().get("reason"))
-                .as("the backup key is revoked here")
-                .isEqualTo("revoked");
-        assertThat(registry.head()).as("nothing was filed").isEqualTo(before);
-    }
-
-    @Test
-    void a_trust_record_behind_the_checkout_makes_no_second_backup_key() throws Exception {
-        IdentityRun.keep(registry, registry.card("michael", "michael"));
-        registry.agent("michael");
-        assertThat(backupKey("--registry", "--out", dir.resolve("backup").toString())).isZero();
-        final String filed = registry.head();
-        final String owners = registry.git("show", "HEAD:owners.yml");
-
-        final Path again = dir.resolve("again");
-        final int code =
-                backupKey("--registry", "--out", again.toString(), "--base", filed, "--json");
-
-        assertThat(code).as("judged on the checkout, not on the last read").isEqualTo(65);
-        assertThat(registry.answer().get("reason")).isEqualTo("backup-exists");
-        assertThat(again).doesNotExist();
-        assertThat(registry.head()).isEqualTo(filed);
-        assertThat(registry.git("show", "HEAD:owners.yml")).isEqualTo(owners);
-    }
-
-    @Test
-    void the_same_id_answers_the_same_change_before_and_after_a_read() throws Exception {
-        IdentityRun.keep(registry, registry.card("michael", "michael"));
-        registry.agent("michael");
-        final Path file = dir.resolve("backup");
-        assertThat(backupKey("--registry", "--out", file.toString(), "--id", "bk-1", "--json"))
-                .as(registry.err.toString())
-                .isZero();
-        final Map<?, ?> made = registry.answer();
-        final Path again = dir.resolve("again");
-        for (String when : List.of("before a read", "after a read")) {
-            ran.clear();
-            assertThat(backupKey("--registry", "--out", again.toString(), "--id", "bk-1", "--json"))
-                    .as(when + ": " + registry.err)
-                    .isZero();
-            final Map<?, ?> answer = registry.answer();
-            assertThat(answer.get("revision")).as(when).isEqualTo(made.get("revision"));
-            assertThat(answer.get("fingerprint")).as(when).isEqualTo(made.get("fingerprint"));
-            assertThat(ran).as("%s: no second key is made", when).isEmpty();
-            assertThat(again).doesNotExist();
-            assertThat(registry.registry("read", registry.repo.toString())).isZero();
-        }
-
-        registry.close();
-        final Path card =
-                Files.writeString(dir.resolve("new.card"), registry.card("michael", "alice-new"));
-        final String[] use = {
-            "--registry",
-            "--use",
-            file.toString(),
-            "--card",
-            card.toString(),
-            "--id",
-            "lost-1",
-            "--json"
-        };
-        assertThat(backupKey(use)).as(registry.err.toString()).isZero();
-        final Map<?, ?> replaced = registry.answer();
-        assertThat(replaced.get("replaced")).isEqualTo(registry.pin("michael"));
-        for (String when : List.of("before a read", "after a read")) {
-            assertThat(backupKey(use)).as(when + ": " + registry.err).isZero();
-            assertThat(registry.answer()).as(when).isEqualTo(replaced);
-            assertThat(registry.registry("read", registry.repo.toString())).isZero();
-        }
-    }
-
-    @Test
-    void an_id_answers_only_the_backup_key_it_filed_on_the_base_it_names() throws Exception {
-        IdentityRun.keep(registry, registry.card("michael", "michael"));
-        registry.agent("michael");
-        assertThat(backupKey("--registry", "--out", dir.resolve("r1").toString(), "--id", "bk-r"))
-                .as(registry.err.toString())
-                .isZero();
-        final String filed = registry.head();
-        final Path again = dir.resolve("r2");
-        assertThat(
-                        backupKey(
-                                "--registry",
-                                "--out",
-                                again.toString(),
-                                "--id",
-                                "bk-r",
-                                "--base",
-                                filed,
-                                "--json"))
-                .as("bk-r was filed on the commit before " + filed + ", not on it")
-                .isEqualTo(65);
-        assertThat(registry.registry("read", registry.repo.toString())).isZero();
-        IdentityRun.keep(registry, registry.card("hank", "hank"));
-        assertThat(
-                        backupKey(
-                                "--host",
-                                "wharf6",
-                                "--out",
-                                dir.resolve("h").toString(),
-                                "--id",
-                                "op-1"))
-                .as(registry.err.toString())
-                .isZero();
-        IdentityRun.keep(registry, registry.card("michael", "michael"));
-
-        assertThat(backupKey("--registry", "--out", again.toString(), "--id", "op-1", "--json"))
-                .as("op-1 filed hank's key for wharf6, not michael's for the registry")
-                .isEqualTo(65);
-        assertThat(again).doesNotExist();
-    }
-
-    @Test
-    void an_id_answers_only_the_key_it_replaced_on_the_base_it_names() throws Exception {
-        IdentityRun.keep(registry, registry.card("michael", "michael"));
-        registry.agent("michael");
-        final Path file = dir.resolve("r1");
-        assertThat(backupKey("--registry", "--out", file.toString())).isZero();
-        assertThat(registry.registry("read", registry.repo.toString())).isZero();
-        IdentityRun.keep(registry, registry.card("hank", "hank"));
-        final Path host = dir.resolve("h");
-        assertThat(backupKey("--host", "wharf6", "--out", host.toString())).isZero();
-        assertThat(registry.registry("read", registry.repo.toString())).isZero();
-        registry.close();
-        IdentityRun.keep(registry, registry.card("michael", "michael"));
-        final Path card =
-                Files.writeString(dir.resolve("new.card"), registry.card("michael", "alice-new"));
-        final String[] use = {
-            "--registry", "--use", file.toString(), "--card", card.toString(), "--id", "lost-1"
-        };
-        assertThat(backupKey(use)).as(registry.err.toString()).isZero();
-        final String replaced = registry.head();
-        final List<String> moved = new ArrayList<>(List.of(use));
-        moved.addAll(List.of("--base", replaced, "--json"));
-        assertThat(backupKey(moved.toArray(String[]::new)))
-                .as("lost-1 was filed on the commit before " + replaced + ", not on it")
-                .isEqualTo(65);
-
-        assertThat(registry.registry("read", registry.repo.toString())).isZero();
-        IdentityRun.keep(registry, registry.card("hank", "hank"));
-        final Path hanks =
-                Files.writeString(dir.resolve("hank-new.card"), registry.card("hank", "bob"));
-        assertThat(
-                        backupKey(
-                                "--host",
-                                "wharf6",
-                                "--use",
-                                host.toString(),
-                                "--card",
-                                hanks.toString(),
-                                "--id",
-                                "op-2"))
-                .as(registry.err.toString())
-                .isZero();
-        IdentityRun.keep(registry, registry.card("michael", "michael"));
-        final int code =
-                backupKey(
-                        "--registry",
-                        "--use",
-                        file.toString(),
-                        "--card",
-                        card.toString(),
-                        "--id",
-                        "op-2",
-                        "--json");
-
-        assertThat(code)
-                .as("op-2 replaced hank's key for wharf6, not michael's: " + registry.out)
-                .isEqualTo(65);
-    }
-
-    @Test
-    void an_id_answers_no_replacement_another_key_than_the_backup_key_signed() throws Exception {
-        IdentityRun.keep(registry, registry.card("michael", "michael"));
-        registry.agent("michael");
-        final Path file = dir.resolve("backup");
-        assertThat(backupKey("--registry", "--out", file.toString())).isZero();
-        assertThat(registry.registry("read", registry.repo.toString())).isZero();
-        final Path replaced =
-                Files.writeString(
-                        dir.resolve("replaced.yml"),
-                        registry.git("show", "HEAD:owners.yml")
-                                .replace(registry.key("michael"), registry.key("alice-new")));
-        assertThat(
-                        registry.registry(
-                                "file",
-                                "owners",
-                                registry.repo.toString(),
-                                "--file",
-                                replaced.toString(),
-                                "--id",
-                                "lost-1"))
-                .as(registry.err.toString())
-                .isZero();
-        final String byOwner = registry.head();
-        registry.close();
-        final Path card =
-                Files.writeString(dir.resolve("new.card"), registry.card("michael", "alice-new"));
-
-        final int code =
-                backupKey(
-                        "--registry",
-                        "--use",
-                        file.toString(),
-                        "--card",
-                        card.toString(),
-                        "--id",
-                        "lost-1",
-                        "--json");
-
-        assertThat(code)
-                .as(
-                        "lost-1 was signed by michael's own key, not by the backup key: "
-                                + registry.out)
-                .isEqualTo(65);
-        assertThat(registry.head()).as("nothing is committed").isEqualTo(byOwner);
-    }
-
-    @Test
-    void an_id_asked_again_after_its_key_was_revoked_answers_nothing() throws Exception {
-        IdentityRun.keep(registry, registry.card("michael", "michael"));
-        registry.agent("michael");
-        final Path file = dir.resolve("backup");
-        assertThat(backupKey("--registry", "--out", file.toString(), "--id", "bk-1"))
-                .as(registry.err.toString())
-                .isZero();
-        IdentityRun.revoke(registry, "michael");
-
-        assertThat(backupKey("--registry", "--out", file.toString(), "--id", "bk-1", "--json"))
-                .as("a revoked key is refused asked again as it is asked anew")
-                .isEqualTo(65);
-        assertThat(registry.answer().get("reason")).isEqualTo("revoked");
-    }
-
-    @Test
-    void a_checkout_whose_origin_moved_is_not_read_as_another_registry() throws Exception {
-        IdentityRun.keep(registry, registry.card("michael", "michael"));
-        registry.agent("michael");
-        final Path records = registry.record().getParent();
-        final List<Path> before;
-        try (var listed = Files.list(records)) {
-            before = listed.sorted().toList();
-        }
-        registry.git("remote", "set-url", "origin", "https://forge.example.org/other/registry.git");
-        final Path file = dir.resolve("backup");
-
-        assertThat(backupKey("--registry", "--out", file.toString(), "--json")).isEqualTo(65);
-
-        try (var listed = Files.list(records)) {
-            assertThat(listed.sorted().toList())
-                    .as("no trust record is written for the other address")
-                    .isEqualTo(before);
-        }
-        assertThat(file).doesNotExist();
-        assertThat(ran).isEmpty();
-    }
-
-    @Test
-    void a_checkout_that_lost_its_origin_is_refused_as_an_origin_that_moved() throws Exception {
-        IdentityRun.keep(registry, registry.card("michael", "michael"));
-        registry.agent("michael");
-        registry.git("remote", "remove", "origin");
-        final Path file = dir.resolve("backup");
-
-        assertThat(backupKey("--registry", "--out", file.toString(), "--json")).isEqualTo(65);
-
-        assertThat(registry.answer().get("reason"))
-                .as("the checkout is still a Git directory of its own; its origin is gone")
-                .isEqualTo("origin-moved");
-        assertThat(ran).isEmpty();
-    }
-
-    @Test
-    void a_read_the_history_refuses_ends_in_a_refusal() throws Exception {
-        IdentityRun.keep(registry, registry.card("michael", "michael"));
-        registry.agent("michael");
-        // A shallow checkout cannot prove its history, which the read refuses.
-        Files.writeString(registry.repo.resolve(".git/shallow"), registry.head() + "\n");
-        final Path file = dir.resolve("backup");
-
-        final int code = backupKey("--registry", "--out", file.toString(), "--json");
-
-        assertThat(code).as(registry.err.toString()).isEqualTo(65);
-        assertThat(dir.resolve("state/porelo/failures.log"))
-                .as("a refusal, not an unhandled failure")
-                .doesNotExist();
-        assertThat(file).doesNotExist();
-    }
-
-    @Test
-    void an_owner_whose_own_key_the_revocation_list_names_makes_no_backup_key() throws Exception {
-        IdentityRun.keep(registry, registry.card("michael", "michael"));
-        registry.agent("michael");
-        IdentityRun.revoke(registry, "michael");
-        final String before = registry.head();
-        final Path file = dir.resolve("backup");
-
-        assertThat(backupKey("--registry", "--out", file.toString(), "--json")).isEqualTo(65);
-
-        assertThat(registry.answer().get("reason")).isEqualTo("revoked");
-        assertThat(ran).as("no key is made").isEmpty();
-        assertThat(file).doesNotExist();
-        assertThat(registry.head()).isEqualTo(before);
-    }
-
-    @Test
-    void a_public_half_already_there_is_neither_overwritten_nor_removed() throws Exception {
-        IdentityRun.keep(registry, registry.card("michael", "michael"));
-        registry.agent("michael");
-        final Path file = dir.resolve("backup");
-        final Path pub = Files.writeString(dir.resolve("backup.pub"), "mine\n");
-
-        assertThat(backupKey("--registry", "--out", file.toString(), "--json")).isEqualTo(65);
-
-        assertThat(registry.answer().get("reason")).isEqualTo("file-exists");
-        assertThat(ran).as("no key is made").isEmpty();
-        assertThat(pub).hasContent("mine");
-        assertThat(file).doesNotExist();
-    }
-
-    @Test
-    void a_key_filed_before_the_checkout_refused_its_work_tree_is_kept() throws Exception {
-        IdentityRun.keep(registry, registry.card("michael", "michael"));
-        registry.agent("michael");
-        final String before = registry.head();
-        final Path owners = registry.repo.resolve("owners.yml");
-        Files.setPosixFilePermissions(owners, PosixFilePermissions.fromString("r--r--r--"));
-        final Path file = dir.resolve("backup");
-
-        final int code = backupKey("--registry", "--out", file.toString(), "--json");
-
-        Files.setPosixFilePermissions(owners, PosixFilePermissions.fromString("rw-r--r--"));
-        assertThat(code).as("the work tree's owners.yml could not be written").isNotZero();
-        assertThat(registry.head()).as("the commit was made").isNotEqualTo(before);
-        assertThat(file).as("the key its commit files is the person's to keep").exists();
-    }
-
-    @Test
-    void a_key_filed_before_head_could_be_read_again_is_kept() throws Exception {
-        IdentityRun.keep(registry, registry.card("michael", "michael"));
-        registry.agent("michael");
-        final String before = registry.head();
-        final Path owners = registry.repo.resolve("owners.yml");
-        Files.setPosixFilePermissions(owners, PosixFilePermissions.fromString("r--r--r--"));
-        final boolean[] moved = {false};
-        machine =
-                runner ->
-                        command -> {
-                            if (moved[0] && command.arguments().contains("rev-parse")) {
-                                throw new org.fuin.porelo.core.process.CommandException(
-                                        command, new java.io.IOException("git is gone"));
-                            }
-                            moved[0] |= command.arguments().contains("update-ref");
-                            return runner.run(command);
-                        };
-        final Path file = dir.resolve("backup");
-
-        final int code = backupKey("--registry", "--out", file.toString(), "--json");
-
-        Files.setPosixFilePermissions(owners, PosixFilePermissions.fromString("rw-r--r--"));
-        assertThat(code).as("the work tree's owners.yml could not be written").isNotZero();
-        assertThat(registry.head()).as("the commit was made").isNotEqualTo(before);
-        assertThat(file).as("a HEAD that cannot be read may hold the key filed").exists();
-    }
-
-    @ParameterizedTest
-    @ValueSource(strings = {"base-moved", "not-signer"})
-    void a_filing_git_refuses_names_its_reason(final String reason) throws Exception {
-        IdentityRun.keep(registry, registry.card("michael", "michael"));
-        registry.agent("michael");
-        machine =
-                runner ->
-                        command -> {
-                            if (reason.equals("base-moved")
-                                    && command.arguments().contains("update-ref")) {
-                                // Another commit lands between the signed commit and the move.
-                                registry.git("commit", "-q", "--allow-empty", "-m", "another");
-                            }
-                            if (reason.equals("not-signer")
-                                    && command.arguments().contains("commit-tree")) {
-                                // The agent goes, as one does that refuses to sign.
-                                try {
-                                    registry.close();
-                                } catch (final InterruptedException ex) {
-                                    Thread.currentThread().interrupt();
-                                }
-                            }
-                            return runner.run(command);
-                        };
-
-        assertThat(backupKey("--registry", "--out", dir.resolve("backup").toString(), "--json"))
-                .as(registry.err.toString())
-                .isEqualTo(65);
-        assertThat(registry.answer().get("reason")).as(registry.err.toString()).isEqualTo(reason);
-    }
-
-    @Test
-    void a_key_whose_filing_found_head_moved_by_another_is_not_kept() throws Exception {
-        IdentityRun.keep(registry, registry.card("michael", "michael"));
-        registry.agent("michael");
-        final String before = registry.head();
-        whileAsked = () -> registry.commit("michael", "committed by another while asked");
-        final Path file = dir.resolve("backup");
-
-        assertThat(backupKey("--registry", "--out", file.toString(), "--json")).isEqualTo(65);
-
-        assertThat(registry.answer().get("reason")).isEqualTo("base-moved");
-        assertThat(registry.head()).as("another moved HEAD").isNotEqualTo(before);
-        assertThat(registry.git("show", "HEAD:owners.yml"))
-                .as("nothing filed the key")
-                .isEqualTo(registry.git("show", before + ":owners.yml"));
-        assertThat(file).as("a key no commit files is not kept").doesNotExist();
-        assertThat(Path.of(file + ".pub")).doesNotExist();
-    }
-
-    @Test
-    void a_refused_make_keeps_no_key_file_and_names_only_what_refused() throws Exception {
-        IdentityRun.keep(registry, registry.card("michael", "michael"));
+    void a_key_the_agent_does_not_serve_makes_no_backup_key() throws Exception {
+        new IdentityStore(registry.context()).keep(organization.filed("michael"));
         registry.agent("alice");
         final Path file = dir.resolve("backup");
-        assertThat(backupKey("--registry", "--out", file.toString(), "--json")).isEqualTo(65);
-        assertThat(registry.answer().get("reason")).isEqualTo("not-signer");
+
+        assertThat(backupKey("--organization", "--out", file.toString(), "--json")).isEqualTo(69);
+        assertThat(answer().get("reason")).isEqualTo("no-key");
+        assertThat(ran).isEmpty();
+        assertThat(file).doesNotExist();
+    }
+
+    /** A revoked key may hand nothing on, and a backup key made by it would back nothing. */
+    @Test
+    void an_owner_whose_own_key_the_revocation_list_names_makes_no_backup_key() throws Exception {
+        owner();
+        IdentityRun.revoke(registry, "michael");
+
+        assertThat(backupKey("--organization", "--out", dir.resolve("a").toString(), "--json"))
+                .isEqualTo(65);
+        assertThat(answer().get("reason")).isEqualTo("revoked");
+        assertThat(ran).isEmpty();
+    }
+
+    /** Someone else's public half is theirs, whichever of the two names is taken. */
+    @Test
+    void a_public_half_already_there_is_neither_overwritten_nor_removed() throws Exception {
+        owner();
+        final Path pub = Files.writeString(dir.resolve("backup.pub"), "mine");
+
+        assertThat(backupKey("--organization", "--out", dir.resolve("backup").toString(), "--json"))
+                .isEqualTo(65);
+        assertThat(answer().get("reason")).isEqualTo("file-exists");
+        assertThat(Files.readString(pub)).isEqualTo("mine");
+    }
+
+    /** A key the store refused backs nothing: a file left would be taken for a backup. */
+    @Test
+    void a_refused_make_keeps_no_key_file() throws Exception {
+        owner();
+        final String base = organization.tip();
+        organization.filed("alice");
+        final Path file = dir.resolve("backup");
+
+        assertThat(backupKey("--organization", "--out", file.toString(), "--base", base, "--json"))
+                .isEqualTo(65);
+
+        assertThat(answer().get("reason")).isEqualTo("moved-on");
         assertThat(ran).as("the key was made").hasSize(1);
         assertThat(file).as("a key never filed is not kept").doesNotExist();
         assertThat(Path.of(file + ".pub")).doesNotExist();
+    }
 
+    /** The store lost while it filed may have taken the key: its file must stay. */
+    @Test
+    void a_key_whose_filing_lost_the_store_is_kept_and_the_same_id_files_it() throws Exception {
+        owner();
+        final Path file = dir.resolve("backup");
+        organization.unreachableForChanges = true;
+
+        assertThat(backupKey("--organization", "--out", file.toString(), "--id", "b1", "--json"))
+                .isEqualTo(69);
+        assertThat(answer().get("reason")).isEqualTo("cannot-say");
+        assertThat(file).exists();
+        final String made = Files.readString(file);
+
+        organization.unreachableForChanges = false;
+        assertThat(backupKey("--organization", "--out", file.toString(), "--id", "b1", "--json"))
+                .as(err())
+                .isZero();
+
+        assertThat(answer().get("again")).isEqualTo(false);
+        assertThat(ran).as("the same key, not a second").hasSize(1);
+        assertThat(Files.readString(file)).isEqualTo(made);
+        assertThat(organization.owners())
+                .contains(org.fuin.porelo.vault.OpenSshPrivateKey.publicKey(made));
+    }
+
+    /** The id asked again answers the change it made, the store having moved on or not. */
+    @Test
+    void the_same_id_answers_the_same_change_and_makes_no_second_key() throws Exception {
+        owner();
+        final Path file = dir.resolve("backup");
+        assertThat(backupKey("--organization", "--out", file.toString(), "--id", "b1", "--json"))
+                .as(err())
+                .isZero();
+        final Object revision = answer().get("revision");
+        organization.filed("alice");
+        final String moved = organization.tip();
+
+        assertThat(backupKey("--organization", "--out", file.toString(), "--id", "b1", "--json"))
+                .as(err())
+                .isZero();
+
+        assertThat(answer().get("again")).isEqualTo(true);
+        assertThat(answer().get("revision")).isEqualTo(revision);
+        assertThat(ran).hasSize(1);
+        assertThat(organization.tip()).isEqualTo(moved);
+    }
+
+    /**
+     * The backup's whole use: it names the new key in the owner's place, and that key signs the
+     * card, so the lost key signs nothing further; other owners' entries stay as they are.
+     */
+    @Test
+    void the_backup_key_replaces_the_key_it_backs_and_nothing_else() throws Exception {
+        owner();
+        final Path file = backup();
+        final Path next = nextCard();
+        final String backupKey =
+                org.fuin.porelo.vault.OpenSshPrivateKey.publicKey(Files.readString(file));
+
+        assertThat(
+                        backupKey(
+                                "--organization",
+                                "--use",
+                                file.toString(),
+                                "--card",
+                                next.toString(),
+                                "--id",
+                                "u1",
+                                "--json"))
+                .as(err())
+                .isZero();
+
+        final Map<?, ?> answer = answer();
+        assertThat(answer.get("replaced")).isEqualTo(registry.pin("michael"));
+        assertThat(answer.get("by")).isEqualTo(registry.pin("alice-new"));
+        assertThat(answer.get("revision")).isEqualTo(organization.tip());
+        assertThat(organization.owners())
+                .contains(registry.key("alice-new"))
+                .contains(backupKey)
+                .doesNotContain(registry.key("michael"));
+        assertThat(PersonCard.read(organization.card("michael"), "filed").fingerprint())
+                .isEqualTo(registry.pin("alice-new"));
+        assertThat(organization.signer("HEAD")).isEqualTo("alice-new");
+    }
+
+    /** A person cut off from a passphrase prompt asks again, and no id of theirs is needed. */
+    @Test
+    void the_backup_key_used_with_no_id_makes_one_and_with_an_id_answers_the_same_change()
+            throws Exception {
+        owner();
+        final Path file = backup();
+        final Path next = nextCard();
+
+        assertThat(
+                        backupKey(
+                                "--organization",
+                                "--use",
+                                file.toString(),
+                                "--card",
+                                next.toString(),
+                                "--json"))
+                .as(err())
+                .isZero();
+        final Object id = answer().get("id");
+        final Object revision = answer().get("revision");
+
+        assertThat(
+                        backupKey(
+                                "--organization",
+                                "--use",
+                                file.toString(),
+                                "--card",
+                                next.toString(),
+                                "--id",
+                                (String) id,
+                                "--json"))
+                .as(err())
+                .isZero();
+
+        assertThat(answer().get("again")).isEqualTo(true);
+        assertThat(answer().get("revision")).isEqualTo(revision);
+    }
+
+    /** Any other key names nothing in the owner's place: the store and the verb both say no. */
+    @Test
+    void a_file_that_is_not_the_backup_replaces_nothing() throws Exception {
+        owner();
+        backup();
+        final String before = organization.tip();
+        final Path next = nextCard();
+
+        assertThat(
+                        backupKey(
+                                "--organization",
+                                "--use",
+                                registry.keyFiles.get("bob").toString(),
+                                "--card",
+                                next.toString(),
+                                "--json"))
+                .isEqualTo(65);
+        assertThat(answer().get("reason")).isEqualTo("not-the-backup");
+
+        assertThat(
+                        backupKey(
+                                "--organization",
+                                "--use",
+                                registry.keyFiles.get("bob").toString(),
+                                "--card",
+                                next.toString(),
+                                "--id",
+                                "u1",
+                                "--json"))
+                .isEqualTo(65);
+        assertThat(answer().get("reason")).isEqualTo("not-allowed");
+        assertThat(organization.tip()).isEqualTo(before);
+    }
+
+    /** A card of another person, or one not signed as a card must be, replaces nothing. */
+    @Test
+    void a_card_of_another_login_or_signed_wrongly_replaces_nothing() throws Exception {
+        owner();
+        final Path file = backup();
+        final String before = organization.tip();
+        final Path others =
+                Files.writeString(dir.resolve("others.card"), registry.card("alice", "alice-new"));
+
+        assertThat(
+                        backupKey(
+                                "--organization",
+                                "--use",
+                                file.toString(),
+                                "--card",
+                                others.toString(),
+                                "--json"))
+                .isEqualTo(65);
+        assertThat(answer().get("reason")).isEqualTo("card-login");
+
+        final Path forged =
+                Files.writeString(
+                        dir.resolve("forged.card"),
+                        registry.card("michael", "alice-new").replace("name: ", "name: x"));
+        assertThat(
+                        backupKey(
+                                "--organization",
+                                "--use",
+                                file.toString(),
+                                "--card",
+                                forged.toString(),
+                                "--json"))
+                .isEqualTo(65);
+        assertThat(answer().get("reason")).isEqualTo("card-login");
+        assertThat(organization.tip()).isEqualTo(before);
+    }
+
+    /** A revoked key, the backup's or the new card's, is signed for by nobody. */
+    @Test
+    void a_key_the_revocation_list_names_replaces_nothing() throws Exception {
+        owner();
+        final Path file = backup();
+        final Path next = nextCard();
+        final String before = organization.tip();
+        IdentityRun.revoke(registry, "alice-new");
+
+        assertThat(
+                        backupKey(
+                                "--organization",
+                                "--use",
+                                file.toString(),
+                                "--card",
+                                next.toString(),
+                                "--json"))
+                .isEqualTo(65);
+        assertThat(answer().get("reason")).isEqualTo("revoked");
+        assertThat(organization.tip()).isEqualTo(before);
+    }
+
+    /** A file that does not open says that, so the person types it again, not that it is wrong. */
+    @Test
+    void a_backup_key_file_that_will_not_open_is_wrong_passphrase() throws Exception {
+        owner();
+        final Path file = backup();
+        final Path next = nextCard();
+        final Path misread = misread(file, dir.resolve("misread"));
+        Files.setPosixFilePermissions(misread, PosixFilePermissions.fromString("rw-------"));
+
+        assertThat(
+                        backupKey(
+                                "--organization",
+                                "--use",
+                                misread.toString(),
+                                "--card",
+                                next.toString(),
+                                "--id",
+                                "u1",
+                                "--json"))
+                .isEqualTo(65);
+        assertThat(answer().get("reason")).isEqualTo("wrong-passphrase");
+    }
+
+    /** The new key signs the card, so an agent that does not serve it gets no change made. */
+    @Test
+    void a_new_key_the_agent_does_not_serve_is_no_key_and_nothing_stands() throws Exception {
+        owner();
+        final Path file = backup();
+        final String before = organization.tip();
+        final Path next = nextCard();
         registry.close();
-        registry.agent("michael");
-        registry.write("notes.txt", "staged for something else");
-        registry.git("add", "notes.txt");
-        assertThat(backupKey("--registry", "--out", file.toString(), "--json")).isEqualTo(65);
-        assertThat(registry.out.toString())
-                .as("a refusal that is not the agent's names no signer: " + registry.err)
-                .doesNotContain("not-signer");
-        assertThat(file).doesNotExist();
+        registry.agent("bob");
 
-        assertThat(backupKey("--registry", "--out", file.toString(), "--base", "HEAD"))
-                .as("a --base that is no commit's full hash")
-                .isEqualTo(64);
+        assertThat(
+                        backupKey(
+                                "--organization",
+                                "--use",
+                                file.toString(),
+                                "--card",
+                                next.toString(),
+                                "--id",
+                                "u1",
+                                "--json"))
+                .isEqualTo(65);
+        assertThat(answer().get("reason")).isEqualTo("wrong-passphrase");
+        assertThat(organization.tip()).isEqualTo(before);
     }
 }

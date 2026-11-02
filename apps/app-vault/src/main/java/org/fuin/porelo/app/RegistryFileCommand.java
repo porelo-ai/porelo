@@ -903,9 +903,8 @@ public class RegistryFileCommand implements Callable<Integer>, PoreloFactory.Con
 
     /** Whether this machine's revocation list names the key; the filing left out a registry's. */
     private boolean revokedHere(final String key) throws IOException {
-        return IdentityFacts.revoked(
+        return IdentityFacts.revokedHere(
                 java.util.Objects.requireNonNull(context, "picocli's factory sets the context"),
-                List.of(),
                 key);
     }
 

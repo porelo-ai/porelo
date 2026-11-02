@@ -268,7 +268,7 @@ class ProjectVerifyCommandTest {
         assertThat((List<?>) answer.get("warnings"))
                 .singleElement()
                 .asString()
-                .contains("only signer of demo", "identity backup-key --project demo");
+                .contains("only signer of demo", "without a backup key");
         assertThat(err.toString()).contains("porelo: warning: project.signers names");
         assertThat((List<?>) answer.get("backups")).isEmpty();
 

@@ -2,9 +2,8 @@ package org.fuin.porelo.app;
 
 import java.io.IOException;
 import java.nio.file.Path;
-import java.util.Map;
+import java.util.List;
 import java.util.concurrent.Callable;
-import org.fuin.porelo.organization.git.HttpForgeDirectory;
 import org.fuin.porelo.vault.AgentKey;
 import org.fuin.porelo.vault.CardException;
 import org.fuin.porelo.vault.PersonCard;
@@ -16,8 +15,8 @@ import picocli.CommandLine.Spec;
 
 /**
  * Changes the person's key: a new card signed by the new key and the old, both through the agent,
- * kept as an operation first, then filed and pushed to each registry and named for each project and
- * host that must take it.
+ * kept as an operation first, then filed through the organization's store, and only then kept here
+ * as the person's own.
  */
 @Command(
         name = "rotate",
@@ -25,7 +24,7 @@ import picocli.CommandLine.Spec;
         exitCodeOnInvalidInput = 64,
         description =
                 "Changes your key to one the ssh-agent serves, with a card signed by both keys,"
-                        + " and publishes it.")
+                        + " and files it in the organization.")
 public class IdentityRotateCommand implements Callable<Integer>, PoreloFactory.ContextAware {
 
     @Option(
@@ -49,12 +48,18 @@ public class IdentityRotateCommand implements Callable<Integer>, PoreloFactory.C
     private @Nullable String entry;
 
     @Option(
+            names = "--base",
+            paramLabel = "REVISION",
+            description = "The organization's revision it is made against.")
+    private @Nullable String base;
+
+    @Option(
             names = "--id",
             paramLabel = "ID",
-            description = "The operation's id; the same id again answers the same operation.")
+            description = "Names the change; the same id again answers the same change.")
     private @Nullable String id;
 
-    @Option(names = "--json", description = "Answers the operation and its places as JSON.")
+    @Option(names = "--json", description = "Answers the change as JSON.")
     private boolean json;
 
     @Spec private CommandSpec spec;
@@ -65,17 +70,7 @@ public class IdentityRotateCommand implements Callable<Integer>, PoreloFactory.C
     KeePassXcKey store = KeePassXcKey.real();
 
     /** Replaced by a test, which has no forge to ask. */
-    RegistryReadCommand.Forges forges =
-            (forge, token) ->
-                    new HttpForgeDirectory(
-                            forge,
-                            token,
-                            RegistryReadCommand.http(
-                                    java.util.Objects.requireNonNull(
-                                            context, "picocli's factory sets the context")));
-
-    /** Replaced by a test, which pushes to a repository of its own. */
-    IdentityChange.Remotes remotes = IdentityChange.FORGE;
+    IdentityOrganization.Opener opener = IdentityOrganization::real;
 
     @Override
     public void setContext(PoreloContext context) {
@@ -83,7 +78,7 @@ public class IdentityRotateCommand implements Callable<Integer>, PoreloFactory.C
     }
 
     @Override
-    public Integer call() {
+    public Integer call() throws IOException {
         final PoreloContext machine =
                 java.util.Objects.requireNonNull(context, "picocli's factory sets the context");
         try {
@@ -91,26 +86,33 @@ public class IdentityRotateCommand implements Callable<Integer>, PoreloFactory.C
             final @Nullable String named = IdentityChange.keyChosen(key, keepassxc, entry);
             final IdentityOperation again =
                     IdentityChange.kept(machine, id, IdentityOperation.ROTATE);
-            if (again != null) {
-                IdentityChange.print(spec, json, IdentityChange.finish(machine, again));
+            if (again != null && again.done()) {
+                answer(IdentityChange.finish(machine, again), true, null);
                 return 0;
             }
-            final IdentityChange change = new IdentityChange(machine, forges, remotes);
+            final IdentityChange change = new IdentityChange(machine);
             final PersonCard card = change.card();
+            final IdentityOrganization.Reading organization =
+                    IdentityOrganization.required(machine, opener);
+            if (again != null) {
+                final IdentityChange.Filed filed =
+                        change.file(organization, again, base, change.socket());
+                answer(filed.operation(), filed.again(), null);
+                return 0;
+            }
             // A revoked key hands nothing on: its signature is refused wherever it would count.
-            if (change.revoked(card.key())) {
-                throw new IdentityChange.Refused(
-                        65,
-                        "revoked",
+            if (change.revoked(card.key(), organization)) {
+                throw IdentityChange.revokedRefusal(
                         "the card's key "
                                 + card.fingerprint()
                                 + " is revoked; replace it with identity revoke --lost",
-                        Map.of("who_may", IdentityChange.answers(change.owners())));
+                        organization);
             }
             final String socket = change.socket();
             // Asked before a key is made, so a KeePassXC entry is never made for a rotation that
-            // cannot be signed by the old key.
+            // cannot be signed by the old key, or that another stands in the way of.
             final AgentKey old = IdentityChange.servedKey(card.fingerprint(), socket);
+            change.refuseWhatReached(organization, card.login(), id);
             final KeePassXcKey.Made made =
                     named != null
                             ? null
@@ -127,7 +129,8 @@ public class IdentityRotateCommand implements Callable<Integer>, PoreloFactory.C
                                     ? java.util.Objects.requireNonNull(named, "--key is given")
                                     : made.fingerprint(),
                             card.login(),
-                            socket);
+                            socket,
+                            organization);
             final String fingerprint = PersonCard.fingerprint(PersonCard.keyLine(successor));
             if (fingerprint.equals(card.fingerprint())) {
                 throw new IdentityChange.Refused(
@@ -141,6 +144,7 @@ public class IdentityRotateCommand implements Callable<Integer>, PoreloFactory.C
                             successor,
                             IdentityChange.today(),
                             old);
+            change.replaceWhatReachedNowhere(organization, card.login(), id);
             final IdentityChange.Begun begun =
                     change.begin(
                             id,
@@ -151,16 +155,16 @@ public class IdentityRotateCommand implements Callable<Integer>, PoreloFactory.C
                                     card.fingerprint(),
                                     text,
                                     false,
-                                    change.places(
-                                            card.login(), IdentityOperation.ROTATE, "pending"),
+                                    null,
                                     false));
-            IdentityOperation operation = begun.operation();
-            if (begun.fresh()) {
-                operation = operation.publishedTo(change.publish(operation, card.login()));
-                operation.keep(machine);
+            try {
+                final IdentityChange.Filed filed =
+                        change.file(organization, begun.operation(), base, socket);
+                answer(filed.operation(), filed.again(), made);
+                return 0;
+            } catch (IdentityChange.Refused ex) {
+                throw made == null ? ex : ex.saying(IdentityChange.madeSoFar(made));
             }
-            IdentityChange.print(spec, json, operation, made);
-            return 0;
         } catch (IdentityChange.Refused ex) {
             return IdentityChange.refuse(spec, json, ex);
         } catch (IOException | CardException ex) {
@@ -169,5 +173,25 @@ public class IdentityRotateCommand implements Callable<Integer>, PoreloFactory.C
                     json,
                     new IdentityChange.Refused(66, null, String.valueOf(ex.getMessage())));
         }
+    }
+
+    private void answer(
+            final IdentityOperation operation,
+            final boolean again,
+            final KeePassXcKey.@Nullable Made made) {
+        IdentityChange.print(
+                spec,
+                json,
+                operation.answer(again),
+                List.of(
+                        operation.action()
+                                + " "
+                                + operation.id()
+                                + ": "
+                                + operation.predecessor()
+                                + " -> "
+                                + operation.fingerprint(),
+                        "organization at " + operation.revision()),
+                made);
     }
 }

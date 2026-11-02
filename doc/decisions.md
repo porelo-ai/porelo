@@ -712,9 +712,10 @@ cards are asked about.
 
 ## A single admin keeps an offline backup key
 
-A project with one signer, a host with one host admin and a registry with one owner each keep a second key, made
-once by `porelo identity backup-key` as a file kept offline and never put in the daily agent: a single key that is
-lost leaves nobody who may hand the place on. The backup key is held to the one change that recovers: a commit it
+A project with one signer, a host with one host admin and an organization with one owner each keep a second key, made
+once as a file kept offline, by `porelo identity backup-key` for a host's or the organization's place and with
+`ssh-keygen` for a project's, and never put in the daily agent: a single key that is lost leaves nobody who may hand
+the place on. The backup key is held to the one change that recovers: a commit it
 signs may change only the entry it backs, and itself. It signs no other change and certifies no task.
 `project verify`, `registry read` and `identity show` warn while one is missing. **The exposure:** whoever holds the
 backup key can replace the key it backs and so take that place over, as with the main key; kept offline, it is

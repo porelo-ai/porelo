@@ -2,19 +2,14 @@ package org.fuin.porelo.app;
 
 import java.io.IOException;
 import java.io.PrintWriter;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.LinkOption;
-import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.Callable;
-import org.fuin.porelo.core.project.ProjectSigners;
 import org.fuin.porelo.organization.Organization;
-import org.fuin.porelo.organization.git.HttpForgeDirectory;
+import org.fuin.porelo.organization.OrganizationQuestions;
 import org.fuin.porelo.vault.AgentKey;
 import org.fuin.porelo.vault.CardException;
 import org.fuin.porelo.vault.PersonCard;
@@ -28,7 +23,7 @@ import picocli.CommandLine.Spec;
 
 /**
  * Answers who the person on this machine is, from the card kept here: public values only, and what
- * each registry this machine read, the agent and the forge say about it.
+ * the organization, the agent and the forge say about it.
  *
  * <p>A card is answered whatever its state: the agent, the revocation and the card's own signatures
  * are fields of the answer, so an interface can show the card while it waits for the key.
@@ -50,14 +45,7 @@ public class IdentityShowCommand implements Callable<Integer>, PoreloFactory.Con
     private @Nullable PoreloContext context;
 
     /** Replaced by a test, which has no forge to ask. */
-    RegistryReadCommand.Forges forges =
-            (forge, token) ->
-                    new HttpForgeDirectory(
-                            forge,
-                            token,
-                            RegistryReadCommand.http(
-                                    java.util.Objects.requireNonNull(
-                                            context, "picocli's factory sets the context")));
+    IdentityOrganization.Opener opener = IdentityOrganization::real;
 
     @Override
     public void setContext(final PoreloContext context) {
@@ -65,7 +53,7 @@ public class IdentityShowCommand implements Callable<Integer>, PoreloFactory.Con
     }
 
     @Override
-    public Integer call() {
+    public Integer call() throws IOException {
         final PoreloContext machine =
                 java.util.Objects.requireNonNull(context, "picocli's factory sets the context");
         final PrintWriter out = spec.commandLine().getOut();
@@ -85,6 +73,8 @@ public class IdentityShowCommand implements Callable<Integer>, PoreloFactory.Con
                         Map.of());
             }
             answer = answer(machine, kept.get());
+        } catch (IdentityChange.Refused ex) {
+            return IdentityChange.refuse(spec, json, ex);
         } catch (IOException | CardException ex) {
             err.println(
                     "porelo: cannot read "
@@ -103,8 +93,9 @@ public class IdentityShowCommand implements Callable<Integer>, PoreloFactory.Con
 
     /** The answer, in the order the contract names its fields. */
     private Map<String, @Nullable Object> answer(final PoreloContext machine, final PersonCard card)
-            throws IOException {
-        final List<IdentityFacts.Registry> registries = IdentityFacts.registries(machine);
+            throws IOException, IdentityChange.Refused {
+        final IdentityOrganization.Reading organization =
+                IdentityOrganization.read(machine, opener);
         final Map<String, @Nullable Object> answer = new LinkedHashMap<>();
         answer.put("login", card.login());
         answer.put("name", card.name());
@@ -120,68 +111,46 @@ public class IdentityShowCommand implements Callable<Integer>, PoreloFactory.Con
         final String agent = agent(machine, card);
         answer.put("agent", agent);
         answer.put("agent_holds_key", agent.equals("holds"));
-        answer.put("revoked", IdentityFacts.revoked(machine, registries, card.key()));
+        answer.put("revoked", IdentityFacts.revoked(machine, organization, card.key()));
         answer.put("card_refused", refused(card));
-        final List<Map<String, @Nullable Object>> filed = new ArrayList<>();
-        for (final IdentityFacts.Registry registry : registries) {
-            filed.add(filed(registry, card));
-        }
-        answer.put("registry", filed);
         answer.put(
-                "forge",
-                IdentityFacts.forgeAnswer(forges, registries, card.login(), card.fingerprint()));
-        answer.put("pending", pending(machine));
-        final List<Map<String, Object>> sole = sole(registries, card.login());
-        sole.addAll(soleInProjects(machine, card));
-        answer.put("sole_without_backup", sole);
+                "organization",
+                organization == null ? List.of() : List.of(filed(organization, card)));
+        answer.put(
+                "forge", IdentityFacts.forgeAnswer(organization, card.login(), card.fingerprint()));
+        answer.put("pending", pending(machine, organization));
+        answer.put("sole_without_backup", sole(organization, card.login()));
         return answer;
     }
 
     /**
-     * Each registry and host this machine reads where the person is the one owner or admin and has
-     * no backup key, so the interface can offer to make one.
+     * Each place of the organization where the person is the one owner or admin and has no backup
+     * key, so the interface can offer to make one.
      */
     private static List<Map<String, Object>> sole(
-            final List<IdentityFacts.Registry> registries, final String login) {
+            final IdentityOrganization.@Nullable Reading organization, final String login) {
         final List<Map<String, Object>> sole = new ArrayList<>();
-        for (final IdentityFacts.Registry registry : registries) {
-            for (final Organization.Sole one : registry.organization().soleWithoutBackup()) {
+        if (organization != null) {
+            for (final Organization.Sole one : organization.answers().getSoleWithoutBackup()) {
                 if (one.login().equals(login)) {
-                    final boolean host = one.host() != null;
+                    final String host = one.host();
                     sole.add(
-                            Map.of(
-                                    "role",
-                                    one.role(),
-                                    "scope",
-                                    Map.of(
-                                            "kind",
-                                            host ? "host" : "registry",
-                                            "name",
-                                            host
-                                                    ? java.util.Objects.requireNonNull(one.host())
-                                                    : registry.known().origin())));
+                            host != null
+                                    ? Map.of(
+                                            "role",
+                                            one.role(),
+                                            "scope",
+                                            Map.of("kind", "host", "name", host))
+                                    : Map.of(
+                                            "role",
+                                            "organization-owner",
+                                            "scope",
+                                            Map.of(
+                                                    "kind",
+                                                    "organization",
+                                                    "name",
+                                                    organization.address())));
                 }
-            }
-        }
-        return sole;
-    }
-
-    /**
-     * Each followed project whose signers in force are the person's key alone, with no backup key
-     * behind it.
-     */
-    private static List<Map<String, Object>> soleInProjects(
-            final PoreloContext machine, final PersonCard card) throws IOException {
-        final List<Map<String, Object>> sole = new ArrayList<>();
-        for (final FollowedSigners.Signers signers : FollowedSigners.all(machine)) {
-            final String key = ProjectSigners.soleWithoutBackup(signers.entries());
-            if (key != null && ProjectSigners.fingerprint(key).equals(card.fingerprint())) {
-                sole.add(
-                        Map.of(
-                                "role",
-                                "project-admin",
-                                "scope",
-                                Map.of("kind", "project", "name", signers.project())));
             }
         }
         return sole;
@@ -213,20 +182,21 @@ public class IdentityShowCommand implements Callable<Integer>, PoreloFactory.Con
         }
     }
 
-    /** Where the card stands in one registry. */
+    /** Where the card stands in the organization. */
     private static Map<String, @Nullable Object> filed(
-            final IdentityFacts.Registry registry, final PersonCard card) {
-        final Organization state = registry.organization();
-        final Organization.@Nullable Person person =
-                state.people().stream()
+            final IdentityOrganization.Reading organization, final PersonCard card) {
+        final OrganizationQuestions state = organization.answers();
+        final OrganizationQuestions.@Nullable Person person =
+                state.getPersons().stream()
                         .filter(each -> each.login().equals(card.login()))
                         .findFirst()
                         .orElse(null);
+        final boolean refused = person != null && Organization.REFUSED.equals(person.state());
         final Map<String, @Nullable Object> entry = new LinkedHashMap<>();
-        entry.put("address", registry.known().origin());
+        entry.put("address", organization.address());
         if (person == null) {
             entry.put("filed", "absent");
-        } else if (person.refused()) {
+        } else if (refused) {
             entry.put("filed", "refused");
             entry.put("why", person.why());
         } else if (person.state().equals(Organization.TRUSTED)
@@ -235,52 +205,43 @@ public class IdentityShowCommand implements Callable<Integer>, PoreloFactory.Con
         } else {
             entry.put("filed", "pending");
         }
-        entry.put("revision", state.readTo());
+        entry.put("revision", state.revision());
+        entry.put("stale", organization.stale());
         // A card with no predecessor replacing an accepted one of another key: a lost key, which
         // only an owner may file.
         final boolean mayFile =
                 !(card.predecessor().isEmpty()
                         && person != null
-                        && !person.refused()
+                        && !refused
                         && !person.fingerprint().equals(card.fingerprint()));
         entry.put("may_file", mayFile);
-        entry.put("who_may", mayFile ? List.of() : IdentityFacts.owners(state));
+        entry.put("who_may", mayFile ? List.of() : IdentityFacts.owners(organization));
         return entry;
     }
 
     /**
-     * The identity operations started and not finished, read leniently: a record that does not
-     * parse is no operation this can name.
+     * The changes started and not finished, each with the new key's fingerprint. A lost key's card
+     * an owner has since accepted waits for nobody.
      */
-    private static List<Map<String, @Nullable Object>> pending(final PoreloContext machine)
+    private static List<Map<String, @Nullable Object>> pending(
+            final PoreloContext machine, final IdentityOrganization.@Nullable Reading organization)
             throws IOException {
-        final Path directory = machine.paths().xdg().state().resolve("identity").resolve("ops");
         final List<Map<String, @Nullable Object>> pending = new ArrayList<>();
-        if (!IdentityStore.privateDirectoryFound(machine.paths().xdg().state(), directory)) {
-            return pending;
-        }
-        final List<Path> records;
-        try (var listed = Files.list(directory)) {
-            records =
-                    listed.filter(path -> path.getFileName().toString().endsWith(".json"))
-                            .filter(path -> Files.isRegularFile(path, LinkOption.NOFOLLOW_LINKS))
-                            .sorted()
-                            .toList();
-        }
-        for (final Path record : records) {
-            final Object read;
-            try {
-                read = Json.parse(Files.readString(record, StandardCharsets.UTF_8));
-            } catch (IOException | RuntimeException ex) {
-                continue;
-            }
-            if (read instanceof Map<?, ?> map
-                    && Boolean.FALSE.equals(map.get("done"))
-                    && map.get("id") instanceof String id
-                    && map.get("action") instanceof String action) {
+        for (final IdentityOperation each : IdentityOperation.pending(machine)) {
+            final boolean accepted =
+                    organization != null
+                            && each.action().equals(IdentityOperation.REVOKE_LOST)
+                            && organization.answers().getPersons().stream()
+                                    .anyMatch(
+                                            person ->
+                                                    person.fingerprint().equals(each.fingerprint())
+                                                            && !Organization.REFUSED.equals(
+                                                                    person.state()));
+            if (!accepted) {
                 final Map<String, @Nullable Object> operation = new LinkedHashMap<>();
-                operation.put("id", id);
-                operation.put("action", action);
+                operation.put("id", each.id());
+                operation.put("action", each.action());
+                operation.put("fingerprint", each.fingerprint());
                 pending.add(operation);
             }
         }
@@ -306,11 +267,11 @@ public class IdentityShowCommand implements Callable<Integer>, PoreloFactory.Con
                 out.println(field + " " + RegistryVerifyCommand.printable(value.toString()));
             }
         }
-        if (answer.get("registry") instanceof List<?> registries) {
-            for (final Object each : registries) {
+        if (answer.get("organization") instanceof List<?> organizations) {
+            for (final Object each : organizations) {
                 if (each instanceof Map<?, ?> entry) {
                     out.println(
-                            "registry "
+                            "organization "
                                     + RegistryVerifyCommand.printable(
                                             entry.get("address") + " " + entry.get("filed")));
                 }
@@ -328,7 +289,11 @@ public class IdentityShowCommand implements Callable<Integer>, PoreloFactory.Con
                     out.println(
                             "pending "
                                     + RegistryVerifyCommand.printable(
-                                            operation.get("id") + " " + operation.get("action")));
+                                            operation.get("id")
+                                                    + " "
+                                                    + operation.get("action")
+                                                    + " "
+                                                    + operation.get("fingerprint")));
                 }
             }
         }

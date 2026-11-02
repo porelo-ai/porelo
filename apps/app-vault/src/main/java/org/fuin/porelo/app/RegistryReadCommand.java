@@ -159,7 +159,7 @@ public class RegistryReadCommand implements Callable<Integer>, PoreloFactory.Con
                                     ? " as the registry's only owner"
                                     : " as the only admin of " + sole.host())
                             + ", without a backup key; make one with porelo identity backup-key "
-                            + (sole.host() == null ? "--registry" : "--host " + sole.host()));
+                            + (sole.host() == null ? "--organization" : "--host " + sole.host()));
         }
         return List.copyOf(warnings);
     }

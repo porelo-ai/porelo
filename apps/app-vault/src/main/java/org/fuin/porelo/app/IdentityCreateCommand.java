@@ -5,8 +5,6 @@ import java.io.PrintWriter;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.time.LocalDate;
-import java.time.ZoneOffset;
 import java.util.Base64;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -14,7 +12,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.Callable;
 import java.util.regex.Pattern;
-import org.fuin.porelo.organization.git.HttpForgeDirectory;
 import org.fuin.porelo.vault.AgentKey;
 import org.fuin.porelo.vault.CardException;
 import org.fuin.porelo.vault.PersonCard;
@@ -27,7 +24,8 @@ import picocli.CommandLine.Spec;
 
 /**
  * Makes the person's first card for a key their agent already serves, signed through the agent, and
- * keeps it here for filing. Porelo never sees, reads or writes the private key.
+ * files it through the organization's store when this machine names one. With none it is kept here,
+ * for a later run or for founding one. Porelo never sees, reads or writes the private key.
  */
 @Command(
         name = "create",
@@ -80,6 +78,18 @@ public class IdentityCreateCommand implements Callable<Integer>, PoreloFactory.C
             description = "The KeePassXC entry the new key goes to.")
     private @Nullable String entry;
 
+    @Option(
+            names = "--base",
+            paramLabel = "REVISION",
+            description = "The organization's revision it is made against.")
+    private @Nullable String base;
+
+    @Option(
+            names = "--id",
+            paramLabel = "ID",
+            description = "Names the change; the same id again answers the same change.")
+    private @Nullable String id;
+
     @Option(names = "--json", description = "Answers the card and the forge's listing as JSON.")
     private boolean json;
 
@@ -91,40 +101,7 @@ public class IdentityCreateCommand implements Callable<Integer>, PoreloFactory.C
     KeePassXcKey store = KeePassXcKey.real();
 
     /** Replaced by a test, which has no forge to ask. */
-    RegistryReadCommand.Forges forges =
-            (forge, token) ->
-                    new HttpForgeDirectory(
-                            forge,
-                            token,
-                            RegistryReadCommand.http(
-                                    java.util.Objects.requireNonNull(
-                                            context, "picocli's factory sets the context")));
-
-    /** A refusal with its typed reason and the further fields of its answer. */
-    private static final class Refused extends Exception {
-        private static final long serialVersionUID = 1L;
-
-        private final int code;
-
-        private final String reason;
-
-        private final transient Map<String, @Nullable Object> more;
-
-        Refused(final int code, final String reason, final String words) {
-            this(code, reason, words, Map.of());
-        }
-
-        Refused(
-                final int code,
-                final String reason,
-                final String words,
-                final Map<String, @Nullable Object> more) {
-            super(words);
-            this.code = code;
-            this.reason = reason;
-            this.more = more;
-        }
-    }
+    IdentityOrganization.Opener opener = IdentityOrganization::real;
 
     @Override
     public void setContext(final PoreloContext context) {
@@ -132,23 +109,25 @@ public class IdentityCreateCommand implements Callable<Integer>, PoreloFactory.C
     }
 
     @Override
-    public Integer call() {
+    public Integer call() throws IOException {
         final PoreloContext machine =
                 java.util.Objects.requireNonNull(context, "picocli's factory sets the context");
         final PrintWriter out = spec.commandLine().getOut();
-        final PrintWriter err = spec.commandLine().getErr();
         final Map<String, @Nullable Object> answer;
         try {
             answer = create(machine);
-        } catch (Refused ex) {
-            return IdentityFacts.refuse(
-                    out, err, json, ex.code, ex.reason, String.valueOf(ex.getMessage()), ex.more);
+        } catch (IdentityChange.Refused ex) {
+            return IdentityChange.refuse(spec, json, ex);
         } catch (IllegalArgumentException ex) {
-            return plain(err, 64, String.valueOf(ex.getMessage()));
+            return IdentityChange.refuse(
+                    spec,
+                    json,
+                    new IdentityChange.Refused(64, null, String.valueOf(ex.getMessage())));
         } catch (IOException ex) {
-            return plain(err, 66, "cannot read " + ex.getMessage());
+            return plain(spec.commandLine().getErr(), 66, "cannot read " + ex.getMessage());
         } catch (java.io.UncheckedIOException ex) {
-            return plain(err, 70, "cannot keep the card: " + ex.getMessage());
+            return plain(
+                    spec.commandLine().getErr(), 70, "cannot keep the card: " + ex.getMessage());
         }
         if (json) {
             out.println(Json.write(IdentityFacts.printable(answer)));
@@ -158,21 +137,24 @@ public class IdentityCreateCommand implements Callable<Integer>, PoreloFactory.C
             if (answer.get("entry") instanceof String made) {
                 out.println("entry " + RegistryVerifyCommand.printable(made));
             }
-            out.println(
-                    "card kept at "
-                            + RegistryVerifyCommand.printable(
-                                    new IdentityStore(machine).cardFile().toString()));
-            out.println(
-                    "next: file it with porelo registry file card CHECKOUT --card "
-                            + RegistryVerifyCommand.printable(
-                                    new IdentityStore(machine).cardFile().toString()));
+            if (answer.get("revision") != null) {
+                out.println("filed in the organization at " + answer.get("revision"));
+            } else {
+                out.println(
+                        "card kept at "
+                                + RegistryVerifyCommand.printable(
+                                        new IdentityStore(machine).cardFile().toString()));
+                out.println(
+                        "next: name your organization with porelo setup, or found one with porelo"
+                                + " org create");
+            }
         }
         out.flush();
         return 0;
     }
 
     private Map<String, @Nullable Object> create(final PoreloContext machine)
-            throws Refused, IOException {
+            throws IdentityChange.Refused, IOException {
         final String given = key;
         if ((given == null) == (keepassxc == null)) {
             throw new IllegalArgumentException("name the key with --key, or --keepassxc, not both");
@@ -181,12 +163,33 @@ public class IdentityCreateCommand implements Callable<Integer>, PoreloFactory.C
             throw new IllegalArgumentException("--entry goes with --keepassxc");
         }
         fields();
+        IdentityChange.checkId(id);
+        final IdentityOperation again = IdentityChange.kept(machine, id, IdentityOperation.CREATE);
+        if (again != null && again.done()) {
+            return answer(
+                    machine,
+                    IdentityChange.finish(machine, again),
+                    true,
+                    IdentityOrganization.read(machine, opener),
+                    null);
+        }
+        final IdentityOrganization.Reading organization =
+                IdentityOrganization.requiredIfAny(machine, opener);
+        final IdentityChange change = new IdentityChange(machine);
+        if (again != null) {
+            final IdentityChange.Filed filed =
+                    change.file(
+                            java.util.Objects.requireNonNull(
+                                    organization, "an operation is filed in one"),
+                            again,
+                            base,
+                            change.socket());
+            return answer(machine, filed.operation(), filed.again(), organization, null);
+        }
         final IdentityStore store = new IdentityStore(machine);
-        if (store.holdsCard()) {
-            throw new Refused(
-                    65,
-                    "identity-exists",
-                    "a card is kept here already; change its key with porelo identity rotate");
+        final Optional<PersonCard> held = held(machine, store, given, organization);
+        if (organization != null) {
+            change.refuseWhatReached(organization, login, id);
         }
         final KeePassXcKey.Made made = given == null ? made(machine) : null;
         final String fingerprint =
@@ -194,92 +197,163 @@ public class IdentityCreateCommand implements Callable<Integer>, PoreloFactory.C
                         ? made.fingerprint()
                         : fingerprint(java.util.Objects.requireNonNull(given, "--key is given"));
         final AgentKey own = served(machine, fingerprint);
-        final List<IdentityFacts.Registry> registries = IdentityFacts.registries(machine);
         final String line = PersonCard.keyLine(own);
-        if (IdentityFacts.revoked(machine, registries, line)) {
-            final Map<String, @Nullable Object> more = new LinkedHashMap<>();
-            more.put("who_may", IdentityFacts.owners(registries));
-            throw new Refused(
-                    65,
-                    "revoked",
-                    "the key " + fingerprint + " is revoked; a registry owner may name another",
-                    more);
+        if (change.revoked(line, organization)) {
+            throw IdentityChange.revokedRefusal(
+                    "the key "
+                            + fingerprint
+                            + " is revoked; an organization owner may name another",
+                    organization);
         }
-        final Optional<String> another =
-                IdentityFacts.cardOfAnother(registries, fingerprint, login);
+        final Optional<String> another = IdentityFacts.cardOfAnother(organization, line, login);
         if (another.isPresent()) {
             final Map<String, @Nullable Object> more = new LinkedHashMap<>();
             more.put("login", another.get());
-            throw new Refused(
+            throw new IdentityChange.Refused(
                     65,
                     "key-on-another-card",
-                    "a registry this machine reads holds the key "
+                    "the organization holds the key "
                             + fingerprint
                             + " on the card of "
                             + another.get(),
                     more);
         }
         final String card;
+        if (held.isPresent()) {
+            card = held.get().body() + String.join("", held.get().signatures());
+        } else {
+            try {
+                card =
+                        IdentityChange.signed(
+                                login,
+                                name,
+                                email == null ? "" : email,
+                                own,
+                                IdentityChange.today(),
+                                null);
+            } catch (CardException ex) {
+                throw new IllegalArgumentException(ex.getMessage(), ex);
+            }
+        }
+        if (organization == null) {
+            try {
+                store.keep(card);
+            } catch (IOException ex) {
+                throw new java.io.UncheckedIOException(ex);
+            }
+            final IdentityOperation unfiled =
+                    new IdentityOperation(
+                            id == null ? "" : id,
+                            IdentityOperation.CREATE,
+                            fingerprint,
+                            "",
+                            card,
+                            false,
+                            null,
+                            true);
+            return answer(machine, unfiled, false, null, made);
+        }
+        change.replaceWhatReachedNowhere(organization, login, id);
+        final IdentityChange.Begun begun =
+                change.begin(
+                        id,
+                        new IdentityOperation(
+                                "",
+                                IdentityOperation.CREATE,
+                                fingerprint,
+                                "",
+                                card,
+                                false,
+                                null,
+                                false));
         try {
-            card =
-                    IdentityChange.signed(
-                            login,
-                            name,
-                            email == null ? "" : email,
-                            own,
-                            LocalDate.now(ZoneOffset.UTC),
-                            null);
+            final IdentityChange.Filed filed =
+                    change.file(organization, begun.operation(), base, change.socket());
+            return answer(machine, filed.operation(), filed.again(), organization, made);
         } catch (IdentityChange.Refused ex) {
-            throw new Refused(ex.code(), String.valueOf(ex.reason()), ex.words(), Map.of());
+            throw made == null ? ex : ex.saying(IdentityChange.madeSoFar(made));
+        }
+    }
+
+    /**
+     * The card kept here that this run files: one of this login and key the organization holds
+     * nothing of. Any other card kept is the person's card, which a key changes with {@code
+     * rotate}.
+     */
+    private Optional<PersonCard> held(
+            final PoreloContext machine,
+            final IdentityStore store,
+            final @Nullable String given,
+            final IdentityOrganization.@Nullable Reading organization)
+            throws IdentityChange.Refused, IOException {
+        if (!store.holdsCard()) {
+            return Optional.empty();
+        }
+        final Optional<PersonCard> held = store.card();
+        final boolean toFile =
+                organization != null
+                        && given != null
+                        && held.isPresent()
+                        && held.get().login().equals(login)
+                        && held.get().predecessor().isEmpty()
+                        && held.get().fingerprint().equals(fingerprint(given))
+                        && organization.answers().getCard(login).isEmpty();
+        if (!toFile) {
+            throw new IdentityChange.Refused(
+                    65,
+                    "identity-exists",
+                    "a card is kept here already; change its key with porelo identity rotate");
+        }
+        return held;
+    }
+
+    private Map<String, @Nullable Object> answer(
+            final PoreloContext machine,
+            final IdentityOperation operation,
+            final boolean again,
+            final IdentityOrganization.@Nullable Reading organization,
+            final KeePassXcKey.@Nullable Made made)
+            throws IdentityChange.Refused, IOException {
+        final PersonCard card;
+        try {
+            card = PersonCard.read(operation.card(), "the card");
         } catch (CardException ex) {
             throw new IllegalArgumentException(ex.getMessage(), ex);
         }
-        try {
-            store.keep(card);
-        } catch (IOException ex) {
-            throw new java.io.UncheckedIOException(ex);
-        }
         final Map<String, @Nullable Object> answer = new LinkedHashMap<>();
-        answer.put("login", login);
-        answer.put("fingerprint", fingerprint);
-        answer.put("key", line);
-        answer.put("card", card);
+        answer.put("revision", operation.revision());
+        answer.put("id", operation.id().isEmpty() ? null : operation.id());
+        answer.put("again", again);
+        answer.put("login", card.login());
+        answer.put("fingerprint", card.fingerprint());
+        answer.put("key", card.key());
+        answer.put("card", operation.card());
         answer.put("agent", "holds");
         if (made != null) {
             answer.put("entry", made.entry());
         }
-        answer.put("forge", IdentityFacts.forgeAnswer(forges, registries, login, fingerprint));
-        answer.put("next", List.of("file-card"));
+        answer.put(
+                "forge", IdentityFacts.forgeAnswer(organization, card.login(), card.fingerprint()));
+        answer.put("next", organization == null ? List.of("setup") : List.of());
         return answer;
     }
 
     /** Makes a new key into the KeePassXC database and waits for the agent to serve it. */
-    private KeePassXcKey.Made made(final PoreloContext machine) throws Refused {
+    private KeePassXcKey.Made made(final PoreloContext machine) throws IdentityChange.Refused {
         final String socket = machine.environment().apply(IdentityChange.AGENT);
-        try {
-            if (socket == null || socket.isEmpty()) {
-                throw new IdentityChange.Refused(
-                        65,
-                        "key-not-in-agent",
-                        "no ssh-agent is reachable (SSH_AUTH_SOCK is not set), so KeePassXC could"
-                                + " not give it the key");
-            }
-            return store.make(
-                    machine,
-                    java.util.Objects.requireNonNull(keepassxc, "--keepassxc is given"),
-                    entry,
-                    login,
-                    socket);
-        } catch (IdentityChange.Refused ex) {
-            final Map<String, @Nullable Object> typed = ex.answer();
-            if (typed == null) {
-                throw new IllegalArgumentException(ex.words(), ex);
-            }
-            final Map<String, @Nullable Object> more = new LinkedHashMap<>(typed);
-            more.remove("reason");
-            more.remove("words");
-            throw new Refused(ex.code(), String.valueOf(ex.reason()), ex.words(), more);
+        if (socket == null || socket.isEmpty()) {
+            throw new IdentityChange.Refused(
+                    65,
+                    "key-not-in-agent",
+                    "no ssh-agent is reachable (SSH_AUTH_SOCK is not set), so KeePassXC could"
+                            + " not give it the key");
         }
+        return store.make(
+                machine,
+                java.util.Objects.requireNonNull(keepassxc, "--keepassxc is given"),
+                entry,
+                login,
+                socket);
     }
 
     /** Refuses a login, name or email a card does not take, before the agent is asked. */
@@ -307,7 +381,8 @@ public class IdentityCreateCommand implements Callable<Integer>, PoreloFactory.C
     }
 
     /** The fingerprint the key is named by, or that of the public key file named. */
-    private static String fingerprint(final String given) throws Refused, IOException {
+    private static String fingerprint(final String given)
+            throws IdentityChange.Refused, IOException {
         if (FINGERPRINT.matcher(given).matches()) {
             return given;
         }
@@ -338,7 +413,7 @@ public class IdentityCreateCommand implements Callable<Integer>, PoreloFactory.C
                     "'" + RegistryVerifyCommand.printable(given) + "' holds no public key");
         }
         if (!words[0].equals("ssh-ed25519")) {
-            throw new Refused(
+            throw new IdentityChange.Refused(
                     65,
                     "key-not-ed25519",
                     "the key in '"
@@ -352,12 +427,12 @@ public class IdentityCreateCommand implements Callable<Integer>, PoreloFactory.C
 
     /** The agent's key of that fingerprint, which must be one a card takes. */
     private static AgentKey served(final PoreloContext machine, final String fingerprint)
-            throws Refused {
+            throws IdentityChange.Refused {
         final Optional<List<AgentKey>> served = IdentityFacts.served(machine);
         if (served.isEmpty()) {
-            throw new Refused(
-                    65,
-                    "key-not-in-agent",
+            throw new IdentityChange.Refused(
+                    69,
+                    "no-key",
                     "no ssh-agent answers at SSH_AUTH_SOCK, so it cannot sign with "
                             + fingerprint
                             + "; start one or unlock KeePassXC");
@@ -365,7 +440,7 @@ public class IdentityCreateCommand implements Callable<Integer>, PoreloFactory.C
         for (final AgentKey each : served.get()) {
             if (IdentityFacts.fingerprint(each.keyBlob()).equals(fingerprint)) {
                 if (!IdentityFacts.ed25519(each)) {
-                    throw new Refused(
+                    throw new IdentityChange.Refused(
                             65,
                             "key-not-ed25519",
                             "the key "
@@ -378,9 +453,9 @@ public class IdentityCreateCommand implements Callable<Integer>, PoreloFactory.C
                 return each;
             }
         }
-        throw new Refused(
-                65,
-                "key-not-in-agent",
+        throw new IdentityChange.Refused(
+                69,
+                "no-key",
                 "the ssh-agent does not serve the key "
                         + fingerprint
                         + "; unlock KeePassXC or load the entry, then ask again");

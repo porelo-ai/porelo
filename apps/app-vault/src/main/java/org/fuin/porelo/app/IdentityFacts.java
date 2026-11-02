@@ -20,8 +20,7 @@ import org.fuin.porelo.core.process.Command;
 import org.fuin.porelo.core.process.CommandResult;
 import org.fuin.porelo.organization.IdentitySource;
 import org.fuin.porelo.organization.Organization;
-import org.fuin.porelo.organization.git.GitOrganizationStore;
-import org.fuin.porelo.organization.git.RegistryOrigin;
+import org.fuin.porelo.organization.OrganizationQuestions;
 import org.fuin.porelo.vault.AgentKey;
 import org.fuin.porelo.vault.CardException;
 import org.fuin.porelo.vault.RegistryText;
@@ -32,8 +31,8 @@ import org.jspecify.annotations.Nullable;
 
 /**
  * What the identity verbs read about a key and the person holding it: the agent's keys, the
- * registries this machine read, the revocation list and the forge. Only public values; the private
- * key stays the agent's.
+ * organization, the revocation list and the forge. Only public values; the private key stays the
+ * agent's.
  */
 final class IdentityFacts {
 
@@ -44,35 +43,6 @@ final class IdentityFacts {
 
     private IdentityFacts() {
         throw new UnsupportedOperationException("Utility class");
-    }
-
-    /**
-     * A registry this machine read, and the state its last read ended with.
-     *
-     * @param known Where it was read.
-     * @param organization What it says.
-     */
-    record Registry(RegistryReadCommand.Known known, Organization organization) {}
-
-    /**
-     * The registries this machine read, each with its trust record, as {@link
-     * GitOrganizationStore#known} reads them: every one, or none at all.
-     *
-     * @param context The machine.
-     * @return Each, in the order of their records' names.
-     * @throws IOException When a directory on the way or a record cannot be taken.
-     */
-    static List<Registry> registries(final PoreloContext context) throws IOException {
-        final List<Registry> read = new ArrayList<>();
-        for (final GitOrganizationStore.Known each :
-                GitOrganizationStore.known(context.paths().xdg().state())) {
-            read.add(
-                    new Registry(
-                            new RegistryReadCommand.Known(
-                                    each.address(), each.checkout(), each.record()),
-                            each.organization()));
-        }
-        return List.copyOf(read);
     }
 
     /**
@@ -163,25 +133,42 @@ final class IdentityFacts {
     }
 
     /**
-     * Whether a key is revoked: in the revocation list this machine keeps, or named revoked by a
-     * registry it read.
+     * Whether a key is revoked: in the revocation list this machine keeps, or by the organization.
      *
      * @param context The machine.
-     * @param registries What the registries say.
+     * @param organization What the organization says, or {@code null} when this machine has none.
      * @param keyLine The key, {@code ssh-ed25519 AAAA...}.
      * @return Whether it is revoked.
      * @throws IOException When the revocation list is there but cannot be read: a list skipped
      *     would answer every key as kept.
      */
     static boolean revoked(
-            final PoreloContext context, final List<Registry> registries, final String keyLine)
+            final PoreloContext context,
+            final IdentityOrganization.@Nullable Reading organization,
+            final String keyLine)
             throws IOException {
         final String fingerprint = org.fuin.porelo.vault.PersonCard.fingerprint(keyLine);
-        for (final Registry registry : registries) {
-            if (registry.organization().revoked().contains(fingerprint)) {
-                return true;
-            }
+        if (organization != null
+                && organization.answers().getPersons().stream()
+                        .anyMatch(
+                                person ->
+                                        person.revoked()
+                                                && person.fingerprint().equals(fingerprint))) {
+            return true;
         }
+        return revokedHere(context, keyLine);
+    }
+
+    /**
+     * Whether this machine's revocation list names a key.
+     *
+     * @param context The machine.
+     * @param keyLine The key, {@code ssh-ed25519 AAAA...}.
+     * @return Whether it does.
+     * @throws IOException When the list is there but cannot be read.
+     */
+    static boolean revokedHere(final PoreloContext context, final String keyLine)
+            throws IOException {
         final Path krl = context.paths().projects().revocations();
         if (Files.notExists(krl, LinkOption.NOFOLLOW_LINKS)) {
             return false;
@@ -216,24 +203,20 @@ final class IdentityFacts {
     }
 
     /**
-     * The person of another login whose accepted card a registry holds with this key.
+     * The person of another login whose accepted card holds this key.
      *
-     * @param registries What the registries say.
-     * @param fingerprint The key's fingerprint.
+     * @param organization What the organization says, or {@code null} when this machine has none.
+     * @param keyLine The key, {@code ssh-ed25519 AAAA...}.
      * @param login The login that may hold it, or {@code null} when any login is another.
      * @return Their login, or empty when none.
      */
     static Optional<String> cardOfAnother(
-            final List<Registry> registries,
-            final String fingerprint,
+            final IdentityOrganization.@Nullable Reading organization,
+            final String keyLine,
             final @Nullable String login) {
-        for (final Registry registry : registries) {
-            final String holder = registry.organization().keyHolder(fingerprint, login);
-            if (holder != null) {
-                return Optional.of(holder);
-            }
-        }
-        return Optional.empty();
+        return organization == null
+                ? Optional.empty()
+                : organization.answers().keyHolder(keyLine).filter(each -> !each.equals(login));
     }
 
     /**
@@ -259,33 +242,20 @@ final class IdentityFacts {
     }
 
     /**
-     * A registry's owners as contacts, the offline backup keys left out.
+     * The organization's owners as contacts, the offline backup keys left out.
      *
-     * @param state What the registry says.
-     * @return Each owner once, in the owners file's order.
+     * @param organization What the organization says, or {@code null} when this machine has none.
+     * @return Each owner once, in the owners' order.
      */
-    static List<Map<String, @Nullable Object>> owners(final Organization state) {
-        return contacts(state, state.owners());
-    }
-
-    /**
-     * A host's admins as contacts, the offline backup keys left out.
-     *
-     * @param state What the registry says.
-     * @param host The host.
-     * @return Each admin once, in the owners file's order; none for a host it names no admin of.
-     */
-    static List<Map<String, @Nullable Object>> hostAdmins(
-            final Organization state, final String host) {
-        return contacts(state, state.hostAdmins().getOrDefault(host, List.of()));
-    }
-
-    /** Each login once as a contact, the backup keys left out: they are kept offline. */
-    private static List<Map<String, @Nullable Object>> contacts(
-            final Organization state, final List<Organization.Owner> listed) {
+    static List<Map<String, @Nullable Object>> owners(
+            final IdentityOrganization.@Nullable Reading organization) {
+        if (organization == null) {
+            return List.of();
+        }
+        final OrganizationQuestions state = organization.answers();
         final List<Map<String, @Nullable Object>> contacts = new ArrayList<>();
         final List<String> named = new ArrayList<>();
-        for (final Organization.Owner owner : listed) {
+        for (final Organization.Owner owner : state.getOrganizationOwners()) {
             if (!owner.backup() && !named.contains(owner.login())) {
                 named.add(owner.login());
                 contacts.add(contact(state, owner.login()));
@@ -295,65 +265,26 @@ final class IdentityFacts {
     }
 
     /**
-     * Every registry's owners as contacts, each login once.
+     * A person as a contact, from their accepted card.
      *
-     * @param registries What the registries say.
-     * @return The owners.
+     * @param state What the organization says.
+     * @param login Their login.
+     * @return {@code login}, {@code name} and {@code email}; name and email {@code null} where no
+     *     accepted card says them.
      */
-    static List<Map<String, @Nullable Object>> owners(final List<Registry> registries) {
-        final List<Map<String, @Nullable Object>> owners = new ArrayList<>();
-        for (final Registry registry : registries) {
-            for (final Map<String, @Nullable Object> owner : owners(registry.organization())) {
-                if (owners.stream()
-                        .noneMatch(
-                                each ->
-                                        java.util.Objects.equals(
-                                                each.get("login"), owner.get("login")))) {
-                    owners.add(owner);
-                }
+    private static Map<String, @Nullable Object> contact(
+            final OrganizationQuestions state, final String login) {
+        final Map<String, @Nullable Object> contact = new LinkedHashMap<>();
+        contact.put("login", login);
+        contact.put("name", null);
+        contact.put("email", null);
+        for (final OrganizationQuestions.Person person : state.getPersons()) {
+            if (person.login().equals(login) && !Organization.REFUSED.equals(person.state())) {
+                contact.put("name", person.name());
+                contact.put("email", person.email().isEmpty() ? null : person.email());
             }
         }
-        return owners;
-    }
-
-    /**
-     * The forge of the first registry read, which a person's keys are listed on.
-     *
-     * @param registries What the registries say.
-     * @return Its address, {@code https://<host>}, or empty when no registry was read.
-     */
-    static Optional<URI> forge(final List<Registry> registries) {
-        if (registries.isEmpty()) {
-            return Optional.empty();
-        }
-        try {
-            return Optional.of(RegistryOrigin.of(registries.getFirst().known().origin()).forge());
-        } catch (IllegalArgumentException ex) {
-            return Optional.empty();
-        }
-    }
-
-    /**
-     * Asks a forge for a login's keys, without a token: the list is public.
-     *
-     * @param forges How a forge is opened.
-     * @param forge Its address.
-     * @param login The login.
-     * @param fingerprint The key asked about, or {@code null} for the whole list.
-     * @return The keys, or empty when the forge could not be asked.
-     */
-    static Optional<IdentitySource.Keys> keys(
-            final RegistryReadCommand.Forges forges,
-            final URI forge,
-            final String login,
-            final @Nullable String fingerprint) {
-        try {
-            final IdentitySource directory = forges.open(forge, null);
-            return fingerprint == null ? directory.keys(login) : directory.keys(login, fingerprint);
-        } catch (IllegalArgumentException ex) {
-            // A login the forge's path cannot carry is a list nobody could be asked for.
-            return Optional.empty();
-        }
+        return contact;
     }
 
     /**
@@ -376,33 +307,54 @@ final class IdentityFacts {
     }
 
     /**
+     * Asks the forge for a login's keys; a stale read reached nobody, so asks nobody either.
+     *
+     * @param organization What the organization says.
+     * @param login The login.
+     * @param fingerprint The key asked about, or {@code null} for the whole list.
+     * @return The keys, or empty when the forge could not be asked.
+     */
+    static Optional<IdentitySource.Keys> keys(
+            final IdentityOrganization.@Nullable Reading organization,
+            final String login,
+            final @Nullable String fingerprint) {
+        if (organization == null || organization.stale()) {
+            return Optional.empty();
+        }
+        try {
+            final IdentitySource directory = organization.opened().identities();
+            return fingerprint == null ? directory.keys(login) : directory.keys(login, fingerprint);
+        } catch (IllegalArgumentException ex) {
+            // A login the forge's path cannot carry is a list nobody could be asked for.
+            return Optional.empty();
+        }
+    }
+
+    /**
      * The forge as {@code identity show} and {@code identity create} answer it.
      *
-     * @param forges How a forge is opened.
-     * @param registries What the registries say.
+     * @param organization What the organization says, or {@code null} when this machine has none.
      * @param login The person's login.
      * @param fingerprint Their key.
      * @return {@code login}, {@code key_listed}, {@code keys_url} and {@code account_url}; {@code
-     *     null} when no registry was read, so no forge is known.
+     *     null} when no forge is known.
      */
     static @Nullable Map<String, @Nullable Object> forgeAnswer(
-            final RegistryReadCommand.Forges forges,
-            final List<Registry> registries,
+            final IdentityOrganization.@Nullable Reading organization,
             final String login,
             final String fingerprint) {
-        final Optional<URI> forge = forge(registries);
-        if (forge.isEmpty()) {
+        final URI forge = organization == null ? null : organization.opened().forge();
+        if (forge == null) {
             return null;
         }
-        final String base = forge.get().toString();
+        final String base = forge.toString();
         final Map<String, @Nullable Object> answer = new LinkedHashMap<>();
         answer.put("login", login);
-        answer.put(
-                "key_listed", listed(keys(forges, forge.get(), login, fingerprint), fingerprint));
+        answer.put("key_listed", listed(keys(organization, login, fingerprint), fingerprint));
         answer.put("keys_url", base + "/" + login + ".keys");
         answer.put(
                 "account_url",
-                "github.com".equalsIgnoreCase(forge.get().getHost())
+                "github.com".equalsIgnoreCase(forge.getHost())
                         ? "https://github.com/settings/keys"
                         : base + "/user/settings/keys");
         return answer;
@@ -457,6 +409,7 @@ final class IdentityFacts {
             final Map<String, @Nullable Object> answer = new LinkedHashMap<>();
             answer.put("reason", reason);
             answer.put("words", words);
+            answer.put("revision", null);
             answer.putAll(more);
             out.println(Json.write(RegistryVerifyCommand.printable(answer)));
             out.flush();

@@ -1,0 +1,2 @@
+title: "`porelo identity create`, `rotate`, `revoke --lost` and `backup-key` act on the organization through its store, and `identity show` and `keys` answer from it: `rotate` files its card there before keeping it, `revoke --lost` files nothing and answers the new card with the owners who may accept it, `backup-key` takes `--organization` for `--registry` and no `--project`, and `identity publish` and `status` are gone"
+type: changed

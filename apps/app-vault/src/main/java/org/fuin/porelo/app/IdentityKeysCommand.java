@@ -2,7 +2,6 @@ package org.fuin.porelo.app;
 
 import java.io.IOException;
 import java.io.PrintWriter;
-import java.net.URI;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -10,7 +9,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.Callable;
 import org.fuin.porelo.organization.IdentitySource;
-import org.fuin.porelo.organization.git.HttpForgeDirectory;
 import org.fuin.porelo.vault.AgentKey;
 import org.fuin.porelo.vault.CardException;
 import org.fuin.porelo.vault.PersonCard;
@@ -41,14 +39,7 @@ public class IdentityKeysCommand implements Callable<Integer>, PoreloFactory.Con
     private @Nullable PoreloContext context;
 
     /** Replaced by a test, which has no forge to ask. */
-    RegistryReadCommand.Forges forges =
-            (forge, token) ->
-                    new HttpForgeDirectory(
-                            forge,
-                            token,
-                            RegistryReadCommand.http(
-                                    java.util.Objects.requireNonNull(
-                                            context, "picocli's factory sets the context")));
+    IdentityOrganization.Opener opener = IdentityOrganization::real;
 
     @Override
     public void setContext(final PoreloContext context) {
@@ -56,7 +47,7 @@ public class IdentityKeysCommand implements Callable<Integer>, PoreloFactory.Con
     }
 
     @Override
-    public Integer call() {
+    public Integer call() throws IOException {
         final PoreloContext machine =
                 java.util.Objects.requireNonNull(context, "picocli's factory sets the context");
         final PrintWriter out = spec.commandLine().getOut();
@@ -73,18 +64,20 @@ public class IdentityKeysCommand implements Callable<Integer>, PoreloFactory.Con
                     Map.of());
         }
         final List<Map<String, @Nullable Object>> keys = new ArrayList<>();
+        final IdentityOrganization.Reading organization;
         try {
-            final List<IdentityFacts.Registry> registries = IdentityFacts.registries(machine);
+            organization = IdentityOrganization.read(machine, opener);
             final @Nullable String login = login(machine);
-            final Optional<URI> forge = IdentityFacts.forge(registries);
             // One list for every key: the forge is asked once, not once per key.
             final Optional<IdentitySource.Keys> listed =
-                    login == null || forge.isEmpty()
+                    login == null
                             ? Optional.empty()
-                            : IdentityFacts.keys(forges, forge.get(), login, null);
+                            : IdentityFacts.keys(organization, login, null);
             for (final AgentKey key : served.get()) {
-                keys.add(entry(machine, registries, login, listed, key));
+                keys.add(entry(machine, organization, login, listed, key));
             }
+        } catch (IdentityChange.Refused ex) {
+            return IdentityChange.refuse(spec, json, ex);
         } catch (IOException ex) {
             err.println(
                     "porelo: cannot read "
@@ -94,6 +87,8 @@ public class IdentityKeysCommand implements Callable<Integer>, PoreloFactory.Con
         }
         if (json) {
             final Map<String, @Nullable Object> answer = new LinkedHashMap<>();
+            answer.put("revision", organization == null ? null : organization.revision());
+            answer.put("stale", organization != null && organization.stale());
             answer.put("keys", keys);
             out.println(Json.write(RegistryVerifyCommand.printable(answer)));
         } else {
@@ -118,14 +113,14 @@ public class IdentityKeysCommand implements Callable<Integer>, PoreloFactory.Con
             // A directory that is a link or another's is refused, never read as no card.
             return new IdentityStore(machine).card().map(PersonCard::login).orElse(null);
         } catch (CardException ex) {
-            // A card that cannot be read names no login: every card in a registry is another's.
+            // A card that cannot be read names no login: every card there is is another's.
             return null;
         }
     }
 
     private static Map<String, @Nullable Object> entry(
             final PoreloContext machine,
-            final List<IdentityFacts.Registry> registries,
+            final IdentityOrganization.@Nullable Reading organization,
             final @Nullable String login,
             final Optional<IdentitySource.Keys> listed,
             final AgentKey key)
@@ -142,9 +137,8 @@ public class IdentityKeysCommand implements Callable<Integer>, PoreloFactory.Con
             return entry;
         }
         final String line = PersonCard.keyLine(key);
-        final Optional<String> another =
-                IdentityFacts.cardOfAnother(registries, fingerprint, login);
-        if (IdentityFacts.revoked(machine, registries, line)) {
+        final Optional<String> another = IdentityFacts.cardOfAnother(organization, line, login);
+        if (IdentityFacts.revoked(machine, organization, line)) {
             entry.put("usable", false);
             entry.put("reason", "revoked");
         } else if (another.isPresent()) {

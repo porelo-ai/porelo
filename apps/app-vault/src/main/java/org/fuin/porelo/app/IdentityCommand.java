@@ -16,8 +16,6 @@ import picocli.CommandLine.Command;
             IdentityCreateCommand.class,
             IdentityRotateCommand.class,
             IdentityRevokeCommand.class,
-            IdentityPublishCommand.class,
-            IdentityStatusCommand.class,
             IdentityBackupKeyCommand.class
         })
 public class IdentityCommand {}

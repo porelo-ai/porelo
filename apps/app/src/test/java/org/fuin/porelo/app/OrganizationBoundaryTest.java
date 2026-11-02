@@ -50,8 +50,7 @@ class OrganizationBoundaryTest {
     private static final String FORGE_PORT = "forgeGitPort";
 
     /** What writes to the organization: it keeps its Git until its writes move. */
-    private static final Set<String> WRITERS =
-            Set.of("RegistryFileCommand.java", "IdentityBackupKeyCommand.java");
+    private static final Set<String> WRITERS = Set.of("RegistryFileCommand.java");
 
     /** Words that say how an organization is kept: a path, a commit, Git or a process. */
     private static final Pattern HOW_IT_IS_KEPT =

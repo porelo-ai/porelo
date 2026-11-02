@@ -38,23 +38,21 @@ class IdentityShowCommandTest {
         return (Map<?, ?>) ((List<?>) list).getFirst();
     }
 
-    /** alice's card filed and trusted, and read here. */
-    private void filed() throws Exception {
-        registry.founded();
-        registry.forge.keys.put("alice", List.of(registry.key("alice")));
-        registry.write("people/alice.card", registry.card("alice", "alice"));
-        registry.commit("alice");
-        assertThat(registry.registry("read", registry.repo.toString())).isZero();
+    /** alice's card accepted by the organization. */
+    private TestOrganization filed() throws Exception {
+        final TestOrganization organization = new TestOrganization(registry);
+        organization.filed("alice");
+        return organization;
     }
 
     /** The interface reads the answer by its fields and their order; a missing one breaks it. */
     @Test
     void answers_a_filed_card_in_the_contract_order() throws Exception {
-        filed();
-        IdentityRun.keep(registry, registry.card("alice", "alice"));
+        final TestOrganization organization = filed();
+        IdentityRun.keep(registry, organization.card("alice"));
         registry.agent("alice");
 
-        assertThat(IdentityRun.identity(registry, "show", "--json")).isZero();
+        assertThat(IdentityRun.identity(organization, "show", "--json")).isZero();
         final Map<?, ?> answer = registry.answer();
         assertThat(keys(answer))
                 .containsExactly(
@@ -71,7 +69,7 @@ class IdentityShowCommandTest {
                         "agent_holds_key",
                         "revoked",
                         "card_refused",
-                        "registry",
+                        "organization",
                         "forge",
                         "pending",
                         "sole_without_backup");
@@ -87,12 +85,13 @@ class IdentityShowCommandTest {
         assertThat(answer.get("agent_holds_key")).isEqualTo(true);
         assertThat(answer.get("revoked")).isEqualTo(false);
         assertThat(answer.get("card_refused")).isNull();
-        final Map<?, ?> filed = first(answer.get("registry"));
+        final Map<?, ?> filed = first(answer.get("organization"));
         assertThat(keys(filed))
-                .containsExactly("address", "filed", "revision", "may_file", "who_may");
-        assertThat(filed.get("address")).isEqualTo(RegistryCheckout.ORIGIN);
+                .containsExactly("address", "filed", "revision", "stale", "may_file", "who_may");
+        assertThat(filed.get("address")).isEqualTo(TestOrganization.ADDRESS);
         assertThat(filed.get("filed")).isEqualTo("done");
-        assertThat(filed.get("revision")).isEqualTo(registry.head());
+        assertThat(filed.get("revision")).isEqualTo(organization.tip());
+        assertThat(filed.get("stale")).isEqualTo(false);
         assertThat(filed.get("may_file")).isEqualTo(true);
         assertThat((List<?>) filed.get("who_may")).isEmpty();
         final Map<?, ?> forge = (Map<?, ?>) answer.get("forge");
@@ -101,36 +100,35 @@ class IdentityShowCommandTest {
         assertThat(forge.get("keys_url")).isEqualTo("https://forge.example.org/alice.keys");
         assertThat(forge.get("account_url"))
                 .isEqualTo("https://forge.example.org/user/settings/keys");
-        assertThat(registry.forge.opened)
-                .as("the key list is public: no token goes to the forge")
-                .last()
-                .isEqualTo("https://forge.example.org null");
         assertThat((List<?>) answer.get("pending")).isEmpty();
         assertThat((List<?>) answer.get("sole_without_backup")).as("alice owns nothing").isEmpty();
     }
 
     /** The one owner or admin without a backup key is told where, so the interface offers one. */
     @Test
-    void names_each_registry_and_host_the_person_alone_holds_without_a_backup_key()
+    void names_the_organization_and_each_host_the_person_alone_holds_without_a_backup_key()
             throws Exception {
-        filed();
-        IdentityRun.keep(registry, registry.card("michael", "michael"));
-        assertThat(IdentityRun.identity(registry, "show", "--json")).isZero();
+        final TestOrganization organization = filed();
+        IdentityRun.keep(registry, organization.filed("michael"));
+        assertThat(IdentityRun.identity(organization, "show", "--json")).isZero();
         assertThat(registry.answer().get("sole_without_backup"))
                 .isEqualTo(
                         List.of(
                                 Map.of(
                                         "role",
-                                        "registry-owner",
+                                        "organization-owner",
                                         "scope",
                                         Map.of(
                                                 "kind",
-                                                "registry",
+                                                "organization",
                                                 "name",
-                                                RegistryCheckout.ORIGIN))));
+                                                TestOrganization.ADDRESS))));
 
-        IdentityRun.keep(registry, registry.card("hank", "hank"));
-        assertThat(IdentityRun.identity(registry, "show", "--json")).isZero();
+        IdentityRun.keep(registry, organization.filed("hank"));
+        organization
+                .writes()
+                .addHost(organization.change("michael", "michael", "h1"), "wharf6", "hank");
+        assertThat(IdentityRun.identity(organization, "show", "--json")).isZero();
         assertThat(registry.answer().get("sole_without_backup"))
                 .isEqualTo(
                         List.of(
@@ -145,20 +143,21 @@ class IdentityShowCommandTest {
     @Test
     void no_card_is_refused_no_identity_on_stdout() {
         assertThat(IdentityRun.identity(registry, "show", "--json")).isEqualTo(65);
-        assertThat(keys(registry.answer())).containsExactly("reason", "words");
+        assertThat(keys(registry.answer())).containsExactly("reason", "words", "revision");
         assertThat(registry.answer().get("reason")).isEqualTo("no-identity");
     }
 
     /** A card waiting for its key is still shown, with what is missing, never refused. */
     @Test
-    void a_card_without_its_key_or_registry_is_answered_with_what_is_missing() throws Exception {
+    void a_card_without_its_key_or_organization_is_answered_with_what_is_missing()
+            throws Exception {
         IdentityRun.keep(registry, registry.card("alice", "alice"));
 
         assertThat(IdentityRun.identity(registry, "show", "--json")).isZero();
         assertThat(registry.answer().get("agent")).as("no agent at all").isEqualTo("absent");
         assertThat(registry.answer().get("agent_holds_key")).isEqualTo(false);
-        assertThat((List<?>) registry.answer().get("registry")).isEmpty();
-        assertThat(registry.answer().get("forge")).as("no registry names a forge").isNull();
+        assertThat((List<?>) registry.answer().get("organization")).isEmpty();
+        assertThat(registry.answer().get("forge")).as("no organization names a forge").isNull();
         assertThat(registry.out.toString()).contains("\"forge\":null");
 
         registry.agent("bob");
@@ -201,77 +200,76 @@ class IdentityShowCommandTest {
         assertThat(registry.out.toString()).isEmpty();
     }
 
-    /** The person sees whether the registry took their card, and why not. */
+    /** The person sees whether the organization took their card, and what it last said. */
     @Test
-    void each_registry_answers_pending_or_refused_as_its_read_left_the_card() throws Exception {
-        registry.founded();
-        registry.write("people/alice.card", registry.card("alice", "alice"));
-        registry.commit("alice");
-        assertThat(registry.registry("read", registry.repo.toString())).isZero();
+    void answers_absent_for_a_card_the_organization_does_not_hold_and_stale_out_of_reach()
+            throws Exception {
+        final TestOrganization organization = new TestOrganization(registry);
         IdentityRun.keep(registry, registry.card("alice", "alice"));
 
-        assertThat(IdentityRun.identity(registry, "show", "--json")).isZero();
-        assertThat(first(registry.answer().get("registry")).get("filed"))
-                .as("the forge could not be asked: first seen")
-                .isEqualTo("pending");
+        assertThat(IdentityRun.identity(organization, "show", "--json")).isZero();
+        assertThat(first(registry.answer().get("organization")).get("filed")).isEqualTo("absent");
         assertThat(registry.answer().get("forge"))
                 .extracting(forge -> ((Map<?, ?>) forge).get("key_listed"))
-                .as("could not be asked")
+                .as("the forge lists none of alice's keys, so it could not be asked")
                 .isNull();
 
-        registry.forge.keys.put("alice", List.of(registry.key("bob")));
-        assertThat(registry.registry("read", registry.repo.toString())).isZero();
-        assertThat(IdentityRun.identity(registry, "show", "--json")).isZero();
-        final Map<?, ?> refused = first(registry.answer().get("registry"));
-        assertThat(keys(refused))
-                .containsExactly("address", "filed", "why", "revision", "may_file", "who_may");
-        assertThat(refused.get("filed")).isEqualTo("refused");
-        assertThat((String) refused.get("why")).isNotEmpty();
-        assertThat(registry.answer().get("forge"))
-                .extracting(forge -> ((Map<?, ?>) forge).get("key_listed"))
-                .as("the forge lists all of alice's keys, and not this one")
-                .isEqualTo(false);
+        organization.outOfReach();
+        assertThat(IdentityRun.identity(organization, "show", "--json")).isZero();
+        assertThat(first(registry.answer().get("organization")).get("stale")).isEqualTo(true);
     }
 
     /** A lost key's replacement is filed by an owner; the person must be told whom to ask. */
     @Test
     void a_lost_key_replacement_may_not_be_filed_by_the_person_and_names_the_owners()
             throws Exception {
-        filed();
-        registry.write(
-                "people/michael.card",
-                PersonCard.write(
-                        "michael",
-                        "Michael",
-                        "michael@example.org",
-                        registry.keys.get("michael"),
-                        LocalDate.of(2026, 1, 1),
-                        LocalDate.of(2030, 1, 1),
-                        null));
-        registry.commit("michael");
-        assertThat(registry.registry("read", registry.repo.toString())).isZero();
+        final TestOrganization organization = filed();
+        organization.filed("michael");
         IdentityRun.keep(registry, registry.card("alice", "alice-new"));
 
-        assertThat(IdentityRun.identity(registry, "show", "--json")).isZero();
-        final Map<?, ?> filed = first(registry.answer().get("registry"));
+        assertThat(IdentityRun.identity(organization, "show", "--json")).isZero();
+        final Map<?, ?> filed = first(registry.answer().get("organization"));
         assertThat(filed.get("filed")).isEqualTo("pending");
         assertThat(filed.get("may_file")).isEqualTo(false);
-        assertThat(filed.get("who_may"))
-                .isEqualTo(
-                        List.of(
-                                Map.of(
-                                        "login",
-                                        "michael",
-                                        "name",
-                                        "Michael",
-                                        "email",
-                                        "michael@example.org")));
+        assertThat((List<?>) filed.get("who_may"))
+                .extracting(owner -> ((Map<?, ?>) owner).get("login"))
+                .isEqualTo(List.of("michael"));
 
         // Handed on from the old key, the person files it with their own key.
         IdentityRun.keep(registry, registry.card("alice", "alice-new", "alice"));
-        assertThat(IdentityRun.identity(registry, "show", "--json")).isZero();
-        assertThat(first(registry.answer().get("registry")).get("may_file")).isEqualTo(true);
+        assertThat(IdentityRun.identity(organization, "show", "--json")).isZero();
+        assertThat(first(registry.answer().get("organization")).get("may_file")).isEqualTo(true);
         assertThat(registry.answer().get("predecessor")).isEqualTo(registry.pin("alice"));
+    }
+
+    /** A lost key's card an owner has accepted waits for nobody, so it is no longer pending. */
+    @Test
+    void a_lost_keys_card_an_owner_accepted_is_no_longer_pending() throws Exception {
+        final TestOrganization organization = filed();
+        organization.filed("michael");
+        registry.agent("alice-new");
+        IdentityRun.keep(registry, organization.card("alice"));
+        organization.listed("alice", "alice-new");
+        assertThat(
+                        IdentityRun.identity(
+                                organization,
+                                "revoke",
+                                "--lost",
+                                "--key",
+                                registry.pin("alice-new"),
+                                "--json"))
+                .as(registry.err.toString())
+                .isZero();
+        assertThat(IdentityRun.identity(organization, "show", "--json")).isZero();
+        assertThat((List<?>) registry.answer().get("pending")).hasSize(1);
+        final String card = (String) registry.answer().get("card");
+
+        organization
+                .writes()
+                .replaceCard(organization.change("michael", "michael", "r1"), "alice", card);
+
+        assertThat(IdentityRun.identity(organization, "show", "--json")).isZero();
+        assertThat((List<?>) registry.answer().get("pending")).isEmpty();
     }
 
     /** An interrupted operation is named so the person can finish it; a broken record is not. */
@@ -280,17 +278,56 @@ class IdentityShowCommandTest {
         IdentityRun.keep(registry, registry.card("alice", "alice"));
         final Path ops = registry.paths.xdg().state().resolve("identity").resolve("ops");
         Files.createDirectories(ops);
+        final String card = registry.card("alice", "alice-new", "alice");
         Files.writeString(
                 ops.resolve("rot-20261031-1.json"),
-                "{\"id\":\"rot-20261031-1\",\"action\":\"rotate\",\"done\":false}");
+                org.fuin.porelo.wire.Json.write(
+                        Map.of(
+                                "id",
+                                "rot-20261031-1",
+                                "action",
+                                "rotate",
+                                "fingerprint",
+                                registry.pin("alice-new"),
+                                "predecessor",
+                                registry.pin("alice"),
+                                "card",
+                                card,
+                                "done",
+                                false,
+                                "kept",
+                                false)));
         Files.writeString(
                 ops.resolve("lost-20261030-1.json"),
-                "{\"id\":\"lost-20261030-1\",\"action\":\"revoke-lost\",\"done\":true}");
+                org.fuin.porelo.wire.Json.write(
+                        Map.of(
+                                "id",
+                                "lost-20261030-1",
+                                "action",
+                                "revoke-lost",
+                                "fingerprint",
+                                registry.pin("alice-new"),
+                                "predecessor",
+                                registry.pin("alice"),
+                                "card",
+                                card,
+                                "done",
+                                true,
+                                "kept",
+                                true)));
         Files.writeString(ops.resolve("half.json"), "{\"id\":\"half\",\"act");
 
         assertThat(IdentityRun.identity(registry, "show", "--json")).isZero();
         assertThat(registry.answer().get("pending"))
-                .isEqualTo(List.of(Map.of("id", "rot-20261031-1", "action", "rotate")));
+                .isEqualTo(
+                        List.of(
+                                Map.of(
+                                        "id",
+                                        "rot-20261031-1",
+                                        "action",
+                                        "rotate",
+                                        "fingerprint",
+                                        registry.pin("alice-new"))));
     }
 
     /** A name on a card must not reorder what a terminal shows; the card keeps its lines. */
