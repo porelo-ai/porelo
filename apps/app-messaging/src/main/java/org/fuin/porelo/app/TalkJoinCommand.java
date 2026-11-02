@@ -107,7 +107,7 @@ public class TalkJoinCommand implements Callable<Integer>, PoreloFactory.Context
         } catch (TransportLifecycle.Refused ex) {
             err.println("porelo: " + ex.getMessage());
             err.flush();
-            return ex.code() == 17 ? 1 : 69;
+            return ex.vaultShut() ? ex.code() : ex.code() == 17 ? 1 : 69;
         }
         if (way != null && intoVault != null) {
             return keep(said, way, intoVault, out, err);

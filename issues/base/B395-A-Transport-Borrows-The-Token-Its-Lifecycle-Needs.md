@@ -1,6 +1,6 @@
 # B395 — A Transport Borrows The Token Its Lifecycle Needs
 
-**Status:** Implementing.
+**Status:** Review.
 **Size:** S - a field in `describe`'s reading, one look in the vault where a lifecycle verb runs, and tests.
 
 **What must be true.** A transport that needs a secret of the person's for a lifecycle verb says so in `describe`, and
@@ -39,3 +39,14 @@ Read in the code. `TransportDescription` reads `lifecycle`, `takes` and `waitsOn
 - A transport that lists no `lent` runs exactly as today.
 - The value reaches no log, no output, no argument and no file: a test runs a verb with a recognizable value and looks
   for it in what was printed, in the recorded command lines and under the state directory.
+
+## Checked
+
+- A transport that prints a borrowed value elsewhere than under `secrets` or `account` is not filtered: it already holds the
+  value and could send it anywhere, so the filter only keeps Porelo from storing it.
+- `redact` leaves a value under 8 characters in a failing transport's error, and one the transport echoes JSON-escaped; a
+  registration token is longer and has no such characters, and the transport is the person's own install.
+- A scheme that begins an existing entry's name, such as a transport called `git`, could borrow `git-token.<server>`; the
+  person installs the transport, and it still gets only the entry for its server.
+- A transport listing `retire` in `lent` says on every removal with a shut vault that its account was not retired. The removal
+  goes on; no published transport lists it.

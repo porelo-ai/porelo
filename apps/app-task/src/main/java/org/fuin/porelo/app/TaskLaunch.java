@@ -1892,13 +1892,13 @@ public final class TaskLaunch {
             // refusal: a task whose messages reach nobody is refused here, as a credential nobody
             // can reach is - and enrolled earlier, a start refused afterwards for something else
             // left its account at the transport with nothing to retire it.
-            final String unreachable =
-                    new TaskConversations(context).enroll(project, container, steps);
+            final TaskConversations conversations = new TaskConversations(context);
+            final String unreachable = conversations.enroll(project, container, steps);
             if (unreachable != null) {
                 err.println("porelo: " + unreachable);
                 err.println("porelo: nothing was created");
                 err.flush();
-                return 69;
+                return conversations.refusedWith();
             }
             enrolledIn = project;
 

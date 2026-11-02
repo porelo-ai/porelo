@@ -2484,6 +2484,48 @@ class TaskRunCommandTest {
     }
 
     @Test
+    void aStartWhoseTransportBorrowsFromAShutVaultExits77AndMakesNothing(@TempDir Path dir)
+            throws IOException {
+        // Read as "she holds no token", the transport would refuse for the wrong reason, with the
+        // one instruction that cannot help: 'vault unlock' is what it needs.
+        final PoreloContext context = countingContext(dir);
+        Files.createDirectories(context.vault().path().getParent());
+        context.vault().write(java.util.Map.of(), "test-passphrase".toCharArray());
+        final Path adapters =
+                context.paths().messaging().transportDirectory().locations().getFirst();
+        Files.createDirectories(adapters);
+        final Path adapter = adapters.resolve(TransportDirectory.PREFIX + "room");
+        Files.writeString(adapter, "#!/bin/sh\n");
+        adapter.toFile().setExecutable(true);
+        runner.answering(
+                "describe",
+                "{\"scheme\":\"room\",\"secrets\":\"input\",\"lifecycle\":[\"setup\",\"enroll\"],"
+                        + "\"credentials\":[{\"name\":\"PORELO_ROOM_TOKEN\",\"lent\":[\"setup\"]}]}");
+
+        final int started =
+                execute(
+                        context,
+                        "task",
+                        "start",
+                        "-p",
+                        projectFile(
+                                dir,
+                                MINIMAL
+                                        + "mail:\n  transports:\n    room: {}\n"
+                                        + "  peers:\n    reviewer: { address: 'room:',"
+                                        + " trust: vouched }\n"),
+                        "--agent",
+                        "preview",
+                        "--no-gate");
+
+        assertThat(started).as("the vault is shut, and says so: %s", err).isEqualTo(77);
+        assertThat(err.toString()).contains("vault unlock", "nothing was created");
+        assertThat(runner.lines())
+                .as("the transport was not run: %s", runner.lines())
+                .noneMatch(line -> line.contains(" setup ") || line.contains(" enroll "));
+    }
+
+    @Test
     void aStartWithoutAGateRefusesDeclaredHostServicesBeforeAnythingIsMade(@TempDir Path dir)
             throws IOException {
         // A host service is answered with the gate's address, which a start without a gate has

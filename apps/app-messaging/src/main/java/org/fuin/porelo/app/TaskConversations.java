@@ -26,6 +26,11 @@ final class TaskConversations {
 
     private final PoreloContext context;
 
+    /** What a start exits with when a task cannot take part. */
+    private static final int NOT_ENROLLED = 69;
+
+    private int refusedWith = NOT_ENROLLED;
+
     /**
      * Constructor.
      *
@@ -98,6 +103,7 @@ final class TaskConversations {
                 throw ex;
             } catch (TransportLifecycle.Refused ex) {
                 steps.failed(StartStep.Step.CONVERSATION, ex.cause());
+                refusedWith = ex.vaultShut() ? ex.code() : NOT_ENROLLED;
                 return "the task cannot take part in the project's "
                         + scheme
                         + " conversation: "
@@ -105,6 +111,15 @@ final class TaskConversations {
             }
         }
         return null;
+    }
+
+    /**
+     * Returns what a start exits with when {@link #enroll} refused it.
+     *
+     * @return 77 when the vault could not lend what a transport borrows; 69 otherwise.
+     */
+    int refusedWith() {
+        return refusedWith;
     }
 
     /**

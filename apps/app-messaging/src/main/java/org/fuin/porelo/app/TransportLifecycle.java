@@ -31,6 +31,10 @@ import org.jspecify.annotations.Nullable;
  * transport/<scheme>/account}, only for the lifecycle verbs), a project's ({@code
  * transport/<scheme>/project/<p>}, what {@code poll} reads), and a task's ({@code
  * transport/<scheme>/task/<t>}, what {@code send}, {@code read} and {@code receipt} read).
+ *
+ * <p><strong>A fourth thing is only borrowed:</strong> a secret of the person's that {@code
+ * describe} says a verb needs is read from their vault for that one run and kept nowhere of the
+ * transport's. See {@link #borrowed}.
  */
 final class TransportLifecycle {
 
@@ -43,23 +47,46 @@ final class TransportLifecycle {
 
         private final String cause;
 
+        private final boolean vaultShut;
+
         Refused(String message, int code) {
             this(message, code, StartStep.cleanCause(message));
         }
 
         Refused(String message, int code, String cause) {
+            this(message, code, cause, false);
+        }
+
+        private Refused(String message, int code, String cause, boolean vaultShut) {
             super(message);
             this.code = code;
             this.cause = cause;
+            this.vaultShut = vaultShut;
+        }
+
+        /** The vault could not lend what a verb borrows, so the transport was never run. */
+        private static Refused lendingShut(String message) {
+            return new Refused(message, 77, StartStep.cleanCause(message), true);
         }
 
         /**
          * Returns the transport's exit code: 75 temporary, 77 refused, 78 configuration missing.
          *
-         * @return The code, or 0 when it never ran.
+         * @return The code, or 0 when it never ran; 77 too when it never ran because the vault
+         *     could not lend it what it borrows, which {@link #vaultShut()} tells apart.
          */
         int code() {
             return code;
+        }
+
+        /**
+         * Says whether the vault could not lend what the verb borrows. A command that answers every
+         * refusal of the transport alike still answers this one as itself.
+         *
+         * @return {@code true} when the transport was not run for that reason.
+         */
+        boolean vaultShut() {
+            return vaultShut;
         }
 
         String cause() {
@@ -192,6 +219,7 @@ final class TransportLifecycle {
             boolean loopbackOnly,
             boolean createRoom)
             throws Refused {
+        lendable(scheme, "setup");
         writable(scheme);
         // The account's and the project's, as they were printed: so it keeps what it made - the
         // project's relay
@@ -272,6 +300,7 @@ final class TransportLifecycle {
             Map<String, Object> settings,
             boolean loopbackOnly)
             throws Refused {
+        lendable(scheme, "enroll");
         writable(scheme);
         final Map<String, String> given = given(scheme, project);
         final Map<?, ?> said =
@@ -522,6 +551,7 @@ final class TransportLifecycle {
      */
     void retire(String scheme, String project, String task, Map<String, Object> settings)
             throws Refused {
+        lendable(scheme, "retire");
         final Map<String, String> own = secrets(scheme, "task/" + task);
         if (own.isEmpty()) {
             return;
@@ -858,6 +888,7 @@ final class TransportLifecycle {
     Map<?, ?> admit(String scheme, String project, String machine, Map<String, Object> settings)
             throws Refused {
         offered(scheme, "admit");
+        lendable(scheme, "admit");
         readable(scheme);
         return run(
                 scheme,
@@ -884,6 +915,7 @@ final class TransportLifecycle {
     Map<?, ?> dismiss(String scheme, String project, String machine, Map<String, Object> settings)
             throws Refused {
         offered(scheme, "dismiss");
+        lendable(scheme, "dismiss");
         readable(scheme);
         return run(
                 scheme,
@@ -913,6 +945,7 @@ final class TransportLifecycle {
             String scheme, String project, List<String> persons, Map<String, Object> settings)
             throws Refused {
         offered(scheme, "members");
+        lendable(scheme, "members");
         readable(scheme);
         return run(
                 scheme,
@@ -1001,10 +1034,130 @@ final class TransportLifecycle {
         }
     }
 
+    /**
+     * What a verb borrows, of what this transport names: only what is named for its own scheme. The
+     * person's other credentials - {@code porelo vault put anthropic} - are simple names too, and
+     * naming one in {@code describe} must not be enough to be handed it.
+     */
+    private static List<String> borrows(
+            String scheme, TransportDescription described, String verb) {
+        return described.lentOn(verb).stream()
+                .filter(name -> lentEntry(name).startsWith(scheme + "-"))
+                .toList();
+    }
+
+    /**
+     * The vault entry a borrowed credential is looked for under: its name, as a person types it.
+     */
+    private static String lentEntry(String name) {
+        final String lower = name.toLowerCase(java.util.Locale.ROOT);
+        return (lower.startsWith(LENT_PREFIX) ? lower.substring(LENT_PREFIX.length()) : lower)
+                .replace('_', '-');
+    }
+
+    /**
+     * Refuses before a verb's other checks when it borrows from a vault that is shut: those answer
+     * for what the transport hands back, and this says what it needs first. The transport is asked
+     * only when the vault is shut, so a transport that borrows nothing runs as it always did.
+     */
+    private void lendable(String scheme, String verb) throws Refused {
+        if (!context.vault().exists() || context.opener().isPresent()) {
+            return;
+        }
+        final Path adapter = transports.find(scheme);
+        if (adapter != null
+                && !borrows(scheme, TransportDescription.of(context.runner(), adapter), verb)
+                        .isEmpty()) {
+            throw shut(scheme, verb);
+        }
+    }
+
+    private static Refused shut(String scheme, String verb) {
+        return Refused.lendingShut(
+                "the vault is shut, and the "
+                        + scheme
+                        + " transport borrows from it what it needs to "
+                        + verb
+                        + "; 'porelo vault unlock' at the machine");
+    }
+
+    /**
+     * Reads what a verb borrows from the person's vault, for this one run: under each name's entry
+     * for the server the settings name, and only there, since a project's file names that server
+     * and a plain entry would go to any it chose. Not found, it goes without and the transport
+     * refuses for itself. Handed back by no verb and kept by none: {@link #own} takes it out of
+     * what a verb prints.
+     *
+     * @return Name to value, as the transport named them.
+     * @throws Refused If the vault is shut or cannot be read: that is not the same as not holding
+     *     it.
+     */
+    private Map<String, String> borrowed(
+            String scheme,
+            TransportDescription described,
+            String verb,
+            Map<String, Object> settings)
+            throws Refused {
+        final List<String> names = borrows(scheme, described, verb);
+        if (names.isEmpty()) {
+            return Map.of();
+        }
+        final Map<String, VaultEntry> held =
+                context.readableCredentials().orElseThrow(() -> shut(scheme, verb));
+        // Only a plain https address: read one way here and another by the client that connects,
+        // it would hand one server's token to the other.
+        final String server =
+                settings.get(LENT_SERVER) instanceof String named
+                                && org.fuin.porelo.core.project.AddressForm.isHttps(named)
+                        ? GitCredentialNames.hostOf(named)
+                        : null;
+        final Map<String, String> found = new LinkedHashMap<>();
+        for (final String name : names) {
+            final VaultEntry lent =
+                    server == null
+                            ? null
+                            : held.get(
+                                    lentEntry(name)
+                                            + "."
+                                            + server.toLowerCase(java.util.Locale.ROOT));
+            if (lent != null) {
+                found.put(name, lent.value());
+            }
+        }
+        return found;
+    }
+
+    /**
+     * What a verb printed, less anything holding what it borrowed: what it prints under {@code
+     * secrets} and {@code account} is kept, and a credential that was only lent must not be, nested
+     * or inside a longer value either.
+     */
+    private static Map<?, ?> own(Map<?, ?> said, Map<String, String> borrowed) {
+        if (borrowed.isEmpty()) {
+            return said;
+        }
+        final Map<Object, Object> kept = new LinkedHashMap<>(said);
+        for (final String key : List.of("secrets", "account")) {
+            if (said.get(key) instanceof Map<?, ?> held) {
+                final Map<Object, Object> rest = new LinkedHashMap<>(held);
+                rest.entrySet()
+                        .removeIf(
+                                each ->
+                                        borrowed.containsKey(String.valueOf(each.getKey()))
+                                                || borrowed.values().stream()
+                                                        .anyMatch(
+                                                                String.valueOf(each.getValue())
+                                                                        ::contains));
+                kept.put(key, rest);
+            }
+        }
+        return kept;
+    }
+
     private Map<?, ?> run(
             String scheme,
             Map<String, Object> settings,
-            Map<String, String> secrets,
+            Map<String, String> kept,
             boolean loopbackOnly,
             String... verb)
             throws Refused {
@@ -1024,6 +1177,9 @@ final class TransportLifecycle {
         // machine, and their Porelo runs once, in their own account there.
         // admit and dismiss name the other machine themselves, so no login is added.
         final TransportDescription described = TransportDescription.of(context.runner(), adapter);
+        final Map<String, String> borrowed = borrowed(scheme, described, verb[0], settings);
+        final Map<String, String> secrets = new LinkedHashMap<>(kept);
+        secrets.putAll(borrowed);
         if (!"settings".equals(verb[0])
                 && !"part".equals(verb[0])
                 && !"admit".equals(verb[0])
@@ -1068,7 +1224,7 @@ final class TransportLifecycle {
         }
         try {
             if (Json.parse(result.standardOutput()) instanceof Map<?, ?> said) {
-                return said;
+                return own(said, borrowed);
             }
         } catch (RuntimeException ex) {
             // Falls through to the refusal below; what it printed is never repeated - it may hold a
@@ -1086,6 +1242,12 @@ final class TransportLifecycle {
 
     /** What a transport that takes this account's login lists in its {@code takes}. */
     static final String LOGIN = "login";
+
+    /** What a borrowed credential's name begins with, which its vault entry does not. */
+    private static final String LENT_PREFIX = "porelo_";
+
+    /** The setting whose host a person's entry is named for. */
+    private static final String LENT_SERVER = "homeserver";
 
     /**
      * What a login looks like, as every other login rule of Porelo and the transports' own take it:
