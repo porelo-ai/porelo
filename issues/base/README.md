@@ -20,6 +20,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b392"></a>[B392](B392-Checks-Every-Organization-Adapter-Passes.md) | M | - | The store's security requirements as checks any adapter runs, failing against one that takes an unsigned change, an older state or a revoked card |
 | <a id="b387"></a>[B387](B387-A-Project-Followed-Before-Its-Access-File-Exists.md) | S | - | A project whose access repository is still empty is followed, so `project access init` can write its first access commit |
 | <a id="b388"></a>[B388](B388-A-Registry-Owner-Check-With-An-App-Token.md) | S | - | The registry's owner check takes a GitHub App installation token declared in a variable, never kept in the vault |
 | <a id="b389"></a>[B389](B389-A-Stopped-Test-Walks-Core-Findings.md) | S | - | Directories without group write, the lent key named, no Unsafe warning, and setup on a host vault said in words |
@@ -46,7 +47,6 @@ from its side, as *blocked by*.
 | <a id="b154"></a>[B154](B154-A-Tamper-Evident-Event-Log-Per-Node.md) | L | - | One hash-chained event log per account, anchored in the user's journal, optionally copied off the machine, kept by `porelo clear`; written by approve, reject, clearance, hand-in, credentials and project changes.; part 1 built, the copy off the machine after it |
 | <a id="b398"></a>[B398](B398-A-Test-That-Cannot-Reach-The-Persons-Vault.md) | - | - | A test that builds a command the wrong way falls to the real context, and so to the person's vault |
 | <a id="b391"></a>[B391](B391-The-Cut-To-The-New-Organization.md) | L | - | The cut: `identity` files through the store on `git-tree`, and everything that reads or writes the old registry goes |
-| <a id="b392"></a>[B392](B392-Checks-Every-Organization-Adapter-Passes.md) | M | - | The store's security requirements as checks any adapter runs, failing against one that takes an unsigned change, an older state or a revoked card |
 
 ## Backlog
 
@@ -135,6 +135,7 @@ from its side, as *blocked by*.
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
 | <a id="b397"></a>[B397](B397-A-Plain-Git-Credential-Goes-To-Any-Host-A-Project-Names.md) | - | - | A plain `git.token` or `git.ssh` reaches only a host the person meant it for, not whatever host a project's file names. |
+| <a id="b401"></a>[B401](B401-What-The-Write-Contract-Does-Not-Yet-Hold.md) | - | - | What a store could do and still pass the write contract: five operations no check calls, the source's silence, the last admin, backups and reasons never asserted |
 | <a id="b394"></a>[B394](B394-An-Online-Task-On-A-Host-With-No-Forge-Passes-On-To-Its-Upstream.md) | S | - | An `online` task on a host with no forge passes on to its `upstream` instead of pushing to a forge that is not there. |
 | <a id="b399"></a>[B399](B399-A-Maven-Server-Password-Brought-Into-The-Vault-On-Command.md) | - | - | A person brings one named Maven server's password from their own settings into the vault, at their explicit command |
 | <a id="b386"></a>[B386](B386-A-Project-Access-Contract-Without-Guessing.md) | S | - | A read-only lookup by `Porelo-Change-Id`, the head `project verify` takes from a bundle written down, `access add --role admin` for a listed admin defined, and verify naming the access commit's signer |

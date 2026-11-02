@@ -1,6 +1,6 @@
 # B392 — Checks Every Organization Adapter Passes
 
-**Status:** Implementing.
+**Status:** Review.
 **Size:** M - one module of checks over the API, a fixture for the Git adapter, and a broken adapter per requirement to
 show each check fails.
 
@@ -17,8 +17,7 @@ them; an adapter that accepts an unsigned change, a played-back older state or a
 - **The checks are drawn from the existing tests**, which stay where they are since they read Git's details: the
   signers' cases of `RegistryHistoryTest` and `RegistryFileCommandTest`, the rollback and fork cases of
   `RegistryHistoryTest` and `RegistryVerifyCommandTest`, and the pin's cases of `RegistryVerifyCommandTest`.
-- **Git's fixture** in `organization/git-tree`'s tests, people's allowed changes and the attacker as raw commits on the
-  repository, the checks speaking `OrganizationQuestions` for the read and `OfflineOrganization` for the pin.
+- **Git's fixture** in `organization/git-tree`'s tests, the attacker as raw commits on the repository.
 - **A broken stand-in for each requirement** in the contract's own tests, an in-memory store that accepts what it must
   refuse, so each check is seen to fail.
 - The requirements in words in `doc/decisions.md`, as what any store must meet.

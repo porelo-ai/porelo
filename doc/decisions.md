@@ -96,6 +96,7 @@ would change the answer.
 | Withdrawing a card revokes its key | the key signs nothing more and cannot file the card again; the only owner's card cannot be withdrawn | [entry](#withdrawing-a-card-revokes-its-key) |
 | A founder's key that left the forge refuses the organization on a new machine | a new machine answers `refused-state` naming the key; a machine that read it while listed goes on; recovery is the key back on the forge, or a new organization | [entry](#a-founders-key-that-left-the-forge-refuses-the-organization-on-a-new-machine) |
 | A project's lock does not bind an organization owner | accepted: an owner may name any admin, and an admin may unlock; every step is a signed commit | [entry](#a-projects-lock-does-not-bind-an-organization-owner) |
+| Every organization store passes one set of checks | `organization/contract` holds what any store must guarantee, and each adapter runs it against itself through a fixture; `organization/git` keeps its own offline answer and does not run them | [entry](#every-organization-store-passes-one-set-of-checks) |
 | A past commit is judged by the whole chain of its key, read to the tip | a key handed on keeps its commits on a new machine; a lost key's stay refused, and an owner adds the project's admins again | [entry](#a-past-commit-is-judged-by-the-whole-chain-of-its-key-read-to-the-tip) |
 | **Projects and following** | | |
 | One agent works in one repository | a task holds one repository, so an agent that spans several is one per repository, its commits authored by the name it goes by | [entry](#one-agent-works-in-one-repository) |
@@ -1161,6 +1162,44 @@ on from its record. A forged first file answers the same until the real founder 
 **Why it stays (the operator, 2026-11-02):** anything else would let somebody other than the forge's listed key found an
 organization. Recovery is the key back on the forge for the walk, or a new organization, and `org create`'s words say to keep a
 second owner or a backup key. **What would change the answer:** a root of trust that does not rest on the forge.
+
+## Every organization store passes one set of checks
+
+What keeps an organization is an adapter's own, so what it must guarantee is written as checks over the API, which need
+neither `git` nor a class of an adapter. Each check has been seen to fail against a stand-in that breaks what it guards.
+
+- **A change counts only signed by the one allowed to make it, wherever it lies in the history.** An unsigned change, or
+  one signed by a key the place's rule does not allow, gives no role and no owner's place, under a later honest change as
+  well, and the read names the refused revision and nothing before it. An admin has no right in another project and a
+  locked admin none in their own; an owner names admins, adds nobody else and touches no lock.
+- **A person's card stands against everybody else.** A card overwritten, removed or replaced by somebody who may not, or
+  filed for its person by another key, holds nothing; nor does one the identity source denies, and a card squatted in
+  another's name gives way to the person's own.
+- **A revoked key signs nothing, wherever else it is held and after a read as well**, an owner's though the list of owners
+  still names it, and an older card played back gives it nothing. The revocation lies in the history, so this holds from a
+  machine's first read on.
+- **A state that does not continue what this machine trusted is refused each time it is served**: an older one, a fork,
+  or one without a revocation. A machine that has trusted nothing yet has nothing to compare, so a state rolled back
+  before its first read is not noticed.
+- **A change through the API is made by the one allowed, once, or not at all.** A person acts with the key on their own
+  card, within the role they hold; a base the store moved past, a card of another login or key and the last owner or
+  admin are refused, and a refusal leaves nothing a reader sees. An id asked again answers the change it made, is another
+  person's id no answer, and is refused when it named another change. What a change says it made, a fresh reader accepts,
+  and a change that would alter nothing is refused rather than answered as made.
+- **What a replaced key did goes for a new reader, and what a handed-on key did stays.** An owner's replacement links
+  nothing to the old key and the source no longer lists it, so members that admin added are gone for a new reader until an
+  owner adds the admin again and the new key adds the rest; a reader that trusted the state before keeps them until
+  then. A card the old key signed links the two, and nothing is lost. A new key's card
+  with no word from the old one stands only where the source lists the new key alone, so no card stands for a new reader
+  and the source decides, as for a first card; otherwise it is refused.
+- **A host's offline check answers only for its pinned key.** It answers the host's admins, projects, persons and card
+  under that key. It refuses a copy under another person's pin, one holding a change nobody allowed, also under a later
+  change or with a stranger's key named beside the pin, an owner's change of the host's files, and one that does not continue
+  the state the host applied last. The pin follows a new admin only through a commit it signed itself.
+  A first-seen person's key reaches no host while the identity source cannot say: no row in `admins`, `persons` or
+  `signing_keys`, and the role stays in `members`.
+
+`organization/git-tree` runs the reading and the offline checks on real commits.
 
 ## A project's lock does not bind an organization owner
 
