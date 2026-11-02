@@ -1,0 +1,2 @@
+title: "A start with neither `--agent` nor `--provider` takes the sign-in the vault already holds when the agent found several, instead of being refused for the first it found"
+type: fixed

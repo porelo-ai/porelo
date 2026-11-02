@@ -188,17 +188,32 @@ public final class AgentChoice {
                     paths,
                     null);
         }
-        // The first the import can take, as ExtractCredential answers it, otherwise the first.
+        final var drivable = SelectedProvider.drivable(context.providers(), agent.definition());
+        // What the person already imported comes first: found first, the start would be refused for
+        // a sign-in they did not choose, while the vault holds the one they did. A locked vault
+        // holds nothing here, and the order below decides as before.
+        final java.util.Map<String, ?> held = context.credentials();
         final Finding first =
                 signedIn.stream()
-                        .filter(finding -> Boolean.TRUE.equals(finding.importable()))
+                        .filter(
+                                finding ->
+                                        finding.provider() != null
+                                                && drivable.contains(finding.provider())
+                                                && held.containsKey(finding.provider()))
                         .findFirst()
+                        // The first the import can take, as ExtractCredential answers it, otherwise
+                        // the first.
+                        .or(
+                                () ->
+                                        signedIn.stream()
+                                                .filter(
+                                                        finding ->
+                                                                Boolean.TRUE.equals(
+                                                                        finding.importable()))
+                                                .findFirst())
                         .orElse(signedIn.getFirst());
         final String provider =
-                first.provider() != null
-                                && SelectedProvider.drivable(
-                                                context.providers(), agent.definition())
-                                        .contains(first.provider())
+                first.provider() != null && drivable.contains(first.provider())
                         ? first.provider()
                         : null;
         return new Found(

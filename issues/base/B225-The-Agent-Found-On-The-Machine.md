@@ -45,7 +45,8 @@ Read in the code on 2026-10-20 (`agents/api`, `apps/app-agents`, `apps/app-task`
    the vault offers `vault import` for it (`CredentialImport`), as the start offers `vault login` today; without a
    terminal it refuses as today, naming the command.
 6. **The provider**: an agent found signed in to a provider it can drive gives that provider when `--provider`
-   is not given; `SelectedProvider.consider` takes it as its third argument.
+   is not given; `SelectedProvider.consider` takes it as its third argument. Of several sign-ins, the one the vault
+   already holds comes first, so a start is not refused for a sign-in the person did not choose to import.
 7. Docs: `doc/commands.md`, where the start's choice of an agent is told, and `agents/README.md`.
 
 **Red first:** `AgentChoiceTest` with fake agents: two installed, one answering `SIGNED_IN`, is chosen with source

@@ -25,6 +25,8 @@ import org.fuin.porelo.core.project.Egress;
 import org.fuin.porelo.core.project.Limits;
 import org.fuin.porelo.core.project.Repository;
 import org.fuin.porelo.testing.FakeCommandRunner;
+import org.fuin.porelo.vault.KernelKeyring;
+import org.fuin.porelo.vault.VaultEntry;
 import org.fuin.porelo.wire.varlink.VarlinkServer;
 import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.Test;
@@ -271,6 +273,9 @@ class AgentChoiceTest {
         return context;
     }
 
+    private static final String SIGNED_IN_ALPHA =
+            "SIGNED_IN,true,alpha,API_KEY,/home/x/.tool/first";
+
     static final String SIGNED_IN_BETA = "SIGNED_IN,true,beta,SUBSCRIPTION,/home/x/.tool/in";
 
     static final String NOT_SIGNED_IN = "NOT_SIGNED_IN,,,,/home/x/.tool/empty";
@@ -296,6 +301,49 @@ class AgentChoiceTest {
                     .as("the provider it is signed in to, not its default")
                     .isEqualTo("beta");
             assertThat(choice.chosen().path()).isEqualTo("/home/x/.tool/in");
+        }
+    }
+
+    @Test
+    void theSignInTheVaultAlreadyHoldsIsChosenOverOneFoundBeforeIt(@TempDir final Path dir)
+            throws Exception {
+
+        // Prevents a start being refused for a sign-in nobody chose, with the chosen one imported.
+        org.junit.jupiter.api.Assumptions.assumeTrue(
+                KernelKeyring.available(), "no kernel keyring here");
+        final PoreloContext context = withProviders(dir);
+        installed(context, "only", SIGNED_IN_ALPHA + ";" + SIGNED_IN_BETA);
+        final char[] passphrase = "made-up-passphrase".toCharArray();
+        Files.createDirectories(context.vault().path().getParent());
+        context.vault().write(Map.of("beta", VaultEntry.of("made-up-value")), passphrase);
+        final KernelKeyring keyring = new KernelKeyring(context.paths().vault().vaultKeyringKey());
+        keyring.store(passphrase);
+
+        try (InstalledAgents agents = context.agents()) {
+            final AgentChoice.Choice choice =
+                    AgentChoice.considerAgent(context, agents, null, null);
+
+            assertThat(choice.agent().name()).isEqualTo("only");
+            assertThat(choice.provider())
+                    .as("the imported provider, not the one found first")
+                    .isEqualTo("beta");
+            assertThat(choice.chosen().path()).isEqualTo("/home/x/.tool/in");
+        } finally {
+            keyring.forget();
+        }
+    }
+
+    @Test
+    void withNothingHeldTheFirstFoundStays(@TempDir final Path dir) throws Exception {
+
+        // Prevents the order the agent gave being lost when the vault holds neither.
+        final PoreloContext context = withProviders(dir);
+        installed(context, "only", SIGNED_IN_ALPHA + ";" + SIGNED_IN_BETA);
+
+        try (InstalledAgents agents = context.agents()) {
+            assertThat(AgentChoice.considerAgent(context, agents, null, null).provider())
+                    .as("no vault here: the agent's order decides")
+                    .isEqualTo("alpha");
         }
     }
 

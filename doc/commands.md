@@ -202,7 +202,8 @@ At a terminal a shut vault asks for its passphrase; a script must unlock it firs
   Without `--agent`, the start takes the agent the project file names for the repository
   (`repositories.<repository>.agent`) and says so in its plan; one that is not installed refuses the start. With
   neither, it asks each installed agent what it finds of itself and takes the one found signed in, with the provider
-  it is signed in to unless `--provider` says otherwise, and names the choice and where it was found. An agent that
+  it is signed in to unless `--provider` says otherwise, and names the choice and where it was found. Signed in to
+  several, it takes the one the vault already holds, otherwise the first the agent names. An agent that
   cannot say is never read as not signed in. Otherwise, with several installed, it lists them, those found signed in
   first, and asks which, by number; without a terminal it asks for `--agent` as before. An agent found signed in
   whose credential the vault lacks is offered `vault import`, or named it without a terminal. A task's commits are authored by the name its agent goes by, `Agent <nickname>` or
