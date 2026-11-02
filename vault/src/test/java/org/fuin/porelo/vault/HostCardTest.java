@@ -657,4 +657,135 @@ class HostCardTest {
                 .isInstanceOf(CardException.class)
                 .hasMessageContaining("is not a port");
     }
+
+    private static final String HEAD =
+            "host: \"walk-9\"\naddress: \"walk-9.example.org\"\nssh_port: 22\n"
+                    + "ssh_host_key: \"ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIJlOK3yF2bq3J+eXz7gB7h8m3Ytq8sQ7oK3bQ2u4vW1s\"\n";
+
+    private static String signed(final String services) {
+        final String body = HEAD + services;
+        return body
+                + SshSignature.sign(
+                        SigningKey.generate("hank"),
+                        body.getBytes(java.nio.charset.StandardCharsets.UTF_8),
+                        PersonCard.NAMESPACE);
+    }
+
+    @Test
+    void aServiceTakenOffTheCardIsAbsentAndTheOtherStays() {
+        final HostCard card =
+                HostCard.read(
+                        signed("services:\n  forge:\n    web_port: 3000\n    git_port: 2222\n"),
+                        "test");
+
+        assertThat(card.forgeWebPort()).isEqualTo(3000);
+        assertThat(card.matrixPort()).as("no Matrix here").isEqualTo(HostCard.NO_SERVICE);
+    }
+
+    @Test
+    void aCardWithNoServicesAtAllStillNamesTheHost() {
+        final HostCard card = HostCard.read(signed(""), "test");
+
+        assertThat(card.address()).isEqualTo("walk-9.example.org");
+        assertThat(card.forgeWebPort()).isEqualTo(HostCard.NO_SERVICE);
+        assertThat(card.forgeGitPort()).isEqualTo(HostCard.NO_SERVICE);
+        assertThat(card.matrixPort()).isEqualTo(HostCard.NO_SERVICE);
+    }
+
+    @Test
+    void aForgeWithOnePortIsRefusedRatherThanReadAsHalfAService() {
+        assertThatThrownBy(
+                        () ->
+                                HostCard.read(
+                                        signed("services:\n  forge:\n    web_port: 3000\n"),
+                                        "test"))
+                .as("the interface would offer a push to no port")
+                .isInstanceOf(CardException.class)
+                .hasMessageContaining("git_port");
+    }
+
+    @Test
+    void aMatrixWithNoPortIsRefused() {
+        assertThatThrownBy(() -> HostCard.read(signed("services:\n  matrix:\n"), "test"))
+                .isInstanceOf(CardException.class);
+    }
+
+    @Test
+    void aPortOfZeroWrittenOnACardIsNoWayToSayAServiceIsOff() {
+        assertThatThrownBy(
+                        () -> HostCard.read(signed("services:\n  matrix:\n    port: 0\n"), "test"))
+                .as("off is said by leaving it out, so one signed card reads one way")
+                .isInstanceOf(CardException.class);
+    }
+
+    @Test
+    void theRequiredFieldsStayRequired() {
+        final String body = "host: \"walk-9\"\nssh_port: 22\n";
+        final String card =
+                body
+                        + SshSignature.sign(
+                                SigningKey.generate("hank"),
+                                body.getBytes(java.nio.charset.StandardCharsets.UTF_8),
+                                PersonCard.NAMESPACE);
+
+        assertThatThrownBy(() -> HostCard.read(card, "test"))
+                .isInstanceOf(CardException.class)
+                .hasMessageContaining("address");
+    }
+
+    @Test
+    void aCardWrittenWithAServiceOffReadsBackSoAndVerifies() {
+        final SigningKey hank = SigningKey.generate("hank");
+        final HostCard card =
+                HostCard.read(
+                        HostCard.writeOffered(
+                                "walk-9",
+                                "walk-9.example.org",
+                                22,
+                                "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIJlOK3yF2bq3J+eXz7gB7h8m3Ytq8sQ7oK3bQ2u4vW1s",
+                                HostCard.NO_SERVICE,
+                                HostCard.NO_SERVICE,
+                                8448,
+                                hank),
+                        "test");
+
+        assertThat(card.forgeWebPort()).isEqualTo(HostCard.NO_SERVICE);
+        assertThat(card.matrixPort()).isEqualTo(8448);
+        assertThat(card.body()).as("no empty forge is signed").doesNotContain("forge");
+    }
+
+    @Test
+    void aCardWrittenWithEveryServiceOffSignsNoEmptySection() {
+        final HostCard card =
+                HostCard.read(
+                        HostCard.writeOffered(
+                                "walk-9",
+                                "walk-9.example.org",
+                                22,
+                                hostKey,
+                                HostCard.NO_SERVICE,
+                                HostCard.NO_SERVICE,
+                                HostCard.NO_SERVICE,
+                                admin),
+                        "test");
+
+        assertThat(card.body()).as("the signed bytes say one thing").doesNotContain("services");
+    }
+
+    @Test
+    void todaysWriteStillRefusesAPortOfZero() {
+        assertThatThrownBy(
+                        () ->
+                                HostCard.write(
+                                        "walk-9",
+                                        "walk-9.example.org",
+                                        22,
+                                        "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIJlOK3yF2bq3J+eXz7gB7h8m3Ytq8sQ7oK3bQ2u4vW1s",
+                                        0,
+                                        2222,
+                                        8448,
+                                        SigningKey.generate("hank")))
+                .as("card make-host must not turn a typo into a service taken off")
+                .isInstanceOf(CardException.class);
+    }
 }

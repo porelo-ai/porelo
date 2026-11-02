@@ -13,6 +13,7 @@ file are in [the project file](project-file.md).
 | [`host`](#host) | Opens a host vault with the person's local SSH key. |
 | [`credentials`](#credentials) | Records which credential each destination is connected to with. |
 | [`card`](#card) | Checks a person's card; makes and checks a host's. |
+| [`org`](#org) | Answers the organization: its people, projects and hosts. |
 | [`gate`](#gate) | Reviews and forwards what an agent pushed. |
 | [`commit`](#commit) | Judges the commits a push brings to a host's forge. |
 | [`talk`](#talk) | Shows and moves the messages a task exchanges with other tasks. |
@@ -586,6 +587,25 @@ fingerprints the new key's and the old one's, each contact `{"login", "name", "e
 credential: neither the checkout's credential helpers nor a forge token Porelo holds are given to it, so it works
 only where the forge takes the push without one; a registry is pushed over `ssh` with the agent.
 
+## org
+
+The organization of the new structure, from the repository `organization.yml` names; `porelo setup` writes that file. Each
+command fetches and walks what is new first. One that cannot reach the store answers the last state it trusted, with
+`"stale": true` and exit 0, or `cannot-say` (69) when it has none. No security check rests on a stale state. `--json` answers one
+object in `snake_case`, with `revision`; a refusal is one line `{"reason", "words", "revision"}` and `words` on standard error too,
+exits 64 `usage`, 65 `not-allowed` or `refused-state`, 66 `not-found`, 69 `cannot-say`, 70 `failed` and 78 `no-organization`.
+
+| Command | What it does |
+|---|---|
+| `porelo org [--json]` | Answers the organization: `name`, `kept_in`, `vouched_by`, `revision`, `stale`, `me` (`null` for a person with no card), `owners`, `people`, `projects`, `hosts`, `warnings`, `refusals`, `sole_without_backup`. `vouched` is what the identity source says now, and `cannot-say` is never read as yes. |
+| `porelo org card LOGIN [--json]` | Answers a person's card as filed, whole, with `state`. |
+| `porelo org host-card HOST [--json]` | Answers a host's card as filed, whole. |
+| `porelo org projects [--json]` | Lists the organization's projects this person is in, then those registered on this machine alone, then `default`, each with `source`, `role`, `locked`, `host` and `opened`. |
+| `porelo org fetch --host HOST --settings FILE --ssh-key FILE --known-hosts FILE --pin FILE [--since REVISION] --json` | Run by a host as root, with no home, vault or person. Fetches with the host's read key alone, against the forge's pinned host key, judges by the same rules as a person's machine with the forge's public key list asked anonymously, and answers `revision`, `host_card`, `admins`, `persons` and `projects`. `refused-state` for anything older than `--since` or a change of the host's files not signed for the pin; `cannot-say` when it cannot be reached, never a stale state. A person's first card the forge cannot say of waits, and the answer stays at the earlier revision. |
+| `porelo org signers --state FILE --project PROJECT --json` | Builds from the state `org fetch` answered a project's `signers` and `certifiers`, in allowed signers format: only the keys in force, each until its card ends, and a locked member's not at all. |
+| `porelo org add-read-key --settings FILE --key FILE --json` | Adds a host's read-only deploy key to the organization's repository, with the host admin's token on standard input and nowhere else; the token is not kept. Asked again it answers `added: false`. A key the repository holds with write access is `not-allowed`. `revision` is the forge's word for the latest commit, or `null`; nothing is judged by it. |
+| `porelo project show PROJECT [--json]` | Answers a project for its members, `not-allowed` for anyone else, or one registered on this machine alone, its organization fields `null`. A filed project's `repositories` are not read yet: `state` is `not-opened` or `cannot-say`, with `names` empty. |
+
 ## registry
 
 | Command | What it does |
@@ -655,6 +675,7 @@ porelo project access init|add|remove|lock|unlock --project NAME --person LOGIN 
 porelo project access replace --project NAME --person LOGIN --card FILE --base COMMIT --id ID [--json]
 porelo project refresh [NAME]
 porelo project list
+porelo project show PROJECT [--json]
 porelo project unfollow NAME [--dry-run] [--force]
 porelo project clear NAME [--yes] [--dry-run] [--force]
 porelo project default [list | add ADDRESS [--name=NAME] | remove NAME]

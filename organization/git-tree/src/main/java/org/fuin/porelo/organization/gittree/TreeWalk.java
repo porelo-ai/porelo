@@ -73,6 +73,31 @@ final class TreeWalk {
     /** The judged paths of the commit being judged. */
     private List<String> touched = List.of();
 
+    /** Why the last founding failed on its key; what a walk that ends with no owners answers. */
+    private @Nullable String lostFounder;
+
+    /** Told of every commit the walk passed, with the model as it left it. */
+    interface Watch {
+
+        /**
+         * Sees a commit.
+         *
+         * @param commit The commit.
+         * @param signer The fingerprint of its valid signature, or {@code null} for none.
+         * @param paths The paths it changed that the rule judges.
+         * @param model The model after it.
+         */
+        void passed(String commit, @Nullable String signer, List<String> paths, TreeModel model);
+    }
+
+    /** Set on a host, whose founder is taken from the commits under its pin, not the source. */
+    private @Nullable Watch pin;
+
+    /** The signer and paths of the commit last judged, for {@link #pin}. */
+    private @Nullable String lastSigner;
+
+    private List<String> lastPaths = List.of();
+
     /** Why one path of one commit is refused. */
     private static final class Refused extends Exception {
         private static final long serialVersionUID = 1L;
@@ -101,6 +126,16 @@ final class TreeWalk {
     }
 
     /**
+     * Walks as a host does: the watch checks the commits against its pin, which also stands for the
+     * founder, since a commit signed for the pin signs every commit before it.
+     *
+     * @param watch The pin's check.
+     */
+    void underPin(final Watch watch) {
+        pin = watch;
+    }
+
+    /**
      * Walks the line, stopping before a commit that could not be decided, on from a record whose
      * commit the line must hold. {@link #readChains} comes first.
      *
@@ -113,6 +148,7 @@ final class TreeWalk {
     TreeRecord read(final @Nullable String revision, final @Nullable TreeRecord start)
             throws IOException {
         String reached = null;
+        boolean stopped = false;
         boolean past = start == null;
         if (start != null) {
             model = start.model().copy();
@@ -125,9 +161,21 @@ final class TreeWalk {
                 continue;
             }
             if (!commit(entry.getKey(), entry.getValue())) {
+                stopped = true;
                 break;
             }
             reached = entry.getKey();
+            if (pin != null) {
+                pin.passed(entry.getKey(), lastSigner, lastPaths, model);
+            }
+        }
+        if (!stopped && lostFounder != null && model.owners().isEmpty()) {
+            throw new OrganizationQuestions.Refused(
+                    OrganizationQuestions.Refused.REFUSED_STATE,
+                    lostFounder
+                            + ", so nothing in this organization can be accepted: put that key back"
+                            + " on the forge, or make a new organization",
+                    reached);
         }
         if (revision != null && !revision.equals(reached)) {
             throw new OrganizationQuestions.Refused(
@@ -212,6 +260,8 @@ final class TreeWalk {
     private boolean commit(final String commit, final String parent) throws IOException {
         final List<String> paths =
                 repository.changed(commit, parent).stream().filter(TreeWalk::judged).toList();
+        lastPaths = paths;
+        lastSigner = null;
         if (paths.isEmpty()) {
             return true;
         }
@@ -222,6 +272,7 @@ final class TreeWalk {
             paths.forEach(path -> refuse(commit, path, String.valueOf(ex.getMessage())));
             return true;
         }
+        lastSigner = signer;
         if (model.revoked().contains(signer)) {
             paths.forEach(
                     path -> refuse(commit, path, "signed by " + signer + ", which is revoked"));
@@ -382,12 +433,20 @@ final class TreeWalk {
                                                 "the first owners.yml is signed by "
                                                         + signer
                                                         + ", not by an owner it names"));
+        if (pin != null) {
+            return;
+        }
         final Optional<Boolean> owns = identities.owns(organisation, founder.login());
         if (owns.isPresent() && !owns.orElseThrow()) {
             throw new Refused(founder.login() + " does not own " + organisation);
         }
         final String state = trust(founder.login(), signer);
         if (state.equals(Organization.REFUSED)) {
+            lostFounder =
+                    "the first owners.yml is signed by "
+                            + signer
+                            + ", which the identity source does not list for "
+                            + founder.login();
             throw new Refused("no key " + signer + " is listed for " + founder.login());
         }
         if (owns.isEmpty() || state.equals(Organization.FIRST_SEEN)) {

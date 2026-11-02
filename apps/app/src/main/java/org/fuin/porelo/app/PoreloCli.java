@@ -24,6 +24,7 @@ import picocli.CommandLine.Spec;
             VaultCommand.class,
             CardCommand.class,
             IdentityCommand.class,
+            OrgCommand.class,
             RegistryCommand.class,
             CommitCommand.class,
             HostCommand.class,
@@ -84,6 +85,11 @@ public class PoreloCli implements Callable<Integer> {
         java.util.Objects.requireNonNull(
                         line.getSubcommands().get("host"), "the host group is named above")
                 .addSubcommand(HostWhoamiCommand.class);
+        // A project's new verbs answer from the organization, which the project's area does not
+        // read.
+        java.util.Objects.requireNonNull(
+                        line.getSubcommands().get("project"), "the project group is named above")
+                .addSubcommand(ProjectShowCommand.class);
         // A project's backup key is filed among its signers, which are the project area's.
         final CommandLine identity =
                 java.util.Objects.requireNonNull(

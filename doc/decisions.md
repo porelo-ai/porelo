@@ -90,6 +90,7 @@ would change the answer.
 | The organization's adapter is linked into Porelo | it decides whom Porelo trusts, so it is no executable that would have to be trusted first; a second one comes with a release; its API carries plain data, so one can stand behind a process later | [entry](#the-organizations-adapter-is-linked-into-porelo) |
 | A new key goes straight into KeePassXC, and a running KeePassXC is locked to serve it | accepted: no key file and no master password in Porelo; every database the running KeePassXC has open is locked, and the others stay locked until the person unlocks them | [entry](#a-new-key-goes-straight-into-keepassxc-and-a-running-keepassxc-is-locked-to-serve-it) |
 | A registry's trust record is checked, not hardened against whoever writes the state directory | accepted: a record that fails a check is discarded and the registry walked again from its founding commit; a writer of `$XDG_STATE_HOME` can change Porelo's config and binaries too | [entry](#a-registrys-trust-record-is-checked-not-hardened-against-whoever-writes-the-state-directory) |
+| A founder's key that left the forge refuses the organization on a new machine | a new machine answers `refused-state` naming the key; a machine that read it while listed goes on; recovery is the key back on the forge, or a new organization | [entry](#a-founders-key-that-left-the-forge-refuses-the-organization-on-a-new-machine) |
 | A project's lock does not bind an organization owner | accepted: an owner may name any admin, and an admin may unlock; every step is a signed commit | [entry](#a-projects-lock-does-not-bind-an-organization-owner) |
 | Every organization store passes one set of checks | `organization/contract` holds what any store must guarantee, and each adapter runs it against itself through a fixture; the offline checks run against stand-ins until `organization/git-tree` has an offline check | [entry](#every-organization-store-passes-one-set-of-checks) |
 | A past commit is judged by the whole chain of its key, read to the tip | a key handed on keeps its commits on a new machine; a lost key's stay refused, and an owner adds the project's admins again | [entry](#a-past-commit-is-judged-by-the-whole-chain-of-its-key-read-to-the-tip) |
@@ -1182,6 +1183,23 @@ the check is there against a damaged or stale record, and further ways a hand-ed
 Ideas, not fixed one by one. **What would change the answer:** a record that crosses a boundary the state directory
 does not, such as one shared between machines or people, which would then have to be signed or proven against the
 history in full.
+
+**The organization's record of the new structure is under the same answer, and checked less.** The Git adapter keeps its own
+under `$XDG_STATE_HOME/porelo/organization/`, owner-only. A tip that does not continue its commit refuses the read, and one
+that does not read, names another address or is not owner-only is discarded with a warning and the store walked afresh. Its
+fields and each card against its fingerprint are checked; the changes are not judged again from the history, so a hand-edited
+record passes more easily than today's. The exposure and the reason are the ones above: who can write that directory can
+change Porelo too. A stale answer rests on this file alone, without a fetch, so no security check may rest on one.
+
+## A founder's key that left the forge refuses the organization on a new machine
+
+The first `owners.yml` is proven by the identity source alone: it must list the founder's key. **The exposure:** when that key
+leaves the forge with no card handed on, a new machine can prove no owner, and with no owner nothing else. It answers
+`refused-state`, naming the key; it does not answer an empty organization. A machine that read it while the key was listed goes
+on from its record. A forged first file answers the same until the real founder files theirs, which still founds it.
+**Why it stays (the operator, 2026-11-02):** anything else would let somebody other than the forge's listed key found an
+organization. Recovery is the key back on the forge for the walk, or a new organization, and `org create`'s words say to keep a
+second owner or a backup key. **What would change the answer:** a root of trust that does not rest on the forge.
 
 ## Every organization store passes one set of checks
 

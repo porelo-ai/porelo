@@ -8,6 +8,12 @@ import org.jspecify.annotations.Nullable;
 /**
  * The questions of the new structure, each answered at one revision, so that several answers rest
  * on one state. Each adapter answers each question itself; the questions are the contract.
+ *
+ * <p>A change nobody allowed is no reason to refuse the read: the answers leave it out and name it
+ * in {@link #getRefusals()}, and every later change is judged without it. The read itself is
+ * refused with {@link Refused} only when the state as a whole cannot be taken: an older state
+ * served again, a fork, or a founder's key the identity source no longer lists, each {@link
+ * Refused#REFUSED_STATE}.
  */
 public interface OrganizationQuestions {
 
@@ -22,6 +28,12 @@ public interface OrganizationQuestions {
     final class Refused extends RuntimeException {
 
         private static final long serialVersionUID = 1L;
+
+        /** This machine has no organization. */
+        public static final String NO_ORGANIZATION = "no-organization";
+
+        /** Options or arguments are wrong. */
+        public static final String USAGE = "usage";
 
         /** The acting person does not hold the role. */
         public static final String NOT_ALLOWED = "not-allowed";
@@ -52,6 +64,9 @@ public interface OrganizationQuestions {
 
         /** No such person, project or host. */
         public static final String NOT_FOUND = "not-found";
+
+        /** The project has no address yet. */
+        public static final String NOT_OPENED = "not-opened";
 
         /** The organization's repository does not exist. */
         public static final String NO_REPOSITORY = "no-repository";
