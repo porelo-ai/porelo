@@ -133,6 +133,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b398"></a>[B398](B398-A-Test-That-Cannot-Reach-The-Persons-Vault.md) | - | - | A test that builds a command the wrong way falls to the real context, and so to the person's vault |
 | <a id="b397"></a>[B397](B397-A-Plain-Git-Credential-Goes-To-Any-Host-A-Project-Names.md) | - | - | A plain `git.token` or `git.ssh` reaches only a host the person meant it for, not whatever host a project's file names. |
 | <a id="b394"></a>[B394](B394-An-Online-Task-On-A-Host-With-No-Forge-Passes-On-To-Its-Upstream.md) | S | - | An `online` task on a host with no forge passes on to its `upstream` instead of pushing to a forge that is not there. |
 | <a id="b386"></a>[B386](B386-A-Project-Access-Contract-Without-Guessing.md) | S | - | A read-only lookup by `Porelo-Change-Id`, the head `project verify` takes from a bundle written down, `access add --role admin` for a listed admin defined, and verify naming the access commit's signer |
