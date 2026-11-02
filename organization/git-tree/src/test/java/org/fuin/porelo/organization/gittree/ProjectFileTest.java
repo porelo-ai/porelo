@@ -13,6 +13,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import org.fuin.porelo.core.process.Command;
+import org.fuin.porelo.core.process.CommandResult;
+import org.fuin.porelo.core.process.CommandRunner;
 import org.fuin.porelo.core.process.ProcessCommandRunner;
 import org.fuin.porelo.organization.OrganizationQuestions.Refused;
 import org.fuin.porelo.organization.OrganizationQuestions.SigningKey;
@@ -725,5 +727,30 @@ class ProjectFileTest {
 
         assertThatThrownBy(() -> file().found(change("alice", "one"), bare.toString(), TEXT))
                 .isInstanceOf(GitTreeStore.Unreachable.class);
+    }
+
+    @Test
+    void aRepositoryMissingOverHttpsIsNoRepositoryAndNotAForgeThatDoesNotAnswer() throws Exception {
+        // Git words it so over HTTPS only, and `project open` would then never make the repository.
+        final CommandRunner answering =
+                command ->
+                        command.arguments().contains("ls-remote")
+                                ? new CommandResult(
+                                        command,
+                                        128,
+                                        "",
+                                        "fatal: repository 'https://forge.example/acme/demo.git/'"
+                                                + " not found\n")
+                                : runner.run(command);
+        final ProjectFile file =
+                new ProjectFile(
+                        answering,
+                        FetchAccess.NONE,
+                        new CommitSigning(Map.of(), Map.of()),
+                        dir.resolve("memory"));
+
+        refusedAs(
+                Refused.NO_REPOSITORY,
+                () -> file.found(change("alice", "one"), "https://forge.example/acme/demo", TEXT));
     }
 }

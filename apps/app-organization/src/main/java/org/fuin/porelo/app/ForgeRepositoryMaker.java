@@ -53,20 +53,15 @@ final class ForgeRepositoryMaker {
                         .createRepository(token, organisation, forgejo(name));
             }
         } catch (GitHubException ex) {
-            // Taken and not decoded: made, as the first commit that follows will see for itself.
-            if (ex.delivery() != org.fuin.porelo.forge.github.Delivery.ANSWERED
-                    || ex.status() != 0) {
-                throw refused(ex.status());
-            }
+            throw refused(
+                    ex.status(), ex.delivery() == org.fuin.porelo.forge.github.Delivery.ANSWERED);
         } catch (ForgejoException ex) {
-            if (ex.delivery() != org.fuin.porelo.forge.forgejo.Delivery.ANSWERED
-                    || ex.status() != 0) {
-                throw refused(ex.status());
-            }
+            throw refused(
+                    ex.status(), ex.delivery() == org.fuin.porelo.forge.forgejo.Delivery.ANSWERED);
         }
     }
 
-    private static Refused refused(final int status) {
+    private static Refused refused(final int status, final boolean answered) {
         return switch (status) {
             case 401, 403 ->
                     new Refused(
@@ -81,11 +76,14 @@ final class ForgeRepositoryMaker {
             default ->
                     new Refused(
                             Refused.CANNOT_SAY,
-                            status == 0
-                                    ? "the forge did not answer, and may have made the repository:"
-                                            + " ask again with the same --id"
-                                    : "the forge did not make the repository: it answered "
-                                            + status,
+                            status != 0
+                                    ? "the forge did not make the repository: it answered " + status
+                                    : answered
+                                            ? "the forge answered in words Porelo cannot read, and"
+                                                    + " may have made the repository: ask again"
+                                                    + " with the same --id"
+                                            : "the forge did not answer, and may have made the"
+                                                    + " repository: ask again with the same --id",
                             null);
         };
     }

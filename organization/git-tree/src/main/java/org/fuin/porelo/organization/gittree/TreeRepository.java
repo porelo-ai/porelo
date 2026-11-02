@@ -35,7 +35,7 @@ final class TreeRepository implements AutoCloseable {
      */
     private static final java.util.regex.Pattern NOT_THERE =
             java.util.regex.Pattern.compile(
-                    "(?i)repository not found|repository does not exist"
+                    "(?i)repository not found|repository '[^']*' not found|repository does not exist"
                             + "|does not appear to be a git repository");
 
     /** Only what fetches an organization's repository; {@code ext::} would run a program. */
