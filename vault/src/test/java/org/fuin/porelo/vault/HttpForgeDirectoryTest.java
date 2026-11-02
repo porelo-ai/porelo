@@ -377,7 +377,10 @@ class HttpForgeDirectoryTest {
         replies.put("/api/user/memberships/orgs/acme", Reply.of(403, "Forbidden"));
         replies.put(
                 "/api/installation/repositories?per_page=1",
-                Reply.of(200, "{\"repositories\": [{\"owner\": {\"login\": \"Acme\"}}]}"));
+                Reply.of(
+                        200,
+                        "{\"repositories\": [{\"owner\": {\"login\": \"Acme\","
+                                + " \"type\": \"Organization\"}}]}"));
         replies.put("/api/orgs/acme/memberships/outsider", Reply.of(404, "Not Found"));
         replies.put(
                 "/api/orgs/acme/memberships/alice",
@@ -394,6 +397,7 @@ class HttpForgeDirectoryTest {
     @ValueSource(
             strings = {
                 "{\"repositories\": [{\"owner\": {\"login\": \"elsewhere\"}}]}",
+                "{\"repositories\": [{\"owner\": {\"login\": \"acme\", \"type\": \"User\"}}]}",
                 "{\"repositories\": []}",
                 "{\"repositories\": [{}]}",
                 "not json"

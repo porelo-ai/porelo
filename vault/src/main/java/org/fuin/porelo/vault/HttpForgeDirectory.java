@@ -221,6 +221,7 @@ public final class HttpForgeDirectory implements ForgeDirectory {
                 && !repositories.isEmpty()
                 && repositories.get(0) instanceof Map<?, ?> repository
                 && repository.get("owner") instanceof Map<?, ?> owner
+                && "Organization".equals(owner.get("type"))
                 && owner.get("login") instanceof String login
                 && login.equalsIgnoreCase(org);
     }
