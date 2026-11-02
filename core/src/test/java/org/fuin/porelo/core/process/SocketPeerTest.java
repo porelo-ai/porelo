@@ -46,4 +46,22 @@ class SocketPeerTest {
             }
         }
     }
+
+    @Test
+    void thePeerIsReadWhenTheSocketsFileIsGoneOrReplaced(@TempDir Path dir) throws Exception {
+        final Path socket = dir.resolve("peer.sock");
+        try (ServerSocketChannel listener = ServerSocketChannel.open(StandardProtocolFamily.UNIX)) {
+            listener.bind(UnixDomainSocketAddress.of(socket));
+            try (SocketChannel caller = SocketChannel.open(UnixDomainSocketAddress.of(socket));
+                    SocketChannel accepted = listener.accept()) {
+                // The kernel's answer is about the connection; the name in the directory may be
+                // unlinked or another file by now, and is not asked.
+                java.nio.file.Files.delete(socket);
+                assertThat(SocketPeer.read(accepted).sameUser()).isTrue();
+                assertThat(SocketPeer.read(caller).sameUser()).isTrue();
+                java.nio.file.Files.writeString(socket, "not the socket");
+                assertThat(SocketPeer.read(caller).uid()).isEqualTo(SocketPeer.ownUid());
+            }
+        }
+    }
 }

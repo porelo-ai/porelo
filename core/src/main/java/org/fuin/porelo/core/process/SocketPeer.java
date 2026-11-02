@@ -5,10 +5,8 @@ import java.lang.foreign.FunctionDescriptor;
 import java.lang.foreign.Linker;
 import java.lang.foreign.ValueLayout;
 import java.lang.invoke.MethodHandle;
-import java.net.UnixDomainSocketAddress;
 import java.nio.channels.SocketChannel;
 import java.nio.file.Files;
-import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import jdk.net.ExtendedSocketOptions;
 import org.fuin.porelo.wire.varlink.VarlinkServer;
@@ -30,10 +28,11 @@ public final class SocketPeer {
      * <p>The kernel's {@code SO_PEERCRED}, asked through the JDK's own socket option: reading the
      * channel's descriptor for {@code getsockopt} took {@code sun.misc.Unsafe}, which the JDK warns
      * about at every start and will remove. The option answers a principal, not a number, so it is
-     * compared with the owner of the socket's file, whose numeric uid must be this process's: the
-     * end that bound the socket names it as its own address, the calling end as the other's, whose
-     * own has no path (an empty one read as the working directory). The pid it gave was never read;
-     * the answer carries {@code -1} for it, and for the uid of anybody else.
+     * compared with the owner of {@code /proc/self}, this process, whose numeric uid must be this
+     * process's own. The socket's file is never asked: its name may be unlinked or another file by
+     * the time the connection is read, and the kernel's answer is about the connection alone. The
+     * pid it gave was never read; the answer carries {@code -1} for it, and for the uid of anybody
+     * else.
      *
      * @param channel A connection on a Unix domain socket, accepted or made.
      * @return The peer.
@@ -41,32 +40,19 @@ public final class SocketPeer {
     public static VarlinkServer.Peer read(SocketChannel channel) {
         try {
             final var peer = channel.getOption(ExtendedSocketOptions.SO_PEERCRED).user();
-            final Path socket = socketOf(channel);
+            final Path self = Path.of("/proc/self");
             final long own = ownUid();
             final boolean ours =
-                    ((Number) Files.getAttribute(socket, "unix:uid", LinkOption.NOFOLLOW_LINKS))
-                                    .longValue()
+                    Integer.toUnsignedLong(
+                                    ((Number) Files.getAttribute(self, "unix:uid")).intValue())
                             == own;
-            final var owner = Files.getOwner(socket, LinkOption.NOFOLLOW_LINKS);
+            final var owner = Files.getOwner(self);
             // Principals of the same kind compare by their numeric id, never by a looked-up name.
             final boolean same = ours && peer.equals(owner) && owner.equals(peer);
             return new VarlinkServer.Peer(same ? own : -1, -1, same);
         } catch (IOException | ClassCastException | UnsupportedOperationException ex) {
             throw new IllegalStateException("Cannot read the unix socket peer credentials", ex);
         }
-    }
-
-    /** The socket's file: this end's own address when it bound it, else the other end's. */
-    private static Path socketOf(final SocketChannel channel) throws IOException {
-        final Path local = ((UnixDomainSocketAddress) channel.getLocalAddress()).getPath();
-        if (!local.toString().isEmpty()) {
-            return local;
-        }
-        final Path remote = ((UnixDomainSocketAddress) channel.getRemoteAddress()).getPath();
-        if (remote.toString().isEmpty()) {
-            throw new IOException("neither end of the connection names the socket's file");
-        }
-        return remote;
     }
 
     /** Returns the numeric account uid without a name service lookup. */
