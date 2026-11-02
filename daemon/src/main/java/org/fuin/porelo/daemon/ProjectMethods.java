@@ -405,7 +405,7 @@ final class ProjectMethods {
                 (parameters, replies) -> {
                     final java.util.List<Map<String, Object>> rows = new java.util.ArrayList<>();
                     for (final org.fuin.porelo.app.DefaultProject.Entry entry :
-                            new org.fuin.porelo.app.DefaultProject(context).entries()) {
+                            new org.fuin.porelo.app.DefaultProject(context).usableEntries()) {
                         final Map<String, Object> row = new LinkedHashMap<>(entry.asMap());
                         final org.fuin.porelo.app.WorkOrigin.Choice claimed =
                                 org.fuin.porelo.app.WorkOrigin.followedNaming(

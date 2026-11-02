@@ -191,7 +191,7 @@ public final class DefaultProject {
      * @return The entry, or {@code null}.
      */
     public @Nullable Entry withUpstream(final String upstream) {
-        return entries().stream()
+        return usableEntries().stream()
                 .filter(entry -> RepositoryAddress.same(entry.upstream(), upstream))
                 .findFirst()
                 .orElse(null);
@@ -336,19 +336,36 @@ public final class DefaultProject {
     }
 
     /**
-     * Tells whether a recorded name can stand in the project's file.
+     * Returns the entries that can stand in the project's file, the first of each name.
      *
      * <p>A name goes into the file as it stands, so one that is no name could write a section of
-     * its own there: a room, for a project with none. Such an entry is left out of the file, not
-     * refused: this project is read for every project a machine lists, so one bad entry must not
-     * stop them all, and it can still be listed and removed. An older name no longer taken, ending
-     * in a hyphen, is left out the same way.
+     * its own there: a room, for a project with none. An upstream the reader refuses, or a name
+     * twice, stops the whole file being read. Such an entry is left out, not refused: this project
+     * is read for every project a machine lists, so one bad entry must not stop them all, and it
+     * can still be listed and removed. An older name no longer taken, ending in a hyphen, goes the
+     * same way.
      *
-     * @param name The recorded name.
-     * @return Whether it is written.
+     * @return The entries a task can use.
      */
-    public static boolean usable(final String name) {
+    public List<Entry> usableEntries() {
+        final java.util.Set<String> names = new java.util.HashSet<>();
+        return entries().stream()
+                .filter(entry -> nameFits(entry.name()) && upstreamFits(entry.upstream()))
+                .filter(entry -> names.add(entry.name()))
+                .toList();
+    }
+
+    private static boolean nameFits(final String name) {
         return name.matches(Repository.NAME_PATTERN) && !NAME.equals(name);
+    }
+
+    private static boolean upstreamFits(final String upstream) {
+        try {
+            Repository.refuseAsOption(upstream, "upstream");
+            return !upstream.isBlank();
+        } catch (org.fuin.porelo.core.project.ProjectException ex) {
+            return false;
+        }
     }
 
     private Path fileHeld() {
@@ -368,8 +385,7 @@ public final class DefaultProject {
                 .append("  base_image: \"")
                 .append(BASE_IMAGE)
                 .append("\"\n");
-        final List<Entry> entries =
-                entries().stream().filter(entry -> usable(entry.name())).toList();
+        final List<Entry> entries = usableEntries();
         if (!entries.isEmpty()) {
             text.append("repositories:\n");
             for (final Entry entry : entries) {

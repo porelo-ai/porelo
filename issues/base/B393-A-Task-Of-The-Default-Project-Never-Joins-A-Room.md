@@ -32,12 +32,14 @@ No test says that `default` has no conversation (`DefaultProjectTest` names none
   `mail`, so a file without one is that case.
 - A test fails when a task of `default` runs a transport: at its start with a transport installed, and at a message pass
   with a queue left in its mailbox.
-- A name in `repositories.json` that is no repository name, or `default`, never reaches the written file; a test shows it
-  with the name that put `mail` into the file. It is left out rather than refused, since this project is read for every
-  project a machine lists: one bad entry must stop neither those nor the daemon's watches. It is listed, marked, and can be
-  removed. An older name ending in a hyphen is left out the same way.
-- `upstream` is written as one quoted value whatever it holds, and the reader refuses it there.
-- **A change for other projects:** a project with no peer and no conversation no longer sends what is left in a queue.
+- A name in `repositories.json` that is no repository name, or `default`, an upstream the reader refuses, or a name a second
+  time never reaches the written file; a test shows it with the name that put `mail` into the file. It is left out rather
+  than refused, since this project is read for every project a machine lists: one bad entry must stop neither those nor the
+  daemon's watches. `project default list` marks it, it can be removed, and an address found under it can be added under a
+  good name. An older name ending in a hyphen is left out the same way. The daemon's `DefaultRepositories` answers only what
+  a task can use.
+- **A change for other projects:** a project with no peer and no conversation no longer sends what is left in a queue. It
+  stays there, and goes out if the project gains a peer again.
 
 ## Checked
 

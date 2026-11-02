@@ -67,10 +67,10 @@ public class ProjectDefaultCommand implements Callable<Integer>, PoreloFactory.C
                                     + " 'porelo project default add <address>'");
                 }
                 for (final DefaultProject.Entry entry : project.entries()) {
-                    if (!DefaultProject.usable(entry.name())) {
+                    if (!project.usableEntries().contains(entry)) {
                         out.println(
                                 org.fuin.porelo.wire.Json.write(entry.name())
-                                        + "  (no repository name, so no task can use it:"
+                                        + "  (no task can use it, by its name or its upstream:"
                                         + " take it out with 'porelo project default remove')");
                         continue;
                     }

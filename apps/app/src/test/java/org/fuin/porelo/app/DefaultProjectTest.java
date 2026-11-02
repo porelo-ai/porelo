@@ -515,7 +515,7 @@ class DefaultProjectTest {
         assertThat(out.toString())
                 .as("a name from the file is no terminal's control sequence and no second line")
                 .doesNotContain("\u001b")
-                .contains("no repository name")
+                .contains("no task can use it")
                 .contains("https://example.org/g.git");
         assertThat(out.toString().lines()).hasSize(2);
     }
@@ -526,25 +526,93 @@ class DefaultProjectTest {
         recorded("repo-");
 
         assertThat(Files.readString(new DefaultProject(context()).file())).doesNotContain("repo-");
-        assertThat(DefaultProject.usable("repo-")).isFalse();
-        assertThat(DefaultProject.usable("default")).as("its own name is none either").isFalse();
-        assertThat(DefaultProject.usable("repo")).isTrue();
     }
 
-    @Test
-    void anUpstreamIsWrittenAsOneValueWhateverItHolds() throws Exception {
-        final String upstream = "https://example.org/r.git\"\nmail:\n  peers: {}";
+    private void recordedTwo(final String firstName, final String firstUpstream) throws Exception {
         Files.writeString(
                 record(),
                 org.fuin.porelo.wire.Json.write(
-                        java.util.List.of(java.util.Map.of("name", "app", "upstream", upstream))));
+                        java.util.List.of(
+                                java.util.Map.of("name", firstName, "upstream", firstUpstream),
+                                java.util.Map.of(
+                                        "name", "good",
+                                        "upstream", "https://example.org/g.git"))));
+    }
 
-        final Path file = new DefaultProject(context()).file();
+    @Test
+    void anUpstreamTheReaderRefusesIsLeftOutAndTheOthersStay() throws Exception {
+        // It stayed one value, but the reader refused it, and so the whole file: every repository
+        // of the project was gone, and it could not be removed either.
+        recordedTwo("app", "https://example.org/r.git\"\nmail:\n  peers: {}");
+        final PoreloContext context = context();
 
-        assertThatThrownBy(() -> ProjectReader.read(file))
-                .as("it stays one value, which the reader then refuses as an upstream")
-                .isInstanceOf(ProjectException.class)
-                .hasMessageContaining("'upstream' is");
+        final Project project = ProjectReader.read(new DefaultProject(context).file());
+
+        assertThat(project.repositoryNames()).containsExactly(DefaultProject.NAME, "good");
+        assertThat(project.mail().conversations()).isEmpty();
+
+        new DefaultProject(context).remove("app");
+
+        assertThat(new DefaultProject(context).entries())
+                .extracting(DefaultProject.Entry::name)
+                .containsExactly("good");
+    }
+
+    @Test
+    void theListingPrintsNoUpstreamThatHoldsAControlSequence() throws Exception {
+        recordedTwo("app", "https://example.org/\u001b]0;x\u0007\nsecond");
+        final java.io.StringWriter out = new java.io.StringWriter();
+        final picocli.CommandLine cli = PoreloCli.commandLine(context());
+        cli.setOut(new java.io.PrintWriter(out));
+
+        assertThat(cli.execute("project", "default", "list")).isZero();
+
+        assertThat(out.toString()).doesNotContain("\u001b").contains("no task can use it");
+        assertThat(out.toString().lines()).hasSize(2);
+    }
+
+    @Test
+    void anUpstreamReadAsAnOptionIsLeftOutToo() throws Exception {
+        recordedTwo("app", "--upload-pack=x");
+
+        assertThat(ProjectReader.read(new DefaultProject(context()).file()).repositoryNames())
+                .containsExactly(DefaultProject.NAME, "good");
+    }
+
+    @Test
+    void aNameTwiceIsWrittenOnceSoTheFileStaysReadable() throws Exception {
+        Files.writeString(
+                record(),
+                org.fuin.porelo.wire.Json.write(
+                        java.util.List.of(
+                                java.util.Map.of(
+                                        "name", "app", "upstream", "https://a.example/a.git"),
+                                java.util.Map.of(
+                                        "name", "app", "upstream", "https://b.example/b.git"))));
+        final DefaultProject project = new DefaultProject(context());
+
+        assertThat(ProjectReader.read(project.file()).repositoryNames())
+                .containsExactly(DefaultProject.NAME, "app");
+        assertThat(project.withUpstream("https://b.example/b.git"))
+                .as("the one left out is not found, or its name would stand for the other's work")
+                .isNull();
+    }
+
+    @Test
+    void aRepositoryUnderABadOldNameCanBeAddedUnderAGoodOne() throws Exception {
+        // Found by its upstream, the old entry was answered, and a task then asked the file for a
+        // repository that is not in it.
+        recordedTwo("repo-", "https://example.org/repo.git");
+        final DefaultProject project = new DefaultProject(context());
+
+        assertThat(project.withUpstream("https://example.org/repo.git")).isNull();
+
+        final DefaultProject.Entry added = project.add("https://example.org/repo.git", "repo", "");
+
+        assertThat(added.name()).isEqualTo("repo");
+        assertThat(ProjectReader.read(project.file()).repositoryNames())
+                .containsExactlyInAnyOrder(DefaultProject.NAME, "repo", "good");
+        assertThat(project.withUpstream("https://example.org/repo.git")).isEqualTo(added);
     }
 
     @Test
@@ -572,9 +640,7 @@ class DefaultProjectTest {
         Files.writeString(adapter, "#!/bin/sh\ntouch " + mark + "\n");
         assertThat(adapter.toFile().setExecutable(true)).as("the transport runs").isTrue();
 
-        assertThat(new TaskConversations(context()).enroll(named, "porelo-default-fix"))
-                .as("nothing is asked of a transport, so nothing is refused either")
-                .isNull();
+        assertThat(new TaskConversations(context()).enroll(named, "porelo-default-fix")).isNull();
         assertThat(mark).as("the transport was not run at all").doesNotExist();
     }
 }
