@@ -45,7 +45,7 @@ final class TreeWalk {
     private static final Pattern HOST_FILE = Pattern.compile("hosts/([^/]+)/(card|host\\.yml)");
 
     /** No project of an organization may carry the name of the one each machine has by itself. */
-    private static final String RESERVED = "default";
+    static final String RESERVED = "default";
 
     /**
      * The most distinct keys a person's chain holds: what the identity source is asked about for

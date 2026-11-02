@@ -242,6 +242,30 @@ final class TreeFiles {
     }
 
     /**
+     * Writes a project's {@code members.yml} so that {@link #members} reads it back.
+     *
+     * @param members The members.
+     * @return The file's text.
+     */
+    static String membersText(final List<Member> members) {
+        if (members.isEmpty()) {
+            return "members: []\n";
+        }
+        final StringBuilder text = new StringBuilder("members:\n");
+        for (final Member member : members) {
+            text.append("  - login: ")
+                    .append(member.login())
+                    .append("\n    role: ")
+                    .append(member.role())
+                    .append('\n');
+            if (member.locked()) {
+                text.append("    locked: true\n");
+            }
+        }
+        return text.toString();
+    }
+
+    /**
      * Tells whether a text is a key this organization's files may hold.
      *
      * @param key The text.

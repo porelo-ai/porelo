@@ -7,13 +7,14 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import org.fuin.porelo.core.process.CommandRunner;
+import org.fuin.porelo.core.project.AddressForm;
+import org.fuin.porelo.core.project.Project;
 import org.fuin.porelo.organization.IdentitySource;
 import org.fuin.porelo.organization.Organization;
 import org.fuin.porelo.organization.OrganizationQuestions.Refused;
-import org.fuin.porelo.organization.OrganizationWrites.Acting;
-import org.fuin.porelo.organization.OrganizationWrites.Change;
-import org.fuin.porelo.organization.OrganizationWrites.Written;
+import org.fuin.porelo.organization.OrganizationWrites;
 import org.fuin.porelo.vault.CardException;
+import org.fuin.porelo.vault.HostCard;
 import org.fuin.porelo.vault.PersonCard;
 import org.jspecify.annotations.Nullable;
 
@@ -22,7 +23,7 @@ import org.jspecify.annotations.Nullable;
  * makes before it is pushed, so a change nobody allowed is refused here rather than filed and then
  * refused by everyone who reads it. The refusals named before that walk only say why more plainly.
  */
-public final class GitTreeWrites {
+public final class GitTreeWrites implements OrganizationWrites {
 
     /** What a change does to the files, given what was accepted. */
     @FunctionalInterface
@@ -84,6 +85,7 @@ public final class GitTreeWrites {
      * @throws IOException When something unexpected happened; the change may have been made, so ask
      *     again with the same id.
      */
+    @Override
     public Written addCard(final Change change, final String card) throws IOException {
         final String path = ownCard(change, card);
         return change(
@@ -107,6 +109,7 @@ public final class GitTreeWrites {
      * @throws IOException When something unexpected happened; the change may have been made, so ask
      *     again with the same id.
      */
+    @Override
     public Written changeCard(final Change change, final String card) throws IOException {
         final String path = ownCard(change, card);
         return change(
@@ -158,6 +161,7 @@ public final class GitTreeWrites {
      * @throws IOException When something unexpected happened; the change may have been made, so ask
      *     again with the same id.
      */
+    @Override
     public Written addBackupKey(final Change change, final @Nullable String host, final String key)
             throws IOException {
         if (!TreeFiles.key(key)) {
@@ -186,6 +190,7 @@ public final class GitTreeWrites {
      * @throws IOException When something unexpected happened; the change may have been made, so ask
      *     again with the same id.
      */
+    @Override
     public Written revokeCard(final Change change, final String login) throws IOException {
         return change(
                 change,
@@ -221,6 +226,7 @@ public final class GitTreeWrites {
      * @throws IOException When something unexpected happened; the change may have been made, so ask
      *     again with the same id.
      */
+    @Override
     public Written replaceCard(final Change change, final String login, final String card)
             throws IOException {
         final String path = cardOf(login, card).path;
@@ -255,6 +261,7 @@ public final class GitTreeWrites {
      * @throws IOException When something unexpected happened; the change may have been made, so ask
      *     again with the same id.
      */
+    @Override
     public Written replaceKeyWithBackup(
             final Change change, final @Nullable String host, final String card)
             throws IOException {
@@ -295,6 +302,531 @@ public final class GitTreeWrites {
                     }
                     return List.of(new Step(filing, change.acting().key()));
                 });
+    }
+
+    @Override
+    public Written createOrganization(final Change change, final String card) throws IOException {
+        final Filed filed = cardOf(change.acting().login(), card);
+        if (!filed.fingerprint.equals(PersonCard.fingerprint(change.acting().key()))) {
+            throw new Refused(Refused.USAGE, "the card is not of the key that acts", null);
+        }
+        final Optional<TreeRepository> empty = TreeRepository.founding(address, runner, access);
+        if (empty.isEmpty()) {
+            return filledAlready(change);
+        }
+        try (TreeRepository clone = empty.orElseThrow()) {
+            final String owners =
+                    TreeFiles.ownersText(
+                            List.of(
+                                    new TreeFiles.Owner(
+                                            change.acting().login(),
+                                            filed.key,
+                                            filed.fingerprint,
+                                            false)));
+            final String commit =
+                    clone.commit(
+                            "",
+                            Map.of("owners.yml", owners, filed.path, card),
+                            "Found the organization",
+                            change.id(),
+                            signing,
+                            change.acting().key(),
+                            change.acting().login());
+            judged(clone, List.of(commit), "");
+            if (!clone.push(address, access)) {
+                throw new GitTreeStore.Unreachable(
+                        "the organization's repository did not take the change");
+            }
+            return new Written(commit, change.id(), false);
+        } catch (CardException ex) {
+            throw new IOException(ex.getMessage(), ex);
+        }
+    }
+
+    /** Asked again, the founding is answered; anything else already there is somebody's. */
+    private Written filledAlready(final Change change) throws IOException {
+        try (TreeRepository clone = TreeRepository.fetch(address, runner, access)) {
+            final TreeRecord record = walk(clone);
+            final Optional<String> made =
+                    clone.changeNamed(change.id(), PersonCard.fingerprint(change.acting().key()));
+            if (made.isPresent() && !refused(record, made.orElseThrow())) {
+                return new Written(made.orElseThrow(), change.id(), true);
+            }
+            throw new Refused(Refused.EXISTS, "the repository is not empty", record.commit());
+        } catch (CardException ex) {
+            throw new IOException(ex.getMessage(), ex);
+        }
+    }
+
+    @Override
+    public Written addOrganizationOwner(final Change change, final String login)
+            throws IOException {
+        return one(
+                change,
+                "Add an owner",
+                model -> {
+                    final TreeModel.Person person = standing(model, login);
+                    if (model.owners().stream()
+                            .anyMatch(each -> !each.backup() && each.login().equals(login))) {
+                        throw new Refused(Refused.EXISTS, "this login is an owner", null);
+                    }
+                    final List<TreeFiles.Owner> owners = new ArrayList<>(model.owners());
+                    owners.add(
+                            new TreeFiles.Owner(
+                                    login,
+                                    PersonCard.read(person.card(), "the card").key(),
+                                    person.fingerprint(),
+                                    false));
+                    return Map.of("owners.yml", TreeFiles.ownersText(owners));
+                });
+    }
+
+    @Override
+    public Written removeOrganizationOwner(final Change change, final String login)
+            throws IOException {
+        return one(
+                change,
+                "Remove an owner",
+                model -> {
+                    if (model.owners().stream()
+                            .noneMatch(each -> !each.backup() && each.login().equals(login))) {
+                        throw new Refused(Refused.NOT_FOUND, "this login is no owner", null);
+                    }
+                    final List<TreeFiles.Owner> kept =
+                            model.owners().stream()
+                                    .filter(each -> !each.login().equals(login))
+                                    .toList();
+                    if (kept.stream().allMatch(TreeFiles.Owner::backup)) {
+                        throw new Refused(Refused.LAST_OF_ITS_KIND, "this is the only owner", null);
+                    }
+                    return Map.of("owners.yml", TreeFiles.ownersText(kept));
+                });
+    }
+
+    @Override
+    public Written addProject(final Change change, final String project, final String admin)
+            throws IOException {
+        if (project.equals(TreeWalk.RESERVED)) {
+            throw new Refused(Refused.RESERVED_NAME, "no project may be named this", null);
+        }
+        named(project);
+        final String key = change.acting().key();
+        return change(
+                change,
+                "Add a project",
+                model -> {
+                    if (model.projects().containsKey(project)) {
+                        throw new Refused(Refused.EXISTS, "this project stands", null);
+                    }
+                    standing(model, admin);
+                    final String prefix = "projects/" + project + "/";
+                    // Two commits: a reader judges the members against a project that stands.
+                    return List.of(
+                            new Step(Map.of(prefix + "card", projectCard(project, admin)), key),
+                            new Step(
+                                    Map.of(
+                                            prefix + "members.yml",
+                                            TreeFiles.membersText(
+                                                    List.of(
+                                                            new TreeFiles.Member(
+                                                                    admin,
+                                                                    TreeFiles.ADMIN,
+                                                                    false)))),
+                                    key));
+                });
+    }
+
+    @Override
+    public Written removeProject(final Change change, final String project) throws IOException {
+        return one(
+                change,
+                "Remove a project",
+                model -> {
+                    final TreeModel.ProjectState state = project(model, project);
+                    final String prefix = "projects/" + project + "/";
+                    final Map<String, @Nullable String> files = new HashMap<>();
+                    files.put(prefix + "card", null);
+                    if (state.members() != null) {
+                        files.put(prefix + "members.yml", null);
+                    }
+                    if (state.address() != null) {
+                        files.put(prefix + "repository.yml", null);
+                    }
+                    return files;
+                });
+    }
+
+    @Override
+    public Written changeProjectAdmin(final Change change, final String project, final String admin)
+            throws IOException {
+        final String key = change.acting().key();
+        return change(
+                change,
+                "Change a project's first admin",
+                model -> {
+                    final TreeModel.ProjectState state = project(model, project);
+                    standing(model, admin);
+                    final List<TreeFiles.Member> members = new ArrayList<>();
+                    boolean listed = false;
+                    for (final TreeFiles.Member member : members(state)) {
+                        if (member.login().equals(admin)) {
+                            listed = true;
+                            members.add(
+                                    new TreeFiles.Member(admin, TreeFiles.ADMIN, member.locked()));
+                        } else {
+                            members.add(member);
+                        }
+                    }
+                    if (!listed) {
+                        members.add(new TreeFiles.Member(admin, TreeFiles.ADMIN, false));
+                    }
+                    final String prefix = "projects/" + project + "/";
+                    return List.of(
+                            new Step(Map.of(prefix + "card", projectCard(project, admin)), key),
+                            new Step(
+                                    Map.of(prefix + "members.yml", TreeFiles.membersText(members)),
+                                    key));
+                });
+    }
+
+    @Override
+    public Written changeProjectRepository(
+            final Change change, final String project, final String repository) throws IOException {
+        if (!AddressForm.isRepository(repository)) {
+            throw new Refused(Refused.USAGE, "that is no repository's address", null);
+        }
+        return one(
+                change,
+                "File a project's address",
+                model -> {
+                    project(model, project);
+                    return Map.of(
+                            "projects/" + project + "/repository.yml",
+                            "address: \"" + repository + "\"\n");
+                });
+    }
+
+    @Override
+    public Written addProjectMember(
+            final Change change, final String project, final String login, final String role)
+            throws IOException {
+        role(role);
+        return one(
+                change,
+                "Add a project's member",
+                model -> {
+                    final TreeModel.ProjectState state = project(model, project);
+                    standing(model, login);
+                    final List<TreeFiles.Member> members = new ArrayList<>(members(state));
+                    if (members.stream().anyMatch(each -> each.login().equals(login))) {
+                        throw new Refused(Refused.EXISTS, "this login is a member", null);
+                    }
+                    members.add(new TreeFiles.Member(login, role, false));
+                    return membersFile(project, members);
+                });
+    }
+
+    @Override
+    public Written changeProjectMemberRole(
+            final Change change, final String project, final String login, final String role)
+            throws IOException {
+        role(role);
+        return memberChange(
+                change,
+                "Change a project member's role",
+                project,
+                login,
+                member -> new TreeFiles.Member(login, role, member.locked()));
+    }
+
+    @Override
+    public Written removeProjectMember(
+            final Change change, final String project, final String login) throws IOException {
+        return memberChange(change, "Remove a project's member", project, login, member -> null);
+    }
+
+    @Override
+    public Written lockProjectMember(final Change change, final String project, final String login)
+            throws IOException {
+        return memberChange(
+                change,
+                "Lock a project's member",
+                project,
+                login,
+                member -> new TreeFiles.Member(login, member.role(), true));
+    }
+
+    @Override
+    public Written unlockProjectMember(
+            final Change change, final String project, final String login) throws IOException {
+        return memberChange(
+                change,
+                "Unlock a project's member",
+                project,
+                login,
+                member -> new TreeFiles.Member(login, member.role(), false));
+    }
+
+    /** What a change does to one member: their new entry, or {@code null} when they go. */
+    @FunctionalInterface
+    private interface MemberEdit {
+        TreeFiles.@Nullable Member apply(TreeFiles.Member member);
+    }
+
+    private Written memberChange(
+            final Change change,
+            final String subject,
+            final String project,
+            final String login,
+            final MemberEdit edit)
+            throws IOException {
+        final String acting = PersonCard.fingerprint(change.acting().key());
+        return one(
+                change,
+                subject,
+                model -> {
+                    final List<TreeFiles.Member> members = new ArrayList<>();
+                    boolean found = false;
+                    for (final TreeFiles.Member member : members(project(model, project))) {
+                        if (!member.login().equals(login)) {
+                            members.add(member);
+                            continue;
+                        }
+                        found = true;
+                        final TreeFiles.Member changed = edit.apply(member);
+                        if (changed != null) {
+                            members.add(changed);
+                        }
+                    }
+                    if (!found) {
+                        throw new Refused(Refused.NOT_FOUND, "this login is no member", null);
+                    }
+                    // An owner may remove a project's last admin; its own admins may not.
+                    if (!model.owner(acting)
+                            && members.stream()
+                                    .noneMatch(
+                                            each ->
+                                                    each.role().equals(TreeFiles.ADMIN)
+                                                            && !each.locked())) {
+                        throw new Refused(
+                                Refused.LAST_OF_ITS_KIND,
+                                "this would leave the project no admin who may act",
+                                null);
+                    }
+                    return membersFile(project, members);
+                });
+    }
+
+    @Override
+    public Written addHost(final Change change, final String host, final String admin)
+            throws IOException {
+        if (!TreeFiles.host(host)) {
+            throw new Refused(Refused.USAGE, "that is no host's name", null);
+        }
+        return one(
+                change,
+                "Add a host",
+                model -> {
+                    if (model.hosts().containsKey(host)) {
+                        throw new Refused(Refused.EXISTS, "this host stands", null);
+                    }
+                    standing(model, admin);
+                    return hostFile(
+                            host,
+                            new TreeFiles.HostFile(
+                                    List.of(new TreeFiles.HostAdmin(admin, null)), List.of()));
+                });
+    }
+
+    @Override
+    public Written removeHost(final Change change, final String host) throws IOException {
+        return one(
+                change,
+                "Remove a host",
+                model -> {
+                    final TreeModel.HostState state = host(model, host);
+                    final Map<String, @Nullable String> files = new HashMap<>();
+                    files.put("hosts/" + host + "/host.yml", null);
+                    if (state.card() != null) {
+                        files.put("hosts/" + host + "/card", null);
+                    }
+                    return files;
+                });
+    }
+
+    @Override
+    public Written changeHost(final Change change, final String host, final String card)
+            throws IOException {
+        try {
+            if (!HostCard.read(card, "the card").host().equals(host)) {
+                throw new Refused(Refused.USAGE, "the card names another host", null);
+            }
+        } catch (CardException ex) {
+            throw new Refused(Refused.USAGE, "that is no host's card", null);
+        }
+        return one(
+                change,
+                "Change a host's card",
+                model -> {
+                    host(model, host);
+                    return Map.of("hosts/" + host + "/card", card);
+                });
+    }
+
+    @Override
+    public Written addHostAdmin(final Change change, final String host, final String login)
+            throws IOException {
+        return one(
+                change,
+                "Add a host's admin",
+                model -> {
+                    final TreeFiles.HostFile file = host(model, host).file();
+                    standing(model, login);
+                    if (file.admins().stream()
+                            .anyMatch(each -> !each.backup() && each.login().equals(login))) {
+                        throw new Refused(Refused.EXISTS, "this login is its admin", null);
+                    }
+                    final List<TreeFiles.HostAdmin> admins = new ArrayList<>(file.admins());
+                    admins.add(new TreeFiles.HostAdmin(login, null));
+                    return hostFile(host, new TreeFiles.HostFile(admins, file.projects()));
+                });
+    }
+
+    @Override
+    public Written removeHostAdmin(final Change change, final String host, final String login)
+            throws IOException {
+        return one(
+                change,
+                "Remove a host's admin",
+                model -> {
+                    final TreeFiles.HostFile file = host(model, host).file();
+                    if (file.admins().stream()
+                            .noneMatch(each -> !each.backup() && each.login().equals(login))) {
+                        throw new Refused(Refused.NOT_FOUND, "this login is not its admin", null);
+                    }
+                    final List<TreeFiles.HostAdmin> kept =
+                            file.admins().stream()
+                                    .filter(each -> !each.login().equals(login))
+                                    .toList();
+                    if (kept.stream().allMatch(TreeFiles.HostAdmin::backup)) {
+                        throw new Refused(
+                                Refused.LAST_OF_ITS_KIND, "this is the host's only admin", null);
+                    }
+                    return hostFile(host, new TreeFiles.HostFile(kept, file.projects()));
+                });
+    }
+
+    @Override
+    public Written addProjectToHost(final Change change, final String host, final String project)
+            throws IOException {
+        return one(
+                change,
+                "Put a project on a host",
+                model -> {
+                    final TreeFiles.HostFile file = host(model, host).file();
+                    project(model, project);
+                    if (file.projects().contains(project)) {
+                        throw new Refused(Refused.EXISTS, "this host carries it", null);
+                    }
+                    if (model.hosts().values().stream()
+                            .anyMatch(each -> each.file().projects().contains(project))) {
+                        throw new Refused(Refused.ON_ANOTHER_HOST, "another host carries it", null);
+                    }
+                    final List<String> projects = new ArrayList<>(file.projects());
+                    projects.add(project);
+                    return hostFile(host, new TreeFiles.HostFile(file.admins(), projects));
+                });
+    }
+
+    @Override
+    public Written removeProjectFromHost(
+            final Change change, final String host, final String project) throws IOException {
+        return one(
+                change,
+                "Take a project off a host",
+                model -> {
+                    final TreeFiles.HostFile file = host(model, host).file();
+                    if (!file.projects().contains(project)) {
+                        throw new Refused(Refused.NOT_FOUND, "this host does not carry it", null);
+                    }
+                    return hostFile(
+                            host,
+                            new TreeFiles.HostFile(
+                                    file.admins(),
+                                    file.projects().stream()
+                                            .filter(each -> !each.equals(project))
+                                            .toList()));
+                });
+    }
+
+    /** What a change of one commit, signed by the acting key, does to the files. */
+    @FunctionalInterface
+    private interface Files {
+        Map<String, @Nullable String> of(TreeModel model);
+    }
+
+    private Written one(final Change change, final String subject, final Files files)
+            throws IOException {
+        return change(
+                change,
+                subject,
+                model -> List.of(new Step(files.of(model), change.acting().key())));
+    }
+
+    private static void named(final String project) {
+        if (!project.matches(Project.NAME_PATTERN)) {
+            throw new Refused(Refused.USAGE, "that is no project's name", null);
+        }
+    }
+
+    private static void role(final String role) {
+        if (!role.equals(TreeFiles.ADMIN) && !role.equals(TreeFiles.DEVELOPER)) {
+            throw new Refused(Refused.USAGE, "a role is admin or developer", null);
+        }
+    }
+
+    private static String projectCard(final String project, final String admin) {
+        return "name: " + project + "\nadmin: " + admin + "\n";
+    }
+
+    private static TreeModel.ProjectState project(final TreeModel model, final String project) {
+        final TreeModel.ProjectState state = model.projects().get(project);
+        if (state == null) {
+            throw new Refused(Refused.NOT_FOUND, "no such project", null);
+        }
+        return state;
+    }
+
+    private static List<TreeFiles.Member> members(final TreeModel.ProjectState state) {
+        final List<TreeFiles.Member> members = state.members();
+        return members == null ? List.of() : members;
+    }
+
+    private static Map<String, @Nullable String> membersFile(
+            final String project, final List<TreeFiles.Member> members) {
+        return Map.of("projects/" + project + "/members.yml", TreeFiles.membersText(members));
+    }
+
+    private static TreeModel.HostState host(final TreeModel model, final String host) {
+        final TreeModel.HostState state = model.hosts().get(host);
+        if (state == null) {
+            throw new Refused(Refused.NOT_FOUND, "no such host", null);
+        }
+        return state;
+    }
+
+    private static Map<String, @Nullable String> hostFile(
+            final String host, final TreeFiles.HostFile file) {
+        return Map.of("hosts/" + host + "/host.yml", TreeFiles.hostFileText(file));
+    }
+
+    /** The login's card, which holds a role only when nobody refused it. */
+    private static TreeModel.Person standing(final TreeModel model, final String login) {
+        final TreeModel.Person person = model.people().get(login);
+        if (person == null || Organization.REFUSED.equals(person.state())) {
+            throw new Refused(Refused.NO_CARD, "this login has no card", null);
+        }
+        return person;
     }
 
     private static boolean backedOnHost(

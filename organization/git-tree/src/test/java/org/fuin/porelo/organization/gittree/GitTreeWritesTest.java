@@ -754,4 +754,508 @@ class GitTreeWritesTest {
                                         "build",
                                         card("carol", "alice-new")));
     }
+
+    private void carolFiled() throws IOException {
+        forge.keys.put("carol", List.of(key("carol")));
+        as("carol").addCard(change("carol", "carol", "carol-card"), card("carol", "carol"));
+    }
+
+    private void demo() throws IOException {
+        aliceFiled();
+        as("mia").addProject(change("mia", "mia", "demo"), "demo", "alice");
+    }
+
+    private void build() throws IOException {
+        aliceFiled();
+        as("mia").addHost(change("mia", "mia", "build"), "build", "alice");
+    }
+
+    @Test
+    void anOwnerIsAddedWithTheKeyOnTheirCardAndMayAct() throws Exception {
+        aliceFiled();
+
+        as("mia").addOrganizationOwner(change("mia", "mia", "owner"), "alice");
+
+        assertThat(read().isOrganizationOwner("alice")).isTrue();
+        as("alice").addHost(change("alice", "alice", "host"), "build", "alice");
+        assertThat(read().getRefusals()).isEmpty();
+    }
+
+    @Test
+    void anOwnerWithNoCardOrTwiceIsRefused() throws Exception {
+        refusedAs(
+                "no-card",
+                () -> as("mia").addOrganizationOwner(change("mia", "mia", "x"), "alice"));
+        aliceFiled();
+        as("mia").addOrganizationOwner(change("mia", "mia", "owner"), "alice");
+
+        refusedAs(
+                "exists", () -> as("mia").addOrganizationOwner(change("mia", "mia", "y"), "alice"));
+    }
+
+    @Test
+    void onlyAnOwnerAddsAnOwner() throws Exception {
+        aliceFiled();
+        carolFiled();
+        final String before = tip();
+
+        refusedAs(
+                "not-allowed",
+                () -> as("alice").addOrganizationOwner(change("alice", "alice", "x"), "carol"));
+
+        assertThat(tip()).isEqualTo(before);
+    }
+
+    @Test
+    void theLastOwnerIsNotRemovedAndABackupKeyDoesNotCountAsOne() throws Exception {
+        as("mia").addBackupKey(change("mia", "mia", "backup"), null, key("backup"));
+
+        refusedAs(
+                "last-of-its-kind",
+                () -> as("mia").removeOrganizationOwner(change("mia", "mia", "x"), "mia"));
+    }
+
+    @Test
+    void aRemovedOwnerGoesWithTheirBackupKeys() throws Exception {
+        aliceFiled();
+        as("mia").addOrganizationOwner(change("mia", "mia", "owner"), "alice");
+        as("alice").addBackupKey(change("alice", "alice", "backup"), null, key("backup"));
+
+        as("mia").removeOrganizationOwner(change("mia", "mia", "off"), "alice");
+
+        assertThat(read().getOrganizationOwners())
+                .as("a backup key left behind could still take the place")
+                .allMatch(owner -> owner.login().equals("mia"));
+    }
+
+    @Test
+    void removingSomeoneWhoIsNoOwnerIsNotFound() {
+        refusedAs(
+                "not-found",
+                () -> as("mia").removeOrganizationOwner(change("mia", "mia", "x"), "alice"));
+    }
+
+    @Test
+    void aProjectIsAddedWithItsFirstAdminAsAMember() throws Exception {
+        demo();
+
+        final OrganizationQuestions read = read();
+        assertThat(read.getRefusals()).isEmpty();
+        assertThat(read.isProjectMember("demo", "alice")).contains("admin");
+    }
+
+    @Test
+    void aProjectNamedTheReservedNameOrTwiceOrWithNoCardIsRefused() throws Exception {
+        refusedAs(
+                "reserved-name",
+                () -> as("mia").addProject(change("mia", "mia", "a"), "default", "mia"));
+        refusedAs(
+                "no-card", () -> as("mia").addProject(change("mia", "mia", "b"), "demo", "alice"));
+        refusedAs(
+                "usage",
+                () -> as("mia").addProject(change("mia", "mia", "c"), "not a name!", "mia"));
+        demo();
+
+        refusedAs("exists", () -> as("mia").addProject(change("mia", "mia", "d"), "demo", "alice"));
+    }
+
+    @Test
+    void onlyAnOwnerAddsAProject() throws Exception {
+        aliceFiled();
+        final String before = tip();
+
+        refusedAs(
+                "not-allowed",
+                () -> as("alice").addProject(change("alice", "alice", "x"), "demo", "alice"));
+
+        assertThat(tip()).isEqualTo(before);
+    }
+
+    @Test
+    void aProjectRemovedGoesWithAllItsFilesAndItsHost() throws Exception {
+        demo();
+        as("mia").addHost(change("mia", "mia", "build"), "build", "alice");
+        as("alice").addProjectToHost(change("alice", "alice", "carry"), "build", "demo");
+        as("alice")
+                .changeProjectRepository(
+                        change("alice", "alice", "address"),
+                        "demo",
+                        "ssh://git@forge.example/acme/demo");
+
+        as("mia").removeProject(change("mia", "mia", "off"), "demo");
+
+        final OrganizationQuestions read = read();
+        assertThat(read.getRefusals()).isEmpty();
+        assertThat(read.getProjects()).isEmpty();
+        assertThat(read.hostOf("demo")).isEmpty();
+        assertThat(repo.resolve("projects/demo")).doesNotExist();
+    }
+
+    @Test
+    void removingAProjectThatIsNotThereIsNotFound() {
+        refusedAs("not-found", () -> as("mia").removeProject(change("mia", "mia", "x"), "demo"));
+    }
+
+    @Test
+    void aNewFirstAdminBecomesAnAdminMember() throws Exception {
+        demo();
+        carolFiled();
+
+        as("mia").changeProjectAdmin(change("mia", "mia", "admin"), "demo", "carol");
+
+        final OrganizationQuestions read = read();
+        assertThat(read.getRefusals()).isEmpty();
+        assertThat(read.isProjectMember("demo", "carol")).contains("admin");
+        assertThat(read.isProjectMember("demo", "alice"))
+                .as("an admin stays one")
+                .contains("admin");
+    }
+
+    @Test
+    void aFirstAdminNamedWhoIsAlreadyAMemberIsListedOnce() throws Exception {
+        demo();
+        carolFiled();
+        as("alice").addProjectMember(change("alice", "alice", "add"), "demo", "carol", "developer");
+
+        as("mia").changeProjectAdmin(change("mia", "mia", "admin"), "demo", "carol");
+
+        assertThat(read().getRefusals()).isEmpty();
+        assertThat(read().isProjectMember("demo", "carol")).contains("admin");
+    }
+
+    @Test
+    void aProjectsAddressIsItsAdminsToFileAndAnAddressThatIsNoneIsUsage() throws Exception {
+        demo();
+        final String address = "ssh://git@forge.example/acme/demo";
+
+        refusedAs(
+                "not-allowed",
+                () ->
+                        as("mia")
+                                .changeProjectRepository(
+                                        change("mia", "mia", "x"), "demo", address));
+        refusedAs(
+                "usage",
+                () ->
+                        as("alice")
+                                .changeProjectRepository(
+                                        change("alice", "alice", "y"), "demo", "no\"address"));
+
+        as("alice").changeProjectRepository(change("alice", "alice", "z"), "demo", address);
+
+        assertThat(read().getProjectRepository("demo")).contains(address);
+    }
+
+    @Test
+    void aMemberIsAddedAndChangedAndLockedAndRemovedAndEveryReaderAgrees() throws Exception {
+        demo();
+        carolFiled();
+
+        as("alice").addProjectMember(change("alice", "alice", "add"), "demo", "carol", "developer");
+        assertThat(read().isProjectMember("demo", "carol")).contains("developer");
+
+        as("alice")
+                .changeProjectMemberRole(
+                        change("alice", "alice", "role"), "demo", "carol", "admin");
+        assertThat(read().isProjectMember("demo", "carol")).contains("admin");
+
+        as("alice").lockProjectMember(change("alice", "alice", "lock"), "demo", "carol");
+        assertThat(read().getProjectMembers("demo").orElseThrow())
+                .filteredOn(each -> each.login().equals("carol"))
+                .singleElement()
+                .satisfies(each -> assertThat(each.locked()).isTrue());
+
+        as("alice").unlockProjectMember(change("alice", "alice", "unlock"), "demo", "carol");
+        assertThat(read().getProjectMembers("demo").orElseThrow())
+                .filteredOn(each -> each.login().equals("carol"))
+                .singleElement()
+                .satisfies(each -> assertThat(each.locked()).isFalse());
+
+        as("alice").removeProjectMember(change("alice", "alice", "off"), "demo", "carol");
+        assertThat(read().isProjectMember("demo", "carol")).isEmpty();
+        assertThat(read().getRefusals()).isEmpty();
+    }
+
+    @Test
+    void anOwnerNamesAnAdminButNoDeveloper() throws Exception {
+        demo();
+        carolFiled();
+        final String before = tip();
+
+        refusedAs(
+                "not-allowed",
+                () ->
+                        as("mia")
+                                .addProjectMember(
+                                        change("mia", "mia", "x"), "demo", "carol", "developer"));
+
+        assertThat(tip()).isEqualTo(before);
+        as("mia").addProjectMember(change("mia", "mia", "y"), "demo", "carol", "admin");
+        assertThat(read().isProjectMember("demo", "carol")).contains("admin");
+    }
+
+    @Test
+    void theLastAdminWhoMayActStaysForItsAdminsButNotForAnOwner() throws Exception {
+        demo();
+
+        refusedAs(
+                "last-of-its-kind",
+                () ->
+                        as("alice")
+                                .removeProjectMember(
+                                        change("alice", "alice", "a"), "demo", "alice"));
+        refusedAs(
+                "last-of-its-kind",
+                () ->
+                        as("alice")
+                                .lockProjectMember(change("alice", "alice", "b"), "demo", "alice"));
+        refusedAs(
+                "last-of-its-kind",
+                () ->
+                        as("alice")
+                                .changeProjectMemberRole(
+                                        change("alice", "alice", "c"),
+                                        "demo",
+                                        "alice",
+                                        "developer"));
+
+        as("mia").removeProjectMember(change("mia", "mia", "d"), "demo", "alice");
+
+        assertThat(read().isProjectMember("demo", "alice")).isEmpty();
+    }
+
+    @Test
+    void memberRefusalsAreNamed() throws Exception {
+        demo();
+        carolFiled();
+
+        refusedAs(
+                "usage",
+                () ->
+                        as("alice")
+                                .addProjectMember(
+                                        change("alice", "alice", "a"), "demo", "carol", "boss"));
+        refusedAs(
+                "no-card",
+                () ->
+                        as("alice")
+                                .addProjectMember(
+                                        change("alice", "alice", "b"),
+                                        "demo",
+                                        "mallory",
+                                        "developer"));
+        refusedAs(
+                "exists",
+                () ->
+                        as("alice")
+                                .addProjectMember(
+                                        change("alice", "alice", "c"), "demo", "alice", "admin"));
+        refusedAs(
+                "not-found",
+                () ->
+                        as("alice")
+                                .removeProjectMember(
+                                        change("alice", "alice", "d"), "demo", "carol"));
+        refusedAs(
+                "not-found",
+                () ->
+                        as("alice")
+                                .addProjectMember(
+                                        change("alice", "alice", "e"), "gone", "carol", "admin"));
+    }
+
+    @Test
+    void aHostIsAddedByAnOwnerAndChangedByItsAdmins() throws Exception {
+        build();
+        carolFiled();
+
+        refusedAs("exists", () -> as("mia").addHost(change("mia", "mia", "a"), "build", "alice"));
+        refusedAs(
+                "no-card", () -> as("mia").addHost(change("mia", "mia", "b"), "other", "mallory"));
+        refusedAs("usage", () -> as("mia").addHost(change("mia", "mia", "c"), "No Name", "alice"));
+        refusedAs(
+                "not-allowed",
+                () -> as("alice").addHost(change("alice", "alice", "d"), "other", "alice"));
+        refusedAs(
+                "not-allowed",
+                () -> as("mia").addHostAdmin(change("mia", "mia", "e"), "build", "carol"));
+
+        as("alice").addHostAdmin(change("alice", "alice", "f"), "build", "carol");
+
+        assertThat(read().isHostAdmin("build", "carol")).isTrue();
+        assertThat(read().getRefusals()).isEmpty();
+        refusedAs(
+                "exists",
+                () -> as("alice").addHostAdmin(change("alice", "alice", "g"), "build", "carol"));
+    }
+
+    @Test
+    void aHostsAdminGoesWithTheirBackupsAndTheLastStays() throws Exception {
+        build();
+        carolFiled();
+        as("alice").addHostAdmin(change("alice", "alice", "add"), "build", "carol");
+        as("carol").addBackupKey(change("carol", "carol", "backup"), "build", key("backup"));
+
+        as("alice").removeHostAdmin(change("alice", "alice", "off"), "build", "carol");
+
+        assertThat(read().isHostAdmin("build", "carol")).isFalse();
+        assertThat(Files.readString(repo.resolve("hosts/build/host.yml")))
+                .as("a backup left behind could still take carol's card")
+                .doesNotContain(key("backup"));
+        refusedAs(
+                "last-of-its-kind",
+                () -> as("alice").removeHostAdmin(change("alice", "alice", "x"), "build", "alice"));
+        refusedAs(
+                "not-found",
+                () -> as("alice").removeHostAdmin(change("alice", "alice", "y"), "build", "carol"));
+    }
+
+    @Test
+    void aProjectIsPutOnOneHostAndTakenOff() throws Exception {
+        demo();
+        as("mia").addHost(change("mia", "mia", "build"), "build", "alice");
+        as("mia").addHost(change("mia", "mia", "other"), "other", "alice");
+
+        refusedAs(
+                "not-found",
+                () -> as("alice").addProjectToHost(change("alice", "alice", "a"), "build", "gone"));
+        refusedAs(
+                "not-found",
+                () ->
+                        as("alice")
+                                .removeProjectFromHost(
+                                        change("alice", "alice", "b"), "build", "demo"));
+        as("alice").addProjectToHost(change("alice", "alice", "c"), "build", "demo");
+        assertThat(read().hostOf("demo")).contains("build");
+        refusedAs(
+                "exists",
+                () -> as("alice").addProjectToHost(change("alice", "alice", "d"), "build", "demo"));
+        refusedAs(
+                "on-another-host",
+                () -> as("alice").addProjectToHost(change("alice", "alice", "e"), "other", "demo"));
+
+        as("alice").removeProjectFromHost(change("alice", "alice", "f"), "build", "demo");
+
+        assertThat(read().hostOf("demo")).isEmpty();
+        assertThat(read().getRefusals()).isEmpty();
+    }
+
+    @Test
+    void aHostIsRemovedByAnOwnerAlone() throws Exception {
+        build();
+        final String before = tip();
+
+        refusedAs(
+                "not-allowed",
+                () -> as("alice").removeHost(change("alice", "alice", "a"), "build"));
+        assertThat(tip()).isEqualTo(before);
+        refusedAs("not-found", () -> as("mia").removeHost(change("mia", "mia", "b"), "gone"));
+
+        as("mia").removeHost(change("mia", "mia", "c"), "build");
+
+        assertThat(read().getHosts()).isEmpty();
+    }
+
+    @Test
+    void aHostCardThatIsNoneIsUsageAndHoldsNothingInWords() throws Exception {
+        build();
+
+        assertThatThrownBy(
+                        () ->
+                                as("alice")
+                                        .changeHost(
+                                                change("alice", "alice", "x"),
+                                                "build",
+                                                "secret-looking"))
+                .isInstanceOfSatisfying(
+                        Refused.class,
+                        refused -> {
+                            assertThat(refused.reason()).isEqualTo("usage");
+                            assertThat(refused.getMessage()).doesNotContain("secret-looking");
+                        });
+    }
+
+    private Path emptyRepository() throws IOException {
+        final Path bare = Files.createDirectory(dir.resolve("empty.git"));
+        runner.runOrFail(Command.of("git", "init", "-q", "--bare", "-b", "main", bare.toString()));
+        return bare;
+    }
+
+    private GitTreeWrites founding(final Path bare) {
+        final Map<String, Path> files = new HashMap<>();
+        keys.keySet().forEach(each -> files.put(key(each), keyFiles.get(each)));
+        return new GitTreeWrites(
+                runner,
+                bare.toString(),
+                "acme",
+                FetchAccess.NONE,
+                forge,
+                new CommitSigning(Map.of(), files));
+    }
+
+    @Test
+    void anEmptyRepositoryIsFoundedWithItsOnlyOwnerAndCardAndAFreshReaderTrustsIt()
+            throws Exception {
+        final Path bare = emptyRepository();
+        final Change first = new Change(new Acting("mia", key("mia")), null, "found");
+
+        final Written written = founding(bare).createOrganization(first, card("mia", "mia"));
+
+        final OrganizationQuestions read =
+                GitTreeStore.at(
+                                runner,
+                                bare.toString(),
+                                "acme",
+                                "forge.example",
+                                FetchAccess.NONE,
+                                dir.resolve("state-founded"))
+                        .read(forge);
+        assertThat(read.getRefusals()).isEmpty();
+        assertThat(read.isOrganizationOwner("mia")).isTrue();
+        assertThat(read.getPersons())
+                .extracting(OrganizationQuestions.Person::login)
+                .contains("mia");
+        final Written again = founding(bare).createOrganization(first, card("mia", "mia"));
+        assertThat(again.again()).isTrue();
+        assertThat(again.revision()).isEqualTo(written.revision());
+    }
+
+    @Test
+    void aRepositoryHoldingAnythingIsNotFoundedAgain() {
+        refusedAs(
+                "exists",
+                () ->
+                        as("mia")
+                                .createOrganization(
+                                        new Change(new Acting("mia", key("mia")), null, "again"),
+                                        card("mia", "mia")));
+    }
+
+    @Test
+    void someoneTheForgeSaysOwnsNothingFoundsNothing() throws Exception {
+        final Path bare = emptyRepository();
+        forge.owners.put("mallory", false);
+        forge.keys.put("mallory", List.of(key("mallory")));
+
+        refusedAs(
+                "not-allowed",
+                () ->
+                        founding(bare)
+                                .createOrganization(
+                                        new Change(
+                                                new Acting("mallory", key("mallory")), null, "x"),
+                                        card("mallory", "mallory")));
+
+        assertThat(
+                        runner.run(
+                                        Command.of(
+                                                "git",
+                                                "--git-dir=" + bare,
+                                                "rev-parse",
+                                                "--verify",
+                                                "main"))
+                                .successful())
+                .as("nothing was pushed")
+                .isFalse();
+    }
 }

@@ -70,6 +70,52 @@ final class TreeRepository implements AutoCloseable {
         }
     }
 
+    /**
+     * Makes a scratch clone holding nothing, for the founding commit of an empty repository, or
+     * says that the repository holds its branch already.
+     *
+     * @param address Where the repository is.
+     * @param runner How git runs.
+     * @param access What the asking may use, lent for its length.
+     * @return The clone, or empty when the branch is there.
+     * @throws IOException When the repository cannot be asked.
+     */
+    static Optional<TreeRepository> founding(
+            final String address, final CommandRunner runner, final FetchAccess access)
+            throws IOException {
+        final TreeRepository clone =
+                new TreeRepository(Files.createTempDirectory("porelo-organization-"), runner);
+        try {
+            final Path template = Files.createDirectory(clone.scratch.resolve("empty-template"));
+            if (!clone.git(
+                            "init",
+                            "-q",
+                            "--bare",
+                            "--template=" + template,
+                            clone.repository.toString())
+                    .successful()) {
+                throw new IOException("cannot make the organization's clone");
+            }
+            try (FetchAccess.Lease lease = access.lend(address)) {
+                final List<String> arguments = new ArrayList<>(lease.arguments());
+                arguments.addAll(List.of("ls-remote", "--", address, BRANCH));
+                final CommandResult asked =
+                        clone.git(lease.environment(), arguments.toArray(String[]::new));
+                if (!asked.successful()) {
+                    throw new GitTreeStore.Unreachable("cannot read the organization's repository");
+                }
+                if (!asked.standardOutput().isBlank()) {
+                    clone.close();
+                    return Optional.empty();
+                }
+            }
+            return Optional.of(clone);
+        } catch (IOException | RuntimeException ex) {
+            clone.close();
+            throw ex;
+        }
+    }
+
     private void fill(final String address, final FetchAccess access) throws IOException {
         final Path template = Files.createDirectory(scratch.resolve("empty-template"));
         final CommandResult init =
@@ -310,7 +356,7 @@ final class TreeRepository implements AutoCloseable {
     /**
      * Makes a signed commit on the branch's tip, in this clone alone.
      *
-     * @param parent The tip.
+     * @param parent The tip, or "" for the founding commit.
      * @param files What changes: a path and its new text, or {@code null} to remove it.
      * @param subject The commit's subject.
      * @param id The change's id.
@@ -332,7 +378,9 @@ final class TreeRepository implements AutoCloseable {
             throws IOException {
         final Map<String, String> index =
                 Map.of("GIT_INDEX_FILE", scratch.resolve("index").toString());
-        written(git(index, "read-tree", parent));
+        if (!parent.isEmpty()) {
+            written(git(index, "read-tree", parent));
+        }
         final Path text = scratch.resolve("file");
         for (final Map.Entry<String, @Nullable String> file : files.entrySet()) {
             if (file.getValue() == null) {
@@ -361,21 +409,23 @@ final class TreeRepository implements AutoCloseable {
         identity.put("GIT_AUTHOR_EMAIL", email);
         identity.put("GIT_COMMITTER_NAME", login);
         identity.put("GIT_COMMITTER_EMAIL", email);
-        final String commit =
-                written(
-                                git(
-                                        identity,
-                                        "-c",
-                                        "user.signingkey=" + signing.signingKey(key),
-                                        "commit-tree",
-                                        "-S",
-                                        "-p",
-                                        parent,
-                                        "-m",
-                                        subject + "\n\n" + CHANGE_ID + ": " + id + "\n",
-                                        tree))
-                        .strip();
-        written(git("update-ref", BRANCH, commit, parent));
+        final List<String> arguments =
+                new ArrayList<>(
+                        List.of(
+                                "-c",
+                                "user.signingkey=" + signing.signingKey(key),
+                                "commit-tree",
+                                "-S"));
+        if (!parent.isEmpty()) {
+            arguments.addAll(List.of("-p", parent));
+        }
+        arguments.addAll(List.of("-m", subject + "\n\n" + CHANGE_ID + ": " + id + "\n", tree));
+        final String commit = written(git(identity, arguments.toArray(String[]::new))).strip();
+        if (parent.isEmpty()) {
+            written(git("update-ref", BRANCH, commit));
+        } else {
+            written(git("update-ref", BRANCH, commit, parent));
+        }
         return commit;
     }
 
