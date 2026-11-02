@@ -952,7 +952,8 @@ class OrgReadingCommandsTest {
                                         runner,
                                         FetchAccess.NONE,
                                         org.fuin.porelo.organization.gittree.CommitSigning.agent(
-                                                "")));
+                                                ""),
+                                        dir.resolve("memory")));
         out.getBuffer().setLength(0);
 
         final int exit =

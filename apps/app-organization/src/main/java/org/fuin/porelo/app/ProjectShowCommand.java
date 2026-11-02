@@ -39,7 +39,8 @@ public class ProjectShowCommand extends OrgReading {
                     new ProjectFile(
                                     machine.runner(),
                                     OrgAccess.lent(machine),
-                                    CommitSigning.agent(""))
+                                    CommitSigning.agent(""),
+                                    OrgAccess.projectFiles(machine))
                             .read(address, keys);
 
     @Parameters(index = "0", paramLabel = "PROJECT", description = "The project.")

@@ -277,7 +277,7 @@ final class TreeRepository implements AutoCloseable {
         return named.toString();
     }
 
-    private static String digest(final String text) {
+    static String digest(final String text) {
         try {
             return java.util.HexFormat.of()
                     .formatHex(

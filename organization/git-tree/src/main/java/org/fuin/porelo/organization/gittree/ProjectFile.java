@@ -2,6 +2,12 @@ package org.fuin.porelo.organization.gittree;
 
 import java.io.IOException;
 import java.io.StringReader;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.LinkOption;
+import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.util.LinkedHashMap;
@@ -66,18 +72,26 @@ public final class ProjectFile {
 
     private final CommitSigning signing;
 
+    private final Path memory;
+
     /**
      * Constructor.
      *
      * @param runner How git runs.
      * @param access What a fetch and a push may use.
      * @param signing Whose agent signs a change; a read signs nothing.
+     * @param memory The directory of this machine's state that keeps, per repository, the date of
+     *     the newest change it accepted.
      */
     public ProjectFile(
-            final CommandRunner runner, final FetchAccess access, final CommitSigning signing) {
+            final CommandRunner runner,
+            final FetchAccess access,
+            final CommitSigning signing,
+            final Path memory) {
         this.runner = runner;
         this.access = access;
         this.signing = signing;
+        this.memory = memory;
     }
 
     /**
@@ -90,13 +104,14 @@ public final class ProjectFile {
      */
     public Read read(final String address, final List<SigningKey> keys) throws IOException {
         try (TreeRepository clone = TreeRepository.fetch(address, runner, access)) {
-            return judged(clone, keys);
+            return judged(clone, keys, address);
         } catch (GitTreeStore.Unreachable | CommandException ex) {
             return new Read(CANNOT_SAY, null, null, null);
         }
     }
 
-    private static Read judged(final TreeRepository clone, final List<SigningKey> keys)
+    private Read judged(
+            final TreeRepository clone, final List<SigningKey> keys, final String address)
             throws IOException {
         try {
             final String tip = clone.tip();
@@ -119,12 +134,55 @@ public final class ProjectFile {
             if (blob.isEmpty()) {
                 return refused("the project repository holds no project.yml");
             }
-            return new Read(READ, tip, parsed(clone.text(blob.orElseThrow())), null);
+            final Instant dated = OffsetDateTime.parse(clone.dated(commit)).toInstant();
+            final Instant accepted = accepted(address);
+            if (accepted != null && dated.isBefore(accepted)) {
+                return refused(
+                        "the project.yml of "
+                                + commit
+                                + " is older than the one this machine accepted, from "
+                                + accepted
+                                + ": an admin signs it anew");
+            }
+            final Read read = new Read(READ, tip, parsed(clone.text(blob.orElseThrow())), null);
+            remember(address, dated);
+            return read;
         } catch (CardException ex) {
             return refused(String.valueOf(ex.getMessage()));
         } catch (RuntimeException ex) {
             // What the reader says quotes the file, which anyone with write access wrote.
             return refused("the project repository's project.yml does not read");
+        }
+    }
+
+    /**
+     * Returns the date last accepted. A record that does not read is no record: the guard only ever
+     * refuses, so losing it costs what a new machine has too.
+     */
+    private @Nullable Instant accepted(final String address) throws IOException {
+        final Path file = memory.resolve(TreeRepository.digest(address));
+        if (!Files.isRegularFile(file, LinkOption.NOFOLLOW_LINKS)) {
+            return null;
+        }
+        try {
+            return Instant.parse(Files.readString(file, StandardCharsets.UTF_8).strip());
+        } catch (java.time.format.DateTimeParseException ex) {
+            return null;
+        }
+    }
+
+    private void remember(final String address, final Instant dated) throws IOException {
+        Files.createDirectories(memory);
+        final Path temporary = Files.createTempFile(memory, "accepted", ".tmp");
+        try {
+            Files.writeString(temporary, dated + "\n", StandardCharsets.UTF_8);
+            Files.move(
+                    temporary,
+                    memory.resolve(TreeRepository.digest(address)),
+                    StandardCopyOption.REPLACE_EXISTING,
+                    StandardCopyOption.ATOMIC_MOVE);
+        } finally {
+            Files.deleteIfExists(temporary);
         }
     }
 
@@ -222,6 +280,55 @@ public final class ProjectFile {
                 });
     }
 
+    /**
+     * Fills an empty project repository with its first signed commit.
+     *
+     * @param change Who acts, under which id.
+     * @param address The project repository.
+     * @param text The file's first text.
+     * @return What it made, or made before under this id.
+     * @throws Refused {@code no-repository} when it is not there, {@code exists} when it holds
+     *     anything else.
+     * @throws IOException When something unexpected happened; the change may have been made.
+     */
+    public OrganizationWrites.Written found(
+            final OrganizationWrites.Change change, final String address, final String text)
+            throws IOException {
+        final String acting = change.acting().key();
+        final Optional<TreeRepository> empty = TreeRepository.founding(address, runner, access);
+        if (empty.isEmpty()) {
+            try (TreeRepository clone = TreeRepository.fetch(address, runner, access)) {
+                final Optional<String> made =
+                        clone.changeNamed(change.id(), PersonCard.fingerprint(acting));
+                if (made.isPresent()) {
+                    return new OrganizationWrites.Written(made.orElseThrow(), change.id(), true);
+                }
+                throw new Refused(
+                        Refused.EXISTS, "the project's repository holds something", clone.tip());
+            } catch (CardException ex) {
+                throw new IOException(ex.getMessage(), ex);
+            }
+        }
+        try (TreeRepository clone = empty.orElseThrow()) {
+            final String commit =
+                    clone.commit(
+                            "",
+                            Map.of(PATH, text),
+                            "Open the project",
+                            change.id(),
+                            signing,
+                            acting,
+                            change.acting().login());
+            if (!clone.push(address, access)) {
+                throw new GitTreeStore.Unreachable(
+                        "the project repository did not take the first commit");
+            }
+            return new OrganizationWrites.Written(commit, change.id(), false);
+        } catch (CardException ex) {
+            throw new IOException(ex.getMessage(), ex);
+        }
+    }
+
     private OrganizationWrites.Written change(
             final OrganizationWrites.Change change,
             final String address,
@@ -240,7 +347,7 @@ public final class ProjectFile {
                 }
                 return new OrganizationWrites.Written(made.orElseThrow(), change.id(), true);
             }
-            final Read read = judged(clone, keys);
+            final Read read = judged(clone, keys, address);
             final String tip = clone.tip();
             if (!READ.equals(read.state())) {
                 throw new Refused(Refused.REFUSED_STATE, String.valueOf(read.why()), tip);

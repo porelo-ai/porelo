@@ -156,7 +156,8 @@ class OrgWritingCommandsTest {
                                         new ProcessCommandRunner(),
                                         org.fuin.porelo.organization.gittree.FetchAccess.NONE,
                                         org.fuin.porelo.organization.gittree.CommitSigning.agent(
-                                                ""))));
+                                                ""),
+                                        dir.resolve("memory"))));
         return line.execute(arguments);
     }
 
@@ -231,6 +232,7 @@ class OrgWritingCommandsTest {
                 Arguments.of(Refused.NO_REPOSITORY, 66),
                 Arguments.of(Refused.CANNOT_SAY, 69),
                 Arguments.of(Refused.NO_KEY, 69),
+                Arguments.of(Refused.VAULT_SHUT, 77),
                 Arguments.of(Refused.NO_ORGANIZATION, 78));
     }
 

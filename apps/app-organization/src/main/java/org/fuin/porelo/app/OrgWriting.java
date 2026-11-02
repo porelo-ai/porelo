@@ -101,6 +101,7 @@ public abstract class OrgWriting extends OrgReading {
         answer.put("id", written.id());
         answer.put("again", written.again());
         answer.put("of", of());
+        more(answer);
         return answer;
     }
 
@@ -112,6 +113,15 @@ public abstract class OrgWriting extends OrgReading {
                         + answer.get("revision")
                         + ", under the id "
                         + answer.get("id"));
+    }
+
+    /**
+     * Adds what this command's answer holds beside what every write's holds.
+     *
+     * @param answer The answer.
+     */
+    void more(final Map<String, @Nullable Object> answer) {
+        // Most hold nothing more.
     }
 
     /**
@@ -175,7 +185,8 @@ public abstract class OrgWriting extends OrgReading {
                         signing),
                 new OrganizationWrites.Acting(card.login(), own),
                 key,
-                new ProjectFile(machine.runner(), pushing, signing));
+                new ProjectFile(
+                        machine.runner(), pushing, signing, OrgAccess.projectFiles(machine)));
     }
 
     /**

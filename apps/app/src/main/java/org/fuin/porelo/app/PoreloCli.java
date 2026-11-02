@@ -92,7 +92,8 @@ public class PoreloCli implements Callable<Integer> {
                 .addSubcommand(ProjectShowCommand.class)
                 .addSubcommand(ProjectMemberCommand.class)
                 .addSubcommand(ProjectAddressCommand.class)
-                .addSubcommand(ProjectRepositoryCommand.class);
+                .addSubcommand(ProjectRepositoryCommand.class)
+                .addSubcommand(ProjectOpenCommand.class);
         // A project's backup key is filed among its signers, which are the project area's.
         final CommandLine identity =
                 java.util.Objects.requireNonNull(

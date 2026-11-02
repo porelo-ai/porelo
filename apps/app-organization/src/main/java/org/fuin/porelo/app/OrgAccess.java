@@ -128,6 +128,16 @@ final class OrgAccess {
         return context.paths().xdg().state().resolve("organization");
     }
 
+    /**
+     * Where this machine remembers what it accepted of projects' own files.
+     *
+     * @param context The machine.
+     * @return The directory.
+     */
+    static Path projectFiles(final PoreloContext context) {
+        return state(context).resolve("project-files");
+    }
+
     /** Lends what this person holds for the address, as a follow is lent it. */
     static FetchAccess lent(final PoreloContext context) {
         return address -> {
