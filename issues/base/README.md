@@ -31,6 +31,7 @@ from its side, as *blocked by*.
 | <a id="b206"></a>[B206](B206-A-Transport-Takes-Its-Secrets-On-Its-Input.md) | L | - | A transport takes the secrets Porelo kept for it on its standard input, not in its environment, so no other process of the account can read them from `/proc`; a version declared in `describe`, with the matrix transport's matching change. |
 | <a id="b238"></a>[B238](B238-An-Unfollow-Leaves-Nothing-Of-The-Project.md) | M | - | `project unfollow` removes the project's build lock and upstream copies, so `porelo prune` finds nothing of it; following stops first, under the clone's lock, which a removal never leaves to two holders |
 | <a id="b361"></a>[B361](B361-An-Agent-Starts-Only-The-Subagents-Its-Task-Allows.md) | M | - | Porelo's agent interface carries how many subagents an agent may start in a task, default none, and refuses a value the agent cannot enforce |
+| <a id="b390"></a>[B390](B390-The-Organizations-API-Apart-From-Its-Git-Reading.md) | L | - | Porelo asks for its organization through an API that says nothing of Git, today's registry reading behind it, with nothing visible changed |
 
 ## Implementing
 
@@ -38,7 +39,6 @@ from its side, as *blocked by*.
 |---|---|---|---|
 | <a id="b214"></a>[B214](B214-A-Vault-Entry-Put-Again-Unchanged.md) | M | - | `vault put` given the value an entry already holds says `unchanged` and exits 0, so a second play reports nothing changed |
 | <a id="b154"></a>[B154](B154-A-Tamper-Evident-Event-Log-Per-Node.md) | L | - | One hash-chained event log per account, anchored in the user's journal, optionally copied off the machine, kept by `porelo clear`; written by approve, reject, clearance, hand-in, credentials and project changes.; part 1 built, the copy off the machine after it |
-| <a id="b390"></a>[B390](B390-The-Organizations-API-Apart-From-Its-Git-Reading.md) | L | - | Porelo asks for its organization through an API that says nothing of Git, today's registry reading behind it, with nothing visible changed |
 
 ## Backlog
 

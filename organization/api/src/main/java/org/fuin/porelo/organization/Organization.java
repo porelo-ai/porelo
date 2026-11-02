@@ -1,39 +1,15 @@
 package org.fuin.porelo.organization;
 
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
-import java.util.TreeMap;
 import org.jspecify.annotations.Nullable;
 
 /**
- * What an organization says at one revision: its owners, the admins of its hosts, its persons, its
- * hosts with their projects, and what a read of it refused or warns of. Plain data: it says nothing
- * of how the organization is kept.
- *
- * @param readTo The revision the read reached, or {@code null} when it reached none.
- * @param revision The revision it accepted, the same as {@code readTo} once anything was accepted;
- *     {@code null} when nothing was.
- * @param owners The organization's owners, backup keys among them.
- * @param hostAdmins Each host's admins, by the host's name, backup keys among them.
- * @param people The persons, each as their card last accepted says.
- * @param hosts The hosts.
- * @param revoked The fingerprints of the keys it revokes.
- * @param warnings What the read warns of.
- * @param refusals What the read refused, the latest last.
- * @param soleWithoutBackup Each place held by one key with no backup key behind it.
+ * What an organization answers at one revision: every question rests on the same state. Each
+ * adapter answers each question itself; the questions are the contract, and how an adapter finds an
+ * answer is its own. Plain data: it says nothing of how the organization is kept.
  */
-public record Organization(
-        @Nullable String readTo,
-        @Nullable String revision,
-        List<Owner> owners,
-        Map<String, List<Owner>> hostAdmins,
-        List<Person> people,
-        List<Host> hosts,
-        List<String> revoked,
-        List<String> warnings,
-        List<Refusal> refusals,
-        List<Sole> soleWithoutBackup) {
+public interface Organization {
 
     /** A person's standing: the identity source lists their key. */
     public static final String TRUSTED = "trusted";
@@ -44,28 +20,91 @@ public record Organization(
     /** A person's standing: answered, but no card; the next one for the login counts as first. */
     public static final String REFUSED = "refused";
 
-    /** Compact constructor: every collection is copied and cannot be changed afterwards. */
-    public Organization {
-        owners = List.copyOf(owners);
-        final Map<String, List<Owner>> admins = new TreeMap<>();
-        hostAdmins.forEach((host, list) -> admins.put(host, List.copyOf(list)));
-        hostAdmins = Collections.unmodifiableMap(admins);
-        people = List.copyOf(people);
-        hosts = List.copyOf(hosts);
-        revoked = List.copyOf(revoked);
-        warnings = List.copyOf(warnings);
-        refusals = List.copyOf(refusals);
-        soleWithoutBackup = List.copyOf(soleWithoutBackup);
-    }
+    /**
+     * Returns the revision the read reached.
+     *
+     * @return It, or {@code null} when it reached none.
+     */
+    @Nullable String readTo();
+
+    /**
+     * Returns the revision it accepted, the same as {@link #readTo} once anything was accepted.
+     *
+     * @return It, or {@code null} when nothing was.
+     */
+    @Nullable String revision();
+
+    /**
+     * Returns the organization's owners, backup keys among them.
+     *
+     * @return The owners.
+     */
+    List<Owner> owners();
+
+    /**
+     * Returns each host's admins, backup keys among them.
+     *
+     * @return The admins, by the host's name.
+     */
+    Map<String, List<Owner>> hostAdmins();
+
+    /**
+     * Returns the persons, each as their card last accepted says.
+     *
+     * @return The persons.
+     */
+    List<Person> people();
+
+    /**
+     * Returns the hosts.
+     *
+     * @return The hosts.
+     */
+    List<Host> hosts();
+
+    /**
+     * Returns the fingerprints of the keys it revokes.
+     *
+     * @return The fingerprints.
+     */
+    List<String> revoked();
+
+    /**
+     * Returns what the read warns of.
+     *
+     * @return The warnings.
+     */
+    List<String> warnings();
+
+    /**
+     * Returns what the read refused, the latest last.
+     *
+     * @return The refusals.
+     */
+    List<Refusal> refusals();
 
     /**
      * Returns what the read refused last, which stays in force until something replaces it.
      *
      * @return The refusal, or {@code null} when none.
      */
-    public @Nullable Refusal lastRefusal() {
-        return refusals.isEmpty() ? null : refusals.getLast();
-    }
+    @Nullable Refusal lastRefusal();
+
+    /**
+     * Returns each place held by one key with no backup key behind it.
+     *
+     * @return The places.
+     */
+    List<Sole> soleWithoutBackup();
+
+    /**
+     * Returns who holds a key on an accepted card, another than the login given.
+     *
+     * @param fingerprint The key's fingerprint.
+     * @param login The login that may hold it, or {@code null} when any login is another.
+     * @return Their login, or {@code null} when nobody else holds it.
+     */
+    @Nullable String keyHolder(String fingerprint, @Nullable String login);
 
     /**
      * A path a revision was refused for.

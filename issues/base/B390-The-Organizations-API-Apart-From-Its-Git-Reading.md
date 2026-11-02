@@ -1,6 +1,6 @@
 # B390 — The Organization's API Apart From Its Git Reading
 
-**Status:** Implementing.
+**Status:** Review.
 **Size:** L - a new module group, about 4300 lines moved out of `vault`, and every command that holds a `RegistryState`
 moved onto the API.
 
@@ -17,7 +17,9 @@ Measured in today's code: every command that decides something holds a `Registry
   alone, and `organization/git` (`porelo-organization-git`), which needs the API, `vault` and `core`. A README for each,
   a `package-info.java` with `@NullMarked`, and the root's module, dependency management and index.
 - **In the API, plain data only:** no `Path`, no commit, no `CommandRunner`, no callback, so a store could stand behind
-  a process boundary later. `OrganizationStore`, opened by the organization's address or checkout; `IdentitySource`,
+  a process boundary later. Each adapter answers each question itself; the questions are the contract, and the whole
+  read stays inside the Git adapter (`GitOrganization`). `OrganizationStore`, opened by the organization's address or
+  checkout; `IdentitySource`,
   today's `ForgeDirectory` under that name, answering yes, no or cannot say; records for persons, owners, hosts and
   refusals, each answer naming the revision it rests on.
 - **The API holds what is asked today:** whether a key is someone's and not revoked, with and without a login; who else
@@ -48,7 +50,3 @@ Measured in today's code: every command that decides something holds a `Registry
   order is left out, because today it differs from one run of the same code to the next (`Map.of`, measured); the
   text of `registry read` and what it warns of are compared byte for byte.
 - The native image builds and `porelo registry read` runs from it.
-
-## To be checked
-
-- Whether snakeyaml's parser needs metadata when reached from the new module; it is already in the image through core.

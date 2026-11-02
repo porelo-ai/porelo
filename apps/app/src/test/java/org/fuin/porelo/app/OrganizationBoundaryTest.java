@@ -92,6 +92,13 @@ class OrganizationBoundaryTest {
     }
 
     @Test
+    void the_organization_is_answered_by_question_not_as_one_whole_read() {
+        assertThat(org.fuin.porelo.organization.Organization.class.isInterface())
+                .as("each adapter answers each question itself")
+                .isTrue();
+    }
+
+    @Test
     void the_api_needs_wire_alone() throws IOException {
         final String pom = Files.readString(root().resolve("organization/api/pom.xml"));
         final String dependencies =

@@ -228,13 +228,9 @@ final class IdentityFacts {
             final String fingerprint,
             final @Nullable String login) {
         for (final Registry registry : registries) {
-            for (final Organization.Person person : registry.organization().people()) {
-                // A refused card is answered but is no card.
-                if (!person.refused()
-                        && person.fingerprint().equals(fingerprint)
-                        && !person.login().equals(login)) {
-                    return Optional.of(person.login());
-                }
+            final String holder = registry.organization().keyHolder(fingerprint, login);
+            if (holder != null) {
+                return Optional.of(holder);
             }
         }
         return Optional.empty();

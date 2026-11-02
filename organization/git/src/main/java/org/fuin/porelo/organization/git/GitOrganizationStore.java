@@ -180,7 +180,7 @@ public final class GitOrganizationStore implements OrganizationStore {
      * @return What the organization says.
      */
     public static Organization organization(final RegistryState state) {
-        return new Organization(
+        return new GitOrganization(
                 state.commit(),
                 state.revision(),
                 state.owners().stream().map(GitOrganizationStore::owner).toList(),
