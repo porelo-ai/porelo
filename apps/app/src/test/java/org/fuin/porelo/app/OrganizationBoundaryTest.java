@@ -31,10 +31,6 @@ class OrganizationBoundaryTest {
     private static final Set<String> WRITERS =
             Set.of("RegistryFileCommand.java", "IdentityBackupKeyCommand.java");
 
-    /** What still reads through the adapter's state: empties as each moves to the API. */
-    private static final Set<String> NOT_MOVED_YET =
-            Set.of("ProjectAccessCommand.java", "SignerHandover.java");
-
     /** Words that say how an organization is kept: a path, a commit, Git or a process. */
     private static final Pattern HOW_IT_IS_KEPT =
             Pattern.compile(
@@ -61,7 +57,6 @@ class OrganizationBoundaryTest {
             for (final Path source : sources(root().resolve(area))) {
                 final String name = source.getFileName().toString();
                 if (!WRITERS.contains(name)
-                        && !NOT_MOVED_YET.contains(name)
                         && ADAPTER_STATE.matcher(Files.readString(source)).find()) {
                     reaching.add(root().relativize(source).toString());
                 }

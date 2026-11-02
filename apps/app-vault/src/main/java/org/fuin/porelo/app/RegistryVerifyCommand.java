@@ -10,7 +10,8 @@ import java.util.concurrent.Callable;
 import org.fuin.porelo.core.process.CommandException;
 import org.fuin.porelo.core.process.CommandRunner;
 import org.fuin.porelo.core.process.ProcessCommandRunner;
-import org.fuin.porelo.organization.git.RegistryVerifier;
+import org.fuin.porelo.organization.OrganizationException;
+import org.fuin.porelo.organization.git.GitOfflineOrganization;
 import org.fuin.porelo.vault.CardException;
 import org.fuin.porelo.vault.RegistryText;
 import org.fuin.porelo.wire.Json;
@@ -75,13 +76,13 @@ public class RegistryVerifyCommand implements Callable<Integer>, PoreloFactory.C
                 return refuse(64, "--since must name a commit");
             }
             answer =
-                    new RegistryVerifier(runner)
-                            .verify(repository, host, pinned, since == null ? "" : since);
+                    new GitOfflineOrganization(runner, repository)
+                            .check(host, pinned, since == null ? "" : since);
         } catch (IllegalArgumentException ex) {
             return refuse(64, ex.getMessage());
         } catch (IOException ex) {
             return refuse(66, ex.getMessage());
-        } catch (CardException | CommandException ex) {
+        } catch (OrganizationException | CardException | CommandException ex) {
             return refuse(65, ex.getMessage());
         }
         final var out = spec.commandLine().getOut();

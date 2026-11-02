@@ -36,7 +36,7 @@ import org.fuin.porelo.core.project.BranchScheme;
 import org.fuin.porelo.core.project.Project;
 import org.fuin.porelo.core.project.ProjectException;
 import org.fuin.porelo.core.project.Repository;
-import org.fuin.porelo.organization.git.TrustRecords;
+import org.fuin.porelo.organization.git.GitOrganizationStore;
 import org.fuin.porelo.vault.AccessPersons;
 import org.fuin.porelo.vault.CardException;
 import org.fuin.porelo.vault.PersonCard;
@@ -813,8 +813,9 @@ public class ProjectAccessCommand implements Callable<Integer>, PoreloFactory.Co
     private Set<String> registryRevocations() throws Refused {
         final Set<String> revoked = new java.util.HashSet<>();
         try {
-            for (final TrustRecords.Read read : TrustRecords.read(context.paths().xdg().state())) {
-                revoked.addAll(read.state().revoked());
+            for (final GitOrganizationStore.Known known :
+                    GitOrganizationStore.known(context.paths().xdg().state())) {
+                revoked.addAll(known.organization().revoked());
             }
         } catch (final IOException ex) {
             throw new Refused(66, "cannot read the registries read here: " + ex.getMessage());
