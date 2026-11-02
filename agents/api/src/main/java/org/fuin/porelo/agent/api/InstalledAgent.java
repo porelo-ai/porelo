@@ -383,12 +383,28 @@ public class InstalledAgent implements AutoCloseable {
     }
 
     private AgentDefinition handshake() {
+        return handshake(client, executable);
+    }
+
+    /**
+     * Asks an agent what it is, and refuses one this Porelo cannot work with.
+     *
+     * @param client The connection to the agent.
+     * @param executable The agent binary, named in a refusal.
+     * @return Its definition.
+     * @throws AgentException When it is refused.
+     */
+    static AgentDefinition handshake(final VarlinkClient client, final Path executable) {
 
         final Map<String, Object> answer = client.call(AgentProtocol.DESCRIBE, Map.of());
 
-        final int version =
-                answer.get("protocolVersion") instanceof Number number ? number.intValue() : -1;
-        final String refused = refusal(executable, version);
+        if (!(answer.get("protocolVersion") instanceof Number version)) {
+            throw new AgentException(
+                    executable
+                            + " reported no agent protocol version, so it is broken rather than"
+                            + " old. Reinstall the agent.");
+        }
+        final String refused = refusal(executable, version.intValue());
         if (refused != null) {
             throw new AgentException(refused);
         }
@@ -543,8 +559,12 @@ public class InstalledAgent implements AutoCloseable {
      *     they are from an agent that does not format them.
      */
     public List<@Nullable String> format(List<String> lines) {
+        return format(client, lines);
+    }
+
+    static List<@Nullable String> format(final VarlinkClient client, final List<String> lines) {
         // An agent built before the method shows its lines as they are.
-        if (optional(AgentProtocol.FORMAT, Map.of("lines", lines))
+        if (optional(client, AgentProtocol.FORMAT, Map.of("lines", lines))
                         instanceof Answer.Answered(Map<String, Object> reply)
                 && reply.get("lines") instanceof List<?> shown
                 && shown.size() == lines.size()) {
@@ -563,8 +583,12 @@ public class InstalledAgent implements AutoCloseable {
      *     that does not say.
      */
     public @Nullable AgentEnd ended(String line) {
+        return ended(client, line);
+    }
+
+    static @Nullable AgentEnd ended(final VarlinkClient client, final String line) {
         // An agent built before the method says nothing about its end, as before.
-        return optional(AgentProtocol.ENDED, Map.of("line", line))
+        return optional(client, AgentProtocol.ENDED, Map.of("line", line))
                                 instanceof Answer.Answered(Map<String, Object> reply)
                         && reply.get("ended") instanceof Map<?, ?> ended
                 ? AgentEnd.of(ended)

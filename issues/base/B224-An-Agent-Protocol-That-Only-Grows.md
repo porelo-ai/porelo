@@ -65,5 +65,8 @@ another error throws.
 
 - A stub of the previous version: `LOWEST` is the current version, so the previous one is what `refusal` refuses and
   the next one what it accepts; a real agent at another version is measured when `VERSION` goes to 4.
-- `format` has no caller in the apps, and `ended`'s caller, `AgentEnding`, catches a runtime failure and says nothing,
-  so an error now thrown from either changes nothing a person sees.
+- `format`'s one caller, the daemon's `Tail`, shows a log's lines as they are when the agent fails, so a failed formatter
+  does not end the stream. `ended`'s caller, `AgentEnding`, goes on to the next line when the agent answers that it failed
+  on one, and stops when the connection is gone.
+- `refusal` cannot be told from one comparing against `VERSION` while `LOWEST` and `VERSION` are equal; that is measured
+  when `VERSION` goes to 4.

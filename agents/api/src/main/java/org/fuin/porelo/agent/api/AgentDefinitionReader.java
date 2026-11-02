@@ -113,7 +113,7 @@ public final class AgentDefinitionReader {
                 // commonest shape there is. A section with no 'arguments' key at all declares a
                 // flow or grants and no login of its own: run as "just run me", the person signs in
                 // and Porelo collects nothing.
-                optionalSection(root, "login").containsKey("arguments")
+                optionalSection(root, "login").get("arguments") != null
                         ? strings(optionalSection(root, "login").get("arguments"))
                         : null,
                 // Where that login is described. Optional even when the section is there: an agent

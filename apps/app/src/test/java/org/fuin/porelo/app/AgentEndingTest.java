@@ -151,4 +151,42 @@ class AgentEndingTest {
         assertThat(ended.status()).isEqualTo(401);
         assertThat(ended.unpushed()).as("as recorded when it stopped").isEqualTo(3);
     }
+
+    @Test
+    void aLineTheAgentFailsOnDoesNotHideTheEndBeforeIt() {
+        // One bad line stopped the search, and the end was recorded as never said for that size.
+        final AgentEnd end = new AgentEnd(false, "402 more credits", AgentEnd.PROVIDER, 402);
+
+        assertThat(
+                        AgentEnding.lastEnd(
+                                line -> {
+                                    if (line.equals("garbled")) {
+                                        throw new org.fuin.porelo.wire.varlink.VarlinkException(
+                                                "org.fuin.porelo.Agent1.Failed",
+                                                java.util.Map.of());
+                                    }
+                                    return end;
+                                },
+                                java.util.List.of("garbled", "the end")))
+                .isEqualTo(end);
+    }
+
+    @Test
+    void anAgentThatCannotBeReachedIsNotAskedAboutEveryLine() {
+        // A connection that is gone fails at once on each line, for up to 2 MiB of them.
+        final java.util.concurrent.atomic.AtomicInteger asked =
+                new java.util.concurrent.atomic.AtomicInteger();
+
+        org.assertj.core.api.Assertions.assertThatThrownBy(
+                        () ->
+                                AgentEnding.lastEnd(
+                                        line -> {
+                                            asked.incrementAndGet();
+                                            throw new org.fuin.porelo.wire.varlink.VarlinkException(
+                                                    "connection lost");
+                                        },
+                                        java.util.List.of("one", "two", "three")))
+                .isInstanceOf(org.fuin.porelo.wire.varlink.VarlinkException.class);
+        assertThat(asked).as("stopped at the first line").hasValue(1);
+    }
 }

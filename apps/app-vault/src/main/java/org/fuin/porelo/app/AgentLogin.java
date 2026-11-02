@@ -352,8 +352,8 @@ public final class AgentLogin {
             java.util.function.Predicate<Path> signedIn,
             java.util.function.BiFunction<List<String>, String, Result> launch) {
         final List<String> loginArguments = definition.loginArguments();
-        // Null, not empty: an agent whose login is "just run me" declares the section with no
-        // arguments, and treating that as "cannot log in" would refuse the commonest shape.
+        // Null, not empty: an agent whose login is "just run me" declares 'arguments: []', and
+        // treating that as "cannot log in" would refuse the commonest shape.
         if (loginArguments == null) {
             return failed(
                     Outcome.UNSUPPORTED,

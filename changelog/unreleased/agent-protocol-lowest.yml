@@ -1,0 +1,2 @@
+title: "An agent at or above the lowest protocol version Porelo needs is accepted, a newer one included, so a method added to the agent contract no longer forces every agent to release in step; an agent reporting no version is told it is broken rather than old, and a `login:` section with no `arguments` reads as no login of its own"
+type: changed

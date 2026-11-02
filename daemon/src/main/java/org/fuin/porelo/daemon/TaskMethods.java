@@ -391,12 +391,14 @@ final class TaskMethods {
                                 agents == null || agent == null
                                         ? null
                                         : agents.find(agent).orElse(null);
+                        final java.util.function.Function<List<String>, List<@Nullable String>>
+                                formatting = formatter == null ? null : formatter::format;
                         if (!replies.streaming()) {
                             final Chunk chunk = read(log, position);
                             replies.last(
                                     Map.of(
                                             "lines",
-                                            shown(formatter, chunk.lines()),
+                                            shown(formatting, chunk.lines()),
                                             "offset",
                                             position));
                             return;
@@ -408,7 +410,7 @@ final class TaskMethods {
                                 replies.more(
                                         Map.of(
                                                 "lines",
-                                                shown(formatter, chunk.lines()),
+                                                shown(formatting, chunk.lines()),
                                                 "offset",
                                                 position));
                                 first = false;
@@ -830,15 +832,24 @@ final class TaskMethods {
     }
 
     /**
-     * Lines as the agent shows them, those it hides left out; as they are without an agent to ask.
+     * Lines as the agent shows them, those it hides left out; as they are without an agent to ask,
+     * or when it fails.
      */
-    private static List<String> shown(
-            org.fuin.porelo.agent.api.@Nullable InstalledAgent formatter, List<String> lines) {
-        if (formatter == null || lines.isEmpty()) {
+    static List<String> shown(
+            java.util.function.@Nullable Function<List<String>, List<@Nullable String>> formatting,
+            List<String> lines) {
+        if (formatting == null || lines.isEmpty()) {
+            return lines;
+        }
+        final List<@Nullable String> formatted;
+        try {
+            formatted = formatting.apply(lines);
+        } catch (org.fuin.porelo.wire.varlink.VarlinkException ex) {
+            // A log is still worth reading unformatted; a failed formatter must not end the stream.
             return lines;
         }
         final List<String> shown = new ArrayList<>();
-        for (final String line : formatter.format(lines)) {
+        for (final String line : formatted) {
             if (line != null) {
                 shown.add(line);
             }

@@ -15,6 +15,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import org.fuin.porelo.agent.api.AgentEnd;
 import org.fuin.porelo.core.process.CommandRunner;
 import org.fuin.porelo.runtime.Podman;
+import org.fuin.porelo.wire.varlink.VarlinkException;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -136,18 +137,38 @@ public final class AgentEnding {
                         if (installed == null) {
                             return null;
                         }
-                        for (final String line : fromEnd) {
-                            final AgentEnd ended = installed.ended(line);
-                            if (ended != null) {
-                                return ended;
-                            }
-                        }
-                        return null;
+                        return lastEnd(installed::ended, fromEnd);
                     } catch (RuntimeException ex) {
                         // An agent that cannot be asked says nothing about its end, as before.
                         return null;
                     }
                 });
+    }
+
+    /**
+     * Finds the end of a run among a log's last lines.
+     *
+     * @param asking Asks the agent about one line.
+     * @param fromEnd The lines, the last one first.
+     * @return How it ended, or {@code null} when no line says.
+     */
+    static @Nullable AgentEnd lastEnd(
+            java.util.function.Function<String, @Nullable AgentEnd> asking, List<String> fromEnd) {
+        for (final String line : fromEnd) {
+            try {
+                final AgentEnd ended = asking.apply(line);
+                if (ended != null) {
+                    return ended;
+                }
+            } catch (VarlinkException ex) {
+                // The agent answered that it failed on this line, so it can still read the others.
+                // No error name means no answer: the connection is gone, and so is every other try.
+                if (ex.getErrorName() == null) {
+                    throw ex;
+                }
+            }
+        }
+        return null;
     }
 
     /**

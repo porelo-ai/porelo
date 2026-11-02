@@ -113,6 +113,19 @@ class AgentLoginTest {
 
         assertThat(definition.loginArguments()).isNull();
         assertThat(AgentLogin.signsInHere(context(dir), definition)).isFalse();
+        assertThat(
+                        AgentLogin.login(
+                                        context(dir),
+                                        definition,
+                                        false,
+                                        false,
+                                        new PrintWriter(new StringWriter(), true),
+                                        directory -> false,
+                                        (command, directory) -> {
+                                            throw new AssertionError("nothing may be run");
+                                        })
+                                .outcome())
+                .isEqualTo(AgentLogin.Outcome.UNSUPPORTED);
     }
 
     @Test

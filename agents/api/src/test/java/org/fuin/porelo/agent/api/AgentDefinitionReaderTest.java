@@ -813,6 +813,9 @@ class AgentDefinitionReaderTest {
         // Porelo collected nothing from an agent that keeps its sign-in where no extractor reads.
         assertThat(read(MINIMAL + "login:\n  flow: device-code\n").loginArguments()).isNull();
         assertThat(read(MINIMAL).loginArguments()).isNull();
+        assertThat(read(MINIMAL + "login:\n  arguments:\n  flow: device-code\n").loginArguments())
+                .as("a key with no value says no more than no key")
+                .isNull();
     }
 
     @Test
