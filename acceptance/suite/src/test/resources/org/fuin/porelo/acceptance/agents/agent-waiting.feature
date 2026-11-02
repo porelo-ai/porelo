@@ -16,8 +16,7 @@ Feature: Porelo shows an agent waiting for a person, read by the agent's own dec
         Given a project called "waits" of class "guarded" with a file in it
         And a script runs:
             """
-            cd ~/waits && touch .porelo-stub-asks && git add -A && git commit -q -m 'ask first' \
-                && porelo project follow waits ~/waits --unverified >/dev/null
+            cd ~/waits && touch .porelo-stub-asks && git add -A && git commit -q -m 'ask first'
             """
         And a terminal on the machine
         When I run "porelo task start attended --project waits --repository waits --agent stub --clearance deny"

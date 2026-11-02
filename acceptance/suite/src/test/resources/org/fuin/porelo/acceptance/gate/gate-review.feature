@@ -66,7 +66,7 @@ Feature: Work waiting at the gate, reviewed, backed up and restored
         And the vault holds the value of "PORELO_ACCEPTANCE_FAKE_CREDENTIAL" as "anthropic" of kind "api-key"
         And a daemon of this scenario's own
         # Guarded, so its work waits at the gate: an online task's push is passed on at once and never waits. Its
-        # upstream is a bare repository beside it, named in its project file and followed again.
+        # upstream is a bare repository beside it, named in its local project file.
         And a project called "carried" of class "guarded" with a file in it
         And a script runs:
             """
@@ -75,7 +75,6 @@ Feature: Work waiting at the gate, reviewed, backed up and restored
             git -C ~/carried push -q ~/carried/.git/upstream.git HEAD:main
             sed -i "/^project:/a\  upstream: \"file://$HOME/carried/.git/upstream.git\"" ~/carried/project.yml
             git -C ~/carried commit -qam "name the upstream"
-            porelo project follow carried ~/carried --unverified >/dev/null
             """
         Then it exits zero
         When a task called "past" is started in "carried" for the "stub" agent and left running

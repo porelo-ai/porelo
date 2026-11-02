@@ -27,7 +27,6 @@ Feature: A repository says what its tasks are built in
             git -C "$source" -c user.name=T -c user.email=t@example.com commit -q -m image
             printf '%s\n' 'repositories:' '  tooled:' "    upstream: \"file://$source\"" >> ~/imaged/project.yml
             git -C ~/imaged add project.yml && git -C ~/imaged commit -q -m tooled
-            porelo project follow imaged ~/imaged --unverified > /dev/null
             timeout 600 porelo task start shaped --project imaged --repository tooled --agent stub \
                 --attach shell --detach --clearance deny
             """
@@ -56,7 +55,6 @@ Feature: A repository says what its tasks are built in
             git -C "$source" -c user.name=T -c user.email=t@example.com commit -q -m widen
             printf '%s\n' 'repositories:' '  widened:' "    upstream: \"file://$source\"" >> ~/imaged/project.yml
             git -C ~/imaged add project.yml && git -C ~/imaged commit -q -m widened
-            porelo project follow imaged ~/imaged --unverified > /dev/null
             set +e
             timeout 600 porelo task start widening --project imaged --repository widened --agent stub \
                 --attach shell --detach --clearance deny
@@ -80,10 +78,9 @@ Feature: A repository says what its tasks are built in
             git -C "$source" -c user.name=T -c user.email=t@example.com commit -q -m image
             printf '%s\n' 'repositories:' '  tooled:' "    upstream: \"file://$source\"" >> ~/imaged/project.yml
             git -C ~/imaged add project.yml && git -C ~/imaged commit -q -m tooled
-            porelo project follow imaged ~/imaged --unverified > /dev/null
-            override=~/.config/porelo/projects/imaged/tooled
+            override="${XDG_CONFIG_HOME:-$HOME/.config}/porelo/projects/imaged/tooled"
             # Taken back whatever happens below: a leftover override would speak in the next run.
-            trap 'rm -rf ~/.config/porelo/projects/imaged' EXIT
+            trap 'rm -rf -- "$override"' EXIT
             mkdir -p "$override"
             printf '%s\n' 'image:' '  env:' '    REPOSITORY_IMAGE: "said by the person"' > "$override/.porelo.yml"
             timeout 600 porelo task start overridden --project imaged --repository tooled --agent stub \

@@ -87,11 +87,9 @@ public class TerminalSteps {
      * Removes every project the kit made in this run, passed or failed.
      *
      * <p>Here although tearing down is not, because this removes only what the kit itself made: the
-     * repository it wrote into the operator's home and the following of it. Measured on 2026-09-27,
-     * three scenarios of the agent repositories left their project followed and every one left its
-     * directory, on both VMs, until an agent removed them by hand. Once, at the end of the run: a
-     * project two scenarios share must outlive the first. {@code unfollow --force} removes the
-     * project's tasks with it and is best effort, so a renamed verb cannot turn a run red.
+     * repository it wrote into the operator's home and its local project file. Once, at the end of
+     * the run: a project two scenarios share must outlive the first. Forced removal also clears
+     * fixture tasks and unreviewed work, and is best effort.
      *
      * @throws IOException If the machine cannot be reached.
      */
@@ -104,7 +102,7 @@ public class TerminalSteps {
             try {
                 final Machine machine = Machine.forAccount(made.getKey());
                 for (final String name : made.getValue()) {
-                    machine.run("porelo project unfollow " + Shell.quote(name) + " --force");
+                    machine.run("porelo project remove " + Shell.quote(name) + " --force");
                     machine.run("rm -rf -- ~/" + Shell.quote(name));
                 }
             } catch (final IOException | RuntimeException ex) {
@@ -435,21 +433,22 @@ public class TerminalSteps {
             @org.jspecify.annotations.Nullable String upstream,
             String more)
             throws IOException {
-        // Built by running the commands rather than by writing files from here: a fixture the suite
-        // creates is a fixture that can be right while the product is wrong. Built by running the
-        // commands rather than by writing files from here: a fixture the suite creates is a fixture
-        // that can be right while the product is wrong.
-        //
-        // A project comes to be on a machine by that machine FOLLOWING its repository - nothing
-        // writes a project file any more. So the repository is made here, on the machine, and
-        // followed from a local path: a rented machine has no forge to push a fixture to, and a
-        // public one would be a dependency on somebody else's uptime.
-        //
-        // Followed unverified, or every fixture would have to sign its commits.
+        // The symlink keeps the local project file beside its checkout, including later edits.
         final Ssh.Output owned = world.run(fixtureCheck(projectName(name)));
         if (owned.status() != 0) {
             throw new AssertionError(owned.all().strip());
         }
+        final Ssh.Output available =
+                world.run(
+                        "project=\"${XDG_CONFIG_HOME:-$HOME/.config}/porelo/projects/"
+                                + name
+                                + "\"; if [ -e \"$project\" ] || [ -L \"$project\" ]; then "
+                                + "if [ ! -L \"$project\" ] || [ \"$(readlink -- \"$project\")\" != \"$HOME/"
+                                + name
+                                + "\" ]; then echo 'refused: the local project is not this kit fixture'; exit 1; fi; fi");
+        assertThat(available.status())
+                .as("local project %s is not available:%n%s", name, available.all())
+                .isZero();
         // Only now: a directory the check refused must not be the cleanup's to delete either.
         world.made(name);
         world.run("rm -rf ~/" + name + " && mkdir -p ~/" + name);
@@ -478,11 +477,17 @@ public class TerminalSteps {
                                 .collect(java.util.stream.Collectors.joining(" "))
                         + " > project.yml");
         world.run("cd ~/" + name + " && git add -A && git commit -q -m initial");
-        final Ssh.Output followed =
-                world.run("porelo project follow " + name + " ~/" + name + " --unverified");
-        // Said here rather than at the first task start, which is minutes later and reads as a
-        // broken build.
-        assertThat(followed.status()).as("following %s failed:%n%s", name, followed.all()).isZero();
+        final Ssh.Output placed =
+                world.run(
+                        "projects=\"${XDG_CONFIG_HOME:-$HOME/.config}/porelo/projects\""
+                                + " && mkdir -p \"$projects\" && ln -sfnT -- \"$HOME/"
+                                + name
+                                + "\" \"$projects/"
+                                + name
+                                + "\" && test -f \"$projects/"
+                                + name
+                                + "/project.yml\"");
+        assertThat(placed.status()).as("placing %s failed:%n%s", name, placed.all()).isZero();
     }
 
     /** Builds the project's image block and the scenario's additional YAML. */
