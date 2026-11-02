@@ -111,7 +111,7 @@ public class OrgFetchCommand extends OrgReading {
         return new Refused(Refused.USAGE, words, null);
     }
 
-    private static void regular(final Path file, final String option) {
+    static void regular(final Path file, final String option) {
         if (!Files.isRegularFile(file, LinkOption.NOFOLLOW_LINKS)) {
             throw usage(option + " names no regular file");
         }
@@ -145,7 +145,7 @@ public class OrgFetchCommand extends OrgReading {
      * Reads the address. Settings that name a credential of their own are refused: this reaches the
      * repository with the host's read key alone.
      */
-    private static String address(final Path file) throws IOException {
+    static String address(final Path file) throws IOException {
         regular(file, "--settings");
         final Object loaded;
         try {
