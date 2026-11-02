@@ -81,9 +81,11 @@ public class OrgCreateCommand extends OrgReading {
     private static Refused needingToken(
             final PoreloContext machine, final String address, final Refused refused) {
         final RegistryOrigin origin = RegistryOrigin.of(address);
+        final String revision = refused.revision();
+        final String standing = revision == null || revision.isEmpty() ? null : revision;
         if (!Refused.CANNOT_SAY.equals(refused.reason())
                 || OrgForgeToken.of(machine, origin) != null) {
-            return refused;
+            return new Refused(refused.reason(), String.valueOf(refused.getMessage()), standing);
         }
         return new Refused(
                 Refused.CANNOT_SAY,
@@ -91,7 +93,7 @@ public class OrgCreateCommand extends OrgReading {
                         + " porelo credentials declare "
                         + origin.forge()
                         + " --kind token --vault NAME, porelo vault put NAME, then ask again",
-                refused.revision());
+                standing);
     }
 
     @Override
