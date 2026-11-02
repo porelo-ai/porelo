@@ -335,6 +335,26 @@ class ProjectTakingTest {
     }
 
     @Test
+    void a_question_reads_nothing_about_a_project_already_here() throws Exception {
+        taking().taken("demo");
+        organization.outOfReach();
+
+        // An interface asks at every key typed: a fetch here would make a forge token each time.
+        taking().takenToAsk("demo");
+
+        assertThat(ProjectSource.resolve(context, "demo").outcome())
+                .isEqualTo(ProjectSource.Outcome.ORGANIZATION);
+    }
+
+    @Test
+    void a_question_about_a_project_not_here_yet_takes_it() throws Exception {
+        taking().takenToAsk("demo");
+
+        assertThat(ProjectSource.resolve(context, "demo").outcome())
+                .isEqualTo(ProjectSource.Outcome.ORGANIZATION);
+    }
+
+    @Test
     void a_project_with_no_address_is_not_opened() throws Exception {
         organization
                 .writes()

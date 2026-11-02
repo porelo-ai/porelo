@@ -20,9 +20,10 @@ import org.jspecify.annotations.Nullable;
  * A start of an organization's project: reads its repository, judges its file, and places both
  * where everything else reads them.
  *
- * <p><strong>Every start reads, and nothing else does.</strong> A forge out of reach, or an
- * organization known only from its last state, starts nothing: no security check rests on a stale
- * state. What a running task, a gate or a listing reads stays as the last start placed it.
+ * <p><strong>Every start reads, and otherwise only a question about a project not here
+ * yet.</strong> A forge out of reach, or an organization known only from its last state, starts
+ * nothing: no security check rests on a stale state. What a running task, a gate or a listing reads
+ * stays as the last start placed it.
  *
  * <p><strong>The clone stands at the revision judged, never at the tip.</strong> A push between the
  * judging and the fetch changes nothing here.
@@ -100,6 +101,38 @@ public final class ProjectTaking {
                         IdentityOrganization.lent(context),
                         OrganizationProjects.of(context))
                 .taken(name);
+    }
+
+    /**
+     * What a question before a start does: takes a project only when none stands here yet.
+     *
+     * <p>An interface asks at every change in its dialog, down to a key typed. Reading at each
+     * would fetch every time, and on a host take this person's other forge tokens back. The start
+     * reads anew and has the last word.
+     *
+     * @param context The machine.
+     * @param name The project's name.
+     * @throws Refused By the contract's reasons.
+     */
+    public static void takeToAsk(final PoreloContext context, final String name) throws Refused {
+        new ProjectTaking(
+                        context,
+                        IdentityOrganization::real,
+                        IdentityOrganization.lent(context),
+                        OrganizationProjects.of(context))
+                .takenToAsk(name);
+    }
+
+    /**
+     * See {@link #takeToAsk}.
+     *
+     * @param name The project's name.
+     * @throws Refused By the contract's reasons.
+     */
+    void takenToAsk(final String name) throws Refused {
+        if (ProjectSource.resolve(context, name).file() == null) {
+            taken(name);
+        }
     }
 
     /**

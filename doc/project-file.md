@@ -352,6 +352,8 @@ the newest change to `project.yml`: its commit must be signed by the key of a pe
 valid at that commit's date. What passes is placed on this machine, at the commit judged, never at the tip, and a
 push between the judging and the fetch changes nothing. A task's settings stay what its start placed: what runs, a
 gate and a listing read that, and a change in the repository waits for the next start.
+The daemon's `CanStart` is asked at every change in a dialog, so it reads only for a project not on this machine yet, and
+the start has the last word.
 
 | A start | Exit | `reason` | Because |
 |---|---|---|---|

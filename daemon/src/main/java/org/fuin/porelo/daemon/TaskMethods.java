@@ -553,7 +553,7 @@ final class TaskMethods {
                     String refused = null;
                     if (!project.isEmpty()) {
                         try {
-                            org.fuin.porelo.app.ProjectTaking.take(context, project);
+                            org.fuin.porelo.app.ProjectTaking.takeToAsk(context, project);
                         } catch (final org.fuin.porelo.app.ProjectTaking.Refused ex) {
                             refused = ex.reason() + ": " + ex.getMessage();
                         }
