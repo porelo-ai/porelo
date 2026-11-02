@@ -24,6 +24,7 @@ would change the answer.
 | Nested containers never in a guarded project | `guarded` never sets them; only on a task's own kernel where the assessment says so | [entry](#nested-containers-never-in-a-guarded-project) |
 | A devcontainer file's features are not fetched | its image or Dockerfile is used, each feature named as not installed; nothing runs at build that the project file does not name | [entry](#a-devcontainer-files-features-are-not-fetched) |
 | A repository's image comes from porelo.yml, chosen key by key, and its build keeps the host's network | accepted: `image` only (`base_image`, snippet, `env`), merged key by key from override, project file, reviewed default branch and project; the build still reaches the network outside the task's firewall | [entry](#a-repositorys-image-comes-from-poreloyml-chosen-key-by-key-and-its-build-keeps-the-hosts-network) |
+| A project's own file is judged by its newest change alone | accepted: an admin's signature on the newest change to `project.yml` is what counts, an older one is refused, and a file it names needs none, so a snippet file gets around `egress` while the image is built | [entry](#a-projects-own-file-is-judged-by-its-newest-change-alone) |
 | Several attempts share one credential | not split or queued; a reached limit said per attempt; five attempts by default | [entry](#several-attempts-share-one-credential) |
 | A reviewer task reviews only its own project | another project's waiting work is never read | [entry](#a-reviewer-task-reviews-only-its-own-project) |
 | A time limit does not cut off a person who is watching | a start may shorten the limit, never lengthen it; an attached person is warned and the stop waits for their detach (not yet built) | [entry](#a-time-limit-does-not-cut-off-a-person-who-is-watching) |
@@ -1024,6 +1025,24 @@ before letting the mirror's file decide and refuses when the mirror names no exi
 refresh updates the mirror's `HEAD` from the upstream's), the review ranks `porelo.yml` and `.porelo.yml` as dangerous,
 and each key's source is printed at the start. **What would change the answer:** building the image within the
 project's egress and trusted package sources.
+
+## A project's own file is judged by its newest change alone
+
+A project's `project.yml` lies in its own repository, beside files developers change on their own. Porelo judges only the
+newest commit on the first-parent line that changed that file: it must be signed by a key with an `admin` row. Another
+file on top changes nothing. An unsigned change reads as refused until an admin signs the file anew, and that admin then
+signs the whole file. A machine keeps the date of the newest change it accepted, and refuses an older one, since anyone
+with write access could otherwise bring back an older signed file, with no force push. A machine new to the project has
+no such date. This is simpler than judging every commit that ever changed the file, and it is the operator's choice.
+
+A file `project.yml` names, such as `image.snippet_file`, may change with no admin's signature. Nothing checks it.
+
+**The exposure:** a developer's unsigned commit can change a snippet file, and it runs as root while the image is built,
+with the network an image build has, outside the project's `egress`, on the machine of whoever next starts a task. The
+same is said of a repository's own `porelo.yml` above. The running task stays behind its firewall, but what the build fetched is in its image. **Why it stays:**
+a person who can write to the repository is one the project gave that access, and signing every file a project file
+names has no end. **What would change the answer:** building the image within the project's egress and trusted package
+sources.
 
 ## Several attempts share one credential
 
