@@ -1,6 +1,6 @@
 # B224 — An Agent Protocol That Only Grows
 
-**Status:** Analyzed.
+**Status:** Backlog.
 **Size:** M - small in code, one module and its tests, but it changes the contract every agent repository reads, and
 its rule goes into the contract's documentation.
 

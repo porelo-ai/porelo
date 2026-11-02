@@ -1,6 +1,6 @@
 # B225 — The Agent Found On The Machine
 
-**Status:** Analyzed; blocked by [B224](README.md#b224).
+**Status:** Backlog; blocked by [B224](README.md#b224).
 **Size:** L - a method in the contract three agent repositories implement, the choice every start, its dry run and
 the shield share, a new `project.yml` key, the import offered at the start, and the daemon's answers naming the
 choice and the findings; several modules and two contracts.
@@ -15,11 +15,13 @@ choice at the start that reads it.
 
 Read in the code on 2026-10-20 (`agents/api`, `apps/app-agents`, `apps/app-task`, `apps/app-vault`).
 
-1. **`Find` in `Agent1`**: `Find(configDirectory) -> (signedIn: SIGNED_IN | NOT_SIGNED_IN | CANNOT_SAY, credential:
-   ?string, provider: ?string, findings []Finding)`, a finding `{what, path}`, never a value. `Agent.finder()`
-   defaults to `CANNOT_SAY`; `AgentServer` registers it; `InstalledAgent.find` calls it through
-   [B224](README.md#b224)'s `optional`, so an agent without it reads as `CANNOT_SAY`. `AgentProtocol.VERSION` goes to
-   4. The stub reports what `PORELO_AGENT_STUB_FINDINGS` names, for the suite.
+1. **`Find` in `Agent1`**: `Find(configDirectory) -> (findings []Finding)`. A finding is `{what, path?, signedIn?,
+   importable?, provider?, kind?}`: `what` is `configuration` or `sign-in`; `signedIn` is `SIGNED_IN`, `NOT_SIGNED_IN` or
+   `CANNOT_SAY`; `importable` says whether `vault import` can take that route; `kind` is `SUBSCRIPTION` or `API_KEY`.
+   There is no free-text field, and the reader keeps only these, so no value has a place to travel. Findings come in the
+   tool's own precedence. `Agent.finder()` defaults to `CANNOT_SAY`; `AgentServer` registers it; `InstalledAgent.find`
+   calls it through [B224](README.md#b224)'s `optional`, so an agent without it reads as `CANNOT_SAY`.
+   `AgentProtocol.VERSION` goes to 4. The stub reports what `PORELO_AGENT_STUB_FINDINGS` names, for the suite.
 2. **The command on `PATH`**: `porelo` looks up each installed agent's `binary` (`AgentDefinition`) on the
    account's `PATH` once per choice; a hit is a finding of `porelo`'s own, "the person uses this agent", since an
    agent runs its own pinned command inside the task, never the host's.
