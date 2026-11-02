@@ -1018,7 +1018,7 @@ tasks may do. What wins is chosen key by key along a fixed order (the local `.po
 checkout's `.porelo.yml` and `porelo.yml`, then the default image): `base_image` and the snippet are each taken whole
 from the first source that sets them, and `env` per variable, with each key's source named at the start. Every task
 image sets `LANG=C.UTF-8` so tools and the JVM read non-ASCII file names without each repository repeating it.
-**The exposure:** a repository's snippet runs as root while the image is built, outside the task's firewall, with the
+**The exposure:** a repository's snippet runs as root of the build's user namespace while the image is built, outside the task's firewall, with the
 network an image build has, and is written by the repository's authors rather than only the project's signer. **Why it
 stays:** `porelo.yml` is read only from the mirror's reviewed default branch (never `porelo/*`), the start fetches
 before letting the mirror's file decide and refuses when the mirror names no existing default branch (while each gate
@@ -1037,9 +1037,11 @@ no such date. This is simpler than judging every commit that ever changed the fi
 
 A file `project.yml` names, such as `image.snippet_file`, may change with no admin's signature. Nothing checks it.
 
-**The exposure:** a developer's unsigned commit can change a snippet file, and it runs as root while the image is built,
-with the network an image build has, outside the project's `egress`, on the machine of whoever next starts a task. The
-same is said of a repository's own `porelo.yml` above. The running task stays behind its firewall, but what the build fetched is in its image. **Why it stays:**
+**The exposure:** a developer's unsigned commit can change a snippet file, and it runs while the image is built, with the
+account's network, outside the project's `egress`, on the machine of whoever next starts a task. Podman runs rootless, so
+root in a `RUN` is root in the build's user namespace, not the machine's. A `RUN` is given none of the account's files or
+environment, only what the Containerfile copies in. What it can do is fetch and send over the network, and leave what it
+fetched in the image, which the running task then holds behind its firewall. **Why it stays:**
 a person who can write to the repository is one the project gave that access, and signing every file a project file
 names has no end. The operator took this on 2026-11-02, told of the exposure. **What would change the answer:** building the image within the project's egress and trusted package
 sources.
