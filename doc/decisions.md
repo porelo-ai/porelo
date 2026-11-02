@@ -1247,6 +1247,17 @@ neither `git` nor a class of an adapter. Each check has been seen to fail agains
 - **A state that does not continue what this machine trusted is refused each time it is served**: an older one, a fork,
   or one without a revocation. A machine that has trusted nothing yet has nothing to compare, so a state rolled back
   before its first read is not noticed.
+- **A change through the API is made by the one allowed, once, or not at all.** A person acts with the key on their own
+  card, within the role they hold; a base the store moved past, a card of another login or key and the last owner or
+  admin are refused, and a refusal leaves nothing a reader sees. An id asked again answers the change it made, is another
+  person's id no answer, and is refused when it named another change. What a change says it made, a fresh reader accepts,
+  and a change that would alter nothing is refused rather than answered as made.
+- **What a replaced key did goes for a new reader, and what a handed-on key did stays.** An owner's replacement links
+  nothing to the old key and the source no longer lists it, so members that admin added are gone for a new reader until an
+  owner adds the admin again and the new key adds the rest; a reader that trusted the state before keeps them until
+  then. A card the old key signed links the two, and nothing is lost. A new key's card
+  with no word from the old one stands only where the source lists the new key alone, so no card stands for a new reader
+  and the source decides, as for a first card; otherwise it is refused.
 - **A host's offline check answers only for its pinned key.** It answers the host's admins, projects, persons and card
   under that key. It refuses a copy under another person's pin, one holding a change nobody allowed, also under a later
   change or with a stranger's key named beside the pin, an owner's change of the host's files, and one that does not continue
