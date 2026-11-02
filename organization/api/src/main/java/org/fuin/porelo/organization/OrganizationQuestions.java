@@ -8,6 +8,12 @@ import org.jspecify.annotations.Nullable;
 /**
  * The questions of the new structure, each answered at one revision, so that several answers rest
  * on one state. Each adapter answers each question itself; the questions are the contract.
+ *
+ * <p>A change nobody allowed is no reason to refuse the read: the answers leave it out and name it
+ * in {@link #getRefusals()}, and every later change is judged without it. The read itself is
+ * refused with {@link Refused} only when the state as a whole cannot be taken: an older state
+ * served again, a fork, or a founder's key the identity source no longer lists, each {@link
+ * Refused#REFUSED_STATE}.
  */
 public interface OrganizationQuestions {
 

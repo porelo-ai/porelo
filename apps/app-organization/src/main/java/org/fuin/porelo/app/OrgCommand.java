@@ -10,7 +10,7 @@ import org.fuin.porelo.organization.IdentitySource;
 import org.fuin.porelo.organization.Organization;
 import org.fuin.porelo.organization.OrganizationQuestions;
 import org.fuin.porelo.organization.git.RegistryOrigin;
-import org.fuin.porelo.vault.HostCard;
+import org.fuin.porelo.organization.gittree.TreeServices;
 import org.fuin.porelo.vault.PersonCard;
 import org.jspecify.annotations.Nullable;
 import picocli.CommandLine.Command;
@@ -21,7 +21,12 @@ import picocli.CommandLine.Command;
         mixinStandardHelpOptions = true,
         exitCodeOnInvalidInput = 64,
         description = "Answers the organization: its people, projects and hosts.",
-        subcommands = {OrgCardCommand.class, OrgHostCardCommand.class, OrgProjectsCommand.class})
+        subcommands = {
+            OrgCardCommand.class,
+            OrgHostCardCommand.class,
+            OrgProjectsCommand.class,
+            OrgFetchCommand.class
+        })
 public class OrgCommand extends OrgReading {
 
     private static final String REVOKED = "revoked";
@@ -185,7 +190,7 @@ public class OrgCommand extends OrgReading {
         row.put("address", card == null ? null : card.address());
         row.put("ssh_port", card == null ? null : card.sshPort());
         row.put("ssh_host_key", card == null ? null : card.sshHostKey());
-        row.put("services", card == null ? null : services(card));
+        row.put("services", card == null ? null : TreeServices.of(card));
         row.put(
                 "admins",
                 host.admins().stream()
@@ -203,22 +208,6 @@ public class OrgCommand extends OrgReading {
                         .toList());
         row.put("projects", host.projects());
         return row;
-    }
-
-    /** A service taken off the card is {@code null}, never a port nobody listens on. */
-    private static Map<String, @Nullable Object> services(final Organization.Card card) {
-        final Map<String, @Nullable Object> services = new LinkedHashMap<>();
-        services.put(
-                "forge",
-                card.forgeWebPort() == HostCard.NO_SERVICE
-                        ? null
-                        : Map.of("web_port", card.forgeWebPort(), "git_port", card.forgeGitPort()));
-        services.put(
-                "matrix",
-                card.matrixPort() == HostCard.NO_SERVICE
-                        ? null
-                        : Map.of("port", card.matrixPort()));
-        return services;
     }
 
     private static Map<String, @Nullable Object> sole(final Organization.Sole sole) {

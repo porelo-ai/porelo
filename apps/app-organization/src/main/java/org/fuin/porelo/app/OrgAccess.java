@@ -147,7 +147,7 @@ final class OrgAccess {
         };
     }
 
-    private static java.net.http.HttpClient http(final PoreloContext context) {
+    static java.net.http.HttpClient http(final PoreloContext context) {
         return org.fuin.porelo.core.net.TrustedCertificates.builder(
                         org.fuin.porelo.core.net.TrustedCertificates.file(context.paths().xdg()))
                 .connectTimeout(java.time.Duration.ofSeconds(10))

@@ -155,7 +155,9 @@ public final class GitTreeStore {
      * @throws Unreachable When it cannot be fetched.
      * @throws IOException When it cannot be read, or the record cannot be kept.
      * @throws OrganizationException When its history proves nothing.
-     * @throws OrganizationQuestions.Refused When it does not continue the record.
+     * @throws OrganizationQuestions.Refused When it does not continue the record, or no owner can
+     *     be proven since the founder's key is no longer listed. A single change nobody allowed is
+     *     not thrown: it is among the answers' refusals.
      */
     public OrganizationQuestions read(final IdentitySource identities) throws IOException {
         return walk(identities, null);
@@ -211,6 +213,57 @@ public final class GitTreeStore {
             final TreeRecord start = start(walk, kept, line, revision, warnings);
             final TreeRecord walked = walk.read(revision, start);
             if (revision == null && keeps(line, commit, walked.commit())) {
+                keep(walked);
+            }
+            return answers(walked, warnings);
+        } catch (CardException | CommandException ex) {
+            throw new OrganizationException(ex.getMessage(), ex);
+        }
+    }
+
+    /**
+     * Fetches the repository and answers it for one host, against its pin and the last state taken.
+     *
+     * @param identities Who says whose keys are whose: the forge's public list, here.
+     * @param host The host's name.
+     * @param pin The fingerprints of the keys it holds for its admins.
+     * @param since The revision taken last, or "" before the first.
+     * @return The answers, at the commit the walk reached.
+     * @throws Unreachable When it cannot be fetched.
+     * @throws IOException When it cannot be read, or the record cannot be kept.
+     * @throws OrganizationQuestions.Refused When it refuses: an older state, a commit not signed
+     *     for the pin, or a walk that cannot reach what was taken.
+     */
+    OrganizationQuestions fetchFor(
+            final IdentitySource identities,
+            final String host,
+            final Set<String> pin,
+            final String since)
+            throws IOException {
+        final List<String> warnings = new ArrayList<>();
+        final TreeRecord kept = kept(warnings);
+        try (TreeRepository clone = TreeRepository.fetch(repository, runner, access)) {
+            final List<String> line = clone.line(null).stream().map(Map.Entry::getKey).toList();
+            if (!since.isEmpty() && !line.contains(since)) {
+                throw new OrganizationQuestions.Refused(
+                        OrganizationQuestions.Refused.REFUSED_STATE,
+                        "the organization's tip does not continue the commit last taken: an older"
+                                + " state served again, or a fork, at "
+                                + since,
+                        since);
+            }
+            final TreeWalk walk = new TreeWalk(clone, identities, organisation);
+            walk.readChains();
+            // Only from the commit taken: a later record may hold commits no pin has judged yet.
+            final TreeRecord start =
+                    kept != null && since.equals(kept.commit()) && !walk.unsettled(kept)
+                            ? kept
+                            : null;
+            final TreePin watch = new TreePin(host, pin, since, start != null, description);
+            walk.underPin(watch);
+            final TreeRecord walked = walk.read(null, start);
+            watch.finish();
+            if (state != null && walked.commit() != null) {
                 keep(walked);
             }
             return answers(walked, warnings);

@@ -19,7 +19,10 @@ public interface OrganizationStore {
      * @param identities Who says whose keys are whose.
      * @return What the organization says.
      * @throws IOException When it cannot be read or what was read cannot be kept.
-     * @throws OrganizationException When what was kept or what was read is refused.
+     * @throws OrganizationException When what was kept or what was read is refused as a whole; an
+     *     adapter of the new structure throws {@link OrganizationQuestions.Refused} for an older
+     *     state served again. A single change nobody allowed is not thrown: it is left out and
+     *     named among the refusals of what is answered.
      */
     Organization read(IdentitySource identities) throws IOException;
 }
