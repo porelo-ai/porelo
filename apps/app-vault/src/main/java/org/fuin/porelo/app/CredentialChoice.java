@@ -231,11 +231,17 @@ final class CredentialChoice {
             return;
         }
         try {
-            if (staleCredential(
-                    context.credentials().get(credentialName(agent)),
+            // Compared under the provider the answer names: a store holding several may answer
+            // another one than this agent's default.
+            final org.fuin.porelo.agent.api.Credential held =
                     agent.extractCredential(
                                     VaultImportCommand.expand(agent.definition().configDirectory()))
-                            .orElse(null))) {
+                            .orElse(null);
+            final String stored =
+                    held != null && held.provider() != null
+                            ? held.provider()
+                            : credentialName(agent);
+            if (staleCredential(context.credentials().get(stored), held)) {
                 if (offer != Offer.NOBODY
                         && offer.confirm(
                                 "the vault's copy of the credential is older than the one '"

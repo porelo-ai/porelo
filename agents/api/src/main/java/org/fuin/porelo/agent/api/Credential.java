@@ -1,6 +1,7 @@
 package org.fuin.porelo.agent.api;
 
 import java.util.Map;
+import org.jspecify.annotations.Nullable;
 
 /**
  * A credential taken from an agent's own config, on its way into the vault.
@@ -9,8 +10,11 @@ import java.util.Map;
  *     environment variable it is later injected as.
  * @param secret The value itself.
  * @param attributes Anything else worth keeping, such as a refresh token or an expiry.
+ * @param provider The provider it is for, where the agent knows. No attribute, since those go to
+ *     the vault.
  */
-public record Credential(String type, String secret, Map<String, String> attributes) {
+public record Credential(
+        String type, String secret, Map<String, String> attributes, @Nullable String provider) {
 
     /**
      * The attribute holding what renews this credential: kept hidden on the host, never in a task.
@@ -57,6 +61,7 @@ public record Credential(String type, String secret, Map<String, String> attribu
      * @param type Credential type.
      * @param secret The value.
      * @param attributes Extra fields.
+     * @param provider The provider it is for, or {@code null}.
      */
     public Credential {
         if (type.isBlank()) {
@@ -66,6 +71,27 @@ public record Credential(String type, String secret, Map<String, String> attribu
             throw new AgentException("A credential of type '" + type + "' has no value");
         }
         attributes = Map.copyOf(attributes);
+    }
+
+    /**
+     * Constructor for a credential that names no provider.
+     *
+     * @param type Credential type.
+     * @param secret The value.
+     * @param attributes Extra fields.
+     */
+    public Credential(String type, String secret, Map<String, String> attributes) {
+        this(type, secret, attributes, null);
+    }
+
+    /**
+     * Returns this credential, naming its provider.
+     *
+     * @param named The provider it is for.
+     * @return The same credential, for that provider.
+     */
+    public Credential forProvider(String named) {
+        return new Credential(type, secret, attributes, named);
     }
 
     /**

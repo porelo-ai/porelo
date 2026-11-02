@@ -177,6 +177,11 @@ final class VaultMethods {
                                     context,
                                     absent(parameters, "agent"),
                                     absent(parameters, "configDirectory"),
+                                    // Not folded as the others are: blank is no provider's name,
+                                    // and read as none it would import whatever the agent answers.
+                                    parameters.get("provider") instanceof String given
+                                            ? given
+                                            : null,
                                     context::opener);
                     replies.last(
                             Map.of(

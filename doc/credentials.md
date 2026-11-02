@@ -239,7 +239,10 @@ part of it, and a private key whole. A value the entry already holds, with the s
 again: `vault put` says `unchanged NAME` and exits 0, and `--json` answers `{"name", "stored"}` for a program.
 
 **`vault import`** saves retyping, and with it the commonest mistake, storing the guide's
-placeholder instead of the key.
+placeholder instead of the key. An agent can hold sign-ins for several providers: `--provider NAME` imports that
+one and stores it under that name, and an answer for another provider, or an agent that cannot say which it answered, stores
+nothing. Without it, the first sign-in the agent can hand over is stored under the provider it names, or else under the
+agent's default.
 
 **`vault login`** is for a machine where the agent was never installed by hand. It runs the login
 in a throwaway container from the task image, which has none of a task's hooks and ordinary network

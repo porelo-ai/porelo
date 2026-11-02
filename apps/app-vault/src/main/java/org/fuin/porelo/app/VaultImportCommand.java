@@ -30,6 +30,14 @@ public class VaultImportCommand implements Callable<Integer>, PoreloFactory.Cont
     private @Nullable String agentName;
 
     @Option(
+            names = "--provider",
+            paramLabel = "<name>",
+            description =
+                    "The provider whose sign-in to import, from an agent that holds several."
+                            + " Stored under that name. Default: the one the agent answers.")
+    private @Nullable String provider;
+
+    @Option(
             names = "--config-dir",
             paramLabel = "<dir>",
             description =
@@ -74,9 +82,16 @@ public class VaultImportCommand implements Callable<Integer>, PoreloFactory.Cont
         // used first, so somebody at the machine is not asked for something they do not need.
         final CredentialImport.Result result =
                 CredentialImport.run(
-                        context, agentName, configDirectory, () -> context.openerAsking(true, err));
+                        context,
+                        agentName,
+                        configDirectory,
+                        provider,
+                        () -> context.openerAsking(true, err));
 
+        // No login offered for one provider: a login stores under the agent's default, which is
+        // not what was asked for.
         if (result.outcome() == CredentialImport.Outcome.NOTHING_TO_IMPORT
+                && provider == null
                 && agentName != null
                 && Offer.atTerminal()
                 && AgentLogin.signsInHere(context, agentName)) {

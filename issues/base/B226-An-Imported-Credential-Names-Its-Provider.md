@@ -1,6 +1,6 @@
 # B226 — An Imported Credential Names Its Provider
 
-**Status:** Implementing; blocked by [B224](README.md#b224).
+**Status:** Review.
 **Size:** M - small in code, an optional parameter through four classes and a flag, but a contract every agent
 repository reads.
 
@@ -23,7 +23,8 @@ Read in the code on 2026-10-20 (`agents/api`, `apps/app-vault`).
    another provider, or none from an agent asked for one, is refused rather than stored under the wrong name.
    Without `--provider`, an answer that names its provider is stored under that one, else under
    `SelectedProvider.choose(..., null)` as today.
-4. **`vault import --provider <name>`**, completed from the providers the agent can drive; `doc/credentials.md`.
+4. **`vault import --provider <name>`**; `doc/credentials.md`. The command line completes option names only, so the
+   option's value is not completed, as `task run --provider`'s is not.
 
 **Red first:** `CredentialImportTest` with a fake agent holding two providers' sign-ins: `--provider openrouter`
 stores the OpenRouter credential under `openrouter`, where today it lands under the default; an agent answering
@@ -34,3 +35,9 @@ another provider than the one asked is refused, nothing stored.
 - `vault import --agent <agent> --provider <name>` stores that provider's credential under its name, and the
   other provider's credential is untouched.
 - An agent built before the parameter is imported as today.
+
+## Checked
+
+- `reportStaleCredential` compares the agent's first credential, so a task on another provider may hear about the
+  first. It stays: the contract asks for this comparison, the offer defaults to no, and the import it offers cannot
+  replace another provider's entry on the agent's word alone.

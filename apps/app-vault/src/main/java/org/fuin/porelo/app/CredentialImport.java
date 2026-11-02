@@ -42,6 +42,9 @@ public final class CredentialImport {
         /** The vault cannot be opened without a passphrase nobody can be asked for here. */
         VAULT_LOCKED,
 
+        /** The agent's answer is for another provider, or says none when one was asked for. */
+        WRONG_PROVIDER,
+
         /** The vault could not be written. */
         FAILED
     }
@@ -75,13 +78,15 @@ public final class CredentialImport {
      * @param context The machine.
      * @param agentName Which agent, or {@code null} for the only one installed.
      * @param configDirectory Where it keeps its credentials, or {@code null} for what it declares.
-     * @param passphrase Supplies the vault passphrase, or nothing when it cannot be had.
+     * @param provider The provider asked for, or {@code null} for whichever the agent answers.
+     * @param opener Supplies what opens the vault, or nothing when it cannot be had.
      * @return What happened.
      */
     public static Result run(
             PoreloContext context,
             @Nullable String agentName,
             @Nullable String configDirectory,
+            @Nullable String provider,
             Supplier<Optional<org.fuin.porelo.vault.VaultFile.Opener>> opener) {
 
         try (var agents = context.agents()) {
@@ -110,20 +115,53 @@ public final class CredentialImport {
             }
 
             final Path directory = VaultImportCommand.expand(declared);
-            final Optional<Credential> credential = agent.extractCredential(directory);
+            if (provider != null) {
+                final SelectedProvider.Choice asked =
+                        SelectedProvider.consider(
+                                context.providers(), agent.definition(), provider);
+                if (asked.refusal() != null || asked.selection() == null) {
+                    return failed(Outcome.WRONG_PROVIDER, asked.detail());
+                }
+            }
+            final Optional<Credential> credential;
+            try {
+                credential = agent.extractCredential(directory, provider);
+            } catch (InstalledAgent.UnusableProvider ex) {
+                return failed(Outcome.WRONG_PROVIDER, CliErrors.reason(ex));
+            }
             if (credential.isEmpty()) {
                 return failed(
                         Outcome.NOTHING_TO_IMPORT,
-                        "nothing to import from "
-                                + directory
-                                + " - log in with the agent on this node first");
+                        provider != null
+                                ? "'"
+                                        + agent.name()
+                                        + "' holds no sign-in for '"
+                                        + provider
+                                        + "' that can be imported from "
+                                        + directory
+                                : "nothing to import from "
+                                        + directory
+                                        + " - log in with the agent on this node first");
             }
             final Credential value = credential.get();
+            final String wrong = wrongProvider(provider, value.provider());
+            if (wrong != null) {
+                return failed(Outcome.WRONG_PROVIDER, wrong);
+            }
 
             // Stored under the provider's name: the credential is the provider's, and a second
-            // agent reaching the same one must find it rather than store its own copy.
-            final SelectedProvider selection =
-                    SelectedProvider.choose(context.providers(), agent.definition(), null);
+            // agent reaching the same one must find it rather than store its own copy. One the
+            // agent names and this machine cannot store under is refused, not put under the
+            // default.
+            final SelectedProvider.Choice chosen =
+                    SelectedProvider.consider(
+                            context.providers(), agent.definition(), value.provider());
+            if (chosen.refusal() != null) {
+                return failed(
+                        value.provider() == null ? Outcome.FAILED : Outcome.WRONG_PROVIDER,
+                        chosen.detail());
+            }
+            final SelectedProvider selection = chosen.selection();
             final String key = selection == null ? agent.name() : selection.name();
 
             // Whatever opens the vault, not the passphrase in particular: a machine a device
@@ -136,10 +174,17 @@ public final class CredentialImport {
                                 + " ask for a passphrase - unlock it at the machine, or with a device");
             }
 
+            final boolean[] guarded = {false};
             context.vault()
                     .update(
                             way.get(),
                             entries -> {
+                                if (provider == null
+                                        && !key.equals(defaultName(context, agent))
+                                        && entries.containsKey(key)) {
+                                    guarded[0] = true;
+                                    return entries;
+                                }
                                 LoginCredentials.put(
                                         entries,
                                         key,
@@ -148,6 +193,17 @@ public final class CredentialImport {
                                         LoginCredentials.kept(selection));
                                 return entries;
                             });
+
+            if (guarded[0]) {
+                return failed(
+                        Outcome.WRONG_PROVIDER,
+                        "this agent answered for '"
+                                + key
+                                + "', not its default, and the vault already holds that entry, so"
+                                + " nothing was stored; name it with --provider "
+                                + key
+                                + " to replace it");
+            }
 
             // The same check 'vault put' makes. An agent's own file is the likelier source of a
             // real credential, but a half-written or logged-out one still reads as a success.
@@ -177,5 +233,46 @@ public final class CredentialImport {
         } catch (RuntimeException ex) {
             return failed(Outcome.FAILED, CliErrors.reason(ex));
         }
+    }
+
+    /**
+     * Returns the name a credential of this agent is stored under when nobody says otherwise.
+     *
+     * <p>An agent's word alone never replaces another entry: a wrong hint in its config file would
+     * put away the person's own key and its grant, and send the foreign secret to that provider.
+     */
+    private static String defaultName(final PoreloContext context, final InstalledAgent agent) {
+        final SelectedProvider selection =
+                SelectedProvider.consider(context.providers(), agent.definition(), null)
+                        .selection();
+        return selection == null ? agent.name() : selection.name();
+    }
+
+    /**
+     * Says why an agent's answer may not be stored.
+     *
+     * <p>A credential never lands under the wrong name, so an answer for another provider is
+     * refused, and so is one naming none from an agent asked for one: an agent built before it
+     * could be asked ignores the question, and what it answers may be anybody's.
+     *
+     * @param asked The provider asked for, or {@code null}.
+     * @param named The provider the answer names, or {@code null}.
+     * @return The refusal, or {@code null} to store it.
+     */
+    private static @Nullable String wrongProvider(
+            final @Nullable String asked, final @Nullable String named) {
+        if (asked == null || asked.equals(named)) {
+            return null;
+        }
+        return named == null
+                ? "this agent cannot say which provider its credential is for, so nothing was"
+                        + " stored under '"
+                        + asked
+                        + "'"
+                : "this agent answered for '"
+                        + named
+                        + "' when asked for '"
+                        + asked
+                        + "', so nothing was stored";
     }
 }

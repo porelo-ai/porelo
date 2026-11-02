@@ -1,0 +1,2 @@
+title: "'vault import --provider' imports that provider's sign-in from an agent holding several and stores it under that name, and refuses an answer for another provider or one that names none"
+type: added

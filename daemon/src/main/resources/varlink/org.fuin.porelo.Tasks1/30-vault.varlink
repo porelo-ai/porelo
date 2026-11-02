@@ -248,13 +248,18 @@ method ImportCredential(
   # Which agent to import from. Omit when only one is installed.
   agent: ?string,
   # Where it keeps its credentials. Omit for what the agent declares.
-  configDirectory: ?string
+  configDirectory: ?string,
+  # The provider whose sign-in to import, stored under that name. Omit for the one the agent
+  # answers, which is stored under the provider it names, or else under its default.
+  provider: ?string
 ) -> (
-  # IMPORTED, NO_SUCH_AGENT, NO_CONFIG_DIRECTORY, NOTHING_TO_IMPORT, VAULT_LOCKED or FAILED.
+  # IMPORTED, NO_SUCH_AGENT, NO_CONFIG_DIRECTORY, NOTHING_TO_IMPORT, VAULT_LOCKED, WRONG_PROVIDER
+  # or FAILED.
   #
   # NOTHING_TO_IMPORT is the ordinary case rather than a fault: the agent is installed and nobody
   # has logged in with it here yet. VAULT_LOCKED is not a missing credential and must not be shown
-  # as one - it is "we cannot tell you until you unlock it at the machine".
+  # as one - it is "we cannot tell you until you unlock it at the machine". WRONG_PROVIDER stores
+  # nothing: this agent cannot drive that provider, or its answer named another or none.
   outcome: string,
   # The vault key it was stored under. "" when nothing was stored.
   name: string,

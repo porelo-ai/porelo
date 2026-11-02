@@ -448,12 +448,62 @@ public class InstalledAgent implements AutoCloseable {
      * @return The credential, or empty if it has not been logged in.
      */
     public Optional<Credential> extractCredential(Path configDirectory) {
+        return extractCredential(configDirectory, null);
+    }
 
-        final Map<String, Object> answer =
+    /**
+     * Asks the agent to read its credential for one provider.
+     *
+     * @param configDirectory Directory the agent wrote its config into.
+     * @param provider The provider asked for, sent only when given; or {@code null}.
+     * @return The credential, naming its provider where the agent does, or empty if it holds none.
+     */
+    public Optional<Credential> extractCredential(Path configDirectory, @Nullable String provider) {
+        return credentialOf(
                 client.call(
                         AgentProtocol.EXTRACT_CREDENTIAL,
-                        Map.of("configDirectory", configDirectory.toString()));
+                        extractParameters(configDirectory, provider)));
+    }
 
+    /**
+     * Returns what is asked of an agent for its credential.
+     *
+     * @param configDirectory Directory the agent wrote its config into.
+     * @param provider The provider asked for, or {@code null}.
+     * @return The parameters.
+     */
+    static Map<String, Object> extractParameters(Path configDirectory, @Nullable String provider) {
+        return provider == null
+                ? Map.of("configDirectory", configDirectory.toString())
+                : Map.of("configDirectory", configDirectory.toString(), "provider", provider);
+    }
+
+    /** An agent's answer named a provider in a form no provider's name can have. */
+    public static final class UnusableProvider extends AgentException {
+
+        private static final long serialVersionUID = 1L;
+
+        UnusableProvider() {
+            super("this agent named its credential's provider in a form no name can have");
+        }
+    }
+
+    /** Never echoed: what an agent sent is printed and returned only once it reads as a name. */
+    private static String usable(final String named) {
+        if (named.getBytes(StandardCharsets.UTF_8).length > 4096
+                || named.chars().anyMatch(Character::isISOControl)) {
+            throw new UnusableProvider();
+        }
+        return named;
+    }
+
+    /**
+     * Reads an agent's answer to {@code ExtractCredential}.
+     *
+     * @param answer The answer.
+     * @return The credential, or empty.
+     */
+    static Optional<Credential> credentialOf(Map<String, Object> answer) {
         if (!Boolean.TRUE.equals(answer.get("found"))) {
             return Optional.empty();
         }
@@ -461,7 +511,8 @@ public class InstalledAgent implements AutoCloseable {
                 new Credential(
                         String.valueOf(answer.get("type")),
                         String.valueOf(answer.get("secret")),
-                        attributes(answer.get("attributes"))));
+                        attributes(answer.get("attributes")),
+                        answer.get("provider") instanceof String named ? usable(named) : null));
     }
 
     /**

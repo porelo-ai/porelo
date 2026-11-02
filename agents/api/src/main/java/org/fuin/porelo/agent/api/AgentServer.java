@@ -50,7 +50,8 @@ public class AgentServer implements AutoCloseable {
                         throw new AgentException("ExtractCredential needs a configDirectory");
                     }
                     final Optional<Credential> credential =
-                            agent.credentialExtractor().extract(Path.of(path));
+                            agent.credentialExtractor()
+                                    .extract(Path.of(path), optional(parameters, "provider"));
                     final Map<String, Object> answer = new LinkedHashMap<>();
                     answer.put("found", Boolean.valueOf(credential.isPresent()));
                     credential.ifPresent(
@@ -58,6 +59,9 @@ public class AgentServer implements AutoCloseable {
                                 answer.put("type", value.type());
                                 answer.put("secret", value.secret());
                                 answer.put("attributes", value.attributes());
+                                if (value.provider() != null) {
+                                    answer.put("provider", value.provider());
+                                }
                             });
                     replies.last(answer);
                 });

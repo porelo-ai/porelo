@@ -7,6 +7,7 @@ import java.io.StringReader;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
+import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -59,6 +60,83 @@ class AgentProtocolTest {
                 return line -> line.startsWith("noise") ? null : line.toUpperCase();
             }
         };
+    }
+
+    private static Agent holding(final CredentialExtractor extractor) {
+        final Agent plain = agent();
+        return new Agent() {
+            @Override
+            public AgentDefinition definition() {
+                return plain.definition();
+            }
+
+            @Override
+            public CredentialExtractor credentialExtractor() {
+                return extractor;
+            }
+        };
+    }
+
+    private static java.util.Optional<Credential> asked(
+            final Agent agent, final Path dir, final @Nullable String provider) throws Exception {
+        try (AgentServer server = new AgentServer(agent, dir.resolve("a.sock"))) {
+            Thread.ofVirtual().start(server::serve);
+            try (var client = new org.fuin.porelo.wire.varlink.VarlinkClient(server.socketPath())) {
+                return InstalledAgent.credentialOf(
+                        client.call(
+                                AgentProtocol.EXTRACT_CREDENTIAL,
+                                InstalledAgent.extractParameters(dir, provider)));
+            }
+        }
+    }
+
+    @Test
+    void theProviderAskedForReachesTheExtractorAndTheAnswerNamesIt(@TempDir Path dir)
+            throws Exception {
+
+        final Agent agent =
+                holding(
+                        new CredentialExtractor() {
+                            @Override
+                            public java.util.Optional<Credential> extract(Path directory) {
+                                throw new AssertionError("the one asking for a provider was lost");
+                            }
+
+                            @Override
+                            public java.util.Optional<Credential> extract(
+                                    Path directory, @Nullable String provider) {
+                                return java.util.Optional.of(
+                                        Credential.of("api-key", "value of " + provider)
+                                                .forProvider(String.valueOf(provider)));
+                            }
+                        });
+
+        final Credential answer = asked(agent, dir, "second").orElseThrow();
+
+        assertThat(answer.provider()).as("a store holding several says which").isEqualTo("second");
+        assertThat(answer.secret()).as("that one's value").isEqualTo("value of second");
+    }
+
+    @Test
+    void anExtractorWrittenBeforeTheParameterIgnoresItAndNamesNone(@TempDir Path dir)
+            throws Exception {
+
+        final Agent agent =
+                holding(directory -> java.util.Optional.of(Credential.of("api-key", "value")));
+
+        final Credential answer = asked(agent, dir, "second").orElseThrow();
+
+        assertThat(answer.provider())
+                .as("Porelo refuses this answer because it names none, so none may be made up")
+                .isNull();
+    }
+
+    @Test
+    void noProviderIsSentWhenNoneIsAsked(@TempDir Path dir) {
+
+        assertThat(InstalledAgent.extractParameters(dir, null))
+                .as("an agent's own parameter check must see the call it has always seen")
+                .containsOnlyKeys("configDirectory");
     }
 
     @Test
