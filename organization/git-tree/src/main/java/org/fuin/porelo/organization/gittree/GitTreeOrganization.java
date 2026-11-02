@@ -69,8 +69,11 @@ record GitTreeOrganization(
 
     @Override
     public boolean isOrganizationOwner(final String login) {
-        return model.owners().stream()
-                .anyMatch(owner -> owner.login().equals(login) && !owner.backup());
+        // A founder's key stands in owners.yml, so an owner can act before their card is filed.
+        final TreeModel.Person person = model.people().get(login);
+        return (person == null || accepted(person))
+                && model.owners().stream()
+                        .anyMatch(owner -> owner.login().equals(login) && !owner.backup());
     }
 
     @Override
@@ -142,7 +145,8 @@ record GitTreeOrganization(
     private void addKeys(final TreeFiles.Member member, final List<SigningKey> rows) {
         final String login = member.login();
         final TreeModel.Person person = model.people().get(login);
-        if (person == null) {
+        // Whoever can write the repository can file a first card under an admin's login.
+        if (person == null || !Organization.TRUSTED.equals(person.state())) {
             return;
         }
         for (final TreeModel.EarlierKey earlier : person.earlier()) {

@@ -45,8 +45,9 @@ public final class OrgSetup {
      * @param machine The machine.
      * @param spec The command, whose streams it answers on.
      * @return The exit code.
+     * @throws IOException When something unexpected happened.
      */
-    public int run(final PoreloContext machine, final CommandSpec spec) {
+    public int run(final PoreloContext machine, final CommandSpec spec) throws IOException {
         try {
             final Map<String, @Nullable Object> answer = answer(machine);
             if (json) {
@@ -59,7 +60,7 @@ public final class OrgSetup {
             return OrgOutput.refuse(spec, json, refused);
         } catch (IOException | RuntimeException ex) {
             OrgOutput.failed(spec, json, "the organization could not be set up");
-            return 70;
+            throw ex;
         }
     }
 

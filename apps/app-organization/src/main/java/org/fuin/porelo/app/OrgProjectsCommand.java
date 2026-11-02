@@ -54,6 +54,7 @@ public class OrgProjectsCommand extends OrgReading {
 
     @Override
     void text(final Map<String, @Nullable Object> answer) {
+        staleness(answer);
         if (answer.get("projects") instanceof List<?> rows) {
             for (final Object row : rows) {
                 if (row instanceof Map<?, ?> project) {

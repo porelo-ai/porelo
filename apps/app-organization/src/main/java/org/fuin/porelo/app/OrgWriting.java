@@ -62,6 +62,14 @@ public abstract class OrgWriting extends OrgReading {
 
     Opener session = OrgWriting::real;
 
+    /** Reads what a change stands on; replaced by a test, which has no organization. */
+    @FunctionalInterface
+    interface Ground {
+        @Nullable String of(PoreloContext machine, OrgAccess.Opener opener) throws IOException;
+    }
+
+    Ground ground = OrgWriting::current;
+
     /**
      * Makes the change.
      *
@@ -79,9 +87,14 @@ public abstract class OrgWriting extends OrgReading {
     final Map<String, @Nullable Object> answer(final PoreloContext machine) throws IOException {
         final Session opened = session.open(machine);
         final String named = id == null ? "org-" + UUID.randomUUID() : id;
+        // A project's own file has its own revisions, and its command reads the organization.
+        final @Nullable String standing =
+                "organization".equals(of()) ? ground.of(machine, opener) : null;
         final OrganizationWrites.Change change;
         try {
-            change = new OrganizationWrites.Change(opened.acting(), base, named);
+            change =
+                    new OrganizationWrites.Change(
+                            opened.acting(), base == null ? standing : base, named);
         } catch (IllegalArgumentException ex) {
             throw new Refused(Refused.USAGE, String.valueOf(ex.getMessage()), null);
         }
@@ -113,6 +126,29 @@ public abstract class OrgWriting extends OrgReading {
                         + answer.get("revision")
                         + ", under the id "
                         + answer.get("id"));
+    }
+
+    /**
+     * Reads the revision a write stands on, through the trust record: a forge serving an older
+     * state must not get a change signed on it.
+     *
+     * @param machine The machine.
+     * @param opener How the store is opened.
+     * @return The revision, or {@code null} when nothing is accepted yet.
+     * @throws IOException When something unexpected happened.
+     * @throws Refused {@code refused-state} when the organization went back, {@code cannot-say}
+     *     when it cannot be reached.
+     */
+    static @Nullable String current(final PoreloContext machine, final OrgAccess.Opener opener)
+            throws IOException {
+        final OrgAccess.Reading reading = OrgAccess.read(machine, opener);
+        if (reading.stale()) {
+            throw new Refused(
+                    Refused.CANNOT_SAY,
+                    "the organization cannot be reached to say who may, or what this stands on",
+                    null);
+        }
+        return reading.answers().revision();
     }
 
     /**

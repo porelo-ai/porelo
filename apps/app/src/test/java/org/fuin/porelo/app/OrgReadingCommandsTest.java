@@ -970,4 +970,120 @@ class OrgReadingCommandsTest {
         assertThat(exit).as("what it said: %s", out).isEqualTo(69);
         assertThat(out.toString()).contains("who may");
     }
+
+    private OrgAccess.Opener opening() {
+        return (machine, ignored) ->
+                new OrgAccess.Opened(
+                        GitTreeStore.at(
+                                runner,
+                                address,
+                                "acme",
+                                "github.com",
+                                FetchAccess.NONE,
+                                machine.paths().xdg().state().resolve("organization")),
+                        forge);
+    }
+
+    @Test
+    void aWriteStandsOnTheRevisionReadNowAndAForgeGoneBackIsRefused() throws Exception {
+        organizationYml(ORGANIZATION_YML);
+        final String older = git("rev-parse", "HEAD");
+        write("people/note.txt", "later");
+        commit("alice");
+        final String tip = git("rev-parse", "HEAD");
+
+        assertThat(OrgWriting.current(context(), opening()))
+                .as("without --base a write takes the revision read now")
+                .isEqualTo(tip);
+
+        git("reset", "-q", "--hard", older);
+
+        assertThatThrownBy(() -> OrgWriting.current(context(), opening()))
+                .as("a malicious forge must not get a change signed on an older state")
+                .isInstanceOfSatisfying(
+                        Refused.class,
+                        ex -> assertThat(ex.reason()).isEqualTo(Refused.REFUSED_STATE));
+    }
+
+    @Test
+    void aStaleOrganizationIsNoGroundForAWrite() throws Exception {
+        organizationYml(ORGANIZATION_YML);
+        OrgWriting.current(context(), opening());
+        Files.move(repo, dir.resolve("moved-away"));
+
+        assertThatThrownBy(() -> OrgWriting.current(context(), opening()))
+                .isInstanceOfSatisfying(
+                        Refused.class, ex -> assertThat(ex.reason()).isEqualTo(Refused.CANNOT_SAY));
+    }
+
+    @Test
+    void aStaleReadingJudgesNoProjectFileThoughTheFileWouldRead() throws Exception {
+        opened();
+        projectFile =
+                new ProjectFile.Read(
+                        ProjectFile.READ,
+                        "b".repeat(40),
+                        org.fuin.porelo.core.project.ProjectReader.read(
+                                new java.io.StringReader(LOCAL_PROJECT.replace("mine", "demo")),
+                                "test"),
+                        null);
+        assertThat(run("project", "show", "demo", "--json")).as("what it said: %s", err).isZero();
+        assertThat(field(answer().get("repositories"), "state")).isEqualTo("read");
+
+        Files.move(repo, dir.resolve("gone"));
+
+        assertThat(run("project", "show", "demo", "--json")).as("what it said: %s", err).isZero();
+        assertThat(answer().get("stale")).isEqualTo(true);
+        assertThat(field(answer().get("repositories"), "state"))
+                .as("an admin removed since the keys were read could have signed it")
+                .isEqualTo("cannot-say");
+        assertThat(answer().get("matrix_registration_entry")).isNull();
+    }
+
+    @Test
+    void aPersonReadingTextIsToldOfAStaleStateAndOfAFileNotRead() throws Exception {
+        opened();
+        projectFile = new ProjectFile.Read(ProjectFile.REFUSED, null, null, "signed by nobody");
+
+        assertThat(run("project", "show", "demo")).as("what it said: %s", err).isZero();
+        assertThat(out.toString())
+                .as("a refused file printing as a good one would be believed")
+                .contains("refused")
+                .contains("signed by nobody")
+                .doesNotContain("Stale");
+
+        Files.move(repo, dir.resolve("gone"));
+
+        assertThat(run("project", "show", "demo")).as("what it said: %s", err).isZero();
+        assertThat(out.toString()).contains("Stale").contains("cannot-say");
+        assertThat(run("org", "card", "alice")).as("what it said: %s", err).isZero();
+        assertThat(out.toString()).contains("Stale");
+    }
+
+    @Test
+    void aTokenDeclaredForAnHttpsAddressIsLentToGit() throws Exception {
+        final Path token = Files.writeString(dir.resolve("token"), "hunter2");
+        declareToken("https://forge.example.org/acme/", token);
+
+        try (var lease =
+                OrgAccess.lent(context()).lend("https://forge.example.org/acme/organization")) {
+            assertThat(lease.arguments())
+                    .as("a private repository could not be fetched or pushed to without it")
+                    .isNotEmpty();
+            assertThat(lease.environment().toString()).doesNotContain("hunter2");
+        }
+    }
+
+    @Test
+    void aSetupThatCannotWriteItsSettingsFailsAndSaysSo() throws Exception {
+        Files.createDirectories(settings().resolve("in-the-way"));
+
+        final int exit = setup("setup", "--organization", NAMED, "--json");
+
+        assertThat(exit).as("what it said: %s", err).isEqualTo(70);
+        assertThat(out.toString()).contains("\"reason\":\"failed\"");
+        assertThat(err.toString())
+                .as("what failed goes through the handler that keeps it in the failure log")
+                .isNotBlank();
+    }
 }

@@ -42,6 +42,7 @@ public class OrgHostCardCommand extends OrgReading {
 
     @Override
     void text(final Map<String, @Nullable Object> answer) {
+        staleness(answer);
         String.valueOf(answer.get("card")).lines().forEach(this::line);
     }
 }

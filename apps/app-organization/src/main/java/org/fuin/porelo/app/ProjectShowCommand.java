@@ -73,6 +73,11 @@ public class ProjectShowCommand extends OrgReading {
         line("Project: " + answer.get("project"));
         line("Revision: " + answer.get("revision"));
         line("Host: " + answer.get("host"));
+        staleness(answer);
+        if (answer.get("repositories") instanceof Map<?, ?> repositories) {
+            final Object why = repositories.get("why");
+            line("Repositories: " + repositories.get("state") + (why == null ? "" : ": " + why));
+        }
     }
 
     private Map<String, @Nullable Object> filed(
@@ -119,6 +124,12 @@ public class ProjectShowCommand extends OrgReading {
                         .toList());
         if (!held.filed()) {
             answer.put("repositories", repositories("not-opened", List.of()));
+            answer.put("matrix_registration_entry", null);
+            return answer;
+        }
+        // Keys read earlier may be of someone removed since: they judge nothing fresh.
+        if (reading.stale()) {
+            answer.put("repositories", repositories("cannot-say", List.of()));
             answer.put("matrix_registration_entry", null);
             return answer;
         }

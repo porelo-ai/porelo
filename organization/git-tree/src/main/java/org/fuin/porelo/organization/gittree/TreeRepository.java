@@ -101,7 +101,7 @@ final class TreeRepository implements AutoCloseable {
      * @param address Where the repository is.
      * @param runner How git runs.
      * @param access What the asking may use, lent for its length.
-     * @return The clone, or empty when the branch is there.
+     * @return The clone, or empty when the repository holds anything.
      * @throws IOException When the repository cannot be asked.
      */
     static Optional<TreeRepository> founding(
@@ -122,7 +122,7 @@ final class TreeRepository implements AutoCloseable {
             }
             try (FetchAccess.Lease lease = access.lend(address)) {
                 final List<String> arguments = new ArrayList<>(lease.arguments());
-                arguments.addAll(List.of("ls-remote", "--", address, BRANCH));
+                arguments.addAll(List.of("ls-remote", "--", address));
                 final CommandResult asked =
                         clone.git(lease.environment(), arguments.toArray(String[]::new));
                 if (NOT_THERE.matcher(asked.standardError()).find()) {
@@ -420,7 +420,7 @@ final class TreeRepository implements AutoCloseable {
         return Optional.empty();
     }
 
-    private boolean signedBy(final String commit, final String fingerprint) throws IOException {
+    boolean signedBy(final String commit, final String fingerprint) throws IOException {
         try {
             return PersonCard.fingerprint(signer(commit)).equals(fingerprint);
         } catch (CardException ex) {

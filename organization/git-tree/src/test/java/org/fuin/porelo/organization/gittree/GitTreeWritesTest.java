@@ -1404,4 +1404,90 @@ class GitTreeWritesTest {
                 .isInstanceOf(GitTreeStore.Unreachable.class)
                 .isNotInstanceOf(GitTreeStore.Empty.class);
     }
+
+    @Test
+    void aLockedAdminIsToldTheyAreLockedAndNotThatTheyLackTheRole() throws Exception {
+        demo();
+        carolFiled();
+        as("alice").addProjectMember(change("alice", "alice", "add"), "demo", "carol", "admin");
+        as("carol").lockProjectMember(change("carol", "carol", "lock"), "demo", "alice");
+        forge.keys.put("mallory", List.of(key("mallory")));
+        write("people/mallory.card", card("mallory", "mallory"));
+        git("add", "-A");
+        git("-c", "user.signingkey=" + keyFiles.get("mallory"), "commit", "-q", "-S", "-m", "card");
+
+        refusedAs(
+                "locked",
+                () ->
+                        as("alice")
+                                .addProjectMember(
+                                        change("alice", "alice", "x"),
+                                        "demo",
+                                        "mallory",
+                                        "developer"));
+        refusedAs(
+                "locked",
+                () ->
+                        as("alice")
+                                .unlockProjectMember(
+                                        change("alice", "alice", "y"), "demo", "alice"));
+    }
+
+    @Test
+    void aPushThatLandedAndWasOvertakenIsAnsweredAsMadeAndNotAsMovedOn() throws Exception {
+        aliceFiled();
+        final Map<String, Path> files = new HashMap<>();
+        keys.keySet().forEach(each -> files.put(key(each), keyFiles.get(each)));
+        final GitTreeWrites answeringLate =
+                new GitTreeWrites(
+                        command -> {
+                            final CommandResult real = runner.run(command);
+                            if (command.arguments().contains("push")) {
+                                try {
+                                    write("people/late.txt", "another writer's change");
+                                } catch (IOException ex) {
+                                    throw new java.io.UncheckedIOException(ex);
+                                }
+                                git("add", "-A");
+                                git(
+                                        "-c",
+                                        "user.signingkey=" + keyFiles.get("mia"),
+                                        "commit",
+                                        "-q",
+                                        "-S",
+                                        "-m",
+                                        "late");
+                                return new CommandResult(command, 1, "", "the line broke");
+                            }
+                            return real;
+                        },
+                        repo.toString(),
+                        "acme",
+                        FetchAccess.NONE,
+                        forge,
+                        new CommitSigning(Map.of(), files));
+
+        final Written written =
+                answeringLate.addOrganizationOwner(change("mia", "mia", "one"), "alice");
+
+        assertThat(written.id())
+                .as("exit 65 tells a person nothing was made, and they would make it again")
+                .isEqualTo("one");
+    }
+
+    @Test
+    void aRepositoryHoldingAnyOtherBranchIsNotFilledAgain() throws Exception {
+        final Path bare = dir.resolve("other-branch.git");
+        git("clone", "-q", "--bare", repo.toString(), bare.toString());
+        runner.runOrFail(
+                Command.of("git", "--git-dir=" + bare, "branch", "-q", "-m", "main", "master"));
+
+        refusedAs(
+                "exists",
+                () ->
+                        founding(bare)
+                                .createOrganization(
+                                        new Change(new Acting("mia", key("mia")), null, "found"),
+                                        card("mia", "mia")));
+    }
 }

@@ -56,6 +56,8 @@ class OrgWritingCommandsTest {
 
     private boolean again;
 
+    private OrgWriting.Ground standing = (machine, opener) -> null;
+
     private OrganizationWrites writes() {
         return (OrganizationWrites)
                 Proxy.newProxyInstance(
@@ -107,9 +109,10 @@ class OrgWritingCommandsTest {
         return line;
     }
 
-    private static void seam(final CommandLine line, final OrgWriting.Opener opener) {
+    private void seam(final CommandLine line, final OrgWriting.Opener opener) {
         if (line.getCommand() instanceof OrgWriting writing) {
             writing.session = opener;
+            writing.ground = standing;
         }
         if (line.getCommand() instanceof OrgCreateCommand create) {
             create.founder = (machine, address) -> opener.open(machine);
@@ -245,6 +248,29 @@ class OrgWritingCommandsTest {
                 .as("a script acts on the exit alone")
                 .isEqualTo(exit);
         assertThat(answer().get("reason")).isEqualTo(reason);
+    }
+
+    @Test
+    void withoutBaseAChangeStandsOnWhatAReadTrustedSoAForgeGoneBackIsNotSignedOn() {
+        standing = (machine, opener) -> REVISION;
+
+        assertThat(run("org", "owner", "add", "alice", "--json", "--id", "one"))
+                .as("what it said: %s", err)
+                .isZero();
+
+        assertThat(changes.getFirst().base()).isEqualTo(REVISION);
+    }
+
+    @Test
+    void aStateThatWentBackMakesNoChange() {
+        standing =
+                (machine, opener) -> {
+                    throw new Refused(Refused.REFUSED_STATE, "an older state", null);
+                };
+
+        assertThat(run("org", "owner", "add", "alice", "--json", "--id", "one")).isEqualTo(65);
+
+        assertThat(calls).isEmpty();
     }
 
     @Test
