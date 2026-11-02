@@ -1,6 +1,6 @@
 # B391 — The Cut To The New Organization
 
-**Status:** Implementing.
+**Status:** Review.
 **Size:** L - the commands of `identity` put on a new store, the removal of the old registry's commands, daemon methods and
 adapter across several modules, with a contract every interface reads.
 

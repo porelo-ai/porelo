@@ -22,6 +22,7 @@ from its side, as *blocked by*.
 |---|---|---|---|
 | <a id="b373"></a>[B373](B373-A-Token-Lent-To-A-Forge-On-Its-Own-Port.md) | S | - | A vault token is lent to an `https://` repository on a port of its own: the helper's key names the port |
 | <a id="b392"></a>[B392](B392-Checks-Every-Organization-Adapter-Passes.md) | M | - | The store's security requirements as checks any adapter runs, failing against one that takes an unsigned change, an older state or a revoked card |
+| <a id="b391"></a>[B391](B391-The-Cut-To-The-New-Organization.md) | L | - | The cut: `identity` files through the store on `git-tree`, and everything that reads or writes the old registry goes |
 | <a id="b387"></a>[B387](B387-A-Project-Followed-Before-Its-Access-File-Exists.md) | S | - | A project whose access repository is still empty is followed, so `project access init` can write its first access commit |
 | <a id="b388"></a>[B388](B388-A-Registry-Owner-Check-With-An-App-Token.md) | S | - | The registry's owner check takes a GitHub App installation token declared in a variable, never kept in the vault |
 | <a id="b389"></a>[B389](B389-A-Stopped-Test-Walks-Core-Findings.md) | S | - | Directories without group write, the lent key named, no Unsafe warning, and setup on a host vault said in words |
@@ -47,7 +48,6 @@ from its side, as *blocked by*.
 | <a id="b214"></a>[B214](B214-A-Vault-Entry-Put-Again-Unchanged.md) | M | - | `vault put` given the value an entry already holds says `unchanged` and exits 0, so a second play reports nothing changed |
 | <a id="b154"></a>[B154](B154-A-Tamper-Evident-Event-Log-Per-Node.md) | L | - | One hash-chained event log per account, anchored in the user's journal, optionally copied off the machine, kept by `porelo clear`; written by approve, reject, clearance, hand-in, credentials and project changes.; part 1 built, the copy off the machine after it |
 | <a id="b398"></a>[B398](B398-A-Test-That-Cannot-Reach-The-Persons-Vault.md) | - | - | A test that builds a command the wrong way falls to the real context, and so to the person's vault |
-| <a id="b391"></a>[B391](B391-The-Cut-To-The-New-Organization.md) | L | - | The cut: `identity` files through the store on `git-tree`, and everything that reads or writes the old registry goes |
 | <a id="b383"></a>[B383](B383-A-Build-That-Fits-Its-Old-Time.md) | S | - | The Build's verify takes about as long as it used to, not three times as long |
 | <a id="b220"></a>[B220](B220-Build-Tool-Plugins-Found-At-Run-Time.md) | M | - | Build-tool plugins as native executables of their own over `Ecosystem1` (`detect`, `configure`), found at run time; the contract, discovery and a stub. | 0 |
 
@@ -135,6 +135,7 @@ from its side, as *blocked by*.
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
 | <a id="b402"></a>[B402](B402-A-Clients-Prepare-Reads-The-Organization-As-The-Command-Line-Does.md) | - | - | A client's `Prepare` of an organization's project reads it as `porelo task prepare` does, not only what the last start placed |
+| <a id="b403"></a>[B403](B403-A-Start-Judged-On-A-Real-Machine.md) | - | - | The acceptance suite walks a start of an organization's project through the judgment on a real machine, signed, unsigned, wrong role and revoked |
 | <a id="b400"></a>[B400](B400-A-Revoked-Key-Stops-Certifying-Off-A-Host-Before-A-Start.md) | - | - | Off a host, a key revoked in the organization stops being believed as a certifier of messages soon after, not only at the project's next start |
 | <a id="b397"></a>[B397](B397-A-Plain-Git-Credential-Goes-To-Any-Host-A-Project-Names.md) | - | - | A plain `git.token` or `git.ssh` reaches only a host the person meant it for, not whatever host a project's file names. |
 | <a id="b401"></a>[B401](B401-What-The-Write-Contract-Does-Not-Yet-Hold.md) | - | - | What a store could do and still pass the write contract: five operations no check calls, the source's silence, the last admin, backups and reasons never asserted |
