@@ -65,6 +65,8 @@ final class WritesStandIn implements WritesFixture, OrganizationWrites {
 
     private final Map<String, String> listedOnly = new HashMap<>();
 
+    private final Map<String, Set<String>> listed = new HashMap<>();
+
     /** Who a refused change left in the store's text, though no reader counts them. */
     private final Set<String> ghosts = new HashSet<>();
 
@@ -223,6 +225,10 @@ final class WritesStandIn implements WritesFixture, OrganizationWrites {
                     final String login = change.acting().login();
                     final String key = change.acting().key();
                     cardFits(card, login, key);
+                    if (!listed.getOrDefault(login, Set.of(key(login))).contains(key)
+                            && !broken(WriteBreak.TAKES_A_FREE_LOGIN)) {
+                        throw refuse(Refused.NOT_ALLOWED);
+                    }
                     if (lostKeys.contains(key) && !broken(WriteBreak.ACCEPTS_LOST_KEY)) {
                         throw refuse(Refused.NOT_ALLOWED);
                     }
@@ -585,6 +591,7 @@ final class WritesStandIn implements WritesFixture, OrganizationWrites {
 
     @Override
     public void sourceLists(final String login, final String... holders) {
+        listed.put(login, new HashSet<>(Arrays.stream(holders).map(this::key).toList()));
         if (holders.length == 1) {
             listedOnly.put(login, key(holders[0]));
         }

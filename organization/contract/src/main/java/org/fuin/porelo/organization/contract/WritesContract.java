@@ -91,6 +91,16 @@ public abstract class WritesContract {
                         "anAddedHostHasItsAdminAndItsProject",
                         WritesContract::anAddedHostHasItsAdminAndItsProject),
                 new Check<>("aStrangerAddsNoOwner", WritesContract::aStrangerAddsNoOwner),
+                new Check<>("aStrangerRemovesNoOwner", WritesContract::aStrangerRemovesNoOwner),
+                new Check<>("aStrangerNamesNoAdmin", WritesContract::aStrangerNamesNoAdmin),
+                new Check<>("aDeveloperLocksNobody", WritesContract::aDeveloperLocksNobody),
+                new Check<>("anOwnerLocksNobody", WritesContract::anOwnerLocksNobody),
+                new Check<>(
+                        "aStrangerPutsNoProjectOnAHost",
+                        WritesContract::aStrangerPutsNoProjectOnAHost),
+                new Check<>(
+                        "aStrangersKeyTakesNoFreeLogin",
+                        WritesContract::aStrangersKeyTakesNoFreeLogin),
                 new Check<>("aStrangerAddsNoProject", WritesContract::aStrangerAddsNoProject),
                 new Check<>("aStrangerRemovesNoProject", WritesContract::aStrangerRemovesNoProject),
                 new Check<>("aStrangerWithdrawsNoCard", WritesContract::aStrangerWithdrawsNoCard),
@@ -244,6 +254,9 @@ public abstract class WritesContract {
                 .as("taking an empty repository for an organization they do not own")
                 .isInstanceOfSatisfying(
                         Refused.class, r -> assertThat(r.reason()).isEqualTo(Refused.NOT_ALLOWED));
+        assertThatCode(() -> found(f))
+                .as("what they tried left nothing in the rightful owner's way")
+                .doesNotThrowAnyException();
     }
 
     private static void aFoundedOrganizationIsNotFoundedAgain(final WritesFixture f)
@@ -509,12 +522,14 @@ public abstract class WritesContract {
         f.sourceLists(ADMIN, next);
         f.writes().replaceCard(change(f, OWNER, "swap"), ADMIN, f.card(ADMIN, next));
 
-        final Change attempt = new Change(lost.acting(), f.read().revision(), "y");
+        final String before = f.read().revision();
+        final Change attempt = new Change(lost.acting(), before, "y");
         assertThatThrownBy(
                         () -> f.writes().addProjectMember(attempt, PROJECT, STRANGER, "developer"))
                 .as("the old key acts for nobody, though its holder is still an admin")
-                .isInstanceOf(Refused.class);
-        assertThat(f.read().isProjectMember(PROJECT, STRANGER)).isEmpty();
+                .isInstanceOfSatisfying(
+                        Refused.class, r -> assertThat(r.reason()).isEqualTo(Refused.NOT_ALLOWED));
+        assertThat(f.read().revision()).as("a refused change leaves nothing").isEqualTo(before);
         assertThat(f.read().getPersons())
                 .as("the replacement stands for the login")
                 .filteredOn(p -> p.login().equals(ADMIN))
@@ -725,6 +740,69 @@ public abstract class WritesContract {
         assertThat(read.isProjectMember(PROJECT, DEVELOPER))
                 .as("the old key added them")
                 .contains("developer");
+    }
+
+    private static void aStrangerRemovesNoOwner(final WritesFixture f) throws Exception {
+        organization(f);
+        f.writes().addOrganizationOwner(change(f, OWNER, "second"), ADMIN);
+
+        final Change attempt = change(f, STRANGER, "x");
+        refused(f, Refused.NOT_ALLOWED, () -> f.writes().removeOrganizationOwner(attempt, OWNER));
+        assertThat(f.read().isOrganizationOwner(OWNER)).isTrue();
+    }
+
+    private static void aStrangerNamesNoAdmin(final WritesFixture f) throws Exception {
+        organization(f);
+
+        final Change attempt = change(f, STRANGER, "x");
+        refused(
+                f,
+                Refused.NOT_ALLOWED,
+                () -> f.writes().changeProjectAdmin(attempt, PROJECT, STRANGER));
+        assertThat(f.read().isProjectMember(PROJECT, STRANGER)).isEmpty();
+    }
+
+    private static void aDeveloperLocksNobody(final WritesFixture f) throws Exception {
+        organization(f);
+        f.writes().addProjectMember(change(f, ADMIN, "other"), PROJECT, STRANGER, "developer");
+
+        final Change attempt = change(f, DEVELOPER, "x");
+        refused(
+                f,
+                Refused.NOT_ALLOWED,
+                () -> f.writes().lockProjectMember(attempt, PROJECT, STRANGER));
+        assertThat(f.read().isProjectMember(PROJECT, STRANGER)).contains("developer");
+    }
+
+    private static void anOwnerLocksNobody(final WritesFixture f) throws Exception {
+        organization(f);
+
+        final Change attempt = change(f, OWNER, "x");
+        refused(
+                f,
+                Refused.NOT_ALLOWED,
+                () -> f.writes().lockProjectMember(attempt, PROJECT, DEVELOPER));
+        assertThat(f.read().isProjectMember(PROJECT, DEVELOPER)).contains("developer");
+    }
+
+    private static void aStrangerPutsNoProjectOnAHost(final WritesFixture f) throws Exception {
+        organization(f);
+        f.writes().addHost(change(f, OWNER, "host"), HOST, ADMIN);
+
+        final Change attempt = change(f, STRANGER, "x");
+        refused(f, Refused.NOT_ALLOWED, () -> f.writes().addProjectToHost(attempt, HOST, PROJECT));
+        assertThat(f.read().hostOf(PROJECT)).isEmpty();
+    }
+
+    /** The card and the acting person agree here, so only the source's word can say no. */
+    private static void aStrangersKeyTakesNoFreeLogin(final WritesFixture f) throws Exception {
+        found(f);
+        f.key(ADMIN);
+
+        final Change attempt =
+                new Change(new Acting(ADMIN, f.key(STRANGER)), f.read().revision(), "x");
+        refused(f, Refused.NOT_ALLOWED, () -> f.writes().addCard(attempt, f.card(ADMIN, STRANGER)));
+        assertThat(state(f.read(), ADMIN)).as("the login stays free").isEqualTo("absent");
     }
 
     private static void aCardOfAnotherLoginIsRefused(final WritesFixture f) throws Exception {

@@ -20,6 +20,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b392"></a>[B392](B392-Checks-Every-Organization-Adapter-Passes.md) | M | - | The store's security requirements as checks any adapter runs, failing against one that takes an unsigned change, an older state or a revoked card |
 | <a id="b387"></a>[B387](B387-A-Project-Followed-Before-Its-Access-File-Exists.md) | S | - | A project whose access repository is still empty is followed, so `project access init` can write its first access commit |
 | <a id="b388"></a>[B388](B388-A-Registry-Owner-Check-With-An-App-Token.md) | S | - | The registry's owner check takes a GitHub App installation token declared in a variable, never kept in the vault |
 | <a id="b389"></a>[B389](B389-A-Stopped-Test-Walks-Core-Findings.md) | S | - | Directories without group write, the lent key named, no Unsafe warning, and setup on a host vault said in words |
@@ -45,7 +46,6 @@ from its side, as *blocked by*.
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
 | <a id="b391"></a>[B391](B391-The-Organizations-Writes-In-Its-Git-Adapter.md) | L | [B390](README.md#b390) | A change to the organization is handed to the store, and the Git adapter alone commits and signs it |
-| <a id="b392"></a>[B392](B392-Checks-Every-Organization-Adapter-Passes.md) | M | [B391](README.md#b391) | The store's security requirements as checks any adapter runs, failing against one that takes an unsigned change, an older state or a revoked card |
 | <a id="b14"></a>[B14](B14-Talking-Between-Tasks.md) | XL | `porelo` [B86](README.md#b86) | Talking between tasks, built on one machine; splits into groups (M), trust confirmed once with fingerprints (M), two machines on one homeserver (L). |
 | <a id="b193"></a>[B193](B193-A-Dependency-Cache-Shared-Across-Tasks.md) | XL | - | Downloaded dependencies cached once for a project's tasks and handed in read-only; what a task installs stays its own; analyzed: filled only from reviewed work, mounted `:ro,z`, read through `maven.repo.local.tail`, filled by `dependency:go-offline` on request and when the default branch moved, Maven first |
 | <a id="b207"></a>[B207](B207-An-Image-Built-Within-The-Projects-Egress.md) | L | - | An image's build reaches only the project's egress and its trusted package sources, run in a guard container behind the task's own firewall (measured to hold), so a snippet - a project's or a repository's `porelo.yml` - cannot fetch from anywhere while the image is made.; plan written, two questions for the operator |
@@ -128,6 +128,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b401"></a>[B401](B401-What-The-Write-Contract-Does-Not-Yet-Hold.md) | - | - | What a store could do and still pass the write contract: five operations no check calls, the source's silence, the last admin, backups and reasons never asserted |
 | <a id="b394"></a>[B394](B394-An-Online-Task-On-A-Host-With-No-Forge-Passes-On-To-Its-Upstream.md) | S | - | An `online` task on a host with no forge passes on to its `upstream` instead of pushing to a forge that is not there. |
 | <a id="b386"></a>[B386](B386-A-Project-Access-Contract-Without-Guessing.md) | S | - | A read-only lookup by `Porelo-Change-Id`, the head `project verify` takes from a bundle written down, `access add --role admin` for a listed admin defined, and verify naming the access commit's signer |
 | <a id="b385"></a>[B385](B385-A-KeePassXC-Key-That-Is-Usable.md) | M | - | `--keepassxc` asks the master password once, a retry takes the key already made, no empty entry left, a clear refusal under `su` or a redirected stderr, aligned exit codes |
