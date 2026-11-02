@@ -43,6 +43,9 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b390"></a>[B390](B390-The-Organizations-API-Apart-From-Its-Git-Reading.md) | L | - | Porelo asks for its organization through an API that says nothing of Git, today's registry reading behind it, with nothing visible changed |
+| <a id="b391"></a>[B391](B391-The-Organizations-Writes-In-Its-Git-Adapter.md) | L | [B390](README.md#b390) | A change to the organization is handed to the store, and the Git adapter alone commits and signs it |
+| <a id="b392"></a>[B392](B392-Checks-Every-Organization-Adapter-Passes.md) | M | [B391](README.md#b391) | The store's security requirements as checks any adapter runs, failing against one that takes an unsigned change, an older state or a revoked card |
 | <a id="b14"></a>[B14](B14-Talking-Between-Tasks.md) | XL | `porelo` [B86](README.md#b86) | Talking between tasks, built on one machine; splits into groups (M), trust confirmed once with fingerprints (M), two machines on one homeserver (L). |
 | <a id="b193"></a>[B193](B193-A-Dependency-Cache-Shared-Across-Tasks.md) | XL | - | Downloaded dependencies cached once for a project's tasks and handed in read-only; what a task installs stays its own; analyzed: filled only from reviewed work, mounted `:ro,z`, read through `maven.repo.local.tail`, filled by `dependency:go-offline` on request and when the default branch moved, Maven first |
 | <a id="b207"></a>[B207](B207-An-Image-Built-Within-The-Projects-Egress.md) | L | - | An image's build reaches only the project's egress and its trusted package sources, run in a guard container behind the task's own firewall (measured to hold), so a snippet - a project's or a repository's `porelo.yml` - cannot fetch from anywhere while the image is made.; plan written, two questions for the operator |
