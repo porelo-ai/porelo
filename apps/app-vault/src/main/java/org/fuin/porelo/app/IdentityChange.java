@@ -24,9 +24,9 @@ import org.fuin.porelo.core.process.CommandResult;
 import org.fuin.porelo.core.process.CommandRunner;
 import org.fuin.porelo.core.project.Access;
 import org.fuin.porelo.core.project.AccessFile;
+import org.fuin.porelo.organization.Organization;
 import org.fuin.porelo.organization.git.RegistryGit;
 import org.fuin.porelo.organization.git.RegistryOrigin;
-import org.fuin.porelo.organization.git.RegistryState;
 import org.fuin.porelo.vault.AccessPersons;
 import org.fuin.porelo.vault.AgentKey;
 import org.fuin.porelo.vault.PersonCard;
@@ -505,7 +505,7 @@ final class IdentityChange {
         for (final IdentityFacts.Registry registry : registries()) {
             if (addresses.add(registry.known().origin())) {
                 final List<IdentityOperation.Contact> owners =
-                        contacts(IdentityFacts.owners(registry.state()));
+                        contacts(IdentityFacts.owners(registry.organization()));
                 places.add(
                         new IdentityOperation.Place(
                                 "registry",
@@ -529,7 +529,7 @@ final class IdentityChange {
         }
         final Set<String> hosts = new LinkedHashSet<>();
         for (final IdentityFacts.Registry registry : registries()) {
-            for (final RegistryState.Host host : registry.state().hosts()) {
+            for (final Organization.Host host : registry.organization().hosts()) {
                 final boolean names =
                         host.projects().stream().anyMatch(each -> projects.contains(each.name()))
                                 || host.admins().stream()
@@ -538,7 +538,8 @@ final class IdentityChange {
                     final List<IdentityOperation.Contact> admins =
                             lost
                                     ? contacts(
-                                            IdentityFacts.hostAdmins(registry.state(), host.host()))
+                                            IdentityFacts.hostAdmins(
+                                                    registry.organization(), host.host()))
                                     : List.of();
                     places.add(
                             new IdentityOperation.Place(
@@ -682,7 +683,7 @@ final class IdentityChange {
             return "no ssh-agent is reachable (SSH_AUTH_SOCK is not set)";
         }
         final Path checkout = registry.known().checkout();
-        final String read = registry.state().commit();
+        final String read = registry.organization().readTo();
         try {
             // Opened as registry read opens it: a directory, never through a link, whose one
             // origin git does not rewrite.

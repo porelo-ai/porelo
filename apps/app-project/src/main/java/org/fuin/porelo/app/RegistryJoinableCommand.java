@@ -299,7 +299,12 @@ public class RegistryJoinableCommand implements Callable<Integer>, PoreloFactory
                 checked.persons().stream()
                         .filter(AccessPersons.Person::admitted)
                         .filter(person -> person.role().equals("admin"))
-                        .map(person -> IdentityFacts.contact(state, person.login()))
+                        .map(
+                                person ->
+                                        IdentityFacts.contact(
+                                                org.fuin.porelo.organization.git
+                                                        .GitOrganizationStore.organization(state),
+                                                person.login()))
                         .toList());
     }
 
@@ -367,7 +372,13 @@ public class RegistryJoinableCommand implements Callable<Integer>, PoreloFactory
                             // Who signs the host's files is who can file it again.
                             "admins",
                             state.hostAdmins().getOrDefault(host, List.of()).stream()
-                                    .map(admin -> IdentityFacts.contact(state, admin.login()))
+                                    .map(
+                                            admin ->
+                                                    IdentityFacts.contact(
+                                                            org.fuin.porelo.organization.git
+                                                                    .GitOrganizationStore
+                                                                    .organization(state),
+                                                            admin.login()))
                                     .toList()));
         }
     }
@@ -496,7 +507,11 @@ public class RegistryJoinableCommand implements Callable<Integer>, PoreloFactory
                 Userinfo.leftOutOf(why),
                 // Nothing of the access file verified: the admin the registry names is who to ask.
                 "admins",
-                List.of(IdentityFacts.contact(state, project.admin())));
+                List.of(
+                        IdentityFacts.contact(
+                                org.fuin.porelo.organization.git.GitOrganizationStore.organization(
+                                        state),
+                                project.admin())));
     }
 
     /** A JSON object whose keys stay in the order given: name, value, name, value. */

@@ -253,7 +253,8 @@ public class IdentityBackupKeyCommand implements Callable<Integer>, PoreloFactor
                         ? madeEarlier(machine, registry, login, earlier[0], earlier[1])
                         : replacedEarlier(machine, registry, login, earlier[0], earlier[1]);
             }
-            final String against = base != null ? base : String.valueOf(registry.state().commit());
+            final String against =
+                    base != null ? base : String.valueOf(registry.organization().readTo());
             if (!head.equals(against)) {
                 throw new IdentityChange.Refused(
                         65,

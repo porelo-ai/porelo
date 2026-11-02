@@ -19,8 +19,9 @@ import java.util.Optional;
 import org.fuin.porelo.core.process.Command;
 import org.fuin.porelo.core.process.CommandResult;
 import org.fuin.porelo.organization.IdentitySource;
+import org.fuin.porelo.organization.Organization;
+import org.fuin.porelo.organization.git.GitOrganizationStore;
 import org.fuin.porelo.organization.git.RegistryOrigin;
-import org.fuin.porelo.organization.git.RegistryState;
 import org.fuin.porelo.vault.AgentKey;
 import org.fuin.porelo.vault.CardException;
 import org.fuin.porelo.vault.RegistryText;
@@ -49,13 +50,13 @@ final class IdentityFacts {
      * A registry this machine read, and the state its last read ended with.
      *
      * @param known Where it was read.
-     * @param state What it says.
+     * @param organization What it says.
      */
-    record Registry(RegistryReadCommand.Known known, RegistryState state) {}
+    record Registry(RegistryReadCommand.Known known, Organization organization) {}
 
     /**
      * The registries this machine read, each with its trust record, as {@link
-     * org.fuin.porelo.organization.git.TrustRecords#read} reads them: every one, or none at all.
+     * GitOrganizationStore#known} reads them: every one, or none at all.
      *
      * @param context The machine.
      * @return Each, in the order of their records' names.
@@ -63,13 +64,13 @@ final class IdentityFacts {
      */
     static List<Registry> registries(final PoreloContext context) throws IOException {
         final List<Registry> read = new ArrayList<>();
-        for (final org.fuin.porelo.organization.git.TrustRecords.Read each :
-                org.fuin.porelo.organization.git.TrustRecords.read(context.paths().xdg().state())) {
+        for (final GitOrganizationStore.Known each :
+                GitOrganizationStore.known(context.paths().xdg().state())) {
             read.add(
                     new Registry(
                             new RegistryReadCommand.Known(
-                                    each.origin(), each.checkout(), each.file()),
-                            each.state()));
+                                    each.address(), each.checkout(), each.record()),
+                            each.organization()));
         }
         return List.copyOf(read);
     }
@@ -177,7 +178,7 @@ final class IdentityFacts {
             throws IOException {
         final String fingerprint = org.fuin.porelo.vault.PersonCard.fingerprint(keyLine);
         for (final Registry registry : registries) {
-            if (registry.state().revoked().contains(fingerprint)) {
+            if (registry.organization().revoked().contains(fingerprint)) {
                 return true;
             }
         }
@@ -227,9 +228,9 @@ final class IdentityFacts {
             final String fingerprint,
             final @Nullable String login) {
         for (final Registry registry : registries) {
-            for (final RegistryState.Person person : registry.state().people()) {
+            for (final Organization.Person person : registry.organization().people()) {
                 // A refused card is answered but is no card.
-                if (!person.state().equals(RegistryState.REFUSED)
+                if (!person.refused()
                         && person.fingerprint().equals(fingerprint)
                         && !person.login().equals(login)) {
                     return Optional.of(person.login());
@@ -247,13 +248,13 @@ final class IdentityFacts {
      * @return {@code login}, {@code name} and {@code email}; name and email {@code null} where no
      *     accepted card says them.
      */
-    static Map<String, @Nullable Object> contact(final RegistryState state, final String login) {
+    static Map<String, @Nullable Object> contact(final Organization state, final String login) {
         final Map<String, @Nullable Object> contact = new LinkedHashMap<>();
         contact.put("login", login);
         contact.put("name", null);
         contact.put("email", null);
-        for (final RegistryState.Person person : state.people()) {
-            if (person.login().equals(login) && !person.state().equals(RegistryState.REFUSED)) {
+        for (final Organization.Person person : state.people()) {
+            if (person.login().equals(login) && !person.refused()) {
                 contact.put("name", person.name());
                 contact.put("email", person.email().isEmpty() ? null : person.email());
             }
@@ -267,7 +268,7 @@ final class IdentityFacts {
      * @param state What the registry says.
      * @return Each owner once, in the owners file's order.
      */
-    static List<Map<String, @Nullable Object>> owners(final RegistryState state) {
+    static List<Map<String, @Nullable Object>> owners(final Organization state) {
         return contacts(state, state.owners());
     }
 
@@ -279,16 +280,16 @@ final class IdentityFacts {
      * @return Each admin once, in the owners file's order; none for a host it names no admin of.
      */
     static List<Map<String, @Nullable Object>> hostAdmins(
-            final RegistryState state, final String host) {
+            final Organization state, final String host) {
         return contacts(state, state.hostAdmins().getOrDefault(host, List.of()));
     }
 
     /** Each login once as a contact, the backup keys left out: they are kept offline. */
     private static List<Map<String, @Nullable Object>> contacts(
-            final RegistryState state, final List<RegistryState.Owner> listed) {
+            final Organization state, final List<Organization.Owner> listed) {
         final List<Map<String, @Nullable Object>> contacts = new ArrayList<>();
         final List<String> named = new ArrayList<>();
-        for (final RegistryState.Owner owner : listed) {
+        for (final Organization.Owner owner : listed) {
             if (!owner.backup() && !named.contains(owner.login())) {
                 named.add(owner.login());
                 contacts.add(contact(state, owner.login()));
@@ -306,7 +307,7 @@ final class IdentityFacts {
     static List<Map<String, @Nullable Object>> owners(final List<Registry> registries) {
         final List<Map<String, @Nullable Object>> owners = new ArrayList<>();
         for (final Registry registry : registries) {
-            for (final Map<String, @Nullable Object> owner : owners(registry.state())) {
+            for (final Map<String, @Nullable Object> owner : owners(registry.organization())) {
                 if (owners.stream()
                         .noneMatch(
                                 each ->

@@ -34,9 +34,6 @@ class OrganizationBoundaryTest {
     /** What still reads through the adapter's state: empties as each moves to the API. */
     private static final Set<String> NOT_MOVED_YET =
             Set.of(
-                    "IdentityFacts.java",
-                    "IdentityShowCommand.java",
-                    "IdentityChange.java",
                     "RegistryReadCommand.java",
                     "RegistryJoinableCommand.java",
                     "ProjectAccessCommand.java",

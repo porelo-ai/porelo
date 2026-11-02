@@ -13,8 +13,8 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.Callable;
 import org.fuin.porelo.core.project.ProjectSigners;
+import org.fuin.porelo.organization.Organization;
 import org.fuin.porelo.organization.git.HttpForgeDirectory;
-import org.fuin.porelo.organization.git.RegistryState;
 import org.fuin.porelo.vault.AgentKey;
 import org.fuin.porelo.vault.CardException;
 import org.fuin.porelo.vault.PersonCard;
@@ -145,7 +145,7 @@ public class IdentityShowCommand implements Callable<Integer>, PoreloFactory.Con
             final List<IdentityFacts.Registry> registries, final String login) {
         final List<Map<String, Object>> sole = new ArrayList<>();
         for (final IdentityFacts.Registry registry : registries) {
-            for (final RegistryState.Sole one : registry.state().soleWithoutBackup()) {
+            for (final Organization.Sole one : registry.organization().soleWithoutBackup()) {
                 if (one.login().equals(login)) {
                     final boolean host = one.host() != null;
                     sole.add(
@@ -216,8 +216,8 @@ public class IdentityShowCommand implements Callable<Integer>, PoreloFactory.Con
     /** Where the card stands in one registry. */
     private static Map<String, @Nullable Object> filed(
             final IdentityFacts.Registry registry, final PersonCard card) {
-        final RegistryState state = registry.state();
-        final RegistryState.@Nullable Person person =
+        final Organization state = registry.organization();
+        final Organization.@Nullable Person person =
                 state.people().stream()
                         .filter(each -> each.login().equals(card.login()))
                         .findFirst()
@@ -226,22 +226,22 @@ public class IdentityShowCommand implements Callable<Integer>, PoreloFactory.Con
         entry.put("address", registry.known().origin());
         if (person == null) {
             entry.put("filed", "absent");
-        } else if (person.state().equals(RegistryState.REFUSED)) {
+        } else if (person.refused()) {
             entry.put("filed", "refused");
             entry.put("why", person.why());
-        } else if (person.state().equals(RegistryState.TRUSTED)
+        } else if (person.state().equals(Organization.TRUSTED)
                 && person.fingerprint().equals(card.fingerprint())) {
             entry.put("filed", "done");
         } else {
             entry.put("filed", "pending");
         }
-        entry.put("revision", state.commit());
+        entry.put("revision", state.readTo());
         // A card with no predecessor replacing an accepted one of another key: a lost key, which
         // only an owner may file.
         final boolean mayFile =
                 !(card.predecessor().isEmpty()
                         && person != null
-                        && !person.state().equals(RegistryState.REFUSED)
+                        && !person.refused()
                         && !person.fingerprint().equals(card.fingerprint()));
         entry.put("may_file", mayFile);
         entry.put("who_may", mayFile ? List.of() : IdentityFacts.owners(state));
