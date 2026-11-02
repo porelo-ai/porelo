@@ -1,6 +1,6 @@
 # B383 — A Build That Fits Its Old Time
 
-**Status:** Idea.
+**Status:** Accepted.
 **Severity:** medium.
 **Size:** S, proposed - the twenty slowest test classes of a Build measured, and each one's wait or real process
 cut where a stand-in shows the same.

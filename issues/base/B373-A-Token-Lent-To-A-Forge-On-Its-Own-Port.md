@@ -1,6 +1,6 @@
 # B373 — A Token Lent To A Forge On Its Own Port
 
-**Status:** Idea.
+**Status:** Accepted.
 **Size:** S, proposed - the credential helper keyed by host and port, with a test against a forge on a port of its
 own.
 

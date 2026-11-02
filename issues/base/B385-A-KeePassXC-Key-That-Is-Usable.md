@@ -1,6 +1,6 @@
 # B385 — A KeePassXC Key That Is Usable
 
-**Status:** Idea.
+**Status:** Accepted.
 **Severity:** medium.
 **Size:** M, proposed - `keepassxc-cli` run once for the entry and both attachments, a retry that finds the key it
 made, an entry removed again when an attachment fails, typed refusals where the terminal or `/proc` is not what it

@@ -39,6 +39,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b395"></a>[B395](B395-A-Transport-Borrows-The-Token-Its-Lifecycle-Needs.md) | S | - | A transport says in `describe` which secret of the person's a lifecycle verb needs, and Porelo lends it from the vault for that verb alone. |
 | <a id="b225"></a>[B225](B225-The-Agent-Found-On-The-Machine.md) | L | `porelo` [B224](README.md#b224) | A start without `--agent` and `--provider` takes the agent signed in on the machine and names where it was found; `Agent1.Find` answers presence only, with "cannot say". | 0 |
 | <a id="b226"></a>[B226](B226-An-Imported-Credential-Names-Its-Provider.md) | M | `porelo` [B224](README.md#b224) | `ExtractCredential` takes an optional provider, so an agent signed in to several imports the one named, stored under that provider. | 0 |
 | <a id="b214"></a>[B214](B214-A-Vault-Entry-Put-Again-Unchanged.md) | M | - | `vault put` given the value an entry already holds says `unchanged` and exits 0, so a second play reports nothing changed |
@@ -57,7 +58,6 @@ from its side, as *blocked by*.
 | <a id="b321"></a>[B321](B321-A-Long-Command-Says-What-It-Is-Doing.md) | M | - | A long command shows what it is doing while it runs: a transport's stderr streamed line by line, each line redacted against the secrets handed in, and a phase line for the other long commands a sweep finds |
 | <a id="b336"></a>[B336](B336-A-Repository-Says-Whether-A-Merge-Needs-A-Review.md) | S | - | `project.review` and `repositories.<name>.review` are `required` (the default) or `optional`, any other value refused, and answered to the host by `verify --json` |
 | <a id="b371"></a>[B371](B371-A-History-Judged-Under-The-Rules-Of-Its-Time.md) | M | - | A history mode of `porelo commit verify`: each commit judged by the keys and certificates in force at its own time, for a migrated history before the hook is armed |
-| <a id="b395"></a>[B395](B395-A-Transport-Borrows-The-Token-Its-Lifecycle-Needs.md) | S | - | A transport says in `describe` which secret of the person's a lifecycle verb needs, and Porelo lends it from the vault for that verb alone. |
 
 ## Analyzed
 
@@ -113,6 +113,9 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b385"></a>[B385](B385-A-KeePassXC-Key-That-Is-Usable.md) | M | - | `--keepassxc` asks the master password once, a retry takes the key already made, no empty entry left, a clear refusal under `su` or a redirected stderr, aligned exit codes |
+| <a id="b383"></a>[B383](B383-A-Build-That-Fits-Its-Old-Time.md) | S | - | The Build's verify takes about as long as it used to, not three times as long |
+| <a id="b373"></a>[B373](B373-A-Token-Lent-To-A-Forge-On-Its-Own-Port.md) | S | - | A vault token is lent to an `https://` repository on a port of its own: the helper's key names the port |
 | <a id="b396"></a>[B396](B396-Mutation-Testing-With-PIT.md) | - | - | A `pit` profile run by hand, not in CI and with no threshold, and a report sorting survivors into real gaps and harmless ones. |
 | <a id="b358"></a>[B358](B358-A-Task-Reviews-A-Pull-Request-On-The-Central-Forge.md) | - | [B172](README.md#b172) | A reviewer task also takes any existing pull request on the central forge by its URL, in a project or without one; read and commented with the person's own account, comments only, each released |
 | <a id="b355"></a>[B355](B355-No-Switch-That-Turns-Every-Check-Off.md) | S | - | No `--insecure` that turns every check off; instead an `unsigned`/`unverified` mark in `task list`, the interface and the gate's verdicts, for what already runs so |
@@ -130,14 +133,12 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b397"></a>[B397](B397-A-Plain-Git-Credential-Goes-To-Any-Host-A-Project-Names.md) | - | - | A plain `git.token` or `git.ssh` reaches only a host the person meant it for, not whatever host a project's file names. |
 | <a id="b394"></a>[B394](B394-An-Online-Task-On-A-Host-With-No-Forge-Passes-On-To-Its-Upstream.md) | S | - | An `online` task on a host with no forge passes on to its `upstream` instead of pushing to a forge that is not there. |
 | <a id="b386"></a>[B386](B386-A-Project-Access-Contract-Without-Guessing.md) | S | - | A read-only lookup by `Porelo-Change-Id`, the head `project verify` takes from a bundle written down, `access add --role admin` for a listed admin defined, and verify naming the access commit's signer |
-| <a id="b385"></a>[B385](B385-A-KeePassXC-Key-That-Is-Usable.md) | M | - | `--keepassxc` asks the master password once, a retry takes the key already made, no empty entry left, a clear refusal under `su` or a redirected stderr, aligned exit codes |
 | <a id="b384"></a>[B384](B384-A-Start-That-Waits-For-Its-Helpers.md) | S | - | A start and a resume wait for their helpers and fail with 70 when one does not come up, a host's refusals come before the resume record, and a racing start stops only its own task |
-| <a id="b383"></a>[B383](B383-A-Build-That-Fits-Its-Old-Time.md) | S | - | The Build's verify takes about as long as it used to, not three times as long |
 | <a id="b380"></a>[B380](B380-Small-Edge-Cases-Left-By-Readings-And-Fixes.md) | - | - | The small edge cases readings and fixes left, gathered to be placed |
 | <a id="b374"></a>[B374](B374-A-Registry-Commit-Split-As-Git-Splits-It.md) | S | - | A registry commit's signature is checked over the bytes git checks: every header starting with `gpgsig` left out |
-| <a id="b373"></a>[B373](B373-A-Token-Lent-To-A-Forge-On-Its-Own-Port.md) | S | - | A vault token is lent to an `https://` repository on a port of its own: the helper's key names the port |
 | <a id="b365"></a>[B365](B365-The-Providers-Usage-Answered-In-One-Form.md) | M | - | `porelo usage` answers each provider's allowance left in one form, per machine, account and window, with a threshold that marks a window critical |
 | <a id="b364"></a>[B364](B364-A-Test-Run-With-Its-Own-Temp-Directory.md) | S | - | Each test JVM gets a temp directory of its own under its module's `target/`, so two suites on one machine never see each other's scratch files |
 | <a id="b360"></a>[B360](B360-The-Persons-Own-Files-Read-Only-As-Themselves.md) | M | - | Every file Porelo keeps in the person's configuration and state directories is read and written only as itself, never through a link or another account's directory |

@@ -1,6 +1,6 @@
 # B395 — A Transport Borrows The Token Its Lifecycle Needs
 
-**Status:** Backlog.
+**Status:** Implementing.
 **Size:** S - a field in `describe`'s reading, one look in the vault where a lifecycle verb runs, and tests.
 
 **What must be true.** A transport that needs a secret of the person's for a lifecycle verb says so in `describe`, and
@@ -21,8 +21,9 @@ Read in the code. `TransportDescription` reads `lifecycle`, `takes` and `waitsOn
 
    An entry with no `lent`, or one that is not a list of strings, lends nothing. Porelo keeps no list of verbs.
 2. **On a verb an entry lists**, Porelo looks in the person's vault under a name derived from `name`: lower-cased, less
-   `PORELO_`, `_` as `-`, so `matrix-registration-token`. First with `.<server>`, the host of
-   `mail.transports.<scheme>.homeserver`, then without.
+   `PORELO_`, `_` as `-`, so `matrix-registration-token`, with `.<server>` after it, the host of
+   `mail.transports.<scheme>.homeserver`. Only that entry is lent, never a plain one: a project's file names the
+   homeserver, so a plain entry would go to whatever server a project admin names.
 3. **What it finds** goes into the verb's `secrets` under `name`, on the transport's standard input as its other secrets
    do (`TransportInput`). It is not stored with the transport's secrets, and goes no further than that one run.
 4. **Nothing found:** `secrets` goes without it, and the transport refuses as it does today (78). **A shut vault:** 77,
@@ -32,7 +33,8 @@ Read in the code. `TransportDescription` reads `lifecycle`, `takes` and `waitsOn
 
 - Red first: on a verb `lent` lists, the transport's input holds the value under `name`; on a verb it does not list, it
   does not, and the vault is not asked.
-- The entry named with `.<server>` wins over the one without; with neither, `secrets` has no such name.
+- Only the entry named with `.<server>` is lent. With a plain entry alone, or with one for another server, `secrets` has
+  no such name, and the value reaches no transport.
 - A shut vault answers 77, and the transport is not run.
 - A transport that lists no `lent` runs exactly as today.
 - The value reaches no log, no output, no argument and no file: a test runs a verb with a recognizable value and looks
