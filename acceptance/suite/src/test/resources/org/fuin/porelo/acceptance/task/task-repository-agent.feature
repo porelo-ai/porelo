@@ -22,7 +22,6 @@ Feature: A repository names the agent it is worked with
             printf '%s\n' 'repositories:' '  tested:' "    upstream: \"file://$source\"" \
                 '    agent: "stub"' '    nickname: "Tester"' '  plain:' '    agent: "stub"' >> ~/named/project.yml
             git -C ~/named add project.yml && git -C ~/named commit -q -m named
-            porelo project follow named ~/named --unverified > /dev/null
             porelo task start --project named --repository tested --dry-run --clearance deny
             porelo project list --json | python3 -c 'import json, sys
             for project in json.load(sys.stdin)["projects"]:
@@ -47,7 +46,6 @@ Feature: A repository names the agent it is worked with
             printf '%s\n' 'repositories:' '  tested:' "    upstream: \"file://$source\"" \
                 '    agent: "stub"' '    nickname: "Tester"' '  plain:' '    agent: "stub"' >> ~/named/project.yml
             git -C ~/named add project.yml && git -C ~/named commit -q -m named
-            porelo project follow named ~/named --unverified > /dev/null
             timeout 600 porelo task start authored --project named --repository tested \
                 --attach shell --detach --clearance deny > /dev/null
             podman exec porelo-named-authored sh -c 'cd /workspace && echo work > work.txt \

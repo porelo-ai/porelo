@@ -2,7 +2,7 @@
 Feature: Work starts without a project, in the project every machine has
 
     A task started in a checked-out repository with no project named goes into 'default', whose settings are
-    Porelo's; nothing about it can be widened, and the name belongs to no followed project.
+    Porelo's; nothing about it can be widened, and the name is reserved for the built-in project.
 
     Scenario: a task starts in a checkout with no project named, and 'default' cannot be given more
         Given the environment variable "PORELO_ACCEPTANCE_FAKE_CREDENTIAL" is set
@@ -24,8 +24,7 @@ Feature: Work starts without a project, in the project every machine has
             porelo project default | grep -c "^$repo " | sed 's/^/listed in default: /'
             porelo task list | grep -c "porelo-default-probe" | sed 's/^/a task in default: /'
             porelo shield egress --project default --add-domain example.org 2>&1 | grep -o "a project repository is the way"
-            porelo project follow default "$base/$repo.git" --unverified 2>&1 | grep -o "no followed project may be called that"
-            porelo project unfollow default 2>&1 | grep -o "is always there and is never removed"
+            porelo project remove default 2>&1 | grep -o "is always there and is never removed"
             porelo task remove porelo-default-probe --force > /dev/null 2>&1
             porelo project default remove "$repo"
             porelo project default | grep -c "^$repo " | sed 's/^/still listed: /'
@@ -35,7 +34,6 @@ Feature: Work starts without a project, in the project every machine has
         And its output contains "listed in default: 1"
         And its output contains "a task in default: 1"
         And its output contains "a project repository is the way"
-        And its output contains "no followed project may be called that"
         And its output contains "is always there and is never removed"
         And its output contains "still listed: 0"
 

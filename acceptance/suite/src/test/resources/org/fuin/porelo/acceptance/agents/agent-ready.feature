@@ -25,8 +25,7 @@ Feature: An agent reaches work without being asked anything
         Given a project called "asking" of class "guarded" with a file in it
         And a script runs:
             """
-            cd ~/asking && touch .porelo-stub-asks && git add -A && git commit -q -m 'ask first' \
-                && porelo project follow asking ~/asking --unverified >/dev/null
+            cd ~/asking && touch .porelo-stub-asks && git add -A && git commit -q -m 'ask first'
             """
         And a terminal on the machine
         When I run "porelo task start attended --project asking --repository asking --agent stub --clearance deny"
@@ -37,8 +36,7 @@ Feature: An agent reaches work without being asked anything
         Given a project called "covering" of class "guarded" with a file in it
         And a script runs:
             """
-            cd ~/covering && touch .porelo-stub-covers && git add -A && git commit -q -m 'cover the prompt' \
-                && porelo project follow covering ~/covering --unverified >/dev/null
+            cd ~/covering && touch .porelo-stub-covers && git add -A && git commit -q -m 'cover the prompt'
             """
         And a terminal on the machine
         When I run "porelo task start attended --project covering --repository covering --agent stub --clearance deny"

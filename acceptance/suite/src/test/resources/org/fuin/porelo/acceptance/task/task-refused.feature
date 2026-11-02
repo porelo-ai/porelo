@@ -20,13 +20,13 @@ Feature: A task that must not start, and what its refusal leaves behind
     Scenario: a task whose image cannot be built fails, and leaves no helper and no pid behind
         # Broken on purpose so the failure comes after the broker is listening and before a container
         # exists - the gap no poststop hook covers, because it only fires for a container that ran.
+        Given a project called "unbuildable" of class "guarded" whose project file also says:
+            """
+            image:
+              base_image: "porelo-no-such-base-image:0"
+            """
         When a script runs:
             """
-            dir=$(mktemp -d) && cd "$dir" && git init -q -b main .
-            printf '%s\n' 'project:' '  name: "unbuildable"' '  security_class: "guarded"' 'image:' \
-                '  base_image: "porelo-no-such-base-image:0"' > project.yml
-            git add -A && git -c user.email=t@example.com -c user.name=T commit -q -m configuration
-            porelo project follow unbuildable "$dir" --unverified >/dev/null
             porelo task start --project unbuildable --repository unbuildable --agent stub --detach --clearance deny >/dev/null 2>&1 \
                 && echo "the start reported success" || echo "the start failed"
             # The name is put together here, so this script's own command line does not match it.
@@ -34,8 +34,7 @@ Feature: A task that must not start, and what its refusal leaves behind
             pgrep -f "[s]okar-$p-" >/dev/null && echo "a helper is still running" || echo "no helper is running"
             find "${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/porelo" -maxdepth 2 -path "*porelo-$p-*" -name '*.pid' | grep -q . \
                 && echo "a pid file claims a live helper" || echo "no pid file is left"
-            porelo project unfollow unbuildable --force >/dev/null 2>&1
-            rm -rf "$dir" "${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/porelo/porelo-$p-"*
+            rm -rf "${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/porelo/porelo-$p-"*
             """
         Then its output contains "the start failed"
         And its output contains "no helper is running"

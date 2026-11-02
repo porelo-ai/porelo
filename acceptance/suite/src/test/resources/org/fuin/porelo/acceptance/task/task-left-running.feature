@@ -7,8 +7,8 @@ Feature: A task left running, and what it holds
 
     The credential is fake and set by this suite's own configuration, never an account's: what is
     proven is that the value is searched for and not found, and a fake value is as findable as a real
-    one. The kit removes what the scenario made whether it passed or not: the project, unfollowed with
-    its task, and the scenario's own vault - the account's is never touched.
+    one. The kit removes what the scenario made whether it passed or not: the local project and its checkout,
+    and the scenario's own vault - the account's is never touched.
 
     Scenario: the credential reaches neither the task's container nor anything it logged
         Given the suite runs as an unprivileged user
