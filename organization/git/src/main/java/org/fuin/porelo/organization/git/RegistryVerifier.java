@@ -1,4 +1,4 @@
-package org.fuin.porelo.vault;
+package org.fuin.porelo.organization.git;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -8,6 +8,10 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import org.fuin.porelo.core.process.CommandRunner;
+import org.fuin.porelo.vault.CardException;
+import org.fuin.porelo.vault.HostCard;
+import org.fuin.porelo.vault.PersonCard;
+import org.fuin.porelo.vault.PersonCardChain;
 
 /** Verifies a registry using only the host admin's pin and the history brought with it. */
 public final class RegistryVerifier {

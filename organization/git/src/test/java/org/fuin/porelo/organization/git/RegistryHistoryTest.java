@@ -1,4 +1,4 @@
-package org.fuin.porelo.vault;
+package org.fuin.porelo.organization.git;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -18,6 +18,11 @@ import java.util.Set;
 import org.fuin.porelo.core.process.Command;
 import org.fuin.porelo.core.process.CommandRunner;
 import org.fuin.porelo.core.process.ProcessCommandRunner;
+import org.fuin.porelo.vault.CardException;
+import org.fuin.porelo.vault.HostCard;
+import org.fuin.porelo.vault.OpenSshPrivateKey;
+import org.fuin.porelo.vault.PersonCard;
+import org.fuin.porelo.vault.SigningKey;
 import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;

@@ -1,4 +1,4 @@
-package org.fuin.porelo.vault;
+package org.fuin.porelo.organization.git;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -16,6 +16,8 @@ import java.util.SortedSet;
 import java.util.TreeSet;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import org.fuin.porelo.vault.CardException;
+import org.fuin.porelo.vault.PrivateDirectory;
 import org.fuin.porelo.wire.Json;
 
 /**

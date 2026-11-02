@@ -18,10 +18,10 @@ import java.util.Map;
 import java.util.Optional;
 import org.fuin.porelo.core.process.Command;
 import org.fuin.porelo.core.process.CommandResult;
+import org.fuin.porelo.organization.git.ForgeDirectory;
+import org.fuin.porelo.organization.git.RegistryState;
 import org.fuin.porelo.vault.AgentKey;
 import org.fuin.porelo.vault.CardException;
-import org.fuin.porelo.vault.ForgeDirectory;
-import org.fuin.porelo.vault.RegistryState;
 import org.fuin.porelo.vault.RegistryText;
 import org.fuin.porelo.vault.SshAgentClient;
 import org.fuin.porelo.vault.VaultException;
@@ -54,7 +54,7 @@ final class IdentityFacts {
 
     /**
      * The registries this machine read, each with its trust record, as {@link
-     * org.fuin.porelo.vault.TrustRecords#read} reads them: every one, or none at all.
+     * org.fuin.porelo.organization.git.TrustRecords#read} reads them: every one, or none at all.
      *
      * @param context The machine.
      * @return Each, in the order of their records' names.
@@ -62,8 +62,8 @@ final class IdentityFacts {
      */
     static List<Registry> registries(final PoreloContext context) throws IOException {
         final List<Registry> read = new ArrayList<>();
-        for (final org.fuin.porelo.vault.TrustRecords.Read each :
-                org.fuin.porelo.vault.TrustRecords.read(context.paths().xdg().state())) {
+        for (final org.fuin.porelo.organization.git.TrustRecords.Read each :
+                org.fuin.porelo.organization.git.TrustRecords.read(context.paths().xdg().state())) {
             read.add(
                     new Registry(
                             new RegistryReadCommand.Known(

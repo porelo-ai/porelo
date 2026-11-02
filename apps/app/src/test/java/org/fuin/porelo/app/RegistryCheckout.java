@@ -16,7 +16,7 @@ import java.util.function.UnaryOperator;
 import org.fuin.porelo.core.config.XdgPaths;
 import org.fuin.porelo.core.process.Command;
 import org.fuin.porelo.core.process.ProcessCommandRunner;
-import org.fuin.porelo.vault.ForgeDirectory;
+import org.fuin.porelo.organization.git.ForgeDirectory;
 import org.fuin.porelo.vault.HostCard;
 import org.fuin.porelo.vault.OpenSshPrivateKey;
 import org.fuin.porelo.vault.PersonCard;

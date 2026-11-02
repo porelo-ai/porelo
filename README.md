@@ -157,6 +157,7 @@ What each Maven module is, in a few sentences of its own:
   the records that cross a boundary, the domain model, the tests' fixtures
 - [runtime](runtime/README.md), [shield](shield/README.md), [clearance](clearance/README.md),
   [vault](vault/README.md), [gate](gate/README.md), [supervisor](supervisor/README.md) - what runs around a task
+- [organization](organization/README.md) - who may do what, behind an API
 - [agents](agents/README.md), [builds](builds/README.md) - the contracts agents and build readers are written against
 - [apps](apps/README.md) - the `porelo` command line, area by area
 - [daemon](daemon/README.md), [hooks](hooks/README.md) - `porelod` and the OCI hooks

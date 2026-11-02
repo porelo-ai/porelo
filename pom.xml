@@ -118,6 +118,7 @@
         <module>shield</module>
         <module>clearance</module>
         <module>vault</module>
+        <module>organization</module>
         <module>gate</module>
         <module>supervisor</module>
         <module>agents</module>
@@ -241,6 +242,18 @@
             <dependency>
                 <groupId>org.fuin.porelo</groupId>
                 <artifactId>porelo-vault</artifactId>
+                <version>${porelo.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.fuin.porelo</groupId>
+                <artifactId>porelo-organization-api</artifactId>
+                <version>${porelo.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.fuin.porelo</groupId>
+                <artifactId>porelo-organization-git</artifactId>
                 <version>${porelo.version}</version>
             </dependency>
 

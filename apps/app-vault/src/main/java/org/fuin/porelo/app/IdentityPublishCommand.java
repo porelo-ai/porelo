@@ -2,8 +2,8 @@ package org.fuin.porelo.app;
 
 import java.io.IOException;
 import java.util.concurrent.Callable;
+import org.fuin.porelo.organization.git.HttpForgeDirectory;
 import org.fuin.porelo.vault.CardException;
-import org.fuin.porelo.vault.HttpForgeDirectory;
 import org.fuin.porelo.vault.PersonCard;
 import org.jspecify.annotations.Nullable;
 import picocli.CommandLine.Command;

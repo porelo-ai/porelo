@@ -1,4 +1,4 @@
-package org.fuin.porelo.vault;
+package org.fuin.porelo.organization.git;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -16,6 +16,8 @@ import java.util.Optional;
 import org.fuin.porelo.core.process.Command;
 import org.fuin.porelo.core.process.CommandResult;
 import org.fuin.porelo.core.process.CommandRunner;
+import org.fuin.porelo.vault.CardException;
+import org.fuin.porelo.vault.RegistryText;
 import org.jspecify.annotations.Nullable;
 
 /** An owned bare clone: no checkout, inherited Git configuration, helpers or network protocols. */

@@ -868,7 +868,7 @@ class ProjectBackupKeyTest {
                 .as(keys.err.toString())
                 .isZero();
         assertThat(
-                        org.fuin.porelo.vault.TrustRecords.read(keys.paths.xdg().state())
+                        org.fuin.porelo.organization.git.TrustRecords.read(keys.paths.xdg().state())
                                 .getFirst()
                                 .state()
                                 .revoked())
@@ -1148,7 +1148,7 @@ class ProjectBackupKeyTest {
         IdentityRun.keep(keys, keys.card("michael", "michael"));
         keys.agent("michael");
         final Path record =
-                org.fuin.porelo.vault.TrustRecords.file(
+                org.fuin.porelo.organization.git.TrustRecords.file(
                         keys.paths.xdg().state(), "https://forge.example.org/acme/registry.git");
         Files.createDirectories(record.getParent());
         Files.writeString(record, "{");

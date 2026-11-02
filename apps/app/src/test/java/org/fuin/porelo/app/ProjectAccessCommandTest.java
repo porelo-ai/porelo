@@ -1686,7 +1686,8 @@ class ProjectAccessCommandTest {
     private Path registryRevokes(final String fingerprint) throws IOException {
         final String origin = "https://forge.example.org/acme/registry.git";
         final Path record =
-                org.fuin.porelo.vault.TrustRecords.file(context().paths().xdg().state(), origin);
+                org.fuin.porelo.organization.git.TrustRecords.file(
+                        context().paths().xdg().state(), origin);
         Files.createDirectories(record.getParent());
         Files.writeString(
                 record.resolveSibling(
@@ -1699,7 +1700,7 @@ class ProjectAccessCommandTest {
 
     /** A trust record naming these keys revoked, firm or not, with nothing else in it. */
     private static String trustRecord(final boolean firm, final List<String> revoked) {
-        return new org.fuin.porelo.vault.RegistryState(
+        return new org.fuin.porelo.organization.git.RegistryState(
                         "1".repeat(40),
                         false,
                         firm,

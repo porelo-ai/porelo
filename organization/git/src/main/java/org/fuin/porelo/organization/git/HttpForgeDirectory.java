@@ -1,4 +1,4 @@
-package org.fuin.porelo.vault;
+package org.fuin.porelo.organization.git;
 
 import java.io.ByteArrayOutputStream;
 import java.net.URI;
@@ -21,6 +21,7 @@ import java.util.concurrent.Flow;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.regex.Pattern;
+import org.fuin.porelo.vault.RegistryText;
 import org.fuin.porelo.wire.Json;
 import org.fuin.porelo.wire.JsonException;
 import org.jspecify.annotations.Nullable;

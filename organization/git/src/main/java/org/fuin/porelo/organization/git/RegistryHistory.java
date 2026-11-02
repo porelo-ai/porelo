@@ -1,4 +1,4 @@
-package org.fuin.porelo.vault;
+package org.fuin.porelo.organization.git;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -14,6 +14,11 @@ import java.util.TreeSet;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.fuin.porelo.core.process.CommandRunner;
+import org.fuin.porelo.vault.CardException;
+import org.fuin.porelo.vault.HostCard;
+import org.fuin.porelo.vault.PersonCard;
+import org.fuin.porelo.vault.PersonCardChain;
+import org.fuin.porelo.vault.RegistryText;
 import org.jspecify.annotations.Nullable;
 
 /**

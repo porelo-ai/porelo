@@ -1,6 +1,10 @@
-package org.fuin.porelo.vault;
+package org.fuin.porelo.organization.git;
 
 import java.util.List;
+import org.fuin.porelo.vault.CardException;
+import org.fuin.porelo.vault.HostCard;
+import org.fuin.porelo.vault.PersonCard;
+import org.fuin.porelo.vault.RegistryText;
 
 /**
  * What a person files into a registry checkout: the path a card or access file goes to, and the

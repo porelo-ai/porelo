@@ -272,7 +272,7 @@ public record HostCard(
         return Integer.parseInt(port.value());
     }
 
-    static void hostKey(final String line, final String what) {
+    public static void hostKey(final String line, final String what) {
         // Exactly, not stripped: a person's machine writes the line as it stands into known_hosts.
         final Matcher matcher = HOST_KEY.matcher(line);
         if (!matcher.matches()) {
@@ -370,7 +370,7 @@ public record HostCard(
      * Says whether a text is a host name or an IP address, read without asking any resolver: an
      * address the host's files carry must be one thing, never a port or a list.
      */
-    static boolean address(final String text) {
+    public static boolean address(final String text) {
         if (text.length() > 253) {
             return false;
         }

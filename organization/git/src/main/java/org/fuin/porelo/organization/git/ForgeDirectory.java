@@ -1,7 +1,9 @@
-package org.fuin.porelo.vault;
+package org.fuin.porelo.organization.git;
 
 import java.util.List;
 import java.util.Optional;
+import org.fuin.porelo.vault.CardException;
+import org.fuin.porelo.vault.PersonCard;
 
 /**
  * What the central forge says about its accounts: the keys it lists for a login, and who owns an

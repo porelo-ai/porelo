@@ -1,8 +1,11 @@
-package org.fuin.porelo.vault;
+package org.fuin.porelo.organization.git;
 
 import java.io.IOException;
 import java.nio.file.Files;
 import java.util.Base64;
+import org.fuin.porelo.vault.CardException;
+import org.fuin.porelo.vault.PersonCard;
+import org.fuin.porelo.vault.SshSignature;
 
 /** The key a registry commit's SSH signature names, and Git's check of it against that key. */
 final class CommitSigner {

@@ -1,4 +1,4 @@
-package org.fuin.porelo.vault;
+package org.fuin.porelo.organization.git;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -9,6 +9,9 @@ import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.regex.Pattern;
+import org.fuin.porelo.vault.CardException;
+import org.fuin.porelo.vault.HostCard;
+import org.fuin.porelo.vault.PersonCard;
 import org.fuin.porelo.wire.Json;
 import org.jspecify.annotations.Nullable;
 

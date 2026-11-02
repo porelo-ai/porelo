@@ -11,11 +11,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Callable;
 import java.util.function.BooleanSupplier;
+import org.fuin.porelo.organization.git.HttpForgeDirectory;
+import org.fuin.porelo.organization.git.RegistryState;
 import org.fuin.porelo.vault.CardException;
-import org.fuin.porelo.vault.HttpForgeDirectory;
 import org.fuin.porelo.vault.OpenSshPrivateKey;
 import org.fuin.porelo.vault.PersonCard;
-import org.fuin.porelo.vault.RegistryState;
 import org.fuin.porelo.vault.VaultException;
 import org.fuin.porelo.wire.Json;
 import org.jspecify.annotations.Nullable;
@@ -514,8 +514,9 @@ public class IdentityBackupKeyCommand implements Callable<Integer>, PoreloFactor
     private static String canonical(final String text) throws IdentityChange.Refused {
         try {
             return RegistryState.ownersFile(
-                    org.fuin.porelo.vault.RegistryFiles.entries(text, "owners.yml", null),
-                    org.fuin.porelo.vault.RegistryFiles.hostAdmins(text, "owners.yml"));
+                    org.fuin.porelo.organization.git.RegistryFiles.entries(
+                            text, "owners.yml", null),
+                    org.fuin.porelo.organization.git.RegistryFiles.hostAdmins(text, "owners.yml"));
         } catch (CardException ex) {
             throw new IdentityChange.Refused(65, null, String.valueOf(ex.getMessage()));
         }
@@ -524,7 +525,8 @@ public class IdentityBackupKeyCommand implements Callable<Integer>, PoreloFactor
     private List<RegistryState.Owner> filedEntries(final String text)
             throws IdentityChange.Refused {
         try {
-            return org.fuin.porelo.vault.RegistryFiles.entries(text, "owners.yml", scope.host);
+            return org.fuin.porelo.organization.git.RegistryFiles.entries(
+                    text, "owners.yml", scope.host);
         } catch (CardException ex) {
             throw new IdentityChange.Refused(65, null, String.valueOf(ex.getMessage()));
         }
@@ -838,8 +840,9 @@ public class IdentityBackupKeyCommand implements Callable<Integer>, PoreloFactor
             throws IdentityChange.Refused {
         try {
             return with(
-                    org.fuin.porelo.vault.RegistryFiles.entries(text, "owners.yml", null),
-                    org.fuin.porelo.vault.RegistryFiles.hostAdmins(text, "owners.yml"),
+                    org.fuin.porelo.organization.git.RegistryFiles.entries(
+                            text, "owners.yml", null),
+                    org.fuin.porelo.organization.git.RegistryFiles.hostAdmins(text, "owners.yml"),
                     entries,
                     entry,
                     instead);

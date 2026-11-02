@@ -1,4 +1,4 @@
-package org.fuin.porelo.vault;
+package org.fuin.porelo.organization.git;
 
 import static org.assertj.core.api.Assertions.assertThat;
 

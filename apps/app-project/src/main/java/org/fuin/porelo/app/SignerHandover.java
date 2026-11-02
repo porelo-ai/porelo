@@ -121,8 +121,9 @@ final class SignerHandover {
     static java.util.function.Predicate<String> revokedByRegistries(final PoreloContext context) {
         return fingerprint -> {
             try {
-                for (final org.fuin.porelo.vault.TrustRecords.Read read :
-                        org.fuin.porelo.vault.TrustRecords.read(context.paths().xdg().state())) {
+                for (final org.fuin.porelo.organization.git.TrustRecords.Read read :
+                        org.fuin.porelo.organization.git.TrustRecords.read(
+                                context.paths().xdg().state())) {
                     if (read.state().revoked().contains(fingerprint)) {
                         return true;
                     }

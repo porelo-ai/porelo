@@ -1,4 +1,4 @@
-package org.fuin.porelo.vault;
+package org.fuin.porelo.organization.git;
 
 import java.io.StringReader;
 import java.util.ArrayList;
@@ -12,6 +12,7 @@ import java.util.Set;
 import java.util.regex.Pattern;
 import org.fuin.porelo.core.project.ProjectException;
 import org.fuin.porelo.core.project.Repository;
+import org.fuin.porelo.vault.CardException;
 import org.yaml.snakeyaml.LoaderOptions;
 import org.yaml.snakeyaml.Yaml;
 import org.yaml.snakeyaml.constructor.SafeConstructor;
