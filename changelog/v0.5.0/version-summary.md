@@ -46,10 +46,10 @@
 - The offline picture and security.md say that an offline task's agent still reaches its AI provider through the host, and only the code and its definition move as a file 
 - Builds on the porelo-parent snapshot and the porelo-buildtools snapshot it manages, as every Porelo repository now does between releases 
 - Every task image Porelo builds has python3 where its base has a package manager, for agents that evaluate Python; about 40 MB on ubuntu:24.04 
-- Sokar is now Porelo - the commands porelo and porelod, the packages, the artifacts org.fuin.porelo, the varlink interfaces, paths, variables and names all say porelo; nothing of Sokar's is read or kept, so a machine is set up afresh 
+- The project takes the name Porelo - the commands porelo and porelod, the packages, the artifacts org.fuin.porelo, the varlink interfaces, paths, variables and names all say porelo; nothing of the earlier name's is read or kept, so a machine is set up afresh 
 - Every workflow run is titled by its workflow, its branch or tag and its commit's subject, and the shared-rules workflow is named Shared rules check 
 - A refusal shows what it pointed at - the tasks there are, the projects followed, why a followed project is not in force, the egress sets - and vault passphrase keeps the new passphrase where the old one was cached 
-- A task's terminal feels like the one outside - Esc within 10 ms, Shift+Enter, focus, truecolour, the clipboard, links, the title and the wheel - and an account's own ~/.config/porelo/tmux.conf is read in every task it starts 
+- A task's terminal feels like the one outside - Esc within 10 ms, Shift+Enter, focus, truecolour, the clipboard, links, the title and the wheel - and an account's own tmux.conf in $XDG_CONFIG_HOME/porelo is read in every task it starts 
 - The daemon says in its journal which mailbox directory it cannot watch and why, for example when the inotify watches run out 
 - At a terminal, a command that needs a shut vault asks for the passphrase itself and carries on; a task's start, run and resume keep it open as porelo vault unlock does, and vault login asks before the login 
 

@@ -906,8 +906,8 @@ at the gate or tasks run; `--force` clears those too. Run again, it says there i
 With the vault locked, the earlier keys it cannot read are said to be unreadable, never answered as
 none.
 
-A deploy key made before 0.5.0, while Porelo was called Sokar, is titled `sokar <host> <project>/<repository>` at
-its forge. Porelo reads nothing of Sokar's, so it never lists such a key: it is yours to remove.
+A deploy key made before 0.5.0 carries the project's earlier name in its title at its forge. Porelo never lists such a
+key: it is yours to remove.
 
 ## panic
 
