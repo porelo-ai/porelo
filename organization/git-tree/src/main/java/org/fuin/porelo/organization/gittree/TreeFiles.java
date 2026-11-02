@@ -199,6 +199,82 @@ final class TreeFiles {
         return new HostFile(List.copyOf(admins), List.copyOf(projects));
     }
 
+    /**
+     * Writes {@code owners.yml} so that {@link #owners} reads it back.
+     *
+     * @param owners The entries.
+     * @return The file's text.
+     */
+    static String ownersText(final List<Owner> owners) {
+        final StringBuilder text = new StringBuilder("owners:\n");
+        for (final Owner owner : owners) {
+            text.append("  - login: ")
+                    .append(owner.login())
+                    .append("\n    key: \"")
+                    .append(owner.key())
+                    .append("\"\n");
+            if (owner.backup()) {
+                text.append("    backup: true\n");
+            }
+        }
+        return text.toString();
+    }
+
+    /**
+     * Writes a host's {@code host.yml} so that {@link #hostFile} reads it back.
+     *
+     * @param file The file.
+     * @return Its text.
+     */
+    static String hostFileText(final HostFile file) {
+        final StringBuilder text = new StringBuilder("admins:\n");
+        for (final HostAdmin admin : file.admins()) {
+            text.append("  - login: ").append(admin.login()).append('\n');
+            if (admin.backup()) {
+                text.append("    key: \"")
+                        .append(admin.backupKey())
+                        .append("\"\n    backup: true\n");
+            }
+        }
+        text.append(file.projects().isEmpty() ? "projects: []\n" : "projects:\n");
+        file.projects().forEach(each -> text.append("  - ").append(each).append('\n'));
+        return text.toString();
+    }
+
+    /**
+     * Writes a project's {@code members.yml} so that {@link #members} reads it back.
+     *
+     * @param members The members.
+     * @return The file's text.
+     */
+    static String membersText(final List<Member> members) {
+        if (members.isEmpty()) {
+            return "members: []\n";
+        }
+        final StringBuilder text = new StringBuilder("members:\n");
+        for (final Member member : members) {
+            text.append("  - login: ")
+                    .append(member.login())
+                    .append("\n    role: ")
+                    .append(member.role())
+                    .append('\n');
+            if (member.locked()) {
+                text.append("    locked: true\n");
+            }
+        }
+        return text.toString();
+    }
+
+    /**
+     * Tells whether a text is a key this organization's files may hold.
+     *
+     * @param key The text.
+     * @return Whether it is an Ed25519 key.
+     */
+    static boolean key(final String key) {
+        return KEY.matcher(key).matches();
+    }
+
     private static HostAdmin hostAdmin(final Map<?, ?> entry) {
         final String login = login(entry.get("login"));
         final boolean backup = flag(entry.get("backup"), "backup");

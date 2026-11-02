@@ -13,6 +13,7 @@ import java.util.Set;
 import org.fuin.porelo.core.config.XdgPaths;
 import org.fuin.porelo.core.process.ProcessCommandRunner;
 import org.fuin.porelo.organization.OfflineOrganization;
+import org.fuin.porelo.organization.OrganizationException;
 import org.fuin.porelo.organization.gittree.FetchAccess;
 import org.fuin.porelo.organization.gittree.GitTreeStore;
 import org.fuin.porelo.vault.PersonCard;
@@ -50,6 +51,8 @@ class OrgFetchCommandTest {
     private final String key = PersonCard.keyLine(SigningKey.generate("hank"));
 
     private boolean unreachable;
+
+    private boolean unprovable;
 
     @BeforeEach
     void files() throws Exception {
@@ -98,6 +101,10 @@ class OrgFetchCommandTest {
                         public Map<String, Object> check(
                                 final String host, final Set<String> pinned, final String since)
                                 throws java.io.IOException {
+                            if (unprovable) {
+                                throw new OrganizationException(
+                                        "a shallow history proves nothing", null);
+                            }
                             if (unreachable) {
                                 GitTreeStore.at(
                                                 new ProcessCommandRunner(),
@@ -235,5 +242,24 @@ class OrgFetchCommandTest {
         assertThat(run()).as("what it said: %s", err).isEqualTo(69);
 
         assertThat(reason()).isEqualTo("cannot-say");
+    }
+
+    @Test
+    void aHistoryThatProvesNothingIsRefusedAndNotAFailure() {
+        unprovable = true;
+
+        assertThat(run()).as("what it said: %s", err).isEqualTo(65);
+
+        assertThat(out.toString()).contains("refused-state");
+    }
+
+    @Test
+    void theForgesPinnedHostKeyFileIsNeverRewritten() throws Exception {
+        assertThat(run()).isZero();
+
+        try (FetchAccess.Lease lease = accesses.get(0).lend("git@github.com:acme/org.git")) {
+            assertThat(lease.environment().toString() + lease.arguments())
+                    .contains("UpdateHostKeys=no");
+        }
     }
 }

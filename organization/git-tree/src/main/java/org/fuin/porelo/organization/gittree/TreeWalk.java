@@ -45,7 +45,7 @@ final class TreeWalk {
     private static final Pattern HOST_FILE = Pattern.compile("hosts/([^/]+)/(card|host\\.yml)");
 
     /** No project of an organization may carry the name of the one each machine has by itself. */
-    private static final String RESERVED = "default";
+    static final String RESERVED = "default";
 
     /**
      * The most distinct keys a person's chain holds: what the identity source is asked about for
@@ -473,6 +473,10 @@ final class TreeWalk {
             }
             model.people().remove(login);
             model.cards().remove(path);
+            if (prior != null) {
+                // A withdrawn card's key must not go on signing, nor file the card again.
+                revoke(prior.fingerprint());
+            }
             return prior != null;
         }
         final PersonCard card = card(object.orElseThrow(), path, login, signer, before);
@@ -574,7 +578,9 @@ final class TreeWalk {
         if (!card.signedAsItMustBe()) {
             throw new Refused("the card is not signed as it must be");
         }
-        if (!signer.equals(card.fingerprint()) && !before.owner(signer)) {
+        if (!signer.equals(card.fingerprint())
+                && !before.owner(signer)
+                && !backs(before, login, signer)) {
             throw new Refused("signed by " + signer + ", neither the card's key nor an owner");
         }
         return card;
@@ -642,11 +648,37 @@ final class TreeWalk {
         if (signer.equals(card.fingerprint()) && handsOn(before, path, card, prior)) {
             return true;
         }
-        if (!before.owner(signer)) {
+        if (!before.owner(signer) && !backs(before, prior, card, signer)) {
             throw new Refused("signed by " + signer + ", the old key did not hand the card on");
         }
         revoke(prior.fingerprint());
         return false;
+    }
+
+    /**
+     * Whether the key is one this login filed as its backup on a host. An owner's backup key signs
+     * no card: it puts the new key in {@code owners.yml}, and that key then signs the card.
+     */
+    private static boolean backs(final TreeModel before, final String login, final String signer) {
+        return before.hosts().values().stream()
+                .flatMap(host -> host.file().admins().stream())
+                .anyMatch(
+                        admin ->
+                                admin.login().equals(login)
+                                        && admin.backupKey() != null
+                                        && PersonCard.fingerprint(admin.backupKey())
+                                                .equals(signer));
+    }
+
+    /** A backup key replaces the card it backs, with one signed by the new key alone. */
+    private static boolean backs(
+            final TreeModel before,
+            final TreeModel.Person prior,
+            final PersonCard card,
+            final String signer) {
+        return card.predecessor().isEmpty()
+                && !prior.fingerprint().equals(card.fingerprint())
+                && backs(before, card.login(), signer);
     }
 
     /** Revokes a key from this commit on: no card holding it stands. */
@@ -885,6 +917,14 @@ final class TreeWalk {
         }
         if (!hostAdmin(before, prior, signer)) {
             throw new Refused("signed by " + signer + ", not its admin");
+        }
+        for (final TreeFiles.HostAdmin admin : file.admins()) {
+            // A backup key replaces its login's card: nobody may name one for someone else.
+            if (admin.backup()
+                    && !prior.file().admins().contains(admin)
+                    && !holds(before, admin.login(), signer)) {
+                throw new Refused("signed by " + signer + ", not the key of the backup's holder");
+            }
         }
         for (final String project : file.projects()) {
             carriable(before, host, prior, project);

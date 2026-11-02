@@ -3,10 +3,10 @@ package org.fuin.porelo.organization.gittree;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-import java.util.stream.Collectors;
 import org.fuin.porelo.organization.Organization;
 import org.fuin.porelo.organization.OrganizationQuestions;
 import org.fuin.porelo.organization.OrganizationQuestions.Refused;
+import org.fuin.porelo.vault.PersonCard;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -54,7 +54,7 @@ final class TreePin implements TreeWalk.Watch {
         if (!active && !since.isEmpty()) {
             active = since.equals(commit);
             if (active) {
-                follow(commit, model, changed);
+                follow(commit, signer, model, changed);
             }
             return;
         }
@@ -72,24 +72,73 @@ final class TreePin implements TreeWalk.Watch {
             active = active || signed;
         }
         if (active) {
-            follow(commit, model, changed);
+            follow(commit, signer, model, changed);
         }
     }
 
-    /** Takes the admins the walk now holds as the pin; none would leave nothing to check with. */
-    private void follow(final String commit, final TreeModel model, final List<String> changed) {
-        if (changed.isEmpty()) {
+    /**
+     * Moves the pin to the admins the walk now holds, but only along what the pin itself vouches
+     * for: a commit signed for it, or a key an admin handed on from a pinned one. An owner's
+     * replacement of an admin's card is neither, so a stolen owner's key cannot rewrite a host's
+     * root of trust: the host stops until its admin renews the pin on the machine.
+     */
+    private void follow(
+            final String commit,
+            final @Nullable String signer,
+            final TreeModel model,
+            final List<String> changed) {
+        final TreeModel.HostState state = model.hosts().get(host);
+        if (changed.isEmpty() || state == null) {
             return;
         }
-        final Set<String> admins =
-                new GitTreeOrganization(commit, model, List.of(), List.of(), description)
-                        .getHosts().stream()
-                                .filter(each -> each.host().equals(host))
-                                .flatMap(each -> each.admins().stream())
-                                .map(Organization.Owner::fingerprint)
-                                .collect(Collectors.toSet());
+        final boolean signed = signer != null && pin.contains(signer);
+        final Set<String> admins = new HashSet<>();
+        for (final TreeFiles.HostAdmin admin : state.file().admins()) {
+            final String backup = admin.backupKey();
+            if (backup != null) {
+                final String fingerprint = PersonCard.fingerprint(backup);
+                if (!model.revoked().contains(fingerprint)
+                        && (signed || pin.contains(fingerprint))) {
+                    admins.add(fingerprint);
+                }
+                continue;
+            }
+            final TreeModel.Person person = model.people().get(admin.login());
+            if (person != null) {
+                held(commit, admin.login(), person, signed, admins);
+            }
+        }
         if (!admins.isEmpty()) {
             pin = admins;
+        }
+    }
+
+    /** Adds what the pin holds for one admin, a card not yet vouched for keeping what led to it. */
+    private void held(
+            final String commit,
+            final String login,
+            final TreeModel.Person person,
+            final boolean signed,
+            final Set<String> admins) {
+        final String own = person.fingerprint();
+        final List<String> chain = person.handedOn().stream().filter(pin::contains).toList();
+        if (!Organization.TRUSTED.equals(person.state())) {
+            admins.addAll(chain);
+            return;
+        }
+        if (signed || pin.contains(own) || !chain.isEmpty()) {
+            admins.add(own);
+        } else if (!person.earlier().isEmpty()) {
+            throw new Refused(
+                    Refused.REFUSED_STATE,
+                    commit
+                            + " puts "
+                            + own
+                            + " on the card of "
+                            + login
+                            + ", an admin of this host, and neither that person's key nor the pin"
+                            + " signed for it: renew the pin on this host if it is right",
+                    commit);
         }
     }
 

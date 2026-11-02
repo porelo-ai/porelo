@@ -2608,4 +2608,281 @@ class GitTreeStoreTest {
                 .as("an anonymous forge allows 60 calls an hour, and this runs every five minutes")
                 .isZero();
     }
+
+    /**
+     * A card filed for a listed member, of a key the forge has not been able to say anything of.
+     */
+    private void firstSeenCarol() throws IOException {
+        write(
+                "projects/demo/members.yml",
+                "members:\n  - login: alice\n    role: admin\n  - login: bob\n    role: developer\n"
+                        + "  - login: carol\n    role: developer\n");
+        commit("alice");
+        write("people/carol.card", card("carol", "mallory"));
+        commit("mallory");
+    }
+
+    @Test
+    void aFirstSeenCardGivesAHostNoKeyThoughTheRoleStaysAnswered() throws Exception {
+        carryingHost();
+        firstSeenCarol();
+
+        final Map<String, Object> answer = fetch("", "alice");
+
+        assertThat((List<?>) answer.get("persons"))
+                .as(
+                        "anyone with write access could have filed that card while the forge was silent")
+                .extracting(row -> (Object) ((Map<?, ?>) row).get("login"))
+                .doesNotContain("carol");
+        final Map<?, ?> project = (Map<?, ?>) ((List<?>) answer.get("projects")).get(0);
+        assertThat((List<?>) project.get("signing_keys"))
+                .as("commit verify would take their pushes as carol's")
+                .extracting(row -> (Object) ((Map<?, ?>) row).get("login"))
+                .doesNotContain("carol");
+        assertThat((List<?>) project.get("members"))
+                .extracting(row -> (Object) ((Map<?, ?>) row).get("login"))
+                .contains("carol");
+    }
+
+    @Test
+    void aFirstSeenAdminIsNotAnsweredWithAKeyForRootsLogin() throws Exception {
+        carryingHost();
+        write("people/carol.card", card("carol", "mallory"));
+        commit("mallory");
+        write(
+                "hosts/build/host.yml",
+                "admins:\n  - login: alice\n  - login: carol\nprojects: [demo]\n");
+        commit("alice");
+
+        assertThat((List<?>) fetch("", "alice").get("admins"))
+                .as("whoever filed that card would get in as the host's admin")
+                .extracting(row -> (Object) ((Map<?, ?>) row).get("login"))
+                .containsExactly("alice");
+    }
+
+    @Test
+    void aFirstSeenCardBecomesAHostsKeyOnceTheForgeVouchesForIt() throws Exception {
+        carryingHost();
+        firstSeenCarol();
+        forge.keys.put("carol", List.of(key("mallory")));
+
+        final Map<?, ?> project = (Map<?, ?>) ((List<?>) fetch("", "alice").get("projects")).get(0);
+
+        assertThat((List<?>) project.get("signing_keys"))
+                .extracting(row -> (Object) ((Map<?, ?>) row).get("login"))
+                .contains("carol");
+    }
+
+    @Test
+    void aFirstSeenAdminsKeyNeverJoinsThePin() throws Exception {
+        final TreeModel model = TreeModel.empty();
+        model.people()
+                .put(
+                        "carol",
+                        new TreeModel.Person(
+                                PersonCard.fingerprint(key("mallory")),
+                                Organization.FIRST_SEEN,
+                                List.of(),
+                                "",
+                                card("carol", "mallory"),
+                                List.of()));
+        model.hosts()
+                .put(
+                        "build",
+                        new TreeModel.HostState(
+                                new TreeFiles.HostFile(
+                                        List.of(new TreeFiles.HostAdmin("carol", null)), List.of()),
+                                null));
+        final String alice = PersonCard.fingerprint(key("alice"));
+        final TreePin pin =
+                new TreePin(
+                        "build",
+                        java.util.Set.of(alice),
+                        "",
+                        false,
+                        new OrganizationQuestions.Description("acme", "", ""));
+
+        pin.passed("c1", alice, List.of("hosts/build/host.yml"), model);
+
+        refusedAs(
+                "refused-state",
+                () ->
+                        pin.passed(
+                                "c2",
+                                PersonCard.fingerprint(key("mallory")),
+                                List.of("hosts/build/host.yml"),
+                                model));
+    }
+
+    @Test
+    void anOwnersReplacementOfAnAdminsCardLeavesTheHostAtRefusedState() throws Exception {
+        final String taken = carryingHost();
+        forge.keys.put("alice", List.of(key("alice"), key("alice-new")));
+        write("people/alice.card", card("alice", "alice-new"));
+        final String replaced = commit("mia");
+
+        assertThatThrownBy(() -> fetch(taken, "alice"))
+                .as("a stolen owner's key must not rewrite a host's root of trust")
+                .isInstanceOfSatisfying(
+                        OrganizationQuestions.Refused.class,
+                        refused -> {
+                            assertThat(refused.reason()).isEqualTo("refused-state");
+                            assertThat(refused.getMessage()).contains(replaced).contains("alice");
+                        });
+    }
+
+    @Test
+    void aKeyTheAdminHandedOnFollowsThePin() throws Exception {
+        final String taken = carryingHost();
+        forge.keys.put("alice", List.of(key("alice"), key("alice-new")));
+        write("people/alice.card", handedOn("alice", "alice-new", "alice"));
+        commit("alice-new");
+        write("hosts/build/card", hostCard("build", "alice-new"));
+        commit("alice-new");
+
+        assertThat(fetch(taken, "alice").get("revision")).isEqualTo(git("rev-parse", "HEAD"));
+    }
+
+    @Test
+    void aBackupTheAdminFiledMovesThePinToTheReplacement() throws Exception {
+        final String taken = carryingHost();
+        write(
+                "hosts/build/host.yml",
+                "admins:\n  - login: alice\n  - login: alice\n    key: \""
+                        + key("carol")
+                        + "\"\n    backup: true\nprojects:\n  - demo\n");
+        commit("alice");
+        forge.keys.put("alice", List.of(key("alice"), key("alice-new")));
+        write("people/alice.card", card("alice", "alice-new"));
+        commit("carol");
+        write("hosts/build/card", hostCard("build", "alice-new"));
+        commit("alice-new");
+
+        assertThat(fetch(taken, "alice").get("revision")).isEqualTo(git("rev-parse", "HEAD"));
+    }
+
+    @Test
+    void aHostsRecordDoesNotLetTheRepositoryGoBack() throws Exception {
+        final String taken = carryingHost();
+        write("hosts/build/card", hostCard("build", "alice"));
+        commit("alice");
+        final GitTreeOffline host = new GitTreeOffline(keeping(), forge);
+        final java.util.Set<String> pin = java.util.Set.of(PersonCard.fingerprint(key("alice")));
+        host.check("build", pin, "");
+        git("reset", "-q", "--hard", taken);
+
+        refusedAs("refused-state", () -> host.check("build", pin, ""));
+    }
+
+    @Test
+    void anAnswerGitsOutputWasCutFromIsRefusedRatherThanRead() throws Exception {
+        founded();
+        final org.fuin.porelo.core.process.CommandRunner cutting =
+                command -> {
+                    final org.fuin.porelo.core.process.CommandResult result = runner.run(command);
+                    return command.arguments().contains("rev-list")
+                            ? new org.fuin.porelo.core.process.CommandResult(
+                                    command,
+                                    result.exitCode(),
+                                    "[1024 bytes cut before this]\n" + result.standardOutput(),
+                                    result.standardError())
+                            : result;
+                };
+
+        refusedAs(
+                "cannot-say",
+                () ->
+                        GitTreeStore.at(
+                                        cutting,
+                                        repo.toString(),
+                                        "acme",
+                                        "forge.example",
+                                        FetchAccess.NONE,
+                                        dir.resolve("state-cut"))
+                                .read(forge));
+    }
+
+    @Test
+    void aMergesSecondParentVouchesForNothing() throws Exception {
+        founded();
+        final String main = git("rev-parse", "HEAD");
+        git("checkout", "-q", "-b", "side");
+        write("owners.yml", owners("mia", "mallory"));
+        commit("mia");
+        git("checkout", "-q", "main");
+        git(
+                "-c",
+                "user.signingkey=" + keyFiles.get("mallory"),
+                "merge",
+                "-q",
+                "-S",
+                "--no-ff",
+                "-m",
+                "merge",
+                "side");
+
+        final OrganizationQuestions read = store(repo.toString()).read(forge);
+
+        assertThat(main).isNotBlank();
+        assertThat(read.isOrganizationOwner("mallory"))
+                .as("the owner's signature on the side says nothing of the merge's signer")
+                .isFalse();
+        assertThat(read.getRefusals()).anyMatch(each -> each.path().equals("owners.yml"));
+    }
+
+    @Test
+    void aPathDifferingInCaseOrNotInUtf8IsNoFileOfTheOrganization() throws Exception {
+        founded();
+        write("OWNERS.YML", owners("mia", "mallory"));
+        write("People/mallory.card", card("mallory", "mallory"));
+        Files.createDirectories(repo.resolve("people"));
+        runner.runOrFail(
+                Command.of("sh", "-c", "printf x > \"$(printf 'people/caf\\351.card')\"")
+                        .in(repo)
+                        .withEnvironment(Map.of()));
+        commit("mallory");
+
+        final OrganizationQuestions read = store(repo.toString()).read(forge);
+
+        assertThat(read.isOrganizationOwner("mallory")).isFalse();
+        assertThat(read.getPersons()).isEmpty();
+    }
+
+    @Test
+    void aSubmoduleInACardsPlaceIsNoCard() throws Exception {
+        final String founding = founded();
+        git("update-index", "--add", "--cacheinfo", "160000," + founding + ",people/mallory.card");
+        git(
+                "-c",
+                "user.signingkey=" + keyFiles.get("mallory"),
+                "commit",
+                "-q",
+                "-S",
+                "-m",
+                "submodule");
+
+        final OrganizationQuestions read = store(repo.toString()).read(forge);
+
+        assertThat(read.getPersons()).isEmpty();
+        assertThat(read.getRefusals()).anyMatch(each -> each.path().equals("people/mallory.card"));
+    }
+
+    @Test
+    void oneRefusedPathOfACommitLeavesItsOtherPathsJudgedOnTheirOwn() throws Exception {
+        founded();
+        forge.keys.put("mallory", List.of(key("mallory")));
+        write("people/mallory.card", card("mallory", "mallory"));
+        write("owners.yml", owners("mia", "mallory"));
+        commit("mallory");
+
+        final OrganizationQuestions read = store(repo.toString()).read(forge);
+
+        assertThat(read.isOrganizationOwner("mallory")).isFalse();
+        assertThat(read.getRefusals())
+                .extracting(Organization.Refusal::path)
+                .containsExactly("owners.yml");
+        assertThat(read.getPersons())
+                .extracting(OrganizationQuestions.Person::login)
+                .containsExactly("mallory");
+    }
 }

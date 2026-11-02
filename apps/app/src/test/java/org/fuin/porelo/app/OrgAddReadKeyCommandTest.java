@@ -1,6 +1,7 @@
 package org.fuin.porelo.app;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
@@ -10,6 +11,7 @@ import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.net.InetSocketAddress;
 import java.net.URI;
+import java.net.http.HttpClient;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -48,6 +50,8 @@ class OrgAddReadKeyCommandTest {
     private final List<String> tokens = new ArrayList<>();
 
     private String listed = "[]";
+
+    private List<String> pages = List.of();
 
     private int listStatus = 200;
 
@@ -91,7 +95,11 @@ class OrgAddReadKeyCommandTest {
                     new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8));
             send(exchange, postStatus, "{}");
         } else {
-            send(exchange, listStatus, listed);
+            final String query = String.valueOf(exchange.getRequestURI().getQuery());
+            final int asked = Integer.parseInt(query.replaceAll(".*[?&]?page=([0-9]+).*", "$1"));
+            final String page =
+                    asked <= pages.size() ? pages.get(asked - 1) : asked == 1 ? listed : "[]";
+            send(exchange, listStatus, page);
         }
     }
 
@@ -179,6 +187,37 @@ class OrgAddReadKeyCommandTest {
 
         assertThat(answer().get("reason")).isEqualTo("not-allowed");
         assertThat(posted).isEmpty();
+    }
+
+    @Test
+    void aForgeCappingItsPagesBelowWhatWasAskedIsReadToAnEmptyOne() {
+        pages =
+                List.of(
+                        "[{\"key\":\"ssh-ed25519 AAAAother\",\"read_only\":true}]",
+                        "[{\"key\":\"" + KEY + "\",\"read_only\":true}]",
+                        "[]");
+
+        assertThat(run(TOKEN)).isZero();
+
+        assertThat(answer().get("added"))
+                .as("a key on a later page is there already")
+                .isEqualTo(false);
+        assertThat(posted).isEmpty();
+    }
+
+    @Test
+    void aClientFollowingRedirectsIsRefusedSinceTheTokenWouldGoWhereverTheyLead() {
+        assertThatThrownBy(
+                        () ->
+                                new ForgeReadKey(
+                                        URI.create("https://forge.example"),
+                                        "git@forge.example:acme/org.git",
+                                        TOKEN,
+                                        HttpClient.newBuilder()
+                                                .followRedirects(HttpClient.Redirect.NORMAL)
+                                                .build()))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageNotContaining(TOKEN);
     }
 
     @Test

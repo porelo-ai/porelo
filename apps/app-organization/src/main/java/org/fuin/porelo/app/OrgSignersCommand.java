@@ -94,7 +94,8 @@ public class OrgSignersCommand extends OrgReading {
         if (!text.matches("\\d{4}-\\d{2}-\\d{2}")) {
             throw unreadable();
         }
-        return text.replace("-", "");
+        // In UTC, as a card's day is read everywhere: without the mark ssh-keygen takes local time.
+        return text.replace("-", "") + "Z";
     }
 
     private static Map<?, ?> read(final Path file) throws IOException {
