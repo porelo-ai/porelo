@@ -113,6 +113,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b396"></a>[B396](B396-Mutation-Testing-With-PIT.md) | - | - | A `pit` profile run by hand, not in CI and with no threshold, and a report sorting survivors into real gaps and harmless ones. |
 | <a id="b358"></a>[B358](B358-A-Task-Reviews-A-Pull-Request-On-The-Central-Forge.md) | - | [B172](README.md#b172) | A reviewer task also takes any existing pull request on the central forge by its URL, in a project or without one; read and commented with the person's own account, comments only, each released |
 | <a id="b355"></a>[B355](B355-No-Switch-That-Turns-Every-Check-Off.md) | S | - | No `--insecure` that turns every check off; instead an `unsigned`/`unverified` mark in `task list`, the interface and the gate's verdicts, for what already runs so |
 | <a id="b274"></a>[B274](B274-A-Room-Line-Wakes-Only-The-Tasks-It-Mentions.md) | S | - | A person's room line wakes only the tasks it mentions, and every task on `@room`; an unaddressed line is delivered but wakes none, read at the next wake; a reply to a task's message stays a mention |
