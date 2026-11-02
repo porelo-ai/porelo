@@ -976,8 +976,12 @@ class GitTreeStoreTest {
         assertThat(reached).as("the walk went past this").isNotEqualTo(stoppedAt);
         assertThatThrownBy(() -> store(repo.toString()).read(forge, undecided))
                 .as("a caller who named a revision is not answered about another")
-                .isInstanceOf(OrganizationException.class)
-                .hasMessageContaining(stoppedAt);
+                .isInstanceOfSatisfying(
+                        OrganizationQuestions.Refused.class,
+                        refused -> {
+                            assertThat(refused.reason()).isEqualTo("cannot-say");
+                            assertThat(refused.revision()).isEqualTo(stoppedAt);
+                        });
     }
 
     @Test
@@ -1711,8 +1715,9 @@ class GitTreeStoreTest {
 
         assertThatThrownBy(() -> keeping().read(forge))
                 .as("a rollback hides a removal or a revocation")
-                .isInstanceOf(OrganizationException.class)
-                .hasMessageContaining("does not continue");
+                .isInstanceOfSatisfying(
+                        OrganizationQuestions.Refused.class,
+                        refused -> assertThat(refused.reason()).isEqualTo("refused-state"));
         assertThat(Files.readString(trustRecord())).as("the record stays").isEqualTo(kept);
     }
 
@@ -1727,8 +1732,9 @@ class GitTreeStoreTest {
 
         assertThatThrownBy(() -> keeping().read(forge))
                 .as("what the record trusted is gone from the line")
-                .isInstanceOf(OrganizationException.class)
-                .hasMessageContaining("does not continue");
+                .isInstanceOfSatisfying(
+                        OrganizationQuestions.Refused.class,
+                        refused -> assertThat(refused.reason()).isEqualTo("refused-state"));
     }
 
     @Test

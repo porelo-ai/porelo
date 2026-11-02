@@ -18,6 +18,86 @@ public interface OrganizationQuestions {
      */
     @Nullable String revision();
 
+    /** The adapter's plain no, for a program by its reason and for a person by its words. */
+    final class Refused extends RuntimeException {
+
+        private static final long serialVersionUID = 1L;
+
+        /** The acting person does not hold the role. */
+        public static final String NOT_ALLOWED = "not-allowed";
+
+        /** The base is not the revision the store is at. */
+        public static final String MOVED_ON = "moved-on";
+
+        /** The acting member is locked. */
+        public static final String LOCKED = "locked";
+
+        /** What is added is already there, under another id. */
+        public static final String EXISTS = "exists";
+
+        /** It would remove the last owner, the last host admin or a project's last admin. */
+        public static final String LAST_OF_ITS_KIND = "last-of-its-kind";
+
+        /** A project may not carry this name. */
+        public static final String RESERVED_NAME = "reserved-name";
+
+        /** The project is already on another host. */
+        public static final String ON_ANOTHER_HOST = "on-another-host";
+
+        /** The person named has no accepted card. */
+        public static final String NO_CARD = "no-card";
+
+        /** What was read is refused: a change nobody allowed, an older state served again. */
+        public static final String REFUSED_STATE = "refused-state";
+
+        /** No such person, project or host. */
+        public static final String NOT_FOUND = "not-found";
+
+        /** The organization's repository does not exist. */
+        public static final String NO_REPOSITORY = "no-repository";
+
+        /** The store or the identity source could not be reached or could not say: never a no. */
+        public static final String CANNOT_SAY = "cannot-say";
+
+        /** The agent does not serve the key that must sign. */
+        public static final String NO_KEY = "no-key";
+
+        private final String reason;
+
+        private final @Nullable String revision;
+
+        /**
+         * Makes the refusal.
+         *
+         * @param reason Why, one of this class's reasons.
+         * @param words What to say to a person, which quotes nothing a file held.
+         * @param revision Where the store is, when that is what matters, or {@code null}.
+         */
+        public Refused(final String reason, final String words, final @Nullable String revision) {
+            super(words);
+            this.reason = reason;
+            this.revision = revision;
+        }
+
+        /**
+         * Returns why, for a program.
+         *
+         * @return The reason.
+         */
+        public String reason() {
+            return reason;
+        }
+
+        /**
+         * Returns where the store is, when that is what matters.
+         *
+         * @return The revision, or {@code null}.
+         */
+        public @Nullable String revision() {
+            return revision;
+        }
+    }
+
     /**
      * Where a host is reached.
      *

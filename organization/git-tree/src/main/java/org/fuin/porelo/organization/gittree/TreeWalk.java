@@ -14,6 +14,7 @@ import java.util.regex.Pattern;
 import org.fuin.porelo.core.project.Project;
 import org.fuin.porelo.organization.IdentitySource;
 import org.fuin.porelo.organization.Organization;
+import org.fuin.porelo.organization.OrganizationQuestions;
 import org.fuin.porelo.vault.CardException;
 import org.fuin.porelo.vault.HostCard;
 import org.fuin.porelo.vault.PersonCard;
@@ -129,10 +130,12 @@ final class TreeWalk {
             reached = entry.getKey();
         }
         if (revision != null && !revision.equals(reached)) {
-            throw new CardException(
-                    "cannot say: the identity source could not say enough to reach the revision"
-                            + " asked for, and the walk stopped at "
-                            + (reached == null ? "the first commit, accepting nothing" : reached));
+            throw new OrganizationQuestions.Refused(
+                    OrganizationQuestions.Refused.CANNOT_SAY,
+                    "the identity source could not say enough to reach the revision asked for, and"
+                            + " the walk stopped at "
+                            + (reached == null ? "the first commit, accepting nothing" : reached),
+                    reached);
         }
         return new TreeRecord(reached, model, refusals);
     }

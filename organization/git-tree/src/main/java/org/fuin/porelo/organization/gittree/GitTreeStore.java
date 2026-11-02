@@ -166,10 +166,12 @@ public final class GitTreeStore {
             final List<String> line = clone.line(null).stream().map(Map.Entry::getKey).toList();
             final String commit = kept == null ? null : kept.commit();
             if (commit != null && !line.contains(commit)) {
-                throw new CardException(
+                throw new OrganizationQuestions.Refused(
+                        OrganizationQuestions.Refused.REFUSED_STATE,
                         "the organization's tip does not continue the commit last trusted: an older"
                                 + " state served again, or a fork, at "
-                                + commit);
+                                + commit,
+                        commit);
             }
             final TreeWalk walk = new TreeWalk(clone, identities, organisation);
             walk.readChains();
