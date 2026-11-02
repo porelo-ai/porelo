@@ -234,7 +234,10 @@ final class TreeRepository implements AutoCloseable {
             diff.add(parent);
         }
         diff.add(commit);
-        return List.of(require(diff.toArray(String[]::new)).split("\u0000"));
+        // Splitting nothing answers one empty name, which is no file changed.
+        return java.util.Arrays.stream(require(diff.toArray(String[]::new)).split("\u0000"))
+                .filter(name -> !name.isEmpty())
+                .toList();
     }
 
     /**

@@ -1,13 +1,25 @@
 package org.fuin.porelo.app;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
+import java.nio.file.attribute.PosixFilePermissions;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import org.fuin.porelo.core.process.CommandException;
+import org.fuin.porelo.organization.Organization;
 import org.fuin.porelo.organization.OrganizationException;
 import org.fuin.porelo.organization.OrganizationQuestions;
 import org.fuin.porelo.organization.OrganizationQuestions.Refused;
 import org.fuin.porelo.organization.gittree.GitTreeStore;
+import org.fuin.porelo.vault.AgentKey;
+import org.fuin.porelo.vault.SshAgentClient;
+import org.fuin.porelo.vault.VaultException;
 import org.jspecify.annotations.Nullable;
 import picocli.CommandLine.Model.CommandSpec;
 import picocli.CommandLine.Option;
@@ -54,6 +66,11 @@ public final class OrgSetup {
                 OrgOutput.answer(spec, answer);
             } else {
                 OrgOutput.line(spec, "This machine's organization: " + answer.get("name"));
+                OrgOutput.line(
+                        spec,
+                        answer.get("login") == null
+                                ? "No key in your agent has a card there: this machine only reads"
+                                : "Acting here as " + answer.get("login"));
             }
             return 0;
         } catch (Refused refused) {
@@ -75,13 +92,88 @@ public final class OrgSetup {
                     null);
         }
         final OrganizationQuestions state = checked(machine, named);
+        final String login = keepOwnCard(machine, state);
         OrgAccess.settle(machine, named);
         final Map<String, @Nullable Object> answer = new LinkedHashMap<>();
         answer.put("name", state.describe().name());
         answer.put("revision", state.revision());
         answer.put(
                 "address", org.fuin.porelo.organization.git.RegistryOrigin.withoutUserinfo(named));
+        answer.put("login", login);
         return answer;
+    }
+
+    /**
+     * Keeps the card of the one person this machine's agent holds a key of, so that a second
+     * machine can write too; without one it only reads. The card is public and every write judges
+     * it again, so only a card the forge vouches for is taken, and the agent is asked to list,
+     * never to sign.
+     */
+    private static @Nullable String keepOwnCard(
+            final PoreloContext machine, final OrganizationQuestions state) throws IOException {
+        final Set<String> held = listed(machine.environment().apply(OrgWriting.AGENT));
+        final List<OrganizationQuestions.Person> own =
+                state.getPersons().stream()
+                        .filter(
+                                person ->
+                                        Organization.TRUSTED.equals(person.state())
+                                                && !person.revoked()
+                                                && held.contains(person.fingerprint()))
+                        .toList();
+        if (own.size() != 1) {
+            return null;
+        }
+        final String login = own.getFirst().login();
+        final String card = state.getCard(login).orElse(null);
+        if (card == null) {
+            return null;
+        }
+        final Path home = machine.paths().xdg().config();
+        final Path directory =
+                org.fuin.porelo.vault.PrivateDirectory.make(home, home.resolve("identity"));
+        written(directory.resolve("key.pub"), own.getFirst().key() + " " + login + "\n");
+        written(directory.resolve("card"), card);
+        return login;
+    }
+
+    private static Set<String> listed(final @Nullable String socket) {
+        if (socket == null || socket.isBlank()) {
+            return Set.of();
+        }
+        final Set<String> fingerprints = new HashSet<>();
+        try {
+            for (final AgentKey key : new SshAgentClient(Path.of(socket)).identities()) {
+                final String fingerprint = OrgWriting.fingerprintOf(key);
+                if (fingerprint != null) {
+                    fingerprints.add(fingerprint);
+                }
+            }
+        } catch (VaultException | java.nio.file.InvalidPathException ex) {
+            // No agent to ask leaves a machine that reads, which is what it asked for.
+            return Set.of();
+        }
+        return fingerprints;
+    }
+
+    /** Written whole and owner-only, as the identity's own commands keep these files. */
+    private static void written(final Path file, final String text) throws IOException {
+        final Path staged =
+                Files.createTempFile(
+                        file.getParent(),
+                        ".",
+                        ".staged",
+                        PosixFilePermissions.asFileAttribute(
+                                PosixFilePermissions.fromString("rw-------")));
+        try {
+            Files.writeString(staged, text, StandardCharsets.UTF_8);
+            Files.move(
+                    staged,
+                    file,
+                    StandardCopyOption.REPLACE_EXISTING,
+                    StandardCopyOption.ATOMIC_MOVE);
+        } finally {
+            Files.deleteIfExists(staged);
+        }
     }
 
     /** Settings a machine could not read an organization with would only fail later. */

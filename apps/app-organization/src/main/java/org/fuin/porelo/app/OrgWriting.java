@@ -52,7 +52,7 @@ public abstract class OrgWriting extends OrgReading {
         Session open(PoreloContext machine) throws IOException;
     }
 
-    private static final String AGENT = "SSH_AUTH_SOCK";
+    static final String AGENT = "SSH_AUTH_SOCK";
 
     @Option(names = "--base", description = "The revision it was made against.")
     private @Nullable String base;
@@ -266,7 +266,7 @@ public abstract class OrgWriting extends OrgReading {
         throw noKey(fingerprint);
     }
 
-    private static @Nullable String fingerprintOf(final AgentKey key) {
+    static @Nullable String fingerprintOf(final AgentKey key) {
         try {
             return PersonCard.fingerprint(PersonCard.keyLine(key));
         } catch (CardException | IllegalArgumentException ex) {

@@ -850,6 +850,11 @@ Makes this account ready. Each step runs only if needed, so running it again is 
 It ends by saying whether the account is ready. `--hooks-only` registers only the hooks;
 `--uninstall` removes them.
 
+With `--organization`, it points this machine at an organization once that answers. If your
+ssh-agent lists the key of one person the forge vouches for, it keeps that person's card here, so
+this machine can change things too; it only asks the agent to list, and signs nothing. Without such
+a key the machine only reads. Run it again after your key changed on another machine.
+
 ## events
 
 `porelo events [--since INSTANT]` shows this account's event log: every approval and rejection, every connection

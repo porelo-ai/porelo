@@ -232,8 +232,11 @@ class OrgReadingCommandsTest {
                                     default -> null;
                                 },
                         dir);
-        return new PoreloContext(runner, new PoreloPaths(xdg, dir.resolve("bin")), arguments -> 0);
+        return new PoreloContext(
+                runner, new PoreloPaths(xdg, dir.resolve("bin")), arguments -> 0, environment::get);
     }
+
+    private Map<String, String> environment = Map.of();
 
     private ProjectFile.Read projectFile =
             new ProjectFile.Read(ProjectFile.CANNOT_SAY, null, null, null);
@@ -1085,5 +1088,151 @@ class OrgReadingCommandsTest {
         assertThat(err.toString())
                 .as("what failed goes through the handler that keeps it in the failure log")
                 .isNotBlank();
+    }
+
+    private Path ownCardFile() {
+        return dir.resolve("config/porelo/identity/card");
+    }
+
+    private int setupServing(final String... logins) throws Exception {
+        final Path socket = dir.resolve("agent.sock");
+        final List<SigningKey> served = java.util.Arrays.stream(logins).map(keys::get).toList();
+        try (org.fuin.porelo.vault.SshAgentServer agent =
+                new org.fuin.porelo.vault.SshAgentServer(socket, served)) {
+            Thread.ofVirtual().start(agent);
+            environment = Map.of("SSH_AUTH_SOCK", socket.toString());
+            return setup("setup", "--organization", NAMED, "--json");
+        }
+    }
+
+    @Test
+    void aNewMachineKeepsTheCardOfThePersonWhoseKeyTheAgentServes() throws Exception {
+        assertThat(setupServing("stranger", "alice")).as("what it said: %s", err).isZero();
+
+        assertThat(ownCardFile())
+                .as("a person on a second machine could otherwise only read")
+                .hasContent(card("alice"));
+        assertThat(dir.resolve("config/porelo/identity/key.pub"))
+                .hasContent(key("alice") + " alice\n");
+        assertThat(java.nio.file.Files.getPosixFilePermissions(ownCardFile()))
+                .containsExactlyInAnyOrder(
+                        java.nio.file.attribute.PosixFilePermission.OWNER_READ,
+                        java.nio.file.attribute.PosixFilePermission.OWNER_WRITE);
+        assertThat(answer().get("login")).isEqualTo("alice");
+    }
+
+    @Test
+    void aSetUpAgainReplacesACardMadeOldByARotationElsewhere() throws Exception {
+        iAm("bob");
+
+        assertThat(setupServing("alice")).as("what it said: %s", err).isZero();
+
+        assertThat(ownCardFile())
+                .as("the old card names a key the organization no longer takes from them")
+                .hasContent(card("alice"));
+    }
+
+    @Test
+    void anAgentServingNoKnownKeyLeavesTheMachineReadingAndItsCardAlone() throws Exception {
+        assertThat(setupServing("stranger")).as("what it said: %s", err).isZero();
+
+        assertThat(ownCardFile()).doesNotExist();
+        assertThat(answer().get("login")).isNull();
+        assertThat(settings()).as("reading is still worth setting up").exists();
+
+        iAm("bob");
+        assertThat(setupServing("stranger")).as("what it said: %s", err).isZero();
+        assertThat(ownCardFile()).hasContent(card("bob"));
+    }
+
+    @Test
+    void aMachineWithNoAgentStillSetsUp() throws Exception {
+        environment = Map.of("SSH_AUTH_SOCK", dir.resolve("nobody-here").toString());
+
+        assertThat(setup("setup", "--organization", NAMED, "--json"))
+                .as("what it said: %s", err)
+                .isZero();
+
+        assertThat(ownCardFile()).doesNotExist();
+        assertThat(settings()).exists();
+    }
+
+    @Test
+    void aCardTheForgeDoesNotVouchForIsNotKept() throws Exception {
+        forge.keys.remove("alice");
+
+        assertThat(setupServing("alice")).as("what it said: %s", err).isZero();
+
+        assertThat(ownCardFile())
+                .as("anyone with write access can file a first card under any login")
+                .doesNotExist();
+    }
+
+    @Test
+    void aCardRefusedIsNotKept() throws Exception {
+        forge.keys.put("alice", List.of(key("stranger")));
+
+        assertThat(setupServing("alice")).as("what it said: %s", err).isZero();
+
+        assertThat(ownCardFile()).doesNotExist();
+    }
+
+    @Test
+    void aRevokedKeyIsNoCardToKeep() throws Exception {
+        organizationYml(ORGANIZATION_YML);
+        iAm("carol");
+        forge.keys.put("carol", List.of(key("alice")));
+        write(
+                "people/carol.card",
+                PersonCard.write(
+                        "carol",
+                        "carol",
+                        "",
+                        keys.get("alice"),
+                        LocalDate.of(2026, 1, 1),
+                        LocalDate.of(2030, 1, 1),
+                        null));
+        commit("alice");
+        forge.keys.put("alice", List.of(key("stranger")));
+        write(
+                "people/alice.card",
+                PersonCard.write(
+                        "alice",
+                        "alice",
+                        "",
+                        keys.get("stranger"),
+                        LocalDate.of(2026, 1, 1),
+                        LocalDate.of(2030, 1, 1),
+                        null));
+        commit("mia");
+        Files.deleteIfExists(ownCardFile());
+
+        assertThat(setupServing("alice")).as("what it said: %s", err).isZero();
+
+        assertThat(ownCardFile())
+                .as("a key taken back must not make this machine act as that person")
+                .doesNotExist();
+    }
+
+    @Test
+    void aKeyOfTwoPersonsKeepsNeithersCard() throws Exception {
+        forge.keys.put("carol", List.of(key("alice")));
+        write(
+                "people/carol.card",
+                PersonCard.write(
+                        "carol",
+                        "carol",
+                        "",
+                        keys.get("alice"),
+                        LocalDate.of(2026, 1, 1),
+                        LocalDate.of(2030, 1, 1),
+                        null));
+        commit("alice");
+
+        assertThat(setupServing("alice")).as("what it said: %s", err).isZero();
+
+        assertThat(ownCardFile())
+                .as("guessing could make this machine act as the other person")
+                .doesNotExist();
     }
 }

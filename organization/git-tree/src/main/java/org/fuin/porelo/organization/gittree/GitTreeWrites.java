@@ -971,6 +971,13 @@ public final class GitTreeWrites implements OrganizationWrites {
                                 change.acting().login());
                 commits.add(commit);
             }
+            if (clone.changed(commit, tip).isEmpty()) {
+                throw new Refused(
+                        Refused.REFUSED_STATE,
+                        "the file says this already, in a commit no reader accepts: an owner sets"
+                                + " the project's admin anew first",
+                        tip);
+            }
             judged(clone, commits, tip, before.model(), change.acting().login());
             if (!clone.push(address, access)) {
                 return afterRefusedPush(change, commit, tip);

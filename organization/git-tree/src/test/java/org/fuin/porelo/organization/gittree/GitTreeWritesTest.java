@@ -1490,4 +1490,30 @@ class GitTreeWritesTest {
                                         new Change(new Acting("mia", key("mia")), null, "found"),
                                         card("mia", "mia")));
     }
+
+    @Test
+    void aChangeThatWouldChangeNoFileIsRefusedAndNotAnsweredAsMade() throws Exception {
+        demo();
+        carolFiled();
+        as("alice").addProjectMember(change("alice", "alice", "add"), "demo", "carol", "developer");
+        forge.keys.put("alice", List.of(key("alice-new")));
+        as("mia").replaceCard(change("mia", "mia", "swap"), "alice", card("alice", "alice-new"));
+        final String before = tip();
+
+        // The refused commit's text is still in the file, so writing it again changes nothing.
+        refusedAs(
+                "refused-state",
+                () ->
+                        as("alice")
+                                .addProjectMember(
+                                        change("alice", "alice-new", "again"),
+                                        "demo",
+                                        "carol",
+                                        "developer"));
+
+        assertThat(tip())
+                .as("no reader has a member an empty commit claims to have added")
+                .isEqualTo(before);
+        assertThat(read().isProjectMember("demo", "carol")).isEmpty();
+    }
 }
