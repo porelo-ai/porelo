@@ -1,6 +1,6 @@
 # B226 — An Imported Credential Names Its Provider
 
-**Status:** Analyzed; blocked by [B224](README.md#b224).
+**Status:** Backlog; blocked by [B224](README.md#b224).
 **Size:** M - small in code, an optional parameter through four classes and a flag, but a contract every agent
 repository reads.
 

@@ -56,6 +56,7 @@ from its side, as *blocked by*.
 | <a id="b371"></a>[B371](B371-A-History-Judged-Under-The-Rules-Of-Its-Time.md) | M | - | A history mode of `porelo commit verify`: each commit judged by the keys and certificates in force at its own time, for a migrated history before the hook is armed |
 | <a id="b224"></a>[B224](B224-An-Agent-Protocol-That-Only-Grows.md) | M | - | The agent handshake accepts an agent at or above the lowest contract version, `Agent1` only grows, and a missing method reads as "cannot say", so agents need not release in step with `porelo`. | 0 |
 | <a id="b225"></a>[B225](B225-The-Agent-Found-On-The-Machine.md) | L | `porelo` [B224](README.md#b224) | A start without `--agent` and `--provider` takes the agent signed in on the machine and names where it was found; `Agent1.Find` answers presence only, with "cannot say". | 0 |
+| <a id="b226"></a>[B226](B226-An-Imported-Credential-Names-Its-Provider.md) | M | `porelo` [B224](README.md#b224) | `ExtractCredential` takes an optional provider, so an agent signed in to several imports the one named, stored under that provider. | 0 |
 
 ## Analyzed
 
@@ -98,7 +99,6 @@ from its side, as *blocked by*.
 | <a id="b220"></a>[B220](B220-Build-Tool-Plugins-Found-At-Run-Time.md) | M | - | Build-tool plugins as native executables of their own over `Ecosystem1` (`detect`, `configure`), found at run time and started without network; the contract, discovery and a stub. | 0 |
 | <a id="b222"></a>[B222](B222-A-Tasks-Tool-Settings-Written-At-Its-Start.md) | M | `porelo` [B220](README.md#b220), [B219](README.md#b219) | A task's start has the plugins `configure` it and places their tool settings, pointing at the broker with no credential. | 0 |
 | <a id="b221"></a>[B221](B221-A-Project-Proposed-From-A-Checkout.md) | L | `porelo` [B220](README.md#b220) | `porelo project init <checkout>`: the plugins' answers merged into a tools draft and a `project.yml` draft, each value with its source, disagreements named, no credential copied. | 0 |
-| <a id="b226"></a>[B226](B226-An-Imported-Credential-Names-Its-Provider.md) | M | `porelo` [B224](README.md#b224) | `ExtractCredential` takes an optional provider, so an agent signed in to several imports the one named, stored under that provider. | 0 |
 | <a id="b228"></a>[B228](B228-A-Key-Pasted-At-The-Prompt-Is-Read-Whole.md) | S | - | A private key pasted at `vault put`'s prompt is read whole, as from a file or a pipe, and an unreadable key is called unreadable, not the wrong algorithm. | 0 |
 | <a id="b227"></a>[B227](B227-A-Project-Followed-From-A-Path-Is-Refreshed.md) | S | - | `porelo project refresh` reads a project followed from a directory or bundle on the machine again, under the checks a fetch has, so a local project repository needs no second follow. | 0 |
 | <a id="b229"></a>[B229](B229-A-Follow-Of-A-Repository-Without-A-Commit-Says-So.md) | S | - | `project follow` of a repository whose `HEAD` has no commit says so and names the branch and the next step, instead of git's `couldn't find remote ref HEAD`. | 0 |
