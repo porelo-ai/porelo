@@ -480,11 +480,19 @@
                             <GIT_CONFIG_GLOBAL>/dev/null</GIT_CONFIG_GLOBAL>
                             <GIT_CONFIG_NOSYSTEM>1</GIT_CONFIG_NOSYSTEM>
                         </environmentVariables>
+                        <!-- It would send every test's context to the vault it names, whatever paths the test gave. -->
+                        <excludedEnvironmentVariables>
+                            <excludedEnvironmentVariable>PORELO_VAULT</excludedEnvironmentVariable>
+                            <excludedEnvironmentVariable>SSH_AUTH_SOCK</excludedEnvironmentVariable>
+                            <excludedEnvironmentVariable>DBUS_SESSION_BUS_ADDRESS</excludedEnvironmentVariable>
+                        </excludedEnvironmentVariables>
                         <!-- And with nothing installed, on every machine: an agent, a filter or a
                              transport the porelo packages put under /usr would otherwise be found by
                              the tests on a developer's machine that has them and not on a runner. -->
                         <systemPropertyVariables>
                             <porelo.packaged.root>${project.build.directory}/no-packages</porelo.packaged.root>
+                            <!-- And with no way to the account running them: a command built without a context reached the real vault. -->
+                            <porelo.test.real.account.refused>true</porelo.test.real.account.refused>
                         </systemPropertyVariables>
                     </configuration>
                 </plugin>

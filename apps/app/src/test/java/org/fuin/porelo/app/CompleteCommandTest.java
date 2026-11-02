@@ -17,7 +17,7 @@ class CompleteCommandTest {
 
     private final CompleteCommand complete = new CompleteCommand();
 
-    private final CommandLine root = PoreloCli.commandLine(PoreloContext.real());
+    private final CommandLine root = PoreloCli.commandLine(NoAccount.context());
 
     private List<String> completing(String... words) {
         return complete.candidatesFor(root, List.of(words));

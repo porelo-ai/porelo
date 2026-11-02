@@ -121,7 +121,7 @@ public class VaultRemoveCommand implements Callable<Integer>, PoreloFactory.Cont
                     "forgotten what renewed this sign-in; signing out at the service ends the session there too");
             out.flush();
         } else if (grant != null) {
-            final String refused = revoke(context.credentials().get(name), grant.value());
+            final String refused = revoke(context, context.credentials().get(name), grant.value());
             if (refused == null) {
                 out.println("revoked   " + name + " at the service");
             } else if (withoutRevoking) {
@@ -266,18 +266,22 @@ public class VaultRemoveCommand implements Callable<Integer>, PoreloFactory.Cont
     /**
      * Tells the service a grant is finished with.
      *
+     * @param context Whose authorities the call trusts.
      * @param entry The entry naming the service, or {@code null} if it is gone.
      * @param refreshToken The grant's refresh token.
      * @return {@code null} when the service revoked it, else why it could not be told.
      */
-    static @Nullable String revoke(@Nullable VaultEntry entry, String refreshToken) {
+    static @Nullable String revoke(
+            PoreloContext context, @Nullable VaultEntry entry, String refreshToken) {
         if (entry == null || !Grants.isGrant(entry.type())) {
             return "the entry that names the service is gone, so it cannot be told";
         }
         try {
             Grants.revoke(
                     Grants.service(entry.type(), entry.value(), entry.settings()),
-                    org.fuin.porelo.core.net.TrustedCertificates.builder()
+                    org.fuin.porelo.core.net.TrustedCertificates.builder(
+                                    org.fuin.porelo.core.net.TrustedCertificates.file(
+                                            context.paths().xdg()))
                             .connectTimeout(java.time.Duration.ofSeconds(30))
                             .followRedirects(java.net.http.HttpClient.Redirect.NEVER)
                             .build(),

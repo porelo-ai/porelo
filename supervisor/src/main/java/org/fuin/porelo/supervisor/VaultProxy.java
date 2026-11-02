@@ -344,6 +344,47 @@ public class VaultProxy implements AutoCloseable, Runnable {
             Map<String, String> headers,
             Map<String, Route> routes,
             java.util.function.Consumer<String> log) {
+        this(
+                socket,
+                upstream,
+                exchange,
+                authHeader,
+                authPrefix,
+                authQuery,
+                headers,
+                routes,
+                log,
+                NO_AUTHORITIES);
+    }
+
+    /** A file nobody has: the built-in authorities and no others. */
+    private static final Path NO_AUTHORITIES = Path.of("/nonexistent/porelo-no-authorities");
+
+    /**
+     * Constructor for a proxy that also trusts the authorities an account adds.
+     *
+     * @param socket Path to bind.
+     * @param upstream The agent's own destination, for a token scoped to no other route.
+     * @param exchange Turns a presented token into a credential and the scope it stands for.
+     * @param authHeader The agent's own header.
+     * @param authPrefix The agent's own prefix.
+     * @param authQuery The agent's own URL parameter, or {@code null}.
+     * @param headers Headers set on the agent's own requests beside its key, by name.
+     * @param routes The other credentials' routes, by the credential a token is scoped to.
+     * @param log Receives one line per request.
+     * @param authorities The file of authorities the account adds, which need not exist.
+     */
+    public VaultProxy(
+            Path socket,
+            String upstream,
+            TokenExchange exchange,
+            String authHeader,
+            String authPrefix,
+            @org.jspecify.annotations.Nullable String authQuery,
+            Map<String, String> headers,
+            Map<String, Route> routes,
+            java.util.function.Consumer<String> log,
+            Path authorities) {
 
         this.ownHeaders = Map.copyOf(headers);
         this.routes = Map.copyOf(routes);
@@ -357,7 +398,7 @@ public class VaultProxy implements AutoCloseable, Runnable {
         this.authPrefix = authPrefix;
         // The authorities the account adds to the built-in ones, as every other client here.
         this.http =
-                org.fuin.porelo.core.net.TrustedCertificates.builder()
+                org.fuin.porelo.core.net.TrustedCertificates.builder(authorities)
                         .connectTimeout(Duration.ofSeconds(30))
                         .followRedirects(HttpClient.Redirect.NEVER)
                         .build();

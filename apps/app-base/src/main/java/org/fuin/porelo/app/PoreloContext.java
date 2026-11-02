@@ -101,7 +101,7 @@ public record PoreloContext(
             } catch (RuntimeException failure) {
                 throw new org.fuin.porelo.vault.VaultException(
                         "Cannot establish whether porelod is running for this uid; check "
-                                + paths.daemonSocket(),
+                                + paths().daemonSocket(),
                         failure);
             }
             if (processes.exitCode() != 0
@@ -224,10 +224,11 @@ public record PoreloContext(
      */
     public @org.jspecify.annotations.Nullable String recordedId(final String container) {
         final String saved =
-                org.fuin.porelo.wire.Sidecar.recordedId(paths.tasks().taskRecord(container));
+                org.fuin.porelo.wire.Sidecar.recordedId(paths().tasks().taskRecord(container));
         return saved != null
                 ? saved
-                : org.fuin.porelo.wire.Sidecar.recordedId(paths.tasks().containerState(container));
+                : org.fuin.porelo.wire.Sidecar.recordedId(
+                        paths().tasks().containerState(container));
     }
 
     /**
@@ -345,26 +346,120 @@ public record PoreloContext(
      * @return Context talking to the real machine.
      */
     public static PoreloContext real() {
-        // Every container a command or the daemon acts on as a task is one Porelo recorded, never
-        // one named like it.
+        if (org.fuin.porelo.core.config.RealAccount.refused()) {
+            return refused();
+        }
         return new PoreloContext(
                 new ProcessCommandRunner(),
                 PoreloPaths.current(),
                 PoreloContext::runInTerminal,
                 System::getenv,
-                true,
+                REAL_RECOGNIZES_TASKS,
                 VaultPrompt.terminal(),
                 StandardInput.real(),
                 MachineName::thisAccount);
     }
 
     /**
-     * Returns the hook installer for these paths.
+     * Every container a command or the daemon acts on as a task is one Porelo recorded, never one
+     * named like it.
+     */
+    private static final boolean REAL_RECOGNIZES_TASKS = true;
+
+    /**
+     * What stands for the paths in {@link #refused()}: no path of anybody's, so a slip past {@link
+     * #paths()} finds nothing real either.
+     */
+    private static final PoreloPaths REFUSED_PATHS = refusedPaths();
+
+    private static PoreloPaths refusedPaths() {
+        final java.nio.file.Path nowhere = java.nio.file.Path.of("/nonexistent/porelo-refused");
+        return new PoreloPaths(
+                new org.fuin.porelo.core.config.XdgPaths(
+                        nowhere, nowhere, nowhere, nowhere, nowhere),
+                nowhere,
+                nowhere,
+                nowhere);
+    }
+
+    /**
+     * Returns what {@link #real()} is in a test's JVM: built as every command's default is, before
+     * a factory replaces it, and refusing as soon as anything in it is used.
+     */
+    private static PoreloContext refused() {
+        return new PoreloContext(
+                command -> {
+                    throw refusal("its runner, for " + command.arguments().getFirst());
+                },
+                REFUSED_PATHS,
+                arguments -> {
+                    throw refusal("its terminal");
+                },
+                name -> {
+                    throw refusal("its environment, for " + name);
+                },
+                REAL_RECOGNIZES_TASKS,
+                prompt -> {
+                    throw refusal("its passphrase prompt");
+                },
+                new StandardInput(
+                        new java.io.InputStream() {
+                            @Override
+                            public int read() {
+                                throw refusal("its standard input");
+                            }
+                        },
+                        false),
+                () -> {
+                    throw refusal("its machine name");
+                },
+                new HostVaultAccess() {
+                    @Override
+                    public void keep(final byte[] share) {
+                        throw refusal("its host vault");
+                    }
+
+                    @Override
+                    public boolean isOpen() {
+                        throw refusal("its host vault");
+                    }
+
+                    @Override
+                    public byte[] share() {
+                        throw refusal("its host vault");
+                    }
+
+                    @Override
+                    public boolean forget() {
+                        throw refusal("its host vault");
+                    }
+                });
+    }
+
+    private static Error refusal(final String what) {
+        return org.fuin.porelo.core.config.RealAccount.refusal("PoreloContext.real(): " + what);
+    }
+
+    /**
+     * Returns where files go.
+     *
+     * @return The paths.
+     */
+    @Override
+    public PoreloPaths paths() {
+        if (paths == REFUSED_PATHS) {
+            throw refusal("its paths");
+        }
+        return paths;
+    }
+
+    /**
+     * Returns the hook installer for these paths().
      *
      * @return Installer.
      */
     public HookInstaller hooks() {
-        return new HookInstaller(paths.hooksDirectory(), paths.binaryDirectory());
+        return new HookInstaller(paths().hooksDirectory(), paths().binaryDirectory());
     }
 
     /**
@@ -383,7 +478,7 @@ public record PoreloContext(
     public org.fuin.porelo.core.credential.CredentialRegistry credentialRegistry() {
         try {
             return org.fuin.porelo.core.credential.CredentialRegistry.read(
-                    paths.vault().credentialRegistry());
+                    paths().vault().credentialRegistry());
         } catch (final org.fuin.porelo.core.credential.CredentialException ex) {
             // A registry that cannot be read must not stop a public repository being reached. What
             // it would have said is said by whatever asked for a credential and did not get one,
@@ -398,7 +493,7 @@ public record PoreloContext(
      * @return The vault.
      */
     public org.fuin.porelo.vault.VaultFile vault() {
-        return new org.fuin.porelo.vault.VaultFile(paths.vault().vaultFile());
+        return new org.fuin.porelo.vault.VaultFile(paths().vault().vaultFile());
     }
 
     /**
@@ -439,7 +534,8 @@ public record PoreloContext(
                             if (vault().exists()) {
                                 vault().read(opened);
                                 ASKED.put(
-                                        paths.vault().vaultFile().toAbsolutePath(), answer.clone());
+                                        paths().vault().vaultFile().toAbsolutePath(),
+                                        answer.clone());
                             }
                             return java.util.Optional.of(opened);
                         })
@@ -476,7 +572,7 @@ public record PoreloContext(
                             org.fuin.porelo.vault.VaultFile.Opener.keptShare(hostVault::share))
                     : java.util.Optional.empty();
         }
-        final char[] asked = ASKED.get(paths.vault().vaultFile().toAbsolutePath());
+        final char[] asked = ASKED.get(paths().vault().vaultFile().toAbsolutePath());
         if (asked != null && (!vault().exists() || vault().hasPassphrase())) {
             return java.util.Optional.of(
                     org.fuin.porelo.vault.VaultFile.Opener.passphrase(asked.clone()));
@@ -484,13 +580,13 @@ public record PoreloContext(
         final java.util.Optional<char[]> passphrase =
                 new org.fuin.porelo.vault.PassphraseTiers(
                                 org.fuin.porelo.vault.KernelKeyring.source(
-                                        paths.vault().vaultKeyringKey()))
+                                        paths().vault().vaultKeyringKey()))
                         .passphrase();
         if (passphrase.isPresent() && (!vault().exists() || vault().hasPassphrase())) {
             return java.util.Optional.of(
                     org.fuin.porelo.vault.VaultFile.Opener.passphrase(passphrase.get()));
         }
-        return VaultShare.held(paths).map(org.fuin.porelo.vault.VaultFile.Opener::share);
+        return VaultShare.held(paths()).map(org.fuin.porelo.vault.VaultFile.Opener::share);
     }
 
     /**
@@ -544,7 +640,7 @@ public record PoreloContext(
                         // Until reboot, as 'vault unlock' without --for: the broker spends the
                         // tokens for the task's life, and the daemon and later sessions find it
                         // there.
-                        new org.fuin.porelo.vault.KernelKeyring(paths.vault().vaultKeyringKey())
+                        new org.fuin.porelo.vault.KernelKeyring(paths().vault().vaultKeyringKey())
                                 .store(answer, null);
                     } catch (final org.fuin.porelo.vault.VaultException ex) {
                         err.println(
@@ -553,7 +649,7 @@ public record PoreloContext(
                         err.flush();
                     }
                 }
-                ASKED.put(paths.vault().vaultFile().toAbsolutePath(), answer.clone());
+                ASKED.put(paths().vault().vaultFile().toAbsolutePath(), answer.clone());
                 return java.util.Optional.of(
                         org.fuin.porelo.vault.VaultFile.Opener.passphrase(answer));
             }
@@ -584,15 +680,15 @@ public record PoreloContext(
         // At a terminal only: checking costs one key derivation, and only a person there can be
         // asked again.
         if (Offer.atTerminal()
-                && !ASKED.containsKey(paths.vault().vaultFile().toAbsolutePath())
+                && !ASKED.containsKey(paths().vault().vaultFile().toAbsolutePath())
                 && org.fuin.porelo.vault.KernelKeyring.available()
                 && stale(
                         new org.fuin.porelo.vault.PassphraseTiers(
                                         org.fuin.porelo.vault.KernelKeyring.source(
-                                                paths.vault().vaultKeyringKey()))
+                                                paths().vault().vaultKeyringKey()))
                                 .passphrase(),
                         typed -> vault().accepts(typed))) {
-            new org.fuin.porelo.vault.KernelKeyring(paths.vault().vaultKeyringKey()).forget();
+            new org.fuin.porelo.vault.KernelKeyring(paths().vault().vaultKeyringKey()).forget();
             err.println(
                     "porelo: the passphrase kept in this account's keyring no longer opens "
                             + vault().path()
@@ -628,7 +724,7 @@ public record PoreloContext(
 
     /** Forgets the passphrase typed in this process for this vault, once it no longer opens it. */
     public void forgetTyped() {
-        final char[] asked = ASKED.remove(paths.vault().vaultFile().toAbsolutePath());
+        final char[] asked = ASKED.remove(paths().vault().vaultFile().toAbsolutePath());
         if (asked != null) {
             java.util.Arrays.fill(asked, '\0');
         }
@@ -736,7 +832,7 @@ public record PoreloContext(
      */
     public org.fuin.porelo.agent.api.InstalledAgents agents() {
         return new org.fuin.porelo.agent.api.InstalledAgents(
-                paths.agents().agentDirectory(), paths.xdg().runtime());
+                paths().agents().agentDirectory(), paths().xdg().runtime());
     }
 
     /**
@@ -748,7 +844,7 @@ public record PoreloContext(
      * @return Providers by name.
      */
     public java.util.Map<String, org.fuin.porelo.agent.api.ProviderDefinition> providers() {
-        return paths.agents().providerDirectory().all();
+        return paths().agents().providerDirectory().all();
     }
 
     /**
@@ -761,7 +857,7 @@ public record PoreloContext(
         // is not one.
         final org.fuin.porelo.runtime.Podman podman =
                 new org.fuin.porelo.runtime.Podman(
-                        runner, "podman", paths.egress().networkConfiguration(), environment);
+                        runner, "podman", paths().egress().networkConfiguration(), environment);
         return recognizesTasks ? podman.recognizing(this::recordedId) : podman;
     }
 
@@ -771,6 +867,6 @@ public record PoreloContext(
      * @return Runner.
      */
     public TaskRunner tasks() {
-        return new TaskRunner(runner, paths, environment);
+        return new TaskRunner(runner, paths(), environment);
     }
 }

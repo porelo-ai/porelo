@@ -20,9 +20,16 @@ import org.fuin.porelo.core.net.GitCertificates;
  */
 public interface GitCredentials {
 
-    /** Nothing is lent. What a caller with no vault passes, and what tests use. */
+    /**
+     * Nothing is lent. What a caller with no vault passes, and what tests use; only an HTTPS remote
+     * asks the account what it trusts.
+     */
     GitCredentials NONE =
-            url -> withoutCredentials(new GitCertificates(XdgPaths.current())).forUrl(url);
+            url ->
+                    GitCertificates.appliesTo(url)
+                            ? withoutCredentials(new GitCertificates(XdgPaths.current()))
+                                    .forUrl(url)
+                            : Lease.EMPTY;
 
     /**
      * Applies the account's destination trust while lending no credential.

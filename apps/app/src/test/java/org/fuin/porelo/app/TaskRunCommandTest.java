@@ -3018,7 +3018,7 @@ class TaskRunCommandTest {
         // is how every test builds one - must read nothing from this process, or a suite passes on
         // a developer's machine and asserts something else where there is no terminal.
         assertThat(
-                        new PoreloContext(runner, PoreloPaths.current(), arguments -> 0)
+                        new PoreloContext(runner, NoAccount.context().paths(), arguments -> 0)
                                 .environment()
                                 .apply("TERM"))
                 .isNull();

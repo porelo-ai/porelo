@@ -21,7 +21,7 @@ class CliErrorsTest {
     void deployKeyIsAnUnknownCommand() {
         // Making more write-capable keys leaves access the forge no longer expects.
         final StringWriter err = new StringWriter();
-        final CommandLine command = PoreloCli.commandLine(PoreloContext.real());
+        final CommandLine command = PoreloCli.commandLine(NoAccount.context());
         command.setErr(new PrintWriter(err, true));
         command.setOut(new PrintWriter(new StringWriter(), true));
 
@@ -36,7 +36,7 @@ class CliErrorsTest {
     private String run(String... args) {
         final StringWriter err = new StringWriter();
         final CommandLine cmd =
-                new CommandLine(new PoreloCli(), new PoreloFactory(PoreloContext.real()));
+                new CommandLine(new PoreloCli(), new PoreloFactory(NoAccount.context()));
         cmd.setErr(new PrintWriter(err, true));
         cmd.setOut(new PrintWriter(new StringWriter(), true));
         cmd.setParameterExceptionHandler(CliErrors.handler());
@@ -196,7 +196,7 @@ class CliErrorsTest {
         // An argument can carry a credential - '--upstream https://user:token@host' is the obvious
         // one - and a log is exactly where that must not end up. The command's name says which
         // command failed, which is what a trace beside it needs.
-        final CommandLine command = PoreloCli.commandLine(PoreloContext.real());
+        final CommandLine command = PoreloCli.commandLine(NoAccount.context());
         command.setErr(new PrintWriter(new StringWriter()));
         final CommandLine.ParseResult parsed =
                 command.parseArgs(

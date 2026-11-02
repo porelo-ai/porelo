@@ -382,7 +382,9 @@ public class VaultServeCommand implements Callable<Integer>, PoreloFactory.Conte
                                 authQuery,
                                 headers,
                                 routes,
-                                requests);
+                                requests,
+                                org.fuin.porelo.core.net.TrustedCertificates.file(
+                                        context.paths().xdg()));
                 // Closed by a signal too, not only on return: the proxy's close removes its
                 // socket, and a socket left behind reads as a live broker.
                 Teardown closing = Teardown.arm(proxy::close)) {

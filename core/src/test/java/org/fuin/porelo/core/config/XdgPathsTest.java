@@ -56,7 +56,9 @@ class XdgPathsTest {
     @Test
     void resolvesTheRealEnvironmentWithoutFailing() {
 
-        final XdgPaths paths = XdgPaths.current();
+        // What current() resolves, which a test's JVM refuses itself. Only names, nothing is
+        // opened.
+        final XdgPaths paths = XdgPaths.of(System::getenv, XdgPaths.home(System::getenv));
 
         assertThat(paths.config()).isAbsolute();
         assertThat(paths.runtime()).isAbsolute();

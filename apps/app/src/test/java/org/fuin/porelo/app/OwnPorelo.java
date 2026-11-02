@@ -50,7 +50,9 @@ final class OwnPorelo implements BeforeAllCallback, AfterAllCallback {
                         + WATCHER
                         + "exec '"
                         + java
-                        + "' -cp '"
+                        + "' -D"
+                        + org.fuin.porelo.core.config.RealAccount.REFUSED
+                        + "=true -cp '"
                         + System.getProperty("java.class.path")
                         + "' "
                         + PoreloCli.class.getName()

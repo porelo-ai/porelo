@@ -235,7 +235,9 @@ final class CredentialChoice {
             // another one than this agent's default.
             final org.fuin.porelo.agent.api.Credential held =
                     agent.extractCredential(
-                                    VaultImportCommand.expand(agent.definition().configDirectory()))
+                                    VaultImportCommand.expand(
+                                            agent.definition().configDirectory(),
+                                            context.paths().xdg().home()))
                             .orElse(null);
             final String stored =
                     held != null && held.provider() != null

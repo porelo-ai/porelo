@@ -102,6 +102,7 @@ The command line and the daemon's logic are modules by area, `app-<area>`, submo
 
 ## Tests
 
+- **A unit test cannot reach the account it runs under.** The build sets `porelo.test.real.account.refused` for surefire, and `PoreloContext.real()`, `XdgPaths.current()` and a `~` then refuse with an `Error`; `PORELO_VAULT`, `SSH_AUTH_SOCK` and `DBUS_SESSION_BUS_ADDRESS` are kept from the test JVM. A refusal is the test's fault or the code's: give it the test's context, and take a home from `context.paths().xdg().home()`.
 - **Selecting features with `-Dcucumber.features` also requires
   `-Dcucumber.glue=org.fuin.porelo.acceptance`.** An undefined step (`■`) fails the run even when
   Maven reports no failures.

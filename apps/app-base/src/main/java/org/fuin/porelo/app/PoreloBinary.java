@@ -48,7 +48,7 @@ final class PoreloBinary {
         }
         final Optional<String> self = ProcessHandle.current().info().command();
         if (self.isEmpty()) {
-            return NAME;
+            return onThePath();
         }
         final Path running = Path.of(self.get());
         if (NAME.equals(running.getFileName().toString())) {
@@ -61,6 +61,13 @@ final class PoreloBinary {
         if (beside != null && Files.isExecutable(beside)) {
             return beside.toString();
         }
-        return NAME;
+        return onThePath();
+    }
+
+    /** In a test's JVM the one on the path is the person's own, and would run on their account. */
+    private static String onThePath() {
+        return org.fuin.porelo.core.config.RealAccount.refused()
+                ? "/nonexistent/porelo-refused/" + NAME
+                : NAME;
     }
 }

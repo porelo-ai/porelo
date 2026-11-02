@@ -42,6 +42,16 @@ public record GitCertificates(XdgPaths paths, List<Path> systemBundles) {
     }
 
     /**
+     * Says whether a destination can need additional trust at all.
+     *
+     * @param url Where git is about to connect.
+     * @return {@code true} for HTTPS.
+     */
+    public static boolean appliesTo(final String url) {
+        return url.regionMatches(true, 0, "https://", 0, "https://".length());
+    }
+
+    /**
      * Returns additional trust for an HTTPS destination, whether or not a credential is lent.
      *
      * @param url Where git is about to connect.
@@ -49,8 +59,7 @@ public record GitCertificates(XdgPaths paths, List<Path> systemBundles) {
      */
     public Map<String, String> environment(final String url) {
         final Path account = TrustedCertificates.file(paths);
-        if (!url.regionMatches(true, 0, "https://", 0, "https://".length())
-                || Files.notExists(account)) {
+        if (!appliesTo(url) || Files.notExists(account)) {
             return Map.of();
         }
         final List<Certificate> added = TrustedCertificates.read(account);

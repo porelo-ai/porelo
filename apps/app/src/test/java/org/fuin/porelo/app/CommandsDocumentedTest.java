@@ -30,7 +30,7 @@ class CommandsDocumentedTest {
         final String page = Files.readString(PAGE, StandardCharsets.UTF_8);
         final List<String> missing = new ArrayList<>();
         for (final CommandLine group :
-                PoreloCli.commandLine(PoreloContext.real()).getSubcommands().values()) {
+                PoreloCli.commandLine(NoAccount.context()).getSubcommands().values()) {
             final String name = group.getCommandName();
             if (group.getCommandSpec().usageMessage().hidden()) {
                 continue;

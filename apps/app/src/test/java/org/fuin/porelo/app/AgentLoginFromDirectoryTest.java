@@ -9,6 +9,8 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import org.fuin.porelo.agent.api.Credential;
+import org.fuin.porelo.core.config.XdgPaths;
+import org.fuin.porelo.testing.FakeCommandRunner;
 import org.fuin.porelo.vault.VaultEntry;
 import org.fuin.porelo.vault.VaultFile;
 import org.junit.jupiter.api.Test;
@@ -150,17 +152,27 @@ class AgentLoginFromDirectoryTest {
         }
     }
 
+    private static VaultLoginCommand loginCommand(final Path dir) {
+        final VaultLoginCommand command = new VaultLoginCommand();
+        command.setContext(
+                new PoreloContext(
+                        new FakeCommandRunner(),
+                        new PoreloPaths(XdgPaths.of(name -> null, dir), dir.resolve("bin")),
+                        arguments -> 0));
+        return command;
+    }
+
     @Test
     void aTokenEndpointWithoutADirectoryOrOffThisMachineIsRefusedBeforeAnythingIsKept(
             @TempDir Path dir) {
         final StringWriter err = new StringWriter();
 
         final int alone =
-                new CommandLine(new VaultLoginCommand())
+                new CommandLine(loginCommand(dir))
                         .setErr(new PrintWriter(err))
                         .execute("an-agent", "--token-url", "http://127.0.0.1:9/token");
         final int offMachine =
-                new CommandLine(new VaultLoginCommand())
+                new CommandLine(loginCommand(dir))
                         .setErr(new PrintWriter(err))
                         .execute(
                                 "an-agent",
@@ -208,7 +220,7 @@ class AgentLoginFromDirectoryTest {
         final StringWriter err = new StringWriter();
 
         final int code =
-                new CommandLine(new VaultLoginCommand())
+                new CommandLine(loginCommand(dir))
                         .setErr(new PrintWriter(err))
                         .execute("an-agent", "--credentials-from", dir.toString(), "--dry-run");
 

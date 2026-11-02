@@ -20,8 +20,12 @@ class PoreloBinaryTest {
     }
 
     @Test
-    void withNothingNamedAJvmFallsBackToThePorelosOnThePath() {
-        // A test's JVM is 'java', with no 'porelo' beside it: what OwnPorelo exists for.
-        assertThat(PoreloBinary.path()).isEqualTo("porelo");
+    void withNothingNamedATestsJvmStartsNoPoreloOfThePersons() {
+        // A test's JVM is 'java', with no 'porelo' beside it; a real run's fallback here, the one
+        // on the path, would run the installed release on the person's account.
+        assertThat(java.nio.file.Path.of(PoreloBinary.path()))
+                .as("the program a test falls back to does not exist")
+                .isAbsolute()
+                .doesNotExist();
     }
 }

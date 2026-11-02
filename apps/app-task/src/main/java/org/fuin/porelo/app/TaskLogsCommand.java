@@ -382,19 +382,20 @@ public class TaskLogsCommand implements Callable<Integer>, PoreloFactory.Context
      */
     static java.util.Map<String, String> said(final PoreloContext context, final String container) {
         final java.util.Map<String, String> said = new java.util.LinkedHashMap<>();
-        said.put("status.txt", rendered(context, new TaskStatusCommand(), container));
-        said.put("files.txt", rendered(context, new TaskFilesCommand(), container));
-        said.put("talk.txt", rendered(context, new TalkLogCommand(), container));
+        said.put("status.txt", rendered(context, TaskStatusCommand.class, container));
+        said.put("files.txt", rendered(context, TaskFilesCommand.class, container));
+        said.put("talk.txt", rendered(context, TalkLogCommand.class, container));
         return said;
     }
 
     private static String rendered(
-            final PoreloContext context, final Object command, final String container) {
+            final PoreloContext context, final Class<?> command, final String container) {
         final java.io.StringWriter text = new java.io.StringWriter();
         final PrintWriter writer = new PrintWriter(text, true);
         // The same code a person runs, so the archive cannot say something the command would not.
         // Its refusal is kept as well: a stopped task has no answer from its container, and an
         // empty file would hide why.
+        // By its class: picocli does not ask the factory for an instance it is handed.
         final int code =
                 new picocli.CommandLine(command, new PoreloFactory(context))
                         .setOut(writer)

@@ -23,7 +23,7 @@ class OptionNullnessTest {
     @Test
     void everyOptionPicocliMayLeaveUnsetSaysItMayBeNull() {
         final List<String> undeclared = new ArrayList<>();
-        walk(PoreloCli.commandLine(PoreloContext.real()), undeclared);
+        walk(PoreloCli.commandLine(NoAccount.context()), undeclared);
 
         assertThat(undeclared.stream().distinct().toList())
                 .as("options and parameters that can be null and do not say so")

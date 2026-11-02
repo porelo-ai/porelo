@@ -65,8 +65,21 @@ public class VaultImportCommand implements Callable<Integer>, PoreloFactory.Cont
         }
         // '~' alone, '~/' and '~/x' all have to work: the old form leaned on Path.of ignoring a
         // leading slash in its second argument, and taking substring(2) of "~" would throw.
+        if (org.fuin.porelo.core.config.RealAccount.refused()) {
+            throw org.fuin.porelo.core.config.RealAccount.refusal("the real home, for " + path);
+        }
+        return expand(path, org.fuin.porelo.core.config.XdgPaths.home(System::getenv));
+    }
+
+    /**
+     * Expands a leading tilde against a home.
+     *
+     * @param path Path as declared, starting with a tilde.
+     * @param home The home it means.
+     * @return Absolute path.
+     */
+    static Path expand(final String path, final Path home) {
         final String rest = path.substring(1).replaceFirst("^/+", "");
-        final Path home = org.fuin.porelo.core.config.XdgPaths.home(System::getenv);
         return rest.isEmpty() ? home : home.resolve(rest);
     }
 

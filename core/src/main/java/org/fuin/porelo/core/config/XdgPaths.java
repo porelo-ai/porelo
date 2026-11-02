@@ -37,6 +37,9 @@ public record XdgPaths(Path config, Path data, Path state, Path runtime, Path ho
      * @return Paths for this user.
      */
     public static XdgPaths current() {
+        if (RealAccount.refused()) {
+            throw RealAccount.refusal("XdgPaths.current()");
+        }
         return of(System::getenv, home(System::getenv));
     }
 

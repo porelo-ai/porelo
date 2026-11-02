@@ -75,10 +75,12 @@ class VaultRemoveCommandTest {
     }
 
     @Test
-    void aGrantWhoseServiceCannotBeToldSaysWhy() {
-        assertThat(VaultRemoveCommand.revoke(null, "rt-1")).contains("cannot be told");
+    void aGrantWhoseServiceCannotBeToldSaysWhy(@TempDir Path dir) {
+        assertThat(VaultRemoveCommand.revoke(context(dir), null, "rt-1"))
+                .contains("cannot be told");
         assertThat(
                         VaultRemoveCommand.revoke(
+                                context(dir),
                                 new VaultEntry(
                                         "-",
                                         "oauth-device",
