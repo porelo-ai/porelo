@@ -441,11 +441,12 @@ method Start(
   # Project NAME, as Projects.name gives it. REQUIRED - there is no default directory any more.
   project: ?string,
   # Agent to run, by the name Agents reports. Default: the agent the project file names for the
-  # repository (Repository.agent), else the only one installed, or an error naming them all when
-  # several are.
+  # repository (Repository.agent), else the one found signed in on this machine, else the only one
+  # installed, or an error naming them all when that does not decide.
   agent: ?string,
-  # Provider to route through. Default: the agent's own declared default, or an error when it
-  # declares none. A project file may name a repository's agent, never a provider.
+  # Provider to route through. Default: the one a chosen agent was found signed in to, else the
+  # agent's own declared default, or an error when it declares none. A project file may name a
+  # repository's agent, never a provider.
   provider: ?string,
   # Overrides the stored credential kind for this run.
   credentialType: ?string,
@@ -832,6 +833,19 @@ method CanStart(
   # otherwise. Answered here rather than joined together from Providers() by a client: it is a
   # string this already builds, and a second place that builds it is a second place it can drift.
   storeCommand: []string,
+  # What to run ON THAT MACHINE to copy what the agent already holds into the vault, as arguments,
+  # with CREDENTIAL_MISSING for an agent found signed in by a route the import can take. Empty
+  # otherwise. Offer it before storeCommand, since nothing has to be retyped.
+  importCommand: []string,
+  # Where the agent was named: FLAG, PROJECT (the repository's own agent in the project file),
+  # SIGNED_IN (the one agent found signed in) or ONLY_ONE. "" when none was settled. Show an unknown
+  # one as it comes.
+  agentSource: string,
+  # Where its sign-in was found, an absolute path on that machine. "" when none was.
+  agentFoundIn: string,
+  # With SEVERAL_AGENTS: the agents found signed in, for a choice to put first. No client reads
+  # detail for them.
+  signedIn: []string,
   # Prose for a person, always set. Never parsed.
   detail: string,
   # With UNKNOWN_HOST_KEY: the host, spelled exactly as TrustHostKey wants it - with its port off

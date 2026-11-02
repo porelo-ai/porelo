@@ -201,8 +201,11 @@ At a terminal a shut vault asks for its passphrase; a script must unlock it firs
   the start, in words that do not say "stored".
   Without `--agent`, the start takes the agent the project file names for the repository
   (`repositories.<repository>.agent`) and says so in its plan; one that is not installed refuses the start. With
-  neither, and several agents installed, it lists them and asks which, by number; without a terminal it asks for
-  `--agent` as before. A task's commits are authored by the name its agent goes by, `Agent <nickname>` or
+  neither, it asks each installed agent what it finds of itself and takes the one found signed in, with the provider
+  it is signed in to unless `--provider` says otherwise, and names the choice and where it was found. An agent that
+  cannot say is never read as not signed in. Otherwise, with several installed, it lists them, those found signed in
+  first, and asks which, by number; without a terminal it asks for `--agent` as before. An agent found signed in
+  whose credential the vault lacks is offered `vault import`, or named it without a terminal. A task's commits are authored by the name its agent goes by, `Agent <nickname>` or
   `Agent <repository>`, at `agent@localhost`. Without `-r`, it lists the repositories the project works in and asks which,
   before the task is named after it. `--no-input` asks nothing and refuses as without a terminal; `--yes`
   takes a harmless remedy without asking and never a trust decision.

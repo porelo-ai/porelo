@@ -100,7 +100,7 @@ public class InstalledAgent implements AutoCloseable {
             awaitReady();
             opened = new VarlinkClient(socket);
             this.client = opened;
-            this.definition = bounded(this::handshake);
+            this.definition = bounded("describe itself", this::handshake);
         } catch (RuntimeException ex) {
             // Everything it left goes, and the failure is the agent's: as a VarlinkException it
             // escaped the list, which threw the whole lookup away and left the agents started
@@ -245,9 +245,9 @@ public class InstalledAgent implements AutoCloseable {
      * Runs a step that talks to the agent within the limit a start has: the client waits without
      * one, and an agent that accepted the connection and never answered held every task start.
      */
-    private <T> T bounded(java.util.function.Supplier<T> step) {
+    private <T> T bounded(final String asked, final java.util.function.Supplier<T> step) {
         try {
-            return bounded(executable, step, READY_TIMEOUT_SECONDS);
+            return bounded(executable, asked, step, READY_TIMEOUT_SECONDS);
         } catch (AgentException ex) {
             if (ex.getMessage() != null && ex.getMessage().contains(" within ")) {
                 throw new AgentException(
@@ -266,11 +266,13 @@ public class InstalledAgent implements AutoCloseable {
      * interrupted at the limit, so a step that never ends leaves no thread behind.
      *
      * @param executable The agent, for the message.
+     * @param asked What it was asked to do, for the message.
      * @param step What to run.
      * @param seconds The limit.
      * @return What the step returned.
      */
-    static <T> T bounded(Path executable, java.util.function.Supplier<T> step, long seconds) {
+    static <T> T bounded(
+            Path executable, String asked, java.util.function.Supplier<T> step, long seconds) {
         final java.util.concurrent.ExecutorService runner =
                 java.util.concurrent.Executors.newSingleThreadExecutor(
                         task -> {
@@ -282,14 +284,14 @@ public class InstalledAgent implements AutoCloseable {
             return runner.submit(step::get).get(seconds, TimeUnit.SECONDS);
         } catch (java.util.concurrent.TimeoutException ex) {
             throw new AgentException(
-                    executable + " did not describe itself within " + seconds + " seconds");
+                    executable + " did not " + asked + " within " + seconds + " seconds");
         } catch (InterruptedException ex) {
             Thread.currentThread().interrupt();
             throw new AgentException("Interrupted while asking " + executable, ex);
         } catch (java.util.concurrent.ExecutionException ex) {
             throw ex.getCause() instanceof RuntimeException failed
                     ? failed
-                    : new AgentException(executable + " failed to describe itself", ex);
+                    : new AgentException(executable + " failed to " + asked, ex);
         } finally {
             runner.shutdownNow();
         }
@@ -495,6 +497,55 @@ public class InstalledAgent implements AutoCloseable {
             throw new UnusableProvider();
         }
         return named;
+    }
+
+    /**
+     * Asks the agent what it finds of itself on this machine, within the limit a start has.
+     *
+     * <p>Over a connection of its own: the limit interrupts the read, which closes the channel it
+     * reads, and the start that goes on needs the agent's connection.
+     *
+     * @param configDirectory The directory the definition declares, expanded.
+     * @return The findings, in the tool's order; one that cannot say when the agent has no such
+     *     method.
+     * @throws RuntimeException If it failed some other way, which is not read as an old agent.
+     */
+    public List<Finding> find(final Path configDirectory) {
+        return bounded(
+                "say what it finds",
+                () -> {
+                    try (VarlinkClient own = new VarlinkClient(socket)) {
+                        return switch (optional(
+                                own,
+                                AgentProtocol.FIND,
+                                Map.of("configDirectory", configDirectory.toString()))) {
+                            case Answer.Answered answered -> findings(answered.reply());
+                            case Answer.CannotSay cannotSay -> List.of(Finding.cannotSay());
+                        };
+                    } catch (IOException closing) {
+                        throw new AgentException(executable + " could not be asked what it finds");
+                    }
+                });
+    }
+
+    /**
+     * Reads an agent's answer to {@code Find}.
+     *
+     * @param answer The answer.
+     * @return The findings it holds that are usable, in its order.
+     */
+    static List<Finding> findings(final Map<String, Object> answer) {
+        if (!(answer.get("findings") instanceof List<?> raw)) {
+            return List.of();
+        }
+        final List<Finding> kept = new java.util.ArrayList<>();
+        for (final Object entry : raw) {
+            final Finding finding = entry == null ? null : Finding.read(entry);
+            if (finding != null) {
+                kept.add(finding);
+            }
+        }
+        return List.copyOf(kept);
     }
 
     /**

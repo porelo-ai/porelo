@@ -1,0 +1,2 @@
+title: "A task started without '--agent' takes the agent found signed in on this machine, with its provider, and names the choice and where it was found, and 'vault import' is offered for it where the vault lacks the credential"
+type: added

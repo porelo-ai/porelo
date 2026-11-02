@@ -40,6 +40,9 @@ public final class StubAgent implements Agent {
     /** The name that copy's agent has. */
     static final String SESSIONLESS_NAME = "stub-sessionless";
 
+    /** Names what the stub finds of itself, for the suite; unset, it cannot say. */
+    static final String FINDINGS = "PORELO_AGENT_STUB_FINDINGS";
+
     private static final String RESOURCE = "/agent/stub.yaml";
 
     private final AgentDefinition definition;
@@ -167,6 +170,43 @@ public final class StubAgent implements Agent {
      *
      * @return The extractor.
      */
+    @Override
+    public org.fuin.porelo.agent.api.Finder finder() {
+        final String named = System.getenv(FINDINGS);
+        return named == null
+                ? org.fuin.porelo.agent.api.Finder.cannotSay()
+                : directory -> findings(named);
+    }
+
+    /**
+     * Reads what {@link #FINDINGS} names, for a suite to say what the stub finds of itself.
+     *
+     * @param named Sign-ins separated by {@code ;}, each {@code
+     *     STATE,importable,provider,KIND,path} with an empty field for what it does not say.
+     * @return The findings.
+     */
+    static java.util.List<org.fuin.porelo.agent.api.Finding> findings(final String named) {
+        final java.util.List<org.fuin.porelo.agent.api.Finding> findings =
+                new java.util.ArrayList<>();
+        for (final String one : named.split(";")) {
+            final String[] fields = one.split(",", -1);
+            if (fields.length != 5) {
+                throw new AgentException(FINDINGS + " holds a finding of other than five fields");
+            }
+            findings.add(
+                    new org.fuin.porelo.agent.api.Finding(
+                            org.fuin.porelo.agent.api.Finding.What.SIGN_IN,
+                            fields[4].isEmpty() ? null : fields[4],
+                            org.fuin.porelo.agent.api.Finding.SignedIn.valueOf(fields[0]),
+                            fields[1].isEmpty() ? null : Boolean.valueOf(fields[1]),
+                            fields[2].isEmpty() ? null : fields[2],
+                            fields[3].isEmpty()
+                                    ? null
+                                    : org.fuin.porelo.agent.api.Finding.Kind.valueOf(fields[3])));
+        }
+        return java.util.List.copyOf(findings);
+    }
+
     @Override
     public org.fuin.porelo.agent.api.CredentialExtractor credentialExtractor() {
         final org.fuin.porelo.agent.api.CredentialExtractor token = field("accessToken");

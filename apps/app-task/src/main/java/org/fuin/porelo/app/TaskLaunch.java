@@ -1407,7 +1407,9 @@ public final class TaskLaunch {
         if (request.dryRun()) {
             try (InstalledAgents agents = context.agents()) {
                 final AgentChoice.Choice choice =
-                        AgentChoice.considerAgent(agents, request.agentName(), repository);
+                        AgentChoice.considerAgent(context, agents, request.agentName(), repository);
+                sayFoundWarnings(choice, err);
+                sayChoice(choice, out);
                 if (choice.refusal() == AgentChoice.AgentRefusal.SEVERAL_AGENTS) {
                     out.println(
                             "note           name an agent with --agent to include its hosts and refusals");
@@ -1428,7 +1430,9 @@ public final class TaskLaunch {
                             SelectedProvider.consider(
                                     context.providers(),
                                     selected.definition(),
-                                    request.providerName());
+                                    request.providerName() != null
+                                            ? request.providerName()
+                                            : choice.provider());
                     if (provider.refusal() != null) {
                         err.println("porelo: " + provider.detail());
                         err.flush();
@@ -1487,6 +1491,18 @@ public final class TaskLaunch {
             // First, before a credential is looked at or anything is made: a task its agent cannot
             // hold to its number is not one to prepare.
             final InstalledAgent asked = select(agents);
+            if (decision != null) {
+                sayFoundWarnings(decision, err);
+                if (chosenAgent[0] == null) {
+                    sayChoice(decision, out);
+                } else {
+                    final String picked = decision.picked(chosenAgent[0]);
+                    if (picked != null) {
+                        out.println(picked);
+                        out.flush();
+                    }
+                }
+            }
             if (asked != null && refusesSubagents(asked, err)) {
                 return 64;
             }
@@ -1725,7 +1741,8 @@ public final class TaskLaunch {
                             "porelo: nothing was created; "
                                     + (request.mode() == org.fuin.porelo.wire.TaskMode.UNATTENDED
                                             ? "an unattended run cannot ask anybody, so it is refused"
-                                                    + " rather than started to fail"
+                                                    + " rather than started to fail. "
+                                                    + signIn(select(agents)).replaceFirst("; $", "")
                                             : "the agent would start without a credential and fail on its"
                                                     + " first request. "
                                                     + signIn(select(agents))
@@ -2635,17 +2652,86 @@ public final class TaskLaunch {
 
     @Nullable
     private InstalledAgent select(InstalledAgents agents) {
-        // A person is asked to choose only when neither --agent nor the repository named one.
+        if (AgentChoice.wanted(request.agentName(), workedOn).name() != null) {
+            if (decision == null) {
+                decision = AgentChoice.decided(context, agents, request.agentName(), workedOn);
+            }
+            return agentOf(agents, decision);
+        }
+        // Asked once per start: this is called at every step, and each asks every agent.
+        if (decision == null) {
+            decision = AgentChoice.considerAgent(context, agents, null, workedOn);
+        }
+        if (decision.refusal() == null) {
+            return agentOf(agents, decision);
+        }
+        // A person is asked to choose only when neither --agent, the repository nor what was found
+        // named one.
         final String named =
-                AgentChoice.wanted(request.agentName(), workedOn).name() != null
+                decision.refusal() != AgentChoice.AgentRefusal.SEVERAL_AGENTS
                                 || offer == Offer.NOBODY
-                        ? request.agentName()
+                        ? null
                         : agentName(
-                                agents.all().stream().map(InstalledAgent::name).toList(),
+                                decision.found().stream().map(AgentChoice.Found::agent).toList(),
                                 null,
                                 offer,
                                 chosenAgent);
-        return AgentChoice.select(agents, named, workedOn);
+        if (named == null) {
+            throw new org.fuin.porelo.agent.api.AgentException(decision.detail());
+        }
+        return agents.require(named);
+    }
+
+    /**
+     * Returns the chosen agent from the agents in hand: a step may hold another lookup's, each with
+     * its own processes.
+     */
+    private static @Nullable InstalledAgent agentOf(
+            final InstalledAgents agents, final AgentChoice.Choice choice) {
+        return choice.agent() == null ? null : agents.require(choice.agent().name());
+    }
+
+    private void sayChoice(final AgentChoice.Choice choice, final PrintWriter out) {
+        final String line = choice.line(context.paths().xdg().home());
+        if (line != null) {
+            out.println(line);
+            out.flush();
+        }
+    }
+
+    private static void sayFoundWarnings(final AgentChoice.Choice choice, final PrintWriter err) {
+        for (final AgentChoice.Found found : choice.found()) {
+            if (found.warning() != null) {
+                err.println("porelo: " + found.warning());
+                err.flush();
+            }
+        }
+    }
+
+    /** The choice this start made; agents are asked what they find once per start. */
+    private AgentChoice.@Nullable Choice decision;
+
+    /** What an agent found that a named choice never asked, asked once when an import may help. */
+    private final java.util.Map<String, AgentChoice.Found> foundLater = new java.util.HashMap<>();
+
+    private AgentChoice.Found foundBy(final InstalledAgent agent) {
+        final AgentChoice.Found decided = decision == null ? null : decision.foundBy(agent.name());
+        return decided != null
+                ? decided
+                : foundLater.computeIfAbsent(
+                        agent.name(), name -> AgentChoice.found(context, agent));
+    }
+
+    private java.util.List<String> importInstead(final @Nullable InstalledAgent agent) {
+        if (agent == null) {
+            return java.util.List.of();
+        }
+        final SelectedProvider selection = credentials().provider(agent);
+        final var declared = agent.definition().provider();
+        return AgentChoice.importCommand(
+                foundBy(agent),
+                selection == null ? null : selection.name(),
+                declared == null ? null : declared.defaultProvider());
     }
 
     /**
@@ -3024,6 +3110,10 @@ public final class TaskLaunch {
      * @return The sentence, ending in a space, or "".
      */
     private java.util.List<String> signInCommand(@Nullable InstalledAgent agent) {
+        final java.util.List<String> imports = importInstead(agent);
+        if (!imports.isEmpty()) {
+            return imports;
+        }
         final SelectedProvider selection = agent == null ? null : credentials().provider(agent);
         final org.fuin.porelo.agent.api.ProviderDefinition provider =
                 selection == null ? null : context.providers().get(selection.name());
@@ -3035,6 +3125,10 @@ public final class TaskLaunch {
     }
 
     private String signIn(@Nullable InstalledAgent agent) {
+        final java.util.List<String> imports = importInstead(agent);
+        if (!imports.isEmpty()) {
+            return "Copy what it already holds with 'porelo " + String.join(" ", imports) + "'; ";
+        }
         final SelectedProvider selection = agent == null ? null : credentials().provider(agent);
         final org.fuin.porelo.agent.api.ProviderDefinition provider =
                 selection == null ? null : context.providers().get(selection.name());
@@ -3143,12 +3237,26 @@ public final class TaskLaunch {
         return true;
     }
 
+    /** The provider the agent this start took was found signed in to; a flag still wins. */
+    private @Nullable String foundProvider() {
+        if (decision == null) {
+            return null;
+        }
+        if (chosenAgent[0] == null) {
+            return decision.provider();
+        }
+        final AgentChoice.Found chosen = decision.foundBy(chosenAgent[0]);
+        return chosen == null ? null : chosen.provider();
+    }
+
     private CredentialChoice credentials() {
         if (credentials == null) {
             credentials =
                     new CredentialChoice(
                                     context,
-                                    request.providerName(),
+                                    request.providerName() != null
+                                            ? request.providerName()
+                                            : foundProvider(),
                                     request.credentialType(),
                                     request.agentName())
                             .offering(offer);

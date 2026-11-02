@@ -53,11 +53,24 @@ final class AgentMethods {
                         final List<Map<String, Object>> found =
                                 agents.all().stream()
                                         .map(
-                                                agent ->
-                                                        entry(
-                                                                agent.name(),
-                                                                agent.definition(),
-                                                                agent.executable()))
+                                                agent -> {
+                                                    final Map<String, Object> entry =
+                                                            entry(
+                                                                    agent.name(),
+                                                                    agent.definition(),
+                                                                    agent.executable());
+                                                    final var finds =
+                                                            org.fuin.porelo.app.AgentChoice.found(
+                                                                    context, agent);
+                                                    entry.put("found", finds.state().name());
+                                                    entry.put(
+                                                            "foundProvider",
+                                                            finds.provider() == null
+                                                                    ? ""
+                                                                    : finds.provider());
+                                                    entry.put("foundPaths", finds.paths());
+                                                    return entry;
+                                                })
                                         .toList();
                         // Which copy of a shadowed name runs is a rule, and it lives in
                         // AgentDirectory with the scan that implements it. Reported separately

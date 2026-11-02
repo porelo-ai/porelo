@@ -195,7 +195,11 @@ class TaskRunCommandTest {
     }
 
     private PoreloContext previewContext(Path dir) throws IOException {
-        final PoreloContext context = context(dir, false);
+        return previewContext(dir, false);
+    }
+
+    private PoreloContext previewContext(Path dir, boolean hooksInstalled) throws IOException {
+        final PoreloContext context = context(dir, hooksInstalled);
         final XdgPaths xdg = context.paths().xdg();
         // Relative socket paths fit the Unix limit even when the checkout's path is long.
         final XdgPaths shortSockets =
@@ -719,6 +723,93 @@ class TaskRunCommandTest {
         assertThat(String.join("\n", runner.lines()))
                 .contains("porelo-uc-uc")
                 .doesNotContain("porelo-uc-shell");
+    }
+
+    private PoreloContext twoAgentsOneSignedIn(Path dir) throws IOException {
+        final PoreloContext context = previewContext(dir, true);
+        AgentChoiceTest.provider(context, "alpha", "spoken");
+        AgentChoiceTest.provider(context, "beta", "spoken");
+        AgentChoiceTest.installed(context, "first", AgentChoiceTest.NOT_SIGNED_IN);
+        AgentChoiceTest.installed(context, "second", AgentChoiceTest.SIGNED_IN_BETA);
+        return context;
+    }
+
+    @Test
+    void aDryRunNamesTheAgentFoundSignedInAndWhere(@TempDir Path dir) throws IOException {
+
+        final PoreloContext context = twoAgentsOneSignedIn(dir);
+
+        final int code =
+                execute(context, "task", "start", "-p", projectFile(dir, MINIMAL), "--dry-run");
+
+        assertThat(code).as(err.toString()).isZero();
+        assertThat(out.toString())
+                .contains("agent second, provider beta (subscription), found in /home/x/.tool/in");
+    }
+
+    @Test
+    void aStartWithoutTheCredentialNamesTheImportForTheProviderFound(@TempDir Path dir)
+            throws IOException {
+
+        // Named under another provider, the import would store what the task then does not find.
+        final PoreloContext context = twoAgentsOneSignedIn(dir);
+
+        final int code =
+                execute(
+                        context,
+                        "task",
+                        "start",
+                        "-p",
+                        projectFile(dir, MINIMAL),
+                        "--prompt",
+                        "work");
+
+        assertThat(code).as(out + "\n" + err).isEqualTo(69);
+        assertThat(out.toString()).contains("agent second, provider beta");
+        assertThat(err.toString()).contains("porelo vault import second --provider beta");
+    }
+
+    @Test
+    void anAgentAPersonPicksIsSaidWithTheProviderFoundForIt(@TempDir Path dir) throws IOException {
+
+        // They picked the agent; the provider its finding brings may not be its default.
+        final PoreloContext context = previewContext(dir, true);
+        AgentChoiceTest.provider(context, "alpha", "spoken");
+        AgentChoiceTest.provider(context, "beta", "spoken");
+        AgentChoiceTest.installed(context, "first", AgentChoiceTest.SIGNED_IN_BETA);
+        AgentChoiceTest.installed(context, "second", "SIGNED_IN,true,alpha,API_KEY,/home/x/a");
+        projectFile(dir, MINIMAL);
+        final PrintWriter said = new PrintWriter(err, true);
+
+        new TaskLaunch(
+                        context,
+                        new TaskLaunch.Request(
+                                "t",
+                                dir.resolve("project.yml"),
+                                null,
+                                null,
+                                null,
+                                8,
+                                null,
+                                false,
+                                false,
+                                "prompt",
+                                true,
+                                org.fuin.porelo.wire.TaskMode.AGENT,
+                                "work",
+                                null,
+                                null,
+                                60,
+                                "uc",
+                                java.util.Map.of(),
+                                java.util.Map.of(),
+                                null,
+                                null),
+                        new StartSteps(step -> {}, said))
+                .offering(new Offer(question -> "1", false, false, said))
+                .launch(new PrintWriter(out, true), said, running -> 0);
+
+        assertThat(out.toString()).as(err.toString()).contains("agent first, provider beta");
     }
 
     @Test

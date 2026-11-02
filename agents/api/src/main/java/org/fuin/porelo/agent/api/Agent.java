@@ -42,6 +42,15 @@ public interface Agent {
     }
 
     /**
+     * Returns how this agent says what it finds of itself on this machine.
+     *
+     * @return Finder. The default cannot tell, which is never read as not signed in.
+     */
+    default Finder finder() {
+        return Finder.cannotSay();
+    }
+
+    /**
      * Returns what this agent needs placed in a container before it will run.
      *
      * @return Setup. The default places nothing, which is right for an agent that starts clean.

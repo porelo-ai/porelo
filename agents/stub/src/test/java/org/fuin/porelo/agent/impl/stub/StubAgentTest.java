@@ -469,4 +469,21 @@ class StubAgentTest {
         org.assertj.core.api.Assertions.assertThat(stub.ended("stub: example.com resolved"))
                 .isNull();
     }
+
+    @org.junit.jupiter.api.Test
+    void theStubReportsWhatItsVariableNames() {
+        final var finding =
+                StubAgent.findings("SIGNED_IN,true,stub-provider,API_KEY,/home/x/.stub").getFirst();
+
+        assertThat(finding.signedIn())
+                .isEqualTo(org.fuin.porelo.agent.api.Finding.SignedIn.SIGNED_IN);
+        assertThat(finding.provider()).isEqualTo("stub-provider");
+        assertThat(finding.path()).isEqualTo("/home/x/.stub");
+    }
+
+    @org.junit.jupiter.api.Test
+    void aFindingOfAnotherShapeStopsTheStubRatherThanReportingLess() {
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> StubAgent.findings("SIGNED_IN"))
+                .isInstanceOf(org.fuin.porelo.agent.api.AgentException.class);
+    }
 }

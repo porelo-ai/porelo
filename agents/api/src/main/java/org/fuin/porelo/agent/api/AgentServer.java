@@ -67,6 +67,27 @@ public class AgentServer implements AutoCloseable {
                 });
 
         server.method(
+                "Find",
+                (parameters, replies) -> {
+                    if (!(parameters.get("configDirectory") instanceof String path)) {
+                        throw new AgentException("Find needs a configDirectory");
+                    }
+                    final List<Finding> found;
+                    try {
+                        found = agent.finder().find(Path.of(path));
+                    } catch (java.io.IOException ex) {
+                        // An error answered, not the connection closed, which serves the whole
+                        // start. Without its words: a path it failed on may hold anything.
+                        throw new AgentException("Find could not read what it looks at");
+                    }
+                    final List<Map<String, Object>> findings = new ArrayList<>();
+                    for (final Finding finding : found) {
+                        findings.add(finding.asMap());
+                    }
+                    replies.last(Map.of("findings", findings));
+                });
+
+        server.method(
                 "ContainerSetup",
                 (parameters, replies) -> {
                     final List<Map<String, Object>> files = new java.util.ArrayList<>();

@@ -140,6 +140,182 @@ class AgentProtocolTest {
     }
 
     @Test
+    void anAgentThatDoesNotOverrideItsFinderCannotSay(@TempDir Path dir) throws Exception {
+
+        try (AgentServer server = new AgentServer(agent(), dir.resolve("a.sock"))) {
+            Thread.ofVirtual().start(server::serve);
+            try (var client = new org.fuin.porelo.wire.varlink.VarlinkClient(server.socketPath())) {
+                assertThat(
+                                InstalledAgent.findings(
+                                        client.call(
+                                                AgentProtocol.FIND,
+                                                Map.of("configDirectory", dir.toString()))))
+                        .as("cannot say, never not signed in")
+                        .containsExactly(Finding.cannotSay());
+            }
+        }
+    }
+
+    @Test
+    void findingsSurviveTheWireInTheToolsOrder(@TempDir Path dir) throws Exception {
+
+        final List<Finding> sent =
+                List.of(
+                        new Finding(
+                                Finding.What.SIGN_IN,
+                                "/home/x/settings.json",
+                                Finding.SignedIn.SIGNED_IN,
+                                Boolean.FALSE,
+                                "alpha",
+                                Finding.Kind.API_KEY),
+                        new Finding(Finding.What.CONFIGURATION, "/home/x", null, null, null, null));
+        final Agent plain = agent();
+        final Agent finding =
+                new Agent() {
+                    @Override
+                    public AgentDefinition definition() {
+                        return plain.definition();
+                    }
+
+                    @Override
+                    public Finder finder() {
+                        return directory -> sent;
+                    }
+                };
+
+        try (AgentServer server = new AgentServer(finding, dir.resolve("a.sock"))) {
+            Thread.ofVirtual().start(server::serve);
+            try (var client = new org.fuin.porelo.wire.varlink.VarlinkClient(server.socketPath())) {
+                assertThat(
+                                InstalledAgent.findings(
+                                        client.call(
+                                                AgentProtocol.FIND,
+                                                Map.of("configDirectory", dir.toString()))))
+                        .isEqualTo(sent);
+            }
+        }
+    }
+
+    @Test
+    void aFinderThatFailsLeavesTheConnectionForTheRestOfTheStart(@TempDir Path dir)
+            throws Exception {
+
+        // One connection serves a whole start: closed here, a failed Find would stop a start the
+        // flags could still decide.
+        final Agent plain = agent();
+        final Agent failing =
+                new Agent() {
+                    @Override
+                    public AgentDefinition definition() {
+                        return plain.definition();
+                    }
+
+                    @Override
+                    public Finder finder() {
+                        return directory -> {
+                            throw new java.io.IOException("cannot read the-value-in-a-path");
+                        };
+                    }
+                };
+
+        try (AgentServer server = new AgentServer(failing, dir.resolve("a.sock"))) {
+            Thread.ofVirtual().start(server::serve);
+            try (var client = new org.fuin.porelo.wire.varlink.VarlinkClient(server.socketPath())) {
+                assertThatThrownBy(
+                                () ->
+                                        client.call(
+                                                AgentProtocol.FIND,
+                                                Map.of("configDirectory", dir.toString())))
+                        .as("a failure, never an empty answer read as nothing found")
+                        .isInstanceOf(org.fuin.porelo.wire.varlink.VarlinkException.class)
+                        .hasMessageNotContaining("the-value-in-a-path");
+
+                assertThat(client.call(AgentProtocol.DESCRIBE, Map.of()))
+                        .as("the same connection still answers")
+                        .containsKey("protocolVersion");
+            }
+        }
+    }
+
+    private static Map<String, Object> answering(final Map<String, Object> finding) {
+        return Map.of("findings", List.of(finding));
+    }
+
+    @Test
+    void theReaderKeepsNoFieldBeyondTheContractSoNoValueTravels() {
+
+        final List<Finding> kept =
+                InstalledAgent.findings(
+                        answering(
+                                Map.of(
+                                        "what",
+                                        "sign-in",
+                                        "signedIn",
+                                        "SIGNED_IN",
+                                        "secret",
+                                        "a-credential-value",
+                                        "token",
+                                        "a-credential-value")));
+
+        assertThat(kept).hasSize(1);
+        assertThat(kept.toString())
+                .as("nothing the contract does not name is kept")
+                .doesNotContain("a-credential-value");
+    }
+
+    @Test
+    void theReaderRefusesAPathThatIsNotOne() {
+
+        for (final String path :
+                List.of(
+                        "relative/path",
+                        "/with\nline",
+                        "/home/u/../../etc/x",
+                        "/" + "x".repeat(Finding.LONGEST_PATH))) {
+            assertThat(
+                            InstalledAgent.findings(
+                                    answering(
+                                            Map.of(
+                                                    "what",
+                                                    "sign-in",
+                                                    "signedIn",
+                                                    "SIGNED_IN",
+                                                    "path",
+                                                    path))))
+                    .as("refused: a value could pass as a path otherwise")
+                    .isEmpty();
+        }
+    }
+
+    @Test
+    void anUnknownStateCountsAsCannotSayAndAnUnknownKindDecidesNothing() {
+
+        final Finding read =
+                InstalledAgent.findings(
+                                answering(
+                                        Map.of(
+                                                "what",
+                                                "sign-in",
+                                                "signedIn",
+                                                "SIGNED_IN_SOMEHOW",
+                                                "kind",
+                                                "A_NEW_KIND")))
+                        .getFirst();
+
+        assertThat(read.signedIn()).isEqualTo(Finding.SignedIn.CANNOT_SAY);
+        assertThat(read.kind()).isNull();
+    }
+
+    @Test
+    void aCommandFromAnAdapterIsIgnoredSinceOnlyPoreloCanSayThat() {
+
+        assertThat(
+                        InstalledAgent.findings(
+                                answering(Map.of("what", "command", "path", "/usr/bin/tool"))))
+                .isEmpty();
+    }
+
+    @Test
     void aDefinitionSurvivesTheWire(@TempDir Path dir) throws Exception {
 
         try (AgentServer server = new AgentServer(agent(), dir.resolve("a.sock"))) {

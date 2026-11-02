@@ -1,9 +1,9 @@
 # B225 — The Agent Found On The Machine
 
-**Status:** Implementing; blocked by [B224](README.md#b224).
+**Status:** Review.
 **Size:** L - a method in the contract three agent repositories implement, the choice every start, its dry run and
-the shield share, a new `project.yml` key, the import offered at the start, and the daemon's answers naming the
-choice and the findings; several modules and two contracts.
+the shield share, the import offered at the start, and the daemon's answers naming the choice and the findings;
+several modules and two contracts.
 
 **What must be true.** A task started without `--agent` and `--provider` gets the agent the person already uses on the
 machine, signed in, with that provider, and the start names the choice and where it was found; a flag given still wins.
@@ -29,14 +29,15 @@ Read in the code on 2026-10-20 (`agents/api`, `apps/app-agents`, `apps/app-task`
    (`considerAgent`, `:70`) and is shared by `StartCheck` (`:838`), `TaskLaunch` (`:1790`) and `EgressControl`
    (`:185`), so the dry run, the start and the shield name the same agent:
    1. `--agent`;
-   2. the project's `agent`, a new key in `ProjectSchema` and `ProjectReader`, refused when no such agent is
-      installed;
+   2. the repository's `agent` in the project file (`Repository.agent`), refused when no such agent is installed;
+      it needs no new key, and the wire's `PROJECT` is what it gave;
    3. exactly one agent found signed in;
    4. several signed in, or several installed and none signed in: `SEVERAL_AGENTS` as today, its detail listing the
       signed-in ones first;
    5. one installed: that one, as today.
-   `Choice` gains `source` (`FLAG`, `PROJECT`, `SIGNED_IN`, `ONLY_ONE`) and the findings' paths. `Find` is asked
-   only when the first two do not decide, and every start asks again; nothing is remembered.
+   `Choice`'s `source` gains `SIGNED_IN`, and it carries what was found; a client reads `FLAG`, `PROJECT`,
+   `SIGNED_IN` or `ONLY_ONE`. `Find` is asked only when the first two do not decide, once per start, and every start
+   asks again; nothing is remembered.
 4. **The start names it**: one line before anything is made, for example `agent claude, provider anthropic
    (subscription), found in ~/.claude`; `StartCheck`'s answer carries `source` and the path, so the interface names
    it without deriving it.
@@ -45,7 +46,7 @@ Read in the code on 2026-10-20 (`agents/api`, `apps/app-agents`, `apps/app-task`
    terminal it refuses as today, naming the command.
 6. **The provider**: an agent found signed in to a provider it can drive gives that provider when `--provider`
    is not given; `SelectedProvider.consider` takes it as its third argument.
-7. Docs: `doc/running.md`'s choice of an agent, `doc/project-file.md`'s `agent`, `doc/commands.md`.
+7. Docs: `doc/commands.md`, where the start's choice of an agent is told, and `agents/README.md`.
 
 **Red first:** `AgentChoiceTest` with fake agents: two installed, one answering `SIGNED_IN`, is chosen with source
 `SIGNED_IN`; one answering `CANNOT_SAY` and one `NOT_SIGNED_IN` still refuse with `SEVERAL_AGENTS`; `--agent` wins
@@ -53,10 +54,20 @@ over a signed-in one; a credential's value in a finding fails the reader.
 
 ## Acceptance
 
+- A repository's `agent` in the project file still wins over what is found.
 - With two agents installed and the stub reporting itself signed in, `task start` without `--agent` takes the stub
   and prints where it was found; with `--agent` naming the other, the other.
 - An agent built before `Find` is chosen as today and named as "cannot say", never as not signed in.
 - No finding, answer or line printed carries a credential's value.
+
+## Checked
+
+- Agents are asked one at a time, up to ten seconds each per start. Asking them together was declined: it takes a
+  hanging agent to matter, and the warning names it.
+- `task prepare` still prepares by `AgentChoice.wanted`, so a prepare without a name does not take the agent found
+  signed in. Left so: it is not in the plan.
+- The count of findings is unbounded, within what one reply may be; bidirectional and format characters in a finding's
+  path pass the control check, the same as elsewhere.
 
 ## The daemon's answers, agreed with the interface
 

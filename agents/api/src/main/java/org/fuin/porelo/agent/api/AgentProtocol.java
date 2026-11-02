@@ -24,7 +24,7 @@ public final class AgentProtocol {
      *
      * <p>Raised with every addition, so that an agent says how much of the contract it knows.
      */
-    public static final int VERSION = 3;
+    public static final int VERSION = 4;
 
     /**
      * The lowest version this Porelo needs.
@@ -39,6 +39,9 @@ public final class AgentProtocol {
 
     /** Reads the agent's credential out of a config directory. */
     public static final String EXTRACT_CREDENTIAL = INTERFACE + ".ExtractCredential";
+
+    /** Says what the agent finds of itself on this machine; never a credential's value. */
+    public static final String FIND = INTERFACE + ".Find";
 
     /** Returns the files an agent needs placed in a container before it starts. */
     public static final String CONTAINER_SETUP = INTERFACE + ".ContainerSetup";

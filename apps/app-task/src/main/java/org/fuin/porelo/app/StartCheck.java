@@ -172,6 +172,11 @@ public final class StartCheck {
      * @param credential The vault key this run would look for, or "" when it never got that far.
      *     The name that was ACTUALLY looked for, not the one that ought to apply.
      * @param detail Prose for a person. Never parsed.
+     * @param host The host it is about, or "".
+     * @param agentSource Where the agent was named, as a client reads it, or "" when none was.
+     * @param agentFoundIn Where the agent's sign-in was found, or "".
+     * @param signedIn The agents found signed in; empty when none was asked.
+     * @param importCommand What to run to copy what the agent holds into the vault, or empty.
      */
     public record Result(
             Outcome outcome,
@@ -179,7 +184,87 @@ public final class StartCheck {
             String provider,
             String credential,
             String detail,
-            String host) {
+            String host,
+            String agentSource,
+            String agentFoundIn,
+            java.util.List<String> signedIn,
+            java.util.List<String> importCommand) {
+
+        /**
+         * Constructor for an answer that says nothing of how its agent was chosen.
+         *
+         * @param outcome Why work could not start, or {@link Outcome#READY}.
+         * @param agent The agent, or "".
+         * @param provider The provider, or "".
+         * @param credential The vault key, or "".
+         * @param detail Prose for a person.
+         * @param host The host it is about, or "".
+         */
+        public Result(
+                Outcome outcome,
+                String agent,
+                String provider,
+                String credential,
+                String detail,
+                String host) {
+            this(
+                    outcome,
+                    agent,
+                    provider,
+                    credential,
+                    detail,
+                    host,
+                    "",
+                    "",
+                    java.util.List.of(),
+                    java.util.List.of());
+        }
+
+        /**
+         * Returns this answer naming how its agent was chosen.
+         *
+         * @param choice The choice.
+         * @return The same answer, with its source, the path and who was found signed in.
+         */
+        Result chosen(final AgentChoice.Choice choice) {
+            final AgentChoice.Found found = choice.chosen();
+            return new Result(
+                    outcome,
+                    agent,
+                    provider,
+                    credential,
+                    detail,
+                    host,
+                    choice.agent() == null ? "" : choice.source().wire(),
+                    found == null || found.path() == null ? "" : found.path(),
+                    choice.signedIn(),
+                    importCommand);
+        }
+
+        /**
+         * Returns this answer with the import that would store what is missing.
+         *
+         * @param command Its arguments after {@code porelo}, or empty.
+         * @return The same answer, with the whole command.
+         */
+        Result importing(final java.util.List<String> command) {
+            final java.util.List<String> whole = new java.util.ArrayList<>();
+            if (!command.isEmpty()) {
+                whole.add("porelo");
+                whole.addAll(command);
+            }
+            return new Result(
+                    outcome,
+                    agent,
+                    provider,
+                    credential,
+                    detail,
+                    host,
+                    agentSource,
+                    agentFoundIn,
+                    signedIn,
+                    java.util.List.copyOf(whole));
+        }
 
         /**
          * Constructor for an answer about anything but a host.
@@ -225,6 +310,10 @@ public final class StartCheck {
                             : java.util.List.<String>of());
             map.put("detail", detail);
             map.put("host", host);
+            map.put("agentSource", agentSource);
+            map.put("agentFoundIn", agentFoundIn);
+            map.put("signedIn", signedIn);
+            map.put("importCommand", importCommand);
             return map;
         }
     }
@@ -1220,14 +1309,15 @@ public final class StartCheck {
         try (InstalledAgents agents = context.agents()) {
 
             final AgentChoice.Choice chosen =
-                    AgentChoice.considerAgent(agents, agentName, repository);
+                    AgentChoice.considerAgent(context, agents, agentName, repository);
             if (chosen.refusal() != null) {
                 return refused(
-                        switch (chosen.refusal()) {
-                            case UNKNOWN_AGENT -> Outcome.UNKNOWN_AGENT;
-                            case SEVERAL_AGENTS -> Outcome.SEVERAL_AGENTS;
-                        },
-                        chosen.detail());
+                                switch (chosen.refusal()) {
+                                    case UNKNOWN_AGENT -> Outcome.UNKNOWN_AGENT;
+                                    case SEVERAL_AGENTS -> Outcome.SEVERAL_AGENTS;
+                                },
+                                chosen.detail())
+                        .chosen(chosen);
             }
             final InstalledAgent agent = chosen.agent();
             if (agent == null) {
@@ -1236,93 +1326,16 @@ public final class StartCheck {
                         "no agent is installed, so there is nothing to"
                                 + " run; a task can still be started as a shell");
             }
-            // Before the provider and the credential, as Start refuses it.
-            final String tooMany =
-                    projectFile == null || repository == null
-                            ? null
-                            : subagentsRefused(agent, projectFile, repository);
-            if (tooMany != null) {
-                return new Result(Outcome.SUBAGENTS_REFUSED, agent.name(), "", "", tooMany);
-            }
-
-            final SelectedProvider.Choice serving =
-                    SelectedProvider.consider(
-                            context.providers(), agent.definition(), providerName);
-            if (serving.refusal() != null) {
-                return new Result(
-                        switch (serving.refusal()) {
-                            case NO_PROVIDER_CHOSEN -> Outcome.NO_PROVIDER_CHOSEN;
-                            case UNKNOWN_PROVIDER -> Outcome.UNKNOWN_PROVIDER;
-                            case WRONG_DIALECT -> Outcome.WRONG_DIALECT;
-                        },
-                        agent.name(),
-                        serving.wanted() == null ? "" : serving.wanted(),
-                        "",
-                        serving.detail());
-            }
-
-            final CredentialChoice choice =
-                    new CredentialChoice(context, providerName, credentialType, agentName);
-            final String provider = serving.selection() == null ? "" : serving.selection().name();
-
-            if (serving.selection() == null || choice.tokenVariable(agent) == null) {
-                // Takes no brokered credential, so there is nothing that could be missing.
-                return new Result(
-                        Outcome.READY,
-                        agent.name(),
-                        provider,
-                        "",
-                        "'" + agent.name() + "' needs no brokered credential");
-            }
-
-            final String credential = choice.credentialName(agent);
-            final var stored = context.readableCredentials();
-            if (stored.isEmpty()) {
-                return new Result(
-                        Outcome.VAULT_LOCKED,
-                        agent.name(),
-                        provider,
-                        credential,
-                        "the vault is locked, so whether '"
-                                + credential
-                                + "' is there cannot be"
-                                + " answered; 'porelo vault unlock' at the machine");
-            }
-            if (!stored.get().containsKey(credential)) {
-                // The sign-in first, for an agent that has one: a new person told only what is
-                // missing went on to the one start that needs no credential, a shell where the
-                // agent said "Not logged in".
-                return new Result(
-                        Outcome.CREDENTIAL_MISSING,
-                        agent.name(),
-                        provider,
-                        credential,
-                        "the vault holds no credential for '"
-                                + credential
-                                + "'"
-                                + (!AgentLogin.signsInHere(context, agent.definition())
-                                        ? ""
-                                        : "; sign in with '"
-                                                + agent.name()
-                                                + "' first: 'porelo vault login "
-                                                + agent.name()
-                                                + "'"));
-            }
-            final var unusable = choice.unbrokerable(agent);
-            if (unusable != null) {
-                return new Result(
-                        Outcome.CREDENTIAL_UNUSABLE,
-                        agent.name(),
-                        provider,
-                        credential,
-                        unusable.reason());
-            }
-            return new Result(
-                    Outcome.READY,
-                    agent.name(),
-                    provider,
-                    credential,
-                    "'" + credential + "' is stored and usable");
+            return settled(
+                            context,
+                            projectFile,
+                            repository,
+                            agentName,
+                            providerName,
+                            credentialType,
+                            chosen,
+                            agent)
+                    .chosen(chosen);
 
         } catch (org.fuin.porelo.agent.api.AgentException ex) {
             // An agent that cannot be asked what it is. Not one of the outcomes above, because it
@@ -1330,5 +1343,121 @@ public final class StartCheck {
             // saying which agent is broken.
             return refused(Outcome.UNKNOWN_AGENT, CliErrors.reason(ex));
         }
+    }
+
+    /** Answers everything that follows once the agent is settled. */
+    private static Result settled(
+            PoreloContext context,
+            @Nullable Path projectFile,
+            org.fuin.porelo.core.project.@Nullable Repository repository,
+            @Nullable String agentName,
+            @Nullable String asked,
+            @Nullable String credentialType,
+            AgentChoice.Choice chosen,
+            InstalledAgent agent) {
+        // A flag wins over the provider the agent was found signed in to.
+        final String providerName = asked != null ? asked : chosen.provider();
+        // Before the provider and the credential, as Start refuses it.
+        final String tooMany =
+                projectFile == null || repository == null
+                        ? null
+                        : subagentsRefused(agent, projectFile, repository);
+        if (tooMany != null) {
+            return new Result(Outcome.SUBAGENTS_REFUSED, agent.name(), "", "", tooMany);
+        }
+
+        final SelectedProvider.Choice serving =
+                SelectedProvider.consider(context.providers(), agent.definition(), providerName);
+        if (serving.refusal() != null) {
+            return new Result(
+                    switch (serving.refusal()) {
+                        case NO_PROVIDER_CHOSEN -> Outcome.NO_PROVIDER_CHOSEN;
+                        case UNKNOWN_PROVIDER -> Outcome.UNKNOWN_PROVIDER;
+                        case WRONG_DIALECT -> Outcome.WRONG_DIALECT;
+                    },
+                    agent.name(),
+                    serving.wanted() == null ? "" : serving.wanted(),
+                    "",
+                    serving.detail());
+        }
+
+        final CredentialChoice choice =
+                new CredentialChoice(context, providerName, credentialType, agentName);
+        final String provider = serving.selection() == null ? "" : serving.selection().name();
+
+        if (serving.selection() == null || choice.tokenVariable(agent) == null) {
+            // Takes no brokered credential, so there is nothing that could be missing.
+            return new Result(
+                    Outcome.READY,
+                    agent.name(),
+                    provider,
+                    "",
+                    "'" + agent.name() + "' needs no brokered credential");
+        }
+
+        final String credential = choice.credentialName(agent);
+        final var stored = context.readableCredentials();
+        if (stored.isEmpty()) {
+            return new Result(
+                    Outcome.VAULT_LOCKED,
+                    agent.name(),
+                    provider,
+                    credential,
+                    "the vault is locked, so whether '"
+                            + credential
+                            + "' is there cannot be"
+                            + " answered; 'porelo vault unlock' at the machine");
+        }
+        if (!stored.get().containsKey(credential)) {
+            // The sign-in first, for an agent that has one: a new person told only what is
+            // missing went on to the one start that needs no credential, a shell where the
+            // agent said "Not logged in".
+            final AgentChoice.Found found =
+                    chosen.chosen() != null ? chosen.chosen() : AgentChoice.found(context, agent);
+            final java.util.List<String> imports =
+                    AgentChoice.importCommand(
+                            found,
+                            provider,
+                            agent.definition().provider() == null
+                                    ? null
+                                    : agent.definition().provider().defaultProvider());
+            return new Result(
+                            Outcome.CREDENTIAL_MISSING,
+                            agent.name(),
+                            provider,
+                            credential,
+                            "the vault holds no credential for '"
+                                    + credential
+                                    + "'"
+                                    + (!imports.isEmpty()
+                                            ? "; copy what '"
+                                                    + agent.name()
+                                                    + "' already holds: 'porelo "
+                                                    + String.join(" ", imports)
+                                                    + "'"
+                                            : !AgentLogin.signsInHere(context, agent.definition())
+                                                    ? ""
+                                                    : "; sign in with '"
+                                                            + agent.name()
+                                                            + "' first: 'porelo vault login "
+                                                            + agent.name()
+                                                            + "'"))
+                    .importing(imports);
+        }
+        final var unusable = choice.unbrokerable(agent);
+        if (unusable != null) {
+            return new Result(
+                    Outcome.CREDENTIAL_UNUSABLE,
+                    agent.name(),
+                    provider,
+                    credential,
+                    unusable.reason());
+        }
+        return new Result(
+                Outcome.READY,
+                agent.name(),
+                provider,
+                credential,
+                "'" + credential + "' is stored and usable");
     }
 }

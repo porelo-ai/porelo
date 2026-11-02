@@ -450,6 +450,18 @@ a newer one included, since Porelo calls only methods it knows.
 say", never "nothing found". Any other error is an error, not an old agent. A
 renamed, removed or reinterpreted method or field raises `LOWEST`.
 
+## What an agent finds of itself
+
+`Find(configDirectory)` answers what the agent's tool holds on this machine, so a start without
+`--agent` can take the one the person already uses. `Agent.finder()` answers it, and the default
+cannot say. A finding is `configuration` or `sign-in`, with a path, and a sign-in says `SIGNED_IN`,
+`NOT_SIGNED_IN` or `CANNOT_SAY`, whether `vault import` can take that route, and its provider and
+kind where known. They come first the route the tool itself would use.
+
+**Presence only, never a credential's value.** Every field is a closed set but the path and the
+provider, there is no free text, and Porelo keeps only these fields. A finder reads only as far as it
+must, and never runs a helper, starts the tool or reaches the network; every start asks again.
+
 ## When an agent will not start
 
 A broken agent is reported against its own name and the others keep working —

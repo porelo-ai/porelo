@@ -31,6 +31,12 @@ class ConsiderAgentTest {
 
         final AgentChoice.Choice choice =
                 AgentChoice.considerAgent(
+                        new PoreloContext(
+                                new org.fuin.porelo.testing.FakeCommandRunner(),
+                                new PoreloPaths(
+                                        org.fuin.porelo.core.config.XdgPaths.of(name -> null, dir),
+                                        dir.resolve("bin")),
+                                command -> 0),
                         new InstalledAgents(
                                 new AgentDirectory(List.of(agents)), dir.resolve("run")),
                         "claude",

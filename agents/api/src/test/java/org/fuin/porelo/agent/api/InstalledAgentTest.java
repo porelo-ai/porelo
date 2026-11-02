@@ -82,7 +82,10 @@ class InstalledAgentTest {
         // answered in a tenth of a second "did not describe itself within 10 seconds".
         final Boolean virtual =
                 InstalledAgent.bounded(
-                        Path.of("agent"), () -> Thread.currentThread().isVirtual(), 5);
+                        Path.of("agent"),
+                        "describe itself",
+                        () -> Thread.currentThread().isVirtual(),
+                        5);
 
         assertThat(virtual).isFalse();
     }
@@ -99,6 +102,7 @@ class InstalledAgentTest {
                         () ->
                                 InstalledAgent.bounded(
                                         Path.of("agent"),
+                                        "describe itself",
                                         () -> {
                                             try {
                                                 Thread.sleep(60_000);

@@ -166,14 +166,18 @@ public final class EgressControl {
                         GateSupport.repository(project, repository),
                         context.paths().egress().egressSets());
         try (InstalledAgents agents = context.agents()) {
-            final InstalledAgent selected =
-                    AgentChoice.select(
-                            agents, agentName, GateSupport.repository(project, repository));
+            final AgentChoice.Choice choice =
+                    AgentChoice.decided(
+                            context,
+                            agents,
+                            agentName,
+                            GateSupport.repository(project, repository));
+            final InstalledAgent selected = choice.agent();
             final SelectedProvider serving =
                     selected == null
                             ? null
                             : SelectedProvider.choose(
-                                    context.providers(), selected.definition(), null);
+                                    context.providers(), selected.definition(), choice.provider());
             // Without what is refused, as the CLI's report: an interface told a refused host is
             // reachable plans on a name the task's resolver answers NXDOMAIN.
             return EgressReport.reachable(
@@ -198,7 +202,10 @@ public final class EgressControl {
         try (InstalledAgents agents = context.agents()) {
             return EgressReport.refusals(
                     AgentChoice.select(
-                            agents, agentName, GateSupport.repository(project, repository)),
+                            context,
+                            agents,
+                            agentName,
+                            GateSupport.repository(project, repository)),
                     project,
                     GateSupport.repository(project, repository));
         }

@@ -13,6 +13,14 @@ type Agent (
   version: string,
   # Where the binary was found.
   from: string,
+  # What the agent finds of itself on this machine, asked each time Agents is called, and presence
+  # only: SIGNED_IN, NOT_SIGNED_IN or CANNOT_SAY, which an agent built before it can be asked
+  # answers and is never not signed in.
+  found: string,
+  # The provider it was found signed in to, or "".
+  foundProvider: string,
+  # The paths found, its command on this account's PATH included.
+  foundPaths: []string,
   # Hosts this agent needs, added to a task's egress on top of the project's own.
   # How this agent logs itself in, as arguments to its own binary, and where that is described.
   #
