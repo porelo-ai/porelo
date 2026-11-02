@@ -87,6 +87,7 @@ would change the answer.
 | A credential with no expiry is stored and named | accepted, never refused; the store says so and the list marks it (not yet built) | [entry](#a-credential-with-no-expiry-is-stored-and-named) |
 | A storage class Porelo cannot prove is shown as user-scoped | stronger only by a slot the node enrolled or evidence it checks; a client's claim is recorded and shown as user-scoped (not yet built) | [entry](#a-storage-class-porelo-cannot-prove-is-shown-as-user-scoped) |
 | A registry is judged path by path, and a first card by the forge's public key list | each path by the signers its rule names, never the commit's signer alone; a first card trusted from `<forge>/<login>.keys`, not the forge's API; written by plain signed Git | [entry](#a-registry-is-judged-path-by-path-and-a-first-card-by-the-forges-public-key-list) |
+| The organization's adapter is linked into Porelo | it decides whom Porelo trusts, so it is no executable that would have to be trusted first; a second one comes with a release; its API carries plain data, so one can stand behind a process later | [entry](#the-organizations-adapter-is-linked-into-porelo) |
 | A new key goes straight into KeePassXC, and a running KeePassXC is locked to serve it | accepted: no key file and no master password in Porelo; every database the running KeePassXC has open is locked, and the others stay locked until the person unlocks them | [entry](#a-new-key-goes-straight-into-keepassxc-and-a-running-keepassxc-is-locked-to-serve-it) |
 | A registry's trust record is checked, not hardened against whoever writes the state directory | accepted: a record that fails a check is discarded and the registry walked again from its founding commit; a writer of `$XDG_STATE_HOME` can change Porelo's config and binaries too | [entry](#a-registrys-trust-record-is-checked-not-hardened-against-whoever-writes-the-state-directory) |
 | **Projects and following** | | |
@@ -673,6 +674,16 @@ receiver's clock. The key or certificate must hold then. The time a commit or me
 signs it, so a key that has ended or was retired could otherwise date new work into the time it was valid. **The
 cost:** a commit signed while its certificate held but pushed after it ended is refused; a running task's
 certificate is renewed with `porelo task certify` before it ends.
+
+## The organization's adapter is linked into Porelo
+
+Porelo asks for its organization through an API that says nothing of how it is kept, and the Git adapter stands behind
+it. The adapter is built into Porelo, not an executable of its own behind a contract as a build adapter is. It decides
+whom Porelo trusts, so an executable would itself have to be trusted first, by something that has no organization to ask
+yet. A second adapter therefore comes with a Porelo release. **What keeps the other way open:** the API carries plain
+data only, with no path, no revision of Git's and no callback, and a test holds it to that, so an executable can stand
+behind it later without changing a caller. **What would change the answer:** an adapter that cannot ship with Porelo, such
+as one a company must keep to itself.
 
 ## A single admin keeps an offline backup key
 
