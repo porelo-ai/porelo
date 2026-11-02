@@ -459,8 +459,10 @@ porelo credentials check git@github.com:acme/x.git    # what would be used, and 
 - **With no `credentials.yml`** a git URL falls back to vault entries named after its host, an IPv6 host with
   its brackets (`git.token.[2001:db8::1]`): `git.ssh.<host>`, `git.token.<host>`, then `ssh.default`.
 - **A key never leaves the vault.** Porelo serves an ssh-agent for the length of the command. A token
-  reaches git through git's credential helper over a pipe, for that host only; nothing is written to
+  reaches git through git's credential helper over a pipe, for that address only; nothing is written to
   a config and no value is on a command line.
+- **A token is lent to the scheme, host and port of the address git fetches, over `https://` only**, so a forge on
+  its own port gets it and another port of that host does not; the entry's name names the host alone (`git.token.<host>`).
 - **An `oauth` record is not renewed.** An expired one is refused by name, with what to run.
 
 ## An authority of your own
