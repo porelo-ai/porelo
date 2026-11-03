@@ -876,12 +876,12 @@ class GitTreeWritesTest {
     void aProjectRemovedGoesWithAllItsFilesAndItsHost() throws Exception {
         demo();
         as("mia").addHost(change("mia", "mia", "build"), "build", "alice");
-        as("alice").addProjectToHost(change("alice", "alice", "carry"), "build", "demo");
         as("alice")
                 .changeProjectRepository(
                         change("alice", "alice", "address"),
                         "demo",
                         "ssh://git@forge.example/acme/demo");
+        as("alice").addProjectToHost(change("alice", "alice", "carry"), "build", "demo");
 
         as("mia").removeProject(change("mia", "mia", "off"), "demo");
 
@@ -945,6 +945,59 @@ class GitTreeWritesTest {
         as("alice").changeProjectRepository(change("alice", "alice", "z"), "demo", address);
 
         assertThat(read().getProjectRepository("demo")).contains(address);
+    }
+
+    /** A host could only wait for such a project, with a token that cannot help. */
+    @Test
+    void aProjectNeverOpenedGoesOnNoHostAndTheWordsNameOpeningIt() throws Exception {
+        demo();
+        as("mia").addHost(change("mia", "mia", "build"), "build", "alice");
+        final String before = tip();
+
+        assertThatThrownBy(
+                        () ->
+                                as("alice")
+                                        .addProjectToHost(
+                                                change("alice", "alice", "c"), "build", "demo"))
+                .isInstanceOfSatisfying(
+                        Refused.class,
+                        ex -> {
+                            assertThat(ex.reason()).isEqualTo("not-opened");
+                            assertThat(ex.getMessage())
+                                    .as("project address is refused here too, so it is not named")
+                                    .contains("porelo project open demo")
+                                    .doesNotContain("project address");
+                        });
+        assertThat(tip()).as("nothing was written").isEqualTo(before);
+    }
+
+    /** A new reader judges from the start, so the address a lost key filed counts as none. */
+    @Test
+    void aProjectWhoseAddressStandsRefusedGoesOnNoHostAndTheWordsNameFilingItAgain()
+            throws Exception {
+        demo();
+        as("mia").addHost(change("mia", "mia", "build"), "build", "alice");
+        as("alice")
+                .changeProjectRepository(
+                        change("alice", "alice", "open"),
+                        "demo",
+                        "ssh://git@forge.example/acme/demo");
+        forge.keys.put("alice", List.of(key("alice-new")));
+        as("mia").replaceCard(change("mia", "mia", "swap"), "alice", card("alice", "alice-new"));
+        final String before = tip();
+
+        assertThatThrownBy(
+                        () ->
+                                as("alice-new")
+                                        .addProjectToHost(
+                                                change("alice", "alice-new", "c"), "build", "demo"))
+                .isInstanceOfSatisfying(
+                        Refused.class,
+                        ex -> {
+                            assertThat(ex.reason()).isEqualTo("refused-state");
+                            assertThat(ex.getMessage()).contains("porelo project address demo");
+                        });
+        assertThat(tip()).as("nothing was written").isEqualTo(before);
     }
 
     /** A lost key's address stays refused for a new reader until an admin files it again. */
@@ -1148,6 +1201,11 @@ class GitTreeWritesTest {
                         as("alice")
                                 .removeProjectFromHost(
                                         change("alice", "alice", "b"), "build", "demo"));
+        as("alice")
+                .changeProjectRepository(
+                        change("alice", "alice", "open"),
+                        "demo",
+                        "ssh://git@forge.example/acme/demo");
         as("alice").addProjectToHost(change("alice", "alice", "c"), "build", "demo");
         assertThat(read().hostOf("demo")).contains("build");
         refusedAs(

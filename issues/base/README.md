@@ -20,6 +20,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b409"></a>[B409](B409-A-Project-With-No-Address-Goes-On-No-Host.md) | S | - | `org host carry` refuses a project with no valid address, at once and with its reason, and the window says the same |
 | <a id="b392"></a>[B392](B392-Checks-Every-Organization-Adapter-Passes.md) | M | - | The store's security requirements as checks any adapter runs, failing against one that takes an unsigned change, an older state or a revoked card |
 | <a id="b391"></a>[B391](B391-The-Cut-To-The-New-Organization.md) | L | - | The cut: `identity` files through the store on `git-tree`, and everything that reads or writes the old registry goes |
 | <a id="b387"></a>[B387](B387-A-Project-Followed-Before-Its-Access-File-Exists.md) | S | - | A project whose access repository is still empty is followed, so `project access init` can write its first access commit |
@@ -45,7 +46,6 @@ from its side, as *blocked by*.
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
 | <a id="b402"></a>[B402](B402-A-Clients-Prepare-Reads-The-Organization-As-The-Command-Line-Does.md) | S | - | A client's `Prepare` of an organization's project reads it as `porelo task prepare` does, not only what the last start placed |
-| <a id="b409"></a>[B409](B409-A-Project-With-No-Address-Goes-On-No-Host.md) | S | - | `org host carry` refuses a project with no valid address, at once and with its reason, and the window says the same |
 | <a id="b385"></a>[B385](B385-A-KeePassXC-Key-That-Is-Usable.md) | L | - | `--keepassxc` asks the master password once, a retry takes the key already made, no empty entry left, a clear refusal under `su` or a redirected stderr, aligned exit codes |
 | <a id="b214"></a>[B214](B214-A-Vault-Entry-Put-Again-Unchanged.md) | M | - | `vault put` given the value an entry already holds says `unchanged` and exits 0, so a second play reports nothing changed |
 | <a id="b154"></a>[B154](B154-A-Tamper-Evident-Event-Log-Per-Node.md) | L | - | One hash-chained event log per account, anchored in the user's journal, optionally copied off the machine, kept by `porelo clear`; written by approve, reject, clearance, hand-in, credentials and project changes.; part 1 built, the copy off the machine after it |

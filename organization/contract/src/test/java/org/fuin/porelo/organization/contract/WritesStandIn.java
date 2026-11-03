@@ -51,6 +51,8 @@ final class WritesStandIn implements WritesFixture, OrganizationWrites {
 
     private final Map<String, String> hostOf = new HashMap<>();
 
+    private final Set<String> opened = new HashSet<>();
+
     private final Map<String, Boolean> sourceOwners = new HashMap<>();
 
     private final Map<String, Made> made = new HashMap<>();
@@ -379,6 +381,7 @@ final class WritesStandIn implements WritesFixture, OrganizationWrites {
                 () -> {
                     allowed(adminOf(project, acting(change)));
                     members(project);
+                    opened.add(project);
                 });
     }
 
@@ -490,6 +493,10 @@ final class WritesStandIn implements WritesFixture, OrganizationWrites {
                 "on host " + host + " " + project,
                 () -> {
                     allowed(hosts.getOrDefault(host, Set.of()).contains(acting(change)));
+                    if (!opened.contains(project)
+                            && !broken(WriteBreak.CARRIES_A_PROJECT_NEVER_OPENED)) {
+                        throw refuse(Refused.NOT_OPENED);
+                    }
                     hostOf.put(project, host);
                 });
     }

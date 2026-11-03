@@ -33,6 +33,12 @@ public final class GitTreeWrites implements OrganizationWrites {
         List<Step> steps(TreeModel model);
     }
 
+    /** An edit that must also know what the walk refused, which the model no longer shows. */
+    @FunctionalInterface
+    private interface RecordEdit {
+        List<Step> steps(TreeRecord before);
+    }
+
     /**
      * One commit of a change.
      *
@@ -724,12 +730,13 @@ public final class GitTreeWrites implements OrganizationWrites {
     @Override
     public Written addProjectToHost(final Change change, final String host, final String project)
             throws IOException {
-        return one(
+        return changeOn(
                 change,
                 TreeRepository.asked("Put a project on a host", host, project),
-                model -> {
+                before -> {
+                    final TreeModel model = before.model();
                     final TreeFiles.HostFile file = host(model, host).file();
-                    project(model, project);
+                    final TreeModel.ProjectState state = project(model, project);
                     if (file.projects().contains(project)) {
                         throw new Refused(Refused.EXISTS, "this host carries it", null);
                     }
@@ -737,10 +744,39 @@ public final class GitTreeWrites implements OrganizationWrites {
                             .anyMatch(each -> each.file().projects().contains(project))) {
                         throw new Refused(Refused.ON_ANOTHER_HOST, "another host carries it", null);
                     }
+                    if (state.address() == null) {
+                        throw noAddress(before, project);
+                    }
                     final List<String> projects = new ArrayList<>(file.projects());
                     projects.add(project);
-                    return hostFile(host, new TreeFiles.HostFile(file.admins(), projects));
+                    return List.of(
+                            new Step(
+                                    hostFile(host, new TreeFiles.HostFile(file.admins(), projects)),
+                                    change.acting().key()));
                 });
+    }
+
+    /** Each names the way out open to it: a project never opened cannot have an address changed. */
+    private static Refused noAddress(final TreeRecord before, final String project) {
+        final String path = "projects/" + project + "/repository.yml";
+        if (before.refusals().stream().anyMatch(refusal -> refusal.path().equals(path))) {
+            return new Refused(
+                    Refused.REFUSED_STATE,
+                    project
+                            + "'s address stands refused, so no host can follow it. Its admin files it"
+                            + " again with porelo project address "
+                            + project
+                            + " <address>.",
+                    null);
+        }
+        return new Refused(
+                Refused.NOT_OPENED,
+                project
+                        + " has no address yet, so no host can follow it. Its admin opens it with"
+                        + " porelo project open "
+                        + project
+                        + ".",
+                null);
     }
 
     @Override
@@ -955,6 +991,11 @@ public final class GitTreeWrites implements OrganizationWrites {
 
     private Written change(final Change change, final String subject, final Edit edit)
             throws IOException {
+        return changeOn(change, subject, before -> edit.steps(before.model()));
+    }
+
+    private Written changeOn(final Change change, final String subject, final RecordEdit edit)
+            throws IOException {
         final String fingerprint = PersonCard.fingerprint(change.acting().key());
         try (TreeRepository clone = TreeRepository.fetch(address, runner, access)) {
             final TreeRecord before = walk(clone);
@@ -978,7 +1019,7 @@ public final class GitTreeWrites implements OrganizationWrites {
             final List<String> commits = new ArrayList<>();
             final Set<String> written = new HashSet<>();
             String commit = tip;
-            for (final Step step : edit.steps(before.model())) {
+            for (final Step step : edit.steps(before)) {
                 written.addAll(step.files().keySet());
                 commit =
                         clone.commit(

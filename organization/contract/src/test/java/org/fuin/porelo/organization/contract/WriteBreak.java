@@ -25,6 +25,7 @@ enum WriteBreak {
                     "anOwnerIsNoAdminOfAHostOfSomeoneElse",
                     "anOwnerLocksNobody",
                     "anOwnerRemovesNoDeveloper")),
+    CARRIES_A_PROJECT_NEVER_OPENED(Set.of("aProjectNeverOpenedGoesOnNoHost")),
     IGNORES_ACTING_KEY(Set.of("aKeyNotOnThePersonsCardActsForNobody", "aReplacedKeyActsNoMore")),
     ACCEPTS_LOST_KEY(Set.of("aReplacedKeyActsNoMore", "aWithdrawnCardsKeyActsNoMore")),
     ACCEPTS_ANY_CARD(
@@ -66,6 +67,7 @@ enum WriteBreak {
                     "aKeyNotOnThePersonsCardActsForNobody",
                     "aKeyThatBacksNoOwnerTakesNoPlace",
                     "aLockedAdminChangesNothing",
+                    "aProjectNeverOpenedGoesOnNoHost",
                     "aReplacedKeyActsNoMore",
                     "aStrangerAddsNoHost",
                     "aStrangerAddsNoOwner",
@@ -135,6 +137,7 @@ enum WriteBreak {
                     "aKeyThatBacksNoOwnerTakesNoPlace",
                     "aLockedAdminChangesNothing",
                     "aLockedMemberIsNoMember",
+                    "aProjectNeverOpenedGoesOnNoHost",
                     "aRemovedMemberIsGone",
                     "aStrangerAddsNoHost",
                     "aStrangerAddsNoOwner",

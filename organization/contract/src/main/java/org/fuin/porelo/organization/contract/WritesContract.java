@@ -90,6 +90,9 @@ public abstract class WritesContract {
                 new Check<>(
                         "anAddedHostHasItsAdminAndItsProject",
                         WritesContract::anAddedHostHasItsAdminAndItsProject),
+                new Check<>(
+                        "aProjectNeverOpenedGoesOnNoHost",
+                        WritesContract::aProjectNeverOpenedGoesOnNoHost),
                 new Check<>("aStrangerAddsNoOwner", WritesContract::aStrangerAddsNoOwner),
                 new Check<>("aStrangerRemovesNoOwner", WritesContract::aStrangerRemovesNoOwner),
                 new Check<>("aStrangerNamesNoAdmin", WritesContract::aStrangerNamesNoAdmin),
@@ -226,6 +229,14 @@ public abstract class WritesContract {
         f.writes().addProjectMember(change(f, ADMIN, "member"), PROJECT, DEVELOPER, "developer");
     }
 
+    private static void opened(final WritesFixture f) throws Exception {
+        f.writes()
+                .changeProjectRepository(
+                        change(f, ADMIN, "address"),
+                        PROJECT,
+                        "https://forge.example/acme/demo.git");
+    }
+
     private static void aFoundingOwnerIsTheOnlyOwnerAndAFreshReaderTrustsThem(final WritesFixture f)
             throws Exception {
         found(f);
@@ -357,6 +368,7 @@ public abstract class WritesContract {
             throws Exception {
         organization(f);
 
+        opened(f);
         f.writes().addHost(change(f, OWNER, "host"), HOST, ADMIN);
         f.writes().addProjectToHost(change(f, ADMIN, "on"), HOST, PROJECT);
 
@@ -364,6 +376,16 @@ public abstract class WritesContract {
         assertThat(read.isHostAdmin(HOST, ADMIN)).isTrue();
         assertThat(read.hostOf(PROJECT)).contains(HOST);
         assertThat(read.getRefusals()).isEmpty();
+    }
+
+    /** A host could only wait for it, with a token that cannot help. */
+    private static void aProjectNeverOpenedGoesOnNoHost(final WritesFixture f) throws Exception {
+        organization(f);
+        f.writes().addHost(change(f, OWNER, "host"), HOST, ADMIN);
+
+        final Change attempt = change(f, ADMIN, "x");
+        refused(f, Refused.NOT_OPENED, () -> f.writes().addProjectToHost(attempt, HOST, PROJECT));
+        assertThat(f.read().hostOf(PROJECT)).isEmpty();
     }
 
     private static void aStrangerAddsNoOwner(final WritesFixture f) throws Exception {
@@ -787,6 +809,7 @@ public abstract class WritesContract {
 
     private static void aStrangerPutsNoProjectOnAHost(final WritesFixture f) throws Exception {
         organization(f);
+        opened(f);
         f.writes().addHost(change(f, OWNER, "host"), HOST, ADMIN);
 
         final Change attempt = change(f, STRANGER, "x");

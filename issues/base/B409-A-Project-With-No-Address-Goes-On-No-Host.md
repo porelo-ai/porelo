@@ -1,6 +1,6 @@
 # B409 — A Project With No Address Goes On No Host
 
-**Status:** Implementing.
+**Status:** Review.
 **Severity:** low.
 **Size:** S - one check in `addProjectToHost`, its contract check, and the window's dialog saying the same.
 
@@ -16,3 +16,11 @@ why, once this stands, and only then.
 **What it leaves.** A host admin and a project's admin can be different people: the one now waits for the other, which is the
 operator's choice. An address refused after the project went on the host is not caught here; that stays with the host's own
 answer, [B405](README.md#b405).
+
+## Declined from the reading
+
+- A refused commit to `repository.yml` of a project never opened, or one left by a project removed and made again, answers
+  `refused-state` and names `project address`: that command accepts it there, as `ProjectAddressCommand.mayBeFiled` asks the same thing, so the way out named is open.
+  Telling them apart would take the history of who wrote the file, for a difference in one sentence.
+- A carry after a replaced key, when the host's file already says it in a refused commit, is refused as changing nothing. It is
+  older than this and is the same-bytes point in [B408](README.md#b408).
