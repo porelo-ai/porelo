@@ -181,6 +181,13 @@ public final class GateSupport {
             Repository repository,
             @Nullable String upstream,
             @Nullable String seed) {
+        if (upstream != null) {
+            final String offHost =
+                    new HostForgeAddress().refusal(project, repository.name(), upstream);
+            if (offHost != null) {
+                throw new org.fuin.porelo.core.project.ProjectException(offHost);
+            }
+        }
         final String forwardTo = upstream != null ? upstream : repository.upstream();
         // The mode follows the project's security class, so an offline project cannot be talked
         // into forwarding by a command-line flag. The class describes the box, and the box does not

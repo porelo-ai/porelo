@@ -1168,6 +1168,7 @@ public final class PoreloDaemon {
     }
 
     public static void main(final String[] args) {
+        org.fuin.porelo.app.HostForgeAddress.install();
         final Integer answered = answer(args, System.out, System.err);
         if (answered != null) {
             System.exit(answered);

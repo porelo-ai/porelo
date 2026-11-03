@@ -57,6 +57,11 @@ final class HostForgeLending implements GitCredentials {
         if (token == null) {
             return otherwise.forUrl(url);
         }
+        // Named for this forge alone: git's own settings can rewrite an address after it was
+        // checked
+        // here, and the header must not follow it.
+        final String headerKey =
+                "http.http://127.0.0.1:" + HostForgeAddress.port(forgeConf) + "/.extraHeader";
         final String header =
                 "Authorization: Basic "
                         + Base64.getEncoder()
@@ -68,7 +73,7 @@ final class HostForgeLending implements GitCredentials {
             public Map<String, String> environment() {
                 return Map.of(
                         "GIT_CONFIG_COUNT", "2",
-                        "GIT_CONFIG_KEY_0", "http.extraHeader",
+                        "GIT_CONFIG_KEY_0", headerKey,
                         "GIT_CONFIG_VALUE_0", header,
                         "GIT_CONFIG_KEY_1", "http.followRedirects",
                         "GIT_CONFIG_VALUE_1", "false",

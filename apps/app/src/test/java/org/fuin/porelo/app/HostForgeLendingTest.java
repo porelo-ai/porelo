@@ -72,7 +72,7 @@ class HostForgeLendingTest {
 
         assertThat(lease.arguments()).isEmpty();
         assertThat(lease.environment())
-                .containsEntry("GIT_CONFIG_KEY_0", "http.extraHeader")
+                .containsEntry("GIT_CONFIG_KEY_0", "http.http://127.0.0.1:3001/.extraHeader")
                 .containsEntry(
                         "GIT_CONFIG_VALUE_0",
                         "Authorization: Basic "
@@ -81,6 +81,31 @@ class HostForgeLendingTest {
                                                 "x-access-token:a-token"
                                                         .getBytes(StandardCharsets.UTF_8)))
                 .containsEntry("GIT_CONFIG_VALUE_1", "false");
+    }
+
+    @Test
+    void gitSendsTheTokenToThatForgeAloneEvenWhenItsSettingsRewriteTheAddress() throws Exception {
+        runner.answering("sudo", "a-token\n");
+
+        final Map<String, String> lent =
+                lending.forUrl("http://127.0.0.1:3001/demo/first.git").environment();
+
+        assertThat(sentTo(lent, "http://127.0.0.1:3001/demo/first.git"))
+                .startsWith("Authorization");
+        assertThat(sentTo(lent, "http://elsewhere.example/demo/first.git")).isEmpty();
+        assertThat(sentTo(lent, "http://127.0.0.1:3002/demo/first.git")).isEmpty();
+    }
+
+    private static String sentTo(final Map<String, String> lent, final String address)
+            throws Exception {
+        final ProcessBuilder git =
+                new ProcessBuilder("git", "config", "--get-urlmatch", "http.extraHeader", address);
+        git.environment().putAll(lent);
+        final Process asked = git.redirectErrorStream(true).start();
+        final String said =
+                new String(asked.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
+        asked.waitFor();
+        return said.strip();
     }
 
     @ParameterizedTest

@@ -48,8 +48,9 @@ On a host, whatever `upstream` a row of a project's file says, a row with a `cen
 `http://127.0.0.1:<git_port>/<project>/<last part of central>.git`, the copy the host's follow keeps, with `<git_port>`
 from `/etc/porelo-host/forge.conf`. So a project filled before it came to a machine needs no refiling, and a task's
 work never reaches a central address past the host's push judge. A task on a row with no `central` is refused, and so
-is a start whose `--upstream` names another address. Git reads that forge with a token asked of the host for each
-command, so it needs no vault entry.
+is a start or a gate command whose `--upstream` names another address. `porelo` and `porelod` read a project alike. Git
+reads that forge with a token asked of the host for each command, so it needs no vault entry, and the token is lent for
+that forge's address alone.
 
 ## A task certificate judged for the host
 

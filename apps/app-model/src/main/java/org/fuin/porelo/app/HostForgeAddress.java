@@ -25,6 +25,11 @@ public final class HostForgeAddress {
 
     private final Path forgeConf;
 
+    /** Has every project read in this process reached as this machine reaches it. */
+    public static void install() {
+        org.fuin.porelo.core.project.ProjectReader.placedBy(new HostForgeAddress()::placed);
+    }
+
     /** Constructor for this machine. */
     public HostForgeAddress() {
         this(HostForgeLending.FORGE_CONF);

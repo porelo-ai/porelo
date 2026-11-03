@@ -105,8 +105,7 @@ public class PoreloCli implements Callable<Integer> {
      */
     public static void main(String[] args) {
         quietLogging();
-        final HostForgeAddress forge = new HostForgeAddress();
-        org.fuin.porelo.core.project.ProjectReader.placedBy(forge::placed);
+        HostForgeAddress.install();
         try {
             System.exit(commandLine(PoreloContext.real()).execute(args));
         } catch (final Error ex) {
