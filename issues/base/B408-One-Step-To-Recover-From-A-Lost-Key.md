@@ -23,8 +23,11 @@ contents, and a point can be left out.
 
 **Also to meet:**
 
-- The same bytes must make a commit: today only `repository.yml` can, by a comment; `members.yml` is refused as changing nothing.
+- The same bytes must make a commit: today only `repository.yml` can, by a comment; `members.yml` is refused as changing nothing, and by reading so is a host's
+  file a carry would write again.
 - Writing into a project's own repository takes write right at the forge. An address outside the owner's rights stays
   refused, and *Recover* says which; anyone with write can push a commit the owner signed.
 - Host files the old key signed want a host admin, and an owner who lost their own key needs another owner.
 - Whether a project on a host comes back after this has not been seen.
+- After *Replace a lost key…* is closed, the person's row in the window shows nothing of the card waiting for an owner, though
+  `identity show` keeps it as pending: the row shows the waiting card and what it waits for.
