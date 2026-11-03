@@ -252,6 +252,22 @@ public interface OrganizationQuestions {
     boolean isOrganizationOwner(String login);
 
     /**
+     * Returns whether a login holds the organization admin's place. Before anybody is listed, the
+     * organization runs by the rules from before that role, under which an owner does this work.
+     *
+     * @param login The login.
+     * @return Whether it does this work now.
+     */
+    boolean isOrganizationAdmin(String login);
+
+    /**
+     * Returns who is listed as an organization admin.
+     *
+     * @return The logins, or empty when the organization has no such list yet.
+     */
+    Optional<List<String>> getOrganizationAdmins();
+
+    /**
      * Returns the role a login may act in within a project. A locked member is listed, but may
      * nothing, so it holds none here.
      *

@@ -328,13 +328,20 @@ public final class GitTreeStore {
             final @Nullable TreeRecord kept,
             final List<String> line,
             final @Nullable String revision,
-            final List<String> warnings) {
+            final List<String> warnings)
+            throws IOException {
         if (kept == null) {
             return null;
         }
         if (revision != null
                 && line.indexOf(revision) >= 0
                 && line.indexOf(revision) < line.indexOf(kept.commit())) {
+            return null;
+        }
+        if (walk.missedTheList(kept)) {
+            warnings.add(
+                    "this machine's record is from before the organization's list of admins;"
+                            + " the organization was read afresh from its first commit");
             return null;
         }
         if (walk.unsettled(kept)) {

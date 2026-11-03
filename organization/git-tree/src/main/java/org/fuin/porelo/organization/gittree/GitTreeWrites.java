@@ -242,14 +242,13 @@ public final class GitTreeWrites implements OrganizationWrites {
                 change,
                 TreeRepository.asked("Replace a person's card", login, card),
                 model -> {
-                    if (model.owners().stream()
-                            .noneMatch(
-                                    owner ->
-                                            !owner.backup()
-                                                    && owner.login()
-                                                            .equals(change.acting().login()))) {
+                    if (!model.doesOrganizationAdminsWork(change.acting().login())) {
                         throw new Refused(
-                                Refused.NOT_ALLOWED, "only an owner replaces a card", null);
+                                Refused.NOT_ALLOWED,
+                                model.organizationAdmins() == null
+                                        ? "only an owner replaces a card"
+                                        : "only an organization admin replaces a card",
+                                null);
                     }
                     if (!model.people().containsKey(login)) {
                         throw new Refused(Refused.NOT_FOUND, "this login has no card", null);
@@ -335,7 +334,14 @@ public final class GitTreeWrites implements OrganizationWrites {
             final String commit =
                     clone.commit(
                             "",
-                            Map.of("owners.yml", owners, filed.path, card),
+                            Map.of(
+                                    "owners.yml",
+                                    owners,
+                                    filed.path,
+                                    card,
+                                    TreeWalk.ORGANIZATION_ADMINS,
+                                    TreeFiles.organizationAdminsText(
+                                            List.of(change.acting().login()))),
                             subject,
                             change.id(),
                             signing,
@@ -411,6 +417,46 @@ public final class GitTreeWrites implements OrganizationWrites {
                         throw new Refused(Refused.LAST_OF_ITS_KIND, "this is the only owner", null);
                     }
                     return Map.of("owners.yml", TreeFiles.ownersText(kept));
+                });
+    }
+
+    @Override
+    public Written addOrganizationAdmin(final Change change, final String login)
+            throws IOException {
+        return one(
+                change,
+                TreeRepository.asked("Add an organization admin", login),
+                model -> {
+                    standing(model, login);
+                    final List<String> listed = model.organizationAdmins();
+                    final List<String> logins =
+                            new ArrayList<>(listed == null ? List.of() : listed);
+                    if (logins.contains(login)) {
+                        throw new Refused(
+                                Refused.EXISTS, "this login is an organization admin", null);
+                    }
+                    logins.add(login);
+                    return Map.of(
+                            TreeWalk.ORGANIZATION_ADMINS, TreeFiles.organizationAdminsText(logins));
+                });
+    }
+
+    @Override
+    public Written removeOrganizationAdmin(final Change change, final String login)
+            throws IOException {
+        return one(
+                change,
+                TreeRepository.asked("Remove an organization admin", login),
+                model -> {
+                    final List<String> listed = model.organizationAdmins();
+                    if (listed == null || !listed.contains(login)) {
+                        throw new Refused(
+                                Refused.NOT_FOUND, "this login is no organization admin", null);
+                    }
+                    final List<String> logins = new ArrayList<>(listed);
+                    logins.remove(login);
+                    return Map.of(
+                            TreeWalk.ORGANIZATION_ADMINS, TreeFiles.organizationAdminsText(logins));
                 });
     }
 

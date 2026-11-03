@@ -333,6 +333,25 @@ final class WritesStandIn implements WritesFixture, OrganizationWrites {
     }
 
     @Override
+    public Written addOrganizationAdmin(final Change change, final String login) {
+        return change(
+                change,
+                "organization admin " + login,
+                () -> {
+                    allowed(owners.contains(acting(change)));
+                    hasCard(login);
+                });
+    }
+
+    @Override
+    public Written removeOrganizationAdmin(final Change change, final String login) {
+        return change(
+                change,
+                "no organization admin " + login,
+                () -> allowed(owners.contains(acting(change))));
+    }
+
+    @Override
     public Written removeOrganizationOwner(final Change change, final String login) {
         return change(
                 change,
@@ -620,6 +639,16 @@ final class WritesStandIn implements WritesFixture, OrganizationWrites {
         @Override
         public @Nullable String revision() {
             return revisionNow();
+        }
+
+        @Override
+        public boolean isOrganizationAdmin(final String login) {
+            return isOrganizationOwner(login);
+        }
+
+        @Override
+        public java.util.Optional<java.util.List<String>> getOrganizationAdmins() {
+            return java.util.Optional.empty();
         }
 
         @Override

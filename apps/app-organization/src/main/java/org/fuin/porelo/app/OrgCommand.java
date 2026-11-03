@@ -29,6 +29,7 @@ import picocli.CommandLine.Command;
             OrgAddReadKeyCommand.class,
             OrgCreateCommand.class,
             OrgOwnerCommand.class,
+            OrgAdminCommand.class,
             OrgPersonCommand.class,
             OrgProjectCommand.class,
             OrgHostCommand.class
@@ -73,6 +74,7 @@ public class OrgCommand extends OrgReading {
         answer.put("me", me(state, login));
         answer.put(
                 "owners", state.getOrganizationOwners().stream().map(OrgCommand::owner).toList());
+        answer.put("organization_admins", state.getOrganizationAdmins().orElse(null));
         answer.put(
                 "people",
                 state.getPersons().stream()
@@ -114,6 +116,7 @@ public class OrgCommand extends OrgReading {
         me.put("login", login);
         me.put("card", person.revoked() ? REVOKED : person.state());
         me.put("owner", state.isOrganizationOwner(login));
+        me.put("organization_admin", state.isOrganizationAdmin(login));
         me.put(
                 "admin_of_hosts",
                 state.getHosts().stream()

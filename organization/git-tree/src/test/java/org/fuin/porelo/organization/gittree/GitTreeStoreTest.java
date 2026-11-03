@@ -1283,6 +1283,390 @@ class GitTreeStoreTest {
                 name, "build.example.org", 22, key("carol"), 3000, 2222, 8448, keys.get(signer));
     }
 
+    private String organizationAdmins(final String... logins) {
+        if (logins.length == 0) {
+            return "admins: []\n";
+        }
+        final StringBuilder text = new StringBuilder("admins:\n");
+        for (final String login : logins) {
+            text.append("  - login: ").append(login).append('\n');
+        }
+        return text.toString();
+    }
+
+    /** Founded, with alice's project, and carol the one organization admin. */
+    private void listed() throws IOException {
+        founded();
+        project();
+        person("carol");
+        write("organization-admins.yml", organizationAdmins("carol"));
+        commit("mia");
+    }
+
+    @Test
+    void anOrganizationWithNoListRunsAsItDidAndSaysSo() throws Exception {
+        founded();
+        project();
+
+        final OrganizationQuestions answers = read();
+
+        assertThat(answers.getOrganizationAdmins()).isEmpty();
+        assertThat(answers.isOrganizationAdmin("mia")).as("an owner does this work").isTrue();
+        assertThat(answers.isOrganizationAdmin("alice")).isFalse();
+    }
+
+    @Test
+    void anOwnerListsAnOrganizationAdminAndNobodyElseDoes() throws Exception {
+        listed();
+        assertThat(read().getOrganizationAdmins()).contains(List.of("carol"));
+        assertThat(read().isOrganizationAdmin("carol")).isTrue();
+        assertThat(read().isOrganizationAdmin("mia"))
+                .as("an owner is none without being listed")
+                .isFalse();
+
+        write("organization-admins.yml", organizationAdmins("carol", "alice"));
+        commit("carol");
+
+        final OrganizationQuestions answers = read();
+        assertThat(answers.getOrganizationAdmins()).contains(List.of("carol"));
+        assertThat(refusedPaths(answers)).containsExactly("organization-admins.yml");
+    }
+
+    @Test
+    void anOwnerListsThemselves() throws Exception {
+        listed();
+        person("mia");
+        write("organization-admins.yml", organizationAdmins("carol", "mia"));
+        commit("mia");
+
+        assertThat(read().isOrganizationAdmin("mia")).isTrue();
+    }
+
+    @Test
+    void theListCannotBeRemovedOnceAccepted() throws Exception {
+        listed();
+        git("rm", "-q", "organization-admins.yml");
+        commit("mia");
+
+        final OrganizationQuestions answers = read();
+        assertThat(answers.getOrganizationAdmins()).contains(List.of("carol"));
+        assertThat(refusedPaths(answers)).containsExactly("organization-admins.yml");
+    }
+
+    @Test
+    void anEmptyListStartsTheRolesAndLeavesThatWorkToNobodyUntilOneIsListed() throws Exception {
+        founded();
+        write("organization-admins.yml", organizationAdmins());
+        commit("mia");
+        project();
+
+        final OrganizationQuestions answers = read();
+        assertThat(answers.getOrganizationAdmins()).contains(List.of());
+        assertThat(answers.isOrganizationAdmin("mia")).isFalse();
+        assertThat(refusedPaths(answers)).contains("projects/demo/card");
+    }
+
+    @Test
+    void aFoundingCommitMayListItsFounderAlone() throws Exception {
+        forge.owners.put("mia", true);
+        forge.keys.put("mia", List.of(key("mia")));
+        write("owners.yml", owners("mia"));
+        write("people/mia.card", card("mia", "mia"));
+        write("organization-admins.yml", organizationAdmins("mia"));
+        commit("mia");
+
+        final OrganizationQuestions answers = read();
+        assertThat(answers.getRefusals()).isEmpty();
+        assertThat(answers.getOrganizationAdmins()).contains(List.of("mia"));
+        assertThat(answers.isOrganizationAdmin("mia")).isTrue();
+    }
+
+    @Test
+    void aFoundingCommitNamingAnotherListsNobody() throws Exception {
+        forge.owners.put("mia", true);
+        forge.keys.put("mia", List.of(key("mia")));
+        write("owners.yml", owners("mia"));
+        write("people/mia.card", card("mia", "mia"));
+        write("organization-admins.yml", organizationAdmins("alice"));
+        commit("mia");
+
+        final OrganizationQuestions answers = read();
+        assertThat(answers.getOrganizationAdmins()).isEmpty();
+        assertThat(answers.isOrganizationOwner("mia")).isTrue();
+        assertThat(refusedPaths(answers)).containsExactly("organization-admins.yml");
+    }
+
+    @Test
+    void aListBeforeAnyOwnerStandsListsNobody() throws Exception {
+        write("organization-admins.yml", organizationAdmins("alice"));
+        commit("alice");
+        founded();
+
+        final OrganizationQuestions answers = read();
+        assertThat(answers.getOrganizationAdmins()).isEmpty();
+        assertThat(answers.isOrganizationOwner("mia")).isTrue();
+    }
+
+    @Test
+    void whatWasRightlySignedBeforeTheListStaysAfterIt() throws Exception {
+        founded();
+        project();
+        host();
+        final OrganizationQuestions before = read();
+        person("carol");
+        write("organization-admins.yml", organizationAdmins("carol"));
+        commit("mia");
+
+        final OrganizationQuestions answers = read();
+        assertThat(answers.getRefusals()).isEqualTo(before.getRefusals());
+        assertThat(answers.isProjectMember("demo", "alice")).contains("admin");
+        assertThat(answers.isHostAdmin("build", "alice")).isTrue();
+    }
+
+    @Test
+    void anOrganizationAdminAddsAProjectAndAnOwnerNotListedDoesNot() throws Exception {
+        listed();
+        write("projects/other/card", "name: other\nadmin: alice\n");
+        commit("mia");
+        assertThat(refusedPaths(read())).containsExactly("projects/other/card");
+        assertThat(read().getProjects()).extracting("project").doesNotContain("other");
+
+        write("projects/third/card", "name: third\nadmin: alice\n");
+        commit("carol");
+        assertThat(read().getProjects()).extracting("project").contains("third");
+    }
+
+    @Test
+    void aProjectAdminChangesDevelopersAndNoAdmin() throws Exception {
+        listed();
+        write(
+                "projects/demo/members.yml",
+                "members:\n  - login: alice\n    role: admin\n"
+                        + "  - login: bob\n    role: developer\n"
+                        + "  - login: carol\n    role: developer\n");
+        commit("alice");
+        assertThat(read().isProjectMember("demo", "carol")).contains("developer");
+
+        write(
+                "projects/demo/members.yml",
+                "members:\n  - login: alice\n    role: admin\n"
+                        + "  - login: bob\n    role: admin\n"
+                        + "  - login: carol\n    role: developer\n");
+        commit("alice");
+
+        final OrganizationQuestions answers = read();
+        assertThat(answers.isProjectMember("demo", "bob")).contains("developer");
+        assertThat(refusedPaths(answers)).containsExactly("projects/demo/members.yml");
+    }
+
+    @Test
+    void anOrganizationAdminChangesAProjectsAdminsAndNoDeveloper() throws Exception {
+        listed();
+        write(
+                "projects/demo/members.yml",
+                "members:\n  - login: alice\n    role: admin\n    locked: true\n"
+                        + "  - login: bob\n    role: developer\n");
+        commit("carol");
+        assertThat(read().isProjectMember("demo", "alice")).as("locked, so no role").isEmpty();
+
+        write("projects/demo/members.yml", "members:\n  - login: alice\n    role: admin\n");
+        commit("carol");
+
+        final OrganizationQuestions answers = read();
+        assertThat(answers.isProjectMember("demo", "bob")).contains("developer");
+        assertThat(refusedPaths(answers)).containsExactly("projects/demo/members.yml");
+    }
+
+    @Test
+    void anOwnerNotListedChangesNothingInAProject() throws Exception {
+        listed();
+        write("projects/demo/members.yml", "members:\n  - login: bob\n    role: developer\n");
+        commit("mia");
+
+        final OrganizationQuestions answers = read();
+        assertThat(answers.isProjectMember("demo", "alice")).contains("admin");
+        assertThat(refusedPaths(answers)).containsExactly("projects/demo/members.yml");
+    }
+
+    @Test
+    void aFirstMembersFileNamesNoFurtherAdmin() throws Exception {
+        founded();
+        person("alice");
+        person("bob");
+        person("carol");
+        write("organization-admins.yml", organizationAdmins("carol"));
+        commit("mia");
+        write("projects/demo/card", "name: demo\nadmin: alice\n");
+        commit("carol");
+        write(
+                "projects/demo/members.yml",
+                "members:\n  - login: alice\n    role: admin\n  - login: bob\n    role: admin\n");
+        commit("alice");
+
+        assertThat(refusedPaths(read())).containsExactly("projects/demo/members.yml");
+    }
+
+    @Test
+    void aProjectAdminKeepsTheAddress() throws Exception {
+        listed();
+        write("projects/demo/repository.yml", "address: git@github.com:acme/demo.git\n");
+        commit("alice");
+        assertThat(read().getProjectRepository("demo")).isPresent();
+
+        write("projects/demo/repository.yml", "address: git@github.com:acme/other.git\n");
+        commit("carol");
+        assertThat(refusedPaths(read())).containsExactly("projects/demo/repository.yml");
+    }
+
+    @Test
+    void anOrganizationAdminAddsAHostAndAnOwnerNotListedDoesNot() throws Exception {
+        listed();
+        write("hosts/one/host.yml", "admins:\n  - login: alice\nprojects: []\n");
+        commit("mia");
+        assertThat(read().isHostAdmin("one", "alice")).isFalse();
+
+        write("hosts/two/host.yml", "admins:\n  - login: alice\nprojects: []\n");
+        commit("carol");
+        assertThat(read().isHostAdmin("two", "alice")).isTrue();
+    }
+
+    private void listedWithHost() throws IOException {
+        listed();
+        write("hosts/build/host.yml", "admins:\n  - login: alice\nprojects: []\n");
+        commit("carol");
+    }
+
+    @Test
+    void aMachineAdminCarriesAProjectAndNamesNoFurtherAdmin() throws Exception {
+        listedWithHost();
+        write("hosts/build/host.yml", "admins:\n  - login: alice\nprojects:\n  - demo\n");
+        commit("alice");
+        assertThat(read().getHosts().getFirst().projects()).containsExactly("demo");
+
+        write(
+                "hosts/build/host.yml",
+                "admins:\n  - login: alice\n  - login: bob\nprojects:\n  - demo\n");
+        commit("alice");
+
+        final OrganizationQuestions answers = read();
+        assertThat(answers.isHostAdmin("build", "bob")).isFalse();
+        assertThat(refusedPaths(answers)).containsExactly("hosts/build/host.yml");
+    }
+
+    @Test
+    void anOrganizationAdminChangesAMachinesAdminsAndNotWhatItCarries() throws Exception {
+        listedWithHost();
+        write("hosts/build/host.yml", "admins:\n  - login: bob\nprojects: []\n");
+        commit("carol");
+        assertThat(read().isHostAdmin("build", "bob")).isTrue();
+        assertThat(read().isHostAdmin("build", "alice")).isFalse();
+
+        write("hosts/build/host.yml", "admins:\n  - login: bob\nprojects:\n  - demo\n");
+        commit("carol");
+
+        assertThat(refusedPaths(read())).containsExactly("hosts/build/host.yml");
+    }
+
+    @Test
+    void aMachineAdminRemovesTheirMachineWithItsCard() throws Exception {
+        listedWithHost();
+        write("hosts/build/card", hostCard("build", "alice"));
+        commit("alice");
+        git("rm", "-q", "hosts/build/host.yml", "hosts/build/card");
+        commit("alice");
+
+        final OrganizationQuestions answers = read();
+        assertThat(answers.getRefusals()).isEmpty();
+        assertThat(answers.getHosts()).isEmpty();
+    }
+
+    @Test
+    void anOwnerNotListedRemovesNoMachine() throws Exception {
+        listedWithHost();
+        write("hosts/build/card", hostCard("build", "alice"));
+        commit("alice");
+        git("rm", "-q", "hosts/build/host.yml", "hosts/build/card");
+        commit("mia");
+
+        assertThat(read().getHosts()).hasSize(1);
+    }
+
+    @Test
+    void anOrganizationAdminRemovesAMachineWithItsCard() throws Exception {
+        listedWithHost();
+        write("hosts/build/card", hostCard("build", "alice"));
+        commit("alice");
+        git("rm", "-q", "hosts/build/host.yml", "hosts/build/card");
+        commit("carol");
+
+        final OrganizationQuestions answers = read();
+        assertThat(answers.getRefusals()).isEmpty();
+        assertThat(answers.getHosts()).isEmpty();
+    }
+
+    @Test
+    void anOwnerNotListedReplacesNoLostKeysCard() throws Exception {
+        listed();
+        keys.put("new-alice", org.fuin.porelo.vault.SigningKey.generate("test"));
+        write("people/alice.card", card("alice", "new-alice"));
+        commit("mia");
+
+        assertThat(refusedPaths(read())).containsExactly("people/alice.card");
+    }
+
+    @Test
+    void anOrganizationAdminReplacesALostKeysCard() throws Exception {
+        listed();
+        keys.put("new-alice", org.fuin.porelo.vault.SigningKey.generate("test"));
+        forge.keys.put("alice", List.of(key("new-alice")));
+        write("people/alice.card", card("alice", "new-alice"));
+        commit("carol");
+
+        final OrganizationQuestions answers = read();
+        assertThat(answers.getRefusals()).isEmpty();
+        assertThat(answers.getPersons())
+                .filteredOn(person -> person.login().equals("alice"))
+                .extracting("key")
+                .containsExactly(key("new-alice"));
+    }
+
+    @Test
+    void aKeptRecordCarriesTheListAcrossReads() throws Exception {
+        listed();
+        keeping().read(forge);
+        write("projects/third/card", "name: third\nadmin: alice\n");
+        commit("mia");
+
+        final OrganizationQuestions answers = keeping().read(forge);
+        assertThat(answers.getOrganizationAdmins()).contains(List.of("carol"));
+        assertThat(refusedPaths(answers)).containsExactly("projects/third/card");
+    }
+
+    @Test
+    void aRecordFromBeforeTheRolesIsWalkedAnewWhenTheListStandsInItsHistory() throws Exception {
+        founded();
+        project();
+        person("carol");
+        keeping().read(forge);
+        final String older = Files.readString(trustRecord());
+        write("organization-admins.yml", organizationAdmins("carol"));
+        commit("mia");
+        keeping().read(forge);
+        // As a machine on an older build keeps it: it never read the list.
+        Files.writeString(trustRecord(), recordAt(older, git("rev-parse", "HEAD")));
+        write("projects/third/card", "name: third\nadmin: alice\n");
+        commit("mia");
+
+        final OrganizationQuestions answers = keeping().read(forge);
+        assertThat(answers.getOrganizationAdmins()).contains(List.of("carol"));
+        assertThat(refusedPaths(answers)).containsExactly("projects/third/card");
+    }
+
+    private static String recordAt(final String record, final String commit) {
+        return record.replaceFirst(
+                "\"commit\"\\s*:\\s*\"[0-9a-f]+\"", "\"commit\":\"" + commit + "\"");
+    }
+
     @Test
     void anOwnerMakesAHostWithItsFirstAdmin() throws Exception {
         founded();

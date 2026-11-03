@@ -69,6 +69,21 @@ record GitTreeOrganization(
     }
 
     @Override
+    public boolean isOrganizationAdmin(final String login) {
+        final List<String> listed = model.organizationAdmins();
+        if (listed == null) {
+            return isOrganizationOwner(login);
+        }
+        final TreeModel.Person person = model.people().get(login);
+        return person != null && accepted(person) && listed.contains(login);
+    }
+
+    @Override
+    public Optional<List<String>> getOrganizationAdmins() {
+        return Optional.ofNullable(model.organizationAdmins());
+    }
+
+    @Override
     public boolean isOrganizationOwner(final String login) {
         // A founder's key stands in owners.yml, so an owner can act before their card is filed.
         final TreeModel.Person person = model.people().get(login);

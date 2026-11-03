@@ -20,6 +20,8 @@ import org.jspecify.annotations.Nullable;
  * @param revoked The fingerprints of the keys revoked.
  * @param cards The blob last accepted at each card's path.
  * @param hosts Each host.
+ * @param organizationAdmins Who is listed, or {@code null} before the list: the roles start with
+ *     it, and until then the rules from before them judge.
  */
 record TreeModel(
         List<TreeFiles.Owner> owners,
@@ -27,7 +29,8 @@ record TreeModel(
         Map<String, ProjectState> projects,
         Set<String> revoked,
         Map<String, String> cards,
-        Map<String, HostState> hosts) {
+        Map<String, HostState> hosts,
+        @Nullable List<String> organizationAdmins) {
 
     /**
      * A person's card as it stands.
@@ -88,7 +91,19 @@ record TreeModel(
                 new TreeMap<>(),
                 new TreeSet<>(),
                 new TreeMap<>(),
-                new TreeMap<>());
+                new TreeMap<>(),
+                null);
+    }
+
+    TreeModel withOrganizationAdmins(final @Nullable List<String> listed) {
+        return new TreeModel(owners, people, projects, revoked, cards, hosts, listed);
+    }
+
+    /** Whether a login does the organization admin's work now: an owner, before the list. */
+    boolean doesOrganizationAdminsWork(final String login) {
+        return organizationAdmins == null
+                ? owners.stream().anyMatch(owner -> !owner.backup() && owner.login().equals(login))
+                : organizationAdmins.contains(login);
     }
 
     TreeModel copy() {
@@ -98,7 +113,8 @@ record TreeModel(
                 new TreeMap<>(projects),
                 new TreeSet<>(revoked),
                 new TreeMap<>(cards),
-                new TreeMap<>(hosts));
+                new TreeMap<>(hosts),
+                organizationAdmins);
     }
 
     boolean owner(final String fingerprint) {

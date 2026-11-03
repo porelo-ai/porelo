@@ -200,6 +200,41 @@ final class TreeFiles {
     }
 
     /**
+     * Reads {@code organization-admins.yml}.
+     *
+     * @param text Its content.
+     * @return The logins it lists, each once.
+     * @throws CardException Saying what is wrong, never quoting it.
+     */
+    static List<String> organizationAdmins(final String text) {
+        final Map<?, ?> file = document(text, Set.of("admins"));
+        final List<String> logins = new ArrayList<>();
+        for (final Object each : list(file.get("admins"), "admins")) {
+            final String login = string(entry(each, Set.of("login")).get("login"), "a login");
+            if (!login(login) || logins.contains(login)) {
+                throw new CardException("a login is no login, or is named twice");
+            }
+            logins.add(login);
+        }
+        return List.copyOf(logins);
+    }
+
+    /**
+     * Writes {@code organization-admins.yml} so that {@link #organizationAdmins} reads it back.
+     *
+     * @param logins The logins.
+     * @return The file's text.
+     */
+    static String organizationAdminsText(final List<String> logins) {
+        if (logins.isEmpty()) {
+            return "admins: []\n";
+        }
+        final StringBuilder text = new StringBuilder("admins:\n");
+        logins.forEach(login -> text.append("  - login: ").append(login).append('\n'));
+        return text.toString();
+    }
+
+    /**
      * Writes {@code owners.yml} so that {@link #owners} reads it back.
      *
      * @param owners The entries.

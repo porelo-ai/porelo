@@ -659,6 +659,16 @@ final class StandIn implements OrganizationFixture, OfflineFixture {
         }
 
         @Override
+        public boolean isOrganizationAdmin(final String login) {
+            return isOrganizationOwner(login);
+        }
+
+        @Override
+        public java.util.Optional<java.util.List<String>> getOrganizationAdmins() {
+            return java.util.Optional.empty();
+        }
+
+        @Override
         public boolean isOrganizationOwner(final String login) {
             return walk.owners.contains(login);
         }

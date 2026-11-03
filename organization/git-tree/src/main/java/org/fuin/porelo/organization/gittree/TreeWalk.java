@@ -37,6 +37,9 @@ final class TreeWalk {
 
     private static final String OWNERS = "owners.yml";
 
+    /** Where the roles start: the commit that first holds it, with the rules from before under. */
+    static final String ORGANIZATION_ADMINS = "organization-admins.yml";
+
     private static final Pattern PERSON = Pattern.compile("people/([^/]+)\\.card");
 
     private static final Pattern PROJECT_FILE =
@@ -217,6 +220,20 @@ final class TreeWalk {
     }
 
     /**
+     * Whether a record kept before the roles missed the list, as a machine on an older build
+     * ignored it: going on from it would judge what follows by the rules from before.
+     *
+     * @param record The record.
+     * @return Whether its commit holds a list its model does not.
+     * @throws IOException When the repository cannot be read.
+     */
+    boolean missedTheList(final TreeRecord record) throws IOException {
+        return record.model().organizationAdmins() == null
+                && record.commit() != null
+                && repository.object(record.commit(), ORGANIZATION_ADMINS).isPresent();
+    }
+
+    /**
      * The first pass: every change of key on the whole line, to the tip, whatever revision is asked
      * for, so that a new machine and an old one judge a past commit alike. A step counts only where
      * the new key signed the commit and both keys signed the card, so vouching for a key reaches
@@ -259,7 +276,14 @@ final class TreeWalk {
 
     private boolean commit(final String commit, final String parent) throws IOException {
         final List<String> paths =
-                repository.changed(commit, parent).stream().filter(TreeWalk::judged).toList();
+                new ArrayList<>(
+                        repository.changed(commit, parent).stream()
+                                .filter(TreeWalk::judged)
+                                .toList());
+        // Last, as a founding commit's list is judged against the owners it files.
+        if (paths.remove(ORGANIZATION_ADMINS)) {
+            paths.add(ORGANIZATION_ADMINS);
+        }
         lastPaths = paths;
         lastSigner = null;
         if (paths.isEmpty()) {
@@ -304,6 +328,7 @@ final class TreeWalk {
         final Matcher project = PROJECT_FILE.matcher(path);
         final Matcher host = HOST_FILE.matcher(path);
         return path.equals(OWNERS)
+                || path.equals(ORGANIZATION_ADMINS)
                 || person.matches() && TreeFiles.login(person.group(1))
                 || project.matches() && project.group(1).matches(Project.NAME_PATTERN)
                 || host.matches() && TreeFiles.host(host.group(1));
@@ -317,6 +342,10 @@ final class TreeWalk {
         final Matcher project = PROJECT_FILE.matcher(path);
         if (path.equals(OWNERS)) {
             owners(before, commit, signer);
+            return true;
+        }
+        if (path.equals(ORGANIZATION_ADMINS)) {
+            organizationAdmins(before, commit, signer);
             return true;
         }
         if (person.matches()) {
@@ -362,6 +391,56 @@ final class TreeWalk {
         }
         model.owners().clear();
         model.owners().addAll(file);
+    }
+
+    /**
+     * Judges the list of organization admins, which is an owner's. A founding commit may list its
+     * founder alone: the owners it files were judged just before, as this path comes last.
+     */
+    private void organizationAdmins(
+            final TreeModel before, final String commit, final String signer)
+            throws Refused, Undecided {
+        final Optional<String> text = text(commit, ORGANIZATION_ADMINS);
+        if (text.isEmpty()) {
+            if (before.organizationAdmins() != null) {
+                throw new Refused(ORGANIZATION_ADMINS + " cannot be removed once accepted");
+            }
+            return;
+        }
+        final List<String> file = parsed(() -> TreeFiles.organizationAdmins(text.orElseThrow()));
+        if (before.owners().isEmpty()) {
+            final List<String> founder =
+                    model.owners().stream()
+                            .filter(owner -> !owner.backup() && owner.fingerprint().equals(signer))
+                            .map(TreeFiles.Owner::login)
+                            .toList();
+            if (founder.isEmpty() || !founder.containsAll(file)) {
+                throw new Refused("the first list names someone else than its founder");
+            }
+        } else if (!before.owner(signer)) {
+            throw new Refused("signed by " + signer + ", not an owner");
+        }
+        model = model.withOrganizationAdmins(file);
+    }
+
+    /** Whether the key does the organization admin's work: an owner's, before the list. */
+    private static boolean organizationAdmin(final TreeModel before, final String signer)
+            throws Undecided {
+        final List<String> listed = before.organizationAdmins();
+        if (listed == null) {
+            return before.owner(signer);
+        }
+        for (final String login : listed) {
+            if (holds(before, login, signer)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** Who does that work, for what a refusal says. */
+    private static String organizationAdminWord(final TreeModel before) {
+        return before.organizationAdmins() == null ? "an owner" : "an organization admin";
     }
 
     /**
@@ -468,8 +547,14 @@ final class TreeWalk {
                 held == null || held.state().equals(Organization.REFUSED) ? null : held;
         final Optional<String> object = object(commit, path);
         if (object.isEmpty()) {
-            if (prior != null && !signer.equals(prior.fingerprint()) && !before.owner(signer)) {
-                throw new Refused("removed by " + signer + ", neither the card's key nor an owner");
+            if (prior != null
+                    && !signer.equals(prior.fingerprint())
+                    && !organizationAdmin(before, signer)) {
+                throw new Refused(
+                        "removed by "
+                                + signer
+                                + ", neither the card's key nor "
+                                + organizationAdminWord(before));
             }
             model.people().remove(login);
             model.cards().remove(path);
@@ -487,7 +572,8 @@ final class TreeWalk {
             state = own;
         } else if (prior == null) {
             // An owner may put a person's own card in place of a refused one.
-            if (!signer.equals(card.fingerprint()) && !(held != null && before.owner(signer))) {
+            if (!signer.equals(card.fingerprint())
+                    && !(held != null && organizationAdmin(before, signer))) {
                 throw new Refused("signed by " + signer + ", not the card's own key");
             }
             if (held != null
@@ -564,7 +650,7 @@ final class TreeWalk {
             final String login,
             final String signer,
             final TreeModel before)
-            throws Refused {
+            throws Refused, Undecided {
         final PersonCard card;
         try {
             card = PersonCard.read(repository.text(object), path);
@@ -579,9 +665,13 @@ final class TreeWalk {
             throw new Refused("the card is not signed as it must be");
         }
         if (!signer.equals(card.fingerprint())
-                && !before.owner(signer)
+                && !organizationAdmin(before, signer)
                 && !backs(before, login, signer)) {
-            throw new Refused("signed by " + signer + ", neither the card's key nor an owner");
+            throw new Refused(
+                    "signed by "
+                            + signer
+                            + ", neither the card's key nor "
+                            + organizationAdminWord(before));
         }
         return card;
     }
@@ -644,11 +734,11 @@ final class TreeWalk {
             final PersonCard card,
             final TreeModel.Person prior,
             final String signer)
-            throws Refused {
+            throws Refused, Undecided {
         if (signer.equals(card.fingerprint()) && handsOn(before, path, card, prior)) {
             return true;
         }
-        if (!before.owner(signer) && !backs(before, prior, card, signer)) {
+        if (!organizationAdmin(before, signer) && !backs(before, prior, card, signer)) {
             throw new Refused("signed by " + signer + ", the old key did not hand the card on");
         }
         revoke(prior.fingerprint());
@@ -785,9 +875,9 @@ final class TreeWalk {
             final String path,
             final String project,
             final String signer)
-            throws Refused {
-        if (!before.owner(signer)) {
-            throw new Refused("signed by " + signer + ", not an owner");
+            throws Refused, Undecided {
+        if (!organizationAdmin(before, signer)) {
+            throw new Refused("signed by " + signer + ", not " + organizationAdminWord(before));
         }
         final Optional<String> text = text(commit, path);
         if (text.isEmpty()) {
@@ -826,14 +916,30 @@ final class TreeWalk {
         }
         final List<TreeFiles.Member> file = parsed(() -> TreeFiles.members(text.orElseThrow()));
         final List<TreeFiles.Member> members = prior.members();
+        final boolean roles = before.organizationAdmins() != null;
         if (!admin(before, members, signer)) {
             if (members == null && holds(before, prior.admin(), signer)) {
                 firstMembers(file, prior.admin());
-            } else if (before.owner(signer)) {
-                adminsOnly(members == null ? List.of() : members, file);
+                if (roles) {
+                    adminRowsKept(
+                            List.of(new TreeFiles.Member(prior.admin(), TreeFiles.ADMIN, false)),
+                            file);
+                }
+            } else if (organizationAdmin(before, signer)) {
+                if (roles) {
+                    developerRowsKept(members == null ? List.of() : members, file);
+                } else {
+                    adminsOnly(members == null ? List.of() : members, file);
+                }
             } else {
-                throw new Refused("signed by " + signer + ", neither its admin nor an owner");
+                throw new Refused(
+                        "signed by "
+                                + signer
+                                + ", neither its admin nor "
+                                + organizationAdminWord(before));
             }
+        } else if (roles && !organizationAdmin(before, signer)) {
+            adminRowsKept(java.util.Objects.requireNonNull(members), file);
         }
         model.projects()
                 .put(project, new TreeModel.ProjectState(prior.admin(), file, prior.address()));
@@ -894,20 +1000,23 @@ final class TreeWalk {
             throws Refused, Undecided {
         final TreeModel.HostState prior = before.hosts().get(host);
         final Optional<String> text = text(commit, path);
+        final boolean roles = before.organizationAdmins() != null;
         if (text.isEmpty()) {
             if (prior == null) {
                 return;
             }
-            if (!before.owner(signer)) {
-                throw new Refused("signed by " + signer + ", not an owner");
+            // Taking Porelo off a machine removes its entry too, which is its admin's to do.
+            if (!organizationAdmin(before, signer)
+                    && !(roles && hostAdmin(before, prior, signer))) {
+                throw new Refused("signed by " + signer + ", not " + organizationAdminWord(before));
             }
             model.hosts().remove(host);
             return;
         }
         final TreeFiles.HostFile file = parsed(() -> TreeFiles.hostFile(text.orElseThrow()));
         if (prior == null) {
-            if (!before.owner(signer)) {
-                throw new Refused("signed by " + signer + ", not an owner");
+            if (!organizationAdmin(before, signer)) {
+                throw new Refused("signed by " + signer + ", not " + organizationAdminWord(before));
             }
             if (file.admins().size() != 1 || !file.projects().isEmpty()) {
                 throw new Refused("a new host holds its first admin and nothing else");
@@ -915,8 +1024,19 @@ final class TreeWalk {
             model.hosts().put(host, new TreeModel.HostState(file, null));
             return;
         }
-        if (!hostAdmin(before, prior, signer)) {
+        final boolean own = hostAdmin(before, prior, signer);
+        final boolean above = roles && organizationAdmin(before, signer);
+        if (!own && !above) {
             throw new Refused("signed by " + signer + ", not its admin");
+        }
+        if (own && !above && roles) {
+            hostAdminsKept(before, prior.file().admins(), file.admins(), signer);
+        }
+        if (above
+                && !own
+                && !new java.util.HashSet<>(prior.file().projects())
+                        .equals(new java.util.HashSet<>(file.projects()))) {
+            throw new Refused("what a machine carries is its admin's to change");
         }
         for (final TreeFiles.HostAdmin admin : file.admins()) {
             // A backup key replaces its login's card: nobody may name one for someone else.
@@ -930,6 +1050,30 @@ final class TreeWalk {
             carriable(before, host, prior, project);
         }
         model.hosts().put(host, new TreeModel.HostState(file, prior.card()));
+    }
+
+    /** A machine's admin names no further admin, and changes no backup key but their own. */
+    private static void hostAdminsKept(
+            final TreeModel before,
+            final List<TreeFiles.HostAdmin> was,
+            final List<TreeFiles.HostAdmin> is,
+            final String signer)
+            throws Refused, Undecided {
+        if (!othersRows(before, was, signer).equals(othersRows(before, is, signer))) {
+            throw new Refused("a machine's admins are an organization admin's to change");
+        }
+    }
+
+    private static Set<TreeFiles.HostAdmin> othersRows(
+            final TreeModel before, final List<TreeFiles.HostAdmin> admins, final String signer)
+            throws Undecided {
+        final Set<TreeFiles.HostAdmin> rows = new java.util.HashSet<>();
+        for (final TreeFiles.HostAdmin admin : admins) {
+            if (!admin.backup() || !holds(before, admin.login(), signer)) {
+                rows.add(admin);
+            }
+        }
+        return rows;
     }
 
     /** A project newly on a host must stand, and be on no other host. */
@@ -973,7 +1117,7 @@ final class TreeWalk {
         }
         final Optional<String> object = object(commit, path);
         if (object.isEmpty()
-                && before.owner(signer)
+                && organizationAdmin(before, signer)
                 && touched.contains("hosts/" + host + "/host.yml")) {
             return;
         }
@@ -1058,6 +1202,44 @@ final class TreeWalk {
             throw new Undecided("the identity source has not vouched for the signer's card");
         }
         return person.state().equals(Organization.TRUSTED);
+    }
+
+    /** A project's admin answers for its developers: the admins are the level above's. */
+    private static void adminRowsKept(
+            final List<TreeFiles.Member> before, final List<TreeFiles.Member> after)
+            throws Refused {
+        if (!adminRows(before).equals(adminRows(after))) {
+            throw new Refused("a project's admins are an organization admin's to change");
+        }
+    }
+
+    private static Set<TreeFiles.Member> adminRows(final List<TreeFiles.Member> members) {
+        return members.stream()
+                .filter(member -> member.role().equals(TreeFiles.ADMIN))
+                .collect(java.util.stream.Collectors.toSet());
+    }
+
+    /** An organization admin answers for a project's admins: its developers are its admin's. */
+    private static void developerRowsKept(
+            final List<TreeFiles.Member> before, final List<TreeFiles.Member> after)
+            throws Refused {
+        final Map<String, TreeFiles.Member> was = new TreeMap<>();
+        before.forEach(member -> was.put(member.login(), member));
+        final Map<String, TreeFiles.Member> is = new TreeMap<>();
+        after.forEach(member -> is.put(member.login(), member));
+        for (final TreeFiles.Member member : before) {
+            final TreeFiles.Member now = is.get(member.login());
+            if (member.role().equals(TreeFiles.DEVELOPER)
+                    && (now == null
+                            || now.role().equals(TreeFiles.DEVELOPER) && !now.equals(member))) {
+                throw new Refused("a project's developers are its admin's to change");
+            }
+        }
+        for (final TreeFiles.Member member : after) {
+            if (!was.containsKey(member.login()) && !member.role().equals(TreeFiles.ADMIN)) {
+                throw new Refused("a project's developers are its admin's to change");
+            }
+        }
     }
 
     /** The card's admin writes the first members once, naming themselves an unlocked admin. */

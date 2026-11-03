@@ -69,6 +69,9 @@ record TreeRecord(@Nullable String commit, TreeModel model, List<Organization.Re
         final Map<String, Object> hosts = new LinkedHashMap<>();
         model.hosts().forEach((name, host) -> hosts.put(name, host(host)));
         record.put("hosts", hosts);
+        if (model.organizationAdmins() != null) {
+            record.put("organization_admins", model.organizationAdmins());
+        }
         record.put(
                 "refusals",
                 refusals.stream()
@@ -217,7 +220,15 @@ record TreeRecord(@Nullable String commit, TreeModel model, List<Organization.Re
                             string(refusal.get("path"), "refusals"),
                             string(refusal.get("why"), "refusals")));
         }
-        return new TreeRecord(commit, model, refusals);
+        final Object listed = record.get("organization_admins");
+        if (listed == null) {
+            return new TreeRecord(commit, model, refusals);
+        }
+        final List<String> logins = new ArrayList<>();
+        for (final Object each : list(listed, "organization_admins")) {
+            logins.add(login(each, "organization_admins"));
+        }
+        return new TreeRecord(commit, model.withOrganizationAdmins(List.copyOf(logins)), refusals);
     }
 
     private static TreeFiles.Owner owner(final Map<?, ?> entry) {

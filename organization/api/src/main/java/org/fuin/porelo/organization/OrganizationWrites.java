@@ -136,6 +136,26 @@ public interface OrganizationWrites {
     Written removeOrganizationOwner(Change change, String login) throws IOException;
 
     /**
+     * Lists a person as an organization admin: an owner's. The first listing starts the roles.
+     *
+     * @param change Who acts.
+     * @param login The person, whose card stands.
+     * @return What it made.
+     * @throws IOException When something unexpected happened; the change may have been made.
+     */
+    Written addOrganizationAdmin(Change change, String login) throws IOException;
+
+    /**
+     * Takes a person off the organization admins: an owner's. The list may stand empty.
+     *
+     * @param change Who acts.
+     * @param login The person.
+     * @return What it made.
+     * @throws IOException When something unexpected happened; the change may have been made.
+     */
+    Written removeOrganizationAdmin(Change change, String login) throws IOException;
+
+    /**
      * Makes a project, with its first admin as a member; the name {@code default} is refused.
      *
      * @param change Who acts, against which state, under which id.
