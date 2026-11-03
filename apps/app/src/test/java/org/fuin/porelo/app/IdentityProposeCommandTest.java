@@ -323,6 +323,19 @@ class IdentityProposeCommandTest {
     }
 
     @Test
+    void a_signing_key_file_that_is_a_link_is_not_followed() throws Exception {
+        final java.nio.file.Path link = registry.keyFiles.get("alice").resolveSibling("linked.pub");
+        java.nio.file.Files.createSymbolicLink(
+                link, java.nio.file.Path.of(registry.keyFiles.get("alice") + ".pub"));
+        config.put("user.signingkey", link.toString());
+
+        assertThat(propose()).isZero();
+
+        assertThat(registry.answer().get("key")).isNull();
+        assertThat(String.valueOf(registry.answer().get("notes"))).contains("a link");
+    }
+
+    @Test
     void two_signing_keys_are_ambiguous_without_falling_back() throws Exception {
         startForge();
         registry.agent("alice", "bob", "hank");

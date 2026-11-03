@@ -7,7 +7,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import org.fuin.porelo.core.process.Command;
 import org.fuin.porelo.ecosystem.api.Detection;
 import org.fuin.porelo.ecosystem.api.EcosystemException;
 import org.fuin.porelo.ecosystem.api.EcosystemRefused;
@@ -83,8 +82,7 @@ public class ProjectInitCommand extends ProjectRepositoryCommand.Changing {
         checkout = checkout.toAbsolutePath().normalize();
         if (!Files.isDirectory(checkout))
             throw new Refused(Refused.USAGE, "CHECKOUT must be a directory", null);
-        final var origin =
-                machine.runner().run(Command.of("git", "remote", "get-url", "origin").in(checkout));
+        final var origin = machine.runner().run(LocalGit.origin(checkout));
         final String address = origin.successful() ? origin.trimmedOutput() : "";
         final boolean password = address.matches("(?s)^[A-Za-z][A-Za-z0-9+.-]*://[^/@]*:[^/@]*@.*");
         final boolean user =

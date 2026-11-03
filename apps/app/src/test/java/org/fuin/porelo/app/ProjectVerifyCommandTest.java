@@ -13,6 +13,7 @@ import org.fuin.porelo.core.config.XdgPaths;
 import org.fuin.porelo.core.process.Command;
 import org.fuin.porelo.core.process.ProcessCommandRunner;
 import org.fuin.porelo.wire.Json;
+import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -51,6 +52,8 @@ class ProjectVerifyCommandTest {
     private Path repo;
 
     private Path signers;
+
+    private @Nullable String gitDir;
 
     @BeforeEach
     void repository() throws Exception {
@@ -123,7 +126,7 @@ class ProjectVerifyCommandTest {
                 "project",
                 "verify",
                 "--repository",
-                repo.resolve(".git").toString(),
+                gitDir == null ? repo.resolve(".git").toString() : gitDir,
                 "--signers",
                 signers.toString(),
                 "--json");
@@ -192,5 +195,44 @@ class ProjectVerifyCommandTest {
         assertThat(verify()).isEqualTo(64);
 
         assertThat(out + " " + err).doesNotContain("secret");
+    }
+
+    @Test
+    void aSignerWithATimeInItsDayIsUsageForTheDaysAloneAreJudged() throws Exception {
+        commit(FILE, "alice");
+        Files.writeString(signers, line("alice", "valid-after=\"20261103120000Z\" "));
+
+        assertThat(verify()).isEqualTo(64);
+    }
+
+    @Test
+    void signersThatAreNoTextAreUsage() throws Exception {
+        commit(FILE, "alice");
+        Files.write(signers, new byte[] {(byte) 0xFF, '\n'});
+
+        assertThat(verify()).isEqualTo(64);
+    }
+
+    @Test
+    void aCopyNamedRelativeToWhereThisRunsIsRead() throws Exception {
+        commit(FILE, "alice");
+        gitDir = Path.of("").toAbsolutePath().relativize(repo.resolve(".git")).toString();
+
+        assertThat(verify()).as(err.toString()).isZero();
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(
+            strings = {
+                "https://user:secret-fixture@forge.example/demo/first.git",
+                "https://secret-fixture@forge.example/demo/first.git",
+                "https://forge.example/demo/first.git?token=secret-fixture"
+            })
+    void anAddressHoldingASecretIsRefusedAndNotPrinted(final String address) throws Exception {
+        commit(FILE.replace("git@forge.example:demo/first.git", address), "alice");
+
+        assertThat(verify()).isEqualTo(65);
+
+        assertThat(out + " " + err).doesNotContain("secret-fixture");
     }
 }

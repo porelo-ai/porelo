@@ -1,6 +1,7 @@
 package org.fuin.porelo.app;
 
 import java.io.IOException;
+import java.nio.charset.CharacterCodingException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
@@ -41,6 +42,11 @@ public class ProjectVerifyCommand extends OrgReading {
 
     private static final LocalDate NEVER = LocalDate.of(9999, 12, 31);
 
+    /** A web address's user, any address's password, and whatever follows a question mark. */
+    private static final Pattern SECRET_IN_ADDRESS =
+            Pattern.compile(
+                    "(?s)(?i:https?)://[^/]*@.*|[A-Za-z][A-Za-z0-9+.-]*://[^/@]*:[^/@]*@.*|.*[?#].*");
+
     @Option(
             names = "--repository",
             required = true,
@@ -71,6 +77,14 @@ public class ProjectVerifyCommand extends OrgReading {
         }
         final Map<String, @Nullable Object> repositories = new LinkedHashMap<>();
         for (final Repository each : project.repositories()) {
+            if (holdsSecret(each.upstream()) || holdsSecret(each.central())) {
+                throw new Refused(
+                        Refused.REFUSED_STATE,
+                        "the address of repository "
+                                + each.name()
+                                + " holds a user, password or token, which is not answered",
+                        null);
+            }
             final Map<String, @Nullable Object> row = new LinkedHashMap<>();
             row.put("review", each.review());
             row.put("upstream", each.upstream());
@@ -90,11 +104,21 @@ public class ProjectVerifyCommand extends OrgReading {
         line("Project: " + answer.get("project") + " at " + answer.get("revision"));
     }
 
+    private static boolean holdsSecret(final @Nullable String address) {
+        return address != null && SECRET_IN_ADDRESS.matcher(address).matches();
+    }
+
     /** Reads the signers, whose lines are not printed: a file named wrongly may hold anything. */
     private static List<SigningKey> keys(final Path file) throws IOException {
         OrgFetchCommand.regular(file, "--signers");
         final List<SigningKey> keys = new ArrayList<>();
-        for (final String line : Files.readAllLines(file, StandardCharsets.UTF_8)) {
+        final List<String> lines;
+        try {
+            lines = Files.readAllLines(file, StandardCharsets.UTF_8);
+        } catch (CharacterCodingException ex) {
+            throw notSigners();
+        }
+        for (final String line : lines) {
             final String kept = line.strip();
             if (kept.isEmpty() || kept.startsWith("#")) {
                 continue;
@@ -119,7 +143,8 @@ public class ProjectVerifyCommand extends OrgReading {
     }
 
     private static LocalDate day(final String line, final String option, final LocalDate none) {
-        final Matcher found = Pattern.compile(option + "=\"?([0-9]{8})").matcher(line);
+        final Matcher found =
+                Pattern.compile(option + "=\"?([0-9]{8})\"?(?=[,\\s]|$)").matcher(line);
         if (!found.find()) {
             if (line.contains(option + "=")) {
                 throw notSigners();

@@ -244,7 +244,7 @@ public class IdentityProposeCommand implements Callable<Integer>, PoreloFactory.
     }
 
     private static @Nullable String config(final PoreloContext machine, final String field) {
-        Command command = Command.of("git", "config", "--get", field);
+        Command command = LocalGit.config(field);
         final Map<String, String> environment = new LinkedHashMap<>();
         for (final String name :
                 List.of("GIT_CONFIG_GLOBAL", "GIT_CONFIG_NOSYSTEM", "GIT_CONFIG_SYSTEM")) {
@@ -312,6 +312,11 @@ public class IdentityProposeCommand implements Callable<Integer>, PoreloFactory.
                                     : line);
             if (!line.endsWith(".pub")) path = Path.of(path + ".pub");
             try {
+                // A link may lead to a private key, which is never read.
+                if (Files.isSymbolicLink(path)) {
+                    notes.add("The Git signing key's file is a link, which is not followed.");
+                    return null;
+                }
                 if (!Files.isRegularFile(path) || Files.size(path) > 16384) return null;
                 line = Files.readString(path).strip();
             } catch (IOException ex) {
