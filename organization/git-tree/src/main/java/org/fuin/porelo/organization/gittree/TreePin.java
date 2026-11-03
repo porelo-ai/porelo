@@ -32,7 +32,7 @@ final class TreePin implements TreeWalk.Watch {
     private boolean active;
 
     /** The organization admins' keys as the commit before this one left them. */
-    private @Nullable Set<String> above;
+    private Set<String> above;
 
     /** The same, for the commit being judged: a commit listing its signer gains nothing by it. */
     private Set<String> standing = Set.of();
@@ -41,13 +41,14 @@ final class TreePin implements TreeWalk.Watch {
             final String host,
             final Set<String> pin,
             final String since,
-            final boolean resumed,
+            final @Nullable TreeModel resumed,
             final OrganizationQuestions.Description description) {
         this.host = host;
         this.paths = "hosts/" + host + "/";
         this.pin = new HashSet<>(pin);
         this.since = since;
-        this.active = resumed;
+        this.active = resumed != null;
+        this.above = resumed == null ? Set.of() : organizationAdmins(resumed);
         this.description = description;
     }
 
@@ -58,7 +59,7 @@ final class TreePin implements TreeWalk.Watch {
             final List<String> changed,
             final TreeModel model) {
         final Set<String> now = organizationAdmins(model);
-        standing = above == null ? now : above;
+        standing = above;
         above = now;
         judge(commit, signer, changed, model);
     }

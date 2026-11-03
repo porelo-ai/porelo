@@ -2930,6 +2930,23 @@ class GitTreeStoreTest {
     }
 
     @Test
+    void aCommitListingItsOwnSignerGainsNothingWhenTheWalkGoesOnFromARecord() throws Exception {
+        carryingHostWithAnOrganizationAdmin();
+        person("mia");
+        final String taken = git("rev-parse", "HEAD");
+        final java.util.Set<String> pin = java.util.Set.of(PersonCard.fingerprint(key("alice")));
+        assertThat(new GitTreeOffline(keeping(), forge).check("build", pin, "").get("revision"))
+                .isEqualTo(taken);
+        write("organization-admins.yml", organizationAdmins("carol", "mia"));
+        write("hosts/build/host.yml", "admins:\n  - login: bob\nprojects: [demo]\n");
+        commit("mia");
+
+        refusedAs(
+                "refused-state",
+                () -> new GitTreeOffline(keeping(), forge).check("build", pin, taken));
+    }
+
+    @Test
     void anOrganizationAdminTakenOffTheListLeavesThePinAtOnce() throws Exception {
         final String taken = carryingHostWithAnOrganizationAdmin();
         write("organization-admins.yml", organizationAdmins());
@@ -3250,7 +3267,7 @@ class GitTreeStoreTest {
                         "build",
                         java.util.Set.of(alice),
                         "",
-                        false,
+                        null,
                         new OrganizationQuestions.Description("acme", "", ""));
 
         pin.passed("c1", alice, List.of("hosts/build/host.yml"), model);

@@ -296,7 +296,9 @@ public final class GitTreeStore {
                     kept != null && since.equals(kept.commit()) && !walk.unsettled(kept)
                             ? kept
                             : null;
-            final TreePin watch = new TreePin(host, pin, since, start != null, description);
+            final TreePin watch =
+                    new TreePin(
+                            host, pin, since, start == null ? null : start.model(), description);
             walk.underPin(watch);
             final TreeRecord walked = walk.read(null, start);
             watch.finish();
