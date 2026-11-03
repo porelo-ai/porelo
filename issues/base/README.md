@@ -133,6 +133,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b406"></a>[B406](B406-A-Revoked-Person-Comes-Back-Only-When-Agreed.md) | M | - | After a revoke, a person comes back only when an owner or admin agrees; a new key at the forge and *Add me* alone do not bring them back |
 | <a id="b405"></a>[B405](B405-A-Host-That-Says-Why-A-Project-Has-No-Address.md) | - | - | A host carrying a project with no address says why: nobody opened it, or the file for its address stands refused |
 | <a id="b402"></a>[B402](B402-A-Clients-Prepare-Reads-The-Organization-As-The-Command-Line-Does.md) | - | - | A client's `Prepare` of an organization's project reads it as `porelo task prepare` does, not only what the last start placed |
 | <a id="b403"></a>[B403](B403-A-Start-Judged-On-A-Real-Machine.md) | - | - | The acceptance suite walks a start of an organization's project through the judgment on a real machine, signed, unsigned, wrong role and revoked |
