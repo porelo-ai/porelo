@@ -43,6 +43,13 @@ public class ProjectInitCommand extends ProjectRepositoryCommand.Changing {
     private @Nullable String central;
 
     @Option(
+            names = "--upstream",
+            description =
+                    "Where a task reads it, on a host its own forge's address. The checkout's"
+                            + " address is then where a host takes it from.")
+    private @Nullable String upstreamOption;
+
+    @Option(
             names = "--review",
             description = "Whether a merge needs a review: required or optional.")
     private @Nullable String review;
@@ -101,9 +108,10 @@ public class ProjectInitCommand extends ProjectRepositoryCommand.Changing {
                                                     + 1)
                                     .replaceFirst("\\.git$", "");
         }
-        final String upstream = address.isEmpty() || unsafe ? null : address;
-        final ProjectProposal made =
-                new ProjectProposal(chosen, upstream, central, review, project);
+        final String checkedOut = address.isEmpty() || unsafe ? null : address;
+        final String upstream = upstreamOption != null ? upstreamOption : checkedOut;
+        final String from = central == null && upstreamOption != null ? checkedOut : central;
+        final ProjectProposal made = new ProjectProposal(chosen, upstream, from, review, project);
         proposal = made;
         final List<Map<String, Object>> plugins = new ArrayList<>();
         for (var description : InstalledEcosystems.all(machine.paths().ecosystemDirectories())) {

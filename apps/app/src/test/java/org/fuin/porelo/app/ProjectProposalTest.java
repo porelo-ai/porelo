@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import java.io.StringReader;
 import java.util.List;
+import java.util.Map;
 import org.fuin.porelo.core.project.ProjectReader;
 import org.fuin.porelo.ecosystem.api.Detection;
 import org.fuin.porelo.ecosystem.api.Finding;
@@ -183,5 +184,18 @@ class ProjectProposalTest {
         assertThat(String.valueOf(proposal.answer().get("draft")))
                 .contains("--no-install-recommends openjdk-25-jdk-headless ")
                 .doesNotContain("=openjdk");
+    }
+
+    @Test
+    void aFiledSnippetHoldsItsLinesWithoutTheDraftsIndentation() {
+        final ProjectProposal proposal = new ProjectProposal("sample", null, null, null);
+        proposal.add(
+                "maven",
+                new Detection(
+                        List.of(finding(Finding.Part.TOOLS, "package.maven", "", 9)), List.of()));
+        proposal.answer();
+
+        final Map<?, ?> image = (Map<?, ?>) proposal.row().get("image");
+        assertThat(String.valueOf(image.get("snippet"))).startsWith("RUN apt-get update");
     }
 }

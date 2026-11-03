@@ -149,7 +149,10 @@ final class ProjectProposal {
                             "base_image",
                             "ubuntu:24.04",
                             "snippet",
-                            packages.toString().stripIndent()));
+                            packages.toString()
+                                    .lines()
+                                    .map(String::strip)
+                                    .collect(java.util.stream.Collectors.joining("\n", "", "\n"))));
         final StringBuilder draft =
                 new StringBuilder("project:\n  name: ")
                         .append(quote(project))

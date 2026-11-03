@@ -100,8 +100,7 @@ public class TaskCertifyCommand implements Callable<Integer>, PoreloFactory.Cont
                 err.flush();
                 return 64;
             }
-            final List<String> connection = new java.util.ArrayList<>(RemoteStart.SSH);
-            connection.add(host);
+            final List<String> connection = RemoteStart.connection(context, host);
             try {
                 return new RemoteStart(connection, agent)
                         .run(

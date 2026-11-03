@@ -377,8 +377,8 @@ public class TaskRunCommand implements Callable<Integer>, PoreloFactory.ContextA
             return 64;
         }
         final java.util.List<String> arguments = hostArguments(spec);
-        final java.util.List<String> connection = new java.util.ArrayList<>(RemoteStart.SSH);
-        connection.add(host);
+        final java.util.List<String> connection =
+                RemoteStart.connection(context, java.util.Objects.requireNonNull(host));
         try {
             return new RemoteStart(connection, agent)
                     .run(arguments, java.util.Objects.requireNonNull(projectName), task, out, err);

@@ -222,6 +222,20 @@ class ProjectInitCommandTest {
                 .hasSize(1);
     }
 
+    @Test
+    void onAHostATaskReadsItsForgeAndTheCheckoutsAddressIsWhereItComesFrom() throws Exception {
+        var checkout = checkout("git@example.org:acme/sample.git");
+
+        var draft =
+                String.valueOf(
+                        answer(checkout, "--upstream", "http://127.0.0.1:3001/demo/sample.git")
+                                .get("draft"));
+
+        assertThat(draft)
+                .contains("upstream: \"http://127.0.0.1:3001/demo/sample.git\"")
+                .contains("central: \"git@example.org:acme/sample.git\"");
+    }
+
     @org.junit.jupiter.params.ParameterizedTest
     @org.junit.jupiter.params.provider.ValueSource(
             strings = {"git@example.org:acme/sample.git", "ssh://git@example.org/acme/sample.git"})

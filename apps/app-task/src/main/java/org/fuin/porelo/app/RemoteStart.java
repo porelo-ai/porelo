@@ -50,6 +50,25 @@ final class RemoteStart {
                     "ForwardX11=no");
 
     /**
+     * Opens a connection to a host: a key the person trusted through Porelo counts beside their own
+     * ssh's, so that {@code porelo credentials trust-host} is all a start needs.
+     *
+     * @param context The machine.
+     * @param host The host, as {@code --host} names it.
+     * @return The command.
+     */
+    static List<String> connection(final PoreloContext context, final String host) {
+        final List<String> connection = new java.util.ArrayList<>(SSH);
+        connection.add("-o");
+        connection.add(
+                "UserKnownHostsFile=\""
+                        + FollowCredential.knownHostsFile(context)
+                        + "\" ~/.ssh/known_hosts");
+        connection.add(host);
+        return connection;
+    }
+
+    /**
      * What {@code --host} takes: neither part may begin as one of ssh's options, and the host is a
      * name or an address as ssh takes it on its command line, without brackets.
      */
