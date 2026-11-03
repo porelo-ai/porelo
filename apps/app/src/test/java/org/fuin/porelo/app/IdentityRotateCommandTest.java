@@ -384,6 +384,10 @@ class IdentityRotateCommandTest {
 
         assertThat(rotate("c1")).isEqualTo(69);
         assertThat(answer().get("id")).isEqualTo("c1");
+        assertThat(String.valueOf(answer().get("words")))
+                .as("a person reads what to check, not that the organization is out of reach")
+                .contains("did not take the change")
+                .contains("may push there");
         organization.git("config", "receive.denyCurrentBranch", "updateInstead");
 
         assertThat(identity("rotate", "--key", registry.pin("bob"), "--id", "c2", "--json"))

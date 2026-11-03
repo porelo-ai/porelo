@@ -335,8 +335,7 @@ public final class GitTreeWrites implements OrganizationWrites {
                             change.acting().login());
             judged(clone, List.of(commit), "", TreeModel.empty(), change.acting().login());
             if (!clone.push(address, access)) {
-                throw new GitTreeStore.Unreachable(
-                        "the organization's repository did not take the change");
+                throw new GitTreeStore.NotTaken();
             }
             return new Written(commit, change.id(), false);
         } catch (CardException ex) {
@@ -950,7 +949,8 @@ public final class GitTreeWrites implements OrganizationWrites {
             if (!tip.equals(before.commit())) {
                 throw new Refused(
                         Refused.CANNOT_SAY,
-                        "the identity source could not say enough to reach the tip",
+                        "the forge could not say enough of its people's keys to read the organization to"
+                                + " its tip: see whether this person's forge token is set",
                         before.commit());
             }
             final String base = change.base();
@@ -1013,7 +1013,8 @@ public final class GitTreeWrites implements OrganizationWrites {
         if (!commits.getLast().equals(after.commit())) {
             throw new Refused(
                     Refused.CANNOT_SAY,
-                    "the identity source could not say enough to judge this change",
+                    "the forge could not say enough of its people's keys to judge this change: see"
+                            + " whether this person's forge token is set",
                     tip);
         }
     }
@@ -1046,7 +1047,7 @@ public final class GitTreeWrites implements OrganizationWrites {
                 throw new Refused(Refused.MOVED_ON, "the organization has moved on", now);
             }
         }
-        throw new GitTreeStore.Unreachable("the organization's repository did not take the change");
+        throw new GitTreeStore.NotTaken();
     }
 
     private TreeRecord walk(final TreeRepository clone) throws IOException {

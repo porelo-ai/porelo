@@ -41,6 +41,18 @@ public final class GitTreeStore {
         }
     }
 
+    /** The repository was reached and did not take a push, or the answer that it did was lost. */
+    public static final class NotTaken extends Unreachable {
+
+        private static final long serialVersionUID = 1L;
+
+        NotTaken() {
+            super(
+                    "the organization's repository did not take the change: see whether this person"
+                            + " may push there. It may have been made all the same");
+        }
+    }
+
     /**
      * The repository was reached and holds nothing yet: a person may still prepare a first card for
      * it. Anyone with no use for that goes on treating it as unreachable, since nothing can be

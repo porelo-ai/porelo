@@ -285,6 +285,81 @@ class IdentityCreateCommandTest {
         assertThat(registry.answer().get("fingerprint")).isEqualTo(registry.pin("alice"));
     }
 
+    /** A script stopped later runs from the top: its first step must not stop it there. */
+    @Test
+    void a_first_card_asked_again_under_its_id_answers_as_made() throws Exception {
+        registry.agent("alice");
+        assertThat(create("--key", registry.pin("alice"), "--id", "c1", "--json"))
+                .as(registry.err.toString())
+                .isZero();
+        final Object made = registry.answer().get("card");
+
+        assertThat(create("--key", registry.pin("alice"), "--id", "c1", "--json"))
+                .as(registry.err.toString())
+                .isZero();
+
+        assertThat(registry.answer().get("again")).isEqualTo(true);
+        assertThat(registry.answer().get("card")).isEqualTo(made);
+        assertThat(Files.readString(cardFile())).isEqualTo(made);
+    }
+
+    /** The founder's card: the organization took it with no record of the id here. */
+    @Test
+    void a_first_card_the_organization_took_since_answers_as_made_under_its_id() throws Exception {
+        registry.agent("alice");
+        organization = new TestOrganization(registry);
+        registry.forge.keys.put("alice", List.of(registry.key("alice")));
+        organization.filed("alice");
+        final String card = organization.card("alice");
+        final PersonCard read = PersonCard.read(card, "filed");
+        IdentityRun.keep(registry, card);
+        final List<String> again =
+                new ArrayList<>(
+                        List.of(
+                                "create",
+                                "--login",
+                                read.login(),
+                                "--name",
+                                read.name(),
+                                "--key",
+                                registry.pin("alice"),
+                                "--id",
+                                "c1",
+                                "--json"));
+        final String tip = organization.tip();
+
+        assertThat(IdentityRun.identity(organization, again.toArray(String[]::new)))
+                .as(registry.err.toString())
+                .isZero();
+
+        assertThat(registry.answer().get("again")).isEqualTo(true);
+        assertThat(registry.answer().get("revision")).isEqualTo(tip);
+        assertThat(organization.tip()).as("nothing filed twice").isEqualTo(tip);
+    }
+
+    /** An id names one change: another name on the same key is not what it made. */
+    @Test
+    void a_kept_card_under_another_name_is_still_identity_exists() throws Exception {
+        registry.agent("alice");
+        assertThat(create("--key", registry.pin("alice"), "--id", "c1", "--json")).isZero();
+
+        assertThat(
+                        IdentityRun.identity(
+                                registry,
+                                "create",
+                                "--login",
+                                "alice",
+                                "--name",
+                                "Somebody Else",
+                                "--key",
+                                registry.pin("alice"),
+                                "--id",
+                                "c1",
+                                "--json"))
+                .isEqualTo(65);
+        assertThat(reason()).isEqualTo("identity-exists");
+    }
+
     /** A second create would throw away the identity the registry knows. */
     @Test
     void a_card_kept_already_is_refused_identity_exists() throws Exception {

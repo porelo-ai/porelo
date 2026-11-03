@@ -263,8 +263,10 @@ final class IdentityOrganization {
                     new IdentityChange.Refused(
                             69,
                             OrganizationQuestions.Refused.CANNOT_SAY,
-                            "the organization cannot be reached; the change may have been made, so"
-                                    + " ask again with the same id");
+                            ex instanceof GitTreeStore.NotTaken
+                                    ? ex.getMessage() + ", so ask again with the same id"
+                                    : "the organization cannot be reached; the change may have been"
+                                            + " made, so ask again with the same id");
             throw String.valueOf(ex.getMessage()).startsWith(UNFETCHED)
                     ? lost.beforeAnyPush()
                     : lost;

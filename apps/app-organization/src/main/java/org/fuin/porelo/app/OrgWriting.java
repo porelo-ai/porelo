@@ -103,8 +103,10 @@ public abstract class OrgWriting extends OrgReading {
         } catch (GitTreeStore.Unreachable ex) {
             throw new Refused(
                     Refused.CANNOT_SAY,
-                    "the organization cannot be reached, and the change may have been made: ask"
-                            + " again with --id "
+                    (ex instanceof GitTreeStore.NotTaken
+                                    ? ex.getMessage() + ": ask again with --id "
+                                    : "the organization cannot be reached, and the change may have"
+                                            + " been made: ask again with --id ")
                             + named,
                     null);
         }

@@ -188,6 +188,10 @@ public class IdentityCreateCommand implements Callable<Integer>, PoreloFactory.C
             return answer(machine, filed.operation(), filed.again(), organization, null);
         }
         final IdentityStore store = new IdentityStore(machine);
+        final IdentityOperation asked = askedAgain(store, given, organization);
+        if (asked != null) {
+            return answer(machine, asked, true, organization, null);
+        }
         final Optional<PersonCard> held = held(machine, store, given, organization);
         if (organization != null) {
             change.refuseWhatReached(organization, login, id);
@@ -277,6 +281,46 @@ public class IdentityCreateCommand implements Callable<Integer>, PoreloFactory.C
         } catch (IdentityChange.Refused ex) {
             throw made == null ? ex : ex.saying(IdentityChange.madeSoFar(made));
         }
+    }
+
+    /**
+     * The first card this id already made: kept here with nothing to file in, it has no record to
+     * find it by, and the organization may have taken it since, as its founder's.
+     *
+     * @return What to answer, or {@code null} when this is not that card.
+     */
+    private @Nullable IdentityOperation askedAgain(
+            final IdentityStore store,
+            final @Nullable String given,
+            final IdentityOrganization.@Nullable Reading organization)
+            throws IdentityChange.Refused, IOException {
+        if (id == null || given == null || !store.holdsCard()) {
+            return null;
+        }
+        final PersonCard held = store.card().orElse(null);
+        if (held == null
+                || !held.login().equals(login)
+                || !held.name().equals(name)
+                || !held.email().equals(email == null ? "" : email)
+                || !held.predecessor().isEmpty()
+                || !held.fingerprint().equals(fingerprint(given))) {
+            return null;
+        }
+        final String card = held.body() + String.join("", held.signatures());
+        if (organization != null
+                && organization.answers().getCard(login).filter(card::equals).isEmpty()) {
+            return null;
+        }
+        return new IdentityOperation(
+                id,
+                IdentityOperation.CREATE,
+                held.fingerprint(),
+                "",
+                card,
+                false,
+                organization == null ? null : organization.answers().revision(),
+                true,
+                false);
     }
 
     /**
