@@ -1,0 +1,2 @@
+title: "`commit verify` holds a person's key in force until the end date on their signer's line, and refuses it from then on: any line with an end date counted as ended, so a host refused every signed push of a person whose card has one"
+type: fixed

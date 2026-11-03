@@ -554,6 +554,42 @@ class CommitVerifyCommandTest {
         }
     }
 
+    /** A card's end date is on the line from its first day: a key ends then, and not before. */
+    @Test
+    void holds_a_person_whose_line_ends_ahead_and_refuses_one_whose_line_has_ended()
+            throws Exception {
+        final String byPerson = commit(person, "by alice", base);
+        final String key = publicKey(person);
+        for (final String ahead : List.of("20990101Z", "20990101000000Z", "209901010000utc")) {
+            Files.writeString(
+                    signers,
+                    "demo namespaces=\"git\",valid-after=\"20200101Z\",valid-before=\""
+                            + ahead
+                            + "\" "
+                            + key
+                            + "\n");
+
+            assertThat(gitVerifies(byPerson)).as("git accepts %s", ahead).isTrue();
+            assertThat(verify(push(base, byPerson, "refs/heads/main")))
+                    .as("in force until %s: %s", ahead, err)
+                    .isZero();
+        }
+        for (final String ended : List.of("20200102Z", "20200102000000Z")) {
+            Files.writeString(
+                    signers,
+                    "demo namespaces=\"git\",valid-after=\"20200101Z\",valid-before=\""
+                            + ended
+                            + "\" "
+                            + key
+                            + "\n");
+
+            assertThat(verify(push(base, byPerson, "refs/heads/main")))
+                    .as("ended %s", ended)
+                    .isEqualTo(65);
+            assertThat(err.toString()).contains("no signer in force");
+        }
+    }
+
     /**
      * ssh-keygen takes only a space or a tab as a blank in an allowed-signers line, so no other
      * blank may part a principal from its key or vanish from the front of a principal.

@@ -5,7 +5,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.fuin.porelo.core.process.Command;
@@ -210,10 +209,5 @@ record AllowedSigner(String principal, String key, List<String> options) {
             Files.deleteIfExists(check);
         }
         return lines;
-    }
-
-    boolean retired() {
-        return options.stream()
-                .anyMatch(option -> option.toLowerCase(Locale.ROOT).startsWith("valid-before="));
     }
 }

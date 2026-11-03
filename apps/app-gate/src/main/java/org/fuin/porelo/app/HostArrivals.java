@@ -262,7 +262,7 @@ final class HostArrivals {
             Revocations.requireRevocations(runner, krl, keygenEnvironment(environment));
             for (final AllowedSigner each : signerLines(runner, signers, environment, scratch)) {
                 // A person signs with a plain key, and only a key in force signs a new commit.
-                if (!each.retired() && !option(each, "cert-authority")) {
+                if (!ended(each, clock.instant()) && !option(each, "cert-authority")) {
                     persons.add(each);
                 }
             }
@@ -634,11 +634,11 @@ final class HostArrivals {
 
     /**
      * Whether a certifier's line is in force at the arrival, as ssh-keygen would hold it then: a
-     * {@code cert-authority} line, not retired, valid from no later than the arrival, and for the
+     * {@code cert-authority} line, not ended, valid from no later than the arrival, and for the
      * {@code git} namespace.
      */
     static boolean inForce(AllowedSigner line, Instant now) {
-        if (!option(line, "cert-authority") || line.retired()) {
+        if (!option(line, "cert-authority") || ended(line, now)) {
             return false;
         }
         for (final String each : line.options()) {
@@ -655,6 +655,23 @@ final class HostArrivals {
             }
         }
         return true;
+    }
+
+    /**
+     * Whether a line's end has passed at the arrival: a card's end date stands on its line from its
+     * first day, and a time that cannot be read counts as passed.
+     */
+    private static boolean ended(AllowedSigner line, Instant now) {
+        for (final String each : line.options()) {
+            final String before = valueOf(each, "valid-before");
+            if (before != null) {
+                final Instant until = optionTime(before);
+                if (until == null || !until.isAfter(now)) {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     /**
