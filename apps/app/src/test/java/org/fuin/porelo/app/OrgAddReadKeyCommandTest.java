@@ -41,6 +41,8 @@ class OrgAddReadKeyCommandTest {
 
     private static final String KEY = "ssh-ed25519 " + base64("ssh-ed25519");
 
+    private static final String OLD_TITLE = "porelo host read key";
+
     @TempDir private Path dir;
 
     private HttpServer server;
@@ -57,9 +59,27 @@ class OrgAddReadKeyCommandTest {
 
     private int postStatus = 201;
 
+    /** A forge refuses a second key under one title on a repository: Forgejo answers 422. */
+    private boolean oldKeyStands;
+
     private final StringWriter out = new StringWriter();
 
     private final StringWriter err = new StringWriter();
+
+    /** As {@code ssh-keygen -l} prints it, worked out here and not by the code it checks. */
+    private static String fingerprint() {
+        try {
+            final byte[] blob = Base64.getDecoder().decode(base64("ssh-ed25519"));
+            return "SHA256:"
+                    + Base64.getEncoder()
+                            .withoutPadding()
+                            .encodeToString(
+                                    java.security.MessageDigest.getInstance("SHA-256")
+                                            .digest(blob));
+        } catch (java.security.NoSuchAlgorithmException ex) {
+            throw new IllegalStateException(ex);
+        }
+    }
 
     private static String base64(final String type) {
         final byte[] name = type.getBytes(StandardCharsets.US_ASCII);
@@ -91,9 +111,12 @@ class OrgAddReadKeyCommandTest {
     private void keys(final HttpExchange exchange) throws IOException {
         tokens.add(String.valueOf(exchange.getRequestHeaders().getFirst("Authorization")));
         if ("POST".equals(exchange.getRequestMethod())) {
-            posted.add(
-                    new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8));
-            send(exchange, postStatus, "{}");
+            final String body =
+                    new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
+            posted.add(body);
+            final boolean titleTaken =
+                    body.contains("\"title\":\"" + OLD_TITLE + "\"") && oldKeyStands;
+            send(exchange, titleTaken ? 422 : postStatus, "{}");
         } else {
             final String query = String.valueOf(exchange.getRequestURI().getQuery());
             final int asked = Integer.parseInt(query.replaceAll(".*[?&]?page=([0-9]+).*", "$1"));
@@ -281,5 +304,44 @@ class OrgAddReadKeyCommandTest {
         assertThat(run(TOKEN)).isEqualTo(69);
 
         assertThat(answer().get("reason")).isEqualTo("cannot-say");
+    }
+
+    @Test
+    void anotherHostsKeyUnderTheOldTitleDoesNotStopThisOne() {
+        oldKeyStands = true;
+        listed =
+                "[{\"key\":\"ssh-ed25519 AAAAother\",\"read_only\":true,\"title\":\""
+                        + OLD_TITLE
+                        + "\"}]";
+
+        assertThat(run(TOKEN)).as(err.toString()).isZero();
+
+        assertThat(posted)
+                .singleElement()
+                .asString()
+                .as("each host's key is told apart by its own fingerprint")
+                .contains("\"title\":\"" + OLD_TITLE + " " + fingerprint() + "\"");
+    }
+
+    @Test
+    void aForgeRefusingTheKeySaysWhereItMayStandAndClaimsNoRuleOfOneRepository() {
+        postStatus = 422;
+
+        assertThat(run(TOKEN)).isEqualTo(69);
+
+        assertThat(err.toString())
+                .contains("answering 422", "another repository", "a person's account")
+                .doesNotContain("one repository only");
+    }
+
+    @Test
+    void anotherAnswerFromTheForgeNamesOnlyItsStatus() {
+        postStatus = 500;
+
+        assertThat(run(TOKEN)).isEqualTo(69);
+
+        assertThat(err.toString())
+                .contains("answering 500")
+                .doesNotContain("repository", "account");
     }
 }

@@ -129,12 +129,15 @@ public final class ForgeReadKey {
                     return true;
                 }
                 refusedToken(answer.status());
-                // GitHub's 422 is most often this key standing on another repository.
+                // What a forge says of its refusal is not quoted: it could hold the token sent.
                 throw new Refused(
                         Refused.CANNOT_SAY,
                         "the forge did not take the key, answering "
                                 + answer.status()
-                                + "; a key can stand on one repository only",
+                                + (answer.status() == 422
+                                        ? "; it may stand on another repository or on a person's"
+                                                + " account there"
+                                        : ""),
                         null);
             }
         }

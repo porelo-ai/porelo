@@ -5,6 +5,8 @@ import java.net.http.HttpClient;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.Base64;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -69,7 +71,7 @@ public class OrgAddReadKeyCommand extends OrgReading {
         } catch (IllegalArgumentException ex) {
             throw new Refused(Refused.USAGE, "--settings names no repository's ssh address", null);
         }
-        final boolean added = asked.add(adding, "porelo host read key");
+        final boolean added = asked.add(adding, "porelo host read key " + fingerprint(adding));
         final Map<String, @Nullable Object> answer = new LinkedHashMap<>();
         answer.put("revision", asked.revision());
         answer.put("added", added);
@@ -113,6 +115,19 @@ public class OrgAddReadKeyCommand extends OrgReading {
             throw none;
         }
         return matcher.group(1) + " " + matcher.group(2);
+    }
+
+    /** As {@code ssh-keygen -l} prints it, of a key of any type a host may have. */
+    private static String fingerprint(final String line) {
+        final byte[] bytes = Base64.getDecoder().decode(line.substring(line.indexOf(' ') + 1));
+        try {
+            return "SHA256:"
+                    + Base64.getEncoder()
+                            .withoutPadding()
+                            .encodeToString(MessageDigest.getInstance("SHA-256").digest(bytes));
+        } catch (NoSuchAlgorithmException ex) {
+            throw new IllegalStateException("SHA-256 is not available", ex);
+        }
     }
 
     /** A key's bytes begin with its type, so that words that look like a key are not taken. */

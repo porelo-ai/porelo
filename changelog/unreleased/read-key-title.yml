@@ -1,0 +1,2 @@
+title: "`org add-read-key` lists each host's key under a title with its fingerprint, so a second host on one organization's repository is not refused for the title, and a forge's refusal no longer claims a rule it did not state"
+type: fixed
