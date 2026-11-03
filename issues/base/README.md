@@ -39,6 +39,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b417"></a>[B417](B417-An-Admin-Signs-A-Projects-File-Anew.md) | M | - | For 0.6, a defect: removing, locking or demoting the admin who last signed a project's file stops every new start. `project sign` lets a current admin read and sign it, and the interface offers it |
 | <a id="b385"></a>[B385](B385-A-KeePassXC-Key-That-Is-Usable.md) | L | - | `--keepassxc` asks the master password once, a retry takes the key already made, no empty entry left, a clear refusal under `su` or a redirected stderr, aligned exit codes |
 | <a id="b214"></a>[B214](B214-A-Vault-Entry-Put-Again-Unchanged.md) | M | - | `vault put` given the value an entry already holds says `unchanged` and exits 0, so a second play reports nothing changed |
 | <a id="b154"></a>[B154](B154-A-Tamper-Evident-Event-Log-Per-Node.md) | L | - | One hash-chained event log per account, anchored in the user's journal, optionally copied off the machine, kept by `porelo clear`; written by approve, reject, clearance, hand-in, credentials and project changes.; part 1 built, the copy off the machine after it |
@@ -110,7 +111,6 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
-| <a id="b417"></a>[B417](B417-An-Admin-Signs-A-Projects-File-Anew.md) | M | - | For 0.6, a defect: removing, locking or demoting the admin who last signed a project's file stops every new start. `project sign` lets a current admin read and sign it, and the interface offers it |
 | <a id="b396"></a>[B396](B396-Mutation-Testing-With-PIT.md) | - | - | A `pit` profile run by hand, not in CI and with no threshold, and a report sorting survivors into real gaps and harmless ones. |
 | <a id="b358"></a>[B358](B358-A-Task-Reviews-A-Pull-Request-On-The-Central-Forge.md) | - | [B172](README.md#b172) | A reviewer task also takes any existing pull request on the central forge by its URL, in a project or without one; read and commented with the person's own account, comments only, each released |
 | <a id="b355"></a>[B355](B355-No-Switch-That-Turns-Every-Check-Off.md) | S | - | No `--insecure` that turns every check off; instead an `unsigned`/`unverified` mark in `task list`, the interface and the gate's verdicts, for what already runs so |

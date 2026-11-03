@@ -1,6 +1,6 @@
 # B417 — An Admin Signs A Project's File Anew
 
-**Status:** Accepted, for 0.6, by the operator on 2026-11-03; a defect found in a walk.
+**Status:** Implementing. For 0.6; a defect found in a walk.
 **Severity:** high: removing, locking or demoting the admin who last signed a project's file stops every new start of that
 project on every machine, and nothing in the product can repair it.
 **Size:** M - a new verb and a field in `project show`, with a contract the interface reads, and it is a trust decision, so it gets a reading.
