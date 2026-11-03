@@ -76,7 +76,7 @@ Against the plan, simpler, none of it weaker under the threat this guards:
 
 Left as they are, after the reading: a crash between the note and `add` leaves an id that waits for a key nobody holds, which a new id goes round; a crash after the agent serves the key and before the change is recorded loses the note, and a retry makes a second key or finds its entry taken. An unset `SSH_AUTH_SOCK` still answers 65 `key-not-in-agent` from `create` and 69 from the other two, older than this.
 
-A prompt ended by its limit left the terminal's echo off, measured with the real program: the wrapper now gives it back.
+A prompt ended by its limit or by Ctrl-C left the terminal's echo off, measured with the real program: the wrapper now gives it back.
 
 Step 2 is its own commit, held back: it reads the master password in Porelo's own wrapper, which the operator decides.
 

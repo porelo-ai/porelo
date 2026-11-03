@@ -86,11 +86,12 @@ record KeePassXcKey(
     /**
      * Runs the rest of its arguments within the time for a prompt, in the foreground or the program
      * could not read the terminal, and gives the terminal back as it was: a program ended while it
-     * asks leaves its echo off.
+     * asks, by the limit or by Ctrl-C, leaves its echo off.
      */
     private static final String LIMITED =
-            " n=$3; shift 3; s=$(stty -g 2>/dev/null); timeout --foreground \"$n\" \"$@\"; c=$?;"
-                    + " [ -z \"$s\" ] || stty \"$s\"; exit $c";
+            " n=$3; shift 3; s=$(stty -g 2>/dev/null);"
+                    + " trap '[ -z \"$s\" ] || stty \"$s\"' EXIT; trap 'exit 130' INT TERM;"
+                    + " timeout --foreground \"$n\" \"$@\"";
 
     /**
      * Moves the pipe on its standard input to descriptor 3, reopens the terminal as standard input
