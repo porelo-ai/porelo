@@ -142,6 +142,55 @@ public final class HttpForgeDirectory implements IdentitySource {
         return lists(login, fingerprint);
     }
 
+    /** Public profile fields, absent when the forge cannot answer. */
+    public record Profile(@Nullable String login, @Nullable String name, @Nullable String email) {}
+
+    /** The account the configured token belongs to. */
+    public Optional<Profile> account() {
+        return token == null
+                ? Optional.empty()
+                : profileGet(apiBase() + "/user", (api == null ? "token " : "Bearer ") + token);
+    }
+
+    /** The public profile of a login. */
+    public Optional<Profile> profile(final String login) {
+        return profileGet(apiBase() + "/users/" + name(login, "login"), null);
+    }
+
+    /** Signing keys alone, without merging authentication keys into them. */
+    public Optional<List<String>> signingKeys(final String login) {
+        return keyList(
+                get(apiBase() + "/users/" + name(login, "login") + "/ssh_signing_keys", null),
+                true);
+    }
+
+    /** Authentication keys alone, as the forge's public page lists them. */
+    public Optional<List<String>> authenticationKeys(final String login) {
+        return keyList(get(forge + "/" + name(login, "login") + ".keys", null), false);
+    }
+
+    private String apiBase() {
+        return api == null ? forge + "/api/v1" : api;
+    }
+
+    private Optional<Profile> profileGet(final String url, final @Nullable String authorization) {
+        final Answer answer = get(url, authorization);
+        if (answer == null
+                || answer.status() != 200
+                || !(json(answer.body()) instanceof Map<?, ?> fields)) {
+            return Optional.empty();
+        }
+        return Optional.of(
+                new Profile(
+                        field(fields, "login"),
+                        field(fields, api == null ? "full_name" : "name"),
+                        field(fields, "email")));
+    }
+
+    private static @Nullable String field(final Map<?, ?> fields, final String name) {
+        return fields.get(name) instanceof String value && !value.isBlank() ? value : null;
+    }
+
     private Optional<Keys> lists(final String login, final @Nullable String wanted) {
         final String name = name(login, "login");
         final Answer page = get(forge + "/" + name + ".keys", null);

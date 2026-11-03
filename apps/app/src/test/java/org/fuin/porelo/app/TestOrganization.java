@@ -31,6 +31,11 @@ final class TestOrganization {
 
     final Path repo;
 
+    org.fuin.porelo.organization.IdentitySource identities;
+    URI forgeAddress = URI.create("https://forge.example.org");
+    private String writeAddress;
+    private FetchAccess writeAccess = FetchAccess.NONE;
+
     /** Whether a change finds it out of reach, the read before it having found it. */
     boolean unreachableForChanges;
 
@@ -40,6 +45,8 @@ final class TestOrganization {
     TestOrganization(final RegistryCheckout machine) throws IOException {
         this.machine = machine;
         repo = Files.createDirectory(machine.dir.resolve("organization"));
+        identities = machine.forge;
+        writeAddress = repo.toString();
         git("init", "-q", "-b", "main");
         git("config", "user.name", "Organization");
         git("config", "user.email", "organization@example.org");
@@ -95,9 +102,7 @@ final class TestOrganization {
 
     /** Where a change goes: its repository, or a path that is not there. */
     private String whereChangesGo() {
-        return unreachableForChanges
-                ? machine.dir.resolve("nowhere.git").toString()
-                : repo.toString();
+        return unreachableForChanges ? machine.dir.resolve("nowhere.git").toString() : writeAddress;
     }
 
     /** Opens this organization, as the machine opens the one its settings name. */
@@ -112,18 +117,72 @@ final class TestOrganization {
                             "forge.example.org",
                             FetchAccess.NONE,
                             context.paths().xdg().state().resolve("organization")),
-                    machine.forge,
-                    URI.create("https://forge.example.org"),
+                    identities,
+                    forgeAddress,
                     signing ->
                             interrupted(
                                     new GitTreeWrites(
                                             machine.runner,
                                             whereChangesGo(),
                                             "acme",
-                                            FetchAccess.NONE,
-                                            machine.forge,
+                                            writeAccess,
+                                            identities,
                                             signing)));
         };
+    }
+
+    /** A Git SSH transport stand-in authenticates through the agent with a separate key. */
+    void authenticateWith(final String holder) throws IOException {
+        final Path publicKey = Path.of(machine.keyFiles.get(holder) + ".pub");
+        final Path challenge = machine.dir.resolve("authentication-challenge");
+        final Path allowed = machine.dir.resolve("authentication-keys");
+        final Path transport = machine.dir.resolve("git-ssh");
+        Files.writeString(challenge, "the transport asks who is pushing\n");
+        Files.writeString(allowed, "alice " + machine.key(holder) + "\n");
+        Files.writeString(
+                transport,
+                """
+                #!/bin/sh
+                set -eu
+                rm -f '%s.sig'
+                ssh-keygen -q -Y sign -n transport -f '%s' '%s'
+                ssh-keygen -q -Y verify -n transport -f '%s' -I alice -s '%s.sig' < '%s' > /dev/null
+                for argument do
+                    case "$argument" in
+                        'git-upload-pack '*) exec git-upload-pack '%s' ;;
+                        'git-receive-pack '*) printf 'authenticated\\n' >> '%s'; exec git-receive-pack '%s' ;;
+                    esac
+                done
+                exit 1
+                """
+                        .formatted(
+                                challenge,
+                                publicKey,
+                                challenge,
+                                allowed,
+                                challenge,
+                                challenge,
+                                repo,
+                                machine.dir.resolve("authenticated-push"),
+                                repo));
+        Files.setPosixFilePermissions(
+                transport, java.nio.file.attribute.PosixFilePermissions.fromString("rwx------"));
+        writeAddress = "ssh://git@forge.example.org/acme/organization.git";
+        writeAccess =
+                address ->
+                        new FetchAccess.Lease() {
+                            @Override
+                            public Map<String, String> environment() {
+                                return Map.of(
+                                        "GIT_SSH_COMMAND",
+                                        transport.toString(),
+                                        "GIT_SSH_VARIANT",
+                                        "ssh",
+                                        "SSH_AUTH_SOCK",
+                                        java.util.Objects.requireNonNull(
+                                                machine.environment().apply("SSH_AUTH_SOCK")));
+                            }
+                        };
     }
 
     /** The writes as they are, but for what {@link #afterPush} says of the next change. */

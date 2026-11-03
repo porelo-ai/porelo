@@ -277,6 +277,31 @@ class IdentityCreateCommandTest {
                 .isEqualTo(fingerprint);
     }
 
+    @Test
+    void a_signing_only_card_is_filed_with_a_different_authentication_key() throws Exception {
+        registry.agent("alice", "bob");
+        organization = new TestOrganization(registry);
+        registry.forge.keys.put("alice", List.of(registry.key("alice")));
+        organization.authenticateWith("bob");
+
+        assertThat(createInOrganization("--key", registry.pin("alice"), "--json"))
+                .as(registry.err.toString())
+                .isZero();
+
+        final PersonCard card = PersonCard.read(organization.card("alice"), "filed");
+        assertThat(card.key()).isEqualTo(registry.key("alice"));
+        assertThat(card.key()).isNotEqualTo(registry.key("bob"));
+        assertThat(dir.resolve("authenticated-push")).hasContent("authenticated\n");
+        final var read = IdentityOrganization.required(registry.context(), organization.opener());
+        assertThat(read.answers().getPersons())
+                .anySatisfy(
+                        person -> {
+                            assertThat(person.login()).isEqualTo("alice");
+                            assertThat(person.state())
+                                    .isEqualTo(org.fuin.porelo.organization.Organization.TRUSTED);
+                        });
+    }
+
     /** A person names the key by its .pub file as often as by its fingerprint. */
     @Test
     void takes_the_key_by_its_public_key_file() throws Exception {

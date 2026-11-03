@@ -46,6 +46,7 @@ final class IdentityRun {
             final @Nullable KeePassXcKey store) {
         final var verbs = cli.getSubcommands().get("identity").getSubcommands();
         ((IdentityShowCommand) verbs.get("show").getCommand()).opener = opener;
+        ((IdentityProposeCommand) verbs.get("propose").getCommand()).opener = opener;
         ((IdentityKeysCommand) verbs.get("keys").getCommand()).opener = opener;
         ((IdentityCreateCommand) verbs.get("create").getCommand()).opener = opener;
         ((IdentityRotateCommand) verbs.get("rotate").getCommand()).opener = opener;

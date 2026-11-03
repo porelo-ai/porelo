@@ -111,6 +111,33 @@ class HttpForgeDirectoryTest {
     }
 
     @Test
+    void discovery_keeps_signing_and_authentication_keys_separate() {
+        replies.put("/alice.keys", Reply.of(200, ONE));
+        replies.put(
+                "/api/users/alice/ssh_signing_keys", Reply.of(200, "[{\"key\":\"" + TWO + "\"}]"));
+        final HttpForgeDirectory directory = gitHub(null);
+        assertThat(directory.signingKeys("alice")).contains(List.of(TWO));
+        assertThat(directory.authenticationKeys("alice")).contains(List.of(ONE));
+        assertThat(directory.keys("alice")).contains(complete(ONE, TWO));
+    }
+
+    @Test
+    void discovery_asks_the_token_account_and_the_public_profile() {
+        replies.put("/api/user", Reply.of(200, "{\"login\":\"alice\"}"));
+        replies.put("/api/users/alice", Reply.of(200, "{\"name\":\"Alice\",\"email\":null}"));
+        final HttpForgeDirectory directory = gitHub(TOKEN);
+        assertThat(directory.account())
+                .contains(new HttpForgeDirectory.Profile("alice", null, null));
+        assertThat(directory.profile("alice"))
+                .contains(new HttpForgeDirectory.Profile(null, "Alice", null));
+        assertThat(seen.getFirst().authorization() != null).isTrue();
+        assertThat(seen.getLast().authorization()).isNull();
+        seen.clear();
+        assertThat(gitHub(null).account()).isEmpty();
+        assertThat(seen).isEmpty();
+    }
+
+    @Test
     void keysKeepsOnlyEd25519KeysWithoutTheirCommentInOrderOnce() {
 
         replies.put(

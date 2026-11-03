@@ -1,6 +1,6 @@
 # B420 — A Card Proposed From What Is Found
 
-**Status:** Implementing.
+**Status:** Review.
 **Size:** S - a command that reads and writes nothing, and a test of a signing-only key.
 
 **What must be true, by the operator's word of 2026-11-03.** *Make my card* asks only what is not found or not unique.

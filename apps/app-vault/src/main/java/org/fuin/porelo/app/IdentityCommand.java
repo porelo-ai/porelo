@@ -13,6 +13,7 @@ import picocli.CommandLine.Command;
         subcommands = {
             IdentityShowCommand.class,
             IdentityKeysCommand.class,
+            IdentityProposeCommand.class,
             IdentityCreateCommand.class,
             IdentityRotateCommand.class,
             IdentityRenewCommand.class,
