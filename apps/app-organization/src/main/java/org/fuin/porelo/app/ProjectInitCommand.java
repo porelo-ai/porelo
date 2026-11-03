@@ -88,8 +88,9 @@ public class ProjectInitCommand extends ProjectRepositoryCommand.Changing {
         final String address = origin.successful() ? origin.trimmedOutput() : "";
         final boolean password = address.matches("(?s)^[A-Za-z][A-Za-z0-9+.-]*://[^/@]*:[^/@]*@.*");
         final boolean user =
-                address.matches("(?s)^[A-Za-z][A-Za-z0-9+.-]*://[^/]*@.*")
-                        || address.matches("^[^/:@]+@[^/:]+:.*");
+                !address.matches("^(ssh://git@[^/@?#]+/|git@[^/:@]+:).*")
+                        && (address.matches("(?s)^[A-Za-z][A-Za-z0-9+.-]*://[^/]*@.*")
+                                || address.matches("^[^/:@]+@[^/:]+:.*"));
         final boolean unsafe = user || address.contains("?") || address.contains("#");
         String chosen = name;
         if (chosen == null) {

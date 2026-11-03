@@ -1,6 +1,6 @@
 # B221 — A Project Proposed From A Checkout
 
-**Status:** Implementing. The smallest form first: no daemon method, streaming, recorded state, mirror export or `.porelo.yml` writer.
+**Status:** Review, in the smallest form: `porelo ecosystems`, `porelo project init` and filing the row as a signed commit. Left out, and not started: the daemon methods, streaming, a recorded state, the mirror's export, the writer of `.porelo.yml` and the question at `task start`.
 **Size:** L - a merge and two draft writers, an export of a mirror's tree that nothing makes today, a recorded state
 per repository, two daemon methods (one streamed) and a field, a command, the question at `task start`, and one more
 source in [B192](README.md#b192)'s order; several modules and a contract the interface reads.

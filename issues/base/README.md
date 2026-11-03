@@ -35,20 +35,22 @@ from its side, as *blocked by*.
 | <a id="b393"></a>[B393](B393-A-Task-Of-The-Default-Project-Never-Joins-A-Room.md) | S | - | A task of the project `default` never joins a room, whatever the machine or host has; a repository name that could write a `mail` section into its file is refused. |
 | <a id="b395"></a>[B395](B395-A-Transport-Borrows-The-Token-Its-Lifecycle-Needs.md) | S | - | A transport says in `describe` which secret of the person's a lifecycle verb needs, and Porelo lends it from the vault for that verb alone. |
 | <a id="b417"></a>[B417](B417-An-Admin-Signs-A-Projects-File-Anew.md) | M | - | For 0.6, a defect: removing, locking or demoting the admin who last signed a project's file stops every new start. `project sign` lets a current admin read and sign it, and the interface offers it |
+| <a id="b336"></a>[B336](B336-A-Repository-Says-Whether-A-Merge-Needs-A-Review.md) | S | - | `project.review` and `repositories.<name>.review` are `required` (the default) or `optional`, any other value refused, and answered to the host by `verify --json` |
+| <a id="b220"></a>[B220](B220-Build-Tool-Plugins-Found-At-Run-Time.md) | M | - | Build-tool plugins as native executables of their own over `Ecosystem1` (`detect`, `configure`), found at run time; the contract, discovery and a stub. | 0 |
+| <a id="b221"></a>[B221](B221-A-Project-Proposed-From-A-Checkout.md) | L | `porelo` [B220](README.md#b220) | `porelo project init <checkout>`: the plugins' answers merged into a tools draft and a `project.yml` draft, each value with its source, disagreements named, no credential copied. | 0 |
+| <a id="b419"></a>[B419](B419-A-Card-Renewed-With-Its-Key.md) | S | - | `identity renew`: a new term for the same key, also past the card's end, and `identity show` saying how long it has left. |
+| <a id="b420"></a>[B420](B420-A-Card-Proposed-From-What-Is-Found.md) | S | - | `identity propose`: login, name, email and key found with their sources, so a person only signs. |
+| <a id="b421"></a>[B421](B421-A-Hosts-Keys-Shown-Before-They-Are-Trusted.md) | XS | - | `credentials trust-host --json` answers a host's keys and records nothing, so a window can ask. |
 
 ## Implementing
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
 | <a id="b418"></a>[B418](B418-Four-Roles-And-A-Pin-That-Follows-The-Organization-Admins.md) | L | - | Owner, Organization Admin, Machine Admin and Project Admin, each answering for the one below, and a pin that follows the Organization Admins, by the operator's word: a Machine Admin replaced takes effect at the next follow, and one stolen key of that role reaches every server. |
-| <a id="b419"></a>[B419](B419-A-Card-Renewed-With-Its-Key.md) | S | - | `identity renew`: a new term for the same key, also past the card's end, and `identity show` saying how long it has left. |
-| <a id="b420"></a>[B420](B420-A-Card-Proposed-From-What-Is-Found.md) | S | - | `identity propose`: login, name, email and key found with their sources, so a person only signs. |
-| <a id="b421"></a>[B421](B421-A-Hosts-Keys-Shown-Before-They-Are-Trusted.md) | XS | - | `credentials trust-host --json` answers a host's keys and records nothing, so a window can ask. |
 | <a id="b385"></a>[B385](B385-A-KeePassXC-Key-That-Is-Usable.md) | L | - | `--keepassxc` asks the master password once, a retry takes the key already made, no empty entry left, a clear refusal under `su` or a redirected stderr, aligned exit codes |
 | <a id="b214"></a>[B214](B214-A-Vault-Entry-Put-Again-Unchanged.md) | M | - | `vault put` given the value an entry already holds says `unchanged` and exits 0, so a second play reports nothing changed |
 | <a id="b154"></a>[B154](B154-A-Tamper-Evident-Event-Log-Per-Node.md) | L | - | One hash-chained event log per account, anchored in the user's journal, optionally copied off the machine, kept by `porelo clear`; written by approve, reject, clearance, hand-in, credentials and project changes.; part 1 built, the copy off the machine after it |
 | <a id="b398"></a>[B398](B398-A-Test-That-Cannot-Reach-The-Persons-Vault.md) | - | - | A test that builds a command the wrong way falls to the real context, and so to the person's vault |
-| <a id="b220"></a>[B220](B220-Build-Tool-Plugins-Found-At-Run-Time.md) | M | - | Build-tool plugins as native executables of their own over `Ecosystem1` (`detect`, `configure`), found at run time; the contract, discovery and a stub. | 0 |
 
 ## Backlog
 
@@ -59,7 +61,6 @@ from its side, as *blocked by*.
 | <a id="b207"></a>[B207](B207-An-Image-Built-Within-The-Projects-Egress.md) | L | - | An image's build reaches only the project's egress and its trusted package sources, run in a guard container behind the task's own firewall (measured to hold), so a snippet - a project's or a repository's `porelo.yml` - cannot fetch from anywhere while the image is made.; plan written, two questions for the operator |
 | <a id="b216"></a>[B216](B216-A-Second-Setup-Says-Nothing-Changed.md) | M | - | A second `porelo-setup.sh` run changes nothing and says so, as a last line and in `--json`, so a playbook reports it truly |
 | <a id="b321"></a>[B321](B321-A-Long-Command-Says-What-It-Is-Doing.md) | M | - | A long command shows what it is doing while it runs: a transport's stderr streamed line by line, each line redacted against the secrets handed in, and a phase line for the other long commands a sweep finds |
-| <a id="b336"></a>[B336](B336-A-Repository-Says-Whether-A-Merge-Needs-A-Review.md) | S | - | `project.review` and `repositories.<name>.review` are `required` (the default) or `optional`, any other value refused, and answered to the host by `verify --json` |
 | <a id="b371"></a>[B371](B371-A-History-Judged-Under-The-Rules-Of-Its-Time.md) | M | - | A history mode of `porelo commit verify`: each commit judged by the keys and certificates in force at its own time, for a migrated history before the hook is armed |
 
 ## Analyzed
@@ -101,7 +102,6 @@ from its side, as *blocked by*.
 | <a id="b116"></a>[B116](B116-A-Log-Read-Back-In-Windows.md) | M | - | `Tail` gets `before` to read back in windows, and a cap per line reported in `cut`. | - |
 | <a id="b165"></a>[B165](B165-A-Port-Of-A-Task-On-Loopback-Only.md) | M | - | `porelo task port`: a two-half relay, in the task's namespace and on host loopback only, over a `0700` socket, with `ports.log`, docs and a scenario. | - |
 | <a id="b222"></a>[B222](B222-A-Tasks-Tool-Settings-Written-At-Its-Start.md) | M | `porelo` [B220](README.md#b220), [B219](README.md#b219) | A task's start has the plugins `configure` it and places their tool settings, pointing at the broker with no credential. | 0 |
-| <a id="b221"></a>[B221](B221-A-Project-Proposed-From-A-Checkout.md) | L | `porelo` [B220](README.md#b220) | `porelo project init <checkout>`: the plugins' answers merged into a tools draft and a `project.yml` draft, each value with its source, disagreements named, no credential copied. | 0 |
 | <a id="b228"></a>[B228](B228-A-Key-Pasted-At-The-Prompt-Is-Read-Whole.md) | S | - | A private key pasted at `vault put`'s prompt is read whole, as from a file or a pipe, and an unreadable key is called unreadable, not the wrong algorithm. | 0 |
 | <a id="b227"></a>[B227](B227-A-Project-Followed-From-A-Path-Is-Refreshed.md) | S | - | `porelo project refresh` reads a project followed from a directory or bundle on the machine again, under the checks a fetch has, so a local project repository needs no second follow. | 0 |
 | <a id="b229"></a>[B229](B229-A-Follow-Of-A-Repository-Without-A-Commit-Says-So.md) | S | - | `project follow` of a repository whose `HEAD` has no commit says so and names the branch and the next step, instead of git's `couldn't find remote ref HEAD`. | 0 |

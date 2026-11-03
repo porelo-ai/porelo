@@ -224,6 +224,13 @@ class ProjectInitCommandTest {
 
     @org.junit.jupiter.params.ParameterizedTest
     @org.junit.jupiter.params.provider.ValueSource(
+            strings = {"git@example.org:acme/sample.git", "ssh://git@example.org/acme/sample.git"})
+    void theUsualSshAddressIsAnUpstreamForItsUserIsNoSecret(String origin) throws Exception {
+        assertThat(answer(checkout(origin)).get("upstream")).isEqualTo(origin);
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(
             strings = {
                 "https://private-user@example.org/sample.git",
                 "private-user@example.org:sample.git",
