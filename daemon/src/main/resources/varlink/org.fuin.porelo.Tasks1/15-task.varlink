@@ -884,7 +884,9 @@ method Label(
 # the work. Use with "more": a build takes minutes, and showing nothing for that long is
 # indistinguishable from having hung.
 method Prepare(
-  # Absolute path of the project file, as Projects reports it.
+  # The name of a project, or the absolute path of its file as Projects reports it, which answers
+  # for that name. An organization's project is read anew as a start reads it, with a start's
+  # refusals in detail under FAILED. A path this machine does not report is NO_SUCH_PROJECT.
   project: string,
   # Whose tooling to install. Omit when only one agent is installed. An image with no agent is a
   # real thing to want - it is what somebody working in the container by hand needs - so this is

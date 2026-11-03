@@ -254,10 +254,40 @@ final class TaskMethods {
                                 INTERFACE + ".UnknownRebuild", Map.of("rebuild", asked));
                     }
 
+                    final String given = text(parameters, "project");
+                    final String project = preparedName(context, given);
+                    if (project == null) {
+                        replies.last(
+                                prepareRefused(
+                                        org.fuin.porelo.app.Preparation.Outcome.NO_SUCH_PROJECT,
+                                        rebuild,
+                                        "this machine reports no project at " + given));
+                        return;
+                    }
+                    // As a start does: read anew, and nothing built on what the last start placed.
+                    final Path file;
+                    try {
+                        org.fuin.porelo.app.ProjectTaking.take(context, project);
+                        file = org.fuin.porelo.app.ProjectSource.require(context, project);
+                    } catch (final org.fuin.porelo.app.ProjectTaking.Refused ex) {
+                        replies.last(
+                                prepareRefused(
+                                        org.fuin.porelo.app.Preparation.Outcome.FAILED,
+                                        rebuild,
+                                        ex.reason() + ": " + ex.getMessage()));
+                        return;
+                    } catch (final org.fuin.porelo.core.project.ProjectException ex) {
+                        replies.last(
+                                prepareRefused(
+                                        org.fuin.porelo.app.Preparation.Outcome.NO_SUCH_PROJECT,
+                                        rebuild,
+                                        String.valueOf(ex.getMessage())));
+                        return;
+                    }
                     final org.fuin.porelo.app.Preparation.Result result =
                             org.fuin.porelo.app.Preparation.prepare(
                                     context,
-                                    java.nio.file.Path.of(text(parameters, "project")),
+                                    file,
                                     absent(parameters, "agent"),
                                     rebuild,
                                     flag(parameters, "dryRun"),
@@ -849,6 +879,43 @@ final class TaskMethods {
                     progress.finish(reply);
                     replies.last(reply);
                 });
+    }
+
+    /**
+     * The project a path this machine reports stands for, so that it is judged as its name is: a
+     * path the daemon never handed out answers {@code null}, and anything else is taken as a name.
+     */
+    private static @Nullable String preparedName(
+            final PoreloContext context, final String project) {
+        if (!project.startsWith("/")) {
+            return project;
+        }
+        final Path asked = Path.of(project).normalize();
+        return org.fuin.porelo.app.ProjectSource.names(context).stream()
+                .filter(
+                        name ->
+                                asked.equals(
+                                        org.fuin.porelo.app.ProjectSource.resolve(context, name)
+                                                .file()))
+                .findFirst()
+                .orElse(null);
+    }
+
+    private static Map<String, Object> prepareRefused(
+            final org.fuin.porelo.app.Preparation.Outcome outcome,
+            final org.fuin.porelo.runtime.Podman.Rebuild rebuild,
+            final String detail) {
+        return Map.of(
+                "outcome",
+                outcome.name(),
+                "image",
+                "",
+                "rebuild",
+                rebuild.name(),
+                "output",
+                List.of(),
+                "detail",
+                detail);
     }
 
     /**

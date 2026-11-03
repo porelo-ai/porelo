@@ -4181,4 +4181,194 @@ class PoreloDaemonTest {
                     }
                 });
     }
+
+    /** A client has no path to send: by name it was refused as no such project. */
+    @Test
+    void prepareResolvesAProjectByName(@TempDir Path dir) throws Exception {
+        projectFile(dir);
+
+        serving(
+                dir,
+                socket -> {
+                    try (VarlinkClient client = new VarlinkClient(socket)) {
+                        final Map<String, Object> reply =
+                                client.call(
+                                        PoreloDaemon.INTERFACE + ".Prepare",
+                                        Map.of("project", PROJECT, "dryRun", true));
+
+                        assertThat(reply)
+                                .as("the name resolved to the project's file")
+                                .containsEntry("outcome", "PREVIEWED");
+                    }
+                });
+    }
+
+    /** A project not placed here yet is the organization's to judge, so "no such project" lies. */
+    @Test
+    void prepareBuildsNothingWhenTheOrganizationRefusesAsAStartWould(@TempDir Path dir)
+            throws Exception {
+        organizationOutOfReach(dir);
+
+        serving(
+                dir,
+                socket -> {
+                    try (VarlinkClient client = new VarlinkClient(socket)) {
+                        final Map<String, Object> reply =
+                                client.call(
+                                        PoreloDaemon.INTERFACE + ".Prepare",
+                                        Map.of("project", "not-here-yet"));
+
+                        assertThat(reply).containsEntry("outcome", "FAILED");
+                        assertThat((String) reply.get("detail"))
+                                .as("the contract's reason, for the client to show")
+                                .startsWith("cannot-say: ");
+                    }
+                });
+        assertThat(runner.lines())
+                .as("no image was built")
+                .noneMatch(line -> line.contains("podman") && line.contains("build"));
+    }
+
+    /** A path is what Projects reports, so a client that sends it gets what a name gets. */
+    @Test
+    void prepareOfAPathOfThisMachineAnswersForTheProjectItNames(@TempDir Path dir)
+            throws Exception {
+        final Path file = projectFile(dir);
+
+        serving(
+                dir,
+                socket -> {
+                    try (VarlinkClient client = new VarlinkClient(socket)) {
+                        final Map<String, Object> reply =
+                                client.call(
+                                        PoreloDaemon.INTERFACE + ".Prepare",
+                                        Map.of(
+                                                "project",
+                                                file.toAbsolutePath().toString(),
+                                                "dryRun",
+                                                true));
+
+                        assertThat(reply).containsEntry("outcome", "PREVIEWED");
+                    }
+                });
+    }
+
+    /** Built from the last start's clone, a revoked signer's file would go on being trusted. */
+    @Test
+    void prepareOfAPlacedProjectsPathReadsTheOrganizationAsItsNameDoes(@TempDir Path dir)
+            throws Exception {
+        final PoreloContext machine = context(dir);
+        final Path clone = machine.paths().projects().organizationClone("demo");
+        Files.createDirectories(clone);
+        final Path file =
+                Files.writeString(
+                        clone.resolve("project.yml"),
+                        """
+                        project:
+                          name: "demo"
+                          security_class: "guarded"
+                        image:
+                          base_image: "ubuntu:24.04"
+                        """);
+        org.fuin.porelo.app.OrganizationProjects.of(machine)
+                .write(
+                        new org.fuin.porelo.app.OrganizationProjects.Placed(
+                                "demo",
+                                "0".repeat(40),
+                                "https://forge.example.org/acme/demo.git",
+                                null,
+                                List.of(),
+                                null,
+                                null,
+                                null));
+        organizationOutOfReach(dir);
+
+        serving(
+                dir,
+                socket -> {
+                    try (VarlinkClient client = new VarlinkClient(socket)) {
+                        final Map<String, Object> reply =
+                                client.call(
+                                        PoreloDaemon.INTERFACE + ".Prepare",
+                                        Map.of("project", file.toString()));
+
+                        assertThat(reply).containsEntry("outcome", "FAILED");
+                        assertThat((String) reply.get("detail")).startsWith("cannot-say: ");
+                    }
+                });
+        assertThat(runner.lines())
+                .as("no image was built")
+                .noneMatch(line -> line.contains("podman") && line.contains("build"));
+    }
+
+    /**
+     * The daemon takes back only the paths it hands out: this file's snippet would run in a build.
+     */
+    @Test
+    void prepareRefusesAPathThisMachineNeverReported(@TempDir Path dir) throws Exception {
+        final Path stranger =
+                Files.writeString(
+                        dir.resolve("elsewhere.yml"),
+                        """
+                        project:
+                          name: "uc"
+                          security_class: "guarded"
+                        image:
+                          base_image: "ubuntu:24.04"
+                        """);
+
+        serving(
+                dir,
+                socket -> {
+                    try (VarlinkClient client = new VarlinkClient(socket)) {
+                        final Map<String, Object> reply =
+                                client.call(
+                                        PoreloDaemon.INTERFACE + ".Prepare",
+                                        Map.of("project", stranger.toString()));
+
+                        assertThat(reply).containsEntry("outcome", "NO_SUCH_PROJECT");
+                    }
+                });
+        assertThat(runner.lines())
+                .as("no image was built")
+                .noneMatch(line -> line.contains("podman") && line.contains("build"));
+    }
+
+    /** It would build under the name the file declares, overwriting that project's image. */
+    @Test
+    void prepareRefusesAFileThatStandsInThePlaceOfAnotherName(@TempDir Path dir) throws Exception {
+        final Path decoy = context(dir).paths().projects().defaultProjectFile("decoy");
+        Files.createDirectories(decoy.getParent());
+        Files.writeString(
+                decoy,
+                """
+                project:
+                  name: "target"
+                  security_class: "guarded"
+                image:
+                  base_image: "ubuntu:24.04"
+                """);
+
+        serving(
+                dir,
+                socket -> {
+                    try (VarlinkClient client = new VarlinkClient(socket)) {
+                        final Map<String, Object> reply =
+                                client.call(
+                                        PoreloDaemon.INTERFACE + ".Prepare",
+                                        Map.of("project", "decoy"));
+
+                        assertThat(reply).containsEntry("outcome", "NO_SUCH_PROJECT");
+                        assertThat((String) reply.get("detail")).contains("stands in the place of");
+                    }
+                });
+    }
+
+    private void organizationOutOfReach(final Path dir) throws IOException {
+        Files.createDirectories(dir.resolve("config/porelo"));
+        Files.writeString(
+                dir.resolve("config/porelo/organization.yml"),
+                "adapter: git\nsettings:\n  repository: https://forge.example.org/acme/organization.git\n");
+        runner.failing("git", 128, "fatal: unable to access the forge");
+    }
 }
