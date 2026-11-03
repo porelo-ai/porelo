@@ -189,7 +189,7 @@ public final class OrgSetup {
                     "that repository is empty: its first owner fills it with porelo org create",
                     null);
         } catch (GitTreeStore.Unreachable ex) {
-            throw new Refused(Refused.CANNOT_SAY, "the organization cannot be reached", null);
+            throw OrgAccess.unreached(ex, "the organization cannot be reached", named);
         } catch (CommandException ex) {
             throw new Refused(Refused.CANNOT_SAY, "the organization did not answer in time", null);
         } catch (OrganizationException ex) {

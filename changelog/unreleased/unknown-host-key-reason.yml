@@ -1,0 +1,2 @@
+title: "`org create`, `setup` and a first read of an organization say when the forge's ssh host key is not trusted, with the reason `unknown-host-key`, and name `porelo credentials trust-host`, where they answered `the organization cannot be reached`"
+type: fixed

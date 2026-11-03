@@ -60,12 +60,12 @@ public class OrgCreateCommand extends OrgReading {
         } catch (Refused ex) {
             throw needingToken(machine, settable, ex);
         } catch (GitTreeStore.Unreachable ex) {
-            throw new Refused(
-                    Refused.CANNOT_SAY,
-                    "the organization cannot be reached, and it may have been filled: ask again"
-                            + " with --id "
+            throw OrgAccess.unreached(
+                    ex,
+                    "the organization cannot be reached, and it may have been filled: ask"
+                            + " again with --id "
                             + named,
-                    null);
+                    settable);
         }
         OrgAccess.settle(machine, settable);
         final Map<String, @Nullable Object> answer = new LinkedHashMap<>();

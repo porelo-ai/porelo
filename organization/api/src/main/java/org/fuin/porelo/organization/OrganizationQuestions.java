@@ -74,6 +74,9 @@ public interface OrganizationQuestions {
         /** The store or the identity source could not be reached or could not say: never a no. */
         public static final String CANNOT_SAY = "cannot-say";
 
+        /** The forge's ssh host key is not one this machine trusts: the person's question. */
+        public static final String UNKNOWN_HOST_KEY = "unknown-host-key";
+
         /** The agent does not serve the key that must sign. */
         public static final String NO_KEY = "no-key";
 

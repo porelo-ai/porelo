@@ -30,6 +30,7 @@ final class OrgOutput {
                     Map.entry(Refused.NOT_OPENED, 66),
                     Map.entry(Refused.NO_REPOSITORY, 66),
                     Map.entry(Refused.CANNOT_SAY, 69),
+                    Map.entry(Refused.UNKNOWN_HOST_KEY, 69),
                     Map.entry(Refused.NO_KEY, 69),
                     Map.entry(Refused.VAULT_SHUT, 77),
                     Map.entry(Refused.NO_ORGANIZATION, 78));

@@ -407,6 +407,35 @@ class OrgWritingCommandsTest {
         assertThat(ProjectAddressCommand.mayBeFiled(state, "demo")).isTrue();
     }
 
+    @Test
+    void aForgeWhoseHostKeyIsUnknownSaysSoAndNamesTheWayToTrustIt() {
+        final Exception refused =
+                new java.io.IOException(
+                        "cannot read the organization's repository: Host key verification failed.");
+
+        final var scp =
+                OrgAccess.unreached(refused, "other", "git@forge.example:acme/organization.git");
+        final var port =
+                OrgAccess.unreached(refused, "other", "ssh://git@forge.example:2222/acme/o");
+
+        assertThat(scp.reason()).isEqualTo("unknown-host-key");
+        assertThat(scp.getMessage())
+                .contains("ssh host key", "porelo credentials trust-host forge.example")
+                .doesNotContain("other");
+        assertThat(port.getMessage()).contains("porelo credentials trust-host forge.example:2222");
+    }
+
+    @Test
+    void anyOtherFailureToReachTheForgeKeepsItsWordsAndItsReason() {
+        final Exception down = new java.io.IOException("cannot read: Connection refused");
+
+        final var refused =
+                OrgAccess.unreached(down, "the words given", "git@forge.example:acme/o.git");
+
+        assertThat(refused.reason()).isEqualTo("cannot-say");
+        assertThat(refused.getMessage()).isEqualTo("the words given");
+    }
+
     private HostCard filedCard() {
         final String text = calls.getLast();
         return HostCard.read(

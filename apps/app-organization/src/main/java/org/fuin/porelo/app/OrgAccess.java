@@ -40,6 +40,28 @@ final class OrgAccess {
      */
     record Opened(GitTreeStore store, IdentitySource identities) {}
 
+    /**
+     * Says why a forge was not reached where ssh gave its reason: a person cannot get from "cannot
+     * be reached" to an unknown host key, which stays their question to answer.
+     *
+     * @param unreached What was thrown, holding git's own words.
+     * @param otherwise What to say for any other cause.
+     * @param address The organization's address.
+     * @return The refusal, {@code unknown-host-key} or {@code cannot-say}.
+     */
+    static Refused unreached(
+            final Exception unreached, final String otherwise, final String address) {
+        return String.valueOf(unreached.getMessage()).contains("Host key verification failed")
+                ? new Refused(
+                        Refused.UNKNOWN_HOST_KEY,
+                        "the forge's ssh host key is not trusted on this machine: see what it"
+                                + " offers with 'porelo credentials trust-host "
+                                + HostKeys.nameOf(address)
+                                + "'",
+                        null)
+                : new Refused(Refused.CANNOT_SAY, otherwise, null);
+    }
+
     /** Opens the store of an address; replaced by a test, which has no forge to ask. */
     @FunctionalInterface
     interface Opener {
@@ -89,11 +111,11 @@ final class OrgAccess {
                             .last()
                             .orElseThrow(
                                     () ->
-                                            new Refused(
-                                                    Refused.CANNOT_SAY,
-                                                    "the organization cannot be reached, and nothing"
-                                                            + " is known of it yet",
-                                                    null)),
+                                            unreached(
+                                                    ex,
+                                                    "the organization cannot be reached, and"
+                                                            + " nothing is known of it yet",
+                                                    repository)),
                     null);
         } catch (OrganizationException | CommandException ex) {
             throw new Refused(Refused.REFUSED_STATE, String.valueOf(ex.getMessage()), null);
