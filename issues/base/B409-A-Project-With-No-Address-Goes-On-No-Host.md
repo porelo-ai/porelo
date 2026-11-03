@@ -1,6 +1,6 @@
 # B409 — A Project With No Address Goes On No Host
 
-**Status:** Accepted: the operator's word of 2026-11-03. For 0.6, after the operator's walk; nothing built before it.
+**Status:** Implementing.
 **Severity:** low.
 **Size:** S - one check in `addProjectToHost`, its contract check, and the window's dialog saying the same.
 
