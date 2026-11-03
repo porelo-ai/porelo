@@ -12,10 +12,8 @@ class GitTreeWritesContractTest extends WritesContract {
 
     @TempDir Path dir;
 
-    private int made;
-
     @Override
     protected WritesFixture fixture() throws IOException {
-        return new GitTreeWritesFixture(Files.createDirectory(dir.resolve("check-" + made++)));
+        return new GitTreeWritesFixture(Files.createTempDirectory(dir, "check-"));
     }
 }

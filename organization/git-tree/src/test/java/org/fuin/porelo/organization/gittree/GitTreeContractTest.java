@@ -12,10 +12,8 @@ class GitTreeContractTest extends OrganizationContract {
 
     @TempDir Path dir;
 
-    private int made;
-
     @Override
     protected OrganizationFixture fixture() throws IOException {
-        return new GitTreeFixture(Files.createDirectory(dir.resolve("check-" + made++)));
+        return new GitTreeFixture(Files.createTempDirectory(dir, "check-"));
     }
 }

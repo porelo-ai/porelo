@@ -12,10 +12,8 @@ class GitTreeOfflineContractTest extends OfflineContract {
 
     @TempDir Path dir;
 
-    private int made;
-
     @Override
     protected OfflineFixture fixture() throws IOException {
-        return new GitTreeFixture(Files.createDirectory(dir.resolve("check-" + made++)));
+        return new GitTreeFixture(Files.createTempDirectory(dir, "check-"));
     }
 }

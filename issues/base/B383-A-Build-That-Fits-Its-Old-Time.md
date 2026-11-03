@@ -15,6 +15,10 @@ Found when the Build on 5eeb7662 was cancelled on 2026-11-01; not built that nig
 
 ## Plan
 
+Added on 2026-11-03. The real Build on the cut took 21.4 minutes for this step, and the organization's adapter had grown to
+4:29 of a 14:52 reactor here. Its tests share nothing, so `organization/git-tree` runs them concurrently, a directory per
+check instead of a counter. The other modules stay serial.
+
 Read on 2026-11-02 from the per-class times of a full run (19:04 min; Porelo App 14:33 min of it; 504 classes whose
 times add up to 18.6 min; tests run serially, no `forkCount` or JUnit parallelism). The twenty slowest classes are
 11 min of it, and each is slow for one of four reasons, read in the test: a real Argon2id (64 MiB, 3 iterations,
