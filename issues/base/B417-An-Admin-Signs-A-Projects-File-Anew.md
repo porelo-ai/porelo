@@ -1,6 +1,6 @@
 # B417 — An Admin Signs A Project's File Anew
 
-**Status:** Implementing. For 0.6; a defect found in a walk.
+**Status:** Review. For 0.6; a defect found in a walk.
 **Severity:** high: removing, locking or demoting the admin who last signed a project's file stops every new start of that
 project on every machine, and nothing in the product can repair it.
 **Size:** M - a new verb and a field in `project show`, with a contract the interface reads, and it is a trust decision, so it gets a reading.
@@ -41,7 +41,7 @@ them all, and what guards it is that the admin reads the file and why it stood r
 1. **`porelo project sign PROJECT [--yes --base REVISION] [--id ID] [--json]`**, as `prune` shows and removes on `--yes`. Without
    `--yes` it changes nothing and answers `state`, `why`, `revision`, the newest signer and the file's text, which anyone with
    write wrote, so it is shown without control characters. With `--yes`, `--base` is required and refuses a repository that moved
-   on (`moved-on`), so what is signed is what was read. A file that stands read needs no signing: nothing to do, 0.
+   on (`moved-on`), so what is signed is what was read. A file that reads on this machine is signed too: another may refuse it as older than it accepted, and could not otherwise be got out of it.
 2. **The commit**: the file's bytes kept and one line added, `# signed anew by <id>`, since only a commit that changes the file is
    judged, as `filedAnew` does for an address. Asked again under the same id it answers that change.
 3. **What it still refuses**: an acting key that is no admin's now (`not-allowed`), a file that does not read or names another
@@ -63,7 +63,6 @@ Read in the code on 2026-11-03 (`organization/git-tree`, `apps/app-organization`
    Also `remember` after signing, so this machine's date moves on.
 2. `ProjectSignCommand` beside `ProjectRepositoryCommand`, under `project`; `file_signer` in `ProjectShowCommand`.
 3. Docs: `doc/commands.md`, `doc/decisions.md`'s entry on the newest change; a changelog entry.
-4. Acceptance: a scenario in the suite: remove the signer, the start refused, sign, the start goes on.
 
 **Red first:** `ProjectFileTest`: a file signed by an admin since removed reads refused; `sign` by a current admin makes it read; a
 non-admin is refused and nothing is pushed; a `base` that moved on is refused; a locked admin's file reads again once unlocked. A
@@ -71,8 +70,9 @@ command test that `--yes` without `--base` is wrong use and that the look change
 
 **Estimate:** 180 minutes, of which 35 the chain on the VM and one reading by another model; the verb alone, not the interface.
 
-## To be checked
+## Checked
 
-- A hand-made signed commit as today's way out, run on a local repository, which `ProjectFileTest` gets anyway.
-- That the date check holds after signing: a commit dated by this machine's clock must not be older than what another machine
-  accepted, as a slow clock would then refuse it there.
+- `ProjectFileTest` signs through a real repository, each case against the rows a removal leaves. The acceptance suite holds no
+  scenario of an organization, so no step of it was added; a walk is what tries this end to end.
+- A slow clock on the signer's machine can date the commit before what another machine accepted, which then refuses it. Every
+  change of the file has this already; signing adds nothing to it.

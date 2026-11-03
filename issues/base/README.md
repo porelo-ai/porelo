@@ -34,12 +34,12 @@ from its side, as *blocked by*.
 | <a id="b361"></a>[B361](B361-An-Agent-Starts-Only-The-Subagents-Its-Task-Allows.md) | M | - | Porelo's agent interface carries how many subagents an agent may start in a task, default none, and refuses a value the agent cannot enforce |
 | <a id="b393"></a>[B393](B393-A-Task-Of-The-Default-Project-Never-Joins-A-Room.md) | S | - | A task of the project `default` never joins a room, whatever the machine or host has; a repository name that could write a `mail` section into its file is refused. |
 | <a id="b395"></a>[B395](B395-A-Transport-Borrows-The-Token-Its-Lifecycle-Needs.md) | S | - | A transport says in `describe` which secret of the person's a lifecycle verb needs, and Porelo lends it from the vault for that verb alone. |
+| <a id="b417"></a>[B417](B417-An-Admin-Signs-A-Projects-File-Anew.md) | M | - | For 0.6, a defect: removing, locking or demoting the admin who last signed a project's file stops every new start. `project sign` lets a current admin read and sign it, and the interface offers it |
 
 ## Implementing
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
-| <a id="b417"></a>[B417](B417-An-Admin-Signs-A-Projects-File-Anew.md) | M | - | For 0.6, a defect: removing, locking or demoting the admin who last signed a project's file stops every new start. `project sign` lets a current admin read and sign it, and the interface offers it |
 | <a id="b385"></a>[B385](B385-A-KeePassXC-Key-That-Is-Usable.md) | L | - | `--keepassxc` asks the master password once, a retry takes the key already made, no empty entry left, a clear refusal under `su` or a redirected stderr, aligned exit codes |
 | <a id="b214"></a>[B214](B214-A-Vault-Entry-Put-Again-Unchanged.md) | M | - | `vault put` given the value an entry already holds says `unchanged` and exits 0, so a second play reports nothing changed |
 | <a id="b154"></a>[B154](B154-A-Tamper-Evident-Event-Log-Per-Node.md) | L | - | One hash-chained event log per account, anchored in the user's journal, optionally copied off the machine, kept by `porelo clear`; written by approve, reject, clearance, hand-in, credentials and project changes.; part 1 built, the copy off the machine after it |

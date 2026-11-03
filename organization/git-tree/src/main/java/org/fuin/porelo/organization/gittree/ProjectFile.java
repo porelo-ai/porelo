@@ -54,6 +54,9 @@ public final class ProjectFile {
 
     private static final String REPOSITORIES = "repositories";
 
+    /** What a signing adds, as only a commit that changes the file is judged. */
+    private static final String MARK = "# signed anew by ";
+
     /**
      * What a read found.
      *
@@ -61,12 +64,40 @@ public final class ProjectFile {
      * @param revision The project repository's tip, or {@code null} unless read.
      * @param project The file, or {@code null} unless read.
      * @param why Why it is refused, or {@code null}.
+     * @param signer The key the newest change is signed by, or {@code null} when it has none that
+     *     verifies.
      */
     public record Read(
             String state,
             @Nullable String revision,
             @Nullable Project project,
-            @Nullable String why) {}
+            @Nullable String why,
+            @Nullable String signer) {
+
+        /** What a read found, with no signer to name. */
+        public Read(
+                final String state,
+                final @Nullable String revision,
+                final @Nullable Project project,
+                final @Nullable String why) {
+            this(state, revision, project, why, null);
+        }
+    }
+
+    /**
+     * What an admin reads before signing the file anew.
+     *
+     * @param read What a read of it found.
+     * @param revision The project repository's tip, which a signing names, or {@code null} when it
+     *     could not be reached.
+     * @param text The file as it stands, or {@code null} when there is none that can be shown.
+     * @param blocked What a signature would not change, or {@code null} when one would do.
+     */
+    public record Look(
+            Read read,
+            @Nullable String revision,
+            @Nullable String text,
+            @Nullable String blocked) {}
 
     private final CommandRunner runner;
 
@@ -129,8 +160,9 @@ public final class ProjectFile {
                                 + commit
                                 + " is signed by "
                                 + PersonCard.fingerprint(signer)
-                                + ", which is no key of an admin of this project now: an admin signs"
-                                + " it anew");
+                                + ", which is no key of an admin of this project now"
+                                + wayOut(clone, tip),
+                        signer);
             }
             final Optional<String> blob = clone.object(tip, PATH);
             if (blob.isEmpty()) {
@@ -144,10 +176,11 @@ public final class ProjectFile {
                                 + commit
                                 + " is older than the one this machine accepted, from "
                                 + accepted
-                                + ": an admin signs it anew");
+                                + wayOut(clone, tip),
+                        signer);
             }
             final Project project = parsed(clone.text(blob.orElseThrow()), inClone(clone, tip));
-            final Read read = new Read(READ, tip, project, null);
+            final Read read = new Read(READ, tip, project, null, signer);
             remember(address, dated);
             return read;
         } catch (CardException ex) {
@@ -190,7 +223,11 @@ public final class ProjectFile {
     }
 
     private static Read refused(final String why) {
-        return new Read(REFUSED, null, null, why);
+        return refused(why, null);
+    }
+
+    private static Read refused(final String why, final @Nullable String signer) {
+        return new Read(REFUSED, null, null, why, signer);
     }
 
     private static Project parsed(final String text, final SnippetFiles snippets) {
@@ -235,6 +272,170 @@ public final class ProjectFile {
                                         && row.revokedSince() == null
                                         && !day.isBefore(row.validFrom())
                                         && day.isBefore(row.validUntil()));
+    }
+
+    /**
+     * Reads the file for an admin who may sign it anew. It changes nothing in the repository, and
+     * on this machine what every read does: a file that reads is remembered as accepted.
+     *
+     * @param address The project repository.
+     * @param keys The project's signing keys.
+     * @param project The project the file must name.
+     * @return What was found, with the file's text.
+     * @throws IOException When something unexpected happened.
+     */
+    public Look look(final String address, final List<SigningKey> keys, final String project)
+            throws IOException {
+        try (TreeRepository clone = TreeRepository.fetch(address, runner, access)) {
+            final String tip = clone.tip();
+            final Read read = judged(clone, keys, address);
+            return new Look(read, tip, shown(clone, tip), blocked(clone, tip, project));
+        } catch (GitTreeStore.Unreachable | CommandException ex) {
+            return new Look(new Read(CANNOT_SAY, null, null, null), null, null, null);
+        }
+    }
+
+    /**
+     * Signs the file anew as it stands, so that it is read again: whoever does it takes on the
+     * whole of it, which is why the person reads it first and names what they read.
+     *
+     * @param change Who acts, against the project repository's revision, under which id.
+     * @param address The project repository.
+     * @param keys The project's signing keys.
+     * @param project The project the file must name.
+     * @return What it made, or made before under this id.
+     * @throws Refused {@code not-allowed} when the key that acts is no admin's, {@code moved-on}
+     *     when the repository is not what was read, {@code refused-state} when a signature would
+     *     not make the file read.
+     * @throws IOException When something unexpected happened; the change may have been made.
+     */
+    public OrganizationWrites.Written sign(
+            final OrganizationWrites.Change change,
+            final String address,
+            final List<SigningKey> keys,
+            final String project)
+            throws IOException {
+        final String acting = change.acting().key();
+        final String subject = TreeRepository.asked("Sign the file anew", project);
+        try (TreeRepository clone = TreeRepository.fetch(address, runner, access)) {
+            final Optional<String> made = own(clone, change);
+            if (made.isPresent()) {
+                if (!clone.subject(made.orElseThrow()).equals(subject)) {
+                    throw new Refused(
+                            Refused.USAGE, "this --id named another change", made.orElseThrow());
+                }
+                return new OrganizationWrites.Written(made.orElseThrow(), change.id(), true);
+            }
+            final String tip = clone.tip();
+            if (!anAdminsKey(acting, keys, OffsetDateTime.now().toString())) {
+                throw new Refused(
+                        Refused.NOT_ALLOWED,
+                        "the key that acts is no key of this project's admin",
+                        tip);
+            }
+            if (change.base() != null && !change.base().equals(tip)) {
+                throw new Refused(Refused.MOVED_ON, "the project repository moved on", tip);
+            }
+            // Reading here says nothing of a machine that accepted a newer one, so it signs too.
+            final String text = signable(clone, tip, project);
+            final String commit =
+                    clone.commit(
+                            tip,
+                            Map.of(PATH, signed(text, change.id())),
+                            subject,
+                            change.id(),
+                            signing,
+                            acting,
+                            change.acting().login());
+            if (!clone.push(address, access)) {
+                throw new GitTreeStore.Unreachable(
+                        "the project repository did not take the change");
+            }
+            remember(address, OffsetDateTime.parse(clone.dated(commit)).toInstant());
+            return new OrganizationWrites.Written(commit, change.id(), false);
+        } catch (CardException ex) {
+            throw new IOException(ex.getMessage(), ex);
+        }
+    }
+
+    /** The file's text, or {@code null} when there is none that can be shown. */
+    private static @Nullable String shown(final TreeRepository clone, final String tip) {
+        try {
+            return clone.object(tip, PATH).map(clone::text).orElse(null);
+        } catch (CardException ex) {
+            return null;
+        }
+    }
+
+    /** What a signature would not change, or {@code null} when one would do. */
+    private static @Nullable String blocked(
+            final TreeRepository clone, final String tip, final String project) {
+        try {
+            signable(clone, tip, project);
+            return null;
+        } catch (Refused refused) {
+            return refused.getMessage();
+        }
+    }
+
+    /** What a refusal offers, which is the verb only where a signature would make the file read. */
+    private static String wayOut(final TreeRepository clone, final String tip) {
+        try {
+            parsed(clone.text(clone.object(tip, PATH).orElseThrow()), inClone(clone, tip));
+            return ": porelo project sign shows an admin whether signing it anew will do";
+        } catch (RuntimeException ex) {
+            return ", and it does not read either: an admin mends it and signs that commit";
+        }
+    }
+
+    private static String signed(final String text, final String id) {
+        return text + (text.endsWith("\n") ? "" : "\n") + MARK + id + "\n";
+    }
+
+    /** The file as it stands, if a signature would make it read. */
+    private static String signable(
+            final TreeRepository clone, final String tip, final String project) {
+        final Optional<String> text;
+        final @Nullable String named;
+        try {
+            text = clone.object(tip, PATH).map(clone::text);
+            named = text.isEmpty() ? null : parsed(text.orElseThrow(), inClone(clone, tip)).name();
+        } catch (RuntimeException ex) {
+            // What the reader says quotes the file, which anyone with write access wrote.
+            throw new Refused(
+                    Refused.REFUSED_STATE,
+                    "the project repository's project.yml does not read, and a signature would not"
+                            + " change that",
+                    tip);
+        }
+        if (text.isEmpty()) {
+            throw new Refused(
+                    Refused.REFUSED_STATE, "the project repository holds no project.yml", tip);
+        }
+        if (!project.equals(named)) {
+            throw new Refused(
+                    Refused.REFUSED_STATE,
+                    "the project repository's project.yml names another project",
+                    tip);
+        }
+        // What is pushed must read: the longest line an id can make has to fit, and to parse.
+        final String longest = signed(text.orElseThrow(), "x".repeat(64));
+        if (longest.getBytes(StandardCharsets.UTF_8).length > TreeRepository.LIMIT) {
+            throw new Refused(
+                    Refused.REFUSED_STATE,
+                    "a signature's line would take the project repository's project.yml over the"
+                            + " limit of what is read",
+                    tip);
+        }
+        try {
+            parsed(longest, inClone(clone, tip));
+        } catch (RuntimeException ex) {
+            throw new Refused(
+                    Refused.REFUSED_STATE,
+                    "the project repository's project.yml would not read with a signature's line",
+                    tip);
+        }
+        return text.orElseThrow();
     }
 
     /**

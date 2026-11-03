@@ -18,6 +18,7 @@ import org.fuin.porelo.core.process.ProcessCommandRunner;
 import org.fuin.porelo.organization.Organization;
 import org.fuin.porelo.organization.OrganizationQuestions.Refused;
 import org.fuin.porelo.organization.OrganizationWrites;
+import org.fuin.porelo.organization.gittree.ProjectFile;
 import org.fuin.porelo.vault.HostCard;
 import org.fuin.porelo.vault.PersonCard;
 import org.fuin.porelo.vault.SigningKey;
@@ -125,6 +126,9 @@ class OrgWritingCommandsTest {
                         }
                         return new ProjectRepositoryCommand.Place("/nowhere/" + project, List.of());
                     };
+        }
+        if (line.getCommand() instanceof ProjectSignCommand sign) {
+            sign.looks = (machine, at, place) -> look;
         }
         if (line.getCommand() instanceof ProjectAddressCommand address) {
             address.filed = (machine, project) -> !"new".equals(project);
@@ -724,6 +728,142 @@ class OrgWritingCommandsTest {
                 .as("nowhere to fetch from, so it cannot say and asks for the id")
                 .isEqualTo(69);
         assertThat(out.toString()).contains("one");
+    }
+
+    private ProjectFile.Look look =
+            new ProjectFile.Look(
+                    new ProjectFile.Read(
+                            ProjectFile.REFUSED, null, null, "signed by someone gone", "their-key"),
+                    "b".repeat(40),
+                    "project:\n  name: \"demo\"\n# \u001b[2Jhidden\n",
+                    null);
+
+    private void readableCard() throws IOException {
+        final Path card = dir.resolve("config/porelo/identity/card");
+        Files.createDirectories(card.getParent());
+        Files.writeString(
+                card,
+                PersonCard.write(
+                        "mia",
+                        "mia",
+                        "",
+                        KEY,
+                        java.time.LocalDate.of(2026, 1, 1),
+                        java.time.LocalDate.of(2030, 1, 1),
+                        null));
+    }
+
+    @Test
+    void aSigningWithoutTheRevisionReadIsWrongUseAndWritesNothing() {
+        assertThat(run("project", "sign", "demo", "--yes", "--json")).isEqualTo(64);
+        assertThat(run("project", "sign", "demo", "--base", "b".repeat(40), "--json"))
+                .isEqualTo(64);
+        assertThat(calls).isEmpty();
+    }
+
+    @Test
+    void aLookAtAProjectsFileShowsItAndWhyAndNeedsNoAgent() throws Exception {
+        readableCard();
+
+        assertThat(run("project", "sign", "demo", "--json")).as("what it said: %s", err).isZero();
+
+        final Map<?, ?> answer = answer();
+        assertThat(answer.get("state")).isEqualTo("refused");
+        assertThat(answer.get("why")).isEqualTo("signed by someone gone");
+        assertThat(answer.get("revision")).isEqualTo("b".repeat(40));
+        assertThat(answer.get("signer")).isEqualTo("their-key");
+        assertThat(answer.get("of")).isEqualTo("project");
+        assertThat((String) answer.get("file")).contains("name: \"demo\"");
+        assertThat(calls).isEmpty();
+    }
+
+    @Test
+    void aLookForAPersonShowsTheFileWithNothingThatMovesTheTerminal() throws Exception {
+        readableCard();
+
+        assertThat(run("project", "sign", "demo")).as("what it said: %s", err).isZero();
+
+        assertThat(out.toString())
+                .contains("signed by someone gone")
+                .contains("name: \"demo\"")
+                .contains("porelo project sign demo --yes --base " + "b".repeat(40))
+                .doesNotContain("\u001b");
+    }
+
+    @Test
+    void aLookNamesWhatASignatureWouldNotChangeAndDoesNotOfferOne() throws Exception {
+        readableCard();
+        look =
+                new ProjectFile.Look(
+                        new ProjectFile.Read(ProjectFile.REFUSED, null, null, "why", null),
+                        "b".repeat(40),
+                        null,
+                        "it does not read");
+
+        assertThat(run("project", "sign", "demo")).as("what it said: %s", err).isZero();
+        assertThat(out.toString()).contains("it does not read").doesNotContain("--yes");
+
+        out.getBuffer().setLength(0);
+        assertThat(run("project", "sign", "demo", "--json")).isZero();
+        assertThat(answer().get("blocked")).isEqualTo("it does not read");
+    }
+
+    @Test
+    void aLookAtAFileThatReadsHereStillOffersASigningForAMachineThatRefusesIt() throws Exception {
+        readableCard();
+        look =
+                new ProjectFile.Look(
+                        new ProjectFile.Read(ProjectFile.READ, "b".repeat(40), null, null, "k"),
+                        "b".repeat(40),
+                        "text",
+                        null);
+
+        assertThat(run("project", "sign", "demo")).as("what it said: %s", err).isZero();
+        assertThat(out.toString())
+                .contains("another machine")
+                .contains("porelo project sign demo --yes --base " + "b".repeat(40));
+    }
+
+    @Test
+    void anIdWithoutSigningIsWrongUse() {
+        assertThat(run("project", "sign", "demo", "--id", "one", "--json")).isEqualTo(64);
+    }
+
+    @Test
+    void aLookWithNoCardOfOnesOwnIsNotAllowed() {
+        assertThat(run("project", "sign", "demo", "--json")).isEqualTo(65);
+    }
+
+    @Test
+    void aLookAtWhatCannotBeReachedCannotSay() throws Exception {
+        readableCard();
+        look =
+                new ProjectFile.Look(
+                        new ProjectFile.Read(ProjectFile.CANNOT_SAY, null, null, null),
+                        null,
+                        null,
+                        null);
+
+        assertThat(run("project", "sign", "demo", "--json")).isEqualTo(69);
+    }
+
+    @Test
+    void aSigningGoesToTheRepositoryAndAnswersThatItsRevisionIsTheProjects() {
+        assertThat(
+                        run(
+                                "project",
+                                "sign",
+                                "demo",
+                                "--yes",
+                                "--base",
+                                "b".repeat(40),
+                                "--id",
+                                "one",
+                                "--json"))
+                .as("nowhere to fetch from, so it cannot say and asks for the id")
+                .isEqualTo(69);
+        assertThat(out.toString()).contains("one");
+        assertThat(new ProjectSignCommand().of()).isEqualTo("project");
     }
 
     @Test

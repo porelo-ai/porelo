@@ -52,7 +52,7 @@ final class TreeRepository implements AutoCloseable {
 
     private static final String BRANCH = "refs/heads/main";
 
-    private static final int LIMIT = 1024 * 1024;
+    static final int LIMIT = 1024 * 1024;
 
     private static final String CHANGE_ID = "Porelo-Change-Id";
 

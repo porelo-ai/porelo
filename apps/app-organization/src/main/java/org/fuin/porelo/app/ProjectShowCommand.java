@@ -133,21 +133,33 @@ public class ProjectShowCommand extends OrgReading {
             answer.put("matrix_registration_entry", null);
             return answer;
         }
+        final List<OrganizationQuestions.SigningKey> keys = state.signingKeys(project);
         final ProjectFile.Read read =
-                files.read(
-                        machine,
-                        state.getProjectRepository(project).orElseThrow(),
-                        state.signingKeys(project));
+                files.read(machine, state.getProjectRepository(project).orElseThrow(), keys);
         final Project file = read.project();
         final Map<String, @Nullable Object> repositories =
                 repositories(read.state(), file == null ? List.of() : names(file));
         repositories.put("revision", read.revision());
+        repositories.put("file_signer", signer(read, keys));
         if (read.why() != null) {
             repositories.put("why", read.why());
         }
         answer.put("repositories", repositories);
         answer.put("matrix_registration_entry", file == null ? null : registrationEntry(file));
         return answer;
+    }
+
+    /** The admin whose signature makes the file read: without them it stands refused. */
+    private static @Nullable String signer(
+            final ProjectFile.Read read, final List<OrganizationQuestions.SigningKey> keys) {
+        if (!ProjectFile.READ.equals(read.state())) {
+            return null;
+        }
+        return keys.stream()
+                .filter(key -> key.key().equals(read.signer()))
+                .map(OrganizationQuestions.SigningKey::login)
+                .findFirst()
+                .orElse(null);
     }
 
     private Map<String, @Nullable Object> local(final String file) {

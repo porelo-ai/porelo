@@ -83,7 +83,7 @@ public abstract class OrgWriting extends OrgReading {
             throws IOException;
 
     @Override
-    final Map<String, @Nullable Object> answer(final PoreloContext machine) throws IOException {
+    Map<String, @Nullable Object> answer(final PoreloContext machine) throws IOException {
         final Session opened = session.open(machine);
         final String named = id == null ? "org-" + UUID.randomUUID() : id;
         // A project's own file has its own revisions, and its command reads the organization.
@@ -119,8 +119,26 @@ public abstract class OrgWriting extends OrgReading {
         return answer;
     }
 
+    /**
+     * Returns the revision the person named.
+     *
+     * @return It, or {@code null} when none was named.
+     */
+    final @Nullable String base() {
+        return base;
+    }
+
+    /**
+     * Returns the id the person named.
+     *
+     * @return It, or {@code null} when none was named.
+     */
+    final @Nullable String id() {
+        return id;
+    }
+
     @Override
-    final void text(final Map<String, @Nullable Object> answer) {
+    void text(final Map<String, @Nullable Object> answer) {
         line(
                 (Boolean.TRUE.equals(answer.get("again")) ? "Already made" : "Made")
                         + " at "

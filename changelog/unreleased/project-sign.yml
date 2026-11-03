@@ -1,0 +1,2 @@
+title: "`porelo project sign` shows a project's refused `project.yml`, and signs it anew for an admin who has read it, so removing the admin who signed it last no longer stops every start for good; `project show` names `file_signer`"
+type: fixed

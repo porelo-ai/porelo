@@ -958,6 +958,26 @@ class OrgReadingCommandsTest {
     }
 
     @Test
+    void aProjectsFileNamesTheAdminWhoseSignatureMakesItRead() throws Exception {
+        opened();
+        projectFile =
+                new ProjectFile.Read(ProjectFile.READ, "b".repeat(40), null, null, key("alice"));
+
+        assertThat(run("project", "show", "demo", "--json")).as("what it said: %s", err).isZero();
+        assertThat(field(answer().get("repositories"), "file_signer")).isEqualTo("alice");
+
+        for (final String signer : List.of(key("bob"), key("alice"), "someone gone")) {
+            out.getBuffer().setLength(0);
+            projectFile = new ProjectFile.Read(ProjectFile.REFUSED, null, null, "why", signer);
+
+            assertThat(run("project", "show", "demo", "--json")).isZero();
+            assertThat(field(answer().get("repositories"), "file_signer"))
+                    .as("a file standing refused depends on nobody")
+                    .isNull();
+        }
+    }
+
+    @Test
     void aRefusedProjectFileIsSaidWithWhyAndNamesNothing() throws Exception {
         opened();
         projectFile = new ProjectFile.Read(ProjectFile.REFUSED, null, null, "signed by nobody");

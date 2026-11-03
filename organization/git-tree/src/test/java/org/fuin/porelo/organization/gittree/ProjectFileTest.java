@@ -134,13 +134,14 @@ class ProjectFileTest {
     }
 
     private ProjectFile file() {
+        return file(dir.resolve("memory"));
+    }
+
+    private ProjectFile file(final Path memory) {
         final Map<String, Path> files = new HashMap<>();
         keys.keySet().forEach(each -> files.put(key(each), keyFiles.get(each)));
         return new ProjectFile(
-                runner,
-                FetchAccess.NONE,
-                new CommitSigning(Map.of(), files),
-                dir.resolve("memory"));
+                runner, FetchAccess.NONE, new CommitSigning(Map.of(), files), memory);
     }
 
     private ProjectFile.Read read() throws IOException {
@@ -525,6 +526,281 @@ class ProjectFileTest {
                 () -> file().found(change("alice", "one"), dir.resolve("none").toString(), TEXT));
     }
 
+    private List<SigningKey> aliceGone() {
+        return List.of(row("carol", "admin"));
+    }
+
+    private Change changeOn(final String holder, final String id, final String base) {
+        return new Change(new Acting(holder, key(holder)), base, id);
+    }
+
+    private Written signed(final String holder, final String id) throws IOException {
+        return file().sign(
+                        changeOn(holder, id, git("rev-parse", "HEAD")),
+                        repo.toString(),
+                        aliceGone(),
+                        "demo");
+    }
+
+    @Test
+    void anAdminSinceRemovedLeavesARefusedFileACurrentAdminSignsAnew() throws Exception {
+        assertThat(file().read(repo.toString(), aliceGone()).state())
+                .isEqualTo(ProjectFile.REFUSED);
+
+        final Written written = signed("carol", "again");
+
+        assertThat(written.again()).isFalse();
+        assertThat(written.revision()).isEqualTo(git("rev-parse", "HEAD"));
+        final ProjectFile.Read read = file().read(repo.toString(), aliceGone());
+        assertThat(read.state()).as(String.valueOf(read.why())).isEqualTo(ProjectFile.READ);
+        assertThat(read.signer()).isEqualTo(key("carol"));
+        assertThat(Files.readString(repo.resolve("project.yml")))
+                .as("what the file said stays, every byte")
+                .isEqualTo(TEXT + "# signed anew by again\n");
+    }
+
+    @Test
+    void aSigningAskedAgainUnderItsIdAnswersWhatItMade() throws Exception {
+        final Written first = signed("carol", "again");
+
+        final Written again =
+                file().sign(
+                                changeOn("carol", "again", "0".repeat(40)),
+                                repo.toString(),
+                                aliceGone(),
+                                "demo");
+
+        assertThat(again.revision()).isEqualTo(first.revision());
+        assertThat(again.again()).isTrue();
+        assertThat(git("rev-parse", "HEAD")).isEqualTo(first.revision());
+    }
+
+    @Test
+    void aPersonWhoIsNoAdminNowSignsNothing() throws Exception {
+        final String tip = git("rev-parse", "HEAD");
+
+        refusedAs(Refused.NOT_ALLOWED, () -> signed("mallory", "again"));
+        refusedAs(Refused.NOT_ALLOWED, () -> signed("alice", "again"));
+
+        assertThat(git("rev-parse", "HEAD")).isEqualTo(tip);
+    }
+
+    @Test
+    void aSigningOfWhatIsNoLongerThereIsRefused() throws Exception {
+        final String read = git("rev-parse", "HEAD");
+        commit("project.yml", TEXT + "# changed since it was read\n", "mallory");
+        final String tip = git("rev-parse", "HEAD");
+
+        refusedAs(
+                Refused.MOVED_ON,
+                () ->
+                        file().sign(
+                                        changeOn("carol", "again", read),
+                                        repo.toString(),
+                                        aliceGone(),
+                                        "demo"));
+
+        assertThat(git("rev-parse", "HEAD")).isEqualTo(tip);
+    }
+
+    @Test
+    void aFileThatReadsHereIsSignedForTheMachineThatRefusesItAsOlder() throws Exception {
+        final ProjectFile host = file(dir.resolve("host-memory"));
+        aChangeDated(TEXT.replace("first", "older"), "2020-01-01T00:00:00Z");
+        final String older = git("rev-parse", "HEAD");
+        aChangeDated(TEXT.replace("first", "newer"), "2021-01-01T00:00:00Z");
+        assertThat(host.read(repo.toString(), rows()).state()).isEqualTo(ProjectFile.READ);
+        servedOlderByAMerge(older, "mallory");
+        assertThat(host.read(repo.toString(), rows()).state()).isEqualTo(ProjectFile.REFUSED);
+        final String tip = git("rev-parse", "HEAD");
+        assertThat(read().state())
+                .as("this machine never accepted the newer one")
+                .isEqualTo(ProjectFile.READ);
+
+        final Written written =
+                file().sign(changeOn("alice", "again", tip), repo.toString(), rows(), "demo");
+
+        assertThat(written.again()).isFalse();
+        assertThat(written.revision()).isNotEqualTo(tip);
+        assertThat(host.read(repo.toString(), rows()).state()).isEqualTo(ProjectFile.READ);
+    }
+
+    @Test
+    void aSigningGetsThisMachineOutOfAFileRefusedAsOlder() throws Exception {
+        final String older = git("rev-parse", "HEAD");
+        aLaterChange("2090-01-01T00:00:00Z");
+        read();
+        servedOlderByAMerge(older, "mallory");
+        assertThat(read().state()).isEqualTo(ProjectFile.REFUSED);
+
+        file().sign(
+                        changeOn("alice", "again", git("rev-parse", "HEAD")),
+                        repo.toString(),
+                        rows(),
+                        "demo");
+
+        assertThat(read().state()).isEqualTo(ProjectFile.READ);
+    }
+
+    @Test
+    void aFileAnAdminSignedThatNamesAnotherProjectIsNotAnsweredAsDone() throws Exception {
+        commit("project.yml", TEXT.replace("\"demo\"", "\"other\""), "alice");
+        final String tip = git("rev-parse", "HEAD");
+
+        refusedAs(
+                Refused.REFUSED_STATE,
+                () ->
+                        file().sign(
+                                        changeOn("alice", "again", tip),
+                                        repo.toString(),
+                                        rows(),
+                                        "demo"));
+    }
+
+    private void aSymlinkInsteadOfTheFile() throws IOException {
+        Files.delete(repo.resolve("project.yml"));
+        Files.createSymbolicLink(repo.resolve("project.yml"), Path.of("elsewhere"));
+        git("add", "-A");
+        git(
+                "-c",
+                "user.signingkey=" + keyFiles.get("mallory"),
+                "commit",
+                "-q",
+                "-S",
+                "-m",
+                "a link");
+    }
+
+    @Test
+    void aLookAtALinkInPlaceOfTheFileSaysSoAndASignatureIsRefused() throws Exception {
+        aSymlinkInsteadOfTheFile();
+
+        final ProjectFile.Look look = file().look(repo.toString(), rows(), "demo");
+
+        assertThat(look.read().state()).isEqualTo(ProjectFile.REFUSED);
+        assertThat(look.text()).isNull();
+        assertThat(look.blocked()).contains("does not read");
+        refusedAs(
+                Refused.REFUSED_STATE,
+                () ->
+                        file().sign(
+                                        changeOn("alice", "again", git("rev-parse", "HEAD")),
+                                        repo.toString(),
+                                        rows(),
+                                        "demo"));
+    }
+
+    @Test
+    void aFileASignatureWouldTakeOverTheLimitIsRefusedAndNothingPushed() throws Exception {
+        final String padding = "# " + "x".repeat(1024 * 1024 - TEXT.length() - 3) + "\n";
+        commit("project.yml", TEXT + padding, "mallory");
+        final String tip = git("rev-parse", "HEAD");
+        assertThat(Files.size(repo.resolve("project.yml"))).isEqualTo(1024 * 1024);
+
+        assertThat(file().look(repo.toString(), rows(), "demo").blocked()).contains("limit");
+        refusedAs(
+                Refused.REFUSED_STATE,
+                () ->
+                        file().sign(
+                                        changeOn("alice", "again", tip),
+                                        repo.toString(),
+                                        rows(),
+                                        "demo"));
+
+        assertThat(git("rev-parse", "HEAD")).isEqualTo(tip);
+    }
+
+    @Test
+    void aRefusalNamesTheVerbOnlyWhereASignatureWouldDo() throws Exception {
+        commit("project.yml", TEXT + "# mallory's\n", "mallory");
+        final ProjectFile.Look signable = file().look(repo.toString(), rows(), "demo");
+        assertThat(signable.read().why()).contains("porelo project sign");
+        assertThat(signable.blocked()).isNull();
+
+        commit("project.yml", "not: [a project", "mallory");
+        final ProjectFile.Look broken = file().look(repo.toString(), rows(), "demo");
+        assertThat(broken.read().why()).doesNotContain("porelo project sign").contains("mends");
+        assertThat(broken.blocked()).contains("does not read");
+        assertThat(broken.text()).isEqualTo("not: [a project");
+
+        commit("project.yml", TEXT.replace("\"demo\"", "\"other\""), "mallory");
+        final ProjectFile.Look named = file().look(repo.toString(), rows(), "demo");
+        assertThat(named.blocked()).contains("another project");
+        assertThat(named.read().why())
+                .as("a read does not know the name, so it promises no signature")
+                .contains("shows an admin whether");
+    }
+
+    @Test
+    void anUnsignedChangeTheAdminHasReadReadsOnceSigned() throws Exception {
+        Files.writeString(repo.resolve("project.yml"), TEXT + "# nobody signed this\n");
+        git("add", "-A");
+        git("commit", "-q", "-m", "unsigned");
+        assertThat(file().read(repo.toString(), rows()).state()).isEqualTo(ProjectFile.REFUSED);
+
+        file().sign(
+                        changeOn("alice", "again", git("rev-parse", "HEAD")),
+                        repo.toString(),
+                        rows(),
+                        "demo");
+
+        assertThat(file().read(repo.toString(), rows()).state()).isEqualTo(ProjectFile.READ);
+    }
+
+    @Test
+    void aSignatureDoesNotMakeAFileReadThatCannotBeRead() throws Exception {
+        commit("project.yml", "not: [a project", "alice");
+        final String broken = git("rev-parse", "HEAD");
+        refusedAs(Refused.REFUSED_STATE, () -> signed("carol", "again"));
+        assertThat(git("rev-parse", "HEAD")).isEqualTo(broken);
+
+        commit("project.yml", TEXT.replace("\"demo\"", "\"other\""), "alice");
+        refusedAs(Refused.REFUSED_STATE, () -> signed("carol", "again"));
+
+        Files.delete(repo.resolve("project.yml"));
+        git("add", "-A");
+        git("commit", "-q", "-m", "removed");
+        refusedAs(Refused.REFUSED_STATE, () -> signed("carol", "again"));
+    }
+
+    @Test
+    void aSignatureDoesNotBringBackASnippetFileThatIsGone() throws Exception {
+        commit(
+                "project.yml",
+                TEXT.replace(
+                        "base_image: \"ubuntu:24.04\"",
+                        "base_image: \"ubuntu:24.04\"\n  snippet_file: \"gone.txt\""),
+                "alice");
+        final String tip = git("rev-parse", "HEAD");
+
+        refusedAs(Refused.REFUSED_STATE, () -> signed("carol", "again"));
+
+        assertThat(git("rev-parse", "HEAD")).isEqualTo(tip);
+    }
+
+    @Test
+    void aLookNamesTheSignerAndTheFileAndChangesNothing() throws Exception {
+        final String tip = git("rev-parse", "HEAD");
+
+        final ProjectFile.Look look = file().look(repo.toString(), aliceGone(), "demo");
+
+        assertThat(look.read().state()).isEqualTo(ProjectFile.REFUSED);
+        assertThat(look.read().signer()).isEqualTo(key("alice"));
+        assertThat(look.read().why()).contains("no key of an admin");
+        assertThat(look.revision()).isEqualTo(tip);
+        assertThat(look.text()).isEqualTo(TEXT);
+        assertThat(git("rev-parse", "HEAD")).isEqualTo(tip);
+    }
+
+    @Test
+    void aLookAtWhatCannotBeReachedSaysSo() throws Exception {
+        final ProjectFile.Look look =
+                file().look(dir.resolve("none").toString(), aliceGone(), "demo");
+
+        assertThat(look.read().state()).isEqualTo(ProjectFile.CANNOT_SAY);
+        assertThat(look.text()).isNull();
+    }
+
     /**
      * A commit whose first parent is the older state and whose second is the tip: a plain
      * fast-forward anyone with write access can push, showing no change against its first parent.
@@ -549,7 +825,11 @@ class ProjectFileTest {
     }
 
     private void aLaterChange(final String seconds) throws IOException {
-        Files.writeString(repo.resolve("project.yml"), TEXT.replace("first", "later"));
+        aChangeDated(TEXT.replace("first", "later"), seconds);
+    }
+
+    private void aChangeDated(final String text, final String seconds) throws IOException {
+        Files.writeString(repo.resolve("project.yml"), text);
         git("add", "-A");
         runner.runOrFail(
                 Command.of(
