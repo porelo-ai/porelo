@@ -24,6 +24,11 @@
 
         <dependency>
             <groupId>org.fuin.porelo</groupId>
+            <artifactId>porelo-ecosystem-api</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.fuin.porelo</groupId>
             <artifactId>porelo-app-base</artifactId>
         </dependency>
         <dependency>

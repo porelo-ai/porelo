@@ -546,6 +546,65 @@ public final class ProjectFile {
     }
 
     /**
+     * Files a detected repository row as one signed change.
+     *
+     * @param change Who acts and the revision they approved.
+     * @param address The project's own repository.
+     * @param keys The project's signing keys.
+     * @param name The repository's name.
+     * @param row Its upstream, egress and image, with optional central and review.
+     * @return The signed change.
+     * @throws IOException When the change cannot be completed.
+     */
+    public OrganizationWrites.Written propose(
+            final OrganizationWrites.Change change,
+            final String address,
+            final List<SigningKey> keys,
+            final String name,
+            final Map<String, Object> row)
+            throws IOException {
+        final Map<String, Object> accepted = new LinkedHashMap<>();
+        for (final String key : List.of("upstream", "central", "review", "egress", "image")) {
+            if (row.containsKey(key)) accepted.put(key, row.get(key));
+        }
+        return change(
+                change,
+                address,
+                keys,
+                TreeRepository.asked(
+                        "Propose a repository", name, new Yaml().dump(ordered(accepted))),
+                repositories -> {
+                    if (repositories.containsKey(name))
+                        throw new Refused(Refused.EXISTS, "that repository is named", null);
+                    repositories.put(name, accepted);
+                    return repositories;
+                });
+    }
+
+    /** Map iteration order must not make a retry under the same id another change. */
+    private static Object ordered(final Object value) {
+        if (value instanceof Map<?, ?> map) {
+            final Map<String, Object> sorted = new java.util.TreeMap<>();
+            for (final var entry : map.entrySet())
+                sorted.put(
+                        String.valueOf(entry.getKey()),
+                        ordered(
+                                java.util.Objects.requireNonNull(
+                                        entry.getValue(), "a proposal row holds no null values")));
+            return sorted;
+        }
+        if (value instanceof List<?> list)
+            return list.stream()
+                    .map(
+                            each ->
+                                    ordered(
+                                            java.util.Objects.requireNonNull(
+                                                    each, "a proposal list holds no null values")))
+                    .toList();
+        return value;
+    }
+
+    /**
      * Says whether a merge needs a review, in the project's own repository or in one it names.
      *
      * @param change Who acts, against the project repository's revision, under which id.

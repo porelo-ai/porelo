@@ -284,6 +284,131 @@ class ProjectFileTest {
     }
 
     @Test
+    void aProposedRowIsOneSignedChangeThatAFreshReaderAccepts() throws Exception {
+        final String base = git("rev-parse", "HEAD");
+        final Map<String, Object> proposed =
+                Map.of(
+                        "upstream",
+                        UPSTREAM,
+                        "review",
+                        "optional",
+                        "egress",
+                        Map.of("domains", List.of("repo.example.org")),
+                        "image",
+                        Map.of("base_image", "ubuntu:24.04", "snippet", "RUN true"));
+        final Written written =
+                file().propose(
+                                new Change(new Acting("alice", key("alice")), base, "proposal"),
+                                repo.toString(),
+                                rows(),
+                                "app",
+                                proposed);
+        final ProjectFile.Read fresh = file(dir.resolve("fresh")).read(repo.toString(), rows());
+        assertThat(fresh.state())
+                .as("a fresh reader verifies the signed file")
+                .isEqualTo(ProjectFile.READ);
+        final var repository = fresh.project().repository("app");
+        assertThat(repository.upstream())
+                .as("the proposed upstream survives filing")
+                .isEqualTo(UPSTREAM);
+        assertThat(repository.egress().domains())
+                .as("the detected domains survive filing")
+                .containsExactly("repo.example.org");
+        assertThat(repository.image()).as("the detected image survives filing").isNotNull();
+        assertThat(repository.review())
+                .as("the requested review is on the row")
+                .isEqualTo("optional");
+        assertThat(git("rev-list", "--count", base + "..HEAD"))
+                .as("filing makes one commit")
+                .isEqualTo("1");
+        assertThat(git("diff-tree", "--no-commit-id", "--name-only", "-r", written.revision()))
+                .as("filing changes only the project file")
+                .isEqualTo("project.yml");
+    }
+
+    @Test
+    void askingForTheSameProposalWithAnotherMapOrderAnswersTheSameCommit() throws Exception {
+        final Map<String, Object> image = new java.util.LinkedHashMap<>();
+        image.put("base_image", "ubuntu:24.04");
+        image.put("snippet", "RUN true");
+        final Written first =
+                file().propose(
+                                change("alice", "same"),
+                                repo.toString(),
+                                rows(),
+                                "app",
+                                Map.of("upstream", UPSTREAM, "image", image));
+        final Map<String, Object> reordered = new java.util.LinkedHashMap<>();
+        reordered.put("snippet", "RUN true");
+        reordered.put("base_image", "ubuntu:24.04");
+        final Written again =
+                file().propose(
+                                change("alice", "same"),
+                                repo.toString(),
+                                rows(),
+                                "app",
+                                Map.of("upstream", UPSTREAM, "image", reordered));
+        assertThat(again.revision())
+                .as("the id names the same proposal regardless of map order")
+                .isEqualTo(first.revision());
+        assertThat(again.again()).as("a retry files no additional commit").isTrue();
+    }
+
+    @Test
+    void aProposalAgainstAnOlderRevisionCannotChangeTheFile() throws Exception {
+        final String base = git("rev-parse", "HEAD");
+        commit("another", "work", "alice");
+        final String before = git("rev-parse", "HEAD");
+        refusedAs(
+                Refused.MOVED_ON,
+                () ->
+                        file().propose(
+                                        new Change(
+                                                new Acting("alice", key("alice")), base, "stale"),
+                                        repo.toString(),
+                                        rows(),
+                                        "other",
+                                        Map.of("upstream", UPSTREAM)));
+        assertThat(git("rev-parse", "HEAD"))
+                .as("a stale proposal changes no commit")
+                .isEqualTo(before);
+    }
+
+    @Test
+    void aProposalCannotReplaceAnExistingRepository() throws Exception {
+        final String before = git("rev-parse", "HEAD");
+        refusedAs(
+                Refused.EXISTS,
+                () ->
+                        file().propose(
+                                        change("alice", "exists"),
+                                        repo.toString(),
+                                        rows(),
+                                        "first",
+                                        Map.of("upstream", UPSTREAM)));
+        assertThat(git("rev-parse", "HEAD"))
+                .as("an existing row is not overwritten")
+                .isEqualTo(before);
+    }
+
+    @Test
+    void aProposalSignedByADeveloperCannotChangeProjectPolicy() throws Exception {
+        final String before = git("rev-parse", "HEAD");
+        refusedAs(
+                Refused.NOT_ALLOWED,
+                () ->
+                        file().propose(
+                                        change("carol", "denied"),
+                                        repo.toString(),
+                                        rows(),
+                                        "other",
+                                        Map.of("upstream", UPSTREAM)));
+        assertThat(git("rev-parse", "HEAD"))
+                .as("only an admin can file the proposal")
+                .isEqualTo(before);
+    }
+
+    @Test
     void anAdminNamesARepositoryAndTheFreshReadSeesItBesideTheOthers() throws Exception {
         final Written written =
                 file().add(change("alice", "one"), repo.toString(), rows(), "app", UPSTREAM);

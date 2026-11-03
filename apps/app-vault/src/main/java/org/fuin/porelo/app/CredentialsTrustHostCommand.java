@@ -86,7 +86,14 @@ public class CredentialsTrustHostCommand implements Callable<Integer>, PoreloFac
             if (json) {
                 final List<Map<String, String>> keys = new ArrayList<>();
                 for (final HostKeys.Offered key : offered) {
-                    keys.add(Map.of("type", key.type(), "fingerprint", key.fingerprint()));
+                    keys.add(
+                            Map.of(
+                                    "type",
+                                    key.type(),
+                                    "fingerprint",
+                                    key.fingerprint(),
+                                    "key",
+                                    key.line().substring(key.line().indexOf(' ') + 1)));
                 }
                 final Map<String, Object> answer = new LinkedHashMap<>();
                 answer.put("host", host);

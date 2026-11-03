@@ -35,6 +35,9 @@ public class OrgCreateCommand extends OrgReading {
     @Option(names = "--id", description = "Names the change: asked again, the same answer.")
     private @Nullable String id;
 
+    @Option(names = "--replace", description = "Replaces the organization this machine has.")
+    private boolean replace;
+
     Founder founder = OrgWriting::at;
 
     @Override
@@ -42,8 +45,12 @@ public class OrgCreateCommand extends OrgReading {
         final String settable = OrgAccess.settable(address);
         // The same address goes on: the store says whether this is the same change asked again.
         final String held = OrgAccess.repository(machine).orElse(null);
-        if (held != null && !held.equals(settable)) {
-            throw new Refused(Refused.EXISTS, "this machine has an organization already", null);
+        if (held != null && !held.equals(settable) && !replace) {
+            throw new Refused(
+                    Refused.EXISTS,
+                    "this machine has an organization already: --replace puts this one in its"
+                            + " place",
+                    null);
         }
         final String card = OrgWriting.ownCardText(machine);
         final OrgWriting.Session opened = founder.open(machine, settable);

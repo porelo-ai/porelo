@@ -26,6 +26,22 @@ Discovery calls each executable with `describe`. Its standard output is a JSON o
 ten seconds to finish and may contain at most 64 KB. A protocol version below `EcosystemProtocol.LOWEST`
 is refused; a newer version is accepted because Porelo asks only methods it knows.
 
+`porelo ecosystems --json` lists discovery as `ecosystems`, each with `name`, `path`, and `refusal`,
+null when usable. `porelo project init CHECKOUT --json` asks every usable plugin to detect settings in
+the checkout and the account's home. It names refused and unreadable plugins without stopping the others.
+A plugin that does not recognize the checkout contributes no findings.
+
+The proposal groups findings by part and key. Matching values retain every source; disagreements stay
+out of the draft. Unknown findings, unplaced material, and tools without a generic rule remain in the
+answer. `host.<host>` rules become egress domains and `package.<name>` tools become image installation
+lines. Other tools stay as comments for a person to place. `credential.<id>` names a credential needed
+in the vault, never its value. The draft is checked by the project reader before it is printed.
+
+Detection saves no proposal and writes no checkout file. Plugin communication uses temporary sockets,
+removed after each call. With `--project`, the answer includes the project repository's revision;
+`--yes --base REVISION` files the repository row as one signed commit. Filing writes YAML anew, so
+comments do not survive and the answer retains the sources. No daemon operation is involved.
+
 ## Implementing the contract
 
 Build against `org.fuin.porelo:porelo-ecosystem-api` and `org.fuin.porelo:porelo-wire`, importing

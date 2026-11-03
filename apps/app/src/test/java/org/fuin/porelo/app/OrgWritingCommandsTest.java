@@ -669,6 +669,17 @@ class OrgWritingCommandsTest {
     }
 
     @Test
+    void anotherOrganizationIsCreatedInThePlaceOfTheOneHeldWhenAskedTo() throws Exception {
+        ownCard();
+        organization();
+        final String other = "git@github.com:other/organization.git";
+
+        assertThat(run("org", "create", other, "--replace", "--json", "--id", "one")).isZero();
+
+        assertThat(OrgAccess.repository(context())).contains(other);
+    }
+
+    @Test
     void aFailedCreationWritesNoSettingsAndNamesTheIdToAskAgainWith() throws Exception {
         ownCard();
         failing = unreachable();

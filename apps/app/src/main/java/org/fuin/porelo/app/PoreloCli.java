@@ -30,6 +30,7 @@ import picocli.CommandLine.Spec;
             CredentialsCommand.class,
             GateCommand.class,
             AgentsCommand.class,
+            EcosystemsCommand.class,
             ProvidersCommand.class,
             TalkCommand.class,
             SetupCommand.class,
@@ -89,6 +90,7 @@ public class PoreloCli implements Callable<Integer> {
                 .addSubcommand(ProjectAddressCommand.class)
                 .addSubcommand(ProjectRepositoryCommand.class)
                 .addSubcommand(ProjectSignCommand.class)
+                .addSubcommand(ProjectInitCommand.class)
                 .addSubcommand(ProjectVerifyCommand.class)
                 .addSubcommand(ProjectReviewCommand.class)
                 .addSubcommand(ProjectOpenCommand.class);

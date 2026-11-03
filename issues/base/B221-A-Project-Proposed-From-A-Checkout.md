@@ -1,6 +1,6 @@
 # B221 — A Project Proposed From A Checkout
 
-**Status:** Analyzed; blocked by [B220](README.md#b220).
+**Status:** Implementing. The smallest form first: no daemon method, streaming, recorded state, mirror export or `.porelo.yml` writer.
 **Size:** L - a merge and two draft writers, an export of a mirror's tree that nothing makes today, a recorded state
 per repository, two daemon methods (one streamed) and a field, a command, the question at `task start`, and one more
 source in [B192](README.md#b192)'s order; several modules and a contract the interface reads.

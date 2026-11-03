@@ -68,6 +68,9 @@ class TrustHostJsonTest {
         final Map<?, ?> key = (Map<?, ?>) ((List<?>) first.get("keys")).getFirst();
         assertThat(key.get("type")).isEqualTo("ssh-ed25519");
         assertThat(String.valueOf(key.get("fingerprint"))).startsWith("SHA256:");
+        assertThat(String.valueOf(key.get("key")))
+                .startsWith("ssh-ed25519 AAAA")
+                .doesNotContain("github");
         assertThat(looked().get("known")).as("still nothing recorded").isEqualTo(false);
     }
 
