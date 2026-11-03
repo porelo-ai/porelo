@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "B385",
   "title": "A KeePassXC Key That Is Usable",
-  "state": "Implementing",
+  "state": "Review",
   "size": "L",
   "priority": "Medium",
   "rank": 10,
@@ -92,7 +92,9 @@ Left as they are, after the reading: a crash between the note and `add` leaves a
 
 A prompt ended by its limit or by Ctrl-C left the terminal's echo off, measured with the real program: the wrapper now gives it back.
 
-Step 2 is its own commit, held back: it reads the master password in Porelo's own wrapper, which the operator decides.
+Step 2 reads the master password in Porelo's own wrapper, never in the Porelo process; the operator allowed that on 2026-11-10.
+
+Step 2 as built: the plan's `open` session cannot work, since `keepassxc-cli open` reads its password from standard input, the commands' pipe. The wrapper reads the line from the terminal with echo off and gives it by the shell's `printf` to each `keepassxc-cli`. Seen against the real 2.7.10 in a pseudo-terminal, on a throwaway database: one prompt, no echo, terminal restored; the key read back byte for byte; a wrong password and an existing entry stop at `add`; nobody typing is `typed 124`; a refused attachment goes to the recycle bin in the same session, with no second prompt.
 
 ## Acceptance
 

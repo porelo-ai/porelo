@@ -360,6 +360,9 @@ class IdentityKeePassXcTest {
                 .isEqualTo(answer.get("fingerprint"));
         assertThat(Files.readString(cardFile())).isEqualTo(answer.get("card"));
         assertThat(keepass.calls()).isEqualTo(keepass.madeInto("ssh/alice"));
+        assertThat(Files.readString(keepass.terminal).split("Enter password", -1))
+                .as("one prompt for the whole making")
+                .hasSize(2);
 
         final StringWriter out = new StringWriter();
         final CommandLine cli = PoreloCli.commandLine(registry.context());
@@ -773,19 +776,24 @@ class IdentityKeePassXcTest {
     @Test
     void a_password_not_typed_in_time_is_no_password_and_nothing_is_kept() throws Exception {
         final KeePassXcStandIn keepass = standIn(KeePassXcStandIn.Mode.NEVER_TYPED);
+        final Path silent = dir.resolve("silent");
+        registry.runner.runOrFail(
+                org.fuin.porelo.core.process.Command.of("mkfifo", silent.toString()));
 
-        assertThat(
-                        create(
-                                keepass.typing(Duration.ofSeconds(1)),
-                                "--keepassxc",
-                                keepass.database.toString(),
-                                "--id",
-                                "c1",
-                                "--json"))
-                .isEqualTo(64);
+        try (java.io.RandomAccessFile held = new java.io.RandomAccessFile(silent.toFile(), "rw")) {
+            assertThat(
+                            create(
+                                    keepass.typing(silent, Duration.ofSeconds(1)),
+                                    "--keepassxc",
+                                    keepass.database.toString(),
+                                    "--id",
+                                    "c1",
+                                    "--json"))
+                    .isEqualTo(64);
+        }
 
         assertThat(registry.answer().get("reason")).isEqualTo("no-password");
-        assertThat(keepass.calls()).hasSize(1);
+        assertThat(keepass.calls()).isEmpty();
         assertThat(cardFile()).doesNotExist();
         assertThat(served()).isEmpty();
         assertThat(

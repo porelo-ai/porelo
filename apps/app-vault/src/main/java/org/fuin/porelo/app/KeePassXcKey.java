@@ -9,6 +9,7 @@ import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Arrays;
+import java.util.Base64;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -27,9 +28,9 @@ import org.jspecify.annotations.Nullable;
  *
  * <p>The key exists in this process only, until {@code keepassxc-cli} has taken it as an attachment
  * of a new entry: it is handed over a pipe that is the wrapper shell's standard input, which the
- * shell moves to descriptor 3 before it reopens this process's own terminal as {@code
- * keepassxc-cli}'s standard input, where it asks for the master password itself. No file holds the
- * key and no argument carries it; Porelo never sees the password.
+ * shell moves to descriptor 3 before it reopens this process's own terminal, where it asks once for
+ * the master password and gives it to each {@code keepassxc-cli}. No file holds the key and no
+ * argument carries it; this process never sees the password.
  *
  * @param program The {@code keepassxc-cli} run.
  * @param gui KeePassXC itself, its window: locked and asked to show a database whose new entry its
@@ -70,9 +71,6 @@ record KeePassXcKey(
     /** How long a person has to type the master password at one prompt. */
     static final Duration TYPING = Duration.ofSeconds(120);
 
-    /** What {@code timeout} exits with when the time ran out. */
-    private static final int TIMED_OUT = 124;
-
     /** What {@code keepassxc --lock} says when it locked a running KeePassXC's databases. */
     private static final String LOCKED = "have been locked";
 
@@ -86,26 +84,37 @@ record KeePassXcKey(
     private static final Duration POLL = Duration.ofMillis(250);
 
     /**
-     * Runs the rest of its arguments within the time for a prompt, in the foreground or the program
-     * could not read the terminal, and gives the terminal back as it was: a program ended while it
-     * asks, by the limit or by Ctrl-C, leaves its echo off.
+     * One password for the whole making, read here from the terminal with its echo off and given by
+     * the shell's own {@code printf}, so that it is on no command line and this process never holds
+     * it. The key is the pipe on standard input, moved to descriptor 3; the settings come from an
+     * argument, being no secret. Each step says how it ended on what was standard output.
      */
-    private static final String LIMITED =
-            " n=$3; shift 3; s=$(stty -g 2>/dev/null);"
-                    + " trap '[ -z \"$s\" ] || stty \"$s\"' EXIT; trap 'exit 130' INT TERM;"
-                    + " timeout --foreground \"$n\" \"$@\"";
-
-    /**
-     * Moves the pipe on its standard input to descriptor 3, reopens the terminal as standard input
-     * and its error output for both outputs.
-     */
-    private static final String WRAPPER = "exec 3<&0 <\"$1\" >>\"$2\" 2>&1;" + LIMITED;
-
-    /** As {@link #WRAPPER}, with standard output left for Porelo to read and no pipe to move. */
-    private static final String ASKING = "exec <\"$1\" 2>>\"$2\";" + LIMITED;
-
-    /** The path {@code keepassxc-cli} reads the attachment from: the pipe on descriptor 3. */
-    private static final String PIPE = "/dev/fd/3";
+    private static final String SESSION =
+            """
+            set +xe; unset pw
+            exec 3<&0 <"$1" 4>&1 >>"$2" 2>&1
+            n=$3; cli=$4; db=$5; entry=$6; settings=$7
+            s=$(stty -g 2>/dev/null)
+            trap '[ -z "$s" ] || stty "$s"' EXIT; trap 'exit 130' INT TERM
+            stty -echo 2>/dev/null
+            printf 'Enter password to unlock %s: ' "$db"
+            pw=$(timeout --foreground "$n" sh -c 'IFS= read -r p; printf %s "$p"'); c=$?
+            [ -z "$s" ] || stty "$s"; echo
+            [ "$c" -lt 124 ] || { echo "typed $c" >&4; exit 0; }
+            printf '%s\\n' "$pw" | "$cli" add -q "$db" "$entry"; c=$?
+            echo "add $c" >&4; [ "$c" -eq 0 ] || exit 0
+            printf '%s\\n' "$pw" | "$cli" attachment-import -q "$db" "$entry" id_ed25519 /dev/fd/3; c=$?
+            echo "key $c" >&4
+            if [ "$c" -eq 0 ]; then
+              printf %s "$settings" | base64 -d | { printf '%s\\n' "$pw" | \
+                "$cli" attachment-import -q "$db" "$entry" KeeAgent.settings /dev/fd/5; } 5<&0; c=$?
+              echo "settings $c" >&4
+            fi
+            [ "$c" -eq 0 ] && exit 0
+            r=$(printf '%s\\n' "$pw" | LC_ALL=C "$cli" rm "$db" "$entry" 2>/dev/null); c=$?
+            [ "$c" -eq 0 ] || r=stays
+            printf 'rm %s\\n' "$r" >&4
+            """;
 
     /** An entry path: groups and a name, none empty, no control character, no leading dash. */
     private static final java.util.regex.Pattern ENTRY =
@@ -427,14 +436,27 @@ record KeePassXcKey(
         final SigningKey key = SigningKey.generate(login);
         final String fingerprint = PersonCard.fingerprint(PersonCard.keyLine(key));
         keep(context, id, new Kept(entry, fingerprint, action));
-        final int added = run(context, new byte[0], "add", database, entry);
-        if (added != 0) {
-            forget(context, id);
+        final byte[] secret = key.openSshPrivateKey();
+        final Map<String, String> ended;
+        try {
+            ended = session(context, secret, database, entry);
+        } finally {
+            Arrays.fill(secret, (byte) 0);
         }
-        if (added == TIMED_OUT) {
-            throw notTyped("nothing was kept");
+        if ("0".equals(ended.get("settings"))) {
+            return fingerprint;
         }
-        if (added == 126 || added == 127) {
+        forget(context, id);
+        if (ended.containsKey("typed")) {
+            throw new IdentityChange.Refused(
+                    64,
+                    "no-password",
+                    "the master password was not typed within "
+                            + typing.toSeconds()
+                            + " s; nothing was kept");
+        }
+        final String added = ended.getOrDefault("add", "127");
+        if (added.equals("126") || added.equals("127")) {
             throw new IdentityChange.Refused(
                     65,
                     "key-store-missing",
@@ -442,7 +464,7 @@ record KeePassXcKey(
                             + " is not installed; install KeePassXC from the package"
                             + " keepassxc-full, then ask again");
         }
-        if (added != 0) {
+        if (!added.equals("0")) {
             throw new IdentityChange.Refused(
                     65,
                     "key-store-refused",
@@ -451,125 +473,66 @@ record KeePassXcKey(
                             + " (a wrong password, or an entry of that path exists); nothing was"
                             + " kept");
         }
-        final byte[] secret = key.openSshPrivateKey();
-        final int keyTaken;
-        try {
-            keyTaken =
-                    run(
-                            context,
-                            secret,
-                            "attachment-import",
-                            database,
-                            entry,
-                            KEY_ATTACHMENT,
-                            PIPE);
-        } finally {
-            Arrays.fill(secret, (byte) 0);
-        }
-        final int settingsTaken =
-                keyTaken != 0
-                        ? keyTaken
-                        : run(
-                                context,
-                                settings(),
-                                "attachment-import",
-                                database,
-                                entry,
-                                SETTINGS_ATTACHMENT,
-                                PIPE);
-        if (settingsTaken != 0) {
-            forget(context, id);
-            final String left =
-                    settingsTaken == TIMED_OUT
-                            ? "it is not removed: remove it in KeePassXC"
-                            : removed(context, database, entry);
-            if (settingsTaken == TIMED_OUT) {
-                throw notTyped(
-                        "the entry " + AnswerText.printable(entry) + " was made and " + left);
-            }
-            throw new IdentityChange.Refused(
-                    65,
-                    "key-store-refused",
-                    "keepassxc-cli made the entry "
-                            + AnswerText.printable(entry)
-                            + " but did not take "
-                            + (keyTaken != 0 ? "the key" : "its agent settings")
-                            + "; "
-                            + left);
-        }
-        return fingerprint;
-    }
-
-    private IdentityChange.Refused notTyped(final String left) {
-        return new IdentityChange.Refused(
-                64,
-                "no-password",
-                "the master password was not typed within " + typing.toSeconds() + " s; " + left);
+        final String shown = String.valueOf(AnswerText.printable(entry));
+        final String removed = ended.getOrDefault("rm", "stays");
+        throw new IdentityChange.Refused(
+                65,
+                "key-store-refused",
+                "keepassxc-cli made the entry "
+                        + shown
+                        + " but did not take "
+                        + ("0".equals(ended.get("key")) ? "its agent settings" : "the key")
+                        + "; "
+                        + (removed.startsWith("Successfully recycled")
+                                ? "it went to the database's recycle bin, where the private key"
+                                        + " stays until the bin is emptied"
+                                : removed.equals("stays")
+                                        ? "it is not removed: remove " + shown + " in KeePassXC"
+                                        : "it was removed"));
     }
 
     /**
-     * Takes an entry a refused attachment left, once: a second {@code rm} would have to tell the
-     * bin's name in the database's language.
+     * Runs the one session, the key on the pipe it reads as {@code /dev/fd/3}.
      *
-     * @return What is left in the database, in words.
+     * @return How each step ended, by the step's name; empty when it could not run.
      */
-    private String removed(final PoreloContext context, final String database, final String entry) {
-        final String shown = String.valueOf(AnswerText.printable(entry));
-        final CommandResult result;
+    private Map<String, String> session(
+            final PoreloContext context,
+            final byte[] secret,
+            final String database,
+            final String entry) {
+        final Map<String, String> ended = new LinkedHashMap<>();
         try {
-            result =
+            // The pipe's bytes are borrowed: the caller clears them once this returns.
+            final CommandResult result =
                     context.runner()
                             .run(
                                     Command.of(
                                                     "sh",
                                                     "-c",
-                                                    ASKING,
+                                                    SESSION,
                                                     "porelo-keepassxc",
                                                     terminalIn.toString(),
                                                     terminalOut.toString(),
                                                     String.valueOf(typing.toSeconds()),
                                                     program,
-                                                    "rm",
                                                     database,
-                                                    entry)
-                                            .withEnvironment(Map.of("LC_ALL", "C")));
+                                                    entry,
+                                                    Base64.getEncoder().encodeToString(settings()))
+                                            .withBinaryInput(secret));
+            result.standardOutput()
+                    .lines()
+                    .forEach(
+                            line -> {
+                                final int space = line.indexOf(' ');
+                                if (space > 0) {
+                                    ended.put(line.substring(0, space), line.substring(space + 1));
+                                }
+                            });
         } catch (CommandException ex) {
-            return "it is not removed: remove " + shown + " in KeePassXC";
+            // Nothing ran, which the caller reads as no keepassxc-cli.
         }
-        if (result.exitCode() != 0) {
-            return "it is not removed: remove " + shown + " in KeePassXC";
-        }
-        return result.standardOutput().startsWith("Successfully recycled")
-                ? "it went to the database's recycle bin, where the private key stays until the"
-                        + " bin is emptied"
-                : "it was removed";
-    }
-
-    /**
-     * Runs {@code keepassxc-cli} through the wrapper, the bytes on the pipe it reads as {@code
-     * /dev/fd/3}.
-     *
-     * @return Its exit code.
-     */
-    private int run(final PoreloContext context, final byte[] piped, final String... arguments) {
-        final List<String> all =
-                new java.util.ArrayList<>(
-                        List.of(
-                                "sh",
-                                "-c",
-                                WRAPPER,
-                                "porelo-keepassxc",
-                                terminalIn.toString(),
-                                terminalOut.toString(),
-                                String.valueOf(typing.toSeconds()),
-                                program));
-        all.addAll(List.of(arguments));
-        try {
-            // The pipe's bytes are borrowed: the caller clears them once this returns.
-            return context.runner().run(Command.of(all).withBinaryInput(piped)).exitCode();
-        } catch (CommandException ex) {
-            return 127;
-        }
+        return ended;
     }
 
     /** Asks the agent until it serves the key, at most {@code within}. */

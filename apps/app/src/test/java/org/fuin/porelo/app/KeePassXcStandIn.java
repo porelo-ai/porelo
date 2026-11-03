@@ -46,7 +46,7 @@ final class KeePassXcStandIn {
         REFUSES_KEY_NO_BIN,
         /** As {@link #REFUSES_KEY}, and the entry cannot be removed either. */
         REFUSES_KEY_AND_REMOVAL,
-        /** Nobody types: the first prompt waits. */
+        /** Nobody types at the terminal, which here is a pipe no one writes to. */
         NEVER_TYPED
     }
 
@@ -106,17 +106,16 @@ final class KeePassXcStandIn {
                         + "\\nCryptographic libraries:\\n- x\\n'; fi\n"
                         + "  exit 0\n"
                         + "fi\n"
-                        + "printf '%s\\n' \"$*\" >> \"$here/arguments\"\n"
+                        + "printf '%s\\n' \"$*\" | sed 's/ -q / /' >> \"$here/arguments\"\n"
+                        + "[ \"$2\" = -q ] && { c=$1; shift 2; set -- \"$c\" \"$@\"; }\n"
                         + "case \"$1\" in\n"
                         + "add)\n"
                         + (mode == Mode.REFUSES
                                 ? "  echo 'Invalid credentials' >&2; exit 1 ;;\n"
-                                : mode == Mode.NEVER_TYPED
-                                        ? "  exec sleep 30 ;;\n"
-                                        : "  if grep -qxF -- \"$3\" \"$here/entries\" 2>/dev/null;"
-                                                + " then echo 'exists' >&2; exit 1; fi\n"
-                                                + "  echo \"$3\" >> \"$here/entries\";"
-                                                + " echo 'Entry added.'; exit 0 ;;\n")
+                                : "  if grep -qxF -- \"$3\" \"$here/entries\" 2>/dev/null;"
+                                        + " then echo 'exists' >&2; exit 1; fi\n"
+                                        + "  echo \"$3\" >> \"$here/entries\";"
+                                        + " echo 'Entry added.'; exit 0 ;;\n")
                         + "rm)\n"
                         + (mode == Mode.REFUSES_KEY_AND_REMOVAL
                                 ? "  exit 1 ;;\n"
@@ -212,13 +211,13 @@ final class KeePassXcStandIn {
                 context -> running ? KeePassXcNeeds.State.READY : KeePassXcNeeds.State.MISSING);
     }
 
-    /** As {@link #store}, a prompt waiting this long. */
-    KeePassXcKey typing(final Duration typing) {
+    /** As {@link #store}, on a terminal that is the given pipe, a prompt waiting this long. */
+    KeePassXcKey typing(final Path pipe, final Duration typing) {
         return new KeePassXcKey(
                 program.toString(),
                 gui.toString(),
                 Duration.ofSeconds(10),
-                Path.of("/dev/null"),
+                pipe,
                 terminal,
                 typing,
                 false,
@@ -259,7 +258,7 @@ final class KeePassXcStandIn {
         return List.of(
                 "add " + database + " " + entry,
                 "attachment-import " + database + " " + entry + " id_ed25519 /dev/fd/3",
-                "attachment-import " + database + " " + entry + " KeeAgent.settings /dev/fd/3");
+                "attachment-import " + database + " " + entry + " KeeAgent.settings /dev/fd/5");
     }
 
     /** What the stand-in noted about each attachment. */
