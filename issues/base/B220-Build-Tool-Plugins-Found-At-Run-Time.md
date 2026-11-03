@@ -29,7 +29,7 @@ Read in the code on 2026-10-20. `builds/` is the model, one for one.
    - Errors: `NotRecognized`, `Unreadable(detail)`.
    - `EcosystemMain` (`describe`, `serve <socket>`), `EcosystemServer`, `EcosystemProtocol`, `InstalledEcosystem`
      copied from `BuildMain`, `BuildServer`, `BuildProtocol`, `InstalledBuildReader`; the version rule is
-     [B224](README.md#b224)'s from the start, so a plugin never has to release in step with `porelo`.
+     `AgentProtocol`'s from the start, so a plugin never has to release in step with `porelo`.
 3. **Discovery of all of them**, unlike a build reader found by name: `InstalledEcosystems.all(dirs)` lists
    `$XDG_DATA_HOME/porelo/ecosystems` then `/usr/libexec/porelo/ecosystems` (`PoreloPaths.packaged()`), each
    executable regular file a name matching `[a-z][a-z0-9-]{0,62}`, the first directory winning per name, as

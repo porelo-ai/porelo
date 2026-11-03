@@ -160,7 +160,7 @@ At a terminal a shut vault asks for its passphrase; a script must unlock it firs
 | `porelo task take-back TASK NAME` | Takes a handed-in file out of a running task's `/porelo/files` again. |
 | `porelo task files TASK` | Every file handed to a task, also after it is gone: who, when, size and sha256. |
 | `porelo task watch-builds TASK ...` | Run by an online task's launch, not by hand: follows what the task pushes and hands each build's verdict into `/porelo/files`. |
-| `porelo task prepare -p PROJECT [-r REPOSITORY]` | Builds the project's task image without starting a task; with `-r`, the image a task on that repository gets, chosen as a start chooses it. |
+| `porelo task prepare -p PROJECT [-r REPOSITORY]` | Builds the project's task image without starting a task; with `-r`, the image a task on that repository gets, chosen as a start chooses it, but for an agent found signed in, which it does not take. |
 | `porelo task clearance TASK MODE` | Sets what happens to a blocked connection: `prompt`, `allow`, `deny` or `off`. |
 | `porelo task start TASK --host LOGIN@HOST --project PROJECT ...` | Starts the task on that host over SSH, detached, its key certified here by your own agent, which is never forwarded. Paths named are the host's; `--set-file`, `--set-env` and `--restarted` are refused. |
 | `porelo task certify TASK [--host LOGIN@HOST --project PROJECT]` | Certifies a running task's key anew for another week, by your agent; with `--host`, the task of that project on that host, by its own name. |

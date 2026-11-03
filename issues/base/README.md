@@ -37,10 +37,7 @@ from its side, as *blocked by*.
 | <a id="b361"></a>[B361](B361-An-Agent-Starts-Only-The-Subagents-Its-Task-Allows.md) | M | - | Porelo's agent interface carries how many subagents an agent may start in a task, default none, and refuses a value the agent cannot enforce |
 | <a id="b390"></a>[B390](B390-The-Organizations-API-Apart-From-Its-Git-Reading.md) | L | - | Porelo asks for its organization through an API that says nothing of Git, today's registry reading behind it, with nothing visible changed |
 | <a id="b393"></a>[B393](B393-A-Task-Of-The-Default-Project-Never-Joins-A-Room.md) | S | - | A task of the project `default` never joins a room, whatever the machine or host has; a repository name that could write a `mail` section into its file is refused. |
-| <a id="b224"></a>[B224](B224-An-Agent-Protocol-That-Only-Grows.md) | M | - | The agent handshake accepts an agent at or above the lowest contract version, `Agent1` only grows, and a missing method reads as "cannot say", so agents need not release in step with `porelo`. | 0 |
 | <a id="b395"></a>[B395](B395-A-Transport-Borrows-The-Token-Its-Lifecycle-Needs.md) | S | - | A transport says in `describe` which secret of the person's a lifecycle verb needs, and Porelo lends it from the vault for that verb alone. |
-| <a id="b226"></a>[B226](B226-An-Imported-Credential-Names-Its-Provider.md) | M | `porelo` [B224](README.md#b224) | `ExtractCredential` takes an optional provider, so an agent signed in to several imports the one named, stored under that provider. | 0 |
-| <a id="b225"></a>[B225](B225-The-Agent-Found-On-The-Machine.md) | L | `porelo` [B224](README.md#b224) | A start without `--agent` and `--provider` takes the agent signed in on the machine and names where it was found; `Agent1.Find` answers presence only, with "cannot say". | 0 |
 
 ## Implementing
 
@@ -110,7 +107,7 @@ from its side, as *blocked by*.
 | <a id="b201"></a>[B201](B201-A-Start-Now-Built-Or-Removed.md) | S | - | `task start --now` is accepted and does nothing: built or removed, after finding what it was meant for. | 0 |
 | <a id="b200"></a>[B200](B200-A-Varlink-Call-Has-A-Read-Deadline.md) | M | - | A call through `VarlinkClient` to a side that accepted and never answers ends within a stated time with a named error; no contract changes. | 0 |
 | <a id="b179"></a>[B179](B179-A-Code-Beside-Why-A-Release-Cannot-Go.md) | M | - | A code beside `detail` when a release is answered `NOT_DELIVERABLE`, so a client can say what to do per case. | 0 |
-| <a id="b230"></a>[B230](B230-The-Package-Provides-The-Lowest-Agent-Protocol.md) | M | `porelo` [B224](README.md#b224) | The `.deb` and `.rpm` provide `porelo-agent-protocol-<LOWEST>`, held to `AgentProtocol.LOWEST` by a test, so an agent's package refuses only what `porelo` refuses. | 0 |
+| <a id="b230"></a>[B230](B230-The-Package-Provides-The-Lowest-Agent-Protocol.md) | M | - | The `.deb` and `.rpm` provide `porelo-agent-protocol-<LOWEST>`, held to `AgentProtocol.LOWEST` by a test, so an agent's package refuses only what `porelo` refuses. | 0 |
 | <a id="b231"></a>[B231](B231-The-Usage-Records-Kept-Off-The-Machine.md) | M | `porelo` [B148](README.md#b148) | `porelo keep <dir>` copies the usage records up to their last complete line, `keep --restore <dir>` puts them back before a task runs and never shortens one. | 0 |
 
 ## Accepted
@@ -247,6 +244,9 @@ from its side, as *blocked by*.
 
 | # | Title | What was built |
 |---|---|---|
+| <a id="b224"></a>B224 | An Agent Protocol That Only Grows | The handshake accepts an agent at or above `AgentProtocol.LOWEST`, a newer one included, `Agent1` only grows, and a method an agent lacks reads as "cannot say", never as nothing found, so agents need not release in step with `porelo` |
+| <a id="b225"></a>B225 | The Agent Found On The Machine | A start without `--agent` and `--provider` takes the agent found signed in on the machine, with that provider, and names the choice and where it was found; `Agent1.Find` answers presence only, with "cannot say", and a flag or the project file still wins |
+| <a id="b226"></a>B226 | An Imported Credential Names Its Provider | `vault import --provider NAME` imports that provider's sign-in from an agent holding several and stores it under that name; an answer for another provider is refused, nothing stored |
 | <a id="b334"></a>B334 | A Person Kept In The Project Room | Every person the applied access file admits is kept in the project's room by login after each applied commit and on `talk room`, and is heard by their host account with no `talk join`, only while the access file still names them. Tested in sprint 6m: passed. |
 | <a id="b335"></a>B335 | Every Change To A Protected File Signed | A follow applies a new `main` when every commit on its first-parent line that changes a protected file is signed by a key in force before it, in the project's repository and the access repository alike; document-only commits need no signature, and a refusal names the commit and the file. Tested in sprint 6m: passed. |
 | <a id="b337"></a>B337 | A Person Card Signed By Its Own Key | A person card names one Ed25519 key and is signed by it, and a change of key is signed by the old key as well; `porelo card verify` checks a card and its chain back to a pinned key against a revocation list, offline. Tested in sprint 6m: passed. |

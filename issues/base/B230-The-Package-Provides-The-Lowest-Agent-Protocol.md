@@ -1,6 +1,6 @@
 # B230 — The Package Provides The Lowest Agent Protocol
 
-**Status:** Analyzed; blocked by [B224](README.md#b224).
+**Status:** Analyzed.
 **Size:** M - small in code, two package descriptions and one check, but a contract every agent repository's package
 reads, and it must be published before any of them depends on it.
 
@@ -14,7 +14,7 @@ any agent protocol today. Asked for by the Claude Code adapter, which pi's and o
 Read in the code on 2026-10-20 (`dist`).
 
 1. **One number, read from the code**: a property `porelo.agent.protocol.lowest` in the root `pom.xml` beside
-   `package.glibc.floor` (`:68`), the value of [B224](README.md#b224)'s `AgentProtocol.LOWEST`.
+   `package.glibc.floor` (`:68`), the value of `AgentProtocol.LOWEST`.
 2. **The `.deb`**: `dist/dist-deb/src/deb/control/control` gains
    `Provides: porelo-agent-protocol-[[porelo.agent.protocol.lowest]]` beside `Depends` (`:13`).
 3. **The `.rpm`**: `dist/dist-rpm/pom.xml`'s rpm-maven-plugin gains
