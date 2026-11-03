@@ -12,6 +12,7 @@ import org.fuin.porelo.organization.OfflineOrganization;
 import org.fuin.porelo.organization.Organization;
 import org.fuin.porelo.organization.OrganizationQuestions;
 import org.fuin.porelo.organization.OrganizationQuestions.Refused;
+import org.fuin.porelo.vault.PersonCard;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -65,6 +66,12 @@ public final class GitTreeOffline implements OfflineOrganization {
                         .filter(admin -> admin.backup() || vouched.contains(admin.login()))
                         .map(GitTreeOffline::admin)
                         .toList());
+        state.getOrganizationAdmins()
+                .ifPresent(
+                        listed ->
+                                answer.put(
+                                        "organization_admins",
+                                        organizationAdmins(state, listed, vouched)));
         answer.put("persons", persons(state, held));
         answer.put(
                 "projects",
@@ -95,6 +102,28 @@ public final class GitTreeOffline implements OfflineOrganization {
         row.put("ssh_host_key", card == null ? null : card.sshHostKey());
         row.put("services", card == null ? null : TreeServices.of(card));
         return row;
+    }
+
+    /** Whose keys the pin also holds: root stays with the machine's own admins. */
+    private static List<Map<String, Object>> organizationAdmins(
+            final OrganizationQuestions state,
+            final List<String> listed,
+            final Set<String> vouched) {
+        return state.getPersons().stream()
+                .filter(
+                        person ->
+                                listed.contains(person.login())
+                                        && vouched.contains(person.login())
+                                        && !person.revoked())
+                .map(
+                        person ->
+                                admin(
+                                        new Organization.Owner(
+                                                person.login(),
+                                                person.key(),
+                                                PersonCard.fingerprint(person.key()),
+                                                false)))
+                .toList();
     }
 
     private static Map<String, Object> admin(final Organization.Owner admin) {

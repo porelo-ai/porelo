@@ -31,6 +31,12 @@ final class TreePin implements TreeWalk.Watch {
     /** Whether commits on the host's paths now answer to the pin. */
     private boolean active;
 
+    /** The organization admins' keys as the commit before this one left them. */
+    private @Nullable Set<String> above;
+
+    /** The same, for the commit being judged: a commit listing its signer gains nothing by it. */
+    private Set<String> standing = Set.of();
+
     TreePin(
             final String host,
             final Set<String> pin,
@@ -51,6 +57,17 @@ final class TreePin implements TreeWalk.Watch {
             final @Nullable String signer,
             final List<String> changed,
             final TreeModel model) {
+        final Set<String> now = organizationAdmins(model);
+        standing = above == null ? now : above;
+        above = now;
+        judge(commit, signer, changed, model);
+    }
+
+    private void judge(
+            final String commit,
+            final @Nullable String signer,
+            final List<String> changed,
+            final TreeModel model) {
         if (!active && !since.isEmpty()) {
             active = since.equals(commit);
             if (active) {
@@ -58,7 +75,7 @@ final class TreePin implements TreeWalk.Watch {
             }
             return;
         }
-        final boolean signed = signer != null && pin.contains(signer);
+        final boolean signed = vouchedFor(signer);
         if (changed.stream().anyMatch(path -> path.startsWith(paths))) {
             if (active && !signed) {
                 throw new Refused(
@@ -77,10 +94,12 @@ final class TreePin implements TreeWalk.Watch {
     }
 
     /**
-     * Moves the pin to the admins the walk now holds, but only along what the pin itself vouches
-     * for: a commit signed for it, or a key an admin handed on from a pinned one. An owner's
-     * replacement of an admin's card is neither, so a stolen owner's key cannot rewrite a host's
-     * root of trust: the host stops until its admin renews the pin on the machine.
+     * Moves the pin to the admins the walk now holds and the organization admins, along what the
+     * pin vouches for: a commit signed for it, or by an organization admin, or a key an admin
+     * handed on from a pinned one. An owner not listed is none of these, so the host stops until
+     * its admin renews the pin on the machine. An organization admin is, on the operator's word:
+     * one who is dismissed must be replaceable with no step of theirs, and one stolen key of that
+     * role reaches every server's pin.
      */
     private void follow(
             final String commit,
@@ -91,8 +110,8 @@ final class TreePin implements TreeWalk.Watch {
         if (changed.isEmpty() || state == null) {
             return;
         }
-        final boolean signed = signer != null && pin.contains(signer);
-        final Set<String> admins = new HashSet<>();
+        final boolean signed = vouchedFor(signer);
+        final Set<String> admins = new HashSet<>(organizationAdmins(model));
         for (final TreeFiles.HostAdmin admin : state.file().admins()) {
             final String backup = admin.backupKey();
             if (backup != null) {
@@ -111,6 +130,28 @@ final class TreePin implements TreeWalk.Watch {
         if (!admins.isEmpty()) {
             pin = admins;
         }
+    }
+
+    private boolean vouchedFor(final @Nullable String signer) {
+        return signer != null && (pin.contains(signer) || standing.contains(signer));
+    }
+
+    /** The keys of those listed, each on a card the forge vouched for and not revoked. */
+    private static Set<String> organizationAdmins(final TreeModel model) {
+        final List<String> listed = model.organizationAdmins();
+        if (listed == null) {
+            return Set.of();
+        }
+        final Set<String> keys = new HashSet<>();
+        for (final String login : listed) {
+            final TreeModel.Person person = model.people().get(login);
+            if (person != null
+                    && Organization.TRUSTED.equals(person.state())
+                    && !model.revoked().contains(person.fingerprint())) {
+                keys.add(person.fingerprint());
+            }
+        }
+        return keys;
     }
 
     /** Adds what the pin holds for one admin, a card not yet vouched for keeping what led to it. */

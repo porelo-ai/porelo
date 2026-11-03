@@ -1623,7 +1623,7 @@ class GitTreeStoreTest {
         commit("carol");
 
         final OrganizationQuestions answers = read();
-        assertThat(answers.getRefusals()).isEmpty();
+        assertThat(refusedPaths(answers)).doesNotContain("people/alice.card");
         assertThat(answers.getPersons())
                 .filteredOn(person -> person.login().equals("alice"))
                 .extracting("key")
@@ -2861,6 +2861,117 @@ class GitTreeStoreTest {
         carryingHost();
 
         refusedAs("refused-state", () -> fetch("", "mallory"));
+    }
+
+    /** The host as {@link #carryingHost} leaves it, with carol listed. */
+    private String carryingHostWithAnOrganizationAdmin() throws IOException {
+        carryingHost();
+        person("carol");
+        write("organization-admins.yml", organizationAdmins("carol"));
+        return commit("mia");
+    }
+
+    @Test
+    void anOrganizationAdminReplacesAMachineAdminWithNoStepOfTheirs() throws Exception {
+        final String taken = carryingHostWithAnOrganizationAdmin();
+        write("hosts/build/host.yml", "admins:\n  - login: bob\nprojects: [demo]\n");
+        final String last = commit("carol");
+
+        final Map<String, Object> answer = fetch(taken, "alice");
+
+        assertThat(answer.get("revision")).isEqualTo(last);
+        assertThat((List<?>) answer.get("admins"))
+                .extracting(row -> (Object) ((Map<?, ?>) row).get("login"))
+                .containsExactly("bob");
+    }
+
+    @Test
+    void anOrganizationAdminReplacesAMachineAdminsLostKeyAndThePinFollows() throws Exception {
+        final String taken = carryingHostWithAnOrganizationAdmin();
+        forge.keys.put("alice", List.of(key("alice-new")));
+        write("people/alice.card", card("alice", "alice-new"));
+        commit("carol");
+        write("hosts/build/card", hostCard("build", "alice-new"));
+        final String last = commit("alice-new");
+
+        assertThat(fetch(taken, "alice").get("revision")).isEqualTo(last);
+    }
+
+    @Test
+    void anOwnerNotListedStillMovesNoPin() throws Exception {
+        final String taken = carryingHostWithAnOrganizationAdmin();
+        write("hosts/build/host.yml", "admins:\n  - login: bob\nprojects: [demo]\n");
+        commit("mia");
+
+        refusedAs("refused-state", () -> fetch(taken, "alice"));
+    }
+
+    @Test
+    void anOwnerListingSomeoneGivesThemThePinFromTheNextCommitOn() throws Exception {
+        final String taken = carryingHostWithAnOrganizationAdmin();
+        person("mallory");
+        write("organization-admins.yml", organizationAdmins("carol", "mallory"));
+        commit("mia");
+        write("hosts/build/host.yml", "admins:\n  - login: bob\nprojects: [demo]\n");
+        final String last = commit("mallory");
+
+        assertThat(fetch(taken, "alice").get("revision")).isEqualTo(last);
+    }
+
+    @Test
+    void aCommitListingItsOwnSignerGivesItNoPinInThatCommit() throws Exception {
+        final String taken = carryingHostWithAnOrganizationAdmin();
+        person("mia");
+        write("organization-admins.yml", organizationAdmins("carol", "mia"));
+        write("hosts/build/host.yml", "admins:\n  - login: bob\nprojects: [demo]\n");
+        commit("mia");
+
+        refusedAs("refused-state", () -> fetch(taken, "alice"));
+    }
+
+    @Test
+    void anOrganizationAdminTakenOffTheListLeavesThePinAtOnce() throws Exception {
+        final String taken = carryingHostWithAnOrganizationAdmin();
+        write("organization-admins.yml", organizationAdmins());
+        commit("mia");
+        write("hosts/build/host.yml", "admins:\n  - login: bob\nprojects: [demo]\n");
+        commit("carol");
+
+        refusedAs("refused-state", () -> fetch(taken, "alice", "carol"));
+    }
+
+    @Test
+    void aHostIsToldTheOrganizationAdminsAndNotBeforeTheyAreListed() throws Exception {
+        final String taken = carryingHost();
+        assertThat(fetch("", "alice")).doesNotContainKey("organization_admins");
+
+        person("carol");
+        write("organization-admins.yml", organizationAdmins("carol"));
+        commit("mia");
+
+        final Map<String, Object> answer = fetch(taken, "alice");
+        final Map<?, ?> row = (Map<?, ?>) ((List<?>) answer.get("organization_admins")).getFirst();
+        assertThat(row.get("login")).isEqualTo("carol");
+        assertThat(row.get("key")).isEqualTo(key("carol"));
+        assertThat((List<?>) answer.get("admins"))
+                .as("root stays with who the machine lists")
+                .extracting(each -> (Object) ((Map<?, ?>) each).get("login"))
+                .containsExactly("alice");
+    }
+
+    @Test
+    void aFirstSeenOrganizationAdminIsNoKeyOfThePin() throws Exception {
+        final String taken = carryingHost();
+        forge.keys.remove("carol");
+        write("people/carol.card", card("carol", "carol"));
+        commit("carol");
+        write("organization-admins.yml", organizationAdmins("carol"));
+        final String listed = commit("mia");
+
+        final Map<String, Object> answer = fetch(taken, "alice");
+
+        assertThat(answer.get("revision")).isEqualTo(listed);
+        assertThat(answer.get("organization_admins")).asList().isEmpty();
     }
 
     @Test
