@@ -76,7 +76,35 @@ final class IdentityStore {
         final PersonCard read = PersonCard.read(card, "the card to keep");
         privateDirectory(home, directory);
         write(directory.resolve("key.pub"), read.key() + " " + read.login() + "\n");
+        Files.deleteIfExists(askedFile());
         write(cardFile(), card);
+    }
+
+    /**
+     * Notes the id the kept card was made under, which no record holds where nothing was filed.
+     *
+     * @param id The id.
+     * @throws IOException When it cannot be written.
+     */
+    void madeUnder(final String id) throws IOException {
+        write(askedFile(), id);
+    }
+
+    /**
+     * Tells whether the kept card was made under this id.
+     *
+     * @param id The id.
+     * @return Whether it was.
+     * @throws IOException When the note cannot be read.
+     */
+    boolean madeUnderId(final String id) throws IOException {
+        final Path file = askedFile();
+        return Files.isRegularFile(file, LinkOption.NOFOLLOW_LINKS)
+                && Files.readString(file, StandardCharsets.UTF_8).equals(id);
+    }
+
+    private Path askedFile() {
+        return directory.resolve("card.id");
     }
 
     /**

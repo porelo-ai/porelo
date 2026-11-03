@@ -12,6 +12,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.Callable;
 import java.util.regex.Pattern;
+import org.fuin.porelo.organization.Organization;
 import org.fuin.porelo.vault.AgentKey;
 import org.fuin.porelo.vault.CardException;
 import org.fuin.porelo.vault.PersonCard;
@@ -188,7 +189,7 @@ public class IdentityCreateCommand implements Callable<Integer>, PoreloFactory.C
             return answer(machine, filed.operation(), filed.again(), organization, null);
         }
         final IdentityStore store = new IdentityStore(machine);
-        final IdentityOperation asked = askedAgain(store, given, organization);
+        final IdentityOperation asked = askedAgain(store, change, given, organization);
         if (asked != null) {
             return answer(machine, asked, true, organization, null);
         }
@@ -243,6 +244,9 @@ public class IdentityCreateCommand implements Callable<Integer>, PoreloFactory.C
         if (organization == null) {
             try {
                 store.keep(card);
+                if (id != null) {
+                    store.madeUnder(id);
+                }
             } catch (IOException ex) {
                 throw new IdentityChange.Refused(
                         70, "failed", "the card could not be kept: " + ex.getMessage());
@@ -291,10 +295,11 @@ public class IdentityCreateCommand implements Callable<Integer>, PoreloFactory.C
      */
     private @Nullable IdentityOperation askedAgain(
             final IdentityStore store,
+            final IdentityChange change,
             final @Nullable String given,
             final IdentityOrganization.@Nullable Reading organization)
             throws IdentityChange.Refused, IOException {
-        if (id == null || given == null || !store.holdsCard()) {
+        if (id == null || given == null || !store.holdsCard() || !store.madeUnderId(id)) {
             return null;
         }
         final PersonCard held = store.card().orElse(null);
@@ -303,12 +308,19 @@ public class IdentityCreateCommand implements Callable<Integer>, PoreloFactory.C
                 || !held.name().equals(name)
                 || !held.email().equals(email == null ? "" : email)
                 || !held.predecessor().isEmpty()
-                || !held.fingerprint().equals(fingerprint(given))) {
+                || !held.fingerprint().equals(fingerprint(given))
+                || change.revoked(held.key(), organization)) {
             return null;
         }
         final String card = held.body() + String.join("", held.signatures());
         if (organization != null
-                && organization.answers().getCard(login).filter(card::equals).isEmpty()) {
+                && (organization.answers().getCard(login).filter(card::equals).isEmpty()
+                        || organization.answers().getPersons().stream()
+                                .anyMatch(
+                                        person ->
+                                                person.login().equals(login)
+                                                        && Organization.REFUSED.equals(
+                                                                person.state())))) {
             return null;
         }
         return new IdentityOperation(

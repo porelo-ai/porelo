@@ -189,6 +189,7 @@ final class TreeRepository implements AutoCloseable {
     static String gitsOwnWords(final String said) {
         return said.lines()
                 .filter(line -> !line.stripLeading().startsWith("remote:"))
+                .filter(line -> !line.contains("remote error:"))
                 .collect(java.util.stream.Collectors.joining("\n"))
                 .strip();
     }

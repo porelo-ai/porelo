@@ -949,7 +949,7 @@ public final class GitTreeWrites implements OrganizationWrites {
             if (!tip.equals(before.commit())) {
                 throw new Refused(
                         Refused.CANNOT_SAY,
-                        "the forge could not say enough of its people's keys to read the organization to"
+                        "the forge could not say enough of its people's keys and owners to read the organization to"
                                 + " its tip: see whether this person's forge token is set",
                         before.commit());
             }
@@ -1013,7 +1013,7 @@ public final class GitTreeWrites implements OrganizationWrites {
         if (!commits.getLast().equals(after.commit())) {
             throw new Refused(
                     Refused.CANNOT_SAY,
-                    "the forge could not say enough of its people's keys to judge this change: see"
+                    "the forge could not say enough of its people's keys and owners to judge this change: see"
                             + " whether this person's forge token is set",
                     tip);
         }

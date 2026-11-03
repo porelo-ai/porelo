@@ -313,6 +313,7 @@ class IdentityCreateCommandTest {
         final String card = organization.card("alice");
         final PersonCard read = PersonCard.read(card, "filed");
         IdentityRun.keep(registry, card);
+        new IdentityStore(registry.context()).madeUnder("c1");
         final List<String> again =
                 new ArrayList<>(
                         List.of(
@@ -335,6 +336,46 @@ class IdentityCreateCommandTest {
         assertThat(registry.answer().get("again")).isEqualTo(true);
         assertThat(registry.answer().get("revision")).isEqualTo(tip);
         assertThat(organization.tip()).as("nothing filed twice").isEqualTo(tip);
+    }
+
+    /** A repeat must not say all is well of a card the organization no longer stands behind. */
+    @Test
+    void a_first_card_the_organization_refuses_is_not_answered_as_made() throws Exception {
+        registry.agent("alice");
+        organization = new TestOrganization(registry);
+        registry.forge.keys.put("alice", List.of(registry.key("alice")));
+        organization.filed("alice");
+        final String card = organization.card("alice");
+        final PersonCard read = PersonCard.read(card, "filed");
+        IdentityRun.keep(registry, card);
+        new IdentityStore(registry.context()).madeUnder("c1");
+        registry.forge.keys.put("alice", List.of(registry.key("bob")));
+
+        assertThat(
+                        IdentityRun.identity(
+                                organization,
+                                "create",
+                                "--login",
+                                read.login(),
+                                "--name",
+                                read.name(),
+                                "--key",
+                                registry.pin("alice"),
+                                "--id",
+                                "c1",
+                                "--json"))
+                .as(registry.err.toString())
+                .isNotZero();
+    }
+
+    /** An id names one change: one that never made this card must not answer that it did. */
+    @Test
+    void a_kept_card_under_another_id_is_still_identity_exists() throws Exception {
+        registry.agent("alice");
+        assertThat(create("--key", registry.pin("alice"), "--id", "c1", "--json")).isZero();
+
+        assertThat(create("--key", registry.pin("alice"), "--id", "c2", "--json")).isEqualTo(65);
+        assertThat(reason()).isEqualTo("identity-exists");
     }
 
     /** An id names one change: another name on the same key is not what it made. */

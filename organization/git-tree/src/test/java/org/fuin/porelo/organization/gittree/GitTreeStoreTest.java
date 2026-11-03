@@ -2982,5 +2982,11 @@ class GitTreeStoreTest {
                                 "remote: your token is secret-of-the-person\n"
                                         + "fatal: unable to access the repository\n"))
                 .isEqualTo("fatal: unable to access the repository");
+        org.assertj.core.api.Assertions.assertThat(
+                        TreeRepository.gitsOwnWords(
+                                "fatal: remote error: secret-of-the-person\n"
+                                        + "fatal: unable to access the repository\n"))
+                .as("a forge's protocol error goes the same way")
+                .isEqualTo("fatal: unable to access the repository");
     }
 }
