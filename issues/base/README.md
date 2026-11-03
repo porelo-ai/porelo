@@ -128,6 +128,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b418"></a>[B418](B418-Four-Roles-And-A-Pin-That-Follows-The-Organization-Admins.md) | - | - | Owner, Organization Admin, Machine Admin and Project Admin, each answering for the one below, and a pin that follows the Organization Admins, by the operator's word: a Machine Admin replaced takes effect at the next follow, and one stolen key of that role reaches every server. |
 | <a id="b416"></a>[B416](B416-A-Forge-That-Refuses-A-Hosts-Read-Key-Says-Why.md) | - | - | A forge's refusal of a host's read key says why, naming the organization's deploy key setting and its page; an organization at GitHub must allow deploy keys for a host to read it |
 | <a id="b415"></a>[B415](B415-A-Project-Admin-Told-How-To-Open-Without-The-Right.md) | - | - | `project open` refused by the forge says what works: somebody makes the repository under the project's name, empty, with write for this person, and they ask again |
 | <a id="b414"></a>[B414](B414-A-Developer-Reads-An-Organization-At-GitHub.md) | S | - | At GitHub, a person with push access reads the organization: the founder counts by their admin on this repository, and the refusal says what the forge could not tell. Decided by the operator; its state is the Coordinator's |
