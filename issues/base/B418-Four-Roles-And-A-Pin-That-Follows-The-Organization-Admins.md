@@ -1,6 +1,6 @@
 # B418 — Four Roles And A Pin That Follows The Organization Admins
 
-**Status:** Idea.
+**Status:** Accepted.
 **Severity:** high: this changes who holds what in every organization, and what one stolen key reaches on every server.
 
 **What must be true, by the operator's word of 2026-11-03.** Each level answers for the one below and may always create, change
@@ -70,12 +70,15 @@ each server's next follow, as a stolen Organization Admin's key does. Today an o
 gets root by a visible signed change naming themselves, on one server at a time and where it can be seen. It keeps a dismissed admin
 replaceable, and it takes less on the host's side.
 
-**To be checked.**
+**Settled by the operator on 2026-11-03.** Taking Porelo off also removes the machine's entry, and a Machine Admin may do it. An owner
+does not act as an Organization Admin without being listed, and an owner may list themselves.
 
-- An organization that exists today has no new file. Who is its first Organization Admin: its owners until an owner names one, or
-  nobody until then?
-- Who is it when an organization is founded: the founder?
-- The operator said on 2026-11-03 that a machine's admin may remove it from the organization. The table gives a Machine Admin *taking
-  Porelo off* and an Organization Admin *machines*. Whether taking it off also removes the entry is to be said.
-- Whether an owner may also act as an Organization Admin without being listed. Each level "may always create, change and delete" the
-  level below, which is read here as the list and not the level's own work.
+**With the operator.** Who is the first Organization Admin in an organization that exists today, and at founding; whether root stays
+with the listed Machine Admins. What does not hang on these is built first.
+
+**Why the rules have a moment they start.** A reader walks an organization's whole history, a new machine from its first commit. A
+rule that changes for every commit would refuse what owners and admins signed rightly before it, and everything resting on that. So
+the file's first accepted commit is where the roles start: before it the rules that held then judge, after it these. It cannot be
+removed, and `org create` files it empty. An organization that exists today runs as it did until an owner lists someone.
+
+**Estimate:** roles 360 minutes, the pin 240, the page 60, about 90 of it the chain on the VM, one reading per step by another model.
