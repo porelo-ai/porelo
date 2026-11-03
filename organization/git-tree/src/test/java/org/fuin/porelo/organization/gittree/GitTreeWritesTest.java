@@ -947,6 +947,28 @@ class GitTreeWritesTest {
         assertThat(read().getProjectRepository("demo")).contains(address);
     }
 
+    /** A lost key's address stays refused for a new reader until an admin files it again. */
+    @Test
+    void anAddressALostKeyFiledIsFiledAgainByANewAdmin() throws Exception {
+        demo();
+        final String address = "ssh://git@forge.example/acme/demo";
+        as("alice").changeProjectRepository(change("alice", "alice", "open"), "demo", address);
+        forge.keys.put("alice", List.of(key("alice-new")));
+        as("mia").replaceCard(change("mia", "mia", "swap"), "alice", card("alice", "alice-new"));
+        assertThat(read().getProjectRepository("demo")).as("refused for a new reader").isEmpty();
+        assertThat(read().getRefusals())
+                .extracting(Organization.Refusal::path)
+                .contains("projects/demo/repository.yml");
+
+        as("alice-new")
+                .changeProjectRepository(change("alice", "alice-new", "again"), "demo", address);
+
+        assertThat(read().getProjectRepository("demo")).contains(address);
+        assertThat(read().getRefusals())
+                .extracting(Organization.Refusal::path)
+                .doesNotContain("projects/demo/repository.yml");
+    }
+
     @Test
     void aMemberIsAddedAndChangedAndLockedAndRemovedAndEveryReaderAgrees() throws Exception {
         demo();

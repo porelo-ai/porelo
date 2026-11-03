@@ -46,10 +46,24 @@ public class ProjectAddressCommand extends OrgWriting {
 
     private static boolean filedNow(final PoreloContext machine, final String project)
             throws IOException {
-        final OrganizationQuestions state = OrgAccess.read(machine, OrgAccess::real).answers();
+        return mayBeFiled(OrgAccess.read(machine, OrgAccess::real).answers(), project);
+    }
+
+    /**
+     * Whether a project has an address to change: one filed, or one a lost key filed, which stands
+     * refused for a new reader and comes back by filing it again.
+     *
+     * @param state What the organization says.
+     * @param project The project.
+     * @return Whether an address may be filed.
+     */
+    static boolean mayBeFiled(final OrganizationQuestions state, final String project) {
         for (final OrganizationQuestions.Project each : state.getProjects()) {
             if (each.project().equals(project)) {
-                return each.filed();
+                final String file = "projects/" + project + "/repository.yml";
+                return each.filed()
+                        || state.getRefusals().stream()
+                                .anyMatch(refusal -> refusal.path().equals(file));
             }
         }
         throw new Refused(Refused.NOT_FOUND, "no such project", state.revision());

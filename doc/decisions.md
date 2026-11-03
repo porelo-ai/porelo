@@ -1241,7 +1241,9 @@ on to, so a person whose old key has left the forge keeps their past commits, an
 
 **A lost key is no such step.** When an owner replaces a card, nothing leads from the old key to the new one, so on a new
 machine the old key's past commits stay refused if the forge no longer lists it. The recovery is a new signed commit: an owner
-adds the project's admins again, and they add the rest.
+adds the project's admins again, and they add the rest. An address the old key filed comes back the same way, with
+`project address` by an admin; an address written over a refused commit carries a comment naming its change, so that the
+same address is still a change for a reader to judge.
 
 ## What a build runs beside its secrets is fixed by its content
 

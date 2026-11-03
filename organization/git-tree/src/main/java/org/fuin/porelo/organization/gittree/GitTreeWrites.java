@@ -935,6 +935,22 @@ public final class GitTreeWrites implements OrganizationWrites {
         return filed.path;
     }
 
+    /**
+     * Marks an address written over a refused commit as its own, so that the same address still
+     * makes a change for a reader to judge: a lost key's comes back by a new signed commit.
+     */
+    private static Map<String, @Nullable String> filedAnew(
+            final Map<String, @Nullable String> files, final TreeRecord before, final String id) {
+        final Map<String, @Nullable String> marked = new HashMap<>(files);
+        for (final Organization.Refusal refusal : before.refusals()) {
+            final String text = files.get(refusal.path());
+            if (text != null && refusal.path().endsWith("/repository.yml")) {
+                marked.put(refusal.path(), text + "# filed anew by " + id + "\n");
+            }
+        }
+        return marked;
+    }
+
     private Written change(final Change change, final String subject, final Edit edit)
             throws IOException {
         final String fingerprint = PersonCard.fingerprint(change.acting().key());
@@ -963,7 +979,7 @@ public final class GitTreeWrites implements OrganizationWrites {
                 commit =
                         clone.commit(
                                 commit,
-                                step.files(),
+                                filedAnew(step.files(), before, change.id()),
                                 subject,
                                 change.id(),
                                 signing,
@@ -974,8 +990,8 @@ public final class GitTreeWrites implements OrganizationWrites {
             if (clone.changed(commit, tip).isEmpty()) {
                 throw new Refused(
                         Refused.REFUSED_STATE,
-                        "the file says this already, in a commit no reader accepts: an owner sets"
-                                + " the project's admin anew first",
+                        "the file says this already, in a commit no reader accepts: make another"
+                                + " change to it, which a reader can judge",
                         tip);
             }
             judged(clone, commits, tip, before.model(), change.acting().login());

@@ -377,6 +377,36 @@ class OrgWritingCommandsTest {
         assertThat(calls).as("only project open opens a project").isEmpty();
     }
 
+    /** A lost key's address is refused for a new reader, and filing it again is the way back. */
+    @Test
+    void anAddressStandingRefusedMayBeFiledAgainAndOneNeverFiledMayNot() {
+        final org.fuin.porelo.organization.OrganizationQuestions.Project project =
+                new org.fuin.porelo.organization.OrganizationQuestions.Project(
+                        "demo", List.of(), List.of(), "alice", false, null);
+        final List<org.fuin.porelo.organization.Organization.Refusal> refusals =
+                new java.util.ArrayList<>();
+        final org.fuin.porelo.organization.OrganizationQuestions state =
+                (org.fuin.porelo.organization.OrganizationQuestions)
+                        java.lang.reflect.Proxy.newProxyInstance(
+                                org.fuin.porelo.organization.OrganizationQuestions.class
+                                        .getClassLoader(),
+                                new Class<?>[] {
+                                    org.fuin.porelo.organization.OrganizationQuestions.class
+                                },
+                                (self, method, args) ->
+                                        method.getName().equals("getProjects")
+                                                ? List.of(project)
+                                                : refusals);
+
+        assertThat(ProjectAddressCommand.mayBeFiled(state, "demo")).isFalse();
+
+        refusals.add(
+                new org.fuin.porelo.organization.Organization.Refusal(
+                        "abc", "projects/demo/repository.yml", "signed by someone, not its admin"));
+
+        assertThat(ProjectAddressCommand.mayBeFiled(state, "demo")).isTrue();
+    }
+
     private HostCard filedCard() {
         final String text = calls.getLast();
         return HostCard.read(
