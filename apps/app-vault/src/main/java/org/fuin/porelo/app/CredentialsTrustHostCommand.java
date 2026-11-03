@@ -1,8 +1,12 @@
 package org.fuin.porelo.app;
 
 import java.io.PrintWriter;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.Callable;
+import org.fuin.porelo.wire.Json;
 import org.jspecify.annotations.Nullable;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Model.CommandSpec;
@@ -42,6 +46,9 @@ public class CredentialsTrustHostCommand implements Callable<Integer>, PoreloFac
             description = "The key you confirmed. Without this, nothing is recorded.")
     private @Nullable String fingerprint;
 
+    @Option(names = "--json", description = "Answers the keys, or the one recorded, as JSON.")
+    private boolean json;
+
     @Spec private CommandSpec spec;
 
     private PoreloContext context = PoreloContext.real();
@@ -76,6 +83,19 @@ public class CredentialsTrustHostCommand implements Callable<Integer>, PoreloFac
                 err.flush();
                 return 70;
             }
+            if (json) {
+                final List<Map<String, String>> keys = new ArrayList<>();
+                for (final HostKeys.Offered key : offered) {
+                    keys.add(Map.of("type", key.type(), "fingerprint", key.fingerprint()));
+                }
+                final Map<String, Object> answer = new LinkedHashMap<>();
+                answer.put("host", host);
+                answer.put("keys", keys);
+                answer.put("known", HostKeys.known(context, host));
+                out.println(Json.write(answer));
+                out.flush();
+                return 0;
+            }
             out.println(host + " offers:");
             for (final HostKeys.Offered key : offered) {
                 out.printf("    %-12s %s%n", key.type(), key.fingerprint());
@@ -109,6 +129,16 @@ public class CredentialsTrustHostCommand implements Callable<Integer>, PoreloFac
                             + "'.");
             err.flush();
             return 70;
+        }
+        if (json) {
+            final Map<String, Object> answer = new LinkedHashMap<>();
+            answer.put("host", host);
+            answer.put(
+                    "recorded",
+                    Map.of("type", recorded.type(), "fingerprint", recorded.fingerprint()));
+            out.println(Json.write(answer));
+            out.flush();
+            return 0;
         }
         out.println("recorded  " + recorded.type() + "  " + recorded.fingerprint());
         out.println("          " + host + " is known to this machine from now on");
