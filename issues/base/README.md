@@ -41,6 +41,9 @@ from its side, as *blocked by*.
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
 | <a id="b418"></a>[B418](B418-Four-Roles-And-A-Pin-That-Follows-The-Organization-Admins.md) | L | - | Owner, Organization Admin, Machine Admin and Project Admin, each answering for the one below, and a pin that follows the Organization Admins, by the operator's word: a Machine Admin replaced takes effect at the next follow, and one stolen key of that role reaches every server. |
+| <a id="b419"></a>[B419](B419-A-Card-Renewed-With-Its-Key.md) | S | - | `identity renew`: a new term for the same key, also past the card's end, and `identity show` saying how long it has left. |
+| <a id="b420"></a>[B420](B420-A-Card-Proposed-From-What-Is-Found.md) | S | - | `identity propose`: login, name, email and key found with their sources, so a person only signs. |
+| <a id="b421"></a>[B421](B421-A-Hosts-Keys-Shown-Before-They-Are-Trusted.md) | XS | - | `credentials trust-host --json` answers a host's keys and records nothing, so a window can ask. |
 | <a id="b385"></a>[B385](B385-A-KeePassXC-Key-That-Is-Usable.md) | L | - | `--keepassxc` asks the master password once, a retry takes the key already made, no empty entry left, a clear refusal under `su` or a redirected stderr, aligned exit codes |
 | <a id="b214"></a>[B214](B214-A-Vault-Entry-Put-Again-Unchanged.md) | M | - | `vault put` given the value an entry already holds says `unchanged` and exits 0, so a second play reports nothing changed |
 | <a id="b154"></a>[B154](B154-A-Tamper-Evident-Event-Log-Per-Node.md) | L | - | One hash-chained event log per account, anchored in the user's journal, optionally copied off the machine, kept by `porelo clear`; written by approve, reject, clearance, hand-in, credentials and project changes.; part 1 built, the copy off the machine after it |
