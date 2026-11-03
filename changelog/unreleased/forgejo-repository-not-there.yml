@@ -1,0 +1,2 @@
+title: "Forgejo's `Cannot find repository` over ssh counts as a repository not there, so `project open` makes it, where it answered that the organization cannot be reached"
+type: fixed

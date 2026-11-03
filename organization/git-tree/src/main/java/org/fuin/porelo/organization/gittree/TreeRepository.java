@@ -35,7 +35,7 @@ final class TreeRepository implements AutoCloseable {
      */
     private static final java.util.regex.Pattern NOT_THERE =
             java.util.regex.Pattern.compile(
-                    "(?i)repository not found|repository '[^']*' not found|repository does not exist"
+                    "(?i)repository not found|cannot find repository|repository '[^']*' not found|repository does not exist"
                             + "|does not appear to be a git repository");
 
     /** Only what fetches an organization's repository; {@code ext::} would run a program. */
@@ -125,7 +125,7 @@ final class TreeRepository implements AutoCloseable {
                 arguments.addAll(List.of("ls-remote", "--", address));
                 final CommandResult asked =
                         clone.git(lease.environment(), arguments.toArray(String[]::new));
-                if (NOT_THERE.matcher(asked.standardError()).find()) {
+                if (notThere(asked.standardError())) {
                     throw new Refused(
                             Refused.NO_REPOSITORY,
                             "the organization's repository does not exist: make it on the forge"
@@ -178,6 +178,11 @@ final class TreeRepository implements AutoCloseable {
                                 + RegistryText.printable(gitsOwnWords(fetched.standardError())));
             }
         }
+    }
+
+    /** Whether what git wrote says the repository is not there, in any forge's words. */
+    static boolean notThere(final String said) {
+        return NOT_THERE.matcher(said).find();
     }
 
     /**

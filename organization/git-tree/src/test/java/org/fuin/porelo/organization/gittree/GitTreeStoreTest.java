@@ -2989,4 +2989,23 @@ class GitTreeStoreTest {
                 .as("a forge's protocol error goes the same way")
                 .isEqualTo("fatal: unable to access the repository");
     }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(
+            strings = {
+                "ERROR: Repository not found.",
+                "remote: Forgejo: Cannot find repository: acme/demo",
+                "fatal: repository 'https://forge.example/acme/demo/' not found",
+                "fatal: '/none' does not appear to be a git repository"
+            })
+    void eachForgesWordsForARepositoryNotThereAreKnown(final String said) {
+        assertThat(TreeRepository.notThere(said)).isTrue();
+    }
+
+    @Test
+    void aFailureOfAnotherKindIsNotCalledARepositoryNotThere() {
+        assertThat(TreeRepository.notThere("Host key verification failed.")).isFalse();
+        assertThat(TreeRepository.notThere("ssh: connect to host forge port 22: refused"))
+                .isFalse();
+    }
 }
