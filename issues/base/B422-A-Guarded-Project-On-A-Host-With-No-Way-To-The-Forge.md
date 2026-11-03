@@ -17,5 +17,3 @@ An `online` box on the same host pushes `porelo/<task>` to the local forge with 
 - Whether the gate's push on a host should take a branch of the task's name instead of `main`, and who then opens the pull request.
 - A stopped task made before a row lost its `central`, or before that rule: `task start` resumes it through `TaskControl`, which does
   not ask the rule, read in the code. Whether a resume should be refused too.
-- `forge-token` takes back a person's earlier tokens, and `porelod`'s measuring asks for one every 15 minutes, as seen in the host's
-  journal. Whether a long fetch by another command can lose its token midway.

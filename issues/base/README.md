@@ -132,6 +132,8 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b425"></a>[B425](B425-What-Only-A-Host-Check-Holds.md) | - | - | The build fails if a host's rules stop reaching `porelod` or the gate, which only a host check holds today; a removal with the vault shut says the task's token stays. |
+| <a id="b424"></a>[B424](B424-A-Persons-Forge-Token-Replaced-At-Each-Command.md) | - | - | Nothing a person does with their forge token on a host fails because another command, or `porelod` every 15 minutes, asked for a new one. |
 | <a id="b423"></a>[B423](B423-Small-Words-Found-In-A-Host-Rehearsal.md) | - | - | Five small wrong words noted in a rehearsal on a host: a lambda in a passphrase refusal, a probe's words, a missing `--json`, a `.tmp` warning, four characters of a token in `gate.log`. |
 | <a id="b422"></a>[B422](B422-A-Guarded-Project-On-A-Host-With-No-Way-To-The-Forge.md) | - | - | A guarded project on a host has a way to hand its work to the host's forge, or is refused before a task starts: `gate approve` pushes to a protected `main` today. |
 | <a id="b416"></a>[B416](B416-A-Forge-That-Refuses-A-Hosts-Read-Key-Says-Why.md) | - | - | A forge's refusal of a host's read key says why, naming the organization's deploy key setting and its page; an organization at GitHub must allow deploy keys for a host to read it |
