@@ -1,2 +1,2 @@
-title: "`project list` on a host shows the projects the host carries for this person, read from the host's file, with no organization named in the account"
+title: "`project list` on a host shows the projects the host carries for this person that this account has placed, read from the host's file by name, with no organization named in the account"
 type: fixed

@@ -136,26 +136,20 @@ public final class OrganizationProjects {
     }
 
     /**
-     * Returns what a host says of every project it carries for this person.
+     * Returns what a host says of the projects this account knows the names of. A host does not
+     * list its projects, so that a person learns no name of a project they are not in: each file is
+     * opened by its name.
      *
      * @return Those whose file this person may read, by name.
      * @throws IOException When a file that is there does not read.
      */
     public List<Placed> hosted() throws IOException {
-        if (!Files.isDirectory(hostFiles)) {
-            return List.of();
-        }
-        final List<Path> files;
-        try (Stream<Path> listed = Files.list(hostFiles)) {
-            files =
-                    listed.filter(file -> file.getFileName().toString().endsWith(".json"))
-                            .filter(Files::isReadable)
-                            .sorted()
-                            .toList();
-        }
         final List<Placed> hosted = new ArrayList<>();
-        for (final Path file : files) {
-            hosted.add(read(file));
+        for (final String name : names()) {
+            final Placed placed = host(name);
+            if (placed != null) {
+                hosted.add(placed);
+            }
         }
         return List.copyOf(hosted);
     }

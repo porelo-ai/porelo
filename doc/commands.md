@@ -678,7 +678,8 @@ porelo project default [list | add ADDRESS [--name=NAME] | remove NAME]
 - **`list`** lists the organization's projects you are in, then those of this machine alone, then `default`.
   `--json` answers `{"revision", "stale", "projects"}`, one row each: `project`, `source` (`organization`, `local` or
   `built-in`), `role`, `locked`, `host`, `opened`. On a host, a project the host carries for this person is listed from
-  the host's file, with no organization named in the account. An organization named here and never read yet, and out of
+  the host's file, with no organization named in the account, once this account has placed it: a host does not list its
+  projects, so that nobody learns the name of one they are not in, and a project this account has no name for is not listed. An organization named here and never read yet, and out of
   reach, answers 69 `cannot-say`, though a project of this machine alone would start. `Projects()` and `WatchProjects()` carry `lastUsed`: the latest
   recorded task start or message event here, an ISO-8601 instant, or `""` when none is recorded.
   A project's conversation carries `messages.waitsOn` (`"vault"` while the vault is shut, or `""` otherwise)

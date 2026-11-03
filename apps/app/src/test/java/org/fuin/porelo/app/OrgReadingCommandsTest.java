@@ -642,9 +642,18 @@ class OrgReadingCommandsTest {
                 .isNull();
     }
 
+    /** As on a host: a person opens a file here by its name and may not list them. */
+    private Path hostFiles() throws IOException {
+        final Path files = dir.resolve("host-files");
+        Files.createDirectories(files);
+        Files.setPosixFilePermissions(
+                files, java.nio.file.attribute.PosixFilePermissions.fromString("-wx--x--x"));
+        return files;
+    }
+
     private void hostFile(final String project, final @Nullable String host) throws IOException {
-        final Path file = dir.resolve("host-files").resolve(project + ".json");
-        Files.createDirectories(file.getParent());
+        PlacedFixture.record(context(), project);
+        final Path file = hostFiles().resolve(project + ".json");
         Files.writeString(
                 file,
                 """
@@ -711,11 +720,21 @@ class OrgReadingCommandsTest {
         assertThat(field(mine.getFirst(), "source")).isEqualTo("organization");
     }
 
+    /** The host keeps its projects' names from those not in them, and so from this account. */
+    @Test
+    void aProjectThisAccountHasNoNameForIsNotListedAndNothingFails() throws Exception {
+        Files.writeString(hostFiles().resolve("unnamed.json"), "{\"project\": \"unnamed\"}");
+
+        assertThat(run("project", "list", "--json")).as("what it said: %s", err).isZero();
+
+        assertThat(((List<?>) answer().get("projects")).stream().map(row -> field(row, "project")))
+                .containsExactly("default");
+    }
+
     @Test
     void aHostFileThatDoesNotReadIsSaidNotPassedOver() throws Exception {
-        final Path file = dir.resolve("host-files/demo.json");
-        Files.createDirectories(file.getParent());
-        Files.writeString(file, "{\"project\": \"demo\"}");
+        PlacedFixture.record(context(), "demo");
+        Files.writeString(hostFiles().resolve("demo.json"), "{\"project\": \"demo\"}");
 
         assertThat(run("project", "list", "--json")).isNotZero();
     }
