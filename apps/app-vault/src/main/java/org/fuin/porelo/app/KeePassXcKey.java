@@ -121,8 +121,9 @@ record KeePassXcKey(
      *
      * @param entry Its entry.
      * @param fingerprint Its fingerprint. The agent serving it proves it is that key.
+     * @param action The change it was made for: no other change takes it.
      */
-    private record Kept(String entry, String fingerprint) {}
+    private record Kept(String entry, String fingerprint, String action) {}
 
     /**
      * The real one: {@code keepassxc-cli} from {@code PATH}, on this process's own terminal.
@@ -171,6 +172,16 @@ record KeePassXcKey(
             throws IdentityChange.Refused {
         usable(context);
         final @Nullable Kept kept = id == null ? null : kept(context, id);
+        if (kept != null && !action.equals(kept.action())) {
+            throw new IdentityChange.Refused(
+                    64,
+                    null,
+                    "the id "
+                            + id
+                            + " made a key for another change, "
+                            + kept.action()
+                            + "; ask with a new id");
+        }
         if (kept != null && entry != null && !entry.equals(kept.entry())) {
             throw new IdentityChange.Refused(
                     64,
@@ -205,11 +216,11 @@ record KeePassXcKey(
                             + AnswerText.printable(file.toString())
                             + "; nothing was made");
         }
-        final String change = id != null ? id : newId(context, action);
+        final String change = id != null ? id : unusedId(context, action);
         final String fingerprint =
                 kept != null
                         ? kept.fingerprint()
-                        : handOver(context, file.toString(), path, login, change);
+                        : handOver(context, file.toString(), path, login, action, change);
         final Duration grace = patience.compareTo(GRACE) < 0 ? patience : GRACE;
         if (served(socket, fingerprint, grace)) {
             forget(context, change);
@@ -334,25 +345,24 @@ record KeePassXcKey(
                 return null;
             }
             final List<String> lines = Files.readAllLines(file, StandardCharsets.UTF_8);
-            if (lines.size() != 2) {
+            if (lines.size() != 3) {
                 throw new IOException(file + " is not the note of a key");
             }
-            return new Kept(lines.get(0), lines.get(1));
+            return new Kept(lines.get(0), lines.get(1), lines.get(2));
         } catch (IOException ex) {
             throw new IdentityChange.Refused(ex);
         }
     }
 
-    private static void keep(
-            final PoreloContext context,
-            final String id,
-            final String entry,
-            final String fingerprint)
+    private static void keep(final PoreloContext context, final String id, final Kept kept)
             throws IdentityChange.Refused {
         final Path file = keptFile(context, id);
         try {
             IdentityStore.privateDirectory(context.paths().xdg().state(), keptDirectory(context));
-            Files.writeString(file, entry + "\n" + fingerprint + "\n", StandardCharsets.UTF_8);
+            Files.writeString(
+                    file,
+                    kept.entry() + "\n" + kept.fingerprint() + "\n" + kept.action() + "\n",
+                    StandardCharsets.UTF_8);
         } catch (IOException ex) {
             throw new IdentityChange.Refused(ex);
         }
@@ -366,8 +376,14 @@ record KeePassXcKey(
         }
     }
 
-    private static String newId(final PoreloContext context, final String action) {
-        return IdentityOperation.newId(context, action, IdentityChange.today());
+    /** An id free of an operation and of a key waited for: an earlier run may hold either. */
+    private static String unusedId(final PoreloContext context, final String action) {
+        final String id = IdentityOperation.newId(context, action, IdentityChange.today());
+        String free = id;
+        for (int more = 2; Files.exists(keptFile(context, free)); more++) {
+            free = id + "-" + more;
+        }
+        return free;
     }
 
     /**
@@ -380,11 +396,12 @@ record KeePassXcKey(
             final String database,
             final String entry,
             final String login,
+            final String action,
             final String id)
             throws IdentityChange.Refused {
         final SigningKey key = SigningKey.generate(login);
         final String fingerprint = PersonCard.fingerprint(PersonCard.keyLine(key));
-        keep(context, id, entry, fingerprint);
+        keep(context, id, new Kept(entry, fingerprint, action));
         final int added = run(context, new byte[0], "add", database, entry);
         if (added != 0) {
             forget(context, id);
@@ -497,7 +514,7 @@ record KeePassXcKey(
         if (result.exitCode() != 0) {
             return "it is not removed: remove " + shown + " in KeePassXC";
         }
-        return result.standardOutput().contains("recycled")
+        return result.standardOutput().startsWith("Successfully recycled")
                 ? "it went to the database's recycle bin, where the private key stays until the"
                         + " bin is emptied"
                 : "it was removed";

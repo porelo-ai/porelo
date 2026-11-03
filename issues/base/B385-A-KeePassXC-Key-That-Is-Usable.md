@@ -70,9 +70,11 @@ Against the plan, simpler, none of it weaker under the threat this guards:
 
 - **Step 3 needs no read-back and no record in `IdentityOperation`.** A note beside the operations holds the id's entry and fingerprint. A retry only waits for the agent to serve that fingerprint: that it serves it proves it is that key, so the private key never comes back into this process and no password is asked. An entry changed since is `key-not-served`, naming it. A record in the operations would have needed `pending` and its readers to skip a half change. The case the plan guards, `rotate --entry <the old entry>`, is an `add` that KeePassXC refuses, under any new id.
 - **Step 1 does not ask for one terminal.** Each of the two must be a terminal this account can open. Two different ones is the person's choice.
-- **Step 7's `WatchService` is not built.** The stand-in looks when it holds the key and afterwards; a file written and deleted in between is not seen. Nothing in the code path writes one.
+- **Step 7's `WatchService` gave way to the JVM's own record.** A watcher can read a file only if it is still there, so a key written and deleted at once could pass it. `IdentityKeePassXcTest` records every `jdk.FileWrite` while a key is made, which a file deleted at once cannot escape, and its own test writes a key to a temporary file, deletes it and is caught. It sees this process's writes, not a program it starts.
 - **`hidepid` is not measured.** An unreadable descriptor is refused saying so, whatever the cause.
 - **Step 6 was done by the cut**, all three verbs answer through `IdentityChange.refuse`.
+
+Left as they are, after the reading: a crash between the note and `add` leaves an id that waits for a key nobody holds, which a new id goes round; a crash after the agent serves the key and before the change is recorded loses the note, and a retry makes a second key or finds its entry taken. An unset `SSH_AUTH_SOCK` still answers 65 `key-not-in-agent` from `create` and 69 from the other two, older than this.
 
 A prompt ended by its limit left the terminal's echo off, measured with the real program: the wrapper now gives it back.
 

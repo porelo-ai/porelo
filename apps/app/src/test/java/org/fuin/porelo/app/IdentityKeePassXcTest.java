@@ -333,6 +333,155 @@ class IdentityKeePassXcTest {
         assertThat(keepass.calls()).isEqualTo(calls);
     }
 
+    /** A key made for one change is no other's to take. */
+    @Test
+    void a_rotation_under_an_id_whose_key_a_first_card_waits_for_does_not_take_it()
+            throws Exception {
+        final KeePassXcStandIn keepass = standIn(KeePassXcStandIn.Mode.HOLDS);
+        keepass.running(false);
+        final Path note =
+                IdentityOperation.directory(registry.context())
+                        .resolveSibling("keepassxc")
+                        .resolve("c1");
+
+        assertThat(
+                        create(
+                                keepass.store(Duration.ofMillis(100)),
+                                "--keepassxc",
+                                keepass.database.toString(),
+                                "--id",
+                                "c1",
+                                "--json"))
+                .isEqualTo(65);
+        final List<String> lines = Files.readAllLines(note);
+        assertThat(lines).hasSize(3).last().isEqualTo("create");
+        Files.write(note, List.of(lines.get(0), lines.get(1), "rotate"));
+
+        assertThat(
+                        create(
+                                keepass.store(Duration.ofMillis(100)),
+                                "--keepassxc",
+                                keepass.database.toString(),
+                                "--id",
+                                "c1",
+                                "--json"))
+                .isEqualTo(64);
+        assertThat(registry.answer().toString()).contains("another change");
+    }
+
+    /** Two runs with no id must each keep their own key to retry. */
+    @Test
+    void a_second_run_with_no_id_does_not_take_the_note_of_the_first() throws Exception {
+        final KeePassXcStandIn keepass = standIn(KeePassXcStandIn.Mode.HOLDS);
+        keepass.running(false);
+        final String db = keepass.database.toString();
+        assertThat(
+                        create(
+                                keepass.store(Duration.ofMillis(100)),
+                                "--keepassxc",
+                                db,
+                                "--entry",
+                                "one",
+                                "--json"))
+                .isEqualTo(65);
+        final Map<?, ?> first = registry.answer();
+
+        assertThat(
+                        create(
+                                keepass.store(Duration.ofMillis(100)),
+                                "--keepassxc",
+                                db,
+                                "--entry",
+                                "two",
+                                "--json"))
+                .isEqualTo(65);
+
+        assertThat(registry.answer().get("id")).isNotEqualTo(first.get("id"));
+        assertThat(
+                        create(
+                                keepass.store(Duration.ofMillis(100)),
+                                "--keepassxc",
+                                db,
+                                "--id",
+                                (String) first.get("id"),
+                                "--json"))
+                .isEqualTo(65);
+        assertThat(registry.answer().get("fingerprint")).isEqualTo(first.get("fingerprint"));
+        assertThat(registry.answer().get("entry")).isEqualTo("one");
+    }
+
+    /**
+     * The one guard that a private key never sits in a file, even for a moment: the JVM's own
+     * record of each file written while the key is made, so a file deleted at once still shows.
+     */
+    private List<String> filesWrittenDuring(final org.junit.jupiter.api.function.Executable made)
+            throws Throwable {
+        final Path recorded = dir.resolve("writes.jfr");
+        try (jdk.jfr.Recording recording = new jdk.jfr.Recording()) {
+            recording.enable("jdk.FileWrite").withThreshold(Duration.ZERO);
+            recording.start();
+            made.execute();
+            recording.stop();
+            recording.dump(recorded);
+        }
+        final List<String> paths = new ArrayList<>();
+        for (final jdk.jfr.consumer.RecordedEvent event :
+                jdk.jfr.consumer.RecordingFile.readAllEvents(recorded)) {
+            final String path = event.getString("path");
+            if (path != null) {
+                paths.add(path);
+            }
+        }
+        return paths;
+    }
+
+    /** What may be written while a key is made: nothing that could hold it but the agent's way. */
+    private List<String> wroteOutside(final List<String> paths) {
+        final String state = dir.resolve("state").toString();
+        final String config = dir.resolve("config").toString();
+        return paths.stream()
+                .filter(path -> !path.startsWith(state + "/porelo/identity/"))
+                .filter(path -> !path.startsWith(state + "/identity/"))
+                .filter(path -> !path.startsWith(config + "/porelo/identity/"))
+                .filter(path -> !path.equals(dir.resolve("keepassxc/terminal").toString()))
+                .toList();
+    }
+
+    @Test
+    void no_file_is_written_while_a_key_is_made_not_even_one_deleted_at_once() throws Throwable {
+        final KeePassXcStandIn keepass = standIn(KeePassXcStandIn.Mode.SERVES);
+
+        final List<String> written =
+                filesWrittenDuring(
+                        () ->
+                                assertThat(
+                                                create(
+                                                        keepass.store(Duration.ofSeconds(10)),
+                                                        "--keepassxc",
+                                                        keepass.database.toString(),
+                                                        "--entry",
+                                                        "alice",
+                                                        "--json"))
+                                        .as(registry.err.toString())
+                                        .isZero());
+
+        assertThat(wroteOutside(written)).isEmpty();
+    }
+
+    /** The guard itself: a key written to a temporary file and deleted is seen. */
+    @Test
+    void a_key_written_to_a_temporary_file_and_deleted_is_caught() throws Throwable {
+        final List<String> written =
+                filesWrittenDuring(
+                        () -> {
+                            final Path file = Files.createTempFile("key", ".tmp");
+                            Files.writeString(file, "-----BEGIN OPENSSH PRIVATE KEY-----\n");
+                            Files.delete(file);
+                        });
+
+        assertThat(wroteOutside(written)).hasSize(1).first().asString().endsWith(".tmp");
+    }
+
     private String refusedAttachment(final KeePassXcStandIn.Mode mode) throws Exception {
         final KeePassXcStandIn keepass = standIn(mode);
         assertThat(
