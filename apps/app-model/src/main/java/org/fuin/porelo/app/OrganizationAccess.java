@@ -63,6 +63,14 @@ public final class OrganizationAccess {
                     if (socket != null && !socket.isEmpty()) {
                         environment.putIfAbsent(AGENT, socket);
                     }
+                    // Git runs here in an environment of its own, with nothing of the person's.
+                    final String variable = credential.variable();
+                    if (variable != null) {
+                        final String token = context.environment().apply(variable);
+                        if (token != null) {
+                            environment.put(variable, token);
+                        }
+                    }
                     return environment;
                 }
 

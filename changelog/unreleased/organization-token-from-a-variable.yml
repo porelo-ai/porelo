@@ -1,0 +1,2 @@
+title: "A forge token declared with `credentials declare --env` now reaches git for the organization and its projects, instead of every read and write answering that the organization cannot be reached"
+type: fixed

@@ -36,6 +36,9 @@ import org.jspecify.annotations.Nullable;
  */
 public final class FollowCredential implements AutoCloseable {
 
+    /** Kept beside what git is given, and never given to it under this name. */
+    private static final String VARIABLE = "PORELO_GIT_CREDENTIAL_VARIABLE";
+
     /** Where a wrong passphrase is said, when a command asks for a shut vault. */
     private static final java.io.PrintWriter STDERR =
             new java.io.PrintWriter(
@@ -332,7 +335,13 @@ public final class FollowCredential implements AutoCloseable {
             // make one would be this creating the copy somebody asked it not to make.
             return new FollowCredential(Map.of(), null, null, false);
         }
-        return helper(context, credential, url, "--env", credential.id());
+        final FollowCredential lent = helper(context, credential, url, "--env", credential.id());
+        if (lent.environment.isEmpty()) {
+            return lent;
+        }
+        final Map<String, String> named = new java.util.LinkedHashMap<>(lent.environment);
+        named.put(VARIABLE, credential.id());
+        return new FollowCredential(named, null, null, false);
     }
 
     private static FollowCredential fromVault(
@@ -467,6 +476,7 @@ public final class FollowCredential implements AutoCloseable {
     Map<String, String> environment() {
         final Map<String, String> copy = new java.util.LinkedHashMap<>(environment);
         copy.remove("PORELO_GIT_CREDENTIAL_CONFIG");
+        copy.remove(VARIABLE);
         return Map.copyOf(copy);
     }
 
@@ -480,6 +490,16 @@ public final class FollowCredential implements AutoCloseable {
     Map<String, String> environmentFor(final PoreloContext context, final String url) {
         // Every lease comes from open(), which already put this destination's policy in.
         return environment();
+    }
+
+    /**
+     * Names the variable the helper git starts reads its token from, which a caller running git in
+     * an environment of its own passes on.
+     *
+     * @return Its name, or {@code null} when no token comes from a variable.
+     */
+    @Nullable String variable() {
+        return environment.get(VARIABLE);
     }
 
     /**
