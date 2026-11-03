@@ -134,6 +134,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b410"></a>[B410](B410-Two-Forges-On-One-Host-Told-Apart.md) | - | - | An address on another port of a host is not taken for the same repository, and a person is told which forge their work goes to |
 | <a id="b408"></a>[B408](B408-One-Step-To-Recover-From-A-Lost-Key.md) | L | [B407](README.md#b407) | After 0.7: an owner recovers a lost key in one step, with a listing of what it signed, a confirm that can leave a point out, and resuming by id |
 | <a id="b407"></a>[B407](B407-An-Owners-Signature-Counts-For-A-Projects-Files.md) | M | - | After 0.7: an owner's signature counts for a project's `repository.yml`, `members.yml` and `project.yml`, host files kept out |
 | <a id="b406"></a>[B406](B406-A-Revoked-Person-Comes-Back-Only-When-Agreed.md) | M | - | After a revoke, a person comes back only when an owner or admin agrees; a new key at the forge and *Add me* alone do not bring them back |
