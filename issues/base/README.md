@@ -131,6 +131,9 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b411"></a>[B411](B411-A-Providers-Refusal-Reaches-The-Person.md) | - | - | A provider's error the proxy can check reaches the person, where JSON labelled `text/plain` is withheld today and `model_not_supported` is never read |
+| <a id="b412"></a>[B412](B412-A-Prompted-Start-That-Failed-Says-So-In-Its-Exit.md) | - | - | `task start -P` whose agent ended with an error exits non-zero, where it exits 0 today |
+| <a id="b413"></a>[B413](B413-A-Vault-Entry-With-No-Secret-Counts-None.md) | - | - | `vault list` names no length for an entry with no secret, where a public client's grant reads `1 characters` |
 | <a id="b410"></a>[B410](B410-Two-Forges-On-One-Host-Told-Apart.md) | - | - | An address on another port of a host is not taken for the same repository, and a person is told which forge their work goes to |
 | <a id="b408"></a>[B408](B408-One-Step-To-Recover-From-A-Lost-Key.md) | L | [B407](README.md#b407) | After 0.7: an owner recovers a lost key in one step, with a listing of what it signed, a confirm that can leave a point out, and resuming by id |
 | <a id="b407"></a>[B407](B407-An-Owners-Signature-Counts-For-A-Projects-Files.md) | M | - | After 0.7: an owner's signature counts for a project's `repository.yml`, `members.yml` and `project.yml`, host files kept out |
