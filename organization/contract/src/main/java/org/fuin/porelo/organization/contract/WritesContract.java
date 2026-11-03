@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Stream;
 import org.assertj.core.api.ThrowableAssert.ThrowingCallable;
@@ -63,6 +64,10 @@ public abstract class WritesContract {
      * @return Every check, by name.
      */
     public static List<Check<WritesFixture>> checks() {
+        return Stream.concat(baseChecks().stream(), roleChecks().stream()).toList();
+    }
+
+    private static List<Check<WritesFixture>> baseChecks() {
         return List.of(
                 new Check<>(
                         "aFoundingOwnerIsTheOnlyOwnerAndAFreshReaderTrustsThem",
@@ -186,6 +191,531 @@ public abstract class WritesContract {
                         WritesContract::theLastAdminStaysForItsAdmins));
     }
 
+    private static final String ORGANIZATION_ADMIN = "carol";
+
+    @FunctionalInterface
+    private interface RoleWrite {
+        void run(WritesFixture fixture, Change change) throws Exception;
+    }
+
+    private static void roles(final WritesFixture f) throws Exception {
+        organization(f);
+        cardOf(f, ORGANIZATION_ADMIN);
+        f.writes().addOrganizationAdmin(change(f, OWNER, "delegate"), ORGANIZATION_ADMIN);
+        f.writes().removeOrganizationAdmin(change(f, OWNER, "retire"), OWNER);
+        opened(f);
+        f.writes().addHost(change(f, ORGANIZATION_ADMIN, "host"), HOST, ADMIN);
+        f.writes()
+                .addHostAdmin(
+                        change(f, ORGANIZATION_ADMIN, "second-machine-admin"), HOST, STRANGER);
+        f.writes()
+                .addProjectMember(
+                        change(f, ORGANIZATION_ADMIN, "second-admin"), PROJECT, STRANGER, "admin");
+    }
+
+    private static Check<WritesFixture> roleCheck(
+            final String name,
+            final String allowed,
+            final List<String> denied,
+            final RoleWrite write) {
+        return new Check<>(
+                name,
+                f -> {
+                    roles(f);
+                    for (final String login : denied) {
+                        refused(
+                                f,
+                                Refused.NOT_ALLOWED,
+                                () -> write.run(f, change(f, login, "denied-" + login)));
+                    }
+                    write.run(f, change(f, allowed, "allowed"));
+                    assertThat(f.read().getRefusals()).isEmpty();
+                });
+    }
+
+    private static List<Check<WritesFixture>> roleChecks() {
+        final List<Check<WritesFixture>> checks = new ArrayList<>();
+        checks.add(
+                roleCheck(
+                        "onlyAnOwnerAddsOrganizationAdmins",
+                        OWNER,
+                        List.of(ORGANIZATION_ADMIN, ADMIN),
+                        (f, c) -> {
+                            f.writes().addOrganizationAdmin(c, DEVELOPER);
+                            assertThat(f.read().isOrganizationAdmin(DEVELOPER)).isTrue();
+                        }));
+        checks.add(
+                roleCheck(
+                        "onlyAnOwnerRemovesOrganizationAdmins",
+                        OWNER,
+                        List.of(ORGANIZATION_ADMIN, ADMIN),
+                        (f, c) -> {
+                            f.writes().removeOrganizationAdmin(c, ORGANIZATION_ADMIN);
+                            assertThat(f.read().isOrganizationAdmin(ORGANIZATION_ADMIN)).isFalse();
+                        }));
+        checks.add(
+                roleCheck(
+                        "onlyAnOrganizationAdminAddsProjects",
+                        ORGANIZATION_ADMIN,
+                        List.of(OWNER, ADMIN),
+                        (f, c) -> {
+                            f.writes().addProject(c, OTHER_PROJECT, ADMIN);
+                            assertThat(f.read().projectAdmins(OTHER_PROJECT))
+                                    .contains(List.of(ADMIN));
+                        }));
+        checks.add(
+                roleCheck(
+                        "onlyAnOrganizationAdminRemovesProjects",
+                        ORGANIZATION_ADMIN,
+                        List.of(OWNER, ADMIN),
+                        (f, c) -> {
+                            f.writes().removeProject(c, PROJECT);
+                            assertThat(f.read().projectAdmins(PROJECT)).isEmpty();
+                        }));
+        checks.add(
+                roleCheck(
+                        "onlyAnOrganizationAdminNamesTheFirstProjectAdmin",
+                        ORGANIZATION_ADMIN,
+                        List.of(OWNER, ADMIN),
+                        (f, c) -> {
+                            f.writes().changeProjectAdmin(c, PROJECT, DEVELOPER);
+                            assertThat(f.read().isProjectMember(PROJECT, DEVELOPER))
+                                    .contains("admin");
+                        }));
+        checks.add(
+                roleCheck(
+                        "onlyAnOrganizationAdminAddsHosts",
+                        ORGANIZATION_ADMIN,
+                        List.of(OWNER, ADMIN),
+                        (f, c) -> {
+                            f.writes().addHost(c, "other", DEVELOPER);
+                            assertThat(f.read().isHostAdmin("other", DEVELOPER)).isTrue();
+                        }));
+        checks.add(
+                roleCheck(
+                        "anOrganizationAdminRemovesHosts",
+                        ORGANIZATION_ADMIN,
+                        List.of(OWNER, DEVELOPER),
+                        (f, c) -> {
+                            f.writes().removeHost(c, HOST);
+                            assertThat(f.read().isHostAdmin(HOST, ADMIN)).isFalse();
+                        }));
+        checks.add(
+                roleCheck(
+                        "aMachineAdminRemovesTheirHost",
+                        ADMIN,
+                        List.of(OWNER, DEVELOPER),
+                        (f, c) -> {
+                            f.writes().removeHost(c, HOST);
+                            assertThat(f.read().isHostAdmin(HOST, ADMIN)).isFalse();
+                        }));
+        checks.add(
+                roleCheck(
+                        "onlyAnOrganizationAdminAddsMachineAdmins",
+                        ORGANIZATION_ADMIN,
+                        List.of(OWNER, ADMIN),
+                        (f, c) -> {
+                            f.writes().addHostAdmin(c, HOST, DEVELOPER);
+                            assertThat(f.read().isHostAdmin(HOST, DEVELOPER)).isTrue();
+                        }));
+        checks.add(
+                roleCheck(
+                        "onlyAnOrganizationAdminRemovesMachineAdmins",
+                        ORGANIZATION_ADMIN,
+                        List.of(OWNER, ADMIN),
+                        (f, c) -> {
+                            f.writes().removeHostAdmin(c, HOST, ADMIN);
+                            assertThat(f.read().isHostAdmin(HOST, ADMIN)).isFalse();
+                        }));
+        checks.add(
+                roleCheck(
+                        "onlyAMachineAdminCarriesProjects",
+                        ADMIN,
+                        List.of(OWNER, ORGANIZATION_ADMIN),
+                        (f, c) -> {
+                            f.writes().addProjectToHost(c, HOST, PROJECT);
+                            assertThat(f.read().hostOf(PROJECT)).contains(HOST);
+                        }));
+        checks.add(
+                roleCheck(
+                        "onlyAProjectAdminChangesTheAddress",
+                        ADMIN,
+                        List.of(OWNER, ORGANIZATION_ADMIN),
+                        (f, c) -> {
+                            f.writes()
+                                    .changeProjectRepository(
+                                            c, PROJECT, "https://forge.example/acme/other.git");
+                            assertThat(f.read().getProjectRepository(PROJECT))
+                                    .contains("https://forge.example/acme/other.git");
+                        }));
+        checks.add(
+                new Check<>(
+                        "onlyTheRightRoleMayAddDevelopers",
+                        f -> {
+                            roles(f);
+                            cardOf(f, "new-member");
+                            refused(
+                                    f,
+                                    Refused.NOT_ALLOWED,
+                                    () -> {
+                                        final Change c = change(f, ORGANIZATION_ADMIN, "denied");
+                                        f.writes()
+                                                .addProjectMember(
+                                                        c, PROJECT, "new-member", "developer");
+                                    });
+                            refused(
+                                    f,
+                                    Refused.NOT_ALLOWED,
+                                    () -> {
+                                        final Change c = change(f, OWNER, "owner-denied");
+                                        f.writes()
+                                                .addProjectMember(
+                                                        c, PROJECT, "new-member", "developer");
+                                    });
+                            final Change c = change(f, ADMIN, "allowed");
+                            f.writes().addProjectMember(c, PROJECT, "new-member", "developer");
+                            assertThat(f.read().isProjectMember(PROJECT, "new-member"))
+                                    .contains("developer");
+                            assertThat(f.read().getRefusals()).isEmpty();
+                        }));
+        checks.add(
+                new Check<>(
+                        "onlyTheRightRoleMayRemoveDevelopers",
+                        f -> {
+                            roles(f);
+                            refused(
+                                    f,
+                                    Refused.NOT_ALLOWED,
+                                    () -> {
+                                        final Change c = change(f, ORGANIZATION_ADMIN, "denied");
+                                        f.writes().removeProjectMember(c, PROJECT, DEVELOPER);
+                                    });
+                            refused(
+                                    f,
+                                    Refused.NOT_ALLOWED,
+                                    () -> {
+                                        final Change c = change(f, OWNER, "owner-denied");
+                                        f.writes().removeProjectMember(c, PROJECT, DEVELOPER);
+                                    });
+                            final Change c = change(f, ADMIN, "allowed");
+                            f.writes().removeProjectMember(c, PROJECT, DEVELOPER);
+                            assertThat(f.read().isProjectMember(PROJECT, DEVELOPER)).isEmpty();
+                            assertThat(f.read().getRefusals()).isEmpty();
+                        }));
+        checks.add(
+                new Check<>(
+                        "onlyTheRightRoleMayLockDevelopers",
+                        f -> {
+                            roles(f);
+                            refused(
+                                    f,
+                                    Refused.NOT_ALLOWED,
+                                    () -> {
+                                        final Change c = change(f, ORGANIZATION_ADMIN, "denied");
+                                        f.writes().lockProjectMember(c, PROJECT, DEVELOPER);
+                                    });
+                            refused(
+                                    f,
+                                    Refused.NOT_ALLOWED,
+                                    () -> {
+                                        final Change c = change(f, OWNER, "owner-denied");
+                                        f.writes().lockProjectMember(c, PROJECT, DEVELOPER);
+                                    });
+                            final Change c = change(f, ADMIN, "allowed");
+                            f.writes().lockProjectMember(c, PROJECT, DEVELOPER);
+                            assertThat(f.read().isProjectMember(PROJECT, DEVELOPER)).isEmpty();
+                            assertThat(f.read().getRefusals()).isEmpty();
+                        }));
+        checks.add(
+                new Check<>(
+                        "onlyTheRightRoleMayUnlockDevelopers",
+                        f -> {
+                            roles(f);
+                            f.writes()
+                                    .lockProjectMember(
+                                            change(f, ADMIN, "prelock"), PROJECT, DEVELOPER);
+                            refused(
+                                    f,
+                                    Refused.NOT_ALLOWED,
+                                    () -> {
+                                        final Change c = change(f, ORGANIZATION_ADMIN, "denied");
+                                        f.writes().unlockProjectMember(c, PROJECT, DEVELOPER);
+                                    });
+                            refused(
+                                    f,
+                                    Refused.NOT_ALLOWED,
+                                    () -> {
+                                        final Change c = change(f, OWNER, "owner-denied");
+                                        f.writes().unlockProjectMember(c, PROJECT, DEVELOPER);
+                                    });
+                            final Change c = change(f, ADMIN, "allowed");
+                            f.writes().unlockProjectMember(c, PROJECT, DEVELOPER);
+                            assertThat(f.read().isProjectMember(PROJECT, DEVELOPER))
+                                    .contains("developer");
+                            assertThat(f.read().getRefusals()).isEmpty();
+                        }));
+        checks.add(
+                new Check<>(
+                        "onlyTheRightRoleMayAddAdmins",
+                        f -> {
+                            roles(f);
+                            cardOf(f, "new-member");
+                            refused(
+                                    f,
+                                    Refused.NOT_ALLOWED,
+                                    () -> {
+                                        final Change c = change(f, ADMIN, "denied");
+                                        f.writes()
+                                                .addProjectMember(
+                                                        c, PROJECT, "new-member", "admin");
+                                    });
+                            refused(
+                                    f,
+                                    Refused.NOT_ALLOWED,
+                                    () -> {
+                                        final Change c = change(f, OWNER, "owner-denied");
+                                        f.writes()
+                                                .addProjectMember(
+                                                        c, PROJECT, "new-member", "admin");
+                                    });
+                            final Change c = change(f, ORGANIZATION_ADMIN, "allowed");
+                            f.writes().addProjectMember(c, PROJECT, "new-member", "admin");
+                            assertThat(f.read().isProjectMember(PROJECT, "new-member"))
+                                    .contains("admin");
+                            assertThat(f.read().getRefusals()).isEmpty();
+                        }));
+        checks.add(
+                new Check<>(
+                        "onlyTheRightRoleMayRemoveAdmins",
+                        f -> {
+                            roles(f);
+                            refused(
+                                    f,
+                                    Refused.NOT_ALLOWED,
+                                    () -> {
+                                        final Change c = change(f, ADMIN, "denied");
+                                        f.writes().removeProjectMember(c, PROJECT, STRANGER);
+                                    });
+                            refused(
+                                    f,
+                                    Refused.NOT_ALLOWED,
+                                    () -> {
+                                        final Change c = change(f, OWNER, "owner-denied");
+                                        f.writes().removeProjectMember(c, PROJECT, STRANGER);
+                                    });
+                            final Change c = change(f, ORGANIZATION_ADMIN, "allowed");
+                            f.writes().removeProjectMember(c, PROJECT, STRANGER);
+                            assertThat(f.read().isProjectMember(PROJECT, STRANGER)).isEmpty();
+                            assertThat(f.read().getRefusals()).isEmpty();
+                        }));
+        checks.add(
+                new Check<>(
+                        "onlyTheRightRoleMayLockAdmins",
+                        f -> {
+                            roles(f);
+                            refused(
+                                    f,
+                                    Refused.NOT_ALLOWED,
+                                    () -> {
+                                        final Change c = change(f, ADMIN, "denied");
+                                        f.writes().lockProjectMember(c, PROJECT, STRANGER);
+                                    });
+                            refused(
+                                    f,
+                                    Refused.NOT_ALLOWED,
+                                    () -> {
+                                        final Change c = change(f, OWNER, "owner-denied");
+                                        f.writes().lockProjectMember(c, PROJECT, STRANGER);
+                                    });
+                            final Change c = change(f, ORGANIZATION_ADMIN, "allowed");
+                            f.writes().lockProjectMember(c, PROJECT, STRANGER);
+                            assertThat(f.read().isProjectMember(PROJECT, STRANGER)).isEmpty();
+                            assertThat(f.read().getRefusals()).isEmpty();
+                        }));
+        checks.add(
+                new Check<>(
+                        "onlyTheRightRoleMayUnlockAdmins",
+                        f -> {
+                            roles(f);
+                            f.writes()
+                                    .lockProjectMember(
+                                            change(f, ORGANIZATION_ADMIN, "prelock"),
+                                            PROJECT,
+                                            STRANGER);
+                            refused(
+                                    f,
+                                    Refused.NOT_ALLOWED,
+                                    () -> {
+                                        final Change c = change(f, ADMIN, "denied");
+                                        f.writes().unlockProjectMember(c, PROJECT, STRANGER);
+                                    });
+                            refused(
+                                    f,
+                                    Refused.NOT_ALLOWED,
+                                    () -> {
+                                        final Change c = change(f, OWNER, "owner-denied");
+                                        f.writes().unlockProjectMember(c, PROJECT, STRANGER);
+                                    });
+                            final Change c = change(f, ORGANIZATION_ADMIN, "allowed");
+                            f.writes().unlockProjectMember(c, PROJECT, STRANGER);
+                            assertThat(f.read().isProjectMember(PROJECT, STRANGER))
+                                    .contains("admin");
+                            assertThat(f.read().getRefusals()).isEmpty();
+                        }));
+        checks.add(
+                new Check<>(
+                        "onlyAnOrganizationAdminDemotesAdmins",
+                        f -> {
+                            roles(f);
+                            refused(
+                                    f,
+                                    Refused.NOT_ALLOWED,
+                                    () -> {
+                                        final Change c = change(f, ADMIN, "denied");
+                                        f.writes()
+                                                .changeProjectMemberRole(
+                                                        c, PROJECT, STRANGER, "developer");
+                                    });
+                            refused(
+                                    f,
+                                    Refused.NOT_ALLOWED,
+                                    () -> {
+                                        final Change c = change(f, OWNER, "owner-denied");
+                                        f.writes()
+                                                .changeProjectMemberRole(
+                                                        c, PROJECT, STRANGER, "developer");
+                                    });
+                            final Change c = change(f, ORGANIZATION_ADMIN, "allowed");
+                            f.writes().changeProjectMemberRole(c, PROJECT, STRANGER, "developer");
+                            assertThat(f.read().isProjectMember(PROJECT, STRANGER))
+                                    .contains("developer");
+                            assertThat(f.read().getRefusals()).isEmpty();
+                        }));
+        checks.add(
+                new Check<>(
+                        "onlyAnOrganizationAdminPromotesDevelopers",
+                        f -> {
+                            roles(f);
+                            refused(
+                                    f,
+                                    Refused.NOT_ALLOWED,
+                                    () ->
+                                            f.writes()
+                                                    .changeProjectMemberRole(
+                                                            change(f, ADMIN, "denied"),
+                                                            PROJECT,
+                                                            DEVELOPER,
+                                                            "admin"));
+                            f.writes()
+                                    .changeProjectMemberRole(
+                                            change(f, ORGANIZATION_ADMIN, "allowed"),
+                                            PROJECT,
+                                            DEVELOPER,
+                                            "admin");
+                            assertThat(f.read().isProjectMember(PROJECT, DEVELOPER))
+                                    .contains("admin");
+                            assertThat(f.read().getRefusals()).isEmpty();
+                        }));
+        checks.add(
+                new Check<>(
+                        "organizationAdminRefusalsLeaveTheListAlone",
+                        f -> {
+                            organization(f);
+                            refused(
+                                    f,
+                                    Refused.EXISTS,
+                                    () ->
+                                            f.writes()
+                                                    .addOrganizationAdmin(
+                                                            change(f, OWNER, "duplicate"), OWNER));
+                            refused(
+                                    f,
+                                    Refused.NOT_FOUND,
+                                    () ->
+                                            f.writes()
+                                                    .removeOrganizationAdmin(
+                                                            change(f, OWNER, "missing"), ADMIN));
+                            assertThat(f.read().getOrganizationAdmins()).contains(List.of(OWNER));
+                        }));
+        checks.add(
+                new Check<>(
+                        "removingTheLastOrganizationAdminLeavesAnEmptyList",
+                        f -> {
+                            organization(f);
+                            f.writes().removeOrganizationAdmin(change(f, OWNER, "empty"), OWNER);
+                            assertThat(f.read().getOrganizationAdmins()).contains(List.of());
+                            assertThat(f.read().isOrganizationAdmin(OWNER)).isFalse();
+                            refused(
+                                    f,
+                                    Refused.NOT_ALLOWED,
+                                    () ->
+                                            f.writes()
+                                                    .addHost(
+                                                            change(f, OWNER, "denied"),
+                                                            HOST,
+                                                            ADMIN));
+                        }));
+        checks.add(
+                roleCheck(
+                        "onlyAMachineAdminChangesTheirCard",
+                        ADMIN,
+                        List.of(OWNER, ORGANIZATION_ADMIN),
+                        (f, c) -> {
+                            final String card = f.hostCard(HOST, c.acting().login());
+                            f.writes().changeHost(c, HOST, card);
+                            assertThat(f.read().getHostCard(HOST)).contains(card);
+                        }));
+        checks.add(
+                new Check<>(
+                        "onlyAMachineAdminUncarriesProjects",
+                        f -> {
+                            roles(f);
+                            f.writes().addProjectToHost(change(f, ADMIN, "carry"), HOST, PROJECT);
+                            refused(
+                                    f,
+                                    Refused.NOT_ALLOWED,
+                                    () ->
+                                            f.writes()
+                                                    .removeProjectFromHost(
+                                                            change(f, ORGANIZATION_ADMIN, "denied"),
+                                                            HOST,
+                                                            PROJECT));
+                            f.writes()
+                                    .removeProjectFromHost(
+                                            change(f, ADMIN, "allowed"), HOST, PROJECT);
+                            assertThat(f.read().hostOf(PROJECT)).isEmpty();
+                            assertThat(f.read().getRefusals()).isEmpty();
+                        }));
+        checks.add(
+                new Check<>(
+                        "onlyAnOrganizationAdminReplacesCards",
+                        f -> {
+                            roles(f);
+                            final String next = DEVELOPER + "-new";
+                            f.key(next);
+                            f.sourceLists(DEVELOPER, DEVELOPER, next);
+                            refused(
+                                    f,
+                                    Refused.NOT_ALLOWED,
+                                    () ->
+                                            f.writes()
+                                                    .replaceCard(
+                                                            change(f, OWNER, "denied"),
+                                                            DEVELOPER,
+                                                            f.card(DEVELOPER, next)));
+                            f.writes()
+                                    .replaceCard(
+                                            change(f, ORGANIZATION_ADMIN, "allowed"),
+                                            DEVELOPER,
+                                            f.card(DEVELOPER, next));
+                            assertThat(f.read().getPersons())
+                                    .filteredOn(person -> person.login().equals(DEVELOPER))
+                                    .extracting(OrganizationQuestions.Person::key)
+                                    .containsExactly(f.key(next));
+                        }));
+        return checks;
+    }
+
     private static Change change(final WritesFixture f, final String login, final String id)
             throws Exception {
         return new Change(new Acting(login, f.key(login)), f.read().revision(), id);
@@ -248,6 +778,8 @@ public abstract class WritesContract {
                 .extracting(Organization.Owner::login)
                 .containsExactly(OWNER);
         assertThat(state(read, OWNER)).isEqualTo(Organization.TRUSTED);
+        assertThat(read.getOrganizationAdmins()).contains(List.of(OWNER));
+        assertThat(read.isOrganizationAdmin(OWNER)).isTrue();
     }
 
     private static void someoneTheSourceSaysOwnsNothingFoundsNothing(final WritesFixture f) {
@@ -315,10 +847,10 @@ public abstract class WritesContract {
 
         f.writes().addOrganizationOwner(change(f, OWNER, "owner"), ADMIN);
         assertThat(f.read().isOrganizationOwner(ADMIN)).isTrue();
-        f.writes().addHost(change(f, ADMIN, "host"), HOST, ADMIN);
+        f.writes().addOrganizationAdmin(change(f, ADMIN, "list"), ADMIN);
 
         final OrganizationQuestions read = f.read();
-        assertThat(read.isHostAdmin(HOST, ADMIN)).as("what they did as an owner stands").isTrue();
+        assertThat(read.isOrganizationAdmin(ADMIN)).as("what they did as an owner stands").isTrue();
         assertThat(read.getRefusals()).isEmpty();
     }
 
@@ -495,9 +1027,9 @@ public abstract class WritesContract {
 
     private static void aLockedAdminChangesNothing(final WritesFixture f) throws Exception {
         organization(f);
-        f.writes().addProjectMember(change(f, ADMIN, "second"), PROJECT, STRANGER, "admin");
+        f.writes().addProjectMember(change(f, OWNER, "second"), PROJECT, STRANGER, "admin");
         assertThat(f.read().isProjectMember(PROJECT, STRANGER)).contains("admin");
-        f.writes().lockProjectMember(change(f, STRANGER, "lock"), PROJECT, ADMIN);
+        f.writes().lockProjectMember(change(f, OWNER, "lock"), PROJECT, ADMIN);
 
         final Change attempt = change(f, ADMIN, "x");
         refused(
@@ -509,10 +1041,11 @@ public abstract class WritesContract {
     private static void anOwnerIsNoAdminOfAHostOfSomeoneElse(final WritesFixture f)
             throws Exception {
         organization(f);
+        opened(f);
         f.writes().addHost(change(f, OWNER, "host"), HOST, ADMIN);
 
         final Change attempt = change(f, OWNER, "x");
-        refused(f, Refused.NOT_ALLOWED, () -> f.writes().addHostAdmin(attempt, HOST, DEVELOPER));
+        refused(f, Refused.NOT_ALLOWED, () -> f.writes().addProjectToHost(attempt, HOST, PROJECT));
     }
 
     private static void aKeyNotOnThePersonsCardActsForNobody(final WritesFixture f)

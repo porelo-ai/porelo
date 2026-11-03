@@ -762,7 +762,9 @@ final class TreeWalk {
         if (signer.equals(card.fingerprint()) && handsOn(before, path, card, prior)) {
             return true;
         }
-        if (!organizationAdmin(before, signer) && !backs(before, prior, card, signer)) {
+        if (!organizationAdmin(before, signer)
+                && !backs(before, prior, card, signer)
+                && !ownersNewKey(before, card, signer)) {
             throw new Refused("signed by " + signer + ", the old key did not hand the card on");
         }
         revoke(prior.fingerprint());
@@ -782,6 +784,18 @@ final class TreeWalk {
                                         && admin.backupKey() != null
                                         && PersonCard.fingerprint(admin.backupKey())
                                                 .equals(signer));
+    }
+
+    /** The key a backup put in {@code owners.yml} signs its own card, for that owner alone. */
+    private static boolean ownersNewKey(
+            final TreeModel before, final PersonCard card, final String signer) {
+        return signer.equals(card.fingerprint())
+                && before.owners().stream()
+                        .anyMatch(
+                                owner ->
+                                        owner.login().equals(card.login())
+                                                && !owner.backup()
+                                                && owner.fingerprint().equals(signer));
     }
 
     /** A backup key replaces the card it backs, with one signed by the new key alone. */

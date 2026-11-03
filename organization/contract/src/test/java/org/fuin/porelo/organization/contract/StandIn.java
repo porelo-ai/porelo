@@ -36,6 +36,7 @@ final class StandIn implements OrganizationFixture, OfflineFixture {
         LOCK,
         UNLOCK,
         OWNER,
+        ORGANIZATION_ADMINS,
         REPLACE,
         HOST,
         HOST_ADMIN,
@@ -89,6 +90,7 @@ final class StandIn implements OrganizationFixture, OfflineFixture {
     /** What a walk of a line accepted. */
     private final class Walk {
         final Set<String> owners = new LinkedHashSet<>();
+        Optional<List<String>> organizationAdmins = Optional.empty();
         final Map<String, String> cards = new HashMap<>();
         final Map<String, Set<String>> holders = new HashMap<>();
         final Set<String> revoked = new HashSet<>();
@@ -142,8 +144,12 @@ final class StandIn implements OrganizationFixture, OfflineFixture {
             return switch (entry.kind()) {
                 case FOUND, FIRST_SEEN_CARD -> null;
                 case CARD -> judgeCard(entry);
-                case PROJECT, OWNER, REPLACE, HOST -> judgeBy(entry, owners);
-                case HOST_ADMIN -> judgeHostChange(entry);
+                case OWNER, ORGANIZATION_ADMINS -> judgeBy(entry, owners);
+                case PROJECT, REPLACE, HOST -> judgeBy(entry, organizationAdmins());
+                case HOST_ADMIN ->
+                        organizationAdmins.isPresent()
+                                ? judgeBy(entry, organizationAdmins())
+                                : judgeHostChange(entry);
                 case DENIED_CARD ->
                         broken(Break.ACCEPTS_CARD_THE_SOURCE_DENIES)
                                 ? null
@@ -155,6 +161,10 @@ final class StandIn implements OrganizationFixture, OfflineFixture {
                 case LOCK, UNLOCK -> judgeLock(entry);
                 case HOST_CHANGE -> judgeHostChange(entry);
             };
+        }
+
+        private Set<String> organizationAdmins() {
+            return organizationAdmins.map(HashSet::new).orElseGet(() -> new HashSet<>(owners));
         }
 
         private boolean lockKey(final String project, final String login) {
@@ -183,19 +193,35 @@ final class StandIn implements OrganizationFixture, OfflineFixture {
             if (broken(Break.NONE_OF_A_MEMBERS_CHANGES) && "developer".equals(role)) {
                 return "refused";
             }
-            final Set<String> allowed = admins(project);
+            final Set<String> allowed =
+                    organizationAdmins.isPresent()
+                                    && ("admin".equals(role)
+                                            || "admin"
+                                                    .equals(
+                                                            members.getOrDefault(project, Map.of())
+                                                                    .get(entry.args().get(1))))
+                            ? organizationAdmins()
+                            : admins(project);
             if (broken(Break.ADMIN_OF_ANY_PROJECT)) {
                 members.keySet().forEach(other -> allowed.addAll(admins(other)));
             }
             final boolean namedAdmin = "admin".equals(role) && !broken(Break.OWNER_NAMES_NO_ADMIN);
-            if (namedAdmin || broken(Break.OWNER_ADDS_DEVELOPER)) {
+            if (organizationAdmins.isEmpty() && namedAdmin || broken(Break.OWNER_ADDS_DEVELOPER)) {
                 allowed.addAll(owners);
             }
             return judgeBy(entry, allowed);
         }
 
         private @Nullable String judgeLock(final Entry entry) {
-            final Set<String> allowed = admins(entry.args().get(0));
+            final String project = entry.args().get(0);
+            final Set<String> allowed =
+                    organizationAdmins.isPresent()
+                                    && "admin"
+                                            .equals(
+                                                    members.getOrDefault(project, Map.of())
+                                                            .get(entry.args().get(1)))
+                            ? organizationAdmins()
+                            : admins(project);
             if (broken(Break.OWNER_TOUCHES_LOCKS)) {
                 allowed.addAll(owners);
             }
@@ -221,7 +247,8 @@ final class StandIn implements OrganizationFixture, OfflineFixture {
         private @Nullable String judgeRemoval(final Entry entry) {
             final boolean own =
                     String.valueOf(entry.signer()).equals(cards.get(entry.args().get(0)));
-            final boolean byOwner = signerLogins(entry).stream().anyMatch(owners::contains);
+            final boolean byOwner =
+                    signerLogins(entry).stream().anyMatch(organizationAdmins()::contains);
             return own || byOwner || broken(Break.ACCEPTS_REMOVAL_BY_ANYONE) ? null : "not allowed";
         }
 
@@ -280,6 +307,7 @@ final class StandIn implements OrganizationFixture, OfflineFixture {
                 case LOCK -> locked.add(args.get(0) + "/" + args.get(1));
                 case UNLOCK -> locked.remove(args.get(0) + "/" + args.get(1));
                 case OWNER -> owners.add(args.get(0));
+                case ORGANIZATION_ADMINS -> organizationAdmins = Optional.of(List.copyOf(args));
                 case PROJECT ->
                         members.computeIfAbsent(args.get(0), p -> new HashMap<>())
                                 .put(args.get(1), "admin");
@@ -345,6 +373,10 @@ final class StandIn implements OrganizationFixture, OfflineFixture {
     @Override
     public void found(final String owner) {
         add(Kind.FOUND, key(owner), owner, key(owner));
+    }
+
+    void listOrganizationAdmins(final String owner, final String... logins) {
+        add(Kind.ORGANIZATION_ADMINS, key(owner), logins);
     }
 
     @Override
@@ -660,12 +692,16 @@ final class StandIn implements OrganizationFixture, OfflineFixture {
 
         @Override
         public boolean isOrganizationAdmin(final String login) {
-            return isOrganizationOwner(login);
+            return walk.organizationAdmins.isEmpty()
+                    ? isOrganizationOwner(login)
+                    : walk.organizationAdmins().contains(login)
+                            && walk.cards.containsKey(login)
+                            && !walk.firstSeen.contains(login);
         }
 
         @Override
         public java.util.Optional<java.util.List<String>> getOrganizationAdmins() {
-            return java.util.Optional.empty();
+            return walk.organizationAdmins;
         }
 
         @Override

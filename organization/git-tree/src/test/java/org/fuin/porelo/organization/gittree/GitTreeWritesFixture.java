@@ -141,6 +141,12 @@ final class GitTreeWritesFixture implements WritesFixture {
     }
 
     @Override
+    public String hostCard(final String host, final String holder) {
+        return org.fuin.porelo.vault.HostCard.write(
+                host, "build.example.org", 22, key(holder), 3000, 2222, 8448, keyNamed(holder));
+    }
+
+    @Override
     public String handedOn(final String login, final String holder, final String previous) {
         return PersonCard.write(
                 login,

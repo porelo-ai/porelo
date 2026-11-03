@@ -43,15 +43,21 @@ final class WritesStandIn implements WritesFixture, OrganizationWrites {
 
     private final Set<String> owners = new LinkedHashSet<>();
 
+    private final Set<String> organizationAdmins = new LinkedHashSet<>();
+
     private final Map<String, Map<String, String>> projects = new HashMap<>();
 
     private final Set<String> locked = new HashSet<>();
 
     private final Map<String, Set<String>> hosts = new HashMap<>();
 
+    private final Map<String, String> hostCards = new HashMap<>();
+
     private final Map<String, String> hostOf = new HashMap<>();
 
     private final Set<String> opened = new HashSet<>();
+
+    private final Map<String, String> addresses = new HashMap<>();
 
     private final Map<String, Boolean> sourceOwners = new HashMap<>();
 
@@ -116,6 +122,7 @@ final class WritesStandIn implements WritesFixture, OrganizationWrites {
         }
         final Map<String, String> savedCards = new LinkedHashMap<>(cards);
         final Set<String> savedOwners = new LinkedHashSet<>(owners);
+        final Set<String> savedAdmins = new LinkedHashSet<>(organizationAdmins);
         final Map<String, Map<String, String>> savedProjects = new HashMap<>();
         projects.forEach((name, members) -> savedProjects.put(name, new HashMap<>(members)));
         final Set<String> savedLocked = new HashSet<>(locked);
@@ -133,6 +140,8 @@ final class WritesStandIn implements WritesFixture, OrganizationWrites {
             cards.putAll(savedCards);
             owners.clear();
             owners.addAll(savedOwners);
+            organizationAdmins.clear();
+            organizationAdmins.addAll(savedAdmins);
             projects.clear();
             projects.putAll(savedProjects);
             locked.clear();
@@ -170,6 +179,13 @@ final class WritesStandIn implements WritesFixture, OrganizationWrites {
             return projects.values().stream().anyMatch(m -> "admin".equals(m.get(login)));
         }
         return "admin".equals(projects.getOrDefault(project, Map.of()).get(login));
+    }
+
+    private void memberAllowed(final String project, final String actor, final boolean admin) {
+        if (locked.contains(project + "/" + actor) && !broken(WriteBreak.LOCKED_ADMIN_ACTS)) {
+            throw refuse(Refused.LOCKED);
+        }
+        allowed(admin ? organizationAdmins.contains(actor) : adminOf(project, actor));
     }
 
     private Map<String, String> members(final String project) {
@@ -211,6 +227,7 @@ final class WritesStandIn implements WritesFixture, OrganizationWrites {
                     cardFits(card, login, change.acting().key());
                     cards.put(login, change.acting().key());
                     owners.add(login);
+                    organizationAdmins.add(login);
                     if (broken(WriteBreak.FOUNDS_WITH_A_SECOND_OWNER)) {
                         cards.put("planted", "ssh-ed25519 planted");
                         owners.add("planted");
@@ -248,7 +265,7 @@ final class WritesStandIn implements WritesFixture, OrganizationWrites {
                 "revoke " + login,
                 () -> {
                     final String actor = acting(change);
-                    allowed(actor.equals(login) || owners.contains(actor));
+                    allowed(actor.equals(login) || organizationAdmins.contains(actor));
                     if (owners.contains(login)
                             && owners.size() == 1
                             && !broken(WriteBreak.REMOVES_THE_LAST)) {
@@ -265,7 +282,7 @@ final class WritesStandIn implements WritesFixture, OrganizationWrites {
                 change,
                 "replace " + login,
                 () -> {
-                    allowed(owners.contains(acting(change)));
+                    allowed(organizationAdmins.contains(acting(change)));
                     hasCard(login);
                     final String next = card.split("\\|")[1];
                     final String old = cards.put(login, next);
@@ -340,6 +357,9 @@ final class WritesStandIn implements WritesFixture, OrganizationWrites {
                 () -> {
                     allowed(owners.contains(acting(change)));
                     hasCard(login);
+                    if (!organizationAdmins.add(login)) {
+                        throw refuse(Refused.EXISTS);
+                    }
                 });
     }
 
@@ -348,7 +368,12 @@ final class WritesStandIn implements WritesFixture, OrganizationWrites {
         return change(
                 change,
                 "no organization admin " + login,
-                () -> allowed(owners.contains(acting(change))));
+                () -> {
+                    allowed(owners.contains(acting(change)));
+                    if (!organizationAdmins.remove(login)) {
+                        throw refuse(Refused.NOT_FOUND);
+                    }
+                });
     }
 
     @Override
@@ -371,7 +396,7 @@ final class WritesStandIn implements WritesFixture, OrganizationWrites {
                 change,
                 "project " + project,
                 () -> {
-                    allowed(owners.contains(acting(change)));
+                    allowed(organizationAdmins.contains(acting(change)));
                     hasCard(admin);
                     final Map<String, String> members = new HashMap<>();
                     members.put(admin, "admin");
@@ -385,7 +410,7 @@ final class WritesStandIn implements WritesFixture, OrganizationWrites {
                 change,
                 "no project " + project,
                 () -> {
-                    allowed(owners.contains(acting(change)));
+                    allowed(organizationAdmins.contains(acting(change)));
                     members(project);
                     projects.remove(project);
                 });
@@ -401,6 +426,7 @@ final class WritesStandIn implements WritesFixture, OrganizationWrites {
                     allowed(adminOf(project, acting(change)));
                     members(project);
                     opened.add(project);
+                    addresses.put(project, address);
                 });
     }
 
@@ -413,10 +439,10 @@ final class WritesStandIn implements WritesFixture, OrganizationWrites {
                 () -> {
                     final String actor = acting(change);
                     final boolean ownerMay =
-                            owners.contains(actor)
+                            organizationAdmins.contains(actor)
                                     && ("admin".equals(role)
                                             || broken(WriteBreak.OWNER_ADDS_DEVELOPER));
-                    allowed(adminOf(project, actor) || ownerMay);
+                    allowed("admin".equals(role) ? ownerMay : adminOf(project, actor) || ownerMay);
                     hasCard(login);
                     if (ghosts.contains(project + "/" + login)) {
                         if (broken(WriteBreak.ANSWERS_NOTHING_AS_MADE)) {
@@ -436,7 +462,10 @@ final class WritesStandIn implements WritesFixture, OrganizationWrites {
                 change,
                 "role " + project + " " + login + " " + role,
                 () -> {
-                    allowed(adminOf(project, acting(change)));
+                    memberAllowed(
+                            project,
+                            acting(change),
+                            "admin".equals(role) || "admin".equals(members(project).get(login)));
                     members(project).put(login, role);
                 });
     }
@@ -451,10 +480,9 @@ final class WritesStandIn implements WritesFixture, OrganizationWrites {
                     final String actor = acting(change);
                     final Map<String, String> members = members(project);
                     final boolean ownerMay =
-                            owners.contains(actor)
+                            organizationAdmins.contains(actor)
                                     && ("admin".equals(members.get(login))
                                             || broken(WriteBreak.OWNER_ADDS_DEVELOPER));
-                    allowed(adminOf(project, actor) || ownerMay);
                     final long admins = members.values().stream().filter("admin"::equals).count();
                     if ("admin".equals(members.get(login))
                             && admins == 1
@@ -462,6 +490,14 @@ final class WritesStandIn implements WritesFixture, OrganizationWrites {
                             && !broken(WriteBreak.REMOVES_THE_LAST)) {
                         throw refuse(Refused.LAST_OF_ITS_KIND);
                     }
+                    if (locked.contains(project + "/" + actor)
+                            && !broken(WriteBreak.LOCKED_ADMIN_ACTS)) {
+                        throw refuse(Refused.LOCKED);
+                    }
+                    allowed(
+                            "admin".equals(members.get(login))
+                                    ? ownerMay
+                                    : adminOf(project, actor) || ownerMay);
                     members.remove(login);
                 });
     }
@@ -473,7 +509,8 @@ final class WritesStandIn implements WritesFixture, OrganizationWrites {
                 change,
                 "lock " + project + " " + login,
                 () -> {
-                    allowed(adminOf(project, acting(change)));
+                    memberAllowed(
+                            project, acting(change), "admin".equals(members(project).get(login)));
                     locked.add(project + "/" + login);
                 });
     }
@@ -484,7 +521,7 @@ final class WritesStandIn implements WritesFixture, OrganizationWrites {
                 change,
                 "host " + host,
                 () -> {
-                    allowed(owners.contains(acting(change)));
+                    allowed(organizationAdmins.contains(acting(change)));
                     hasCard(admin);
                     hosts.put(host, new HashSet<>(Set.of(admin)));
                 });
@@ -498,7 +535,7 @@ final class WritesStandIn implements WritesFixture, OrganizationWrites {
                 () -> {
                     final String actor = acting(change);
                     allowed(
-                            hosts.getOrDefault(host, Set.of()).contains(actor)
+                            organizationAdmins.contains(actor)
                                     || (broken(WriteBreak.OWNER_ON_ANY_HOST)
                                             && owners.contains(actor)));
                     hosts.get(host).add(login);
@@ -511,7 +548,11 @@ final class WritesStandIn implements WritesFixture, OrganizationWrites {
                 change,
                 "on host " + host + " " + project,
                 () -> {
-                    allowed(hosts.getOrDefault(host, Set.of()).contains(acting(change)));
+                    final String actor = acting(change);
+                    allowed(
+                            hosts.getOrDefault(host, Set.of()).contains(actor)
+                                    || broken(WriteBreak.OWNER_ON_ANY_HOST)
+                                            && owners.contains(actor));
                     if (!opened.contains(project)
                             && !broken(WriteBreak.CARRIES_A_PROJECT_NEVER_OPENED)) {
                         throw refuse(Refused.NOT_OPENED);
@@ -531,7 +572,7 @@ final class WritesStandIn implements WritesFixture, OrganizationWrites {
                 change,
                 "first admin " + project + " " + admin,
                 () -> {
-                    allowed(owners.contains(acting(change)));
+                    allowed(organizationAdmins.contains(acting(change)));
                     members(project).put(admin, "admin");
                     refusals.clear();
                     ghosts.removeIf(member -> member.startsWith(project + "/"));
@@ -541,28 +582,71 @@ final class WritesStandIn implements WritesFixture, OrganizationWrites {
     @Override
     public Written unlockProjectMember(
             final Change change, final String project, final String login) {
-        throw unasked();
+        return change(
+                change,
+                "unlock " + project + " " + login,
+                () -> {
+                    memberAllowed(
+                            project, acting(change), "admin".equals(members(project).get(login)));
+                    locked.remove(project + "/" + login);
+                });
     }
 
     @Override
     public Written removeHost(final Change change, final String host) {
-        throw unasked();
+        return change(
+                change,
+                "no host " + host,
+                () -> {
+                    final String actor = acting(change);
+                    allowed(
+                            organizationAdmins.contains(actor)
+                                    || hosts.getOrDefault(host, Set.of()).contains(actor));
+                    hosts.remove(host);
+                    hostOf.values().removeIf(host::equals);
+                });
     }
 
     @Override
     public Written changeHost(final Change change, final String host, final String card) {
-        throw unasked();
+        return change(
+                change,
+                "host card " + host,
+                () -> {
+                    final String actor = acting(change);
+                    allowed(
+                            hosts.getOrDefault(host, Set.of()).contains(actor)
+                                    || broken(WriteBreak.OWNER_ON_ANY_HOST)
+                                            && owners.contains(actor));
+                    hostCards.put(host, card);
+                });
     }
 
     @Override
     public Written removeHostAdmin(final Change change, final String host, final String login) {
-        throw unasked();
+        return change(
+                change,
+                "no host admin " + host + " " + login,
+                () -> {
+                    allowed(organizationAdmins.contains(acting(change)));
+                    hosts.get(host).remove(login);
+                });
     }
 
     @Override
     public Written removeProjectFromHost(
             final Change change, final String host, final String project) {
-        throw unasked();
+        return change(
+                change,
+                "off host " + host + " " + project,
+                () -> {
+                    final String actor = acting(change);
+                    allowed(
+                            hosts.getOrDefault(host, Set.of()).contains(actor)
+                                    || broken(WriteBreak.OWNER_ON_ANY_HOST)
+                                            && owners.contains(actor));
+                    hostOf.remove(project);
+                });
     }
 
     @Override
@@ -611,6 +695,11 @@ final class WritesStandIn implements WritesFixture, OrganizationWrites {
     }
 
     @Override
+    public String hostCard(final String host, final String holder) {
+        return host + "|" + key(holder);
+    }
+
+    @Override
     public String handedOn(final String login, final String holder, final String previous) {
         return card(login, holder) + "|" + key(previous);
     }
@@ -643,12 +732,12 @@ final class WritesStandIn implements WritesFixture, OrganizationWrites {
 
         @Override
         public boolean isOrganizationAdmin(final String login) {
-            return isOrganizationOwner(login);
+            return organizationAdmins.contains(login);
         }
 
         @Override
         public java.util.Optional<java.util.List<String>> getOrganizationAdmins() {
-            return java.util.Optional.empty();
+            return Optional.of(List.copyOf(organizationAdmins));
         }
 
         @Override
@@ -670,6 +759,9 @@ final class WritesStandIn implements WritesFixture, OrganizationWrites {
 
         @Override
         public Optional<List<String>> projectAdmins(final String project) {
+            if (!projects.containsKey(project)) {
+                return Optional.empty();
+            }
             final List<String> admins = new ArrayList<>();
             projects.getOrDefault(project, Map.of())
                     .forEach(
@@ -737,7 +829,7 @@ final class WritesStandIn implements WritesFixture, OrganizationWrites {
 
         @Override
         public Optional<String> getProjectRepository(final String project) {
-            throw unasked();
+            return Optional.ofNullable(addresses.get(project));
         }
 
         @Override
@@ -787,7 +879,7 @@ final class WritesStandIn implements WritesFixture, OrganizationWrites {
 
         @Override
         public Optional<String> getHostCard(final String host) {
-            throw unasked();
+            return Optional.ofNullable(hostCards.get(host));
         }
 
         @Override

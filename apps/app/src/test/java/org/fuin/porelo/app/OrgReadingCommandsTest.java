@@ -283,6 +283,39 @@ class OrgReadingCommandsTest {
     }
 
     @Test
+    void theOrganizationAdminListAndMyRoleAreExplicit() throws Exception {
+        person("mia");
+        organizationYml(ORGANIZATION_YML);
+        iAm("mia");
+        assertThat(run("org", "--json")).isZero();
+        assertThat(answer().containsKey("organization_admins"))
+                .as("an absent list is explicit null")
+                .isTrue();
+        assertThat(answer().get("organization_admins")).isNull();
+        assertThat(field(answer().get("me"), "organization_admin")).isEqualTo(true);
+        iAm("alice");
+        assertThat(run("org", "--json")).isZero();
+        assertThat(field(answer().get("me"), "organization_admin")).isEqualTo(false);
+        iAm("mia");
+
+        write("organization-admins.yml", "admins:\n  - login: alice\n");
+        commit("mia");
+        assertThat(run("org", "--json")).isZero();
+        assertThat(answer().get("organization_admins")).isEqualTo(List.of("alice"));
+        assertThat(field(answer().get("me"), "organization_admin")).isEqualTo(false);
+
+        iAm("alice");
+        assertThat(run("org", "--json")).isZero();
+        assertThat(field(answer().get("me"), "organization_admin")).isEqualTo(true);
+
+        write("organization-admins.yml", "admins: []\n");
+        commit("mia");
+        assertThat(run("org", "--json")).isZero();
+        assertThat(answer().get("organization_admins")).isEqualTo(List.of());
+        assertThat(field(answer().get("me"), "organization_admin")).isEqualTo(false);
+    }
+
+    @Test
     void theOrganizationIsAnsweredInTheFieldsTheInterfaceReads() throws Exception {
         organizationYml(ORGANIZATION_YML);
         host();
@@ -994,6 +1027,9 @@ class OrgReadingCommandsTest {
     @Test
     void onlyAnUnlockedAdminOfAnOpenedProjectMayChangeItsFile() throws Exception {
         opened();
+        person("mia");
+        write("organization-admins.yml", "admins:\n  - login: mia\n");
+        commit("mia");
         final org.fuin.porelo.organization.OrganizationQuestions state =
                 OrgAccess.read(
                                 context(),
@@ -1014,6 +1050,11 @@ class OrgReadingCommandsTest {
 
         assertThat(ProjectRepositoryCommand.place(state, "demo", "alice").address())
                 .isEqualTo("git@github.com:acme/demo.git");
+        assertThatThrownBy(() -> ProjectRepositoryCommand.place(state, "demo", "mia"))
+                .as("the Organization Admin role grants no right to change the project's file")
+                .isInstanceOfSatisfying(
+                        Refused.class,
+                        ex -> assertThat(ex.reason()).isEqualTo(Refused.NOT_ALLOWED));
         assertThatThrownBy(() -> ProjectRepositoryCommand.place(state, "demo", "bob"))
                 .as("a developer may not")
                 .isInstanceOfSatisfying(

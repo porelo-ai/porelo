@@ -13,6 +13,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Stream;
 import org.fuin.porelo.core.process.Command;
 import org.fuin.porelo.core.process.CommandResult;
 import org.fuin.porelo.core.process.CommandRunner;
@@ -31,6 +32,8 @@ import org.fuin.porelo.vault.SigningKey;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
 
 /**
  * The organization's changes, each read back by a fresh reader. Harm guarded: a change that looks
@@ -70,7 +73,7 @@ class GitTreeWritesTest {
     void founded() throws Exception {
         repo = Files.createDirectory(dir.resolve("organization"));
         for (final String login :
-                List.of("mia", "alice", "alice-new", "backup", "mallory", "carol")) {
+                List.of("mia", "alice", "alice-new", "backup", "mallory", "carol", "bob")) {
             final Path file = dir.resolve(login);
             runner.runOrFail(
                     Command.of(
@@ -1293,6 +1296,8 @@ class GitTreeWritesTest {
                         .read(forge);
         assertThat(read.getRefusals()).isEmpty();
         assertThat(read.isOrganizationOwner("mia")).isTrue();
+        assertThat(read.getOrganizationAdmins()).contains(List.of("mia"));
+        assertThat(read.isOrganizationAdmin("mia")).isTrue();
         assertThat(read.getPersons())
                 .extracting(OrganizationQuestions.Person::login)
                 .contains("mia");
@@ -1617,6 +1622,209 @@ class GitTreeWritesTest {
                 .hasMessage("the file says this already");
 
         assertThat(tip()).isEqualTo(before);
+        assertThat(read().getRefusals()).isEmpty();
+    }
+
+    private void listed() throws Exception {
+        demo();
+        carolFiled();
+        as("mia").addCard(change("mia", "mia", "owner-card"), card("mia", "mia"));
+        forge.keys.put("bob", List.of(key("bob")));
+        as("bob").addCard(change("bob", "bob", "developer-card"), card("bob", "bob"));
+        as("mia").addOrganizationAdmin(change("mia", "mia", "delegate"), "carol");
+        as("carol").addHost(change("carol", "carol", "machine"), "build", "alice");
+        as("carol").addHostAdmin(change("carol", "carol", "second-machine"), "build", "carol");
+        forge.keys.put("mallory", List.of(key("mallory")));
+        as("mallory").addCard(change("mallory", "mallory", "person"), card("mallory", "mallory"));
+        as("carol")
+                .addProjectMember(
+                        change("carol", "carol", "second-admin"), "demo", "mallory", "admin");
+    }
+
+    @Test
+    void onlyOwnersChangeTheOrganizationAdminListAndTheLastMayLeave() throws Exception {
+        listed();
+        final String before = tip();
+        refusedAs(
+                Refused.NOT_ALLOWED,
+                () ->
+                        as("carol")
+                                .addOrganizationAdmin(
+                                        change("carol", "carol", "denied-add"), "alice"));
+        refusedAs(
+                Refused.NOT_ALLOWED,
+                () ->
+                        as("carol")
+                                .removeOrganizationAdmin(
+                                        change("carol", "carol", "denied-remove"), "carol"));
+        refusedAs(
+                Refused.EXISTS,
+                () -> as("mia").addOrganizationAdmin(change("mia", "mia", "duplicate"), "carol"));
+        refusedAs(
+                Refused.NOT_FOUND,
+                () -> as("mia").removeOrganizationAdmin(change("mia", "mia", "missing"), "alice"));
+        assertThat(tip()).isEqualTo(before);
+        as("mia").removeOrganizationAdmin(change("mia", "mia", "remove"), "carol");
+        assertThat(read().getOrganizationAdmins()).contains(List.of());
+        assertThat(read().isOrganizationAdmin("mia")).isFalse();
+        assertThat(read().isOrganizationAdmin("carol")).isFalse();
+        assertThat(Files.readString(repo.resolve("organization-admins.yml")))
+                .contains("admins: []");
+        as("mia").addOrganizationAdmin(change("mia", "mia", "self"), "mia");
+        assertThat(read().getOrganizationAdmins()).contains(List.of("mia"));
+        assertThat(read().getRefusals()).isEmpty();
+    }
+
+    static Stream<String> roleWrites() {
+        return Stream.of(
+                "project-add",
+                "project-remove",
+                "project-admin",
+                "host-add",
+                "host-remove",
+                "host-admin-add",
+                "host-admin-remove",
+                "host-change",
+                "carry",
+                "uncarry",
+                "address",
+                "replace",
+                "developer-add",
+                "developer-remove",
+                "developer-lock",
+                "developer-unlock",
+                "admin-add",
+                "admin-remove",
+                "admin-lock",
+                "admin-unlock",
+                "promote",
+                "demote");
+    }
+
+    private void roleWrite(final String operation, final String actor, final String id)
+            throws Exception {
+        final GitTreeWrites writes = as(actor);
+        final Change c = change(actor, actor, id);
+        switch (operation) {
+            case "project-add" -> writes.addProject(c, "other", "alice");
+            case "project-remove" -> writes.removeProject(c, "demo");
+            case "project-admin" -> writes.changeProjectAdmin(c, "demo", "carol");
+            case "host-add" -> writes.addHost(c, "other", "alice");
+            case "host-remove" -> writes.removeHost(c, "build");
+            case "host-admin-add" -> writes.addHostAdmin(c, "build", "mallory");
+            case "host-admin-remove" -> writes.removeHostAdmin(c, "build", "carol");
+            case "host-change" -> writes.changeHost(c, "build", hostCard("build", actor));
+            case "carry" -> writes.addProjectToHost(c, "build", "demo");
+            case "uncarry" -> writes.removeProjectFromHost(c, "build", "demo");
+            case "address" ->
+                    writes.changeProjectRepository(
+                            c, "demo", "https://forge.example/acme/next.git");
+            case "replace" -> writes.replaceCard(c, "mallory", card("mallory", "alice-new"));
+            case "developer-add" -> writes.addProjectMember(c, "demo", "bob", "developer");
+            case "developer-remove" -> writes.removeProjectMember(c, "demo", "bob");
+            case "developer-lock" -> writes.lockProjectMember(c, "demo", "bob");
+            case "developer-unlock" -> writes.unlockProjectMember(c, "demo", "bob");
+            case "admin-add" -> writes.addProjectMember(c, "demo", "bob", "admin");
+            case "admin-remove" -> writes.removeProjectMember(c, "demo", "mallory");
+            case "admin-lock" -> writes.lockProjectMember(c, "demo", "mallory");
+            case "admin-unlock" -> writes.unlockProjectMember(c, "demo", "mallory");
+            case "promote" -> writes.changeProjectMemberRole(c, "demo", "bob", "admin");
+            case "demote" -> writes.changeProjectMemberRole(c, "demo", "mallory", "developer");
+            default -> throw new AssertionError(operation);
+        }
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("roleWrites")
+    void eachWriteBelongsToItsRole(final String operation) throws Exception {
+        listed();
+        as("alice")
+                .changeProjectRepository(
+                        change("alice", "alice", "open"),
+                        "demo",
+                        "https://forge.example/acme/demo.git");
+        if (operation.equals("uncarry")) {
+            as("alice").addProjectToHost(change("alice", "alice", "carry"), "build", "demo");
+        }
+        if (List.of("developer-remove", "developer-lock", "developer-unlock", "promote")
+                .contains(operation)) {
+            as("alice")
+                    .addProjectMember(
+                            change("alice", "alice", "member"), "demo", "bob", "developer");
+        }
+        if (operation.equals("developer-unlock")) {
+            as("alice").lockProjectMember(change("alice", "alice", "lock"), "demo", "bob");
+        }
+        if (operation.equals("admin-unlock")) {
+            as("carol").lockProjectMember(change("carol", "carol", "lock"), "demo", "mallory");
+        }
+        if (operation.equals("replace")) {
+            forge.keys.put("mallory", List.of(key("mallory"), key("alice-new")));
+        }
+        final boolean project = operation.startsWith("developer-") || operation.equals("address");
+        final boolean machine = List.of("host-change", "carry", "uncarry").contains(operation);
+        // Carol has no machine role for these checks.
+        if (machine || operation.equals("host-remove")) {
+            as("carol").removeHostAdmin(change("carol", "carol", "separate"), "build", "carol");
+        }
+        final String allowed = project || machine ? "alice" : "carol";
+        final String denied = project || machine ? "carol" : "alice";
+        final String before = tip();
+        refusedAs(Refused.NOT_ALLOWED, () -> roleWrite(operation, "mia", "owner-denied"));
+        if (!operation.equals("host-remove")) {
+            refusedAs(Refused.NOT_ALLOWED, () -> roleWrite(operation, denied, "denied"));
+        }
+        assertThat(tip()).isEqualTo(before);
+        roleWrite(operation, allowed, "allowed");
+        assertThat(tip()).as("the authorized change was pushed").isNotEqualTo(before);
+        final OrganizationQuestions state = read();
+        assertThat(state.getRefusals()).as("a fresh reader accepts the change").isEmpty();
+        switch (operation) {
+            case "project-add" ->
+                    assertThat(state.projectAdmins("other")).contains(List.of("alice"));
+            case "project-remove" -> assertThat(state.projectAdmins("demo")).isEmpty();
+            case "project-admin" ->
+                    assertThat(state.isProjectMember("demo", "carol")).contains("admin");
+            case "host-add" -> assertThat(state.isHostAdmin("other", "alice")).isTrue();
+            case "host-remove" -> assertThat(state.getHosts()).isEmpty();
+            case "host-admin-add" -> assertThat(state.isHostAdmin("build", "mallory")).isTrue();
+            case "host-admin-remove" -> assertThat(state.isHostAdmin("build", "carol")).isFalse();
+            case "host-change" ->
+                    assertThat(state.getHostCard("build")).contains(hostCard("build", "alice"));
+            case "carry" -> assertThat(state.hostOf("demo")).contains("build");
+            case "uncarry" -> assertThat(state.hostOf("demo")).isEmpty();
+            case "address" ->
+                    assertThat(state.getProjectRepository("demo"))
+                            .contains("https://forge.example/acme/next.git");
+            case "replace" ->
+                    assertThat(state.getPersons())
+                            .filteredOn(person -> person.login().equals("mallory"))
+                            .extracting(OrganizationQuestions.Person::key)
+                            .containsExactly(key("alice-new"));
+            case "developer-add", "developer-unlock" ->
+                    assertThat(state.isProjectMember("demo", "bob")).contains("developer");
+            case "developer-remove", "developer-lock" ->
+                    assertThat(state.isProjectMember("demo", "bob")).isEmpty();
+            case "admin-add", "promote" ->
+                    assertThat(state.isProjectMember("demo", "bob")).contains("admin");
+            case "admin-remove", "admin-lock" ->
+                    assertThat(state.isProjectMember("demo", "mallory")).isEmpty();
+            case "admin-unlock" ->
+                    assertThat(state.isProjectMember("demo", "mallory")).contains("admin");
+            case "demote" ->
+                    assertThat(state.isProjectMember("demo", "mallory")).contains("developer");
+            default -> throw new AssertionError(operation);
+        }
+    }
+
+    @Test
+    void aMachineAdminRemovesTheHostWithItsCardAfterTheListExists() throws Exception {
+        listed();
+        as("alice")
+                .changeHost(change("alice", "alice", "card"), "build", hostCard("build", "alice"));
+        as("alice").removeHost(change("alice", "alice", "remove"), "build");
+        assertThat(read().getHosts()).isEmpty();
+        assertThat(repo.resolve("hosts/build/card")).doesNotExist();
         assertThat(read().getRefusals()).isEmpty();
     }
 }

@@ -44,6 +44,15 @@ public interface WritesFixture {
     String card(String login, String holder);
 
     /**
+     * Returns a host card signed by the named key.
+     *
+     * @param host The host.
+     * @param holder The signer.
+     * @return The card.
+     */
+    String hostCard(String host, String holder);
+
+    /**
      * Returns a card handing a login on to a new key, signed by the new key and by the old one.
      *
      * @param login The login it is for.

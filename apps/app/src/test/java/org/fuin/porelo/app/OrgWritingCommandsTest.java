@@ -174,6 +174,8 @@ class OrgWritingCommandsTest {
 
     static Stream<Arguments> everyCommand() {
         return Stream.of(
+                Arguments.of("org admin add alice", "addOrganizationAdmin[alice]"),
+                Arguments.of("org admin remove alice", "removeOrganizationAdmin[alice]"),
                 Arguments.of("org owner add alice", "addOrganizationOwner[alice]"),
                 Arguments.of("org owner remove alice", "removeOrganizationOwner[alice]"),
                 Arguments.of("org person revoke alice", "revokeCard[alice]"),
