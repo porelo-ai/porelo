@@ -60,6 +60,9 @@ Permission 403 or 404: "cannot say".
 
 ## To be checked
 
+- What the permission call answers for a collaborator who is no member. The token measured belongs to a member of the
+  organization, whose token lacked the right on members, so the 403s above say nothing of a non-member's, and the 200 does not
+  yet show that a collaborator gets it. This case is what the issue is for.
 - What the permission call answers with this token for a login with `write`, for one with no access, and for a token with read
   only. Only `admin` for an owner is measured, and the documentation names no token permission and no caller for it.
 - Whether a read-only person's token gets an answer, and what they then see.
