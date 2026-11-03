@@ -20,7 +20,6 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
-| <a id="b383"></a>[B383](B383-A-Build-That-Fits-Its-Old-Time.md) | S | - | The Build's verify takes about as long as it used to, not three times as long |
 | <a id="b373"></a>[B373](B373-A-Token-Lent-To-A-Forge-On-Its-Own-Port.md) | S | - | A vault token is lent to an `https://` repository on a port of its own: the helper's key names the port |
 | <a id="b392"></a>[B392](B392-Checks-Every-Organization-Adapter-Passes.md) | M | - | The store's security requirements as checks any adapter runs, failing against one that takes an unsigned change, an older state or a revoked card |
 | <a id="b391"></a>[B391](B391-The-Cut-To-The-New-Organization.md) | L | - | The cut: `identity` files through the store on `git-tree`, and everything that reads or writes the old registry goes |
@@ -372,6 +371,7 @@ from its side, as *blocked by*.
 | <a id="b187"></a>B187 | No Logging Warning From The Clearance Watcher | The binary sets SLF4J's own verbosity to errors only, so `clearance.log` no longer starts with three warnings. |
 | <a id="b186"></a>B186 | One Line For One Dropped Connection | One line for one dropped connection: kernel timestamps, `queue-threshold 1` and the source port, and a retry within ten seconds is no second line. |
 | <a id="b195"></a>B195 | Renamed Porelo Here | Everything this repository builds, ships and documents says Porelo, but for the released changelog entries: artifacts, varlink interfaces, programs, packages, paths, variables, nft and SELinux names and the message signature namespace; a documents test refuses the old word. |
+| <a id="b383"></a>B383 | A Build That Fits Its Old Time | The step *Build and unit tests* takes 9:39 to 11:08 where the cut took 21.4 minutes: the App, the vault and the daemon run their tests in four JVMs, the organization's adapter its checks concurrently; no test, wait or fixture changed. |
 
 ## Rejected
 
