@@ -1,6 +1,6 @@
 # B402 — A Client's Prepare Reads The Organization As The Command Line Does
 
-**Status:** Idea.
+**Status:** Accepted: the operator's word of 2026-11-03. For 0.6, after the operator's walk.
 
 **What must be true.** A client's `Prepare` of a project its organization names builds from what a read of the organization
 judges now, as `porelo task prepare` does. Today the daemon's `Prepare` takes `project` as the path of a project file and

@@ -116,6 +116,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b402"></a>[B402](B402-A-Clients-Prepare-Reads-The-Organization-As-The-Command-Line-Does.md) | - | - | A client's `Prepare` of an organization's project reads it as `porelo task prepare` does, not only what the last start placed |
 | <a id="b409"></a>[B409](B409-A-Project-With-No-Address-Goes-On-No-Host.md) | S | - | `org host carry` refuses a project with no valid address, at once and with its reason, and the window says the same |
 | <a id="b396"></a>[B396](B396-Mutation-Testing-With-PIT.md) | - | - | A `pit` profile run by hand, not in CI and with no threshold, and a report sorting survivors into real gaps and harmless ones. |
 | <a id="b358"></a>[B358](B358-A-Task-Reviews-A-Pull-Request-On-The-Central-Forge.md) | - | [B172](README.md#b172) | A reviewer task also takes any existing pull request on the central forge by its URL, in a project or without one; read and commented with the person's own account, comments only, each released |
@@ -138,7 +139,6 @@ from its side, as *blocked by*.
 | <a id="b407"></a>[B407](B407-An-Owners-Signature-Counts-For-A-Projects-Files.md) | M | - | After 0.7: an owner's signature counts for a project's `repository.yml`, `members.yml` and `project.yml`, host files kept out |
 | <a id="b406"></a>[B406](B406-A-Revoked-Person-Comes-Back-Only-When-Agreed.md) | M | - | After a revoke, a person comes back only when an owner or admin agrees; a new key at the forge and *Add me* alone do not bring them back |
 | <a id="b405"></a>[B405](B405-A-Host-That-Says-Why-A-Project-Has-No-Address.md) | - | - | A host carrying a project with no address says why: nobody opened it, or the file for its address stands refused |
-| <a id="b402"></a>[B402](B402-A-Clients-Prepare-Reads-The-Organization-As-The-Command-Line-Does.md) | - | - | A client's `Prepare` of an organization's project reads it as `porelo task prepare` does, not only what the last start placed |
 | <a id="b403"></a>[B403](B403-A-Start-Judged-On-A-Real-Machine.md) | - | - | The acceptance suite walks a start of an organization's project through the judgment on a real machine, signed, unsigned, wrong role and revoked |
 | <a id="b404"></a>[B404](B404-A-List-With-The-Organization-Never-Read.md) | - | - | `project list` still shows a machine's own projects when its organization was never read and is out of reach |
 | <a id="b400"></a>[B400](B400-A-Revoked-Key-Stops-Certifying-Off-A-Host-Before-A-Start.md) | - | - | Off a host, a key revoked in the organization stops being believed as a certifier of messages soon after, not only at the project's next start |
