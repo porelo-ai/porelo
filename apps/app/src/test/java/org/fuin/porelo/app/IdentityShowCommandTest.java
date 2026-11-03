@@ -63,6 +63,8 @@ class IdentityShowCommandTest {
                         "key",
                         "created",
                         "expires",
+                        "days_left",
+                        "renew_due",
                         "predecessor",
                         "card",
                         "agent",

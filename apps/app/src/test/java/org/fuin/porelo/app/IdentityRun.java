@@ -49,6 +49,7 @@ final class IdentityRun {
         ((IdentityKeysCommand) verbs.get("keys").getCommand()).opener = opener;
         ((IdentityCreateCommand) verbs.get("create").getCommand()).opener = opener;
         ((IdentityRotateCommand) verbs.get("rotate").getCommand()).opener = opener;
+        ((IdentityRenewCommand) verbs.get("renew").getCommand()).opener = opener;
         ((IdentityRevokeCommand) verbs.get("revoke").getCommand()).opener = opener;
         ((IdentityBackupKeyCommand) verbs.get("backup-key").getCommand()).opener = opener;
         if (store != null) {

@@ -56,6 +56,9 @@ record IdentityOperation(
     /** A rotation: the new card signed by both keys. */
     static final String ROTATE = "rotate";
 
+    /** A new term for the same key: the new card signed by that key. */
+    static final String RENEW = "renew";
+
     /** A lost key's replacement: the new card signed by the new key alone. */
     static final String REVOKE_LOST = "revoke-lost";
 
@@ -214,7 +217,10 @@ record IdentityOperation(
             throw new IllegalArgumentException("not an id");
         }
         final String action = text(map, "action");
-        if (!action.equals(CREATE) && !action.equals(ROTATE) && !action.equals(REVOKE_LOST)) {
+        if (!action.equals(CREATE)
+                && !action.equals(ROTATE)
+                && !action.equals(RENEW)
+                && !action.equals(REVOKE_LOST)) {
             throw new IllegalArgumentException("no such action");
         }
         return new IdentityOperation(
@@ -354,6 +360,7 @@ record IdentityOperation(
                 switch (action) {
                             case CREATE -> "new-";
                             case ROTATE -> "rot-";
+                            case RENEW -> "ren-";
                             default -> "lost-";
                         }
                         + today.format(DateTimeFormatter.BASIC_ISO_DATE)
