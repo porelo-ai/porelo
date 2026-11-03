@@ -93,7 +93,10 @@ would change the answer.
 | An organization's trust record is checked, not hardened against whoever writes the state directory | accepted: a record that fails a check is discarded and the registry walked again from its founding commit; a writer of `$XDG_STATE_HOME` can change Porelo's config and binaries too | [entry](#an-organizations-trust-record-is-checked-not-hardened-against-whoever-writes-the-state-directory) |
 | A backup key replaces only the card of the person who filed it | it replaces that login's key and nothing else, revoking the old one; an owner's backup signs `owners.yml` and the new key the card; nobody may name a backup for someone else | [entry](#a-backup-key-replaces-only-the-card-of-the-person-who-filed-it) |
 | An owner handing on a key changes the owners first | two commits in one push: the old key signs `owners.yml` with the new key, the new key signs the card; no rule lets a non-owner's key change `owners.yml` | [entry](#an-owner-handing-on-a-key-changes-the-owners-first) |
-| An owner does not move a host's pin | the pin follows only a chain the old key signed, or a backup that key filed; an owner's replacement leaves the host at `refused-state` until its admin renews the pin on the machine | [entry](#an-owner-does-not-move-a-hosts-pin) |
+| An owner does not move a host's pin | superseded for the organization admin: an owner not listed moves no pin, and a pin that stands follows only a chain the old key signed, a backup that key filed, or an organization admin | [entry](#an-owner-does-not-move-a-hosts-pin) |
+| An organization has four roles, each answering for the one below | owner, organization admin, machine admin, project admin; none does another's work unless listed for it too | [entry](#an-organization-has-four-roles-each-answering-for-the-one-below) |
+| The roles start with their list | a reader walks the whole history, so what was signed before the list stays judged by the rules from before; absent, owners do the organization admin's work, and `org create` lists the founder | [entry](#the-roles-start-with-their-list) |
+| A host's pin follows the organization admins, and root stays with its machine admins | a dismissed admin stays replaceable with no step of theirs, at the cost that one stolen key of that role reaches every server's pin, visibly | [entry](#a-hosts-pin-follows-the-organization-admins-and-root-stays-with-its-machine-admins) |
 | Withdrawing a card revokes its key | the key signs nothing more and cannot file the card again; the only owner's card cannot be withdrawn | [entry](#withdrawing-a-card-revokes-its-key) |
 | A founder's key that left the forge refuses the organization on a new machine | a new machine answers `refused-state` naming the key; a machine that read it while listed goes on; recovery is the key back on the forge, or a new organization | [entry](#a-founders-key-that-left-the-forge-refuses-the-organization-on-a-new-machine) |
 | A project's lock does not bind an organization owner | accepted: an owner may name any admin, and an admin may unlock; every step is a signed commit | [entry](#a-projects-lock-does-not-bind-an-organization-owner) |
@@ -1166,11 +1169,33 @@ A host's admins may change `host.yml`, so a new backup entry must be signed by t
 
 ## An owner does not move a host's pin
 
+*Superseded for the organization admin by [what follows it](#a-hosts-pin-follows-the-organization-admins-and-root-stays-with-its-machine-admins); it still holds for an owner not listed.*
+
 *2026-11-02, the operator's.* A host's pin follows its admins only along what the pin itself vouches for: a chain the old key signed, or a commit signed for the pin, a backup key that key filed among them. An owner's replacement of an admin's card is neither, so it leaves the host at `refused-state`, naming the commit, until its admin renews the pin on the machine as root.
 
 The other way, an owner may move a pin, is simpler for a person who lost their only key with no backup, but it gives every owner's key the whole fleet. A host cannot tell a stolen owner's key from an honest replacement by its look, and the pin exists to stop exactly that. So losing the only admin's key with no backup means going to the machine.
 
 Only a card the forge vouched for reaches a host, as a key or in the pin. While the forge cannot say, anyone with write access could file a member's first card; the role stays answered, the key does not.
+
+## An organization has four roles, each answering for the one below
+
+*2026-11-03, the operator's.* An owner answers for owners and organization admins. An organization admin answers for cards, a project's card, machines, and the admins of projects and machines. A machine admin answers for the machine's card, what it carries, and taking Porelo off it, which also removes its entry. A project admin answers for developers, repositories and their address, and `project.yml`.
+
+The roles do not stack. An owner does an organization admin's work only when listed, and may list themselves; a machine admin or project admin names no further admin of that level. The owner is rare on purpose: day-to-day work runs under admins, so the key that reaches the most is used the least. **What would change the answer:** an organization too small to keep them apart, which today lists one person in each.
+
+## The roles start with their list
+
+*2026-11-03, the operator's.* A reader walks an organization's history from its first commit, on a new machine too. A rule changed for every commit would refuse what owners and admins signed rightly before it, and everything resting on that. So `organization-admins.yml` is where the roles start: until a commit files it, owners do an organization admin's work and the rules from before hold; once it stands, only the file counts, and it cannot be removed. `org create` lists the founder.
+
+A machine on an older build does not read the file and goes on with the rules from before, so it refuses every change an organization admin signs, as no key it knows of, until it is updated; the rest it goes on reading. A record kept by such a machine is read afresh once updated. **What would change the answer:** no organization left from before the list.
+
+## A host's pin follows the organization admins, and root stays with its machine admins
+
+*2026-11-03, the operator's.* A machine admin's change or replacement by an organization admin takes effect on a running server at its next follow, with no step of the former admin, who may be gone. A commit signed by a listed organization admin counts as signed for the pin, and the pin then holds that role's keys and the machine's admins. A commit that lists its own signer gains nothing by it in that commit.
+
+Root stays with the machine's listed admins. An organization admin who needs root lists themselves as that machine's admin: a visible signed change, one server at a time.
+
+**The cost, accepted.** One stolen key of this role reaches every server's pin and can make itself root there, visibly. One owner's key reaches as far, by one commit listing a key of its choice. An owner's key not listed reaches no pin by itself. A server whose follow fails keeps its old list for as long as that lasts. **What would change the answer:** the role's key held on hardware, or a change of the list needing two signatures, neither built.
 
 ## Withdrawing a card revokes its key
 

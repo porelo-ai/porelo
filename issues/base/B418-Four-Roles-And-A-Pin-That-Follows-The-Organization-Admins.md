@@ -71,10 +71,9 @@ gets root by a visible signed change naming themselves, on one server at a time 
 replaceable, and it takes less on the host's side.
 
 **Settled by the operator on 2026-11-03.** Taking Porelo off also removes the machine's entry, and a Machine Admin may do it. An owner
-does not act as an Organization Admin without being listed, and an owner may list themselves.
-
-**With the operator.** Who is the first Organization Admin in an organization that exists today, and at founding; whether root stays
-with the listed Machine Admins. What does not hang on these is built first.
+does not act as an Organization Admin without being listed, and an owner may list themselves. An organization that exists today runs
+under its owners while the file is absent. At founding the founder is listed. The pin holds and follows the Organization Admins' keys,
+and root stays with the listed Machine Admins.
 
 **Why the rules have a moment they start.** A reader walks an organization's whole history, a new machine from its first commit. A
 rule that changes for every commit would refuse what owners and admins signed rightly before it, and everything resting on that. So
