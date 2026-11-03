@@ -66,9 +66,28 @@ final class TreeRepository implements AutoCloseable {
     private final CommandRunner runner;
 
     private TreeRepository(final Path scratch, final CommandRunner runner) {
+        this(scratch, scratch.resolve("organization.git"), runner);
+    }
+
+    private TreeRepository(final Path scratch, final Path repository, final CommandRunner runner) {
         this.scratch = scratch;
-        this.repository = scratch.resolve("organization.git");
+        this.repository = repository;
         this.runner = runner;
+    }
+
+    /**
+     * Reads a repository where it stands, with nothing fetched. Closing it leaves the repository;
+     * naming the directory to git means it does not mind who owns it.
+     *
+     * @param repository The git directory.
+     * @param runner How git runs.
+     * @return The repository to read.
+     * @throws IOException When the scratch directory cannot be made.
+     */
+    static TreeRepository standing(final Path repository, final CommandRunner runner)
+            throws IOException {
+        return new TreeRepository(
+                Files.createTempDirectory("porelo-organization-"), repository, runner);
     }
 
     /**

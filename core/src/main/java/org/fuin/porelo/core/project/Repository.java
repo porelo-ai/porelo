@@ -45,6 +45,9 @@ import org.jspecify.annotations.Nullable;
  *     question: a followed project is read on machines without it.
  * @param nickname The one word its agent is addressed by, or {@code null} for none.
  * @param branch How a task's branch at its forge is named, or {@code null} for the project's.
+ * @param review Whether a merge on the host's forge needs another person's approval: {@link
+ *     #REVIEW_REQUIRED} or {@link #REVIEW_OPTIONAL}.
+ * @param central Where a host takes the repository from, or {@code null} for nowhere.
  */
 public record Repository(
         String name,
@@ -56,7 +59,15 @@ public record Repository(
         @Nullable ImageSource image,
         @Nullable String agent,
         @Nullable String nickname,
-        @Nullable BranchScheme branch) {
+        @Nullable BranchScheme branch,
+        String review,
+        @Nullable String central) {
+
+    /** A merge needs another person's approval; what a file that says nothing means. */
+    public static final String REVIEW_REQUIRED = "required";
+
+    /** The author may merge their own. */
+    public static final String REVIEW_OPTIONAL = "optional";
 
     /** What an agent's name looks like: lower-case letters, digits and hyphens. */
     public static final String AGENT_PATTERN = "[a-z0-9]+(?:-[a-z0-9]+)*";
@@ -70,6 +81,46 @@ public record Repository(
 
     /** What the name an agent goes by starts with. */
     private static final String AGENT_PREFIX = "Agent ";
+
+    /**
+     * Constructor for a repository that says nothing of a review or of a central source.
+     *
+     * @param name Its name.
+     * @param upstream Where approved work goes, or {@code null}.
+     * @param description What it is.
+     * @param egress Added to the project's.
+     * @param limits Replacing the project's key by key.
+     * @param issues The issue prefixes it owns.
+     * @param image What its image is built from, or {@code null}.
+     * @param agent The agent it is worked with, or {@code null}.
+     * @param nickname The one word its agent is addressed by, or {@code null}.
+     * @param branch How a task's branch at its forge is named, or {@code null}.
+     */
+    public Repository(
+            String name,
+            @Nullable String upstream,
+            String description,
+            Egress egress,
+            Limits.Declared limits,
+            java.util.List<String> issues,
+            @Nullable ImageSource image,
+            @Nullable String agent,
+            @Nullable String nickname,
+            @Nullable BranchScheme branch) {
+        this(
+                name,
+                upstream,
+                description,
+                egress,
+                limits,
+                issues,
+                image,
+                agent,
+                nickname,
+                branch,
+                REVIEW_REQUIRED,
+                null);
+    }
 
     /**
      * Constructor for a repository that names no branch scheme of its own.

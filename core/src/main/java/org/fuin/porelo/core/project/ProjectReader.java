@@ -268,7 +268,8 @@ public final class ProjectReader {
                         null,
                         parameters(root, origin),
                         projectNickname(project, origin),
-                        branch(root.get("branch"), "branch", origin, null));
+                        branch(root.get("branch"), "branch", origin, null),
+                        review(project, "project.review", origin));
         for (final Repository repository : definition.repositories()) {
             definition.egressFor(repository);
         }
@@ -447,7 +448,9 @@ public final class ProjectReader {
                                     repository.get("branch"),
                                     "repositories." + name + ".branch",
                                     origin,
-                                    null)));
+                                    null),
+                            review(repository, "repositories." + name + ".review", origin),
+                            central(repository, name, origin)));
         }
         // A prefix tells whose an issue is at a glance only while one repository owns it.
         final Map<String, String> owner = new java.util.LinkedHashMap<>();
@@ -479,6 +482,40 @@ public final class ProjectReader {
      * @param name The repository's name.
      * @return The value as written, or {@code null} when the key is absent.
      */
+    private static String review(Map<?, ?> section, String path, String origin) {
+        final Object value = section.get("review");
+        if (value == null) {
+            return Repository.REVIEW_REQUIRED;
+        }
+        if (Repository.REVIEW_REQUIRED.equals(value) || Repository.REVIEW_OPTIONAL.equals(value)) {
+            return (String) value;
+        }
+        throw new ProjectException(origin + ": '" + path + "' is required or optional");
+    }
+
+    /** The host's forge names a repository after its central one, so the two must agree. */
+    private static @Nullable String central(Map<?, ?> repository, String name, String origin) {
+        final String central = text(repository.get("central"));
+        if (central.isEmpty()) {
+            return null;
+        }
+        Repository.refuseAsOption(central, "central");
+        final String upstream = text(repository.get("upstream"));
+        if (!upstream.isEmpty() && !lastName(upstream).equals(lastName(central))) {
+            throw new ProjectException(
+                    origin
+                            + ": 'repositories."
+                            + name
+                            + ".central' must end in the repository 'upstream' ends in");
+        }
+        return central;
+    }
+
+    private static String lastName(String address) {
+        final String bare = address.replaceFirst("/+$", "").replaceFirst("\\.git$", "");
+        return bare.substring(Math.max(bare.lastIndexOf('/'), bare.lastIndexOf(':')) + 1);
+    }
+
     private static @Nullable String word(
             Map<?, ?> repository, String key, String origin, String name) {
         final Object value = repository.get(key);

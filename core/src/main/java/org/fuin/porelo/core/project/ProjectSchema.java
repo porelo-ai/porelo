@@ -43,7 +43,8 @@ final class ProjectSchema {
                 "parameters.<parameter>",
                 Set.of("description", "values", "pattern", "default", "required", "env"));
         SECTIONS.put(
-                "project", Set.of("name", "description", "security_class", "upstream", "nickname"));
+                "project",
+                Set.of("name", "description", "security_class", "upstream", "nickname", "review"));
         SECTIONS.put("image", Set.of("base_image", "snippet", "snippet_file", "package_sources"));
         SECTIONS.put("egress", Set.of("sets", "domains", "refused", "host_services"));
         SECTIONS.put("limits", Set.of("memory", "pids", "cpus", "hand_in", "subagents"));
@@ -54,6 +55,8 @@ final class ProjectSchema {
                 "repositories.<repository>",
                 Set.of(
                         "upstream",
+                        "central",
+                        "review",
                         "description",
                         "egress",
                         "limits",
@@ -270,6 +273,14 @@ final class ProjectSchema {
                             false),
                     key(
                             "project",
+                            "review",
+                            "Whether a merge in the project's own repository needs another"
+                                    + " person's approval: required, the default, or optional.",
+                            "string",
+                            "",
+                            false),
+                    key(
+                            "project",
                             "nickname",
                             "The one word the agent of the project's own repository goes by, as"
                                     + " Agent <nickname>; without one, Agent <project>.",
@@ -458,6 +469,22 @@ final class ProjectSchema {
                             "The mode for a message to this peer, over its class's" + " rule.",
                             "string",
                             MODES,
+                            "",
+                            false),
+                    key(
+                            "repositories.<repository>",
+                            "review",
+                            "Whether a merge on the host's forge needs another person's"
+                                    + " approval: required, the default, or optional.",
+                            "string",
+                            "",
+                            false),
+                    key(
+                            "repositories.<repository>",
+                            "central",
+                            "Where a host takes the repository from; without one, it is not"
+                                    + " taken. Ends in the repository 'upstream' ends in.",
+                            "string",
                             "",
                             false),
                     key(

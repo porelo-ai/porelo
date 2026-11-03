@@ -642,4 +642,64 @@ class ProjectReaderTest {
                         "base_image: \"ubuntu:24.04\"\n  snippet_file: \"snippet.txt\""));
         assertThat(ProjectReader.read(file).imageSnippet()).isEqualTo("RUN echo inside");
     }
+
+    private static Project reviewed(final String project, final String repository) {
+        return ProjectReader.read(
+                new java.io.StringReader(
+                        """
+                        project:
+                          name: "demo"
+                          security_class: "online"
+                          upstream: "git@forge.example:demo/demo.git"
+                        %s
+                        image:
+                          base_image: "ubuntu:24.04"
+                        repositories:
+                          first:
+                            upstream: "git@forge.example:demo/first.git"
+                        %s
+                        """
+                                .formatted(project, repository)),
+                "project.yml");
+    }
+
+    @Test
+    void aFileThatSaysNothingRequiresAReviewAndNamesNoCentralSource() {
+        final Project read = reviewed("", "");
+
+        assertThat(read.review()).isEqualTo("required");
+        assertThat(read.repositories().getFirst().review()).isEqualTo("required");
+        assertThat(read.repositories().getFirst().central()).isNull();
+    }
+
+    @Test
+    void aReviewAndACentralSourceAreRead() {
+        final Project read =
+                reviewed(
+                        "  review: \"optional\"",
+                        "    review: \"optional\"\n"
+                                + "    central: \"git@github.com:acme/first.git\"");
+
+        assertThat(read.review()).isEqualTo("optional");
+        assertThat(read.repositories().getFirst().review()).isEqualTo("optional");
+        assertThat(read.repositories().getFirst().central())
+                .isEqualTo("git@github.com:acme/first.git");
+    }
+
+    @Test
+    void anyOtherReviewIsRefusedNamingTheKey() {
+        assertThatThrownBy(() -> reviewed("  review: \"sometimes\"", ""))
+                .isInstanceOf(ProjectException.class)
+                .hasMessageContaining("project.review");
+        assertThatThrownBy(() -> reviewed("", "    review: \"sometimes\""))
+                .isInstanceOf(ProjectException.class)
+                .hasMessageContaining("repositories.first.review");
+    }
+
+    @Test
+    void aCentralSourceEndingInAnotherRepositoryIsRefused() {
+        assertThatThrownBy(() -> reviewed("", "    central: \"git@github.com:acme/other.git\""))
+                .isInstanceOf(ProjectException.class)
+                .hasMessageContaining("repositories.first.central");
+    }
 }

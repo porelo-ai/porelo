@@ -1033,4 +1033,47 @@ class ProjectFileTest {
                 Refused.NO_REPOSITORY,
                 () -> file.found(change("alice", "one"), "https://forge.example/acme/demo", TEXT));
     }
+
+    @Test
+    void aFileIsReadWhereItStandsAndTheCopyIsLeftAlone() throws Exception {
+        final Path git = repo.resolve(".git");
+        final String tip = git("rev-parse", "HEAD");
+
+        final ProjectFile.Read read =
+                ProjectFile.standing(runner, git, List.of(row("alice", "admin")));
+
+        assertThat(read.state()).isEqualTo(ProjectFile.READ);
+        assertThat(read.revision()).isEqualTo(tip);
+        assertThat(read.project().name()).isEqualTo("demo");
+        assertThat(git("rev-parse", "HEAD")).isEqualTo(tip);
+        assertThat(git).isDirectory();
+    }
+
+    @Test
+    void aFileReadWhereItStandsSignedByNoSignerIsRefused() throws Exception {
+        final ProjectFile.Read read =
+                ProjectFile.standing(runner, repo.resolve(".git"), List.of(row("carol", "admin")));
+
+        assertThat(read.state()).isEqualTo(ProjectFile.REFUSED);
+        assertThat(read.project()).isNull();
+    }
+
+    @Test
+    void aFileReadWhereItStandsWithABadValueNamesTheKey() throws Exception {
+        commit("project.yml", TEXT.replace("online\"", "online\"\n  review: \"maybe\""), "alice");
+
+        final ProjectFile.Read read =
+                ProjectFile.standing(runner, repo.resolve(".git"), List.of(row("alice", "admin")));
+
+        assertThat(read.state()).isEqualTo(ProjectFile.REFUSED);
+        assertThat(read.why()).contains("project.review");
+    }
+
+    @Test
+    void aFileReadWhereItStandsWhenThereIsNoRepositoryIsRefused() throws Exception {
+        final ProjectFile.Read read =
+                ProjectFile.standing(runner, dir.resolve("empty"), List.of(row("alice", "admin")));
+
+        assertThat(read.state()).isNotEqualTo(ProjectFile.READ);
+    }
 }

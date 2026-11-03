@@ -26,6 +26,7 @@ import org.fuin.porelo.organization.OrganizationQuestions.SigningKey;
 import org.fuin.porelo.organization.OrganizationWrites;
 import org.fuin.porelo.vault.CardException;
 import org.fuin.porelo.vault.PersonCard;
+import org.fuin.porelo.vault.RegistryText;
 import org.jspecify.annotations.Nullable;
 import org.yaml.snakeyaml.DumperOptions;
 import org.yaml.snakeyaml.LoaderOptions;
@@ -143,8 +144,37 @@ public final class ProjectFile {
         }
     }
 
+    /**
+     * Reads the file in a repository already on this machine, with no network and no memory: the
+     * caller holds the commit it took last and the keys in force.
+     *
+     * @param runner How git runs.
+     * @param repository The git directory, a bare copy another account may own.
+     * @param keys The project's signing keys.
+     * @return What was found.
+     * @throws IOException When something unexpected happened.
+     */
+    public static Read standing(
+            final CommandRunner runner, final Path repository, final List<SigningKey> keys)
+            throws IOException {
+        try (TreeRepository clone = TreeRepository.standing(repository, runner)) {
+            return judged(clone, keys, null, "");
+        } catch (CommandException ex) {
+            return new Read(CANNOT_SAY, null, null, null);
+        }
+    }
+
     private Read judged(
             final TreeRepository clone, final List<SigningKey> keys, final String address)
+            throws IOException {
+        return judged(clone, keys, this, address);
+    }
+
+    private static Read judged(
+            final TreeRepository clone,
+            final List<SigningKey> keys,
+            final @Nullable ProjectFile guard,
+            final String address)
             throws IOException {
         try {
             final String tip = clone.tip();
@@ -169,7 +199,7 @@ public final class ProjectFile {
                 return refused("the project repository holds no project.yml");
             }
             final Instant dated = OffsetDateTime.parse(clone.dated(commit)).toInstant();
-            final Instant accepted = accepted(address);
+            final Instant accepted = guard == null ? null : guard.accepted(address);
             if (accepted != null && dated.isBefore(accepted)) {
                 return refused(
                         "the project.yml of "
@@ -181,10 +211,18 @@ public final class ProjectFile {
             }
             final Project project = parsed(clone.text(blob.orElseThrow()), inClone(clone, tip));
             final Read read = new Read(READ, tip, project, null, signer);
-            remember(address, dated);
+            if (guard != null) {
+                guard.remember(address, dated);
+            }
             return read;
         } catch (CardException ex) {
             return refused(String.valueOf(ex.getMessage()));
+        } catch (ProjectException ex) {
+            if (guard != null) {
+                return refused("the project repository's project.yml does not read");
+            }
+            // Past the signature only: an admin of the project wrote what this quotes.
+            return refused(RegistryText.printable(String.valueOf(ex.getMessage())));
         } catch (RuntimeException ex) {
             // What the reader says quotes the file, which anyone with write access wrote.
             return refused("the project repository's project.yml does not read");

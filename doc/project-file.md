@@ -46,6 +46,11 @@ project:
   # forwards the task's own branch at once.
   upstream: "git@github.com:you/myproject.git"
 
+  # Optional. Whether a merge in the project's own repository on the host's forge needs another
+  # person's approval: required, the default, or optional, where the author merges their own.
+  # Porelo only reads it; the host's forge enforces it.
+  review: "required"
+
   # Optional. The one word the agent of the project's own repository goes by: "Agent Planner" in
   # a conversation and on its commits, with the rules of a repository's nickname below. Without
   # one it goes by "Agent myproject".
@@ -61,6 +66,11 @@ repositories:
   backend:
     # Optional. Without an upstream, the work stays on this machine.
     upstream: "git@github.com:you/backend.git"
+    # Optional. Where a host takes this repository from, when 'upstream' names the host's forge.
+    # Without it a host takes nothing. It ends in the repository 'upstream' ends in.
+    central: "git@github.com:acme/backend.git"
+    # Optional. As the project's own 'review' above, for this repository.
+    review: "required"
     description: "The thing that talks to the payment provider"
     # Optional. The issue prefixes this repository owns, each one or more capital letters and named
     # by no other repository. A task on it is told them in PORELO_ISSUE_PREFIXES ("B,P").
