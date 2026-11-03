@@ -17,7 +17,7 @@ Found when the Build on 5eeb7662 was cancelled on 2026-11-01; not built that nig
 
 Added on 2026-11-03. The real Build on the cut took 21.4 minutes for this step, and the organization's adapter had grown to
 4:29 of a 14:52 reactor here. Its tests share nothing, so `organization/git-tree` runs them concurrently, a directory per
-check instead of a counter. `apps/app` runs in four JVMs, a class at a time in each, 2:44 against 6:53 on four CPUs and no failure in three runs: a system property a test sets stays its own, which is what its tests need. The rest stay serial. Fixtures are not touched: the time is spread flat over 291 classes, the slowest 47 s of 411.
+check instead of a counter. `apps/app` runs in four JVMs, a class at a time in each, 2:44 against 6:53 on four CPUs and no failure in three runs: a system property a test sets stays its own, which is what its tests need. `vault` and `daemon` then did the same, 60 s against 38 s here in three runs, each run with no failure; `vault` stays in one JVM under the `native` profile, not tried in four under the tracing agent. The rest stay serial. Fixtures are not touched: the time is spread flat over 291 classes, the slowest 47 s of 411.
 
 Read on 2026-11-02 from the per-class times of a full run (19:04 min; Porelo App 14:33 min of it; 504 classes whose
 times add up to 18.6 min; tests run serially, no `forkCount` or JUnit parallelism). The twenty slowest classes are

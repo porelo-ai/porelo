@@ -15,6 +15,11 @@
     <name>Porelo Daemon</name>
     <description>Porelo - Daemon (DAEMON)</description>
 
+    <properties>
+        <!-- A JVM per class at a time: this module's tests share nothing across JVMs. -->
+        <forkCount>4</forkCount>
+    </properties>
+
     <dependencies>
 
         <!-- compile -->
