@@ -1,0 +1,2 @@
+title: "`--keepassxc` refuses a terminal nobody could answer on, a retry under the same `--id` takes the first key and makes no second, an entry whose attachment is refused is removed, and a password not typed in 120 seconds answers `no-password`"
+type: fixed

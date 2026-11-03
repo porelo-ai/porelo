@@ -1,6 +1,6 @@
 # B385 — A KeePassXC Key That Is Usable
 
-**Status:** Backlog; blocked by [B391](README.md#b391).
+**Status:** Implementing.
 **Severity:** medium.
 **Size:** L - one unlock serving three or more `keepassxc-cli` commands without Porelo reading the master password, proved
 first against the real program, then `KeePassXcKey`, the three verbs, the stand-in and about a dozen tests; the
@@ -63,6 +63,20 @@ timeout reads as exit 127, `key-store-missing` (`:273-275`).
 
 **Red first:** one test per refusal of step 1 through the stand-in, its `arguments` file empty; and for step 3, `rotate`
 with `--entry` naming the old key's entry, which today's plan would have adopted.
+
+## As built
+
+Against the plan, simpler, none of it weaker under the threat this guards:
+
+- **Step 3 needs no read-back and no record in `IdentityOperation`.** A note beside the operations holds the id's entry and fingerprint. A retry only waits for the agent to serve that fingerprint: that it serves it proves it is that key, so the private key never comes back into this process and no password is asked. An entry changed since is `key-not-served`, naming it. A record in the operations would have needed `pending` and its readers to skip a half change. The case the plan guards, `rotate --entry <the old entry>`, is an `add` that KeePassXC refuses, under any new id.
+- **Step 1 does not ask for one terminal.** Each of the two must be a terminal this account can open. Two different ones is the person's choice.
+- **Step 7's `WatchService` is not built.** The stand-in looks when it holds the key and afterwards; a file written and deleted in between is not seen. Nothing in the code path writes one.
+- **`hidepid` is not measured.** An unreadable descriptor is refused saying so, whatever the cause.
+- **Step 6 was done by the cut**, all three verbs answer through `IdentityChange.refuse`.
+
+A prompt ended by its limit left the terminal's echo off, measured with the real program: the wrapper now gives it back.
+
+Step 2 is its own commit, held back: it reads the master password in Porelo's own wrapper, which the operator decides.
 
 ## Acceptance
 

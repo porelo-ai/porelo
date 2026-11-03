@@ -1,6 +1,7 @@
 package org.fuin.porelo.app;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.io.PrintWriter;
 import java.io.StringWriter;
@@ -169,6 +170,233 @@ class IdentityKeePassXcTest {
                 .as("keepassxc-cli talks on the terminal")
                 .startsWith("{");
         assertThat(Files.readString(keepass.terminal)).contains("Entry added.");
+    }
+
+    private void refusedOn(final Path in, final Path out, final String words) throws Exception {
+        final KeePassXcStandIn keepass = standIn(KeePassXcStandIn.Mode.SERVES);
+
+        assertThat(
+                        create(
+                                keepass.on(in, out),
+                                "--keepassxc",
+                                keepass.database.toString(),
+                                "--json"))
+                .isEqualTo(64);
+        assertThat(registry.answer().get("reason")).isEqualTo("no-terminal");
+        assertThat(registry.answer().toString()).contains(words);
+        assertThat(keepass.calls()).as("keepassxc-cli never ran").isEmpty();
+    }
+
+    /** Standard error redirected would hide the prompt the person has to answer. */
+    @Test
+    void a_standard_error_that_is_no_terminal_is_refused_saying_which() throws Exception {
+        final Path tty = Files.createSymbolicLink(dir.resolve("in"), Path.of("/dev/tty"));
+        final Path file = Files.writeString(dir.resolve("file"), "");
+        final Path link = Files.createSymbolicLink(dir.resolve("err"), file);
+
+        refusedOn(tty, link, "standard error is not a terminal");
+    }
+
+    /** A /proc that hides this process's descriptors says so, rather than a wrong reason. */
+    @Test
+    void a_descriptor_that_cannot_be_read_is_refused_saying_so() throws Exception {
+        final Path missing = dir.resolve("no-such-descriptor");
+
+        refusedOn(missing, missing, "hidepid");
+    }
+
+    /** Under su or sudo -u the terminal is the other account's, and nobody is asked on it. */
+    @Test
+    void a_terminal_of_another_account_is_refused() {
+        assertThatThrownBy(() -> KeePassXcKey.owned("bob", "alice", "standard input"))
+                .isInstanceOfSatisfying(
+                        IdentityChange.Refused.class,
+                        ex -> {
+                            assertThat(ex.code()).isEqualTo(64);
+                            assertThat(ex.reason()).isEqualTo("terminal-not-yours");
+                        });
+    }
+
+    /** With neither, the terminal is what is said first: an agent would not help. */
+    @Test
+    void with_neither_a_terminal_nor_an_agent_the_answer_is_no_terminal() throws Exception {
+        final KeePassXcStandIn keepass =
+                new KeePassXcStandIn(dir, KeePassXcStandIn.Mode.SERVES, "/no-such-agent");
+        registry.terminal = false;
+
+        assertThat(
+                        create(
+                                keepass.store(Duration.ofSeconds(1)),
+                                "--keepassxc",
+                                keepass.database.toString(),
+                                "--json"))
+                .isEqualTo(64);
+        assertThat(registry.answer().get("reason")).isEqualTo("no-terminal");
+    }
+
+    /** A retry takes the key the first run made: no second key, and no password asked. */
+    @Test
+    void a_retry_after_key_not_served_waits_for_the_first_key_and_makes_no_second()
+            throws Exception {
+        final KeePassXcStandIn keepass = standIn(KeePassXcStandIn.Mode.SERVES_AFTER_UNLOCK);
+        keepass.running(false);
+        assertThat(
+                        create(
+                                keepass.store(Duration.ofSeconds(10)),
+                                "--keepassxc",
+                                keepass.database.toString(),
+                                "--entry",
+                                "ssh/alice",
+                                "--id",
+                                "c1",
+                                "--json"))
+                .isEqualTo(65);
+        final Map<?, ?> first = registry.answer();
+        assertThat(first.get("reason")).isEqualTo("key-not-served");
+        assertThat(first.get("id")).isEqualTo("c1");
+        final List<String> calls = keepass.calls();
+        keepass.running(true);
+
+        assertThat(
+                        create(
+                                keepass.store(Duration.ofSeconds(10)),
+                                "--keepassxc",
+                                keepass.database.toString(),
+                                "--id",
+                                "c1",
+                                "--json"))
+                .as(registry.err.toString())
+                .isZero();
+
+        final Map<?, ?> again = registry.answer();
+        assertThat(again.get("fingerprint")).isEqualTo(first.get("fingerprint"));
+        assertThat(again.get("entry")).as("the first run's entry").isEqualTo("ssh/alice");
+        assertThat(keepass.calls()).as("keepassxc-cli was not asked again").isEqualTo(calls);
+        assertThat(keepass.calls()).isEqualTo(keepass.madeInto("ssh/alice"));
+    }
+
+    /** A new id is a new key, and an entry that exists is what KeePassXC refuses it. */
+    @Test
+    void an_entry_that_exists_under_a_new_id_is_refused_with_no_key_handed_over() throws Exception {
+        final KeePassXcStandIn keepass = standIn(KeePassXcStandIn.Mode.HOLDS);
+        final String[] asked = {
+            "--keepassxc", keepass.database.toString(), "--entry", "ssh/alice", "--json", "--id"
+        };
+        keepass.running(false);
+        final List<String> first = new ArrayList<>(List.of(asked));
+        first.add("c1");
+        assertThat(create(keepass.store(Duration.ofMillis(100)), first.toArray(String[]::new)))
+                .isEqualTo(65);
+        final List<String> second = new ArrayList<>(List.of(asked));
+        second.add("c2");
+
+        assertThat(create(keepass.store(Duration.ofMillis(100)), second.toArray(String[]::new)))
+                .isEqualTo(65);
+
+        assertThat(registry.answer().get("reason")).isEqualTo("key-store-refused");
+        final List<String> expected = new ArrayList<>(keepass.madeInto("ssh/alice"));
+        expected.add("add " + keepass.database + " ssh/alice");
+        assertThat(keepass.calls()).isEqualTo(expected);
+        assertThat(cardFile()).doesNotExist();
+    }
+
+    /** Another entry under the id that made the key would answer for a key it does not hold. */
+    @Test
+    void another_entry_under_the_id_that_made_a_key_is_refused() throws Exception {
+        final KeePassXcStandIn keepass = standIn(KeePassXcStandIn.Mode.HOLDS);
+        keepass.running(false);
+        final String db = keepass.database.toString();
+        assertThat(
+                        create(
+                                keepass.store(Duration.ofMillis(100)),
+                                "--keepassxc",
+                                db,
+                                "--entry",
+                                "one",
+                                "--id",
+                                "c1",
+                                "--json"))
+                .isEqualTo(65);
+        final List<String> calls = keepass.calls();
+
+        assertThat(
+                        create(
+                                keepass.store(Duration.ofMillis(100)),
+                                "--keepassxc",
+                                db,
+                                "--entry",
+                                "two",
+                                "--id",
+                                "c1",
+                                "--json"))
+                .isEqualTo(64);
+        assertThat(keepass.calls()).isEqualTo(calls);
+    }
+
+    private String refusedAttachment(final KeePassXcStandIn.Mode mode) throws Exception {
+        final KeePassXcStandIn keepass = standIn(mode);
+        assertThat(
+                        create(
+                                keepass.store(Duration.ofSeconds(10)),
+                                "--keepassxc",
+                                keepass.database.toString(),
+                                "--entry",
+                                "alice",
+                                "--json"))
+                .isEqualTo(65);
+        assertThat(registry.answer().get("reason")).isEqualTo("key-store-refused");
+        assertThat(keepass.calls()).contains("rm " + keepass.database + " alice").hasSize(3);
+        assertThat(cardFile()).doesNotExist();
+        if (mode != KeePassXcStandIn.Mode.REFUSES_KEY_AND_REMOVAL) {
+            assertThat(keepass.entries()).as("no orphan entry").isEmpty();
+        }
+        return registry.answer().toString();
+    }
+
+    /** No orphan: the entry goes, and the answer says the key stays in the bin. */
+    @Test
+    void a_refused_attachment_takes_the_entry_to_the_bin_and_says_what_stays() throws Exception {
+        assertThat(refusedAttachment(KeePassXcStandIn.Mode.REFUSES_KEY))
+                .contains("recycle bin", "private key stays");
+    }
+
+    @Test
+    void a_refused_attachment_in_a_database_with_no_bin_says_removed() throws Exception {
+        assertThat(refusedAttachment(KeePassXcStandIn.Mode.REFUSES_KEY_NO_BIN))
+                .contains("it was removed")
+                .doesNotContain("recycle bin");
+    }
+
+    @Test
+    void a_refused_attachment_whose_entry_stays_says_to_remove_it() throws Exception {
+        assertThat(refusedAttachment(KeePassXcStandIn.Mode.REFUSES_KEY_AND_REMOVAL))
+                .contains("not removed: remove alice in KeePassXC");
+    }
+
+    /** A person who never types is told so, not that KeePassXC is missing. */
+    @Test
+    void a_password_not_typed_in_time_is_no_password_and_nothing_is_kept() throws Exception {
+        final KeePassXcStandIn keepass = standIn(KeePassXcStandIn.Mode.NEVER_TYPED);
+
+        assertThat(
+                        create(
+                                keepass.typing(Duration.ofSeconds(1)),
+                                "--keepassxc",
+                                keepass.database.toString(),
+                                "--id",
+                                "c1",
+                                "--json"))
+                .isEqualTo(64);
+
+        assertThat(registry.answer().get("reason")).isEqualTo("no-password");
+        assertThat(keepass.calls()).hasSize(1);
+        assertThat(cardFile()).doesNotExist();
+        assertThat(served()).isEmpty();
+        assertThat(
+                        IdentityOperation.directory(registry.context())
+                                .resolveSibling("keepassxc")
+                                .resolve("c1"))
+                .doesNotExist();
     }
 
     /** keepassxc-cli asks for the master password itself; without a terminal nobody can type. */
@@ -402,7 +630,9 @@ class IdentityKeePassXcTest {
                         dir.resolve("nowhere-either").toString(),
                         Duration.ofSeconds(1),
                         Path.of("/dev/null"),
-                        keepass.terminal);
+                        keepass.terminal,
+                        KeePassXcKey.TYPING,
+                        false);
 
         assertThat(create(missing, "--keepassxc", keepass.database.toString(), "--json"))
                 .isEqualTo(65);

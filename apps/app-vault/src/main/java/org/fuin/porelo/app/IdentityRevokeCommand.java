@@ -126,6 +126,9 @@ public class IdentityRevokeCommand implements Callable<Integer>, PoreloFactory.C
                 change.finishWhatReached(organization, login, id);
             }
             final PersonCard card = change.card();
+            if (named == null && !dryRun) {
+                store.usable(machine);
+            }
             final String socket = change.socket();
             if (dryRun && named == null) {
                 // A key made into KeePassXC is new, so nothing about it changes the plan.
@@ -141,7 +144,9 @@ public class IdentityRevokeCommand implements Callable<Integer>, PoreloFactory.C
                                             keepassxc, "either --key or --keepassxc is given"),
                                     entry,
                                     login,
-                                    socket);
+                                    socket,
+                                    IdentityOperation.REVOKE_LOST,
+                                    id);
             final AgentKey successor =
                     change.successor(
                             made == null

@@ -108,6 +108,9 @@ public class IdentityRotateCommand implements Callable<Integer>, PoreloFactory.C
                                 + " is revoked; replace it with identity revoke --lost",
                         organization);
             }
+            if (named == null) {
+                store.usable(machine);
+            }
             final String socket = change.socket();
             // Asked before a key is made, so a KeePassXC entry is never made for a rotation that
             // cannot be signed by the old key, or that another stands in the way of.
@@ -122,7 +125,9 @@ public class IdentityRotateCommand implements Callable<Integer>, PoreloFactory.C
                                             keepassxc, "either --key or --keepassxc is given"),
                                     entry,
                                     card.login(),
-                                    socket);
+                                    socket,
+                                    IdentityOperation.ROTATE,
+                                    id);
             final AgentKey successor =
                     change.successor(
                             made == null

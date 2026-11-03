@@ -39,7 +39,15 @@ final class KeePassXcStandIn {
          */
         SERVES_AFTER_UNLOCK,
         /** A wrong master password: nothing is added. */
-        REFUSES
+        REFUSES,
+        /** The entry is added, the key refused, and removal takes it to the recycle bin. */
+        REFUSES_KEY,
+        /** As {@link #REFUSES_KEY}, in a database with no recycle bin. */
+        REFUSES_KEY_NO_BIN,
+        /** As {@link #REFUSES_KEY}, and the entry cannot be removed either. */
+        REFUSES_KEY_AND_REMOVAL,
+        /** Nobody types: the first prompt waits. */
+        NEVER_TYPED
     }
 
     private static final String ARMOUR = "-----BEGIN OPENSSH PRIVATE KEY-----";
@@ -78,7 +86,8 @@ final class KeePassXcStandIn {
                                     + " sleep 0.1; done;"
                                     + " printf '%s\\n' \"$k\" | SSH_AUTH_SOCK=\"$sock\" ssh-add -q - )"
                                     + " < \"$5\" &";
-                    case HOLDS, REFUSES -> "head -n 1 \"$5\" >> \"$here/seen\"";
+                    case REFUSES_KEY, REFUSES_KEY_NO_BIN, REFUSES_KEY_AND_REMOVAL -> "exit 1";
+                    case HOLDS, REFUSES, NEVER_TYPED -> "head -n 1 \"$5\" >> \"$here/seen\"";
                 };
         final String script =
                 "#!/bin/sh\n"
@@ -93,7 +102,21 @@ final class KeePassXcStandIn {
                         + "add)\n"
                         + (mode == Mode.REFUSES
                                 ? "  echo 'Invalid credentials' >&2; exit 1 ;;\n"
-                                : "  echo 'Entry added.'; exit 0 ;;\n")
+                                : mode == Mode.NEVER_TYPED
+                                        ? "  exec sleep 30 ;;\n"
+                                        : "  if grep -qxF -- \"$3\" \"$here/entries\" 2>/dev/null;"
+                                                + " then echo 'exists' >&2; exit 1; fi\n"
+                                                + "  echo \"$3\" >> \"$here/entries\";"
+                                                + " echo 'Entry added.'; exit 0 ;;\n")
+                        + "rm)\n"
+                        + (mode == Mode.REFUSES_KEY_AND_REMOVAL
+                                ? "  exit 1 ;;\n"
+                                : "  grep -vxF -- \"$3\" \"$here/entries\" > \"$here/left\";"
+                                        + " mv \"$here/left\" \"$here/entries\";"
+                                        + (mode == Mode.REFUSES_KEY_NO_BIN
+                                                ? " echo \"Successfully deleted entry $3.\";"
+                                                : " echo \"Successfully recycled entry $3.\";")
+                                        + " exit 0 ;;\n")
                         + "attachment-import)\n"
                         + "  if [ -p \"$5\" ]; then echo \"pipe $4\"; else echo \"no pipe $4\"; fi"
                         + " >> \"$here/seen\"\n"
@@ -170,7 +193,43 @@ final class KeePassXcStandIn {
     /** The store the verbs run: this stand-in, its terminal a file, waiting this long. */
     KeePassXcKey store(final Duration wait) {
         return new KeePassXcKey(
-                program.toString(), gui.toString(), wait, Path.of("/dev/null"), terminal);
+                program.toString(),
+                gui.toString(),
+                wait,
+                Path.of("/dev/null"),
+                terminal,
+                KeePassXcKey.TYPING,
+                false);
+    }
+
+    /** As {@link #store}, a prompt waiting this long. */
+    KeePassXcKey typing(final Duration typing) {
+        return new KeePassXcKey(
+                program.toString(),
+                gui.toString(),
+                Duration.ofSeconds(10),
+                Path.of("/dev/null"),
+                terminal,
+                typing,
+                false);
+    }
+
+    /** As {@link #store}, with its input and error output as given and looked at first. */
+    KeePassXcKey on(final Path in, final Path out) {
+        return new KeePassXcKey(
+                program.toString(),
+                gui.toString(),
+                Duration.ofSeconds(10),
+                in,
+                out,
+                KeePassXcKey.TYPING,
+                true);
+    }
+
+    /** The entries the database holds outside its recycle bin. */
+    List<String> entries() throws IOException {
+        final Path file = dir.resolve("entries");
+        return Files.exists(file) ? Files.readAllLines(file) : List.of();
     }
 
     /** Each argument list the stand-in window was run with, one line each. */

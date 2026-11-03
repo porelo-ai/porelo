@@ -411,6 +411,7 @@ public class IdentityCreateCommand implements Callable<Integer>, PoreloFactory.C
 
     /** Makes a new key into the KeePassXC database and waits for the agent to serve it. */
     private KeePassXcKey.Made made(final PoreloContext machine) throws IdentityChange.Refused {
+        store.usable(machine);
         final String socket = machine.environment().apply(IdentityChange.AGENT);
         if (socket == null || socket.isEmpty()) {
             throw new IdentityChange.Refused(
@@ -424,7 +425,9 @@ public class IdentityCreateCommand implements Callable<Integer>, PoreloFactory.C
                 java.util.Objects.requireNonNull(keepassxc, "--keepassxc is given"),
                 entry,
                 login,
-                socket);
+                socket,
+                IdentityOperation.CREATE,
+                id);
     }
 
     /** Refuses a login, name or email a card does not take, before the agent is asked. */

@@ -807,6 +807,81 @@ class IdentityRotateCommandTest {
         assertThat(keepass.calls()).isEqualTo(keepass.madeInto("alice-new"));
     }
 
+    /** The three verbs answer one refusal with one code, before keepassxc-cli starts. */
+    @Test
+    void rotate_and_revoke_lost_refuse_a_terminal_as_create_does() throws Exception {
+        registry.agent("alice");
+        filed();
+        final KeePassXcStandIn keepass = keepass(KeePassXcStandIn.Mode.SERVES);
+        final java.nio.file.Path missing = dir.resolve("no-such-descriptor");
+        final String db = keepass.database.toString();
+
+        assertThat(
+                        IdentityRun.identity(
+                                organization,
+                                keepass.on(missing, missing),
+                                "rotate",
+                                "--keepassxc",
+                                db,
+                                "--json"))
+                .isEqualTo(64);
+        assertThat(answer().get("reason")).isEqualTo("no-terminal");
+        assertThat(
+                        IdentityRun.identity(
+                                organization,
+                                keepass.on(missing, missing),
+                                "revoke",
+                                "--lost",
+                                "--keepassxc",
+                                db,
+                                "--json"))
+                .isEqualTo(64);
+        assertThat(answer().get("reason")).isEqualTo("no-terminal");
+        assertThat(keepass.calls()).isEmpty();
+    }
+
+    /** A retried rotation signs with the key the first run made, and asks KeePassXC nothing. */
+    @Test
+    void a_retried_rotation_takes_the_key_the_first_run_made() throws Exception {
+        registry.agent("alice");
+        filed();
+        final KeePassXcStandIn keepass = keepass(KeePassXcStandIn.Mode.SERVES_AFTER_UNLOCK);
+        keepass.running(false);
+        final String db = keepass.database.toString();
+        assertThat(
+                        identity(
+                                "rotate",
+                                "--keepassxc",
+                                db,
+                                "--entry",
+                                "alice-2",
+                                "--id",
+                                "r1",
+                                "--json"))
+                .isEqualTo(65);
+        final Object fingerprint = answer().get("fingerprint");
+        assertThat(answer().get("reason")).isEqualTo("key-not-served");
+        keepass.running(true);
+
+        assertThat(
+                        IdentityRun.identity(
+                                organization,
+                                keepass.store(java.time.Duration.ofSeconds(10)),
+                                "rotate",
+                                "--keepassxc",
+                                db,
+                                "--id",
+                                "r1",
+                                "--json"))
+                .as(err())
+                .isZero();
+
+        assertThat(answer().get("fingerprint")).isEqualTo(fingerprint);
+        assertThat(answer().get("entry")).isEqualTo("alice-2");
+        assertThat(kept().fingerprint()).isEqualTo(fingerprint);
+        assertThat(keepass.calls()).isEqualTo(keepass.madeInto("alice-2"));
+    }
+
     /** A refused password replaces nothing. */
     @Test
     void a_replacement_keepassxc_refuses_is_key_store_refused() throws Exception {

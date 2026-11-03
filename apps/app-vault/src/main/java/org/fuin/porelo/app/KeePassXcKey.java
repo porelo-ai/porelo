@@ -1,5 +1,6 @@
 package org.fuin.porelo.app;
 
+import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -37,9 +38,17 @@ import org.jspecify.annotations.Nullable;
  * @param terminalIn What {@code keepassxc-cli} reads the password from: this process's own input.
  * @param terminalOut Where {@code keepassxc-cli} prompts and talks: this process's own error
  *     output, so the answer on standard output stays the verb's alone.
+ * @param typing How long a person has for one prompt.
+ * @param judging Whether the two are looked at before anything runs; a test's are files.
  */
 record KeePassXcKey(
-        String program, String gui, Duration patience, Path terminalIn, Path terminalOut) {
+        String program,
+        String gui,
+        Duration patience,
+        Path terminalIn,
+        Path terminalOut,
+        Duration typing,
+        boolean judging) {
 
     /** The attachment KeePassXC's agent integration takes the key from. */
     static final String KEY_ATTACHMENT = "id_ed25519";
@@ -56,6 +65,12 @@ record KeePassXcKey(
      */
     static final Duration GRACE = Duration.ofSeconds(3);
 
+    /** How long a person has to type the master password at one prompt. */
+    static final Duration TYPING = Duration.ofSeconds(120);
+
+    /** What {@code timeout} exits with when the time ran out. */
+    private static final int TIMED_OUT = 124;
+
     /** What {@code keepassxc --lock} says when it locked a running KeePassXC's databases. */
     private static final String LOCKED = "have been locked";
 
@@ -69,10 +84,22 @@ record KeePassXcKey(
     private static final Duration POLL = Duration.ofMillis(250);
 
     /**
-     * Moves the pipe on its standard input to descriptor 3, reopens the terminal as standard input
-     * and its error output for both outputs, and runs the rest of its arguments.
+     * Runs the rest of its arguments within the time for a prompt, in the foreground or the program
+     * could not read the terminal, and gives the terminal back as it was: a program ended while it
+     * asks leaves its echo off.
      */
-    private static final String WRAPPER = "exec 3<&0 <\"$1\" >>\"$2\" 2>&1; shift 2; exec \"$@\"";
+    private static final String LIMITED =
+            " n=$3; shift 3; s=$(stty -g 2>/dev/null); timeout --foreground \"$n\" \"$@\"; c=$?;"
+                    + " [ -z \"$s\" ] || stty \"$s\"; exit $c";
+
+    /**
+     * Moves the pipe on its standard input to descriptor 3, reopens the terminal as standard input
+     * and its error output for both outputs.
+     */
+    private static final String WRAPPER = "exec 3<&0 <\"$1\" >>\"$2\" 2>&1;" + LIMITED;
+
+    /** As {@link #WRAPPER}, with standard output left for Porelo to read and no pipe to move. */
+    private static final String ASKING = "exec <\"$1\" 2>>\"$2\";" + LIMITED;
 
     /** The path {@code keepassxc-cli} reads the attachment from: the pipe on descriptor 3. */
     private static final String PIPE = "/dev/fd/3";
@@ -90,6 +117,14 @@ record KeePassXcKey(
     record Made(String entry, String fingerprint) {}
 
     /**
+     * The key an id made and the agent has not served yet: a retry takes it, and needs no password.
+     *
+     * @param entry Its entry.
+     * @param fingerprint Its fingerprint. The agent serving it proves it is that key.
+     */
+    private record Kept(String entry, String fingerprint) {}
+
+    /**
      * The real one: {@code keepassxc-cli} from {@code PATH}, on this process's own terminal.
      *
      * @return It.
@@ -97,7 +132,13 @@ record KeePassXcKey(
     static KeePassXcKey real() {
         final String self = "/proc/" + ProcessHandle.current().pid() + "/fd/";
         return new KeePassXcKey(
-                "keepassxc-cli", "keepassxc", WAIT, Path.of(self + "0"), Path.of(self + "2"));
+                "keepassxc-cli",
+                "keepassxc",
+                WAIT,
+                Path.of(self + "0"),
+                Path.of(self + "2"),
+                TYPING,
+                true);
     }
 
     /**
@@ -108,27 +149,40 @@ record KeePassXcKey(
      * @param entry The entry asked for, or {@code null} for one named after the login and now.
      * @param login Whose key it is, its comment.
      * @param socket The agent {@code SSH_AUTH_SOCK} names.
+     * @param action The change this is for, which names an id when none was given.
+     * @param id The change's id, or {@code null}: under an id that already made a key, that key is
+     *     waited for and no other is made.
      * @return The entry and the fingerprint the agent serves.
-     * @throws IdentityChange.Refused 64 {@code no-terminal} without a terminal and for an entry
-     *     path KeePassXC does not take; 65 {@code key-not-in-agent} when no agent answers, {@code
-     *     key-store-missing} without {@code keepassxc-cli}, {@code key-store-refused} when it
-     *     refuses, and {@code key-not-served} when the agent does not serve the key in time.
+     * @throws IdentityChange.Refused 64 {@code no-terminal} or {@code terminal-not-yours} for a
+     *     terminal that cannot be asked on, {@code no-password} for a password not typed in time,
+     *     and for an entry path KeePassXC does not take; 65 {@code key-not-in-agent} when no agent
+     *     answers, {@code key-store-missing} without {@code keepassxc-cli}, {@code
+     *     key-store-refused} when it refuses, and {@code key-not-served} when the agent does not
+     *     serve the key in time.
      */
     Made make(
             final PoreloContext context,
             final Path database,
             final @Nullable String entry,
             final String login,
-            final String socket)
+            final String socket,
+            final String action,
+            final @Nullable String id)
             throws IdentityChange.Refused {
-        if (!context.input().terminal()) {
+        usable(context);
+        final @Nullable Kept kept = id == null ? null : kept(context, id);
+        if (kept != null && entry != null && !entry.equals(kept.entry())) {
             throw new IdentityChange.Refused(
                     64,
-                    "no-terminal",
-                    "keepassxc-cli asks for the database's master password on a terminal, and"
-                            + " there is none; run this in a terminal");
+                    null,
+                    "the id "
+                            + id
+                            + " made its key into "
+                            + AnswerText.printable(kept.entry())
+                            + "; ask again without --entry, or with a new id");
         }
-        final String path = entry == null ? defaultEntry(login) : entry;
+        final String path =
+                kept != null ? kept.entry() : entry == null ? defaultEntry(login) : entry;
         if (!ENTRY.matcher(path).matches() || path.length() > 256) {
             throw new IdentityChange.Refused(
                     64,
@@ -151,9 +205,14 @@ record KeePassXcKey(
                             + AnswerText.printable(file.toString())
                             + "; nothing was made");
         }
-        final String fingerprint = handOver(context, file.toString(), path, login);
+        final String change = id != null ? id : newId(context, action);
+        final String fingerprint =
+                kept != null
+                        ? kept.fingerprint()
+                        : handOver(context, file.toString(), path, login, change);
         final Duration grace = patience.compareTo(GRACE) < 0 ? patience : GRACE;
         if (served(socket, fingerprint, grace)) {
+            forget(context, change);
             return new Made(path, fingerprint);
         }
         // KeePassXC loads an entry added while the database is open only once the database is
@@ -161,7 +220,7 @@ record KeePassXcKey(
         final boolean locked = lock(context);
         if (!locked) {
             // No KeePassXC runs to load the entry, and nobody can unlock it there: said at once.
-            throw notServed(path, file.toString(), fingerprint, false);
+            throw notServed(path, file.toString(), fingerprint, false, change);
         }
         show(context, file.toString());
         say(
@@ -174,9 +233,141 @@ record KeePassXcKey(
                         + patience.toSeconds()
                         + " s.\n");
         if (served(socket, fingerprint, patience)) {
+            forget(context, change);
             return new Made(path, fingerprint);
         }
-        throw notServed(path, file.toString(), fingerprint, true);
+        throw notServed(path, file.toString(), fingerprint, true, change);
+    }
+
+    /**
+     * Refuses before anything runs a terminal nobody could answer on.
+     *
+     * @param context The machine.
+     * @throws IdentityChange.Refused 64 {@code no-terminal} or {@code terminal-not-yours}.
+     */
+    void usable(final PoreloContext context) throws IdentityChange.Refused {
+        if (!context.input().terminal()) {
+            throw noTerminal("standard input is not a terminal");
+        }
+        if (judging) {
+            judged(terminalIn, "standard input");
+            judged(terminalOut, "standard error");
+        }
+    }
+
+    private static void judged(final Path descriptor, final String which)
+            throws IdentityChange.Refused {
+        final Path device;
+        try {
+            device = Files.readSymbolicLink(descriptor);
+        } catch (IOException | UnsupportedOperationException ex) {
+            throw noTerminal(
+                    "cannot read "
+                            + descriptor
+                            + " to see what "
+                            + which
+                            + " is, as under a /proc mounted with hidepid");
+        }
+        if (!StandardInput.isTerminal(descriptor)) {
+            throw noTerminal(which + " is not a terminal");
+        }
+        // The one name every process has for its own terminal, which belongs to root.
+        if (!device.toString().equals("/dev/tty")) {
+            try {
+                owned(Files.getOwner(device).getName(), System.getProperty("user.name"), which);
+            } catch (IOException ex) {
+                throw noTerminal(which + " is a terminal that cannot be read");
+            }
+        }
+        if (!Files.isReadable(device) || !Files.isWritable(device)) {
+            throw noTerminal(which + " is a terminal this account cannot open");
+        }
+    }
+
+    /**
+     * Refuses a terminal of another account, where {@code su} or {@code sudo -u} leaves it.
+     *
+     * @param owner Whose it is.
+     * @param me Who this is.
+     * @param which What it is to this process.
+     * @throws IdentityChange.Refused 64 {@code terminal-not-yours}.
+     */
+    static void owned(final String owner, final String me, final String which)
+            throws IdentityChange.Refused {
+        if (!owner.equals(me)) {
+            throw new IdentityChange.Refused(
+                    64,
+                    "terminal-not-yours",
+                    which
+                            + " is a terminal of "
+                            + AnswerText.printable(owner)
+                            + ", and this runs as "
+                            + AnswerText.printable(me)
+                            + ": keepassxc-cli could not ask there; log in as "
+                            + AnswerText.printable(me)
+                            + " rather than through su or sudo");
+        }
+    }
+
+    private static IdentityChange.Refused noTerminal(final String why) {
+        return new IdentityChange.Refused(
+                64,
+                "no-terminal",
+                "keepassxc-cli asks for the database's master password on a terminal, and "
+                        + why
+                        + "; run this in a terminal, with neither redirected");
+    }
+
+    private static Path keptDirectory(final PoreloContext context) {
+        return IdentityOperation.directory(context).resolveSibling("keepassxc");
+    }
+
+    private static Path keptFile(final PoreloContext context, final String id) {
+        return keptDirectory(context).resolve(id);
+    }
+
+    private static @Nullable Kept kept(final PoreloContext context, final String id)
+            throws IdentityChange.Refused {
+        final Path file = keptFile(context, id);
+        try {
+            if (!Files.isRegularFile(file, java.nio.file.LinkOption.NOFOLLOW_LINKS)) {
+                return null;
+            }
+            final List<String> lines = Files.readAllLines(file, StandardCharsets.UTF_8);
+            if (lines.size() != 2) {
+                throw new IOException(file + " is not the note of a key");
+            }
+            return new Kept(lines.get(0), lines.get(1));
+        } catch (IOException ex) {
+            throw new IdentityChange.Refused(ex);
+        }
+    }
+
+    private static void keep(
+            final PoreloContext context,
+            final String id,
+            final String entry,
+            final String fingerprint)
+            throws IdentityChange.Refused {
+        final Path file = keptFile(context, id);
+        try {
+            IdentityStore.privateDirectory(context.paths().xdg().state(), keptDirectory(context));
+            Files.writeString(file, entry + "\n" + fingerprint + "\n", StandardCharsets.UTF_8);
+        } catch (IOException ex) {
+            throw new IdentityChange.Refused(ex);
+        }
+    }
+
+    private static void forget(final PoreloContext context, final String id) {
+        try {
+            Files.deleteIfExists(keptFile(context, id));
+        } catch (IOException ex) {
+            // The note names a key the agent serves: a retry under this id only waits for it.
+        }
+    }
+
+    private static String newId(final PoreloContext context, final String action) {
+        return IdentityOperation.newId(context, action, IdentityChange.today());
     }
 
     /**
@@ -188,11 +379,19 @@ record KeePassXcKey(
             final PoreloContext context,
             final String database,
             final String entry,
-            final String login)
+            final String login,
+            final String id)
             throws IdentityChange.Refused {
         final SigningKey key = SigningKey.generate(login);
         final String fingerprint = PersonCard.fingerprint(PersonCard.keyLine(key));
+        keep(context, id, entry, fingerprint);
         final int added = run(context, new byte[0], "add", database, entry);
+        if (added != 0) {
+            forget(context, id);
+        }
+        if (added == TIMED_OUT) {
+            throw notTyped("nothing was kept");
+        }
         if (added == 126 || added == 127) {
             throw new IdentityChange.Refused(
                     65,
@@ -237,6 +436,15 @@ record KeePassXcKey(
                                 SETTINGS_ATTACHMENT,
                                 PIPE);
         if (settingsTaken != 0) {
+            forget(context, id);
+            final String left =
+                    settingsTaken == TIMED_OUT
+                            ? "it is not removed: remove it in KeePassXC"
+                            : removed(context, database, entry);
+            if (settingsTaken == TIMED_OUT) {
+                throw notTyped(
+                        "the entry " + AnswerText.printable(entry) + " was made and " + left);
+            }
             throw new IdentityChange.Refused(
                     65,
                     "key-store-refused",
@@ -244,9 +452,55 @@ record KeePassXcKey(
                             + AnswerText.printable(entry)
                             + " but did not take "
                             + (keyTaken != 0 ? "the key" : "its agent settings")
-                            + "; remove that entry in KeePassXC, nothing was kept here");
+                            + "; "
+                            + left);
         }
         return fingerprint;
+    }
+
+    private IdentityChange.Refused notTyped(final String left) {
+        return new IdentityChange.Refused(
+                64,
+                "no-password",
+                "the master password was not typed within " + typing.toSeconds() + " s; " + left);
+    }
+
+    /**
+     * Takes an entry a refused attachment left, once: a second {@code rm} would have to tell the
+     * bin's name in the database's language.
+     *
+     * @return What is left in the database, in words.
+     */
+    private String removed(final PoreloContext context, final String database, final String entry) {
+        final String shown = String.valueOf(AnswerText.printable(entry));
+        final CommandResult result;
+        try {
+            result =
+                    context.runner()
+                            .run(
+                                    Command.of(
+                                                    "sh",
+                                                    "-c",
+                                                    ASKING,
+                                                    "porelo-keepassxc",
+                                                    terminalIn.toString(),
+                                                    terminalOut.toString(),
+                                                    String.valueOf(typing.toSeconds()),
+                                                    program,
+                                                    "rm",
+                                                    database,
+                                                    entry)
+                                            .withEnvironment(Map.of("LC_ALL", "C")));
+        } catch (CommandException ex) {
+            return "it is not removed: remove " + shown + " in KeePassXC";
+        }
+        if (result.exitCode() != 0) {
+            return "it is not removed: remove " + shown + " in KeePassXC";
+        }
+        return result.standardOutput().contains("recycled")
+                ? "it went to the database's recycle bin, where the private key stays until the"
+                        + " bin is emptied"
+                : "it was removed";
     }
 
     /**
@@ -265,6 +519,7 @@ record KeePassXcKey(
                                 "porelo-keepassxc",
                                 terminalIn.toString(),
                                 terminalOut.toString(),
+                                String.valueOf(typing.toSeconds()),
                                 program));
         all.addAll(List.of(arguments));
         try {
@@ -343,8 +598,10 @@ record KeePassXcKey(
             final String entry,
             final String database,
             final String fingerprint,
-            final boolean locked) {
+            final boolean locked,
+            final String id) {
         final Map<String, @Nullable Object> more = new LinkedHashMap<>();
+        more.put("id", id);
         more.put("entry", entry);
         more.put("fingerprint", fingerprint);
         final String shown = String.valueOf(AnswerText.printable(database));
@@ -364,7 +621,9 @@ record KeePassXcKey(
                                 : ", and KeePassXC is not running to give it to the agent: open "
                                         + shown
                                         + " in KeePassXC with its SSH agent integration on")
-                        + ", then name the key with --key "
+                        + ", then ask again with --id "
+                        + id
+                        + ", which makes no second key, or name the key with --key "
                         + fingerprint,
                 more);
     }

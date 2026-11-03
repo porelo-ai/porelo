@@ -45,6 +45,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b385"></a>[B385](B385-A-KeePassXC-Key-That-Is-Usable.md) | L | - | `--keepassxc` asks the master password once, a retry takes the key already made, no empty entry left, a clear refusal under `su` or a redirected stderr, aligned exit codes |
 | <a id="b214"></a>[B214](B214-A-Vault-Entry-Put-Again-Unchanged.md) | M | - | `vault put` given the value an entry already holds says `unchanged` and exits 0, so a second play reports nothing changed |
 | <a id="b154"></a>[B154](B154-A-Tamper-Evident-Event-Log-Per-Node.md) | L | - | One hash-chained event log per account, anchored in the user's journal, optionally copied off the machine, kept by `porelo clear`; written by approve, reject, clearance, hand-in, credentials and project changes.; part 1 built, the copy off the machine after it |
 | <a id="b398"></a>[B398](B398-A-Test-That-Cannot-Reach-The-Persons-Vault.md) | - | - | A test that builds a command the wrong way falls to the real context, and so to the person's vault |
@@ -62,7 +63,6 @@ from its side, as *blocked by*.
 | <a id="b321"></a>[B321](B321-A-Long-Command-Says-What-It-Is-Doing.md) | M | - | A long command shows what it is doing while it runs: a transport's stderr streamed line by line, each line redacted against the secrets handed in, and a phase line for the other long commands a sweep finds |
 | <a id="b336"></a>[B336](B336-A-Repository-Says-Whether-A-Merge-Needs-A-Review.md) | S | - | `project.review` and `repositories.<name>.review` are `required` (the default) or `optional`, any other value refused, and answered to the host by `verify --json` |
 | <a id="b371"></a>[B371](B371-A-History-Judged-Under-The-Rules-Of-Its-Time.md) | M | - | A history mode of `porelo commit verify`: each commit judged by the keys and certificates in force at its own time, for a migrated history before the hook is armed |
-| <a id="b385"></a>[B385](B385-A-KeePassXC-Key-That-Is-Usable.md) | L | [B391](README.md#b391) | `--keepassxc` asks the master password once, a retry takes the key already made, no empty entry left, a clear refusal under `su` or a redirected stderr, aligned exit codes |
 
 ## Analyzed
 
