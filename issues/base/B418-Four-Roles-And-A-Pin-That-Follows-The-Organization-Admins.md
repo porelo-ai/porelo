@@ -1,6 +1,6 @@
 # B418 — Four Roles And A Pin That Follows The Organization Admins
 
-**Status:** Accepted.
+**Status:** Implementing.
 **Severity:** high: this changes who holds what in every organization, and what one stolen key reaches on every server.
 
 **What must be true, by the operator's word of 2026-11-03.** Each level answers for the one below and may always create, change
