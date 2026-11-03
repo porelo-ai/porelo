@@ -158,7 +158,9 @@ Every process of the account can read the held share, locally and over SSH, incl
 `ssh-add -c` is the person's way to narrow that access. All daemon methods require the connection's
 `SO_PEERCRED` uid to match the daemon's uid; its socket is bound inside a directory with mode `0700`.
 The connecting command checks the server's kernel uid before sending a share. Socket directory ownership is
-checked numerically without following a symlink, and a symlinked parent is refused.
+checked numerically without following a symlink, and a symlinked parent is refused. Not held by a test, as each needs
+a root-owned directory, a second account or a race: the allowance for root's group, a link of another account, and a directory
+swapped for a link while it is judged.
 
 The daemon's background watches use its owner directly. Lock, forget and clear drop its decrypted conversation
 cache immediately. Clearing asks the owner to forget before deleting the encrypted vault, and refuses if that

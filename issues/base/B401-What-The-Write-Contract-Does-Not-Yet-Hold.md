@@ -3,7 +3,7 @@
 **Status:** Idea.
 
 **What must be true.** A store that takes what the organization's rules refuse fails `WritesContract`. Today a store
-can do each thing below and still pass every check of [B392](README.md#b392): none of them is held. No fault in the Git
+can do each thing below and still pass every check of `organization/contract`: none of them is held. No fault in the Git
 adapter is known from them; they were found by reading the checks, with nothing run.
 
 ## Plan

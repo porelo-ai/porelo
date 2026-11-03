@@ -58,8 +58,8 @@ timeout reads as exit 127, `key-store-missing` (`:273-275`).
    key exists (`WatchService`), rather than one look at `attachment-import`.
 
 **Files:** `KeePassXcKey`, the three `Identity*Command`s, `IdentityChange`, `IdentityOperation`, `StandardInput`; tests
-`IdentityKeePassXcTest`, `IdentityRotateCommandTest`, `IdentityCreateCommandTest`, `KeePassXcStandIn`. Built after
-[B391](README.md#b391), which rewrites `IdentityChange` and gives `create` its `--id`; line numbers are read again then.
+`IdentityKeePassXcTest`, `IdentityRotateCommandTest`, `IdentityCreateCommandTest`, `KeePassXcStandIn`. `IdentityChange` was
+rewritten for the new organization, and `create` has its `--id`; line numbers are read again before building.
 
 **Red first:** one test per refusal of step 1 through the stand-in, its `arguments` file empty; and for step 3, `rotate`
 with `--entry` naming the old key's entry, which today's plan would have adopted.

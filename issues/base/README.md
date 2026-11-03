@@ -22,12 +22,9 @@ from its side, as *blocked by*.
 |---|---|---|---|
 | <a id="b402"></a>[B402](B402-A-Clients-Prepare-Reads-The-Organization-As-The-Command-Line-Does.md) | S | - | A client's `Prepare` of an organization's project reads it as `porelo task prepare` does, not only what the last start placed |
 | <a id="b409"></a>[B409](B409-A-Project-With-No-Address-Goes-On-No-Host.md) | S | - | `org host carry` refuses a project with no valid address, at once and with its reason, and the window says the same |
-| <a id="b392"></a>[B392](B392-Checks-Every-Organization-Adapter-Passes.md) | M | - | The store's security requirements as checks any adapter runs, failing against one that takes an unsigned change, an older state or a revoked card |
-| <a id="b391"></a>[B391](B391-The-Cut-To-The-New-Organization.md) | L | - | The cut: `identity` files through the store on `git-tree`, and everything that reads or writes the old registry goes |
 | <a id="b387"></a>[B387](B387-A-Project-Followed-Before-Its-Access-File-Exists.md) | S | - | A project whose access repository is still empty is followed, so `project access init` can write its first access commit |
 | <a id="b388"></a>[B388](B388-A-Registry-Owner-Check-With-An-App-Token.md) | S | - | The registry's owner check takes a GitHub App installation token declared in a variable, never kept in the vault |
 | <a id="b389"></a>[B389](B389-A-Stopped-Test-Walks-Core-Findings.md) | S | - | Directories without group write, the lent key named, no Unsafe warning, and setup on a host vault said in words |
-| <a id="b345"></a>[B345](B345-A-Host-Vault-Opened-By-The-Persons-Key.md) | L | - | A host account's vault has one keyslot, a share derived on the person's machine from their SSH signature and kept in locked memory on the host; a lost key means a new vault, answered `other-key` |
 | <a id="b329"></a>[B329](B329-A-Forced-Removal-Kills-What-Outlives-Its-Stop.md) | S | - | `task remove --force` kills a helper or descendant that outlives SIGTERM, counts a zombie as stopped, and reports only what lives after SIGKILL |
 | <a id="b314"></a>[B314](B314-A-Project-Admin-Keeps-The-Rooms-Members-To-The-List.md) | S | - | The project admin's Porelo makes the room (`talk room`) and, after each applied commit, keeps its machines to the signed developer list through the transport's `members`. |
 | <a id="b331"></a>[B331](B331-A-Follow-Takes-The-Access-File-From-A-Bundle.md) | S | - | `project follow ... --access-repository <path\|bundle>` takes the access file from a bundle, checked as a fetched one, for a host that cannot fetch its URL |
@@ -35,7 +32,6 @@ from its side, as *blocked by*.
 | <a id="b206"></a>[B206](B206-A-Transport-Takes-Its-Secrets-On-Its-Input.md) | L | - | A transport takes the secrets Porelo kept for it on its standard input, not in its environment, so no other process of the account can read them from `/proc`; a version declared in `describe`, with the matrix transport's matching change. |
 | <a id="b238"></a>[B238](B238-An-Unfollow-Leaves-Nothing-Of-The-Project.md) | M | - | `project unfollow` removes the project's build lock and upstream copies, so `porelo prune` finds nothing of it; following stops first, under the clone's lock, which a removal never leaves to two holders |
 | <a id="b361"></a>[B361](B361-An-Agent-Starts-Only-The-Subagents-Its-Task-Allows.md) | M | - | Porelo's agent interface carries how many subagents an agent may start in a task, default none, and refuses a value the agent cannot enforce |
-| <a id="b390"></a>[B390](B390-The-Organizations-API-Apart-From-Its-Git-Reading.md) | L | - | Porelo asks for its organization through an API that says nothing of Git, today's registry reading behind it, with nothing visible changed |
 | <a id="b393"></a>[B393](B393-A-Task-Of-The-Default-Project-Never-Joins-A-Room.md) | S | - | A task of the project `default` never joins a room, whatever the machine or host has; a repository name that could write a `mail` section into its file is refused. |
 | <a id="b395"></a>[B395](B395-A-Transport-Borrows-The-Token-Its-Lifecycle-Needs.md) | S | - | A transport says in `describe` which secret of the person's a lifecycle verb needs, and Porelo lends it from the vault for that verb alone. |
 
@@ -251,6 +247,10 @@ from its side, as *blocked by*.
 
 | # | Title | What was built |
 |---|---|---|
+| <a id="b390"></a>B390 | The Organization's API Apart From Its Git Reading | Porelo asks for its organization through `organization/api`, which says nothing of Git, with the store's reading behind it in an adapter, and nothing a person, host or interface sees changed |
+| <a id="b391"></a>B391 | The Cut To The New Organization | `identity` files through the store's writes on `organization/git-tree`, the adapter alone commits and signs, and every command, daemon method and adapter of the old registry is gone |
+| <a id="b392"></a>B392 | Checks Every Organization Adapter Passes | `organization/contract` holds what any store must guarantee as checks an adapter runs against itself, the Git adapter passes them, and a broken stand-in for each requirement fails |
+| <a id="b345"></a>B345 | A Host Vault Opened By The Person's Key | A host account's vault has one kind of slot, a share derived on the person's machine from their SSH signature and sent alone over SSH by `host unlock`, kept in the daemon's locked memory until a reboot or a lock |
 | <a id="b224"></a>B224 | An Agent Protocol That Only Grows | The handshake accepts an agent at or above `AgentProtocol.LOWEST`, a newer one included, `Agent1` only grows, and a method an agent lacks reads as "cannot say", never as nothing found, so agents need not release in step with `porelo` |
 | <a id="b225"></a>B225 | The Agent Found On The Machine | A start without `--agent` and `--provider` takes the agent found signed in on the machine, with that provider, and names the choice and where it was found; `Agent1.Find` answers presence only, with "cannot say", and a flag or the project file still wins |
 | <a id="b226"></a>B226 | An Imported Credential Names Its Provider | `vault import --provider NAME` imports that provider's sign-in from an agent holding several and stores it under that name; an answer for another provider is refused, nothing stored |

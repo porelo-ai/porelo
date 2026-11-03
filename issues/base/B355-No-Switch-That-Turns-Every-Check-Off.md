@@ -64,9 +64,8 @@ with the places found by grep; *planned* names host work still being built.
 | SELinux type `porelo_socket`: containers may only `connectto`, never bind one | one task's token from another | the person, other tasks | `selinux/porelo_socket.te` |
 | No socket taken from a live process | availability | the person | `wire/.../LiveSocket.java:39` |
 
-On `main` the daemon socket relies on its file mode alone; [B345](README.md#b345), about to be handed over,
-adds the kernel's peer uid (`SO_PEERCRED`) on every varlink server and on both ends of the host vault's
-exchange, and judges the directories above the socket.
+Every varlink server checks the kernel's peer uid (`SO_PEERCRED`), and both ends of the host vault's exchange do and
+judge the directories above the socket.
 
 **Container hardening**
 
