@@ -4,3 +4,5 @@ The build-tool plugins' side of Porelo: the contract a plugin and Porelo share, 
 
 - [api](api/README.md)
 - [stub](stub/README.md)
+
+See [writing a build-tool plugin](../doc/ecosystem-plugins.md) for installation and the contract.

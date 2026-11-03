@@ -1,5 +1,5 @@
 # What a build-tool plugin answers: what it recognizes of its tool in a directory, and the settings files that tool
-# needs in a task. A plugin runs without network, never runs the project's code, and holds no credential.
+# needs in a task. A plugin opens no connection, never runs the project's code, and holds no credential.
 # Every field is required and of its declared type, an int being whole: an answer with one missing or of another type is
 # refused, never read as empty or false.
 interface org.fuin.porelo.Ecosystem1

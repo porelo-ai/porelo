@@ -139,6 +139,17 @@ public record PoreloPaths(
         return null;
     }
 
+    /**
+     * Returns plugin locations, with the account's own taking precedence over packages.
+     *
+     * @return Directories passed to ecosystem discovery.
+     */
+    public java.util.List<Path> ecosystemDirectories() {
+        return java.util.List.of(
+                xdg.data().resolve("ecosystems"),
+                packaged(Path.of("/usr/libexec/porelo/ecosystems")));
+    }
+
     /** Environment variable naming a vault other than this user's own. */
     public static final String VAULT_VARIABLE = "PORELO_VAULT";
 

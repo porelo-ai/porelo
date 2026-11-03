@@ -17,6 +17,29 @@ import org.junit.jupiter.params.provider.ValueSource;
 class PoreloPathsTest {
 
     @Test
+    void ecosystemDiscoveryChecksTheAccountBeforeTheRedirectedPackages(@TempDir Path dir) {
+        final String previous = System.getProperty(PoreloPaths.PACKAGED_ROOT);
+        final Path packages = dir.resolve("packages");
+        System.setProperty(PoreloPaths.PACKAGED_ROOT, packages.toString());
+        try {
+            final XdgPaths xdg = XdgPaths.of(name -> null, dir);
+            final PoreloPaths paths = new PoreloPaths(xdg, dir.resolve("bin"));
+            assertThat(paths.ecosystemDirectories())
+                    .as(
+                            "plugin discovery checks the account before the redirected package directory")
+                    .containsExactly(
+                            xdg.data().resolve("ecosystems"),
+                            packages.resolve("usr/libexec/porelo/ecosystems"));
+        } finally {
+            if (previous == null) {
+                System.clearProperty(PoreloPaths.PACKAGED_ROOT);
+            } else {
+                System.setProperty(PoreloPaths.PACKAGED_ROOT, previous);
+            }
+        }
+    }
+
+    @Test
     void prefersTheOperatorsOwnBuildOverThePackage(@TempDir Path dir) throws IOException {
 
         // Given

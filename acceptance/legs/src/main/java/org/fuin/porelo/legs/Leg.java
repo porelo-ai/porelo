@@ -108,6 +108,20 @@ public final class Leg {
     }
 
     /**
+     * Installs the ecosystem stub into the account when it was built or uploaded.
+     *
+     * @param binary The built executable, quoted for the shell.
+     * @return The command, which also succeeds when no binary was built.
+     */
+    static String installEcosystemStub(final String binary) {
+        return "if [ -f "
+                + binary
+                + " ]; then install -D -m 0755 "
+                + binary
+                + " \"${XDG_DATA_HOME:-$HOME/.local/share}/porelo/ecosystems/stub-ecosystem\"; fi";
+    }
+
+    /**
      * What a leg sends home, and what the publish job installs: one path from the tree's root per
      * line.
      *

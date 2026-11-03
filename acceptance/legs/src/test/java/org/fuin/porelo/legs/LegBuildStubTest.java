@@ -61,6 +61,22 @@ class LegBuildStubTest {
         assertThat(home.resolve(".local/share/porelo/builds/stub-forge")).isExecutable();
     }
 
+    @Test
+    void installsTheEcosystemStubEvenWhenAnUploadDroppedItsExecuteBit() throws Exception {
+        final Path home = Files.createDirectories(dir.resolve("home"));
+        final Path binary = dir.resolve("porelo-ecosystem-stub");
+        sh(home, Leg.installEcosystemStub(binary.toString()));
+        assertThat(home.resolve(".local/share/porelo/ecosystems"))
+                .as("an absent build installs nothing")
+                .doesNotExist();
+        Files.writeString(binary, "an uploaded plugin");
+        sh(home, Leg.installEcosystemStub(binary.toString()));
+        assertThat(home.resolve(".local/share/porelo/ecosystems/stub-ecosystem"))
+                .as("install supplies the execute bit and preserves the plugin")
+                .isExecutable()
+                .hasContent("an uploaded plugin");
+    }
+
     private String sh(final Path home, final String command)
             throws IOException, InterruptedException {
         final ProcessBuilder builder =
@@ -68,6 +84,7 @@ class LegBuildStubTest {
                         .directory(home.toFile())
                         .redirectErrorStream(true);
         builder.environment().put("HOME", home.toString());
+        builder.environment().put("XDG_DATA_HOME", home.resolve(".local/share").toString());
         final Process process = builder.start();
         final String out =
                 new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8).strip();

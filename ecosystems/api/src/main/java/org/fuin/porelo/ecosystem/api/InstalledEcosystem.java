@@ -275,6 +275,7 @@ public final class InstalledEcosystem implements AutoCloseable {
                             },
                             READY_SECONDS);
             handshake(
+                    executable,
                     bounded(
                             process,
                             () -> client.call(EcosystemProtocol.DESCRIBE, Map.of()),
@@ -294,7 +295,7 @@ public final class InstalledEcosystem implements AutoCloseable {
         }
     }
 
-    private void handshake(final Map<String, Object> answer) {
+    static void handshake(final Path executable, final Map<?, ?> answer) {
         final String refused =
                 refusal(
                         executable,
@@ -303,7 +304,10 @@ public final class InstalledEcosystem implements AutoCloseable {
         if (refused != null) {
             throw fault(refused);
         }
-        final String says = String.valueOf(answer.get("ecosystem"));
+        if (!(answer.get("ecosystem") instanceof String says)) {
+            throw fault(executable + " describes no string ecosystem");
+        }
+        final String ecosystem = executable.getFileName().toString();
         if (!ecosystem.equals(says)) {
             throw fault(
                     executable

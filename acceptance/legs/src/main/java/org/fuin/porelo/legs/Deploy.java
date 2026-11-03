@@ -231,10 +231,28 @@ final class Deploy {
             }
         }
 
+        final Path ecosystemStub =
+                repository.resolve("ecosystems/stub/target/porelo-ecosystem-stub");
+        if (Files.isRegularFile(ecosystemStub)) {
+            final String ecosystemStaging = staging(remote);
+            try {
+                final String uploaded = ecosystemStaging + "/porelo-ecosystem-stub";
+                remote.upload(ecosystemStub, uploaded);
+                if (!must(remote, Leg.installEcosystemStub(AgentLeg.quote(uploaded)), out)) {
+                    return 1;
+                }
+            } finally {
+                remote.run("rm -rf " + AgentLeg.quote(ecosystemStaging));
+            }
+        }
+
         // The build readers a handover carries beside the packages - builds/github,
         // builds/stub-forge - for the account alone, under the names Porelo finds them by; left
         // out, each walk needed them put in by hand.
-        if (scope == Scope.ACCOUNT && !installReaders(repository.resolve("builds"), remote, out)) {
+        if (scope == Scope.ACCOUNT
+                && (!installReaders(repository.resolve("builds"), "builds", remote, out)
+                        || !installReaders(
+                                repository.resolve("ecosystems"), "ecosystems", remote, out))) {
             return 1;
         }
 
@@ -421,7 +439,7 @@ final class Deploy {
         return directory;
     }
 
-    private static boolean installReaders(Path builds, Remote remote, PrintStream out)
+    private static boolean installReaders(Path builds, String area, Remote remote, PrintStream out)
             throws IOException {
         if (!Files.isDirectory(builds)) {
             return true;
@@ -431,6 +449,11 @@ final class Deploy {
             readers =
                     files.filter(Files::isRegularFile)
                             .filter(Files::isExecutable)
+                            .filter(
+                                    path ->
+                                            path.getFileName()
+                                                    .toString()
+                                                    .matches("[a-z][a-z0-9-]{0,62}"))
                             .sorted()
                             .toList();
         }
@@ -441,14 +464,16 @@ final class Deploy {
         try {
             for (final Path reader : readers) {
                 final String name = reader.getFileName().toString();
-                say(out, "installing the build reader '" + name + "'");
+                say(out, "installing the " + area + " plugin '" + name + "'");
                 final String remoteReader = staging + "/" + name;
                 remote.upload(reader, remoteReader);
                 if (!must(
                         remote,
                         "install -D -m 0755 "
                                 + AgentLeg.quote(remoteReader)
-                                + " \"$HOME/.local/share/porelo/builds/"
+                                + " \"${XDG_DATA_HOME:-$HOME/.local/share}/porelo/"
+                                + area
+                                + "/"
                                 + name
                                 + "\"",
                         out)) {

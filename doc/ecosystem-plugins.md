@@ -1,0 +1,76 @@
+# Writing a build-tool plugin
+
+A build-tool plugin recognizes one tool's settings and returns the settings files that tool needs in a task.
+It is a native executable installed separately from Porelo. Porelo discovers it at run time through the
+[ecosystem API](https://github.com/porelo-ai/porelo/tree/main/ecosystems/api).
+
+A plugin runs normally on the developer's machine as the developer's account. It must open no connection,
+never run the project's code, and write nothing itself. These are obligations of the plugin contract;
+Porelo does not enforce them with a network namespace or a sandbox. Install only plugins you trust with
+the files that account can read. The plugin process starts with an empty environment.
+
+## Installing a plugin
+
+Install the executable under its ecosystem name, matching `[a-z][a-z0-9-]{0,62}`, in one of these directories:
+
+1. `$XDG_DATA_HOME/porelo/ecosystems`, under its usual default when unset.
+2. `/usr/libexec/porelo/ecosystems` for a machine package.
+
+Discovery considers executable regular files only and sorts names within each directory. The first directory
+wins for each name, even if its plugin is broken. A broken plugin remains in the discovery answer with its
+name and the reason it was refused; the other plugins are still checked. Remove or replace a broken local
+copy to use the packaged copy of that name.
+
+Discovery calls each executable with `describe`. Its standard output is a JSON object containing
+`protocolVersion` and `ecosystem`. The ecosystem must equal the executable's file name. A description has
+ten seconds to finish and may contain at most 64 KB. A protocol version below `EcosystemProtocol.LOWEST`
+is refused; a newer version is accepted because Porelo asks only methods it knows.
+
+## Implementing the contract
+
+Build against `org.fuin.porelo:porelo-ecosystem-api` and `org.fuin.porelo:porelo-wire`, importing
+`org.fuin.porelo:porelo-bom` for their versions. The API and wire library use Apache-2.0, so a plugin may
+choose its own license. Implement `Ecosystem` and pass it to `EcosystemMain.run` from the executable's main
+method. That supplies `describe` and `serve <socket>`. Build the executable with GraalVM Native Image.
+
+`serve` listens on the Unix socket Porelo names, prints `ready <socket>` after it listens, and serves
+`org.fuin.porelo.Ecosystem1`. Porelo ends the process when it closes the client. The
+[published interface](https://github.com/porelo-ai/porelo/blob/main/ecosystems/api/src/main/resources/org/fuin/porelo/ecosystem/api/org.fuin.porelo.Ecosystem1.varlink)
+is the wire contract; the API's server and client implement it together.
+
+`Describe()` returns the protocol version and ecosystem. Both discovery and the running client's handshake
+check them. The interface only grows: optional additions let older plugins keep working, and a method
+missing from an older plugin means it cannot say, never that it found nothing. A breaking change raises
+the lowest accepted version.
+
+`Detect(directory, home)` reads settings in the given checkout and the person's home. It returns `findings`
+and `unplaced`. Each finding has a `part` of `TOOLS` or `RULES`, a `key`, `value`, `file`, `line`, `origin`,
+`unknown`, and `note`. `YOURS` paths are relative to the home; `CHECKOUT` paths are relative to the checkout.
+`MACHINE` covers values from neither, such as a tool's default or a parent in a local repository; its path
+may be absolute outside the home, or empty with line zero when there is no file. A path contains no `..`.
+A line is zero when the file has no line for the value.
+
+If a value cannot be read without running code, set `unknown` to true and leave `value` empty. Name a
+credential by its id only, never by its value. Report material that cannot be placed as `unplaced`, with
+its file, line, and note. Do not execute a build file to learn what it would do.
+
+`Configure(repositories)` receives each declared repository's name and URL inside the task. It returns
+`files`, each with a `path`, `content`, and `ownerOnly`. A path is relative to the task user's home, with
+no empty segment, `.` or `..`, quote, backslash, or control character. Porelo places these files; the plugin
+writes nothing. There is no checkout directory in this question because the workspace stays inside the
+container. Return settings whenever a repository is declared, without inspecting a workspace on the host.
+
+A directory with nothing of this tool answers `NotRecognized`. A file the plugin needs but cannot read
+answers `Unreadable(detail)`, naming the file and reason without exposing credentials. Neither refusal
+is an empty detection.
+
+## Testing a plugin
+
+The [stub](https://github.com/porelo-ai/porelo/tree/main/ecosystems/stub) answers from `answers.json` beside
+its executable, read again on every call. Its `detect` member holds `findings` and `unplaced`; its
+`configure` member holds `files`. A `refuse` member holds a `reason` and `detail`. The acceptance installer
+places this executable in the account's ecosystem directory under `stub-ecosystem`.
+
+A plugin's tests should exercise its server through `InstalledEcosystem`, check findings' files and lines,
+and verify that unknown values, unreadable files, and credentials obey the contract. Discovery tests should
+also check that its `Describe` names the installed executable.

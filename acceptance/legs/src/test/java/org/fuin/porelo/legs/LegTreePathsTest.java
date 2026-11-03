@@ -85,6 +85,7 @@ class LegTreePathsTest {
             executable(tree.resolve(binary));
         }
         executable(tree.resolve("builds/stub/target/porelo-build-stub"));
+        executable(tree.resolve("ecosystems/stub/target/porelo-ecosystem-stub"));
         for (final String kept : List.of("providers", "egress")) {
             Files.createDirectories(tree.resolve(kept));
             try (Stream<Path> yaml = Files.list(ROOT.resolve(kept))) {
@@ -103,6 +104,9 @@ class LegTreePathsTest {
         assertThat(home.resolve(".local/bin/porelo-hook-nft")).isRegularFile();
         assertThat(home.resolve(".local/share/porelo/agents/porelo-agent-stub")).isRegularFile();
         assertThat(home.resolve(".local/share/porelo/builds/stub-forge")).isExecutable();
+        assertThat(home.resolve(".local/share/porelo/ecosystems/stub-ecosystem"))
+                .as("the tree install includes the ecosystem stub")
+                .isExecutable();
         assertThat(home.resolve(".local/share/porelo/providers")).isNotEmptyDirectory();
         assertThat(home.resolve(".local/share/porelo/egress")).isNotEmptyDirectory();
     }
@@ -167,6 +171,7 @@ class LegTreePathsTest {
                         .directory(tree.toFile())
                         .redirectErrorStream(true);
         builder.environment().put("HOME", home.toString());
+        builder.environment().put("XDG_DATA_HOME", home.resolve(".local/share").toString());
         final Process process = builder.start();
         final String out =
                 new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8).strip();

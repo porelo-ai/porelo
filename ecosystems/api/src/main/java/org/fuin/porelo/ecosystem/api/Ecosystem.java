@@ -8,8 +8,9 @@ import java.util.List;
  * repositories at a time.
  *
  * <p>A plugin in its own repository implements this, and its main method hands it to {@link
- * EcosystemMain#run}; Porelo finds the executable, starts it without network, and asks it over
- * {@link EcosystemProtocol#INTERFACE}. It never runs the project's code and holds no credential.
+ * EcosystemMain#run}; Porelo finds the executable, starts it normally, and asks it over {@link
+ * EcosystemProtocol#INTERFACE}. It opens no connection, never runs the project's code and holds no
+ * credential.
  */
 public interface Ecosystem {
 

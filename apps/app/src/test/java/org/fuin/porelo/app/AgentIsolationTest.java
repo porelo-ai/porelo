@@ -141,6 +141,42 @@ class AgentIsolationTest {
         assertThat(offences).as("provider names used as string literals in Java").isEmpty();
     }
 
+    @Test
+    void onlyTheEcosystemApiIsVisibleOutsideTheEcosystemModules() {
+        final JavaClasses classes = new ClassFileImporter().importPackages("org.fuin.porelo");
+        noClasses()
+                .that()
+                .resideOutsideOfPackage("org.fuin.porelo.ecosystem..")
+                .should()
+                .dependOnClassesThat(
+                        com.tngtech.archunit.base.DescribedPredicate.describe(
+                                "an ecosystem package outside its API",
+                                type ->
+                                        type.getPackageName()
+                                                        .startsWith("org.fuin.porelo.ecosystem.")
+                                                && !type.getPackageName()
+                                                        .equals("org.fuin.porelo.ecosystem.api")
+                                                && !type.getPackageName()
+                                                        .startsWith(
+                                                                "org.fuin.porelo.ecosystem.api.")))
+                .because("plugins are discovered through the ecosystem API")
+                .allowEmptyShould(true)
+                .check(classes);
+    }
+
+    @Test
+    void noEcosystemStubNameAppearsAsAStringLiteralOutsideTheEcosystemModules() throws IOException {
+        final Path root = repositoryRoot();
+        assertThat(root.resolve("ecosystems/stub/src/main/java"))
+                .as("the implementation excluded from the scan exists")
+                .isDirectory();
+        final List<String> offences = new ArrayList<>();
+        sources(root, true).stream()
+                .filter(path -> !root.relativize(path).startsWith("ecosystems"))
+                .forEach(path -> scan(root, path, List.of("stub-ecosystem"), offences));
+        assertThat(offences).as("ecosystem names used outside ecosystems/").isEmpty();
+    }
+
     /**
      * Returns the providers this repository declares, taken from the files themselves so the rule
      * needs no maintaining when one is added.

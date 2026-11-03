@@ -8,7 +8,7 @@
 # tree laid out as a build leaves it.
 set -eu
 bin="$HOME/.local/bin"
-share="$HOME/.local/share/porelo"
+share="${XDG_DATA_HOME:-$HOME/.local/share}/porelo"
 mkdir -p "$bin" "$share/agents" "$share/providers" "$share/egress"
 agents=0
 while read -r binary; do
@@ -29,4 +29,7 @@ cp providers/*.yaml "$share/providers/"
 cp egress/*.yaml "$share/egress/"
 if [ -x builds/stub/target/porelo-build-stub ]; then
     install -D -m 0755 builds/stub/target/porelo-build-stub "$share/builds/stub-forge"
+fi
+if [ -f ecosystems/stub/target/porelo-ecosystem-stub ]; then
+    install -D -m 0755 ecosystems/stub/target/porelo-ecosystem-stub "$share/ecosystems/stub-ecosystem"
 fi

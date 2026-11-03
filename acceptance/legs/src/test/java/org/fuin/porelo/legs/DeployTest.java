@@ -487,11 +487,73 @@ class DeployTest {
                         command ->
                                 command.contains("install -D -m 0755")
                                         && command.contains(
-                                                "\"$HOME/.local/share/porelo/builds/github\""))
+                                                "\"${XDG_DATA_HOME:-$HOME/.local/share}/porelo/builds/github\""))
                 .anyMatch(
                         command ->
                                 command.contains(
-                                        "\"$HOME/.local/share/porelo/builds/stub-forge\""));
+                                        "\"${XDG_DATA_HOME:-$HOME/.local/share}/porelo/builds/stub-forge\""));
+    }
+
+    @Test
+    void installsBuiltAndCarriedEcosystemPluginsIntoTheAccount() throws IOException {
+        deb();
+        final Path built = repository.resolve("ecosystems/stub/target/porelo-ecosystem-stub");
+        Files.createDirectories(built.getParent());
+        Files.writeString(built, "uploaded without execute permission");
+        final Path carried = repository.resolve("ecosystems/example");
+        Files.writeString(carried, "plugin");
+        carried.toFile().setExecutable(true);
+        Files.writeString(repository.resolve("ecosystems/README.md"), "not a plugin");
+        accountRunsItsOwn();
+
+        assertThat(
+                        Deploy.deploy(
+                                "alice@host",
+                                repository,
+                                "7.1",
+                                true,
+                                Deploy.Scope.ACCOUNT,
+                                machine,
+                                run -> 0,
+                                out))
+                .as(text())
+                .isZero();
+        assertThat(machine.uploads)
+                .as("both plugin sources are uploaded")
+                .containsKeys(built, carried)
+                .doesNotContainKey(repository.resolve("ecosystems/README.md"));
+        assertThat(machine.commands)
+                .as("both sources go into ecosystem discovery's directory")
+                .anyMatch(command -> command.contains("/porelo/ecosystems/stub-ecosystem"))
+                .anyMatch(command -> command.contains("/porelo/ecosystems/example"));
+    }
+
+    @Test
+    void aCarriedPluginNameCannotBecomeAShellExpression() throws IOException {
+        deb();
+        final Path plugins = Files.createDirectories(repository.resolve("ecosystems"));
+        final Path invalid = Files.writeString(plugins.resolve("example$(id)"), "plugin");
+        invalid.toFile().setExecutable(true);
+        accountRunsItsOwn();
+
+        assertThat(
+                        Deploy.deploy(
+                                "alice@host",
+                                repository,
+                                "7.1",
+                                true,
+                                Deploy.Scope.ACCOUNT,
+                                machine,
+                                run -> 0,
+                                out))
+                .as(text())
+                .isZero();
+        assertThat(machine.uploads)
+                .as("a name discovery would ignore is never installed")
+                .doesNotContainKey(invalid);
+        assertThat(machine.commands)
+                .as("untrusted filenames never reach a shell")
+                .noneMatch(command -> command.contains("$(id)"));
     }
 
     @Test
