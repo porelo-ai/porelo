@@ -52,10 +52,14 @@ final class HostPerson {
     /**
      * Whether this machine is a host whose persons start tasks.
      *
+     * <p>Whether it is there, not whether this account may run it: a host keeps it root's alone,
+     * mode {@code 0700}, and reaches it through sudo, so asking for executable read every person on
+     * a real host as no host.
+     *
      * @return {@code true} when the helper is there.
      */
     boolean present() {
-        return Files.isExecutable(program);
+        return Files.isRegularFile(program);
     }
 
     /**

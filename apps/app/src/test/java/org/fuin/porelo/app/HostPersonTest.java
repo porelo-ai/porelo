@@ -27,6 +27,14 @@ class HostPersonTest {
     }
 
     @Test
+    void aHelperOnlyRootMayRunStillMakesAHost() throws Exception {
+        final Path helper = dir.resolve("porelo-host-person");
+        Files.writeString(helper, "#!/bin/sh\n");
+        helper.toFile().setExecutable(false);
+        assertThat(new HostPerson(context(), helper).present()).isTrue();
+    }
+
+    @Test
     void theStartHandsTheCertificateOnItsInputAndTakesTheTokenFromItsOutput() {
         runner.answering("task fix", "forge-token-value");
         final HostPerson host = new HostPerson(context(), dir.resolve("helper"));

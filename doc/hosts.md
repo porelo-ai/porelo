@@ -44,7 +44,7 @@ access:
 
 ## A task certificate judged for the host
 
-A machine is a host whose persons start tasks when `/usr/local/sbin/porelo-host-person` is executable. Porelo runs
+A machine is a host whose persons start tasks when `/usr/local/sbin/porelo-host-person` is there; it is root's alone and reached by sudo. Porelo runs
 it only by that path, through `sudo -n`, never with a shell, and never passes a task name beginning with `-` or `@`:
 
 - **Start:** `porelo-host-person task <task>`, standard input the task's certificate line and one line end, after
