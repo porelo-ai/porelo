@@ -193,8 +193,14 @@ public final class ProjectSource {
             all.clear();
         }
         all.addAll(writtenNames(context));
-        all.addAll(
-                new ProjectRegistry(context.paths().projects().projectRegistry()).all().keySet());
+        new ProjectRegistry(context.paths().projects().projectRegistry())
+                .all()
+                .forEach(
+                        (name, file) -> {
+                            if (Files.isRegularFile(Path.of(file))) {
+                                all.add(name);
+                            }
+                        });
         return java.util.List.copyOf(all);
     }
 

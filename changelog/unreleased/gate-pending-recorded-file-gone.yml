@@ -1,0 +1,2 @@
+title: "`gate pending` with no project named no longer stops at a project whose recorded file is gone, and a refusal no longer offers such a name"
+type: fixed

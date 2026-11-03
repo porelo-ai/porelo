@@ -184,6 +184,15 @@ class ProjectSourceTest {
                 .containsExactly(DefaultProject.NAME, "acme", "solo");
     }
 
+    /** A name that cannot be read must not stop a walk over all of them, nor be offered. */
+    @Test
+    void aRecordedFileThatIsGoneIsNotAmongTheNames(@TempDir final Path dir) throws IOException {
+        final PoreloContext context = context(dir);
+        Files.delete(recorded(context, dir, "gone"));
+
+        assertThat(ProjectSource.names(context)).doesNotContain("gone");
+    }
+
     @Test
     void aRecordedFileThatIsGoneIsNotAnAnswer(@TempDir final Path dir) throws IOException {
         final PoreloContext context = context(dir);
