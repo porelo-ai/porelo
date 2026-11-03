@@ -37,5 +37,6 @@ allowed to, never holds your credentials, and hands its work back through a gate
 - **For whoever answers for security in an organisation:**
   [what Porelo holds, and what it does not](corporate-security.md).
 - **Running it:** [preparing a machine, the daemon, and your own tooling in a task](running.md).
+- **In an organization:** [who may do what, and which file holds it](roles.md).
 - **Building it from source:** [build](build.md). **Why it is built this way:** [why](why.md).
 - **The choices it rests on:** [decisions](decisions.md), each with why it holds and what would change it.

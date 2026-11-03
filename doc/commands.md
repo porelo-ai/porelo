@@ -592,7 +592,7 @@ keeps only its domain.
 
 ## org
 
-The organization of the new structure, from the repository `organization.yml` names; `porelo setup` writes that file. Each
+[Who may do what](roles.md) in it. The organization of the new structure, from the repository `organization.yml` names; `porelo setup` writes that file. Each
 command fetches and walks what is new first. One that cannot reach the store answers the last state it trusted, with
 `"stale": true` and exit 0, or `cannot-say` (69) when it has none. No security check rests on a stale state. `--json` answers one
 object in `snake_case`, with `revision`; a refusal is one line `{"reason", "words", "revision"}` and `words` on standard error too,

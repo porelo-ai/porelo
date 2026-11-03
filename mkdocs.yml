@@ -23,6 +23,7 @@ nav:
           - Credentials: credentials.md
     - Running it: running.md
     - A host a playbook brings up: hosts.md
+    - Who may do what in an organization: roles.md
     - Decisions: decisions.md
     - For security officers: corporate-security.md
     - Background:
