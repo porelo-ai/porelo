@@ -132,6 +132,8 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b423"></a>[B423](B423-Small-Words-Found-In-A-Host-Rehearsal.md) | - | - | Five small wrong words noted in a rehearsal on a host: a lambda in a passphrase refusal, a probe's words, a missing `--json`, a `.tmp` warning, four characters of a token in `gate.log`. |
+| <a id="b422"></a>[B422](B422-A-Guarded-Project-On-A-Host-With-No-Way-To-The-Forge.md) | - | - | A guarded project on a host has a way to hand its work to the host's forge, or is refused before a task starts: `gate approve` pushes to a protected `main` today. |
 | <a id="b416"></a>[B416](B416-A-Forge-That-Refuses-A-Hosts-Read-Key-Says-Why.md) | - | - | A forge's refusal of a host's read key says why, naming the organization's deploy key setting and its page; an organization at GitHub must allow deploy keys for a host to read it |
 | <a id="b415"></a>[B415](B415-A-Project-Admin-Told-How-To-Open-Without-The-Right.md) | - | - | `project open` refused by the forge says what works: somebody makes the repository under the project's name, empty, with write for this person, and they ask again |
 | <a id="b414"></a>[B414](B414-A-Developer-Reads-An-Organization-At-GitHub.md) | S | - | At GitHub, a person with push access reads the organization: the founder counts by their admin on this repository, and the refusal says what the forge could not tell. Decided by the operator; its state is the Coordinator's |
