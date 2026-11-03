@@ -3,9 +3,11 @@ package org.fuin.porelo.organization.gittree;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import org.fuin.porelo.core.process.CommandRunner;
 import org.fuin.porelo.core.project.AddressForm;
 import org.fuin.porelo.core.project.Project;
@@ -974,8 +976,10 @@ public final class GitTreeWrites implements OrganizationWrites {
                 throw new Refused(Refused.MOVED_ON, "the organization has moved on", tip);
             }
             final List<String> commits = new ArrayList<>();
+            final Set<String> written = new HashSet<>();
             String commit = tip;
             for (final Step step : edit.steps(before.model())) {
+                written.addAll(step.files().keySet());
                 commit =
                         clone.commit(
                                 commit,
@@ -988,10 +992,15 @@ public final class GitTreeWrites implements OrganizationWrites {
                 commits.add(commit);
             }
             if (clone.changed(commit, tip).isEmpty()) {
+                final boolean refused =
+                        before.refusals().stream()
+                                .anyMatch(refusal -> written.contains(refusal.path()));
                 throw new Refused(
                         Refused.REFUSED_STATE,
-                        "the file says this already, in a commit no reader accepts: make another"
-                                + " change to it, which a reader can judge",
+                        refused
+                                ? "the file says this already, in a commit no reader accepts: make"
+                                        + " another change to it, which a reader can judge"
+                                : "the file says this already",
                         tip);
             }
             judged(clone, commits, tip, before.model(), change.acting().login());

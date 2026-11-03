@@ -1523,19 +1523,42 @@ class GitTreeWritesTest {
         final String before = tip();
 
         // The refused commit's text is still in the file, so writing it again changes nothing.
-        refusedAs(
-                "refused-state",
-                () ->
-                        as("alice")
-                                .addProjectMember(
-                                        change("alice", "alice-new", "again"),
-                                        "demo",
-                                        "carol",
-                                        "developer"));
+        assertThatThrownBy(
+                        () ->
+                                as("alice")
+                                        .addProjectMember(
+                                                change("alice", "alice-new", "again"),
+                                                "demo",
+                                                "carol",
+                                                "developer"))
+                .isInstanceOfSatisfying(
+                        Refused.class, r -> assertThat(r.reason()).isEqualTo("refused-state"))
+                .hasMessageContaining("in a commit no reader accepts");
 
         assertThat(tip())
                 .as("no reader has a member an empty commit claims to have added")
                 .isEqualTo(before);
         assertThat(read().isProjectMember("demo", "carol")).isEmpty();
+    }
+
+    @Test
+    void aChangeNoReaderRefusedSaysSoAndNamesNoRefusedCommit() throws Exception {
+        aliceFiled();
+        as("mia").addHost(change("mia", "mia", "build"), "build", "alice");
+        final String card = hostCard("build", "alice");
+        as("alice").changeHost(change("alice", "alice", "card"), "build", card);
+        final String before = tip();
+
+        assertThatThrownBy(
+                        () ->
+                                as("alice")
+                                        .changeHost(
+                                                change("alice", "alice", "repeat"), "build", card))
+                .isInstanceOfSatisfying(
+                        Refused.class, r -> assertThat(r.reason()).isEqualTo("refused-state"))
+                .hasMessage("the file says this already");
+
+        assertThat(tip()).isEqualTo(before);
+        assertThat(read().getRefusals()).isEmpty();
     }
 }
