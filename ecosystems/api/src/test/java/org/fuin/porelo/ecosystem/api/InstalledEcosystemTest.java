@@ -341,7 +341,8 @@ class InstalledEcosystemTest {
         assertThat(said).as("%d lines", said.size()).hasSize(1);
         assertThat(said.get(0))
                 .startsWith("refused ")
-                .contains("exited without becoming ready")
+                // Which limit comes first depends on how fast the machine reads: both refuse it.
+                .containsAnyOf("exited without becoming ready", "did not answer within")
                 .doesNotContain("OutOfMemoryError");
         assertThat(said.get(0).length()).isLessThanOrEqualTo(InstalledEcosystem.MESSAGE + 16);
     }
