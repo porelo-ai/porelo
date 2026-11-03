@@ -210,7 +210,10 @@ public final class GateSupport {
      */
     public static org.fuin.porelo.gate.GitCredentials credentials(
             PoreloContext context, String project, String repository) {
-        return new VaultGitCredentials(context, project + "-" + repository);
+        return new HostForgeLending(
+                context,
+                new VaultGitCredentials(context, project + "-" + repository),
+                HostForgeLending.FORGE_CONF);
     }
 
     /**

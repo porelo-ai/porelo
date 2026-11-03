@@ -882,7 +882,7 @@ that would work.
 - `--project` takes a name from `porelo project list`, never a path.
 - A task works on one repository. In a checkout without `-p`, it is the checkout's repository. With
   `-p`, name it with `--repository`, even if the project has only one. The project's own repository
-  (holding `project.yml`) is named after the project and can be chosen for planning work.
+  (holding `project.yml`) is named after the project, and a task works there only in a project that lists no others.
 - A task name is lowercase letters, digits and hyphens, starts and ends with a letter or digit, is not
   only digits, is neither `people` nor `person` (the names a message gives the room's people and a person's own
   note), does not begin with `porelo-`, the beginning of a container's name, and `porelo-<project>-<task>` is at

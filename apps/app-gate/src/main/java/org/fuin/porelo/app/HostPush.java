@@ -27,7 +27,7 @@ import org.jspecify.annotations.Nullable;
 final class HostPush {
 
     /** Where a host names its forge to its persons, with no secret in it. */
-    static final Path FORGE_CONF = Path.of("/etc/porelo-host/forge.conf");
+    static final Path FORGE_CONF = HostForgeLending.FORGE_CONF;
 
     /** The variable that holds the task's token for the push's credential helper. */
     static final String TOKEN_VARIABLE = "PORELO_HOST_TASK_TOKEN";
