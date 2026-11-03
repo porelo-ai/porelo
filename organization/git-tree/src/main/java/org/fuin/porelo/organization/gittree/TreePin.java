@@ -173,7 +173,7 @@ final class TreePin implements TreeWalk.Watch {
         }
         if (signed || pin.contains(own) || !chain.isEmpty()) {
             admins.add(own);
-        } else if (!person.earlier().isEmpty()) {
+        } else if (person.earlier().stream().anyMatch(each -> !each.renewed())) {
             throw new Refused(
                     Refused.REFUSED_STATE,
                     commit

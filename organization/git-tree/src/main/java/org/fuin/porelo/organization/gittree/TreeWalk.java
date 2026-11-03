@@ -652,11 +652,21 @@ final class TreeWalk {
         if (held == null) {
             return List.of();
         }
-        if (held.fingerprint().equals(card.fingerprint())
-                || held.state().equals(Organization.REFUSED)) {
+        if (held.state().equals(Organization.REFUSED)) {
             return held.earlier();
         }
         final PersonCard replaced = PersonCard.read(held.card(), path);
+        if (held.fingerprint().equals(card.fingerprint())) {
+            if (replaced.created().equals(card.created())
+                    && replaced.expires().equals(card.expires())) {
+                return held.earlier();
+            }
+            final List<TreeModel.EarlierKey> renewed = new ArrayList<>(held.earlier());
+            renewed.add(
+                    new TreeModel.EarlierKey(
+                            replaced.key(), replaced.created(), replaced.expires(), ""));
+            return List.copyOf(renewed);
+        }
         final List<TreeModel.EarlierKey> earlier = new ArrayList<>(held.earlier());
         earlier.add(
                 new TreeModel.EarlierKey(

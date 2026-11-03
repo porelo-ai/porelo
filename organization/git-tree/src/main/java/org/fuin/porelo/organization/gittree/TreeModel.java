@@ -57,14 +57,22 @@ record TreeModel(
     }
 
     /**
-     * A key a login no longer holds.
+     * A term a login's key held before: of a key it no longer holds, or of the key it still holds,
+     * renewed, which goes on signing what it signed then.
      *
      * @param key The key.
      * @param validFrom From when its card said it held.
      * @param validUntil Until when its card said it held.
-     * @param revokedSince The date of the commit that replaced it, as its signer wrote it.
+     * @param revokedSince The date of the commit that replaced it, as its signer wrote it; empty
+     *     while the login still holds it.
      */
-    record EarlierKey(String key, LocalDate validFrom, LocalDate validUntil, String revokedSince) {}
+    record EarlierKey(String key, LocalDate validFrom, LocalDate validUntil, String revokedSince) {
+
+        /** Says whether the login still holds this key, under a later card. */
+        boolean renewed() {
+            return revokedSince.isEmpty();
+        }
+    }
 
     /**
      * A project as it stands.

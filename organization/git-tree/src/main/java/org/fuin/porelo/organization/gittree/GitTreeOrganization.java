@@ -1,6 +1,8 @@
 package org.fuin.porelo.organization.gittree;
 
+import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -166,6 +168,9 @@ record GitTreeOrganization(
             return;
         }
         for (final TreeModel.EarlierKey earlier : person.earlier()) {
+            if (earlier.renewed()) {
+                continue;
+            }
             rows.add(
                     new SigningKey(
                             login,
@@ -176,9 +181,44 @@ record GitTreeOrganization(
                             earlier.revokedSince()));
         }
         final PersonCard card = cardOf(login, person);
-        rows.add(
-                new SigningKey(
-                        login, member.role(), card.key(), card.created(), card.expires(), null));
+        addTerms(member, person, card, rows);
+    }
+
+    /**
+     * Adds the terms of the key held now. A renewal moves the end, so what it signed before stays
+     * signed; the newest card says where it ends, and a term that ended before the next began
+     * stands on a row of its own.
+     */
+    private static void addTerms(
+            final TreeFiles.Member member,
+            final TreeModel.Person person,
+            final PersonCard card,
+            final List<SigningKey> rows) {
+        final List<TreeModel.EarlierKey> terms =
+                person.earlier().stream()
+                        .filter(each -> each.renewed() && each.key().equals(card.key()))
+                        .sorted(Comparator.comparing(TreeModel.EarlierKey::validFrom))
+                        .toList();
+        LocalDate from = card.created();
+        LocalDate until = card.expires();
+        for (int each = terms.size() - 1; each >= 0; each--) {
+            if (terms.get(each).validUntil().isBefore(from)) {
+                rows.add(row(member, card, from, until));
+                until = terms.get(each).validUntil();
+            }
+            if (terms.get(each).validFrom().isBefore(from)) {
+                from = terms.get(each).validFrom();
+            }
+        }
+        rows.add(row(member, card, from, until));
+    }
+
+    private static SigningKey row(
+            final TreeFiles.Member member,
+            final PersonCard card,
+            final LocalDate from,
+            final LocalDate until) {
+        return new SigningKey(member.login(), member.role(), card.key(), from, until, null);
     }
 
     private static PersonCard cardOf(final String login, final TreeModel.Person person) {

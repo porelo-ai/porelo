@@ -2585,6 +2585,86 @@ class GitTreeStoreTest {
         assertThat(row(rows, key("alice-new")).revokedSince()).as("in force").isNull();
     }
 
+    private String termed(final LocalDate from, final LocalDate until) {
+        return PersonCard.write("alice", "alice", "", keys.get("alice"), from, until, null);
+    }
+
+    private List<OrganizationQuestions.SigningKey> alicesRows() throws Exception {
+        return read().signingKeys("demo").stream()
+                .filter(each -> each.login().equals("alice"))
+                .toList();
+    }
+
+    @Test
+    void aRenewalMovesTheEndAndKeepsTheFirstDay() throws Exception {
+        founded();
+        project();
+        write("people/alice.card", termed(LocalDate.of(2027, 1, 1), LocalDate.of(2032, 1, 1)));
+        commit("alice");
+
+        for (int reading = 0; reading < 2; reading++) {
+            assertThat(alicesRows())
+                    .as("reading %s, the second going on from the record", reading)
+                    .containsExactly(
+                            new OrganizationQuestions.SigningKey(
+                                    "alice",
+                                    "admin",
+                                    key("alice"),
+                                    LocalDate.of(2026, 1, 1),
+                                    LocalDate.of(2032, 1, 1),
+                                    null));
+        }
+    }
+
+    @Test
+    void aRenewalAfterALapseLeavesTheLapseUnsigned() throws Exception {
+        founded();
+        project();
+        write("people/alice.card", termed(LocalDate.of(2031, 1, 1), LocalDate.of(2032, 1, 1)));
+        commit("alice");
+
+        assertThat(alicesRows())
+                .extracting(
+                        OrganizationQuestions.SigningKey::validFrom,
+                        OrganizationQuestions.SigningKey::validUntil)
+                .containsExactlyInAnyOrder(
+                        org.assertj.core.groups.Tuple.tuple(
+                                LocalDate.of(2026, 1, 1), LocalDate.of(2030, 1, 1)),
+                        org.assertj.core.groups.Tuple.tuple(
+                                LocalDate.of(2031, 1, 1), LocalDate.of(2032, 1, 1)));
+    }
+
+    @Test
+    void aCardEndingSoonerEndsTheKeysTerm() throws Exception {
+        founded();
+        project();
+        write("people/alice.card", termed(LocalDate.of(2027, 1, 1), LocalDate.of(2028, 1, 1)));
+        commit("alice");
+
+        assertThat(alicesRows())
+                .extracting(
+                        OrganizationQuestions.SigningKey::validFrom,
+                        OrganizationQuestions.SigningKey::validUntil)
+                .containsExactly(
+                        org.assertj.core.groups.Tuple.tuple(
+                                LocalDate.of(2026, 1, 1), LocalDate.of(2028, 1, 1)));
+    }
+
+    @Test
+    void aKeyReplacedAfterARenewalKeepsNoTermInForce() throws Exception {
+        founded();
+        project();
+        write("people/alice.card", termed(LocalDate.of(2027, 1, 1), LocalDate.of(2032, 1, 1)));
+        commit("alice");
+        write("people/alice.card", handedOn("alice", "alice-new", "alice"));
+        commit("alice-new");
+
+        assertThat(alicesRows())
+                .filteredOn(each -> each.key().equals(key("alice")))
+                .isNotEmpty()
+                .allSatisfy(each -> assertThat(each.revokedSince()).isNotNull());
+    }
+
     @Test
     void aLockedMemberAndOneWithNoAcceptedCardGetNoSigningKey() throws Exception {
         founded();
