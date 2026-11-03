@@ -10,6 +10,7 @@ import java.nio.file.StandardCopyOption;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -494,17 +495,99 @@ public final class ProjectFile {
             final String name,
             final String upstream)
             throws IOException {
+        return add(change, address, keys, name, upstream, null, null);
+    }
+
+    /**
+     * Names a repository, with where a host takes it from and whether a merge needs a review.
+     *
+     * @param change Who acts, against the project repository's revision, under which id.
+     * @param address The project repository.
+     * @param keys The project's signing keys.
+     * @param name The repository's name.
+     * @param upstream Its address.
+     * @param central Where a host takes it from, or {@code null} for nowhere.
+     * @param review {@code required} or {@code optional}, or {@code null} to say nothing.
+     * @return What it made, or made before under this id.
+     * @throws IOException When something unexpected happened; the change may have been made.
+     */
+    public OrganizationWrites.Written add(
+            final OrganizationWrites.Change change,
+            final String address,
+            final List<SigningKey> keys,
+            final String name,
+            final String upstream,
+            final @Nullable String central,
+            final @Nullable String review)
+            throws IOException {
+        final Map<String, Object> row = new LinkedHashMap<>(Map.of("upstream", upstream));
+        if (central != null) {
+            row.put("central", central);
+        }
+        if (review != null) {
+            row.put("review", review);
+        }
+        final List<String> asked = new ArrayList<>(List.of(name, upstream));
+        row.entrySet().stream()
+                .filter(each -> !"upstream".equals(each.getKey()))
+                .forEach(each -> asked.add(String.valueOf(each.getValue())));
         return change(
                 change,
                 address,
                 keys,
-                TreeRepository.asked("Name a repository", name, upstream),
+                TreeRepository.asked("Name a repository", asked.toArray(String[]::new)),
                 repositories -> {
                     if (repositories.containsKey(name)) {
                         throw new Refused(Refused.EXISTS, "that repository is named", null);
                     }
-                    repositories.put(name, new LinkedHashMap<>(Map.of("upstream", upstream)));
+                    repositories.put(name, row);
                     return repositories;
+                });
+    }
+
+    /**
+     * Says whether a merge needs a review, in the project's own repository or in one it names.
+     *
+     * @param change Who acts, against the project repository's revision, under which id.
+     * @param address The project repository.
+     * @param keys The project's signing keys.
+     * @param name The repository's name, or {@code null} for the project's own.
+     * @param review {@code required} or {@code optional}.
+     * @return What it made, or made before under this id.
+     * @throws IOException When something unexpected happened; the change may have been made.
+     */
+    @SuppressWarnings("unchecked")
+    public OrganizationWrites.Written review(
+            final OrganizationWrites.Change change,
+            final String address,
+            final List<SigningKey> keys,
+            final @Nullable String name,
+            final String review)
+            throws IOException {
+        return changeOf(
+                change,
+                address,
+                keys,
+                TreeRepository.asked(
+                        "Say whether a merge needs a review", name == null ? "" : name, review),
+                file -> {
+                    if (name == null) {
+                        ((Map<String, Object>)
+                                        java.util.Objects.requireNonNull(file.get("project")))
+                                .put("review", review);
+                        return file;
+                    }
+                    final Map<String, Object> repositories =
+                            (Map<String, Object>) file.get(REPOSITORIES);
+                    if (repositories == null || !repositories.containsKey(name)) {
+                        throw new Refused(Refused.NOT_FOUND, "no such repository", null);
+                    }
+                    final Object held = repositories.get(name);
+                    final Map<String, Object> row =
+                            held == null ? new LinkedHashMap<>() : (Map<String, Object>) held;
+                    row.put("review", review);
+                    repositories.put(name, row);
+                    return file;
                 });
     }
 
@@ -587,7 +670,32 @@ public final class ProjectFile {
         }
     }
 
+    @SuppressWarnings("unchecked")
     private OrganizationWrites.Written change(
+            final OrganizationWrites.Change change,
+            final String address,
+            final List<SigningKey> keys,
+            final String subject,
+            final UnaryOperator<Map<String, Object>> edit)
+            throws IOException {
+        return changeOf(
+                change,
+                address,
+                keys,
+                subject,
+                file -> {
+                    final Object held = file.get(REPOSITORIES);
+                    file.put(
+                            REPOSITORIES,
+                            edit.apply(
+                                    held == null
+                                            ? new LinkedHashMap<>()
+                                            : (Map<String, Object>) held));
+                    return file;
+                });
+    }
+
+    private OrganizationWrites.Written changeOf(
             final OrganizationWrites.Change change,
             final String address,
             final List<SigningKey> keys,
@@ -657,10 +765,7 @@ public final class ProjectFile {
     private static String edited(final String text, final UnaryOperator<Map<String, Object>> edit) {
         final Map<String, Object> file =
                 new Yaml(new SafeConstructor(new LoaderOptions())).load(text);
-        final Object held = file.get(REPOSITORIES);
-        final Map<String, Object> repositories =
-                held == null ? new LinkedHashMap<>() : (Map<String, Object>) held;
-        file.put(REPOSITORIES, edit.apply(repositories));
+        edit.apply(file);
         final DumperOptions block = new DumperOptions();
         block.setDefaultFlowStyle(DumperOptions.FlowStyle.BLOCK);
         final String written = new Yaml(block).dump(file);

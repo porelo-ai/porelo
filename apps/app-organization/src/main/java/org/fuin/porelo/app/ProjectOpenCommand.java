@@ -9,6 +9,7 @@ import org.fuin.porelo.organization.OrganizationWrites;
 import org.fuin.porelo.organization.gittree.ForgeAddress;
 import org.jspecify.annotations.Nullable;
 import picocli.CommandLine.Command;
+import picocli.CommandLine.Option;
 import picocli.CommandLine.Parameters;
 
 /**
@@ -34,6 +35,11 @@ public class ProjectOpenCommand extends OrgWriting {
     Maker maker = ProjectOpenCommand::made;
 
     private @Nullable String address;
+
+    @Option(
+            names = "--review",
+            description = "Whether a merge needs another person: required or optional.")
+    private @Nullable String review;
 
     @Override
     OrganizationWrites.Written write(
@@ -61,7 +67,15 @@ public class ProjectOpenCommand extends OrgWriting {
         final String at =
                 state.getProjectRepository(project).orElseGet(() -> beside(organization, project));
         address = at;
-        final String first = firstFile(project);
+        final String first =
+                review == null
+                        ? firstFile(project)
+                        : firstFile(project)
+                                .replace(
+                                        "  description: \"\"\n",
+                                        "  description: \"\"\n  review: \""
+                                                + ProjectRepositoryCommand.review(review)
+                                                + "\"\n");
         try {
             opened.files().found(change, at, first);
         } catch (Refused refused) {

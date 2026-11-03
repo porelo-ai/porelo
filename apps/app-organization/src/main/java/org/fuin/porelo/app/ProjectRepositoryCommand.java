@@ -2,11 +2,13 @@ package org.fuin.porelo.app;
 
 import java.io.IOException;
 import java.util.List;
+import org.fuin.porelo.core.project.Repository;
 import org.fuin.porelo.organization.OrganizationQuestions;
 import org.fuin.porelo.organization.OrganizationQuestions.Refused;
 import org.fuin.porelo.organization.OrganizationQuestions.SigningKey;
 import org.fuin.porelo.organization.OrganizationWrites;
 import org.fuin.porelo.organization.gittree.ProjectFile;
+import org.jspecify.annotations.Nullable;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Option;
 import picocli.CommandLine.Parameters;
@@ -79,6 +81,14 @@ public class ProjectRepositoryCommand {
         @Option(names = "--upstream", required = true, description = "Its address.")
         private String upstream = "";
 
+        @Option(names = "--central", description = "Where a host takes it from.")
+        private @Nullable String central;
+
+        @Option(
+                names = "--review",
+                description = "Whether a merge needs another person: required or optional.")
+        private @Nullable String review;
+
         @Override
         String project() {
             return project;
@@ -88,7 +98,14 @@ public class ProjectRepositoryCommand {
         OrganizationWrites.Written make(
                 final ProjectFile file, final OrganizationWrites.Change change, final Place place)
                 throws IOException {
-            return file.add(change, place.address(), place.keys(), name, upstream);
+            return file.add(
+                    change,
+                    place.address(),
+                    place.keys(),
+                    name,
+                    upstream,
+                    central,
+                    review == null ? null : review(review));
         }
     }
 
@@ -117,6 +134,19 @@ public class ProjectRepositoryCommand {
                 throws IOException {
             return file.remove(change, place.address(), place.keys(), name);
         }
+    }
+
+    /**
+     * Checks a word for a review.
+     *
+     * @param word What was given.
+     * @return The word.
+     */
+    static String review(final String word) {
+        if (!Repository.REVIEW_REQUIRED.equals(word) && !Repository.REVIEW_OPTIONAL.equals(word)) {
+            throw new Refused(Refused.USAGE, "a review is required or optional", null);
+        }
+        return word;
     }
 
     private static Place place(

@@ -1076,4 +1076,87 @@ class ProjectFileTest {
 
         assertThat(read.state()).isNotEqualTo(ProjectFile.READ);
     }
+
+    private ProjectFile.Read readBack() throws IOException {
+        return file().read(repo.toString(), rows());
+    }
+
+    @Test
+    void anAdminNamesARepositoryWithItsCentralSourceAndReview() throws Exception {
+        file().add(
+                        change("alice", "one"),
+                        repo.toString(),
+                        rows(),
+                        "app",
+                        "git@forge.example:demo/app.git",
+                        "git@github.com:acme/app.git",
+                        "optional");
+
+        final org.fuin.porelo.core.project.Repository named =
+                readBack().project().repositories().stream()
+                        .filter(each -> each.name().equals("app"))
+                        .findFirst()
+                        .orElseThrow();
+        assertThat(named.central()).isEqualTo("git@github.com:acme/app.git");
+        assertThat(named.review()).isEqualTo("optional");
+    }
+
+    @Test
+    void aCentralSourceOfAnotherNameMakesNoChange() throws Exception {
+        final String tip = git("rev-parse", "HEAD");
+
+        refusedAs(
+                Refused.USAGE,
+                () ->
+                        file().add(
+                                        change("alice", "one"),
+                                        repo.toString(),
+                                        rows(),
+                                        "app",
+                                        "git@forge.example:demo/app.git",
+                                        "git@github.com:acme/other.git",
+                                        null));
+
+        assertThat(git("rev-parse", "HEAD")).isEqualTo(tip);
+    }
+
+    @Test
+    void anAdminSaysAReviewForTheProjectAndForARepositoryAndItStaysChangeable() throws Exception {
+        file().review(change("alice", "one"), repo.toString(), rows(), null, "optional");
+        file().review(change("alice", "two"), repo.toString(), rows(), "first", "optional");
+
+        final org.fuin.porelo.core.project.Project read = readBack().project();
+        assertThat(read.review()).isEqualTo("optional");
+        assertThat(read.repositories().getFirst().review()).isEqualTo("optional");
+
+        file().review(change("alice", "three"), repo.toString(), rows(), "first", "required");
+
+        assertThat(readBack().project().repositories().getFirst().review()).isEqualTo("required");
+    }
+
+    @Test
+    void aReviewForARepositoryNotNamedIsNotFound() throws Exception {
+        refusedAs(
+                Refused.NOT_FOUND,
+                () ->
+                        file().review(
+                                        change("alice", "one"),
+                                        repo.toString(),
+                                        rows(),
+                                        "x",
+                                        "optional"));
+    }
+
+    @Test
+    void aReviewIsNoOnesButAnAdmins() throws Exception {
+        refusedAs(
+                Refused.NOT_ALLOWED,
+                () ->
+                        file().review(
+                                        change("carol", "one"),
+                                        repo.toString(),
+                                        rows(),
+                                        null,
+                                        "optional"));
+    }
 }

@@ -1,6 +1,6 @@
 # B336 — A Repository Says Whether A Merge Needs A Review
 
-**Status:** Implementing.
+**Status:** Review.
 **Size:** S - estimated 136 minutes from the median of S builds: one key in the project file's schema and reader, its
 documentation, and the value handed on where the host reads it.
 
