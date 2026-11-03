@@ -139,6 +139,7 @@ public class ProjectShowCommand extends OrgReading {
         final Project file = read.project();
         final Map<String, @Nullable Object> repositories =
                 repositories(read.state(), file == null ? List.of() : names(file));
+        repositories.put("review", file == null ? null : file.review());
         repositories.put("revision", read.revision());
         repositories.put("file_signer", signer(read, keys));
         if (read.why() != null) {
@@ -181,7 +182,9 @@ public class ProjectShowCommand extends OrgReading {
         answer.put("address", null);
         answer.put("me", null);
         answer.put("members", List.of());
-        answer.put("repositories", repositories("read", names(read)));
+        final Map<String, @Nullable Object> repositories = repositories("read", names(read));
+        repositories.put("review", read.review());
+        answer.put("repositories", repositories);
         answer.put("matrix_registration_entry", registrationEntry(read));
         return answer;
     }
@@ -195,18 +198,21 @@ public class ProjectShowCommand extends OrgReading {
     /** A project of one repository names it as its own upstream, with no list of them. */
     private List<Map<String, @Nullable Object>> names(final Project read) {
         if (read.repositories().isEmpty() && read.upstream() != null) {
-            return List.of(name(project, read.upstream()));
+            return List.of(name(project, read.upstream(), read.review()));
         }
         return read.repositories().stream()
-                .map(repository -> name(repository.name(), repository.upstream()))
+                .map(
+                        repository ->
+                                name(repository.name(), repository.upstream(), repository.review()))
                 .toList();
     }
 
     private static Map<String, @Nullable Object> name(
-            final String name, final @Nullable String upstream) {
+            final String name, final @Nullable String upstream, final String review) {
         final Map<String, @Nullable Object> row = new LinkedHashMap<>();
         row.put("name", name);
         row.put("upstream", upstream);
+        row.put("review", review);
         return row;
     }
 

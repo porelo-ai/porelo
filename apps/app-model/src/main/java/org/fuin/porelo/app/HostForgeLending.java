@@ -1,8 +1,6 @@
 package org.fuin.porelo.app;
 
-import java.io.IOException;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Base64;
 import java.util.List;
@@ -88,25 +86,9 @@ final class HostForgeLending implements GitCredentials {
     }
 
     private boolean onTheForge(final String url) {
-        final String port = port();
+        final String port = HostForgeAddress.port(forgeConf);
         return port != null
                 && Pattern.matches("http://127\\.0\\.0\\.1:" + port + "/[^\\s@?#]*", url.strip());
-    }
-
-    private @Nullable String port() {
-        final List<String> lines;
-        try {
-            lines = Files.readAllLines(forgeConf);
-        } catch (IOException ex) {
-            return null;
-        }
-        for (final String line : lines) {
-            if (line.startsWith("git_port=")) {
-                final String value = line.substring("git_port=".length()).strip();
-                return value.matches("[1-9][0-9]{0,4}") ? value : null;
-            }
-        }
-        return null;
     }
 
     private @Nullable String token() {

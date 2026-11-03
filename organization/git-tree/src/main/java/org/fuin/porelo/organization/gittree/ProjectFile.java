@@ -439,6 +439,14 @@ public final class ProjectFile {
         try {
             text = clone.object(tip, PATH).map(clone::text);
             named = text.isEmpty() ? null : parsed(text.orElseThrow(), inClone(clone, tip)).name();
+        } catch (ProjectException ex) {
+            // Made printable: it quotes the file, which anyone with write access wrote.
+            throw new Refused(
+                    Refused.REFUSED_STATE,
+                    "the project repository's project.yml does not read, and a signature would not"
+                            + " change that: "
+                            + RegistryText.printable(String.valueOf(ex.getMessage())),
+                    tip);
         } catch (RuntimeException ex) {
             // What the reader says quotes the file, which anyone with write access wrote.
             throw new Refused(

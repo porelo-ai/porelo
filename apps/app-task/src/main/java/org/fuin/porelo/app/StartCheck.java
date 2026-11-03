@@ -1160,6 +1160,15 @@ public final class StartCheck {
                     rest.credential(),
                     OwnRepository.refusal(project));
         }
+        final String offHost = new HostForgeAddress().refusal(project, repository, null);
+        if (offHost != null) {
+            return new Result(
+                    Outcome.UNKNOWN_REPOSITORY,
+                    rest.agent(),
+                    rest.provider(),
+                    rest.credential(),
+                    offHost);
+        }
         if (project.repository(repository) == null) {
             return new Result(
                     Outcome.UNKNOWN_REPOSITORY,

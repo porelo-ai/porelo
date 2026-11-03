@@ -844,11 +844,14 @@ class OrgReadingCommandsTest {
         assertThat(answer().containsKey("me")).isTrue();
         assertThat(answer().get("members")).isEqualTo(List.of());
         assertThat(field(answer().get("repositories"), "state")).isEqualTo("read");
+        assertThat(field(answer().get("repositories"), "review")).isEqualTo("required");
         assertThat(field(answer().get("repositories"), "names"))
                 .as("what its file says")
                 .isEqualTo(
                         List.of(
                                 Map.of(
+                                        "review",
+                                        "required",
                                         "name",
                                         "mine",
                                         "upstream",

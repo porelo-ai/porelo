@@ -3488,6 +3488,11 @@ public final class TaskLaunch {
         if (OwnRepository.refused(project, request.repository())) {
             throw new ProjectException(OwnRepository.refusal(project));
         }
+        final String offHost =
+                new HostForgeAddress().refusal(project, request.repository(), request.upstream());
+        if (offHost != null) {
+            throw new ProjectException(offHost);
+        }
         return GateSupport.repository(project, request.repository());
     }
 

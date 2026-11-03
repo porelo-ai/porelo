@@ -19,6 +19,11 @@ final class ProjectProposal {
     private final String repository;
     private final String project;
     private final @Nullable String upstream;
+
+    /** A host's own forge: nothing else proposes an online project unasked. */
+    private static final java.util.regex.Pattern HOST_FORGE =
+            java.util.regex.Pattern.compile("http://127\\.0\\.0\\.1:[1-9][0-9]{0,4}/");
+
     private final Map<String, Object> row = new LinkedHashMap<>();
     private final List<Map<String, Object>> values = new ArrayList<>();
     private final Map<Key, List<Map<String, Object>>> groups = new LinkedHashMap<>();
@@ -157,7 +162,8 @@ final class ProjectProposal {
                 new StringBuilder("project:\n  name: ")
                         .append(quote(project))
                         .append(
-                                "\n  security_class: guarded\nimage:\n  base_image: ubuntu:24.04\nrepositories:\n  ")
+                                security()
+                                        + "\nimage:\n  base_image: ubuntu:24.04\nrepositories:\n  ")
                         .append(quote(repository))
                         .append(":");
         if (row.isEmpty()) draft.append(" {}\n");
@@ -195,6 +201,19 @@ final class ProjectProposal {
         answer.put("not_placed", notPlaced);
         answer.put("credentials_needed", List.copyOf(credentials.values()));
         return answer;
+    }
+
+    /**
+     * The security class the draft proposes. A host's forge takes a task's work only from an online
+     * project's gate, which needs the project's own address on the same forge beside it.
+     */
+    private String security() {
+        final java.util.regex.Matcher forge =
+                upstream == null ? null : HOST_FORGE.matcher(upstream);
+        return forge == null || !forge.lookingAt()
+                ? "\n  security_class: guarded"
+                : "\n  security_class: online\n  upstream: "
+                        + quote(forge.group() + project + "/" + project + ".git");
     }
 
     private static String source(Map<String, Object> value) {

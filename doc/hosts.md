@@ -42,6 +42,15 @@ access:
 - **Neither tasks nor agents.** A machine file naming `tasks` or `agents` is refused: the machine installs every
   agent, and which tasks run is decided by the person when they start them.
 
+## Where a host reaches a project's repositories
+
+On a host, whatever `upstream` a row of a project's file says, a row with a `central` is reached at
+`http://127.0.0.1:<git_port>/<project>/<last part of central>.git`, the copy the host's follow keeps, with `<git_port>`
+from `/etc/porelo-host/forge.conf`. So a project filled before it came to a machine needs no refiling, and a task's
+work never reaches a central address past the host's push judge. A task on a row with no `central` is refused, and so
+is a start whose `--upstream` names another address. Git reads that forge with a token asked of the host for each
+command, so it needs no vault entry.
+
 ## A task certificate judged for the host
 
 A machine is a host whose persons start tasks when `/usr/local/sbin/porelo-host-person` is there; it is root's alone and reached by sudo. Porelo runs

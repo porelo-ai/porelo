@@ -30,6 +30,9 @@ public final class ProjectReader {
         throw new UnsupportedOperationException("Utility class");
     }
 
+    private static volatile java.util.function.UnaryOperator<Project> placement =
+            java.util.function.UnaryOperator.identity();
+
     /**
      * Reads a project definition from a file.
      *
@@ -38,6 +41,20 @@ public final class ProjectReader {
      * @throws ProjectException If the file cannot be read or does not describe a usable project.
      */
     public static Project read(Path file) {
+        return placement.apply(fromFile(file));
+    }
+
+    /**
+     * Says where this machine reaches a project's repositories, for every read of a file here. A
+     * file judged for its signature is read from text and never comes through this.
+     *
+     * @param placed What this machine makes of a project as its file says it.
+     */
+    public static void placedBy(final java.util.function.UnaryOperator<Project> placed) {
+        placement = placed;
+    }
+
+    private static Project fromFile(Path file) {
         if (!Files.isRegularFile(file)) {
             throw new ProjectException(
                     "No project file at "

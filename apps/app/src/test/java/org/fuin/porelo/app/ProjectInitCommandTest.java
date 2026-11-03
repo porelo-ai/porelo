@@ -233,7 +233,8 @@ class ProjectInitCommandTest {
 
         assertThat(draft)
                 .contains("upstream: \"http://127.0.0.1:3001/demo/sample.git\"")
-                .contains("central: \"git@example.org:acme/sample.git\"");
+                .contains("central: \"git@example.org:acme/sample.git\"")
+                .contains("security_class: online");
     }
 
     @org.junit.jupiter.params.ParameterizedTest

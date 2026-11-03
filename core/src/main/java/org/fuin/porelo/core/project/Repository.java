@@ -83,6 +83,28 @@ public record Repository(
     private static final String AGENT_PREFIX = "Agent ";
 
     /**
+     * Returns this repository as a machine reaches it at another address.
+     *
+     * @param address Where it is reached.
+     * @return The repository.
+     */
+    public Repository reachedAt(final String address) {
+        return new Repository(
+                name,
+                address,
+                description,
+                egress,
+                limits,
+                issues,
+                image,
+                agent,
+                nickname,
+                branch,
+                review,
+                central);
+    }
+
+    /**
      * Constructor for a repository that says nothing of a review or of a central source.
      *
      * @param name Its name.

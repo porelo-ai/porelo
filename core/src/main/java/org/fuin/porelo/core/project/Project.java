@@ -891,6 +891,34 @@ public record Project(
     }
 
     /**
+     * Returns this project with other repositories, as a machine reaches them.
+     *
+     * @param each The repositories.
+     * @return The project.
+     */
+    public Project withRepositories(final java.util.List<Repository> each) {
+        return new Project(
+                name,
+                description,
+                securityClass,
+                baseImage,
+                imageSnippet,
+                upstream,
+                limits,
+                egress,
+                packageSources,
+                mail,
+                each,
+                credentials,
+                builds,
+                imageVariant,
+                parameters,
+                nickname,
+                branch,
+                review);
+    }
+
+    /**
      * Returns the repositories work happens in: the ones the file names, or the project's own when
      * it names none.
      *
