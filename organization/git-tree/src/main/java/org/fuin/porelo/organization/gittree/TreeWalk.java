@@ -2,6 +2,7 @@ package org.fuin.porelo.organization.gittree;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -100,6 +101,9 @@ final class TreeWalk {
     private @Nullable String lastSigner;
 
     private List<String> lastPaths = List.of();
+
+    /** The commits that filed the list, from {@link #readChains}. */
+    private final Set<String> lists = new HashSet<>();
 
     /** Why one path of one commit is refused. */
     private static final class Refused extends Exception {
@@ -224,13 +228,29 @@ final class TreeWalk {
      * ignored it: going on from it would judge what follows by the rules from before.
      *
      * @param record The record.
-     * @return Whether its commit holds a list its model does not.
+     * @return Whether a commit it passed filed a list that its model neither holds nor refused.
      * @throws IOException When the repository cannot be read.
      */
     boolean missedTheList(final TreeRecord record) throws IOException {
-        return record.model().organizationAdmins() == null
-                && record.commit() != null
-                && repository.object(record.commit(), ORGANIZATION_ADMINS).isPresent();
+        if (record.model().organizationAdmins() != null || record.commit() == null) {
+            return false;
+        }
+        for (final Map.Entry<String, String> entry : repository.line(null)) {
+            final String commit = entry.getKey();
+            if (lists.contains(commit)
+                    && record.refusals().stream()
+                            .noneMatch(
+                                    refused ->
+                                            commit.equals(refused.revision())
+                                                    && ORGANIZATION_ADMINS.equals(
+                                                            refused.path()))) {
+                return true;
+            }
+            if (commit.equals(record.commit())) {
+                return false;
+            }
+        }
+        return false;
     }
 
     /**
@@ -242,6 +262,10 @@ final class TreeWalk {
     void readChains() throws IOException {
         for (final Map.Entry<String, String> entry : repository.line(null)) {
             for (final String path : repository.changed(entry.getKey(), entry.getValue())) {
+                if (ORGANIZATION_ADMINS.equals(path)
+                        && repository.object(entry.getKey(), path).isPresent()) {
+                    lists.add(entry.getKey());
+                }
                 final Matcher person = PERSON.matcher(path);
                 if (person.matches() && TreeFiles.login(person.group(1))) {
                     readStep(entry.getKey(), path, person.group(1));

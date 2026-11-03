@@ -99,7 +99,7 @@ would change the answer.
 | A host's pin follows the organization admins, and root stays with its machine admins | a dismissed admin stays replaceable with no step of theirs, at the cost that one stolen key of that role reaches every server's pin, visibly | [entry](#a-hosts-pin-follows-the-organization-admins-and-root-stays-with-its-machine-admins) |
 | Withdrawing a card revokes its key | the key signs nothing more and cannot file the card again; the only owner's card cannot be withdrawn | [entry](#withdrawing-a-card-revokes-its-key) |
 | A founder's key that left the forge refuses the organization on a new machine | a new machine answers `refused-state` naming the key; a machine that read it while listed goes on; recovery is the key back on the forge, or a new organization | [entry](#a-founders-key-that-left-the-forge-refuses-the-organization-on-a-new-machine) |
-| A project's lock does not bind an organization owner | accepted: an owner may name any admin, and an admin may unlock; every step is a signed commit | [entry](#a-projects-lock-does-not-bind-an-organization-owner) |
+| A project's lock does not bind an organization owner | accepted: an owner may name any admin, and an admin may unlock, each the organization admin's once the roles stand; every step is a signed commit | [entry](#a-projects-lock-does-not-bind-an-organization-owner) |
 | Every organization store passes one set of checks | `organization/contract` holds what any store must guarantee, and each adapter runs it against itself through a fixture; `organization/git` keeps its own offline answer and does not run them | [entry](#every-organization-store-passes-one-set-of-checks) |
 | A past commit is judged by the whole chain of its key, read to the tip | a key handed on keeps its commits on a new machine; a lost key's stay refused, and an owner adds the project's admins again | [entry](#a-past-commit-is-judged-by-the-whole-chain-of-its-key-read-to-the-tip) |
 | **Projects and following** | | |
@@ -1258,6 +1258,9 @@ role. **Why it stays:** an owner must be able to name admins, so that a project 
 recovered, and a remembered lock would stop only the first way. Every step is a commit the owner signed, so it can be seen
 and answered for, and the refusal still stops a plain edit of a lock. **What would change the answer:** a lock that must hold
 against the organization's owners, which would narrow what an owner may do to recovery alone.
+
+Once [the roles stand](#the-roles-start-with-their-list), an admin's row and lock are the organization admin's: that role may change
+one directly, a project admin may not, and an owner not listed does neither. A developer's lock stays with the project's admins.
 
 ## A past commit is judged by the whole chain of its key, read to the tip
 

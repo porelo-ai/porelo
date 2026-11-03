@@ -293,7 +293,10 @@ public final class GitTreeStore {
             walk.readChains();
             // Only from the commit taken: a later record may hold commits no pin has judged yet.
             final TreeRecord start =
-                    kept != null && since.equals(kept.commit()) && !walk.unsettled(kept)
+                    kept != null
+                                    && since.equals(kept.commit())
+                                    && !walk.unsettled(kept)
+                                    && !walk.missedTheList(kept)
                             ? kept
                             : null;
             final TreePin watch =

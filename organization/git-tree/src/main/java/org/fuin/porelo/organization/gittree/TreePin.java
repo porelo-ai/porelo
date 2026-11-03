@@ -128,7 +128,10 @@ final class TreePin implements TreeWalk.Watch {
                 held(commit, admin.login(), person, signed, admins);
             }
         }
-        if (!admins.isEmpty()) {
+        if (admins.isEmpty()) {
+            // Nobody to hand on to: the pin stays, but never with a key that was dismissed.
+            pin.removeAll(standing);
+        } else {
             pin = admins;
         }
     }

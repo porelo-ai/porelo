@@ -1662,6 +1662,68 @@ class GitTreeStoreTest {
         assertThat(refusedPaths(answers)).containsExactly("projects/third/card");
     }
 
+    @Test
+    void aRecordFromBeforeTheRolesIsWalkedAnewWhenTheListWasThenRemoved() throws Exception {
+        founded();
+        project();
+        person("carol");
+        keeping().read(forge);
+        final String older = Files.readString(trustRecord());
+        write("organization-admins.yml", organizationAdmins("carol"));
+        commit("mia");
+        Files.delete(repo.resolve("organization-admins.yml"));
+        commit("mia");
+        Files.writeString(trustRecord(), recordAt(older, git("rev-parse", "HEAD")));
+        write("projects/third/card", "name: third\nadmin: alice\n");
+        commit("mia");
+
+        final OrganizationQuestions answers = keeping().read(forge);
+        assertThat(answers.getOrganizationAdmins()).contains(List.of("carol"));
+        assertThat(refusedPaths(answers))
+                .containsExactly("organization-admins.yml", "projects/third/card");
+    }
+
+    @Test
+    void aListThatWasRefusedDoesNotWalkARecordAnewAtEachRead() throws Exception {
+        founded();
+        project();
+        write("organization-admins.yml", organizationAdmins("alice"));
+        commit("alice");
+        keeping().read(forge);
+        write("projects/third/card", "name: third\nadmin: alice\n");
+        commit("mia");
+
+        final OrganizationQuestions answers = keeping().read(forge);
+
+        assertThat(answers.getOrganizationAdmins()).isEmpty();
+        assertThat(answers.getWarnings()).isEmpty();
+        assertThat(refusedPaths(answers)).containsExactly("organization-admins.yml");
+    }
+
+    @Test
+    void aHostsRecordFromBeforeTheRolesIsWalkedAnew() throws Exception {
+        carryingHost();
+        final java.util.Set<String> pin = java.util.Set.of(PersonCard.fingerprint(key("alice")));
+        new GitTreeOffline(keeping(), forge).check("build", pin, "");
+        final String older = Files.readString(trustRecord());
+        person("carol");
+        write("organization-admins.yml", organizationAdmins("carol"));
+        final String taken = commit("mia");
+        Files.writeString(trustRecord(), recordAt(older, taken));
+        write(
+                "hosts/build/host.yml",
+                "admins:\n  - login: alice\n  - login: bob\nprojects: [demo]\n");
+        commit("alice");
+
+        final Map<String, Object> answer =
+                new GitTreeOffline(keeping(), forge).check("build", pin, taken);
+
+        assertThat((List<?>) answer.get("admins"))
+                .as("a machine admin names no further admin once the list stands")
+                .extracting(row -> (Object) ((Map<?, ?>) row).get("login"))
+                .containsExactly("alice");
+    }
+
     private static String recordAt(final String record, final String commit) {
         return record.replaceFirst(
                 "\"commit\"\\s*:\\s*\"[0-9a-f]+\"", "\"commit\":\"" + commit + "\"");
@@ -2947,6 +3009,19 @@ class GitTreeStoreTest {
     }
 
     @Test
+    void anOrganizationAdminTakenOffLeavesAPinThatHeldNobodyElse() throws Exception {
+        final String taken = carryingHostWithAnOrganizationAdmin();
+        Files.delete(repo.resolve("people/alice.card"));
+        commit("alice");
+        write("organization-admins.yml", organizationAdmins());
+        commit("mia");
+        write("hosts/build/card", hostCard("build", "carol"));
+        commit("carol");
+
+        refusedAs("refused-state", () -> fetch(taken, "alice"));
+    }
+
+    @Test
     void anOrganizationAdminTakenOffTheListLeavesThePinAtOnce() throws Exception {
         final String taken = carryingHostWithAnOrganizationAdmin();
         write("organization-admins.yml", organizationAdmins());
@@ -2989,6 +3064,10 @@ class GitTreeStoreTest {
 
         assertThat(answer.get("revision")).isEqualTo(listed);
         assertThat(answer.get("organization_admins")).asList().isEmpty();
+
+        write("hosts/build/card", hostCard("build", "carol"));
+        commit("carol");
+        refusedAs("refused-state", () -> fetch(listed, "alice"));
     }
 
     @Test
