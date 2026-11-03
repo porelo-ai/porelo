@@ -110,6 +110,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b417"></a>[B417](B417-An-Admin-Signs-A-Projects-File-Anew.md) | M | - | For 0.6, a defect: removing, locking or demoting the admin who last signed a project's file stops every new start. `project sign` lets a current admin read and sign it, and the interface offers it |
 | <a id="b396"></a>[B396](B396-Mutation-Testing-With-PIT.md) | - | - | A `pit` profile run by hand, not in CI and with no threshold, and a report sorting survivors into real gaps and harmless ones. |
 | <a id="b358"></a>[B358](B358-A-Task-Reviews-A-Pull-Request-On-The-Central-Forge.md) | - | [B172](README.md#b172) | A reviewer task also takes any existing pull request on the central forge by its URL, in a project or without one; read and commented with the person's own account, comments only, each released |
 | <a id="b355"></a>[B355](B355-No-Switch-That-Turns-Every-Check-Off.md) | S | - | No `--insecure` that turns every check off; instead an `unsigned`/`unverified` mark in `task list`, the interface and the gate's verdicts, for what already runs so |
@@ -127,7 +128,6 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
-| <a id="b417"></a>[B417](B417-An-Admin-Signs-A-Projects-File-Anew.md) | M | - | A defect: removing, locking or demoting the admin who last signed a project's file stops every new start, and nothing can sign it anew; a verb, the interface's offer and a warning. State and release are the operator's |
 | <a id="b416"></a>[B416](B416-A-Forge-That-Refuses-A-Hosts-Read-Key-Says-Why.md) | - | - | A forge's refusal of a host's read key says why, naming the organization's deploy key setting and its page; an organization at GitHub must allow deploy keys for a host to read it |
 | <a id="b415"></a>[B415](B415-A-Project-Admin-Told-How-To-Open-Without-The-Right.md) | - | - | `project open` refused by the forge says what works: somebody makes the repository under the project's name, empty, with write for this person, and they ask again |
 | <a id="b414"></a>[B414](B414-A-Developer-Reads-An-Organization-At-GitHub.md) | S | - | At GitHub, a person with push access reads the organization: the founder counts by their admin on this repository, and the refusal says what the forge could not tell. Decided by the operator; its state is the Coordinator's |
