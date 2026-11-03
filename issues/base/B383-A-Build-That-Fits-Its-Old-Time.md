@@ -1,6 +1,6 @@
 # B383 — A Build That Fits Its Old Time
 
-**Status:** Implementing.
+**Status:** Review.
 **Severity:** medium.
 **Size:** S - fixtures and waits in several test modules (`apps/app`, `daemon`, `agents/stub`), and a real run of the Build
 to measure each step; no contract other repositories read, and `VaultFile` is not touched.
@@ -60,6 +60,50 @@ about 0.15-0.3 s a derive, measured) in every vault write and open of a fixture;
   the wait, not the subject.
 - Every test that gives up a real wait is seen to fail first against a loop or an agent that never ends/serves.
 - The number of tests run is the same (504 classes, same count of tests per class) before and after.
+
+## As built
+
+No fixture and no wait was touched, so no test changed, and every real process and the production Argon2 cost stay: the
+Acceptance's list of tests changed is empty. What changed is how many JVMs run the tests of `apps/app`, `vault` and
+`daemon`, four instead of one, and that `organization/git-tree` runs its checks concurrently. `vault` stays in one JVM under
+the `native` profile, not tried in four under the tracing agent.
+
+**Measured, the step *Build and unit tests*:** 21.4 minutes on the cut, 13.5 with the App in four JVMs, then 10:50, 9:39 and,
+with `vault` and `daemon` too, 11:08, the last three under 12. A whole `mvnw verify` here takes about 6:10, against 19:04.
+
+**The runner's spread is wider than the last step's gain.** Between the two logs below `vault` and `daemon` fell from 107 s to
+67 s, but the App, unchanged between them, fell by a sixth as well, so about 20 s of that is the step itself. The target
+is met; the margin on a slow runner's day is not known.
+
+The twenty slowest classes, in seconds, on the Build, before on `d2fbbacb` (job 125689932834) and after on `19d6e689` (job
+125735330020), which ran on a faster runner:
+
+| Class | Before | After |
+|---|---|---|
+| `TransportConversationsTest` | 158.0 | 134.1 |
+| `GitTreeWritesContractTest` | 128.8 | 98.6 |
+| `TaskRunCommandTest` | 125.9 | 102.3 |
+| `IdentityRotateCommandTest` | 91.2 | 72.2 |
+| `ProjectTakingTest` | 79.3 | 61.6 |
+| `GitTreeWritesTest` | 66.3 | 53.0 |
+| `GitTreeStoreTest` | 62.0 | 54.4 |
+| `TransportLentTest` | 57.1 | 48.6 |
+| `MachineTransportsTest` | 44.9 | 40.8 |
+| `IdentityBackupKeyCommandTest` | 39.6 | 30.9 |
+| `AgentChoiceTest` | 36.8 | 34.0 |
+| `OrgReadingCommandsTest` | 36.5 | 27.0 |
+| `MessagingMethodsTest` | 32.8 | 30.5 |
+| `VaultClearingTest` | 31.1 | 26.5 |
+| `MessageWatchLoopsTest` | 27.7 | 24.1 |
+| `ProjectOpenCommandTest` | 27.3 | 20.3 |
+| `GitTreeContractTest` | 26.1 | 20.8 |
+| `ProjectOpenCommandTest$CommandTests` | 26.0 | 18.5 |
+| `InstalledEcosystemTest` | 24.2 | 30.3 |
+| `VaultFileTest` | 23.3 | 19.5 |
+
+**Against the Acceptance:** the count of classes is 502 in both logs, not the 504 written there, as later work took some away;
+the tests per class were not compared one by one, and the line between the two logs added tests. Steps 2 and 3 of the plan, the
+waits and the fixtures, were not built, as the target was met without them.
 
 ## To be checked
 
