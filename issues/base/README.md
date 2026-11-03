@@ -131,6 +131,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b415"></a>[B415](B415-A-Project-Admin-Told-How-To-Open-Without-The-Right.md) | - | - | `project open` refused by the forge says what works: somebody makes the repository under the project's name, empty, with write for this person, and they ask again |
 | <a id="b414"></a>[B414](B414-A-Developer-Reads-An-Organization-At-GitHub.md) | S | - | At GitHub, a person with push access reads the organization: the founder counts by their admin on this repository, and the refusal says what the forge could not tell. Decided by the operator; its state is the Coordinator's |
 | <a id="b411"></a>[B411](B411-A-Providers-Refusal-Reaches-The-Person.md) | - | - | A provider's error the proxy can check reaches the person, where JSON labelled `text/plain` is withheld today and `model_not_supported` is never read |
 | <a id="b412"></a>[B412](B412-A-Prompted-Start-That-Failed-Says-So-In-Its-Exit.md) | - | - | `task start -P` whose agent ended with an error exits non-zero, where it exits 0 today |
