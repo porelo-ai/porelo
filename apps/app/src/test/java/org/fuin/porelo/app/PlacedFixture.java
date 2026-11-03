@@ -44,6 +44,7 @@ final class PlacedFixture {
                                 null,
                                 List.of(keys),
                                 null,
+                                null,
                                 null));
     }
 

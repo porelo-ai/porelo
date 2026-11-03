@@ -136,6 +136,7 @@ from its side, as *blocked by*.
 |---|---|---|---|
 | <a id="b402"></a>[B402](B402-A-Clients-Prepare-Reads-The-Organization-As-The-Command-Line-Does.md) | - | - | A client's `Prepare` of an organization's project reads it as `porelo task prepare` does, not only what the last start placed |
 | <a id="b403"></a>[B403](B403-A-Start-Judged-On-A-Real-Machine.md) | - | - | The acceptance suite walks a start of an organization's project through the judgment on a real machine, signed, unsigned, wrong role and revoked |
+| <a id="b404"></a>[B404](B404-A-List-With-The-Organization-Never-Read.md) | - | - | `project list` still shows a machine's own projects when its organization was never read and is out of reach |
 | <a id="b400"></a>[B400](B400-A-Revoked-Key-Stops-Certifying-Off-A-Host-Before-A-Start.md) | - | - | Off a host, a key revoked in the organization stops being believed as a certifier of messages soon after, not only at the project's next start |
 | <a id="b397"></a>[B397](B397-A-Plain-Git-Credential-Goes-To-Any-Host-A-Project-Names.md) | - | - | A plain `git.token` or `git.ssh` reaches only a host the person meant it for, not whatever host a project's file names. |
 | <a id="b401"></a>[B401](B401-What-The-Write-Contract-Does-Not-Yet-Hold.md) | - | - | What a store could do and still pass the write contract: five operations no check calls, the source's silence, the last admin, backups and reasons never asserted |

@@ -1,6 +1,7 @@
 package org.fuin.porelo.app;
 
 import java.io.IOException;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -22,6 +23,9 @@ import picocli.CommandLine.Command;
                 "Lists the projects of the organization this person is in, then this machine's.")
 public class ProjectListCommand extends OrgReading {
 
+    /** Where a host's files are; another place only in a test. */
+    Path hostFiles = OrganizationProjects.HOST_FILES;
+
     @Override
     Map<String, @Nullable Object> answer(final PoreloContext machine) throws IOException {
         final List<Map<String, @Nullable Object>> rows = new ArrayList<>();
@@ -37,6 +41,15 @@ public class ProjectListCommand extends OrgReading {
             for (final OrganizationQuestions.Project project : state.getProjects()) {
                 named.add(project.project());
                 login.flatMap(own -> listed(state, project, own)).ifPresent(rows::add);
+            }
+        }
+        for (final OrganizationProjects.Placed hosted :
+                new OrganizationProjects(
+                                machine.paths().projects().organizationProjects(), hostFiles)
+                        .hosted()) {
+            if (!named.contains(hosted.project())) {
+                named.add(hosted.project());
+                rows.add(carried(hosted, machine));
             }
         }
         for (final String local : OrgAccess.localProjects(machine).keySet()) {
@@ -83,6 +96,28 @@ public class ProjectListCommand extends OrgReading {
                             row.put("opened", project.filed());
                             return row;
                         });
+    }
+
+    /** What a host says: its file is there for this person only while they are not locked. */
+    private static Map<String, @Nullable Object> carried(
+            final OrganizationProjects.Placed hosted, final PoreloContext machine)
+            throws IOException {
+        final String login =
+                OrgAccess.ownLogin(machine).orElse(machine.environment().apply("USER"));
+        final Map<String, @Nullable Object> row = new LinkedHashMap<>();
+        row.put("project", hosted.project());
+        row.put("source", "organization");
+        row.put(
+                "role",
+                hosted.keys().stream()
+                        .filter(key -> key.login().equals(login))
+                        .map(OrganizationProjects.Key::role)
+                        .findFirst()
+                        .orElse(null));
+        row.put("locked", false);
+        row.put("host", hosted.host());
+        row.put("opened", true);
+        return row;
     }
 
     private static Map<String, @Nullable Object> other(final String name, final String source) {

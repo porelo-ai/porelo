@@ -268,7 +268,8 @@ public final class ProjectTaking {
                                                 null,
                                                 List.copyOf(keys),
                                                 homeserver,
-                                                room));
+                                                room,
+                                                null));
                             }
                             return judged;
                         });

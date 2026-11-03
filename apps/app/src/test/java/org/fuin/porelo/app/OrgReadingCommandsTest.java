@@ -258,6 +258,9 @@ class OrgReadingCommandsTest {
         if (line.getCommand() instanceof ProjectShowCommand show) {
             show.files = (machine, at, keys) -> projectFile;
         }
+        if (line.getCommand() instanceof ProjectListCommand list) {
+            list.hostFiles = dir.resolve("host-files");
+        }
         line.getSubcommands().values().forEach(this::wire);
     }
 
@@ -637,6 +640,84 @@ class OrgReadingCommandsTest {
         assertThat(OrganizationAccess.forgeToken(context(), origin))
                 .as("a blank file holds none")
                 .isNull();
+    }
+
+    private void hostFile(final String project, final @Nullable String host) throws IOException {
+        final Path file = dir.resolve("host-files").resolve(project + ".json");
+        Files.createDirectories(file.getParent());
+        Files.writeString(
+                file,
+                """
+                {"project": "%s", "revision": "56420b3", "address": "git@github.com:acme/%s.git",
+                 "fetch_from": null,%s
+                 "signing_keys": [{"login": "alice", "role": "admin", "key": "ssh-ed25519 AAAA",
+                                   "valid_from": "2026-11-02", "valid_until": "2028-11-02",
+                                   "revoked_since": null}],
+                 "homeserver": null, "room": null}
+                """
+                        .formatted(
+                                project,
+                                project,
+                                host == null ? "" : " \"host\": \"" + host + "\","));
+    }
+
+    /**
+     * A person's account on a host holds no organization.yml: without this the person would be told
+     * they have no project, on the machine that was set up to carry it.
+     */
+    @Test
+    void aProjectAHostCarriesForThisPersonIsListedWithNoOrganizationHere() throws Exception {
+        environment = Map.of("USER", "alice");
+        hostFile("demo", "build");
+
+        assertThat(run("project", "list", "--json")).as("what it said: %s", err).isZero();
+
+        final List<?> rows = (List<?>) answer().get("projects");
+        assertThat(field(rows.getFirst(), "project")).isEqualTo("demo");
+        assertThat(field(rows.getFirst(), "source")).isEqualTo("organization");
+        assertThat(field(rows.getFirst(), "role")).isEqualTo("admin");
+        assertThat(field(rows.getFirst(), "locked")).isEqualTo(false);
+        assertThat(field(rows.getFirst(), "host")).isEqualTo("build");
+        assertThat(field(rows.getFirst(), "opened")).isEqualTo(true);
+        assertThat(rows).hasSize(2);
+    }
+
+    @Test
+    void aHostFileNamingNoHostLeavesTheRowsHostOpen() throws Exception {
+        environment = Map.of("USER", "someone-else");
+        hostFile("demo", null);
+
+        assertThat(run("project", "list", "--json")).as("what it said: %s", err).isZero();
+
+        final Object row = ((List<?>) answer().get("projects")).getFirst();
+        assertThat(field(row, "host")).isNull();
+        assertThat(field(row, "role")).as("the file does not name this account").isNull();
+    }
+
+    @Test
+    void aProjectBothTheHostAndThisMachineNameIsListedOnceAsTheOrganizations() throws Exception {
+        environment = Map.of("USER", "alice");
+        hostFile("mine", "build");
+        final Path file = dir.resolve("config/porelo/projects/mine/project.yml");
+        Files.createDirectories(file.getParent());
+        Files.writeString(file, LOCAL_PROJECT);
+
+        assertThat(run("project", "list", "--json")).as("what it said: %s", err).isZero();
+
+        final List<?> mine =
+                ((List<?>) answer().get("projects"))
+                        .stream().filter(row -> "mine".equals(field(row, "project"))).toList();
+        assertThat(mine).hasSize(1);
+        assertThat(field(mine.getFirst(), "source")).isEqualTo("organization");
+    }
+
+    @Test
+    void aHostFileThatDoesNotReadIsSaidNotPassedOver() throws Exception {
+        final Path file = dir.resolve("host-files/demo.json");
+        Files.createDirectories(file.getParent());
+        Files.writeString(file, "{\"project\": \"demo\"}");
+
+        assertThat(run("project", "list", "--json")).isNotZero();
     }
 
     @Test

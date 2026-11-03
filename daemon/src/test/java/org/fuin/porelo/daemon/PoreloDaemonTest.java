@@ -4159,6 +4159,7 @@ class PoreloDaemonTest {
                                 null,
                                 List.of(),
                                 null,
+                                null,
                                 null));
 
         servingContext(

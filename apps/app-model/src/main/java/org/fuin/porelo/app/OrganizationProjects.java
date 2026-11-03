@@ -73,6 +73,7 @@ public final class OrganizationProjects {
      * @param keys Its members' keys.
      * @param homeserver The host's homeserver, or {@code null}.
      * @param room The room on it, or {@code null}.
+     * @param host The host carrying it, named in a host's file, or {@code null}.
      */
     public record Placed(
             String project,
@@ -81,7 +82,8 @@ public final class OrganizationProjects {
             @Nullable String fetchFrom,
             List<Key> keys,
             @Nullable String homeserver,
-            @Nullable String room) {
+            @Nullable String room,
+            @Nullable String host) {
 
         /**
          * Returns the keys that hold on a day.
@@ -134,6 +136,31 @@ public final class OrganizationProjects {
     }
 
     /**
+     * Returns what a host says of every project it carries for this person.
+     *
+     * @return Those whose file this person may read, by name.
+     * @throws IOException When a file that is there does not read.
+     */
+    public List<Placed> hosted() throws IOException {
+        if (!Files.isDirectory(hostFiles)) {
+            return List.of();
+        }
+        final List<Path> files;
+        try (Stream<Path> listed = Files.list(hostFiles)) {
+            files =
+                    listed.filter(file -> file.getFileName().toString().endsWith(".json"))
+                            .filter(Files::isReadable)
+                            .sorted()
+                            .toList();
+        }
+        final List<Placed> hosted = new ArrayList<>();
+        for (final Path file : files) {
+            hosted.add(read(file));
+        }
+        return List.copyOf(hosted);
+    }
+
+    /**
      * Returns a project as the last start placed it, with what a host says of it now.
      *
      * @param name The project's name.
@@ -156,7 +183,8 @@ public final class OrganizationProjects {
                         host.fetchFrom(),
                         host.keys(),
                         host.homeserver(),
-                        host.room());
+                        host.room(),
+                        host.host());
     }
 
     /**
@@ -261,7 +289,8 @@ public final class OrganizationProjects {
                     optional(document, "fetch_from"),
                     List.copyOf(keys),
                     optional(document, "homeserver"),
-                    optional(document, "room"));
+                    optional(document, "room"),
+                    optional(document, "host"));
         } catch (final DateTimeParseException | IllegalArgumentException ex) {
             // What the parser says quotes the file.
             throw new IOException(file + " does not read", ex);
