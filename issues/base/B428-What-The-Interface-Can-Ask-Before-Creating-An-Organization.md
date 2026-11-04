@@ -11,6 +11,10 @@ the needs in order and the last step is reached only when it can work.
 A new person meets each need only as a refusal, in the order the code checks them. Most needs can be asked today only by
 trying the write. The interface owns the order and the words; this issue is what it cannot ask yet.
 
+The normal path starts with keys a person already has, made or kept by hand in their own key store, and often with an
+organization they already have; nothing here assumes Porelo made the key. Answers name the key by its fingerprint, and a
+person may keep a separate key for logging in.
+
 ## What exists and what is missing
 
 Read in the code, nothing run.
@@ -52,6 +56,10 @@ The rights alone do not suffice:
   cannot say who founded it.
 - **The card's key** must be Ed25519 and listed for that login, as an authentication or a signing key; an ssh address
   also needs the authentication listing.
+- **A key listed only as a signing key is confirmed by a call without a token**, `/users/<login>/ssh_signing_keys`, since
+  the public `<login>.keys` page lists authentication keys alone. If the forge refuses it, as under a rate limit, the
+  listing proves nothing and the founding stops with a message that points at the token. The answer must say which it
+  was. An https address needs no authentication key at all.
 - **The vault's `git.token.<host>` goes to every https repository on that host**, so a token bound to one organization
   fails on a private repository elsewhere; `credentials declare` for the organization's address keeps them apart.
 
@@ -69,5 +77,6 @@ The rights alone do not suffice:
   owner's is being measured.
 - Whether the permissions in the table are enough, by a real run.
 - Which rights `org add-read-key` needs, by a real run.
+- Whether that call should send the person's token, which would spend their own limit instead of the address's.
 - Whether the repository API's `permissions` answers the push question for a person's token.
 - What [B414](README.md#b414)'s change to who a first read trusts does to Members: read; the table changes with it.
