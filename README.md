@@ -5,7 +5,7 @@
 > **Crazy chicken - just hatched.** Interfaces, formats and even the purpose may change any day. Use it only to try
 > ideas, never to build on.
 
-**Sandboxing AI agents in YOLO mode using Podman and native Java/GraalVM.**
+### Sandboxing AI agents in YOLO mode using Podman and native Java/GraalVM.
 
 Normally, an AI agent will stop and ask you: "Can I edit this file?" or "Can I run this terminal command?". 
 In YOLO mode, it skips those questions and directly modifies code, deletes files, installs packages, 
