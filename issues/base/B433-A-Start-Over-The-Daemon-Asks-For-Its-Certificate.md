@@ -1,6 +1,6 @@
 # B433 — A Start Over The Daemon Asks For Its Certificate
 
-**Status:** Backlog.
+**Status:** Implementing.
 **Size:** M - one contract change other repositories read, in the daemon and the task's start, with its documents.
 
 **What must be true.** A task can be started on a host through the daemon's `Start`, its key certified by the person's own
@@ -28,18 +28,18 @@ The operator chose this way: `Start` carries the request and the interface signs
   fields `StdinCertifier` asks for, with `start`, a random id made for this one wait.
 - **A new method, `Certify(start, certificate: ?string, refused: ?string)`,** on a connection of its own, as the first is streaming.
   An unknown or spent `start` is an error and changes nothing. `refused` ends the start with those words.
-- **The daemon's side:** a certifier in `daemon` holding the waits by id, reached through a new `TaskLaunch.certifyingBy`, as
+- **The daemon's side:** a certifier in `app-task`, as the daemon only registers methods, holding the waits by id, reached through a new `TaskLaunch.certifyingBy`, as
   `certifyingOver` stays for `--certify-stdin`. The certificate is at most what `StdinCertifier` reads, and
   `TaskCertification.certify` checks it as any other. A wait ends at five minutes, or when the stream closes, as a refused start,
   and leaves nothing behind.
 - **The interface's side, with no Porelo needed on that computer:** it checks what `RemoteStart.certify` checks: Ed25519, the one
   principal, the end, a listed certifier its agent holds. It makes the certificate as `AgentCertifier` does, by `ssh-keygen` and the
   agent, and the daemon's check still has the last word.
-- **`task certify` over the daemon** follows by the same two steps, a method `CertifyTask(task, project)` streaming the same reply and answered by `Certify`, or a
-  task on a host cannot be renewed from an interface.
+- **Renewal stays `porelo task certify --host` at the person's computer,** which needs no change. Each row of `List` and `Watch`
+  gains `certifiedUntil`, so an interface can say a certificate is ending and name that command; no method of its own.
 - **Off a host nothing changes for a client that does not send `certify`:** a task whose starter's agent holds no certifier's key still
   starts uncertified there. An interface sends it for a machine that is not its own.
-- **Red first:** a daemon test: a `Start` with `certify` gets the request, and a good certificate through `CertifyStart` lets it go on.
+- **Red first:** a daemon test: a `Start` with `certify` gets the request, and a good certificate through `Certify` lets it go on.
 
 Not by forwarding: `AllowAgentForwarding no` on a host is meant, and a socket forwarded some other way lets root there sign
 anything with the card's key.

@@ -52,12 +52,12 @@ from its side, as *blocked by*.
 | <a id="b154"></a>[B154](B154-A-Tamper-Evident-Event-Log-Per-Node.md) | L | - | One hash-chained event log per account, anchored in the user's journal, optionally copied off the machine, kept by `porelo clear`; written by approve, reject, clearance, hand-in, credentials and project changes.; part 1 built, the copy off the machine after it |
 | <a id="b432"></a>[B432](B432-The-Daemon-Lists-A-Project-The-Host-Carries.md) | M | - | The daemon's `Projects` names a project the host carries before its first start, as `project list` does. |
 | <a id="b434"></a>[B434](B434-A-Refused-Start-Says-What-Helps-There.md) | S | - | A start a host refuses for want of a certificate names `task start --host` at the person's own computer, not `ssh-add`. |
+| <a id="b433"></a>[B433](B433-A-Start-Over-The-Daemon-Asks-For-Its-Certificate.md) | M | - | The daemon's `Start` asks for the certificate, so an interface can start a task on a host with the agent at the person's computer. |
 
 ## Backlog
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
-| <a id="b433"></a>[B433](B433-A-Start-Over-The-Daemon-Asks-For-Its-Certificate.md) | M | - | The daemon's `Start` asks for the certificate, so an interface can start a task on a host with the agent at the person's computer. |
 | <a id="b431"></a>[B431](B431-Change-A-Repository-Row-In-One-Commit.md) | S | - | `porelo project repository change` changes a row in one signed commit and keeps the fields it does not name. |
 | <a id="b430"></a>[B430](B430-A-Project-With-No-Git-Repository-Yet.md) | M | - | The command says it creates the project's Git repository instead of "open", and adding a project with yourself as its admin can be one step. |
 | <a id="b428"></a>[B428](B428-What-The-Interface-Can-Ask-Before-Creating-An-Organization.md) | L | - | An interface can ask, changing nothing, whether an organization can be created at an address: each need's state and next action, and the token's rights named. |
