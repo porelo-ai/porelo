@@ -32,7 +32,10 @@ installed by it, and the build says so when the line stops working.
 - The one reader found of the published package is the interface's integration test, which takes the newest stub from the
   channel into an account with no root. It needs another place first, agreed with its repository: a distribution of its own
   in the same Debian repository, such as `test`, and a directory of its own in the RPM one, which `apt install 'porelo*'`
-  does not see unless a person adds it. That is proposed, not decided.
+  does not see unless a person adds it. That reader accepts this on three conditions:
+  - An `.rpm` stays checked against metadata from the repository, never fetched unchecked.
+  - The new place gets the stub from every Build, since the reader takes the newest published.
+  - The upload to `snapshots` goes only after a leased leg has run green against the new place.
 - Then the stub is removed from the `snapshots` index, on the operator's word, since that is an outward change.
 
 **The check.**
@@ -76,6 +79,8 @@ that speaks the reader's newer interface.
 ## To be checked
 
 - Whether the RPM repository indexes a directory of its own without changing its layout.
+- Whether such a directory's metadata is signed like the channel's, and whether `dnf --repofrompath` with the key and
+  `repo_gpgcheck` checks it.
 - That `apt-get -s` on a runner resolves against the distribution's packages as a person's machine would, and which
   Ubuntu version the runner must have.
 - Whether anything else takes the published stub; the search covered the repositories on this machine, and found only
