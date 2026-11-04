@@ -1,6 +1,6 @@
 # B426 — A Person's Projects Listed From The Host's File
 
-**Status:** Implementing.
+**Status:** Review.
 **Size:** S - one more file read in `OrganizationProjects`, a test, a doc line.
 
 **What must be true.** In a person's host account, `porelo project list` shows every project the host carries for that
@@ -22,3 +22,9 @@ cannot be listed. On a host the account and the login are one name.
 - A project the host's file names, with nothing placed in this account, is listed. Seen to fail: only `default` listed.
 - Another person's file names nothing here; a name whose project file cannot be read stays out; a name no project can
   have is refused, never used as a path.
+
+## Done
+
+- `OrganizationProjects.hosted` adds the names of the host's file for this account, `user.name` being its name, and opens
+  each as before (`OrgReadingCommandsTest`, red first: the listing stopped at `default`, and a name that cannot be a project
+  was taken without a word). Unit tests here; the host's file itself comes with the host's follow, not run together yet.

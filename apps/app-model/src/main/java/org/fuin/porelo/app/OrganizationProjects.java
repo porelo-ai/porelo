@@ -13,6 +13,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Stream;
+import org.fuin.porelo.core.project.Project;
 import org.fuin.porelo.wire.Directories;
 import org.fuin.porelo.wire.Json;
 import org.jspecify.annotations.Nullable;
@@ -27,7 +28,8 @@ import org.jspecify.annotations.Nullable;
  * organization stays a believed certifier until the project's next start.
  *
  * <p><strong>On a host, the host's file answers at once.</strong> Root writes it at each follow of
- * the organization; a person who cannot read it has no host of that project.
+ * the organization; a person who cannot read it has no host of that project. Root also writes one
+ * file per person naming their projects, since the projects' directory cannot be listed.
  */
 public final class OrganizationProjects {
 
@@ -136,22 +138,58 @@ public final class OrganizationProjects {
     }
 
     /**
-     * Returns what a host says of the projects this account knows the names of. A host does not
-     * list its projects, so that a person learns no name of a project they are not in: each file is
-     * opened by its name.
+     * Returns what a host says of the projects this account knows the names of, and of those the
+     * host names for this person. A host does not list its projects, so that a person learns no
+     * name of a project they are not in: each file is opened by its name.
      *
+     * @param account This person's account on the machine.
      * @return Those whose file this person may read, by name.
      * @throws IOException When a file that is there does not read.
      */
-    public List<Placed> hosted() throws IOException {
+    public List<Placed> hosted(final String account) throws IOException {
+        final java.util.Set<String> names = new java.util.TreeSet<>(names());
+        names.addAll(named(account));
         final List<Placed> hosted = new ArrayList<>();
-        for (final String name : names()) {
+        for (final String name : names) {
             final Placed placed = host(name);
             if (placed != null) {
                 hosted.add(placed);
             }
         }
         return List.copyOf(hosted);
+    }
+
+    /**
+     * Returns the projects the host names for a person, from the file only that person may read.
+     *
+     * @param account The person's account, which on a host is their login.
+     * @return The names; none where no such file can be read.
+     * @throws IOException When the file is there and does not read, or names what no project can be
+     *     called: each name goes on to be a path.
+     */
+    private List<String> named(final String account) throws IOException {
+        final Path file = hostFiles.resolveSibling("persons").resolve(account + ".json");
+        if (!Files.isReadable(file)) {
+            return List.of();
+        }
+        final Object document;
+        try {
+            document = Json.parse(Files.readString(file, StandardCharsets.UTF_8));
+        } catch (final IllegalArgumentException ex) {
+            throw new IOException(file + " does not read", ex);
+        }
+        if (!(document instanceof Map<?, ?> map)
+                || !(map.get("projects") instanceof List<?> rows)) {
+            throw new IOException(file + " does not read");
+        }
+        final List<String> names = new ArrayList<>();
+        for (final Object row : rows) {
+            if (!(row instanceof String name) || !name.matches(Project.NAME_PATTERN)) {
+                throw new IOException(file + " names something no project can be called");
+            }
+            names.add(name);
+        }
+        return List.copyOf(names);
     }
 
     /**

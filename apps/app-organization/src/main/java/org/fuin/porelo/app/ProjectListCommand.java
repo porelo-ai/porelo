@@ -46,7 +46,7 @@ public class ProjectListCommand extends OrgReading {
         for (final OrganizationProjects.Placed hosted :
                 new OrganizationProjects(
                                 machine.paths().projects().organizationProjects(), hostFiles)
-                        .hosted()) {
+                        .hosted(System.getProperty("user.name"))) {
             if (!named.contains(hosted.project())) {
                 named.add(hosted.project());
                 rows.add(carried(hosted, machine));

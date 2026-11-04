@@ -703,6 +703,69 @@ class OrgReadingCommandsTest {
                                 host == null ? "" : " \"host\": \"" + host + "\","));
     }
 
+    /** As on a host: a person opens their own file here by its name and may not list them. */
+    private void personFile(final String account, final String text) throws IOException {
+        hostFiles();
+        final Path persons = dir.resolve("persons");
+        Files.createDirectories(persons);
+        Files.writeString(persons.resolve(account + ".json"), text);
+        Files.setPosixFilePermissions(
+                persons, java.nio.file.attribute.PosixFilePermissions.fromString("-wx--x--x"));
+    }
+
+    private void hostFileOnly(final String project) throws IOException {
+        hostFile(project, "build");
+        Files.delete(
+                context().paths().projects().organizationProjects().resolve(project + ".json"));
+    }
+
+    private static String ownAccount() {
+        return System.getProperty("user.name");
+    }
+
+    private List<Object> listed() {
+        return ((List<?>) answer().get("projects"))
+                .stream().map(row -> field(row, "project")).toList();
+    }
+
+    @Test
+    void aProjectTheHostNamesForThisPersonIsListedBeforeTheirFirstStart() throws Exception {
+        hostFileOnly("demo");
+        personFile(ownAccount(), "{\"projects\": [\"demo\"]}");
+
+        assertThat(run("project", "list", "--json")).as("what it said: %s", err).isZero();
+
+        assertThat(listed()).containsExactly("demo", "default");
+    }
+
+    @Test
+    void anotherPersonsFileNamesNothingHere() throws Exception {
+        hostFileOnly("demo");
+        personFile("someone-else", "{\"projects\": [\"demo\"]}");
+
+        assertThat(run("project", "list", "--json")).as("what it said: %s", err).isZero();
+
+        assertThat(listed()).containsExactly("default");
+    }
+
+    @Test
+    void aNameWhoseProjectFileIsNotThereStaysOut() throws Exception {
+        personFile(ownAccount(), "{\"projects\": [\"gone\"]}");
+
+        assertThat(run("project", "list", "--json")).as("what it said: %s", err).isZero();
+
+        assertThat(listed()).containsExactly("default");
+    }
+
+    @Test
+    void aNameNoProjectCanHaveIsRefusedAndNeverAPath() throws Exception {
+        personFile(ownAccount(), "{\"projects\": [\"../secret\"]}");
+
+        assertThat(run("project", "list", "--json")).isNotZero();
+
+        assertThat(out.toString()).doesNotContain("secret");
+    }
+
     /**
      * A person's account on a host holds no organization.yml: without this the person would be told
      * they have no project, on the machine that was set up to carry it.
