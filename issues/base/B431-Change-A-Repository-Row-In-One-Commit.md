@@ -1,6 +1,6 @@
 # B431 — Change A Repository Row In One Commit
 
-**Status:** Implementing.
+**Status:** Review.
 **Size:** S - one module's new subcommand and one write in `ProjectFile`, with tests; the file's format does not change.
 
 **What must be true.** A Project Admin changes a row of `project.yml` in one signed commit, and every field the change does

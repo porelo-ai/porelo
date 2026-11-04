@@ -336,8 +336,10 @@ class ProjectFileTest {
                                 null);
 
         assertThat(again.again()).as("it was made before").isTrue();
-        assertThat(again.revision()).isEqualTo(first.revision());
-        assertThat(git("rev-parse", "HEAD").strip()).isEqualTo(first.revision());
+        assertThat(again.revision()).as("the first answer").isEqualTo(first.revision());
+        assertThat(git("rev-parse", "HEAD").strip())
+                .as("no second commit")
+                .isEqualTo(first.revision());
     }
 
     @Test
@@ -359,6 +361,9 @@ class ProjectFileTest {
                                                 "ssh://git@host.example/bar/app.git",
                                                 null))
                 .as("a retry under that id asks for something else")
+                .isInstanceOfSatisfying(
+                        Refused.class,
+                        refused -> assertThat(refused.reason()).isEqualTo(Refused.USAGE))
                 .hasMessageContaining("named another change");
     }
 
@@ -369,9 +374,12 @@ class ProjectFileTest {
 
         assertThatThrownBy(() -> changeCentral("wrong", "ssh://git@host.example/foo/other.git"))
                 .as("a host's forge names a repository after its central one")
+                .isInstanceOfSatisfying(
+                        Refused.class,
+                        refused -> assertThat(refused.reason()).isEqualTo(Refused.USAGE))
                 .hasMessageContaining("must end in");
 
-        assertThat(git("rev-parse", "HEAD")).isEqualTo(before);
+        assertThat(git("rev-parse", "HEAD")).as("nothing was written").isEqualTo(before);
     }
 
     @Test
@@ -387,7 +395,60 @@ class ProjectFileTest {
                         refused -> assertThat(refused.reason()).isEqualTo(Refused.EXISTS))
                 .hasMessageContaining("says that already");
 
-        assertThat(git("rev-parse", "HEAD")).isEqualTo(before);
+        assertThat(git("rev-parse", "HEAD")).as("nothing was written").isEqualTo(before);
+    }
+
+    @Test
+    void anEmptyValueIsNoWayToTakeAFieldAway() throws Exception {
+        // In an online project the reader refuses a row with no upstream itself; not in this class.
+        commit(
+                "project.yml",
+                ROW.replace("security_class: \"online\"", "security_class: \"guarded\""),
+                "alice");
+        final String before = git("rev-parse", "HEAD");
+
+        assertThatThrownBy(
+                        () ->
+                                file().changeRow(
+                                                new Change(
+                                                        new Acting("alice", key("alice")),
+                                                        before,
+                                                        "empty"),
+                                                repo.toString(),
+                                                rows(),
+                                                "app",
+                                                "",
+                                                "",
+                                                null))
+                .as("a host refuses a row with no central, and remove and add do that")
+                .isInstanceOfSatisfying(
+                        Refused.class,
+                        refused -> assertThat(refused.reason()).isEqualTo(Refused.USAGE));
+
+        assertThat(git("rev-parse", "HEAD")).as("nothing was written").isEqualTo(before);
+    }
+
+    @Test
+    void aChangeNamingNothingIsWrongUseAndNotAlreadySaid() throws Exception {
+        commit("project.yml", ROW, "alice");
+
+        assertThatThrownBy(
+                        () ->
+                                file().changeRow(
+                                                new Change(
+                                                        new Acting("alice", key("alice")),
+                                                        git("rev-parse", "HEAD"),
+                                                        "nothing"),
+                                                repo.toString(),
+                                                rows(),
+                                                "app",
+                                                null,
+                                                null,
+                                                null))
+                .as("no field was asked for, so no row says it")
+                .isInstanceOfSatisfying(
+                        Refused.class,
+                        refused -> assertThat(refused.reason()).isEqualTo(Refused.USAGE));
     }
 
     @Test
@@ -407,6 +468,7 @@ class ProjectFileTest {
                                                 null,
                                                 "ssh://git@host.example/foo/other.git",
                                                 null))
+                .as("as remove answers it")
                 .isInstanceOfSatisfying(
                         Refused.class,
                         refused -> assertThat(refused.reason()).isEqualTo(Refused.NOT_FOUND));
@@ -572,7 +634,7 @@ class ProjectFileTest {
         final Written again =
                 file().add(change("alice", "one"), repo.toString(), rows(), "app", UPSTREAM);
 
-        assertThat(again.revision()).isEqualTo(first.revision());
+        assertThat(again.revision()).as("the first answer").isEqualTo(first.revision());
         assertThat(again.again()).isTrue();
     }
 
@@ -765,7 +827,7 @@ class ProjectFileTest {
 
         final Written again = file().found(change("alice", "one"), bare.toString(), TEXT);
 
-        assertThat(again.revision()).isEqualTo(first.revision());
+        assertThat(again.revision()).as("the first answer").isEqualTo(first.revision());
         assertThat(again.again()).isTrue();
         refusedAs(
                 Refused.EXISTS, () -> file().found(change("alice", "two"), bare.toString(), TEXT));
@@ -824,7 +886,7 @@ class ProjectFileTest {
                                 aliceGone(),
                                 "demo");
 
-        assertThat(again.revision()).isEqualTo(first.revision());
+        assertThat(again.revision()).as("the first answer").isEqualTo(first.revision());
         assertThat(again.again()).isTrue();
         assertThat(git("rev-parse", "HEAD")).isEqualTo(first.revision());
     }

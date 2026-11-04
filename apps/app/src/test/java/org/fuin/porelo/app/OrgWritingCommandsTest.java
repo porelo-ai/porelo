@@ -752,7 +752,24 @@ class OrgWritingCommandsTest {
         assertThat(run("project", "repository", "change", "demo", "app", "--json"))
                 .as("nothing to change, and no agent or forge is asked")
                 .isEqualTo(64);
-        assertThat(calls).isEmpty();
+        assertThat(calls).as("nothing is written").isEmpty();
+    }
+
+    @Test
+    void aReviewThatIsNoWordIsUsageBeforeAnythingIsOpened() {
+        assertThat(
+                        run(
+                                "project",
+                                "repository",
+                                "change",
+                                "unknown",
+                                "app",
+                                "--review",
+                                "maybe",
+                                "--json"))
+                .as("wrong use, whatever the project is")
+                .isEqualTo(64);
+        assertThat(calls).as("nothing is written").isEmpty();
     }
 
     @Test

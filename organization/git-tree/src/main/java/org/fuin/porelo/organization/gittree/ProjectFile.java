@@ -692,6 +692,10 @@ public final class ProjectFile {
         if (review != null) {
             named.put("review", review);
         }
+        if (named.isEmpty() || named.containsValue("")) {
+            throw new Refused(
+                    Refused.USAGE, "name what changes, with a value: nothing is taken away", null);
+        }
         final List<String> asked = new ArrayList<>(List.of(name));
         named.forEach((field, value) -> asked.add(field + "=" + value));
         return change(

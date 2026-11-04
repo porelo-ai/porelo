@@ -148,6 +148,9 @@ public class ProjectRepositoryCommand {
                         "name what changes: --upstream, --central or --review",
                         null);
             }
+            if (review != null) {
+                review(review);
+            }
             return super.answer(machine);
         }
 
