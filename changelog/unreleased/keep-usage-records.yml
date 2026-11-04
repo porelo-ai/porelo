@@ -1,0 +1,2 @@
+title: "`porelo keep <dir>` copies the usage records into a directory and `--restore` puts them back on a new machine, never shortening a record"
+type: added

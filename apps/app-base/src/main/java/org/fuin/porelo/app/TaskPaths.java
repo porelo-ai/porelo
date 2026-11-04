@@ -52,6 +52,18 @@ public record TaskPaths(PoreloPaths paths) {
     }
 
     /**
+     * Returns the directory holding the tasks' usage records.
+     *
+     * <p>Under the state directory and kept after a task is removed: what a project's work cost
+     * outlives the task that did it.
+     *
+     * @return The directory.
+     */
+    public Path usageRecords() {
+        return paths.xdg().state().resolve("usage");
+    }
+
+    /**
      * Returns the file holding the session a task's agent was running.
      *
      * <p>Under the state directory, like the mailbox and for the same reason: it is the task's, and

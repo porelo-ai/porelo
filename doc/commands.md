@@ -24,6 +24,7 @@ file are in [the project file](project-file.md).
 | [`doctor`](#doctor) | Checks whether this machine can run a task. |
 | [`prune`](#prune) | Shows what nothing owns any more; removes it with `--yes`. |
 | [`panic`](#panic) | Stops every task and helper, removing nothing. |
+| [`keep`](#keep) | Copies the usage records into a directory, or puts them back from one. |
 | [`daemon`](#daemon) | Reaches the daemon on this machine. |
 | [`completion`](#completion) | Prints the TAB completion script for a shell. |
 
@@ -871,6 +872,17 @@ confirmed keeps every record of the task, so a later stop or removal still finds
 A helper and every process it started get SIGTERM and up to 2 s to end. `task remove --force` then sends SIGKILL to
 whatever of them still runs and waits up to 2 s more; without `--force` nothing is killed. A process that has exited
 and only waits for its parent to reap it (a zombie) counts as stopped.
+
+## keep
+
+`porelo keep <dir>` copies the tasks' usage records, `usage/*.jsonl` in the state directory and nothing else, into
+`<dir>/usage/`, up to each record's last complete line. It writes the copy into the directory it is given; taking it
+elsewhere and when are the caller's. `porelo keep --restore <dir>` puts them back before a task starts, and is refused
+with exit 69 while a task runs or when the runtime cannot say.
+
+A longer record is never shortened, in either direction, and only complete lines are copied. Once a removed task's
+record holds all of what was kept under the task's own name, that copy is dropped, so a restore gives no request twice. Two records that differ before the shorter one ends are named,
+both stay as they are, and the others are still copied. Exit 0, or 70 naming what could not be read or written.
 
 ## daemon
 

@@ -38,6 +38,7 @@ import picocli.CommandLine.Spec;
             EventsCommand.class,
             PruneCommand.class,
             PanicCommand.class,
+            KeepCommand.class,
             DaemonCommand.class,
             ProjectsCommand.class,
             ClearCommand.class,

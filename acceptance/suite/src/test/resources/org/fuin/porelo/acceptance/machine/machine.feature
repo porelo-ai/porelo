@@ -29,6 +29,7 @@ Feature: The commands a machine answers about itself
             | setup    |
             | doctor   |
             | panic    |
+            | keep     |
 
     Scenario: doctor reports whether this machine can run a task
         When a script runs "porelo doctor"

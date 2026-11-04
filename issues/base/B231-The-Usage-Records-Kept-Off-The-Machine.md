@@ -18,12 +18,16 @@ Read in the code and in [B148](README.md#b148) on 2026-10-20.
    today, hence the block. Only that directory is copied: no vault, no task state, no logs.
 2. **`porelo keep <dir>`**: `<dir>/usage/` made `0700` if missing; each record copied up to its last complete line,
    since a line may be half written while a broker appends; written to a temporary name and moved into place with
-   `ATOMIC_MOVE`, `0600`. A record already in `<dir>` that is longer than the machine's is left as it is. It prints one
-   line per record and a total, and exits 0, or 70 naming what it could not read or write.
+   `ATOMIC_MOVE`, `0600`. A record already in `<dir>` that is longer than the machine's is left as it is; one that differs
+   before the shorter ends is named, both stay and it exits 70, since either way lines would be lost. A removed task's
+   record, `<container>.removed-<time>.jsonl`, retires the copy under its live name once it holds all of it: left there,
+   a restore would give the requests twice and a new task of that name would differ at every keep. It prints one line per
+   record and a total, and exits 0, or 70 naming what it could not read or write.
 3. **`porelo keep --restore <dir>`**: refused with exit 69 while any task of the account runs, since a broker may be
    appending. For each record in `<dir>/usage/`: copied when the machine has none; when both have one, the longer is
    kept if the shorter is its prefix; two that differ before the shorter one ends are refused, naming the record,
-   and nothing of it is changed. A restore never shortens a record.
+   and nothing of it is changed. A restore never shortens a record, and copies complete lines only, since a broker's
+   next line would join a half one.
 4. **Where**: `KeepCommand` in `app`, beside the machine's own commands, in `PoreloCli`'s list; no daemon method, since
    only the playbook calls it on the machine. `doc/commands.md` gets its entry, and the contract - a command that writes its
    copy into a directory it is given, and one that puts it back - is stated there.
