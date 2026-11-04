@@ -431,6 +431,14 @@ final class WritesStandIn implements WritesFixture, OrganizationWrites {
     }
 
     @Override
+    public java.util.Optional<Written> addressFiled(final Change change, final String project) {
+        final Made held = made.get(change.id());
+        return held != null && ("address " + project).equals(held.what())
+                ? java.util.Optional.of(new Written(held.revision(), change.id(), true))
+                : java.util.Optional.empty();
+    }
+
+    @Override
     public Written addProjectMember(
             final Change change, final String project, final String login, final String role) {
         return change(

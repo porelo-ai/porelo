@@ -48,8 +48,9 @@ import org.junit.jupiter.api.io.TempDir;
 import picocli.CommandLine;
 
 /**
- * Opening a project. Harm guarded: a repository made where nobody asked for one or public by
- * default, a forge's refusal read as something else, or a first file Porelo itself cannot read.
+ * Creating a project's repository. Harm guarded: a repository made where nobody asked for one or
+ * public by default, a forge's refusal read as something else, or a first file Porelo itself cannot
+ * read.
  */
 class ProjectCreateRepositoryCommandTest {
 
@@ -307,7 +308,7 @@ class ProjectCreateRepositoryCommandTest {
             organization = forge.resolve("organization.git");
             project = forge.resolve("demo.git");
             for (final String login : List.of("mia", "alice", "bob", "carol")) {
-                final SigningKey key = SigningKey.generate("project open test");
+                final SigningKey key = SigningKey.generate("project repository test");
                 keys.put(login, key);
                 final Path file = dir.resolve(login + ".key");
                 Files.write(file, key.openSshPrivateKey());
@@ -424,7 +425,8 @@ class ProjectCreateRepositoryCommandTest {
                         (machine, ignored) -> new OrgAccess.Opened(store(machine), identities);
             }
             if (line.getCommand() instanceof ProjectCreateRepositoryCommand
-                    || line.getCommand() instanceof OrgProjectCommand.Add) {
+                    || line.getCommand() instanceof OrgProjectCommand.Add
+                    || line.getCommand() instanceof OrgProjectCommand.Remove) {
                 final OrgWriting writing = (OrgWriting) line.getCommand();
                 writing.session =
                         machine ->
@@ -447,7 +449,7 @@ class ProjectCreateRepositoryCommandTest {
                                                     + " organization")
                                     .isEqualTo("acme");
                             assertThat(name)
-                                    .as("the forge must make the project the admin asked to open")
+                                    .as("the forge must make the project the admin asked for")
                                     .isEqualTo(asked);
                             made++;
                             if (forgeRefuses != null) {
@@ -583,6 +585,9 @@ class ProjectCreateRepositoryCommandTest {
             assertThat(addingAndCreating("mia", "one-step")).as("what it said: %s", err).isZero();
 
             assertThat(answer().get("address")).isEqualTo("git@github.com:acme/fresh.git");
+            assertThat(answer().get("id"))
+                    .as("the id the person asked under, which finds both parts again")
+                    .isEqualTo("one-step");
             final OrganizationQuestions state = read();
             assertThat(state.getProjectRepository("fresh"))
                     .as("the second part passed the admin check on what the first part made")
@@ -643,6 +648,170 @@ class ProjectCreateRepositoryCommandTest {
 
             assertThat(tip(organization)).isEqualTo(tip);
             assertThat(made).isEqualTo(makes);
+        }
+
+        @Test
+        void anIdTooLongForItsSecondPartWritesNothing() {
+            final String before = tip(organization);
+
+            assertThat(addingAndCreating("mia", "a".repeat(54)))
+                    .as("the second part's id would not fit, so the first is not made")
+                    .isEqualTo(64);
+
+            assertThat(tip(organization)).as("nothing was added").isEqualTo(before);
+        }
+
+        @Test
+        void aReviewThatIsNoWordWritesNothing() {
+            asked = "fresh";
+            acting = "mia";
+            final String before = tip(organization);
+
+            assertThat(
+                            execute(
+                                    "org",
+                                    "project",
+                                    "add",
+                                    "fresh",
+                                    "--admin",
+                                    "mia",
+                                    "--create-repository",
+                                    "--review",
+                                    "strict",
+                                    "--json"))
+                    .as("wrong use is said before anything stands")
+                    .isEqualTo(64);
+
+            assertThat(tip(organization)).as("nothing was added").isEqualTo(before);
+        }
+
+        @Test
+        void aForgeNamingTheIdAlreadyIsNotToldTwice() {
+            forgeRefuses = "the forge did not answer: ask again with the same --id";
+
+            assertThat(addingAndCreating("mia", "halfway")).isNotZero();
+
+            assertThat(err.toString())
+                    .as("one way out, once")
+                    .contains("fresh is added")
+                    .doesNotContain("--id halfway");
+        }
+
+        @Test
+        void aRepositoryThatHoldsSomethingElseIsNotOfferedASecondAsking() throws Exception {
+            final Path taken = project.resolveSibling("fresh.git");
+            git(dir, "init", "-q", "--bare", "-b", "main", taken.toString());
+            final Path work = dir.resolve("taken-work");
+            git(dir, "init", "-q", "-b", "main", work.toString());
+            Files.writeString(work.resolve("README"), "someone's\n");
+            git(work, "add", "README");
+            git(work, "-c", "user.name=x", "-c", "user.email=x@x", "commit", "-q", "-m", "theirs");
+            git(work, "push", "-q", taken.toString(), "main");
+
+            assertThat(addingAndCreating("mia", "taken")).isEqualTo(65);
+
+            assertThat(err.toString())
+                    .as("asking again would only say this again, so it looks instead")
+                    .contains("fresh is added")
+                    .contains("porelo project show fresh")
+                    .doesNotContain("ask again");
+        }
+
+        @Test
+        void aProjectRemovedInBetweenIsNotSaidToBeAdded() throws Exception {
+            forgeRefuses = "the forge said no";
+            assertThat(addingAndCreating("mia", "halfway")).isNotZero();
+            forgeRefuses = null;
+            assertThat(execute("org", "project", "remove", "fresh", "--json"))
+                    .as("what it said: %s", err)
+                    .isZero();
+
+            assertThat(addingAndCreating("mia", "halfway")).isNotZero();
+
+            assertThat(err.toString())
+                    .as("it does not stand, and asking again cannot bring it back")
+                    .doesNotContain("is added")
+                    .doesNotContain("ask again");
+        }
+
+        @Test
+        void aProjectRepositoryThatTakesNoCommitIsNotCalledTheOrganization() throws Exception {
+            git(dir, "init", "-q", "--bare", "-b", "main", project.toString());
+            final Path hook = project.resolve("hooks/pre-receive");
+            Files.writeString(hook, "#!/bin/sh\nexit 1\n");
+            assertThat(hook.toFile().setExecutable(true)).as("a hook that refuses").isTrue();
+
+            assertThat(run("open-demo", tip(organization))).isEqualTo(69);
+
+            assertThat(err.toString())
+                    .as("which repository it was, and how to go on")
+                    .contains("the project's repository did not take its first commit")
+                    .contains("the same --id")
+                    .doesNotContain("organization cannot be reached");
+        }
+
+        @Test
+        void aRetryUnderAnotherReviewIsAnotherChange() throws Exception {
+            final String base = tip(organization);
+            stopAfterCommitting = true;
+            assertThat(
+                            execute(
+                                    "project",
+                                    "create-repository",
+                                    "demo",
+                                    "--review",
+                                    "required",
+                                    "--id",
+                                    "open-demo",
+                                    "--base",
+                                    base,
+                                    "--json"))
+                    .as("the interruption must be reached: %s", err)
+                    .isEqualTo(69);
+
+            assertThat(
+                            execute(
+                                    "project",
+                                    "create-repository",
+                                    "demo",
+                                    "--review",
+                                    "optional",
+                                    "--id",
+                                    "open-demo",
+                                    "--base",
+                                    base,
+                                    "--json"))
+                    .as("the first commit says required; filing it as optional would be false")
+                    .isEqualTo(64);
+            assertThat(read().getProjectRepository("demo")).as("nothing filed").isEmpty();
+        }
+
+        @Test
+        void aCompletedOpenAskedAgainAfterTheAddressMovedAnswersItsOwnFiling() throws Exception {
+            final String base = tip(organization);
+            assertThat(run("open-demo", base)).as("what it said: %s", err).isZero();
+            final Object filing = answer().get("revision");
+            new GitTreeWrites(
+                            runner,
+                            organization.toString(),
+                            "acme",
+                            access,
+                            identities,
+                            new CommitSigning(Map.of(), files))
+                    .changeProjectRepository(
+                            new OrganizationWrites.Change(
+                                    new OrganizationWrites.Acting(acting, key(acting)),
+                                    tip(organization),
+                                    "moved"),
+                            "demo",
+                            "git@github.com:acme/moved.git");
+            final String moved = tip(organization);
+
+            assertThat(run("open-demo", base)).as("what it said: %s", err).isZero();
+
+            assertThat(answer().get("revision")).as("the id's own filing").isEqualTo(filing);
+            assertThat(answer().get("again")).as("nothing new").isEqualTo(true);
+            assertThat(tip(organization)).as("no second filing").isEqualTo(moved);
         }
 
         @Test
@@ -806,6 +975,11 @@ class ProjectCreateRepositoryCommandTest {
             assertThat(run("open-demo", stale)).as("what it said: %s", err).isEqualTo(65);
 
             assertThat(answer().get("reason")).isEqualTo("moved-on");
+            assertThat(answer().get("words"))
+                    .as("a stopped run goes on under the same id with the new revision")
+                    .asString()
+                    .contains("--base")
+                    .contains("the same --id");
             assertThat(made)
                     .as("a repository made first leaves a new --id with nothing but exists")
                     .isZero();

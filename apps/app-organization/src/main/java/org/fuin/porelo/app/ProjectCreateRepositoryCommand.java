@@ -3,10 +3,13 @@ package org.fuin.porelo.app;
 import java.io.IOException;
 import java.net.URI;
 import java.util.Map;
+import java.util.Optional;
+import java.util.function.UnaryOperator;
 import org.fuin.porelo.organization.OrganizationQuestions;
 import org.fuin.porelo.organization.OrganizationQuestions.Refused;
 import org.fuin.porelo.organization.OrganizationWrites;
 import org.fuin.porelo.organization.gittree.ForgeAddress;
+import org.fuin.porelo.organization.gittree.GitTreeStore;
 import org.jspecify.annotations.Nullable;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Option;
@@ -50,7 +53,16 @@ public class ProjectCreateRepositoryCommand extends OrgWriting {
             final Session opened,
             final OrganizationWrites.Change change)
             throws IOException {
-        final Created created = create(machine, opener, opened, change, project, review, maker);
+        final Created created =
+                create(
+                        machine,
+                        opener,
+                        opened,
+                        change,
+                        project,
+                        review,
+                        maker,
+                        UnaryOperator.identity());
         address = created.address();
         return created.written();
     }
@@ -74,6 +86,7 @@ public class ProjectCreateRepositoryCommand extends OrgWriting {
      * @param review What its first file says of a review, or {@code null}.
      * @param maker Makes the repository on the forge.
      * @return What it made.
+     * @param said What a refusal says once the person may go on, for a caller with more to say.
      * @throws IOException When something unexpected happened; the change may have been made.
      */
     static Created create(
@@ -83,22 +96,54 @@ public class ProjectCreateRepositoryCommand extends OrgWriting {
             final OrganizationWrites.Change change,
             final String project,
             final @Nullable String review,
-            final Maker maker)
+            final Maker maker,
+            final UnaryOperator<Refused> said)
             throws IOException {
         final OrgAccess.Reading reading = OrgAccess.read(machine, opener);
         if (reading.stale()) {
-            throw new Refused(
-                    Refused.CANNOT_SAY, "the organization cannot be reached to say who may", null);
+            throw said.apply(
+                    new Refused(
+                            Refused.CANNOT_SAY,
+                            "the organization cannot be reached to say who may",
+                            null));
         }
         final OrganizationQuestions state = reading.answers();
-        final String login = change.acting().login();
-        ProjectRepositoryCommand.admin(state, project, login);
+        final Optional<String> filed = state.getProjectRepository(project);
+        // The id is looked for first: what it filed stands, whoever may do what by now.
+        if (filed.isPresent()) {
+            final Optional<OrganizationWrites.Written> before =
+                    opened.writes().addressFiled(change, project);
+            if (before.isPresent()) {
+                return new Created(before.orElseThrow(), filed.orElseThrow());
+            }
+        }
+        ProjectRepositoryCommand.admin(state, project, change.acting().login());
+        try {
+            return making(machine, opened, change, project, review, maker, state);
+        } catch (Refused refused) {
+            throw said.apply(refused);
+        }
+    }
+
+    private static Created making(
+            final PoreloContext machine,
+            final Session opened,
+            final OrganizationWrites.Change change,
+            final String project,
+            final @Nullable String review,
+            final Maker maker,
+            final OrganizationQuestions state)
+            throws IOException {
         // Asked again, the address is filed and the id answers; otherwise nothing is made on a
         // state the person did not see, which a new id could then only call taken.
         if (change.base() != null
                 && !change.base().equals(state.revision())
                 && state.getProjectRepository(project).isEmpty()) {
-            throw new Refused(Refused.MOVED_ON, "the organization has moved on", state.revision());
+            throw new Refused(
+                    Refused.MOVED_ON,
+                    "the organization has moved on: ask again with the revision this answers as"
+                            + " --base, and the same --id",
+                    state.revision());
         }
         final String organization = OrgAccess.repository(machine).orElseThrow();
         final ForgeAddress origin = ForgeAddress.of(organization);
@@ -114,13 +159,21 @@ public class ProjectCreateRepositoryCommand extends OrgWriting {
                                                 + ProjectRepositoryCommand.review(review)
                                                 + "\"\n");
         try {
-            opened.files().found(change, at, first);
-        } catch (Refused refused) {
-            if (!Refused.NO_REPOSITORY.equals(refused.reason())) {
-                throw refused;
+            try {
+                opened.files().found(change, at, first);
+            } catch (Refused refused) {
+                if (!Refused.NO_REPOSITORY.equals(refused.reason())) {
+                    throw refused;
+                }
+                maker.make(machine, origin, project);
+                opened.files().found(change, at, first);
             }
-            maker.make(machine, origin, project);
-            opened.files().found(change, at, first);
+        } catch (GitTreeStore.Unreachable ex) {
+            throw new Refused(
+                    Refused.CANNOT_SAY,
+                    "the project's repository did not take its first commit, or cannot be reached:"
+                            + " ask again with the same --id",
+                    null);
         }
         final OrganizationWrites.Change filing =
                 change.base() == null

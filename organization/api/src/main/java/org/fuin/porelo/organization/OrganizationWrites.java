@@ -204,6 +204,18 @@ public interface OrganizationWrites {
             throws IOException;
 
     /**
+     * Finds what an id filed for a project's address, whatever the address or the person's role is
+     * by now.
+     *
+     * @param change Who acts, under which id.
+     * @param project Its name.
+     * @return What the id filed, or empty when it filed nothing.
+     * @throws OrganizationQuestions.Refused {@code usage} when the id named another change.
+     * @throws IOException When the organization cannot be read.
+     */
+    java.util.Optional<Written> addressFiled(Change change, String project) throws IOException;
+
+    /**
      * Adds a member; an owner, an admin alone.
      *
      * @param change Who acts, against which state, under which id.

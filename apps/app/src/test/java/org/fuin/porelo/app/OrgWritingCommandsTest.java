@@ -380,7 +380,7 @@ class OrgWritingCommandsTest {
                 .isEqualTo(66);
 
         assertThat(answer().get("reason")).isEqualTo("not-opened");
-        assertThat(calls).as("only project open opens a project").isEmpty();
+        assertThat(calls).as("only project create-repository opens a project").isEmpty();
     }
 
     /** A lost key's address is refused for a new reader, and filing it again is the way back. */

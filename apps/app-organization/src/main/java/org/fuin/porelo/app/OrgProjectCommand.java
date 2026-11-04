@@ -30,6 +30,10 @@ public class OrgProjectCommand {
             description = "Adds a project, with its first admin.")
     public static class Add extends OrgWriting {
 
+        private static final String REPOSITORY_PART = "-repository";
+
+        private static final int MAX_ID = 64;
+
         @Parameters(paramLabel = "PROJECT", description = "The project.")
         private String project = "";
 
@@ -77,32 +81,66 @@ public class OrgProjectCommand {
                                 + " to run porelo project create-repository",
                         null);
             }
+            if (review != null) {
+                ProjectRepositoryCommand.review(review);
+            }
+            final OrganizationWrites.Change filing = repositoryChange(change);
             opened.writes().addProject(change, project, admin);
+            final ProjectCreateRepositoryCommand.Created created =
+                    ProjectCreateRepositoryCommand.create(
+                            machine,
+                            opener,
+                            opened,
+                            filing,
+                            project,
+                            review,
+                            maker,
+                            refused -> halfway(refused, change.id()));
+            address = created.address();
+            // The person asked under their id; asked again, that id finds both parts.
+            return new OrganizationWrites.Written(
+                    created.written().revision(), change.id(), created.written().again());
+        }
+
+        /** Its own id, from this one: asked again, each part finds its work. */
+        private static OrganizationWrites.Change repositoryChange(
+                final OrganizationWrites.Change change) {
             try {
-                final ProjectCreateRepositoryCommand.Created created =
-                        ProjectCreateRepositoryCommand.create(
-                                machine,
-                                opener,
-                                opened,
-                                // Its own id, from this one: asked again, each part finds its work.
-                                new OrganizationWrites.Change(
-                                        change.acting(), null, change.id() + "-repository"),
-                                project,
-                                review,
-                                maker);
-                address = created.address();
-                return created.written();
-            } catch (Refused refused) {
+                return new OrganizationWrites.Change(
+                        change.acting(), null, change.id() + REPOSITORY_PART);
+            } catch (IllegalArgumentException ex) {
                 throw new Refused(
+                        Refused.USAGE,
+                        "with --create-repository an --id is at most "
+                                + (MAX_ID - REPOSITORY_PART.length())
+                                + " characters",
+                        null);
+            }
+        }
+
+        /** The project stands now, so a refusal says so and what can still finish the step. */
+        private Refused halfway(final Refused refused, final String id) {
+            final String words = String.valueOf(refused.getMessage());
+            if (Refused.USAGE.equals(refused.reason())) {
+                return refused;
+            }
+            final String added = "project " + project + " is added, and ";
+            if (Refused.EXISTS.equals(refused.reason())) {
+                return new Refused(
                         refused.reason(),
-                        "project "
-                                + project
-                                + " is added, and its repository is not: "
-                                + refused.getMessage()
-                                + ": ask again with --id "
-                                + change.id(),
+                        added
+                                + "its repository holds something this step did not make: see it"
+                                + " with porelo project show "
+                                + project,
                         refused.revision());
             }
+            return new Refused(
+                    refused.reason(),
+                    added
+                            + "its repository is not: "
+                            + words
+                            + (words.contains("--id") ? "" : ": ask again with --id " + id),
+                    refused.revision());
         }
 
         @Override

@@ -564,6 +564,29 @@ public final class GitTreeWrites implements OrganizationWrites {
     }
 
     @Override
+    public Optional<Written> addressFiled(final Change change, final String project)
+            throws IOException {
+        final String fingerprint = PersonCard.fingerprint(change.acting().key());
+        try (TreeRepository clone = TreeRepository.fetch(address, runner, access)) {
+            final TreeRecord record = walk(clone);
+            final Optional<String> made = clone.changeNamed(change.id(), fingerprint);
+            if (made.isEmpty() || refused(record, made.orElseThrow())) {
+                return Optional.empty();
+            }
+            final String filing = TreeRepository.asked("File a project's address", project) + " ";
+            if (!clone.subject(made.orElseThrow()).startsWith(filing)) {
+                throw new Refused(
+                        Refused.USAGE, "this --id named another change", made.orElseThrow());
+            }
+            return Optional.of(new Written(made.orElseThrow(), change.id(), true));
+        } catch (GitTreeStore.Empty ex) {
+            return Optional.empty();
+        } catch (CardException ex) {
+            throw new IOException(ex.getMessage(), ex);
+        }
+    }
+
+    @Override
     public Written addProjectMember(
             final Change change, final String project, final String login, final String role)
             throws IOException {

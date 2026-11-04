@@ -54,7 +54,7 @@ The command line and the daemon's logic are modules by area, `app-<area>`, submo
 | tasks | `app-task` | `TaskMethods` | `15-task` | `TaskPaths` |
 | projects, backups, clearing | `app-project` | `ProjectMethods` | `20-project` | `ProjectPaths` |
 | the gate and review | `app-gate` | `GateMethods` | `35-gate` | `GatePaths` |
-| the organization's commands: `org`, `project member\|repository\|address\|open\|show`, `setup --organization` | `app-organization` | - | - | - |
+| the organization's commands: `org`, `project member\|repository\|address\|create-repository\|show`, `setup --organization` | `app-organization` | - | - | - |
 | the command line, `doctor`, `setup` | `app` | `MachineMethods` | `50-machine` | - |
 
 - **The modules' dependencies are the boundaries**: `base` depends on no area, `model` on `base` and `organization/git-tree`,

@@ -32,7 +32,8 @@ class ForgeClientMetadataTest {
     @Test
     void everyTypeOfMakingARepositoryIsDeclaredToTheNativeImage() throws IOException {
 
-        // Found by running the binary: every JVM test passed, while 'project open' in the native
+        // Found by running the binary: every JVM test passed, while 'project create-repository' in
+        // the native
         // image could not write its request and said the forge had not answered. The clients ship
         // no metadata of their own, and an undeclared record has no properties for Jackson there.
         final String metadata = Files.readString(METADATA, StandardCharsets.UTF_8);
@@ -47,7 +48,7 @@ class ForgeClientMetadataTest {
                         .toList();
         assertThat(missing)
                 .as(
-                        "forge types absent from %s, so 'project open' cannot make a repository"
+                        "forge types absent from %s, so 'project create-repository' cannot make a repository"
                                 + " in the native image",
                         METADATA)
                 .isEmpty();

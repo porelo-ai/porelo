@@ -1,6 +1,6 @@
 # B430 — A Project With No Git Repository Yet
 
-**Status:** Implementing.
+**Status:** Review.
 **Size:** M - a command renamed and a contract the window reads, several modules, and the one step.
 
 **What must be true.** The command line says what happens: the project's Git repository is created, and its first

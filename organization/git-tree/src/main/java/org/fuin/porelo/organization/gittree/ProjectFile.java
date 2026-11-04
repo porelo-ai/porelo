@@ -778,6 +778,12 @@ public final class ProjectFile {
             try (TreeRepository clone = TreeRepository.fetch(address, runner, access)) {
                 final Optional<String> made = own(clone, change);
                 if (made.isPresent()) {
+                    if (!text.equals(shown(clone, made.orElseThrow()))) {
+                        throw new Refused(
+                                Refused.USAGE,
+                                "this --id named another change: its first file says otherwise",
+                                made.orElseThrow());
+                    }
                     return new OrganizationWrites.Written(made.orElseThrow(), change.id(), true);
                 }
                 throw new Refused(
