@@ -13,6 +13,11 @@ import java.nio.file.Path;
  */
 public record TaskPaths(PoreloPaths paths) {
 
+    /** Returns the durable usage record retained after this container is removed. */
+    public Path usageRecord(String container) {
+        return paths.xdg().state().resolve("usage").resolve(container + ".jsonl");
+    }
+
     /**
      * Returns the parent of the private socket directories used by build queries.
      *

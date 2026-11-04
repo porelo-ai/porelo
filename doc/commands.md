@@ -309,6 +309,17 @@ container runtime's own words; `activity` says what the work is doing:
 | `dead` | the container is not up |
 | `unknown` | nothing on this side can see what it does, such as a task with a terminal attached |
 
+`task status` also reads provider-reported token usage, summed by answering model, agent, local day
+and local hour. Each of input, cache read, cache write, output and reasoning has its reported total
+and the number of requests with a missing count. A wholly unreported total is unknown, never zero.
+Hours include their UTC offset. `--json` adds, where a record exists, the same structured `usage` value returned by the daemon's
+`Usage(task)` method: `state` (`available`, `absent` or `unreadable`), `totals`, `models`, `agents`,
+`days` and `hours`. Each group has `name` and `totals`; totals have `requests` and five fields (`input`,
+`cacheRead`, `cacheWrite`, `output`, `reasoning`), each with nullable `tokens` and `missing`.
+A removed task's latest retained usage remains readable by its full task name; `task status` prints it
+and still exits 69, since there is no such task. A killed broker's half line costs one request's counts,
+not the record's. `List` and `Watch` keep their existing task shape and do not read usage records.
+
 **A task's own key.** Every task with a gate gets an Ed25519 key of its own, held outside its container,
 and a certificate for it: valid seven days, for the one principal `task:<project>:<task>` (`default` for
 a task without a project), signed by your key through your own agent. A project's task is certified by a

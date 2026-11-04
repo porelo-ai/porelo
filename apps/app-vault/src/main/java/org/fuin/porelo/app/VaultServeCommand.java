@@ -35,6 +35,23 @@ import picocli.CommandLine.Spec;
         description = "Serves the credential proxy for one task on a unix socket.")
 public class VaultServeCommand implements Callable<Integer>, PoreloFactory.ContextAware {
 
+    @Option(names = "--agent", description = "Agent name recorded with task usage.")
+    private @Nullable String agent;
+
+    @Option(names = "--provider-name", description = "Provider of the primary credential.")
+    private @Nullable String providerName;
+
+    @Option(
+            names = "--provider",
+            paramLabel = "<credential>=<name>",
+            description = "Provider of another credential; repeatable.")
+    private Map<String, String> providers = new java.util.LinkedHashMap<>();
+
+    @Option(
+            names = "--usage-file",
+            description = "Private JSONL record of this task's generation usage.")
+    private @Nullable Path usageFile;
+
     @Option(
             names = "--socket",
             paramLabel = "<file>",
@@ -209,7 +226,21 @@ public class VaultServeCommand implements Callable<Integer>, PoreloFactory.Conte
         final Map<String, PhantomToken> routeTokenValues = new java.util.LinkedHashMap<>();
         final Map<String, String> headers = new java.util.LinkedHashMap<>();
         try {
-            routeSpecs.forEach((name, spec) -> routes.put(name, route(name, spec)));
+            routeSpecs.forEach(
+                    (name, spec) -> {
+                        final VaultProxy.Route destination = route(name, spec);
+                        final String provider = providers.get(name);
+                        routes.put(
+                                name,
+                                new VaultProxy.Route(
+                                        destination.upstream(),
+                                        destination.authHeader(),
+                                        destination.authPrefix(),
+                                        destination.authQuery(),
+                                        destination.headers(),
+                                        provider,
+                                        streamUsage(provider)));
+                    });
         } catch (IllegalArgumentException ex) {
             err.println("porelo: " + ex.getMessage());
             err.flush();
@@ -384,7 +415,15 @@ public class VaultServeCommand implements Callable<Integer>, PoreloFactory.Conte
                                 routes,
                                 requests,
                                 org.fuin.porelo.core.net.TrustedCertificates.file(
-                                        context.paths().xdg()));
+                                        context.paths().xdg()),
+                                usageFile == null
+                                        ? null
+                                        : new VaultProxy.Usage(
+                                                usageFile,
+                                                agent,
+                                                providerName,
+                                                credential,
+                                                streamUsage(providerName)));
                 // Closed by a signal too, not only on return: the proxy's close removes its
                 // socket, and a socket left behind reads as a live broker.
                 Teardown closing = Teardown.arm(proxy::close)) {
@@ -532,6 +571,13 @@ public class VaultServeCommand implements Callable<Integer>, PoreloFactory.Conte
                 tokenHttp.get(),
                 java.time.Clock.systemUTC(),
                 err);
+    }
+
+    private boolean streamUsage(@Nullable String name) {
+        if (name == null) return true;
+        final org.fuin.porelo.agent.api.ProviderDefinition definition =
+                context.providers().get(name);
+        return definition == null || definition.streamUsage();
     }
 
     private Path routeTokenFile(String name) {

@@ -110,6 +110,9 @@ public class VaultProxy implements AutoCloseable, Runnable {
      */
     public static final int BODY_LIMIT = 32 * 1024 * 1024;
 
+    /** Largest body or SSE event parsed for optional usage metadata, in bytes. */
+    public static final int USAGE_LIMIT = 1024 * 1024;
+
     /**
      * How much of an answer is read and examined before any of it is handed over; the rest is
      * examined as it streams.
@@ -165,6 +168,19 @@ public class VaultProxy implements AutoCloseable, Runnable {
     private final ServerSocketChannel server;
 
     private final java.util.function.Consumer<String> log;
+
+    private final @Nullable Usage usage;
+
+    private final Set<UsageObservation> observations =
+            java.util.concurrent.ConcurrentHashMap.newKeySet();
+
+    /** Task identity and the private append-only usage destination. */
+    public record Usage(
+            Path file,
+            @Nullable String agent,
+            @Nullable String provider,
+            String credential,
+            boolean streamUsage) {}
 
     private volatile boolean running = true;
 
@@ -253,7 +269,19 @@ public class VaultProxy implements AutoCloseable, Runnable {
             String authHeader,
             String authPrefix,
             @org.jspecify.annotations.Nullable String authQuery,
-            Map<String, String> headers) {
+            Map<String, String> headers,
+            @Nullable String provider,
+            boolean streamUsage) {
+
+        /** Retains routes that do not identify a model provider. */
+        public Route(
+                String upstream,
+                String authHeader,
+                String authPrefix,
+                @Nullable String authQuery,
+                Map<String, String> headers) {
+            this(upstream, authHeader, authPrefix, authQuery, headers, null, true);
+        }
 
         /**
          * Constructor for a route that sets nothing beside the key.
@@ -386,6 +414,36 @@ public class VaultProxy implements AutoCloseable, Runnable {
             java.util.function.Consumer<String> log,
             Path authorities) {
 
+        this(
+                socket,
+                upstream,
+                exchange,
+                authHeader,
+                authPrefix,
+                authQuery,
+                headers,
+                routes,
+                log,
+                authorities,
+                null);
+    }
+
+    /**
+     * Creates a broker with optional task usage observation, preserving its credential boundary.
+     */
+    public VaultProxy(
+            Path socket,
+            String upstream,
+            TokenExchange exchange,
+            String authHeader,
+            String authPrefix,
+            @Nullable String authQuery,
+            Map<String, String> headers,
+            Map<String, Route> routes,
+            java.util.function.Consumer<String> log,
+            Path authorities,
+            @Nullable Usage usage) {
+        this.usage = usage;
         this.ownHeaders = Map.copyOf(headers);
         this.routes = Map.copyOf(routes);
         this.authQuery = authQuery == null || authQuery.isBlank() ? null : authQuery;
@@ -594,9 +652,16 @@ public class VaultProxy implements AutoCloseable, Runnable {
             return;
         }
 
+        final UsageRequest request =
+                UsageRequest.prepare(
+                        head.method(),
+                        head.target(),
+                        body,
+                        head.value("content-encoding"),
+                        route.streamUsage());
         final HttpRequest outbound;
         try {
-            outbound = reissue(head, body, real, route);
+            outbound = reissue(head, request.body(), real, route, request.rewritten());
         } catch (final IllegalArgumentException ex) {
             // Never the exception's own words, nor the target: either can carry what the request
             // named.
@@ -610,10 +675,33 @@ public class VaultProxy implements AutoCloseable, Runnable {
             out.flush();
             return;
         }
+        final Usage configured = usage;
+        final UsageObservation observation =
+                configured != null && UsageReading.observes(head.method(), head.target())
+                        ? new UsageObservation(
+                                new UsageReading(
+                                        head.target(),
+                                        request.plain(),
+                                        request.asked(),
+                                        route.streamUsage()),
+                                configured,
+                                route.provider(),
+                                granted.scope() == null ? configured.credential() : granted.scope(),
+                                real,
+                                presented(head))
+                        : null;
+        if (observation != null) {
+            observations.add(observation);
+            observation.whenDone(() -> observations.remove(observation));
+        }
         final HttpResponse<InputStream> response;
         try {
             response = http.send(outbound, HttpResponse.BodyHandlers.ofInputStream());
         } catch (IOException | InterruptedException ex) {
+            if (observation != null) {
+                observation.start(false, 502);
+                observation.finish(false);
+            }
             if (ex instanceof InterruptedException) {
                 Thread.currentThread().interrupt();
             }
@@ -634,7 +722,13 @@ public class VaultProxy implements AutoCloseable, Runnable {
                         + " -> "
                         + response.statusCode()
                         + " from the provider");
-        writeResponse(out, response);
+        boolean natural = false;
+        try {
+            writeResponse(out, response, observation);
+            natural = true;
+        } finally {
+            if (observation != null) observation.finish(natural);
+        }
     }
 
     /**
@@ -843,7 +937,8 @@ public class VaultProxy implements AutoCloseable, Runnable {
         return HttpHead.readExactly(in, (int) length);
     }
 
-    private HttpRequest reissue(HttpHead head, byte[] body, String real, Route route) {
+    private HttpRequest reissue(
+            HttpHead head, byte[] body, String real, Route route, boolean rewritten) {
 
         // Every parameter any route carries a key in is taken out, so a phantom in another route's
         // parameter never travels; the real key goes back in only where this route says.
@@ -888,7 +983,8 @@ public class VaultProxy implements AutoCloseable, Runnable {
             final String name = head.names().get(i).toLowerCase(Locale.ROOT);
             if (keyHeaders.contains(name)
                     || HOP_BY_HOP.contains(name)
-                    || name.equals("accept-encoding")) {
+                    || name.equals("accept-encoding")
+                    || rewritten && name.equals("content-encoding")) {
                 continue;
             }
             request.header(head.names().get(i), head.values().get(i));
@@ -904,7 +1000,14 @@ public class VaultProxy implements AutoCloseable, Runnable {
     }
 
     private Route own() {
-        return new Route(upstream, authHeader, authPrefix, authQuery, ownHeaders);
+        return new Route(
+                upstream,
+                authHeader,
+                authPrefix,
+                authQuery,
+                ownHeaders,
+                usage == null ? null : usage.provider(),
+                usage == null || usage.streamUsage());
     }
 
     private java.util.Set<String> queryParameters() {
@@ -1141,14 +1244,24 @@ public class VaultProxy implements AutoCloseable, Runnable {
      * a response that stays open: buffering it would hold the whole answer and deliver it at the
      * end, which reads to a user as the agent having hung.
      */
-    private void writeResponse(OutputStream out, HttpResponse<InputStream> response)
+    private void writeResponse(
+            OutputStream out,
+            HttpResponse<InputStream> response,
+            @Nullable UsageObservation observation)
             throws IOException {
 
         final InputStream upstreamBody = response.body();
         final boolean untyped = media(response).isEmpty();
         final CredentialScan scan = new CredentialScan();
+        if (observation != null)
+            observation.start(media(response).equals("text/event-stream"), response.statusCode());
         final byte[] peeked = peek(upstreamBody);
         final byte[] first = untyped && peeked.length > 0 ? decided(upstreamBody, peeked) : peeked;
+        if (observation != null)
+            observation.start(
+                    media(response).equals("text/event-stream")
+                            || untyped && first.length > 0 && opensAsEvents(first, opening(first)),
+                    response.statusCode());
         final String framed = whyUnreadable(response, first);
         final EventFraming framing =
                 framed == null && untyped && first.length > 0 && !opensAsJson(first, opening(first))
@@ -1183,7 +1296,8 @@ public class VaultProxy implements AutoCloseable, Runnable {
         final String upstream = "upstream " + response.statusCode();
         if (unreadable != null) {
             upstreamBody.close();
-            log.accept("answer withheld: " + unreadable);
+            if (observation != null) observation.withheld();
+            log.accept("answer withheld: its framing could not be checked");
             out.write(
                     withheld(
                             response.statusCode(),
@@ -1202,6 +1316,7 @@ public class VaultProxy implements AutoCloseable, Runnable {
             // undone from here - it may already have rotated - so this stops the answer rather than
             // the act, and says so plainly.
             upstreamBody.close();
+            if (observation != null) observation.withheld();
             log.accept("answer withheld: it carried a credential");
             out.write(
                     withheld(
@@ -1229,11 +1344,14 @@ public class VaultProxy implements AutoCloseable, Runnable {
                         });
         // Chunked, because the length is not known until the stream ends.
         head.append("Transfer-Encoding: chunked\r\nConnection: close\r\n\r\n");
+        if (observation != null) observation.agent();
         out.write(head.toString().getBytes(StandardCharsets.UTF_8));
         out.flush();
 
         try (InputStream body = upstreamBody) {
+            if (observation != null) observation.accept(judged, judged.length);
             chunk(out, judged, judged.length);
+            if (observation != null) observation.provider();
             final byte[] buffer = new byte[8192];
             int read;
             while ((read = body.read(buffer)) != -1) {
@@ -1257,7 +1375,12 @@ public class VaultProxy implements AutoCloseable, Runnable {
                             "The provider's answer carried a credential"
                                     + " partway through; nothing further was passed on");
                 }
+                if (observation != null) {
+                    observation.accept(passed, length);
+                    observation.agent();
+                }
                 chunk(out, passed, length);
+                if (observation != null) observation.provider();
             }
             if (framing != null && !ended) {
                 final byte[] tail = cutOff(framing, null, 0);
@@ -1268,9 +1391,16 @@ public class VaultProxy implements AutoCloseable, Runnable {
                             "The provider's answer carried a credential"
                                     + " partway through; nothing further was passed on");
                 }
+                if (observation != null) {
+                    observation.accept(tail, tail.length);
+                    observation.agent();
+                }
                 chunk(out, tail, tail.length);
+                if (observation != null) observation.provider();
             }
         }
+        // Before the last chunk: an agent that closes on reading it had the whole answer.
+        if (observation != null) observation.finish(true);
         out.write("0\r\n\r\n".getBytes(StandardCharsets.UTF_8));
         out.flush();
     }
@@ -1318,6 +1448,7 @@ public class VaultProxy implements AutoCloseable, Runnable {
         return List.copyOf(CREDENTIAL_HEADERS);
     }
 
+    /** Stops serving and gives bounded observers time to retain their last records. */
     @Override
     public void close() {
         running = false;
@@ -1326,6 +1457,11 @@ public class VaultProxy implements AutoCloseable, Runnable {
         } catch (IOException ex) {
             // Nothing useful to do while shutting down.
         }
+        http.shutdownNow();
+        final long deadline = System.nanoTime() + java.util.concurrent.TimeUnit.SECONDS.toNanos(2);
+        final List<UsageObservation> finishing = List.copyOf(observations);
+        finishing.forEach(observation -> observation.finish(false));
+        finishing.forEach(observation -> observation.awaitUntil(deadline));
         http.close();
         try {
             Files.deleteIfExists(socket);

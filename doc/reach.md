@@ -31,7 +31,7 @@ The numbers here are checked against the code by a test.
 
 - **The model provider.** Every task has a working route to its provider, with a request body of
   up to **32 MB**. Anything the agent knows can go into a prompt. **This is the largest open path, and it
-  is open on purpose**: closing it closes the task. Porelo records what a task sent but raises no alert.
+  is open on purpose**: closing it closes the task. Porelo records request metadata but raises no alert.
 - **Every declared host is a second such channel.** Data fits in a URL to a forge the work clones from.
 - **A DNS query sent past the resolver** still gets an answer, though the connection does not.
 
@@ -55,6 +55,15 @@ See [the firewall](security.md) and [DNS](security.md) for how this is enforced.
 **Not bounded: a credential that cannot be read can still be spent.** The phantom token can do
 whatever the real credential can at the provider: use tokens, spend money. The only bound is the
 account's own limit at the provider, which Porelo does not set.
+
+The broker records provider-reported token usage for generation paths ending in `/chat/completions`,
+`/responses`, `/v1/messages`, `:generateContent` and `:streamGenerateContent`, and asks for the streamed
+Chat Completions usage chunk. Counting endpoints and model listings are excluded. Its owner-only
+`usage/<container>.jsonl` record survives removal with a new name and holds counts, model, agent,
+provider, credential and tool names, reported cost and end states. It contains no prompt, answer
+text, tool arguments, credential values or header values. Missing counts stay unknown. Parsing is
+bounded to 1 MiB per body or event and runs off the relay; a failed reading cannot stop an answer.
+This is observation, with no ceiling on what a task can spend. See [credentials](credentials.md#what-usage-the-proxy-records).
 
 | | Bound | What it is |
 |---|---|---|

@@ -1,0 +1,6 @@
+name: test-provider
+label: Test provider
+upstream: https://provider.example.org
+dialects:
+  openai: /v1
+stream_usage: false

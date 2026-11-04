@@ -499,6 +499,7 @@ public final class TaskControl {
         final boolean removed = purge && gone;
         if (removed) {
             closeJournal(container);
+            new TaskUsage(context).archive(container);
             summary.ifPresent(this::forgetOnline);
             // Read before the records that say it go: the project a task belongs to is not in its
             // name, where both halves may hold hyphens.

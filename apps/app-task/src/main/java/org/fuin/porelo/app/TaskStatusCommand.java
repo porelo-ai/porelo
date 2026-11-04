@@ -110,6 +110,13 @@ public class TaskStatusCommand implements Callable<Integer>, PoreloFactory.Conte
             return json(out, container, task);
         }
         if (task == null) {
+            final var usage = new TaskUsage(context).read(container);
+            if (!usage.state().equals("absent")) {
+                line(out, "task", container);
+                line(out, "state", "removed");
+                usage(out, usage);
+                out.flush();
+            }
             err.println("porelo: there is no task called " + container);
             Suggests.offer(err, this);
             err.flush();
@@ -246,6 +253,7 @@ public class TaskStatusCommand implements Callable<Integer>, PoreloFactory.Conte
                             + seen.since()
                             + (seen.detail().isEmpty() ? "" : " - " + seen.detail()));
         }
+        usage(out, new TaskUsage(context).read(container));
         out.flush();
         return 0;
     }
@@ -373,6 +381,38 @@ public class TaskStatusCommand implements Callable<Integer>, PoreloFactory.Conte
                 : reading;
     }
 
+    private static void usage(PrintWriter out, org.fuin.porelo.core.UsageSums.Summary usage) {
+        if (usage.state().equals("absent")) return;
+        line(out, "usage", usage.state());
+        if (!usage.state().equals("available")) return;
+        line(out, "tokens", totals(usage.totals()));
+        for (final var group : usage.models())
+            line(out, "model", group.name() + "  " + totals(group.totals()));
+        for (final var group : usage.agents())
+            line(out, "by agent", group.name() + "  " + totals(group.totals()));
+        for (final var group : usage.days())
+            line(out, "day", group.name() + "  " + totals(group.totals()));
+        for (final var group : usage.hours())
+            line(out, "hour", group.name() + "  " + totals(group.totals()));
+    }
+
+    private static String totals(org.fuin.porelo.core.UsageSums.Totals totals) {
+        final java.util.List<String> labels =
+                java.util.List.of("input", "cache read", "cache write", "output", "reasoning");
+        final java.util.List<String> values = new java.util.ArrayList<>();
+        for (int i = 0; i < labels.size(); i++) {
+            final var count = totals.fields().get(i);
+            values.add(
+                    labels.get(i)
+                            + " "
+                            + (count.tokens() == null ? "unknown" : count.tokens())
+                            + " ("
+                            + count.missing()
+                            + " missing)");
+        }
+        return totals.requests() + " requests; " + String.join(", ", values);
+    }
+
     /**
      * Prints the task for a program, so a playbook starts only what is not running. A task that is
      * not there is an answer, not a failure: "absent" is what a first run of the playbook meets.
@@ -394,6 +434,9 @@ public class TaskStatusCommand implements Callable<Integer>, PoreloFactory.Conte
         report.put("project", task == null ? null : task.project());
         report.put("repository", task == null ? null : task.repository());
         report.put("parameters", task == null ? java.util.Map.of() : task.parameters());
+        // Left out when there is none, so what a program reads of an absent task stays as it was.
+        final var usage = new TaskUsage(context).read(name);
+        if (!usage.state().equals("absent")) report.put("usage", usage.asMap());
         out.println(org.fuin.porelo.wire.Json.write(report));
         out.flush();
         return 0;

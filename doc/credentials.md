@@ -61,6 +61,39 @@ outage.
   mis-frames an ordinary answer breaks every task. The decision holds only while the three names and
   two media types are kept in line with what the supported providers emit.
 
+### What usage the proxy records
+
+For generation requests, the broker appends one owner-only JSON line to
+`$XDG_STATE_HOME/porelo/usage/<container>.jsonl`. It holds the UTC time, agent, provider and credential
+names, format, requested and answering model names, token counts, tool names and call counts,
+reported cost in the provider's unit, finish reason, HTTP status and whether the answer completed,
+was aborted or failed. An aborted stream names which end closed it and keeps counts already reported.
+The record contains no prompt, answer text, tool arguments, credential values or header values.
+Removing a task renames its usage record; it survives the task, and a reused task name starts fresh.
+
+Only paths ending in `/chat/completions`, `/responses`, `/v1/messages`, `:generateContent` or
+`:streamGenerateContent` count. Token-counting endpoints (`/count_tokens`, `:countTokens`), `/models`
+and other paths produce no usage record. Formats are recognized by path and answer shape, independently
+of a provider's declared dialect. WebSocket answers are not observed.
+
+Input excludes cache reads; output includes reasoning. Unreported counts stay `null`, including cache
+writes where the provider does not report them. Cumulative stream counts replace previous counts;
+they are never added across chunks. Cost retains the reported member name (`cost` or
+`cost_in_usd_ticks`) and a decimal string in that member's unit.
+
+For a streamed Chat Completions JSON request, the broker sets `stream_options.include_usage` to
+`true`, including when the agent set it to `false`. Other stream options survive. A changed compressed
+request is sent as plain JSON with its length recalculated; a non-JSON request stays untouched.
+The model asked for is left unknown for a request over 1 MiB.
+A provider file can set `stream_usage: false` to leave those requests alone and record unknown counts
+for their streams. The broker relays the provider's extra empty-`choices` usage chunk unchanged.
+
+Usage observation never waits for a full answer or event before relaying bytes. Parsing runs outside
+the relay through a bounded queue; each JSON body or SSE event is limited to 1 MiB, and tool bookkeeping
+is bounded. A malformed or oversized reading, or an observer that falls behind, records unknown counts
+and leaves the relay alone. A record that cannot be written does not fail the request. The credential
+scan and its refusals still apply. These counts do not enforce a token or spending ceiling.
+
 ## Model providers
 
 A **provider** is who serves the models: where it is and how to speak to it. It is a data file, not a

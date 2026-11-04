@@ -56,6 +56,18 @@ final class TaskMethods {
         // The same question 'porelo task list' asks, answered by the same code. A second
         // implementation is how the two come to disagree about what is running.
         server.method(
+                "Usage",
+                (parameters, replies) -> {
+                    final String task = text(parameters, "task");
+                    if (!org.fuin.porelo.app.TaskUsage.validTask(task))
+                        throw new VarlinkException(INTERFACE + ".NoSuchTask", Map.of("task", task));
+                    replies.last(
+                            Map.of(
+                                    "usage",
+                                    new org.fuin.porelo.app.TaskUsage(context).read(task).asMap()));
+                });
+
+        server.method(
                 "List",
                 (parameters, replies) -> {
                     final List<TaskInventory.Task> found = inventory.tasks();

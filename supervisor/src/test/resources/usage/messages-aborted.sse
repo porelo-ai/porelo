@@ -1,0 +1,7 @@
+: Written from the provider documentation linked in README.md; no live answer is recorded yet.
+
+event: message_start
+data: {"type":"message_start","message":{"model":"answered-model","usage":{"input_tokens":70,"cache_read_input_tokens":30,"output_tokens":1}}}
+
+event: content_block_delta
+data: {"type":"content_block_delta","delta":{"text":"ANSWER_PRIVATE

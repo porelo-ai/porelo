@@ -1,0 +1,2 @@
+title: Tasks retain provider-reported token usage, with missing counts and sums by model, agent and local time in task status and the daemon
+type: added

@@ -946,6 +946,34 @@ class VaultProxyTest {
     }
 
     @Test
+    void aRefusedAnswerCannotPutAHeaderValueInTheBrokerLog(@TempDir Path dir) throws IOException {
+        final Path socket = dir.resolve("vault.sock");
+        final List<String> logged = new CopyOnWriteArrayList<>();
+        responseType.set("application/HEADER_PRIVATE");
+        try (VaultProxy proxy =
+                new VaultProxy(
+                        socket,
+                        "http://127.0.0.1:" + upstream.getAddress().getPort(),
+                        token -> new TokenExchange.Granted(REAL),
+                        "x-api-key",
+                        "",
+                        logged::add)) {
+            Thread.ofVirtual().start(proxy);
+            assertThat(
+                            send(
+                                    socket,
+                                    "GET /v1/models HTTP/1.1\r\nx-api-key: "
+                                            + PHANTOM
+                                            + "\r\n\r\n"))
+                    .as("the existing credential scan still refuses unreadable media")
+                    .startsWith("HTTP/1.1 400");
+            assertThat(String.join("\n", logged))
+                    .as("even refusal diagnostics never persist header values")
+                    .doesNotContainIgnoringCase("HEADER_PRIVATE");
+        }
+    }
+
+    @Test
     void readsAStreamOfEventsAndAnswersWithCharsetsDeclared(@TempDir Path dir) throws IOException {
 
         // The two types a provider actually answers with, one of them carrying a charset. A media

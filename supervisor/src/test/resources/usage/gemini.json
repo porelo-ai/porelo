@@ -1,0 +1,4 @@
+{
+  "source": "Written from the provider documentation linked in README.md; no live answer is recorded yet.",
+  "answer": "{\"modelVersion\":\"answered-model\",\"candidates\":[{\"index\":0,\"content\":{\"parts\":[{\"text\":\"ANSWER_PRIVATE\"},{\"functionCall\":{\"name\":\"lookup\",\"args\":{\"secret\":\"TOOL_PRIVATE\"}}}]},\"finishReason\":\"STOP\"}],\"usageMetadata\":{\"promptTokenCount\":100,\"cachedContentTokenCount\":30,\"candidatesTokenCount\":15,\"thoughtsTokenCount\":5}}\n"
+}

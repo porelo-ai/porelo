@@ -1,0 +1,4 @@
+{
+  "source": "Written from the provider documentation linked in README.md; no live answer is recorded yet.",
+  "answer": "{\"model\":\"answered-model\",\"status\":\"completed\",\"output\":[{\"id\":\"call_1\",\"type\":\"function_call\",\"name\":\"lookup\",\"arguments\":\"TOOL_PRIVATE\"},{\"type\":\"message\",\"content\":[{\"type\":\"output_text\",\"text\":\"ANSWER_PRIVATE\"}]}],\"usage\":{\"input_tokens\":100,\"output_tokens\":20,\"input_tokens_details\":{\"cached_tokens\":30},\"output_tokens_details\":{\"reasoning_tokens\":5}}}\n"
+}

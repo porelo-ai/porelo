@@ -23,8 +23,15 @@ public final class Json {
 
     private int position;
 
+    private final boolean decimals;
+
     private Json(String text) {
+        this(text, false);
+    }
+
+    private Json(String text, boolean decimals) {
         this.text = text;
+        this.decimals = decimals;
     }
 
     /**
@@ -36,12 +43,20 @@ public final class Json {
      * @throws JsonException If the text is not well-formed JSON.
      */
     public static @Nullable Object parse(String text) {
-        final Json json = new Json(text);
-        json.skipWhitespace();
-        final Object value = json.readValue();
-        json.skipWhitespace();
-        if (json.position < text.length()) {
-            throw json.error("Trailing content");
+        return new Json(text).document();
+    }
+
+    /** Parses with exact decimal numbers so rewriting a request cannot round its values. */
+    public static @Nullable Object parseDecimals(String text) {
+        return new Json(text, true).document();
+    }
+
+    private @Nullable Object document() {
+        skipWhitespace();
+        final Object value = readValue();
+        skipWhitespace();
+        if (position < text.length()) {
+            throw error("Trailing content");
         }
         return value;
     }
@@ -279,7 +294,7 @@ public final class Json {
         return value;
     }
 
-    private Double readNumber() {
+    private Number readNumber() {
         final int start = position;
         while (position < text.length() && "+-.eE0123456789".indexOf(text.charAt(position)) >= 0) {
             position++;
@@ -288,6 +303,14 @@ public final class Json {
             throw error("Expected a value");
         }
         try {
+            if (decimals) {
+                final String lexical = text.substring(start, position);
+                if (!lexical.matches("-?(0|[1-9][0-9]*)(\\.[0-9]+)?([eE][+-]?[0-9]+)?"))
+                    throw error("Invalid number");
+                final java.math.BigDecimal number = new java.math.BigDecimal(lexical);
+                if (Math.abs((long) number.scale()) > 1024) throw error("Decimal scale too large");
+                return number;
+            }
             final Double number = Double.valueOf(text.substring(start, position));
             if (number.isInfinite() || number.isNaN()) {
                 // Read as Infinity, it was written back as the bare word, which no reader takes for

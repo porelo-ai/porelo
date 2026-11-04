@@ -44,6 +44,16 @@ class ReachDocumentTest {
     }
 
     @Test
+    void statesTheBoundOnOptionalUsageParsing() throws IOException {
+        assertThat(page())
+                .as("usage observation cannot grow to hold an entire stream")
+                .contains(
+                        "bounded to "
+                                + VaultProxy.USAGE_LIMIT / (1024 * 1024)
+                                + " MiB per body or event");
+    }
+
+    @Test
     void statesThePortsADeclaredHostIsOpenedOn() throws IOException {
         assertThat(page())
                 .contains(

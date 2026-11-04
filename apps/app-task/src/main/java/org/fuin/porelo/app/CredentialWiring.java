@@ -353,6 +353,23 @@ final class CredentialWiring {
                         "--token-file", tokenFile.toString(),
                         "--pid-file", state.resolve("vault.pid").toString(),
                         "--hours", String.valueOf(tokenHours)));
+        command.addAll(
+                java.util.List.of(
+                        "--usage-file", context.paths().tasks().usageRecord(container).toString()));
+        if (agent != null) command.addAll(java.util.List.of("--agent", agent.name()));
+        final String primaryProvider =
+                own != null
+                        ? own.provider()
+                        : context.providers().containsKey(primary.name()) ? primary.name() : null;
+        if (primaryProvider != null)
+            command.addAll(java.util.List.of("--provider-name", primaryProvider));
+        routes.forEach(
+                (name, destination) -> {
+                    if (context.providers().containsKey(destination.name())) {
+                        command.addAll(
+                                java.util.List.of("--provider", name + "=" + destination.name()));
+                    }
+                });
         // A service that takes its key in the URL: the broker puts it there, and in no header.
         if (primary.authQuery() != null) {
             command.add("--auth-query");
@@ -523,6 +540,7 @@ final class CredentialWiring {
 
     /** The agent's own credential, where it goes and which variable carries its token. */
     private record AgentRoute(
+            String provider,
             String credential,
             String variable,
             org.fuin.porelo.agent.api.ProviderRoute route,
@@ -571,6 +589,7 @@ final class CredentialWiring {
         }
         final String query = route.authQueryFor(type);
         return new AgentRoute(
+                java.util.Objects.requireNonNull(selection, "a route has a provider").name(),
                 choice.credentialName(agent),
                 variable,
                 route,

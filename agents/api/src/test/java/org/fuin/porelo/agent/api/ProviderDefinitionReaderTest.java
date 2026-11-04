@@ -9,6 +9,19 @@ import org.junit.jupiter.api.Test;
 /** Tests for {@link ProviderDefinitionReader} and {@link ProviderDefinition}. */
 class ProviderDefinitionReaderTest {
 
+    @org.junit.jupiter.api.Test
+    void aProviderFileCanDeclineTheStreamedUsageOption() {
+        final var provider =
+                ProviderDefinitionReader.fromResource(
+                        getClass(), "/providers/no-stream-usage.yaml");
+        assertThat(provider.streamUsage())
+                .as("an explicit provider opt-out reaches the broker")
+                .isFalse();
+        assertThat(read(OPENROUTER).streamUsage())
+                .as("the documented usage option is the default")
+                .isTrue();
+    }
+
     private static final String OPENROUTER =
             """
             name: openrouter

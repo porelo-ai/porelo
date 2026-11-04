@@ -853,6 +853,32 @@ class TaskLifecycleCommandsTest {
     }
 
     @Test
+    void removingATaskRetainsItsUsageWithoutGivingItToTheNextTask(@TempDir Path dir)
+            throws IOException {
+        final PoreloContext context = context(dir);
+        final String task = "porelo-uc-shell-1";
+        runner.answering("ps", task + "\tExited (0) 1 minute ago\n");
+        UnhandedWork.note(stateOf(task), new UnhandedWork.Held(true, 0, 0, null));
+        final Path usage = context.paths().tasks().usageRecord(task);
+        Files.createDirectories(usage.getParent());
+        // A synthetic broker record catches deletion or accidental reuse of billable history.
+        Files.writeString(
+                usage,
+                """
+                {"time":"2026-01-01T22:30:00Z","agent":"test-worker","model_answered":"model-a","input":7,"output":null}
+                """);
+        assertThat(execute(context, "task", "remove", task))
+                .as("the stopped task can be removed")
+                .isZero();
+        assertThat(Files.exists(usage))
+                .as("the old record cannot be inherited by a new task")
+                .isFalse();
+        assertThat(new TaskUsage(context).read(task).totals().requests())
+                .as("removed usage is still read")
+                .isEqualTo(1);
+    }
+
+    @Test
     void stoppingATaskThatHasAlreadyGoneIsNotAnError(@TempDir Path dir) {
 
         runner.answering("ps", "");

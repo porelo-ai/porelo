@@ -87,7 +87,8 @@ read with `org.fuin.porelo.wire.Json`.
    false escapes [B138](README.md#b138)'s ceiling. The agent gets one more chunk with empty `choices`, the documented
    shape the OpenAI clients read; that the stub, the Pi family and each Chat Completions agent take it is measured
    before this ships, and a provider whose live request refuses the field is named in its provider file with
-   `stream_usage: false`, which leaves the request alone and records `null`. The line says `asked: true`.
+   `stream_usage: false`, which leaves the request alone and records `null`. The line says `asked: true`. Up to the
+   broker's own body limit, since long contexts pass the parser's bound in ordinary work.
 4. **`UsageReading`** in `supervisor`, one per answer, fed the request body and each relayed chunk as
    `CredentialScan` is: an SSE framer across chunk boundaries for a stream, the whole body for JSON, each bounded
    (an event or body beyond 1 MiB is not parsed and its count is `null`). It reads the model asked for from the
@@ -111,7 +112,7 @@ read with `org.fuin.porelo.wire.Json`.
    prints them; the daemon gains `Usage(task: string) -> (usage: Usage)` in `15-task.varlink` (`TaskMethods`), the
    same sums - a contract change, an addition. `Task` in `List` and `Watch` is not changed, so a watch never reads a
    record.
-8. **What [B138](README.md#b138) does with a `null` count.** A `complete` answer without one stops the counting
+8. **What [B138](README.md#b138) does with a `null` count; built with that issue, not here.** A `complete` answer without one stops the counting
    fail closed: the next request is refused, saying the count of an answer could not be read, until `task limit`
    raises or lifts the ceiling; a provider whose file has `stream_usage: false` is refused a ceiling at the start, as
    [B177](README.md#b177) does for cost. An `aborted` answer counts what it has; without any count, three in a row

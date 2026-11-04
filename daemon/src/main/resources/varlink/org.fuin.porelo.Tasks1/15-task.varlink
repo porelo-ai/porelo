@@ -1101,3 +1101,35 @@ error NoSuchLog(task: string, log: string)
 # Refused rather than treated as the default: quietly doing the cheapest thing when somebody asked
 # for the most expensive is exactly the failure the depths exist to prevent.
 error UnknownRebuild(rebuild: string)
+# Reported token totals; missing counts requests with an unreported value.
+type UsageCount (
+    tokens: ?int,
+    missing: int
+)
+
+type UsageTotals (
+    requests: int,
+    input: UsageCount,
+    cacheRead: UsageCount,
+    cacheWrite: UsageCount,
+    output: UsageCount,
+    reasoning: UsageCount
+)
+
+type UsageGroup (
+    name: string,
+    totals: UsageTotals
+)
+
+# Local hours include the UTC offset so repeated hours remain separate.
+type Usage (
+    state: (available, absent, unreadable),
+    totals: UsageTotals,
+    models: []UsageGroup,
+    agents: []UsageGroup,
+    days: []UsageGroup,
+    hours: []UsageGroup
+)
+
+# Reads current usage or the last retained record of a removed task, without network access.
+method Usage(task: string) -> (usage: Usage)

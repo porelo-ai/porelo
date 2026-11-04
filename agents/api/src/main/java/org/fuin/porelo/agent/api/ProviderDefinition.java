@@ -29,6 +29,7 @@ import org.jspecify.annotations.Nullable;
  * @param grant What a person grants once for it: the flow's {@code kind}, its URLs and {@code
  *     scopes}, the same for everyone; empty for a provider reached with a key. The client id is the
  *     signing-in agent's.
+ * @param streamUsage Whether streamed Chat Completions may request a usage chunk.
  * @param credentialHeaders Header to the setting of the stored credential its value is taken from,
  *     for a provider that wants more than the token on each request; empty for most.
  */
@@ -43,7 +44,36 @@ public record ProviderDefinition(
         Map<String, String> tokenEnvironment,
         Map<String, String> authQuery,
         Map<String, String> grant,
-        Map<String, String> credentialHeaders) {
+        Map<String, String> credentialHeaders,
+        boolean streamUsage) {
+
+    /** Creates a provider that accepts the documented streamed usage option. */
+    public ProviderDefinition(
+            String name,
+            String label,
+            String upstream,
+            Map<String, String> dialects,
+            Map<String, String> authHeader,
+            Map<String, String> authPrefix,
+            Map<String, String> unbrokerable,
+            Map<String, String> tokenEnvironment,
+            Map<String, String> authQuery,
+            Map<String, String> grant,
+            Map<String, String> credentialHeaders) {
+        this(
+                name,
+                label,
+                upstream,
+                dialects,
+                authHeader,
+                authPrefix,
+                unbrokerable,
+                tokenEnvironment,
+                authQuery,
+                grant,
+                credentialHeaders,
+                true);
+    }
 
     /**
      * Constructor for a provider whose requests carry nothing from the credential but the token, as

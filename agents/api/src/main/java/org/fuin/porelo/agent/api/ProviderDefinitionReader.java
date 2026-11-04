@@ -104,7 +104,15 @@ public final class ProviderDefinitionReader {
                 ordered(root.get("grant"), origin),
                 // Header to the setting of the stored credential its value comes from: what a
                 // provider wants on each request beside the token, such as an account's id.
-                ordered(root.get("credential_headers"), origin));
+                ordered(root.get("credential_headers"), origin),
+                streamUsage(root, origin));
+    }
+
+    private static boolean streamUsage(Map<?, ?> root, String origin) {
+        final Object value = root.get("stream_usage");
+        if (value == null) return true;
+        if (value instanceof Boolean flag) return flag;
+        throw new AgentException(origin + ": stream_usage must be true or false");
     }
 
     private static String required(Map<?, ?> section, String key, String origin) {
