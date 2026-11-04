@@ -79,6 +79,18 @@ class TaskActivityTest {
     }
 
     @Test
+    void aTaskSaysWhenItsCertificateEnds(@TempDir Path dir) throws IOException {
+        final PoreloContext context = context(dir);
+        final Path state = task("porelo-uc-shell-1", "Up 4 minutes", "1788500000", "0");
+
+        assertThat(only(context).asMap()).as("it has none").containsEntry("certifiedUntil", "");
+
+        TaskState.certifiedUntil(state, java.time.Instant.parse("2026-11-11T00:00:00Z"));
+
+        assertThat(only(context).asMap()).containsEntry("certifiedUntil", "2026-11-11T00:00:00Z");
+    }
+
+    @Test
     void anEndedRunCountsTheMessagesWaitingForItsNextRun(@TempDir Path dir) throws IOException {
         // Hiding an ended run's inbox loses the cue that a person must start it again.
         final PoreloContext context = context(dir);

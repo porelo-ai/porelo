@@ -67,7 +67,7 @@ class InterfaceDescriptionTest {
     /** A field's type: {@code name: Thing}, {@code name: []Thing}, {@code name: ?Thing}. */
     private static final Pattern REFERENCE =
             Pattern.compile(
-                    "(?m)^\\s*[a-z][A-Za-z0-9]*\\s*:\\s*\\??(?:\\[\\])?\\??([A-Za-z][A-Za-z0-9]*)");
+                    "(?m)^\\s*[a-z][A-Za-z0-9_]*\\s*:\\s*\\??(?:\\[\\])?\\??([A-Za-z][A-Za-z0-9]*)");
 
     /** What varlink defines itself, so a reference to one is not a reference to anything here. */
     private static final Set<String> BUILT_IN = Set.of("string", "int", "float", "bool", "object");

@@ -256,6 +256,7 @@ class TaskCertifyingTest {
             assertThat(issued.principal()).isEqualTo("task:demo:fix");
         } finally {
             agent.destroy();
+            agent.waitFor(5, TimeUnit.SECONDS);
         }
     }
 
@@ -287,6 +288,7 @@ class TaskCertifyingTest {
                     .hasMessageContaining("must name exactly task:demo:fix");
         } finally {
             agent.destroy();
+            agent.waitFor(5, TimeUnit.SECONDS);
         }
     }
 }

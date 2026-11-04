@@ -102,15 +102,57 @@ class CertificateWaitsTest {
         final CompletableFuture<String> line =
                 CompletableFuture.supplyAsync(() -> certifying(waits, asked));
 
-        waits.refused(asked.start(), "no key\n\u001b[31mhere " + "x".repeat(2000));
+        waits.refused(
+                asked.start(),
+                "no key\n\u001b[31m\u202e\u009b\u2028here " + "\uD83D\uDE00".repeat(2000));
 
         assertThatThrownBy(() -> line.get(5, TimeUnit.SECONDS))
                 .hasRootCauseInstanceOf(TaskCertification.Refused.class)
                 .rootCause()
-                .hasMessageContaining("did not certify task:foo:first: no key [31mhere")
+                .hasMessageContaining("did not certify task:foo:first: no key here")
                 .hasMessageNotContaining("\n")
                 .hasMessageNotContaining("\u001b")
-                .satisfies(ex -> assertThat(ex.getMessage()).hasSizeLessThan(600));
+                .hasMessageNotContaining("\u202e")
+                .hasMessageNotContaining("\u009b")
+                .hasMessageNotContaining("\u2028")
+                .satisfies(
+                        ex ->
+                                assertThat(ex.getMessage())
+                                        .as("no character is cut in half")
+                                        .endsWith("\uD83D\uDE00"))
+                .satisfies(
+                        ex ->
+                                assertThat(
+                                                ex.getMessage()
+                                                        .codePointCount(
+                                                                0, ex.getMessage().length()))
+                                        .as("bounded")
+                                        .isLessThan(600));
+    }
+
+    @Test
+    void anEmptyRefusalStillEndsTheStart() throws Exception {
+        final CertificateWaits waits = new CertificateWaits();
+        final Asked asked = new Asked();
+        final CompletableFuture<String> line =
+                CompletableFuture.supplyAsync(() -> certifying(waits, asked));
+
+        assertThat(waits.answer(asked.start(), null, "")).isTrue();
+
+        assertThatThrownBy(() -> line.get(5, TimeUnit.SECONDS))
+                .as("it does not wait out the limit for words nobody owes it")
+                .rootCause()
+                .hasMessageContaining("gave no reason");
+    }
+
+    @Test
+    void anAnswerIsOneOfTheTwo() {
+        final CertificateWaits waits = new CertificateWaits();
+
+        assertThatThrownBy(() -> waits.answer("any", null, null))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> waits.answer("any", "a line", "no"))
+                .isInstanceOf(IllegalArgumentException.class);
     }
 
     @Test

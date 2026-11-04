@@ -91,6 +91,26 @@ public final class TaskState {
     }
 
     /**
+     * Notes a renewed certificate's end wherever the task's state is: after a reboot only its saved
+     * copy is, which a list reads and a resume restores.
+     *
+     * @param container The task's container.
+     * @param until When it ends.
+     * @throws IOException If it cannot be written.
+     */
+    public void certified(final String container, final java.time.Instant until)
+            throws IOException {
+        for (final Path state :
+                List.of(
+                        context.paths().tasks().containerState(container),
+                        context.paths().tasks().taskRecord(container))) {
+            if (Files.isDirectory(state)) {
+                certifiedUntil(state, until);
+            }
+        }
+    }
+
+    /**
      * Reads when a task's current certificate ends.
      *
      * @param state The task's state directory.

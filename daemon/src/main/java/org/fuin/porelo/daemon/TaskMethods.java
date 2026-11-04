@@ -1032,21 +1032,16 @@ final class TaskMethods {
             final org.fuin.porelo.app.CertificateWaits waits,
             final Map<String, Object> parameters) {
         final String start = text(parameters, "start");
-        final String certificate = empty(parameters, "certificate");
-        final String refused = empty(parameters, "refused");
-        if ((certificate == null) == (refused == null)) {
-            throw new VarlinkException(
-                    INTERFACE + ".Failed",
-                    Map.of(
-                            "message",
-                            "Certify takes a certificate or the words it was refused with"));
-        }
-        final boolean waiting =
-                certificate != null
-                        ? waits.certificate(start, certificate)
-                        : waits.refused(start, java.util.Objects.requireNonNull(refused));
-        if (!waiting) {
-            throw new VarlinkException(INTERFACE + ".NoSuchStart", Map.of("start", start));
+        try {
+            // An empty refusal still ends the start: only the absent parameter is no answer.
+            if (!waits.answer(
+                    start,
+                    parameters.get("certificate") instanceof String line ? line : null,
+                    parameters.get("refused") instanceof String words ? words : null)) {
+                throw new VarlinkException(INTERFACE + ".NoSuchStart", Map.of("start", start));
+            }
+        } catch (IllegalArgumentException ex) {
+            throw new VarlinkException(INTERFACE + ".Failed", Map.of("message", ex.getMessage()));
         }
         return Map.of();
     }

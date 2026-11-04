@@ -140,6 +140,21 @@ class TaskStateTest {
     }
 
     @Test
+    void aRenewalAfterARebootReachesTheSavedCopy() throws IOException {
+        final PoreloContext context = context();
+        final String container = "porelo-uc-renewed";
+        final Path record = context.paths().tasks().taskRecord(container);
+        Files.createDirectories(record);
+
+        new TaskState(context)
+                .certified(container, java.time.Instant.parse("2026-11-11T00:00:00Z"));
+
+        assertThat(TaskState.certifiedUntil(record))
+                .as("no live state, and a list and a resume read this one")
+                .isEqualTo("2026-11-11T00:00:00Z");
+    }
+
+    @Test
     void aTaskNothingWasSavedForCannotBeBroughtBack() {
         assertThat(new TaskState(context()).saved(TASK)).isFalse();
     }

@@ -79,6 +79,26 @@ public final class CertificateWaits {
     }
 
     /**
+     * Answers a waiting start, with one of the two.
+     *
+     * @param start The id it was told.
+     * @param certificate The certificate line, or {@code null}.
+     * @param refused The words it ends with, which may be empty, or {@code null}.
+     * @return Whether a start was waiting by that id; {@code false} changes nothing.
+     * @throws IllegalArgumentException With both or neither, which changes nothing.
+     */
+    public boolean answer(
+            final String start,
+            final @Nullable String certificate,
+            final @Nullable String refused) {
+        if ((certificate == null) == (refused == null)) {
+            throw new IllegalArgumentException(
+                    "Certify takes a certificate or the words it was refused with");
+        }
+        return certificate != null ? certificate(start, certificate) : refused(start, refused);
+    }
+
+    /**
      * Gives a waiting start its certificate.
      *
      * @param start The id it was told.
@@ -109,8 +129,10 @@ public final class CertificateWaits {
 
     /** They reach a person's screen and a task's log, as one line of a bounded length. */
     private static String cleaned(final String words) {
-        final String line = words.replaceAll("\\p{Cntrl}+", " ").strip();
-        return line.length() > MAX_WORDS ? line.substring(0, MAX_WORDS) : line;
+        final String line = StartStep.cleanLines(words).replaceAll("\\s+", " ").strip();
+        return line.codePointCount(0, line.length()) > MAX_WORDS
+                ? line.substring(0, line.offsetByCodePoints(0, MAX_WORDS))
+                : line;
     }
 
     /**
@@ -158,8 +180,9 @@ public final class CertificateWaits {
                 throw new TaskCertification.Refused(
                         "the person's computer did not certify "
                                 + principal
-                                + ": "
-                                + answer.refused());
+                                + (answer.refused().isEmpty()
+                                        ? ", and gave no reason"
+                                        : ": " + answer.refused()));
             }
             return java.util.Objects.requireNonNull(answer.certificate());
         } finally {

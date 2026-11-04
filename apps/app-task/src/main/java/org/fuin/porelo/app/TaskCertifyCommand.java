@@ -217,12 +217,14 @@ public class TaskCertifyCommand implements Callable<Integer>, PoreloFactory.Cont
                 err.flush();
                 return 70;
             }
-            final java.nio.file.Path state = context.paths().tasks().containerState(container);
-            if (java.nio.file.Files.isDirectory(state)) {
-                TaskState.certifiedUntil(state, issued.certificate().validBefore());
-                new TaskState(context).save(container);
-            }
             new TaskCertificateRecords(context).keep(name, login, issued.certificate());
+            // Last, and only said: the certificate holds whether a list can tell its end or not.
+            try {
+                new TaskState(context).certified(container, issued.certificate().validBefore());
+            } catch (java.io.IOException ex) {
+                err.println("porelo: a list will not say the new end: " + ex.getMessage());
+                err.flush();
+            }
             out.println(
                     "certified "
                             + name
