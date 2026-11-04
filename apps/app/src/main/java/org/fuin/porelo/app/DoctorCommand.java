@@ -281,23 +281,23 @@ public class DoctorCommand implements Callable<Integer>, PoreloFactory.ContextAw
                 said.add(project.name() + " (no repository yet)");
                 continue;
             }
-            if (project.carried()) {
-                said.add(project.name() + " (on this host, not started here yet)");
-                continue;
-            }
-            said.add(
-                    project.name()
-                            + " "
-                            + (project.repositories().isEmpty()
-                                    // Not "1". An unreadable file is not a project with one
-                                    // repository, and saying so would be the very thing this line
-                                    // exists to stop.
-                                    ? "(file unreadable)"
-                                    : project.repositories().size()
-                                            + " repositor"
-                                            + (project.repositories().size() == 1 ? "y" : "ies")));
+            said.add(project.name() + " " + repositories(project));
         }
         return Probe.ok(name, String.join(", ", said));
+    }
+
+    /** What a project holds, as this probe says it. */
+    static String repositories(final ProjectInventory.Summary project) {
+        if (project.carried()) {
+            return "(on this host, not started here yet)";
+        }
+        // Not "1". An unreadable file is not a project with one repository, and saying so would
+        // be the very thing this line exists to stop.
+        return project.repositories().isEmpty()
+                ? "(file unreadable)"
+                : project.repositories().size()
+                        + " repositor"
+                        + (project.repositories().size() == 1 ? "y" : "ies");
     }
 
     private Probe leftovers() {

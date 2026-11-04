@@ -20,6 +20,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b432"></a>[B432](B432-The-Daemon-Lists-A-Project-The-Host-Carries.md) | M | - | The daemon's `Projects` names a project the host carries before its first start, as `project list` does. |
 | <a id="b402"></a>[B402](B402-A-Clients-Prepare-Reads-The-Organization-As-The-Command-Line-Does.md) | S | - | A client's `Prepare` of an organization's project reads it as `porelo task prepare` does, not only what the last start placed |
 | <a id="b409"></a>[B409](B409-A-Project-With-No-Address-Goes-On-No-Host.md) | S | - | `org host carry` refuses a project with no valid address, at once and with its reason, and the window says the same |
 | <a id="b388"></a>[B388](B388-A-Registry-Owner-Check-With-An-App-Token.md) | S | - | The registry's owner check takes a GitHub App installation token declared in a variable, never kept in the vault |
@@ -50,7 +51,6 @@ from its side, as *blocked by*.
 |---|---|---|---|
 | <a id="b385"></a>[B385](B385-A-KeePassXC-Key-That-Is-Usable.md) | L | - | `--keepassxc` asks the master password once, a retry takes the key already made, no empty entry left, a clear refusal under `su` or a redirected stderr, aligned exit codes |
 | <a id="b154"></a>[B154](B154-A-Tamper-Evident-Event-Log-Per-Node.md) | L | - | One hash-chained event log per account, anchored in the user's journal, optionally copied off the machine, kept by `porelo clear`; written by approve, reject, clearance, hand-in, credentials and project changes.; part 1 built, the copy off the machine after it |
-| <a id="b432"></a>[B432](B432-The-Daemon-Lists-A-Project-The-Host-Carries.md) | M | - | The daemon's `Projects` names a project the host carries before its first start, as `project list` does. |
 | <a id="b434"></a>[B434](B434-A-Refused-Start-Says-What-Helps-There.md) | S | - | A start a host refuses for want of a certificate names `task start --host` at the person's own computer, not `ssh-add`. |
 | <a id="b433"></a>[B433](B433-A-Start-Over-The-Daemon-Asks-For-Its-Certificate.md) | M | - | The daemon's `Start` asks for the certificate, so an interface can start a task on a host with the agent at the person's computer. |
 

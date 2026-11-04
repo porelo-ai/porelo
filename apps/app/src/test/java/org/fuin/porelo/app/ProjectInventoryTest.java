@@ -825,6 +825,17 @@ class ProjectInventoryTest {
     }
 
     @Test
+    void aCarriedProjectIsNotSaidToHaveAnUnreadableFile() {
+        final ProjectInventory.Summary project =
+                new ProjectInventory.Summary("foo", null, null, null, 0, 0, 0);
+
+        assertThat(DoctorCommand.repositories(project)).isEqualTo("(file unreadable)");
+        assertThat(DoctorCommand.repositories(project.asCarried()))
+                .as("it has no file here yet, which is what carrying means")
+                .isEqualTo("(on this host, not started here yet)");
+    }
+
+    @Test
     void aCarriedProjectIsNoLeftover() {
         final ProjectInventory.Summary carried =
                 new ProjectInventory.Summary("foo", null, null, null, 0, 0, 0).asCarried();
