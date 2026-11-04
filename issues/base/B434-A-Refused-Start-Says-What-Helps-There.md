@@ -1,6 +1,7 @@
 # B434 — A Refused Start Says What Helps There
 
-**Status:** Idea.
+**Status:** Backlog.
+**Size:** S - one refusal's words and one file's writing, with their tests; no contract other repositories read.
 
 **What must be true.** A start a host refuses for want of a certificate says what helps the person where they are.
 
@@ -11,21 +12,21 @@ shell on the host with an agent there, which a host does not forward. A person s
 the key in their agent already, on their own computer, and running `ssh-add` changes nothing. The way that works,
 `porelo task start ... --host LOGIN@HOST` at their own computer, is not named.
 
-## The shape
+## Plan
 
-- The message names `porelo task start TASK --host LOGIN@HOST --project PROJECT`, run at the person's own computer, and what it
-  is for. The login and the project are known there, so the line can be whole, up to the host's address.
-- It stops saying `ssh-add`, or keeps it second, for an agent on the host.
+- **`TaskLaunch`:** the refusal names `porelo task start TASK --host LOGIN@HOST --project PROJECT`, run at the person's own
+  computer, with the task, the login and the project filled in and the host's address left to name. `ssh-add` stays second,
+  for an agent on the host. The refusal for a project whose access file names no certifier stays as it is.
+- **`doc/commands.md`** at the words on a host, if they then differ.
 - With [B433](README.md#b433) done, a start through the daemon no longer ends here, and the words stay for a command.
+- **`StartStepFile.write`:** a directory that is gone is said nothing about. `StartSteps.finish` writes the failed step late,
+  and the likely cause is that the refusal's clean-up took the task's state first. Read so far, not traced to the end: the
+  first test reproduces it before anything changes.
+- **Red first:** a test that the refusal holds the `--host` line, and one that `write` into a removed directory warns nothing.
 
 ## Acceptance
 
 - The refusal names the `--host` form with the task's project and the person's login, and it runs when copied, given the
   address.
 - The refusal for a project whose access file names no certifier stays apart.
-
-## To be checked
-
-- The warning "cannot record the start's step" on `.start-step-….tmp` came with this refusal. Inferred, not traced: the
-  refusal's clean-up took the directory before the last step was written (`StartStepFile`). If so, it should say nothing
-  there, and a person should not read it as a second fault.
+- A refused start warns nothing about its step; a step that cannot be written for another reason still warns.
