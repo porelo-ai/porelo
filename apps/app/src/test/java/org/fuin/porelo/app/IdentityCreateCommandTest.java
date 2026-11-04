@@ -71,6 +71,33 @@ class IdentityCreateCommandTest {
 
     /** The card made must be one a host and a registry accept, kept where show reads it. */
     @Test
+    void says_its_plan_first_and_ends_with_the_public_key_and_the_page() throws Exception {
+        registry.agent("bob", "alice");
+
+        final List<String> args =
+                new ArrayList<>(List.of("create", "--login", "alice", "--name", "Alice Doe"));
+        args.addAll(List.of("--key", registry.pin("alice")));
+        assertThat(IdentityRun.identity(registry, args.toArray(String[]::new))).isZero();
+
+        final String said = registry.out.toString();
+        assertThat(said).as("before anything happens").startsWith("This makes your card");
+        assertThat(said)
+                .as("the public half, and where it goes")
+                .contains("key ssh-ed25519 ")
+                .contains("https://github.com/settings/ssh/new")
+                .doesNotContain("PRIVATE KEY");
+    }
+
+    @Test
+    void a_json_answer_has_no_plan_in_it() throws Exception {
+        registry.agent("bob", "alice");
+
+        assertThat(create("--key", registry.pin("alice"), "--json")).isZero();
+
+        assertThat(registry.out.toString()).doesNotContain("no key is made");
+    }
+
+    @Test
     void makes_a_card_card_verify_accepts_signed_through_the_agent() throws Exception {
         registry.agent("bob", "alice");
 

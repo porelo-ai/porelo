@@ -47,6 +47,19 @@ class IdentityShowCommandTest {
 
     /** The interface reads the answer by its fields and their order; a missing one breaks it. */
     @Test
+    void the_public_key_is_said_without_json_too() throws Exception {
+        final TestOrganization organization = filed();
+        IdentityRun.keep(registry, organization.card("alice"));
+        registry.agent("alice");
+
+        assertThat(IdentityRun.identity(organization, "show")).isZero();
+
+        assertThat(registry.out.toString())
+                .as("a person adds it at the forge from here")
+                .contains("key ssh-ed25519 ");
+    }
+
+    @Test
     void answers_a_filed_card_in_the_contract_order() throws Exception {
         final TestOrganization organization = filed();
         IdentityRun.keep(registry, organization.card("alice"));

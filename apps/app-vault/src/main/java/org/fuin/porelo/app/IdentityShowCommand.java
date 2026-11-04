@@ -262,6 +262,7 @@ public class IdentityShowCommand implements Callable<Integer>, PoreloFactory.Con
                         "name",
                         "email",
                         "fingerprint",
+                        "key",
                         "created",
                         "expires",
                         "predecessor",

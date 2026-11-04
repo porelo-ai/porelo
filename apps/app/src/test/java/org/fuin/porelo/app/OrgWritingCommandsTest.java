@@ -575,6 +575,32 @@ class OrgWritingCommandsTest {
     }
 
     @Test
+    void foundingAtHttpsIsAllowedAndSaysNoMachineCanFollowIt() throws Exception {
+        ownCard();
+
+        assertThat(run("org", "create", "https://github.com/acme/organization", "--id", "one"))
+                .as("what it said: %s", err)
+                .isZero();
+
+        assertThat(calls).containsExactly("createOrganization[mia's card]");
+        assertThat(out.toString())
+                .as("what it means, and the way to ssh")
+                .contains("none can follow")
+                .contains("porelo setup --organization");
+    }
+
+    @Test
+    void foundingAtAnSshAddressSaysNothingOfFollowing() throws Exception {
+        ownCard();
+
+        assertThat(run("org", "create", ADDRESS, "--id", "one"))
+                .as("what it said: %s", err)
+                .isZero();
+
+        assertThat(out.toString()).doesNotContain("none can follow");
+    }
+
+    @Test
     void creatingFilesTheOwnCardAndPointsThisMachineAtIt() throws Exception {
         ownCard();
 

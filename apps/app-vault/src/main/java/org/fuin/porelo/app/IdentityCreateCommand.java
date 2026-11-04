@@ -146,6 +146,7 @@ public class IdentityCreateCommand implements Callable<Integer>, PoreloFactory.C
                         "next: name your organization with porelo setup, or found one with porelo"
                                 + " org create");
             }
+            publicKey(out, answer);
         }
         out.flush();
         return 0;
@@ -197,6 +198,7 @@ public class IdentityCreateCommand implements Callable<Integer>, PoreloFactory.C
         if (organization != null) {
             change.refuseWhatReached(organization, login, id);
         }
+        plan();
         final KeePassXcKey.Made made = given == null ? made(machine) : null;
         final String fingerprint =
                 made != null
@@ -396,6 +398,35 @@ public class IdentityCreateCommand implements Callable<Integer>, PoreloFactory.C
                 "forge", IdentityFacts.forgeAnswer(organization, card.login(), card.fingerprint()));
         answer.put("next", next(machine, organization));
         return answer;
+    }
+
+    /** Says what is about to happen, before a password is asked or anything is made. */
+    private void plan() {
+        if (json) {
+            return;
+        }
+        final PrintWriter out = spec.commandLine().getOut();
+        out.println(
+                keepassxc == null
+                        ? "This makes your card with the one key your agent serves: no key is made,"
+                                + " and no file is written for it."
+                        : "This makes one Ed25519 key in "
+                                + AnswerText.printable(String.valueOf(keepassxc))
+                                + ", which hands it to your agent: no file is written for it.");
+        out.flush();
+    }
+
+    /** The public half and where it goes, unless the forge is known to hold it already. */
+    private static void publicKey(
+            final PrintWriter out, final Map<String, @Nullable Object> answer) {
+        out.println("key " + AnswerText.printable(String.valueOf(answer.get("key"))));
+        if (!(answer.get("forge") instanceof Map<?, ?> forge
+                && Boolean.TRUE.equals(forge.get("key_listed")))) {
+            out.println(
+                    "add this key to your forge's account: at GitHub,"
+                            + " https://github.com/settings/ssh/new, as an authentication and as a"
+                            + " signing key");
+        }
     }
 
     /** What the person does next: nothing once it is filed, or name or found the organization. */

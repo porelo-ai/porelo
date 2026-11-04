@@ -81,6 +81,8 @@ public class OrgCreateCommand extends OrgReading {
         answer.put("again", written.again());
         answer.put("of", "organization");
         answer.put("address", ForgeAddress.withoutUserinfo(settable));
+        // A machine follows an organization by an ssh key of its own, and https offers it no way.
+        answer.put("followable", !settable.startsWith("https://"));
         return answer;
     }
 
@@ -109,5 +111,11 @@ public class OrgCreateCommand extends OrgReading {
         line(
                 "Your key must stay on the forge until a card is handed on, so keep a second owner"
                         + " or a backup key.");
+        if (Boolean.FALSE.equals(answer.get("followable"))) {
+            line(
+                    "A machine follows an organization by an ssh key of its own, so none can follow"
+                            + " this https address. To move it, on this machine: porelo setup"
+                            + " --organization <its ssh address> --replace");
+        }
     }
 }

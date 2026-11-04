@@ -65,6 +65,28 @@ class IdentityKeePassXcTest {
         return cli.execute(all.toArray(String[]::new));
     }
 
+    @org.junit.jupiter.api.Test
+    void aKeyMadeIntoKeePassXcSaysSoFirstAndEndsWithItsPublicHalf() throws Exception {
+        final KeePassXcStandIn keepass = standIn(KeePassXcStandIn.Mode.SERVES);
+
+        final int code =
+                create(
+                        keepass.store(java.time.Duration.ofSeconds(5)),
+                        "--keepassxc",
+                        keepass.database.toString(),
+                        "--entry",
+                        "ssh/alice");
+
+        org.assertj.core.api.Assertions.assertThat(code).as(registry.err.toString()).isZero();
+        org.assertj.core.api.Assertions.assertThat(registry.out.toString())
+                .as("one key, where it lies, and no file for it, before any password")
+                .startsWith("This makes one Ed25519 key in " + keepass.database)
+                .contains("no file is written")
+                .contains("key ssh-ed25519 ")
+                .contains("https://github.com/settings/ssh/new")
+                .doesNotContain("PRIVATE KEY");
+    }
+
     private Path cardFile() {
         return new IdentityStore(registry.context()).cardFile();
     }
