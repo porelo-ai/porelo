@@ -126,7 +126,8 @@ either protects another person or the host, where one person's switch must never
   project's own file decides, and `default`'s settings are fixed by design (`DefaultProject.java:21`).
 - **A visible mark.** `project following` and its `verified: false` answer are gone. `task list` and
   `task status --json` still lack the requested marks, and `ArrivalRecords` still records bare `accepted`.
-  The `unsigned` / `unverified` promise below remains; its manual-follow acceptance case has no current command.
+  The `unsigned` / `unverified` promise below remains; a project nothing verified is now
+  `ProjectSource.Outcome.RECORDED`.
 - **Per-check flags that exist:** security class `online` (no review); `shield egress --add-set`
   / `--add-domain`; `task clearance TASK allow|off`; moderation `allow|off`; `task remove --force`,
   `--yes`, `--no-input`. Each is narrow, named and reported.
@@ -143,13 +144,16 @@ named as such in `task list`, `task status --json`, the interface and each gate 
 
 Size **S** - read-only state (the project verification outcome, the task's recorded certificate or
 its absence) carried into three outputs and one record line; no new check, no new option.
-`FollowedProjects.Followed.unverified()` is gone; which current project state carries the same promise is unsettled.
+`FollowedProjects.Followed.unverified()` is gone. `ProjectSource.Outcome.RECORDED` replaces it: a project a person
+wrote in the organization's place, or one this machine ran a task for, whose file nothing verified; the task's
+`commit` answers empty.
 
 ## Acceptance
 
 - A task started in `default` without a certifier's key starts, and `task list` and `task status --json`
   name it `unsigned`; one with a certificate does not carry the mark.
-- A task of a project followed `--unverified` shows `unverified` in `task list` and the interface.
+- A task of a project nothing verified (`ProjectSource.Outcome.RECORDED`, the task's `commit` empty) shows
+  `unverified` in `task list` and the interface.
 - `ArrivalRecords` writes `accepted, unsigned` for an uncertified task's push, never a bare `accepted`.
 - A start on a host without a certificate is still refused with 65 (`TaskLaunch.java:2045`), seen to fail
   if the mark is mistaken for permission.
@@ -169,8 +173,8 @@ its absence) carried into three outputs and one record line; no new check, no ne
 ## The mark, place by place
 
 - **On this machine:** `task list` and `task status --json` answer the task's `certified` (true or false, as
-  the task's certificate answers it; the interface's proposed `signing` is this field), beside the project's
-  `verified`; an absent value shows as `unsigned`, never as certified. The gate's answer for a waiting push carries its arrival verdict as `ArrivalRecords` writes it
+  the task's certificate answers it; the interface's proposed `signing` is this field), beside `verified`, false where the
+  task's `commit` is empty; an absent value shows as `unsigned`, never as certified. The gate's answer for a waiting push carries its arrival verdict as `ArrivalRecords` writes it
   (`accepted` or `accepted, unsigned`), so the review shows it before an approval.
 - **In the room, for persons reading in any client:** the sending Porelo puts the mark into the line it already
   makes (`send --shown`) and into the task's display name (`rename --display`, set again when the state changes).

@@ -1,7 +1,7 @@
 # B14 — Talking Between Tasks
 
-**Status:** Backlog; blocked by porelo [B86](README.md#b86). Built: talking between tasks on one machine and the
-signed directory of machines. Waiting: groups, trust confirmed once with fingerprints, and two machines on one
+**Status:** Backlog; blocked by porelo [B86](README.md#b86). Built: talking between tasks on one machine. Waiting:
+groups, trust confirmed once with fingerprints, and two machines on one
 homeserver, the three pieces the plan splits.
 **Size:** XL - groups, trust confirmed once and two machines are three pieces; the plan splits them.
 

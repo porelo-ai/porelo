@@ -30,15 +30,6 @@ key wrongly or loses data. Each one placed is split out with its own size.
 - Low: task and message certifiers both come from `ProjectMembers.certifiers`; the earlier difference between
   `TaskCertifying` and `MessageSigners.certifiers` is gone. Check that a backup key cannot enter that list or
   certify either. Left when the task-key messages met the backup keys that are never pinned.
-- Historical, test removed: `RegistryJoinableCommandTest`'s
-  `an_access_address_whose_user_part_holds_a_slash_is_refused_naming_nothing_of_it`
-  asserts that the output holds no `4711`, and failed once because a commit hash in the output held it
-  (`0540bdcce7471155...`); the assertion needs a token no hash can spell. Found while building
-  [B387](README.md#b387).
-- Historical, access files and follows removed: `project clear` left the project's Matrix conversation behind
-  when the access file was never applied,
-  and exited non-zero though the follow was gone; clear removes the conversation too, or names the command that does.
-  Found in a test walk.
 - Low: a task's own key is still used to sign when its certificate names another task.
 - Low: three cases of a commit signature are left open and not measured: a commit in another `encoding`, every
   `gpgsig` header appended, and text after the armor's end or a non-empty reserved field. As the code reads, each

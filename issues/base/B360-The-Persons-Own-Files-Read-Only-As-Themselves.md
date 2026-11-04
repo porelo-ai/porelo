@@ -13,22 +13,22 @@ and writes the person's files as it finds them. The identity verbs leave these o
 - `$XDG_STATE_HOME/porelo/organization-projects`, whose project records and clones lack the identity directory guard;
 - the organization's trust state under `$XDG_STATE_HOME/porelo/organization`.
 
-`project-signers`, manual follows and `registry read` are gone; the directory guard still does not cover all
-organization settings and state. The acceptance lines naming the removed paths and commands need a scope decision.
+`project-signers`, manual follows and `registry read` are gone; these four replace them, and the directory guard
+does not cover them yet.
 
 Each is read or written only when its directories pass the same check, and a file that does not is refused with 66
-naming it, never followed. As for the registry's trust record
+naming it, never followed. As for the organization's trust record
 ([decision][trust-record-decision]),
 whoever can write these directories can change Porelo's configuration and binaries too, so this is a guard against
 mistakes and a misplaced link, not against such an attacker.
 
 ## Acceptance
 
-- A linked `revoked.krl` or `project-signers`, or one in a directory of another account, is refused with 66 by every
+- A linked `revoked.krl` or `organization.yml`, or one in a directory of another account, is refused with 66 by every
   command that reads it, and nothing reads its target.
-- A linked `follow` directory or followed clone is refused with 66 by `project follow`, `project access replace` and
+- A linked `organization-projects` directory or project clone is refused with 66 by the organization commands and
   the identity verbs.
-- `registry read` writes its state only into directories that pass the check.
+- The organization's trust state is written only into directories that pass the check.
 - Seen to fail first: each is followed today.
 
 [trust-record-decision]:
