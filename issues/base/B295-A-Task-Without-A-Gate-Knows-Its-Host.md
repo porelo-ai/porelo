@@ -10,16 +10,16 @@ host's address, under pasta or not.
 
 Found reading porelo [B233](README.md#b233)'s rework. `TaskLaunch` asks podman for the gate's address only when the task
 has a workspace; without one, `TaskWiring` carries none. Then:
-- `TaskRunner.start` refuses a project with `egress.host_services` through `Objects.requireNonNull`, so the person
-  reads `porelo: java.lang.NullPointerException: declared host services require the gate's address` and exit 70.
+- `TaskLaunch` already refuses declared host services without a gate through `StartCheck.hostServicesWithoutAGate`,
+  naming the cause before creating anything; `TaskRunner.start` retains its `requireNonNull` guard.
 - No `host-address` reaches the task's state, so the watcher knows only that IPv4 link-local addresses are never asked
   about. Under pasta the host is one of them; on a fallback where podman answers the host's LAN address, a drop to
   that address is asked about and an Allow opens every port the host listens on.
 
 ## To be checked
 
-- Whether a task without a gate can reach host services at all, or the refusal is the right answer and only its
-  wording changes.
+- Whether a task without a gate can reach host services at all; the clear refusal is already built, and the
+  watcher still lacks the host address.
 - What finding the host's address costs without a workspace: `Podman.hostAddressFromContainer` starts one throwaway
   container against the project's base image.
 - Host services under podman 4 and under the slirp4netns fallback, where the gate binds every interface: not measured

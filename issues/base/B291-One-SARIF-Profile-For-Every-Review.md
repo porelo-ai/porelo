@@ -6,6 +6,8 @@
 versioned SARIF 2.1.0 profile, shared by the daemon, message filter, forge adapters, CLI, interface and IDE plugin.
 The profile states what each producer may submit and what each destination may receive.
 
+The shared review profile remains unbuilt.
+
 ## Proposed
 
 - Blocked by: none.
@@ -51,7 +53,7 @@ The profile states what each producer may submit and what each destination may r
 ## To be checked
 
 - Choose the shared module and publication boundary without adding review-library dependencies to hooks or
-  broadening the five published artifacts without an explicit contract decision. `porelo-wire` supplies JSON and
+  broadening the six published artifacts without an explicit contract decision. `porelo-wire` supplies JSON and
   varlink; `porelo-build-api` supplies the existing adapter API.
 - Specify every allowed field, scalar grammar and direction in bundled offline schemas and valid/adversarial
   fixtures; cover Unicode columns, literal braces, conflicting coordinates and destination-specific projection.

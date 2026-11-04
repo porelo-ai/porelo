@@ -10,7 +10,7 @@ shown.
 
 ## Plan
 
-Read in the code on 2026-10-29.
+Read in the code on 2026-11-04.
 
 - **Today:** `TransportLifecycle.run` calls `context.runner().run(...)`, which collects stdout and stderr until the verb
   ends. stderr is shown only when the verb fails: cleaned with `StartStep.cleanLines` and redacted against the secrets
@@ -27,9 +27,9 @@ Read in the code on 2026-10-29.
      prints it on the person's stderr under the transport's scheme. In a task's start, the line becomes the
      conversation step's detail. On failure the message stays as today.
   3. A sweep of the command line for other commands that run long and print nothing until they end. Each one found
-     gets a phase line as it starts. Candidates read so far: `project follow` (fetching the project's repository),
-     `vault clear` and `project unfollow` (each runs a transport's `clear` or `part`), and `setup` (a transport's
-     `setup`).
+     gets a phase line as it starts. Candidates: `org fetch` (fetching the organization's repository),
+     `vault clear` and `project remove` (transport cleanup), and `setup` (a transport's `setup`).
+     `project follow` and `project unfollow` are gone.
 - **Red first:** a stand-in transport writes a line to stderr that holds a secret handed in, then waits. The test
   expects the line on the person's stderr before the verb ends, with the secret replaced by `[withheld]`. The harm it
   prevents is a secret shown on a terminal by the streamed path, which the failure path already guards.

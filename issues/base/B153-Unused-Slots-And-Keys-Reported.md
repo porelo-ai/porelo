@@ -20,25 +20,29 @@ settings ask for it.
 
 ## Plan
 
-What is there today:
+Read in the code on 2026-11-04:
 
 - A device slot already records its last use: `Keyslot.lastUsed` (`vault/src/main/java/org/fuin/porelo/vault/
   Keyslot.java`), written by `VaultFile.used(opener, id)` when a device opens the vault, readable while the vault is
-  shut, and said by the daemon's `Keyslots` (`30-vault.varlink`). Keyslot 0, the passphrase, is no device and stays
+  shut, and said by the daemon's `Keyslots` (`30-vault.varlink`). The `passphrase` slot is no device and stays
   out of this.
-- A deploy key records no use at all. `DeployKeys.Key` (`apps/app-model/.../DeployKeys.java`) holds what was made;
-  every use goes through `VaultGitCredentials.forUrl` (`apps/app-model/.../VaultGitCredentials.java`), the one place
-  a git credential is lent to the gate's fetches and pushes.
+- Deploy keys remain only for cleanup in `LeftDeployKeys.Key`
+  (`apps/app-model/src/main/java/org/fuin/porelo/app/LeftDeployKeys.java`); Porelo no longer makes or lends them.
+  `VaultGitCredentials.forUrl` (`apps/app-model/src/main/java/org/fuin/porelo/app/VaultGitCredentials.java`) lends
+  the credential chosen by `FollowCredential`, not a project deploy key. Unused-access reporting and locking
+  are not built.
 
-There is no account-wide settings file today: `XdgPaths.config` (`core/.../config/XdgPaths.java`) names
-`$XDG_CONFIG_HOME/porelo/config.yml`, and nothing reads it.
+There is no account-wide settings file today: `XdgPaths.config`
+(`core/src/main/java/org/fuin/porelo/core/config/XdgPaths.java`) names `$XDG_CONFIG_HOME/porelo`; nothing reads a
+`config.yml` there.
 
 Steps:
 
 1. Red first, in `apps/app`: a vault with a device slot last used 100 days ago and a deploy key never lent; `porelo
    doctor` names neither today.
 2. The account's settings: `AccountSettings` in `core` reads `config.yml` from `XdgPaths.config`, a missing file
-   being every default; its schema refuses an unknown key by name, as `ProjectSchema` does. This issue's keys:
+   being every default; its schema refuses an unknown key by name, unlike `ProjectSchema`, which warns on other
+   unknown keys. This issue's keys:
 
        unused_access:
          days: 45      # reported after this many days without use
@@ -53,13 +57,13 @@ Steps:
    credential.
 4. `DoctorCommand.probesFor` gets an "unused access" probe: `DEGRADED` naming each device slot and deploy key unused
    for longer than `unused_access.days`, with when each was last used (or "never") and the remedy that takes it away
-   (`RevokeKeyslot` / `porelo vault devices`, `DeployKeys.forget`). `OK` when none is. The daemon's `Doctor` carries
-   it as it carries every probe; `--json` too.
+   (`RevokeKeyslot` / `porelo vault devices`, `LeftDeployKeys.forget`). `OK` when none is. The daemon's `Doctor`
+   carries it as it carries every probe; `--json` too.
 5. Locking, only where `unused_access.lock` is true: `Keyslot` gains `locked` (read as false where the header has none);
    `Keyslots` refuses to open with a locked slot and says why; the passphrase lifts the lock. A deploy key is locked
    by `VaultGitCredentials` refusing to lend it, by name, until a person lends it again; revoking it at the forge
-   stays `DeployKeys.forget`'s. The lock is applied when the slot or key is next presented, so nothing runs in the
-   background.
+   remains required. `LeftDeployKeys.forget` forgets the local entries and returns the keys to remove there.
+   The lock is applied when the slot or key is next presented, so nothing runs in the background.
 6. `Keyslot` in `30-vault.varlink` gains `locked`; `InterfaceDescriptionTest` holds it.
 7. `doc/credentials.md` says what is reported, after how long, that it is only reported unless the settings ask for
    a lock, and what a lock does.

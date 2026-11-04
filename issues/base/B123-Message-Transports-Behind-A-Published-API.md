@@ -31,7 +31,7 @@ extension point left on a hand-written command line.
 - **A versioned varlink contract**, `org.fuin.porelo.Transport1`, with a protocol version Porelo checks before it uses a
   transport; one that speaks another version is refused against its own name, and the others stay usable.
 - **Secrets stay where they are today**: kept in the vault and handed to the transport on the host, never into a
-  task; over the owner-only socket rather than the environment of a command.
+  task; over the owner-only socket rather than stdin or the environment of a command.
 - **A stub transport in `porelo`**, as `agents/stub` is for agents, so the acceptance suite proves the contract
   without a homeserver; nothing outside it names a transport.
 - **`porelo-message-matrix` moves to the API** in its own repository; a second transport is written against the API
@@ -39,13 +39,15 @@ extension point left on a hand-written command line.
 
 ## Plan
 
-Read in the code at `30c8169b`:
+Read in the code on 2026-11-04:
 
 - **Today's contract, host side**, in `apps/app-messaging/src/main/java/org/fuin/porelo/app/`: `TransportDescription`
   (runs `describe` and reads what a transport takes), `TransportSend`, `TransportPoll`, `TransportConversations`
   (`waitDirect`, the room) and `TransportLifecycle` (`setup`, `enroll`, `retire`, `join`, `settings`, `clear`), each
-  building a command line, passing secrets in the command's environment (`TransportSend.Acting.environment`) and
-  mapping exit codes. `MessageWatch` starts a loop per task's direct chat and per project's conversation on top.
+  building a command line and mapping exit codes. `TransportInput.handed` passes secrets on stdin when
+  `describe` says `secrets: input`, otherwise in the command's environment; an unreadable description gets no secrets.
+  No published transport API or versioned transport protocol is implemented. `MessageWatch` starts a loop per task's
+  direct chat and per project's conversation on top.
 - **The shape to copy**: `agents/api` (`porelo-agent-api`: `Agent`, `AgentServer`, `AgentProtocol`, `AgentMain`,
   `AgentRegistry`) and `builds/api` (`porelo-build-api`), with `agents/stub` and `builds/stub` proving each in the
   suite. The varlink plumbing is in `wire` (`porelo-wire`).
@@ -58,8 +60,9 @@ It splits into five issues, each L or smaller, in this order:
 2. **A stub transport (M)**: `transports/stub`, built against the API and `porelo-wire` only, carrying messages
    between two tasks through a directory; a dependency check fails the build if it names anything else of `porelo`.
 3. **The host speaks the API (L)**: the five `Transport*` classes use the client; secrets go over the owner-only
-   socket, not the environment; one transport refused for its version leaves the others working. The suite's
-   messaging scenarios run on the stub. Red first: a scenario that greps the process list and a task's environment
+   socket rather than stdin or the environment; one transport refused for its version leaves the others working.
+   The suite's messaging scenarios run on the stub. Red first: a scenario that greps the process list and a task's
+   environment
    for a transport secret.
 4. **`porelo-message-matrix` moves (L, its own repository)**: built against the API, released, and its scenarios
    green against a `porelo` that speaks only the API.

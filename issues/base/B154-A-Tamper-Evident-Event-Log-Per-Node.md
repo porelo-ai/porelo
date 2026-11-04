@@ -6,6 +6,9 @@ machine, and a log that `porelo clear` leaves.
 
 **What must be true.** Every security-relevant event of a node - approve, reject, clearance, hand-in, runtime extensions, and every change of permissions (a clearance at run time, `--credential`, a change of `project.yml`) - is written to a log that shows when it was changed afterwards.
 
+**Not kept today.** A change of `project.yml` is not written: since `1948c99f`, `EventLog.PROJECT_APPLIED` is declared and
+nothing writes it, so a project file a start takes through its organization (`ProjectTaking`) leaves no line. Read, not run.
+
 ## Why
 
 Today these are in separate journals that can be edited without a trace; regulation asks for event logs.
@@ -46,7 +49,7 @@ Steps:
    field through the native journal socket; `verify()` reads both.
 3. The writers, each one line: `GateApproveCommand` and `GateRejectCommand` (and the daemon's same calls),
    `ClearanceWiring`/`RunningClearance` for a clearance at run time, `HandIns` for give and take back, the start's
-   `--credential` in `TaskLaunch`, a reconcile that applies a new `project.yml` (`Reconcile`), a runtime extension
+   `--credential` in `TaskLaunch`, the taking of a new `project.yml` (`ProjectTaking`, not written today), a runtime extension
    where it is granted, `task stop --all` beside `stops.log`.
 4. `porelo events [--since] [--verify]` (app) and the daemon's `Events()` and `VerifyEvents()` in a new
    `55-events.varlink`; `InterfaceDescriptionTest` holds them.
@@ -71,7 +74,7 @@ Steps:
 - The writers: `gate approve`, `porelo approve` and the daemon's `Approve`; `gate reject` and the daemon's `Reject`;
   each decision the clearance watcher records, and a change of a running task's clearance mode; `HandIns` for give
   and take back; the credentials a start gives beyond the agent's own (where `GrantRecord` records them); a
-  reconcile that applies a new commit; `task stop --all`. "A runtime extension" is a credential granted beyond the
+  reconcile that applied a new commit, which went with `Reconcile` and has no writer today; `task stop --all`. "A runtime extension" is a credential granted beyond the
   agent's own: no other extension of a running task exists today.
 - `porelo events [--since] [--verify]` and the daemon's `Events` and `VerifyEvents` in `55-events.varlink`.
 - `porelo clear` leaves the log, and says so.

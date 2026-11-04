@@ -60,9 +60,10 @@ Two smaller things belong with it:
 
 ## Plan
 
-Read in today's code. `SocketContextTest` (`wire`) gates two tests on `@EnabledIf("selinux")`, which reads
-`/sys/fs/selinux/enforce`. `acceptance/legs/src/main/java/org/fuin/porelo/legs/Main.java` builds with `-DskipTests`
-before deploying, so the unit tests in a leg's log run on the host that drives it. Other tests skip through
+Read in the code on 2026-11-04. `SocketContextTest` (`wire`) gates two tests on `@EnabledIf("selinux")`, which reads
+`/sys/fs/selinux/enforce`. `acceptance/legs/src/main/java/org/fuin/porelo/legs/Leg.java` runs `ci/leg-build.sh`,
+which builds with `-DskipTests` before deploying, so the SELinux-dependent unit tests still do not run there.
+Other tests skip through
 `assumeTrue` (`KernelKeyringTest`, `VarlinkInteropTest`) and are of the same kind.
 
 Steps, in order:

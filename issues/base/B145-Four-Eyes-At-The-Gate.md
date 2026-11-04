@@ -12,16 +12,17 @@ check or forge verdict cannot count as a person's approval.
 ## Plan
 
 `GitGate.approveSigned` signs a merge through the person's Git configuration; it does not verify a second person's
-approval. `TaskProfile` is version 5 and records no `startedBy`. `ProjectPaths.configurationSigners` supplies the
-configuration signer file, but `ProjectSchema` has no approval settings. Reuse signing machinery while making the
-review-approval principals and trust scope explicit.
+approval. `TaskProfile` (`wire/src/main/java/org/fuin/porelo/wire/TaskProfile.java`) is version 7 and records no
+`startedBy`. `ProjectPaths.configurationSigners` is absent; `ProjectMembers` reads current member keys from
+`OrganizationProjects`, but `ProjectSchema` has no approval settings or independent gate co-signature check.
+Reuse signing machinery while making the review-approval principals and trust scope explicit.
 
 1. Red first: in `apps/app`, a fixture with two allowed signing principals and E0/C3 work refuses the first person's
    approval alone, even without `four_eyes`. A valid second signature permits only its bound commit.
 2. Add `approval: {four_eyes: true}` through `Project`, `ProjectReader`, `ProjectSchema` and the documented project
    fixture, default false for work that does not otherwise require two people. Apply [B293](README.md#b293)'s required
    approval count; project or machine policy may tighten it but cannot remove E0/C3 requirements.
-3. Record `startedBy` and authenticated input provenance in the next `TaskProfile` schema, not a reused version 5.
+3. Record `startedBy` and authenticated input provenance in the next `TaskProfile` schema, not a reused version 7.
    External work without a local starter still requires two independently authenticated human principals. Never
    infer a human from a task role, a forge bot label or text in a report.
 4. Add `porelo gate co-sign`: on the second person's machine, sign the exact reviewed commit in a dedicated signing
@@ -49,7 +50,7 @@ review-approval principals and trust scope explicit.
 
 ## Open questions
 
-- Are the project's configuration signers also the authorized code approvers, or should approval use a separate
+- Are the project's current member keys also the authorized code approvers, or should approval use a separate
   signer list and human-principal mapping?
 - Which transport brings an independently made co-signature to the node: a file supplied to approve, an interface
   upload, or a signed message? The signature's verification and commit binding hold for each.

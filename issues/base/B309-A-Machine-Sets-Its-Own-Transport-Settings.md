@@ -2,7 +2,7 @@
 
 **Status:** Idea.
 
-**What must be true.** A machine that follows a project may set some of a transport's settings for itself - for
+**What must be true.** A machine running a project may set some of a transport's settings for itself - for
 Matrix, the homeserver, the room, the CA certificate and the registration token - in place of what the project file
 names, so one project file serves machines that talk through different homeservers; every other setting stays the
 project file's.
@@ -10,10 +10,10 @@ project file's.
 ## Why
 
 Split from [B304](README.md#b304), which
-superseded an earlier choice (a machine's own settings over the signed project file's): for now the signed project file names the
-homeserver, the room, the CA's text as `ca_certificate` and a `registration_token_file`, and every machine reaches the same name,
-so no machine needs settings of its own. It comes back when machines of one project must reach different servers
-under one project file.
+superseded an earlier choice (a machine's own settings over the signed project file's).
+`apps/app-model/src/main/java/org/fuin/porelo/app/ProjectMembers.java` reads the project's transport settings;
+for an organization project with no declared Matrix homeserver, it supplies the host's homeserver and room.
+Arbitrary machine overrides of individual settings remain unbuilt.
 
 What was built for it and taken out again, at `baa7e433` in porelo's history: `describe` naming `machineSettings`
 and `machineSecrets`, an owner-only file per project and transport under the account's configuration written by

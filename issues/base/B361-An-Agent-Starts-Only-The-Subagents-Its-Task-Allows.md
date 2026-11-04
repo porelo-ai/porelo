@@ -17,6 +17,10 @@ not over the whole task; a total over the task belongs to the hard bound named b
 as one number in the project file. There is no depth in it; where an agent's own switch needs a depth for the count to
 hold, its adapter sets that itself and says so in its issue.
 
+**Not kept today.** The number reaches each adapter, and no adapter turns it into its agent's switch: `src/main` of
+porelo-claude-code, porelo-agy, porelo-codex and porelo-omp names no subagent setting. So a task with 0, the default, may
+still start subagents, while `doc/project-file.md` says it runs none. Read, not run.
+
 Decided: the soft switch, adapter-independent, default 0. A hard bound in Porelo
 itself, a process limit in the task's container or a cap at the provider proxy that also counts an agent starting
 itself again through its shell, is an Idea of its own in `porelo-project`. What each agent offers today was read

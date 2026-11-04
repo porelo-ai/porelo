@@ -73,21 +73,28 @@ answered two directories away.
 
 ## Plan
 
-Read in today's code. `XdgPaths` (`core`) names the data and state directories and sets no mode. `ProjectPaths`
-(`apps/app-base`) writes `projects/` and `upstream/`; `GitGate` (`gate`) makes a mirror under `mirrors/` with
+Read in the code on 2026-11-04. `XdgPaths` (`core`) names the data and state directories and sets no mode.
+`ProjectPaths`
+(`apps/app-base/src/main/java/org/fuin/porelo/app/ProjectPaths.java`) names `projects/` and `upstream/`,
+`organization-projects/` and `organization/project-files/`; `GitGate` (`gate`) makes a mirror under `mirrors/` with
 `git init --bare` or `git clone --bare`; `ProjectInventory` and `BackupRestore` resolve the same paths. Owner-only
 is already set where somebody thought of it: `HandIns`, `TaskBuilds`, `TaskState`, `TaskHelpers`, `NodeIdentity`,
 `HostKey`, `VaultFile`, and the socket directories in `VaultProxy` and `SshAgentServer`.
+`Directories.create` (`wire/src/main/java/org/fuin/porelo/wire/Directories.java`) already removes group and other
+write permissions after creating missing directories, but leaves read and search permissions and existing modes
+alone; it does not meet the owner-only requirement.
 
 Steps, in order:
 
 1. Red first: an acceptance scenario that runs a task under `umask 002` and one under `umask 022`, checks its work
    out with `porelo gate checkout`, then finds nothing under the data and state directories or `~/porelo/reviews` with
    `find -perm /077`. It fails today on `mirrors/`, `projects/`, `upstream/` and the review checkout.
-2. One helper in `core` beside `XdgPaths`: create every missing component below a root with `rwx------` as the
-   creation attribute, one component at a time, and write a file with `rw-------`. Creating each component with the
+2. Extend `Directories.create` with an owner-only operation: create every missing component below a root with
+   `rwx------` as the creation attribute, one component at a time, and write a file with `rw-------`.
+   Creating each component with the
    attribute leaves no window, which answers the race in `createDirectories`.
-3. Route the durable writers through it: the data and state directories, `projects/`, `upstream/`, `mirrors/`, and
+3. Route the durable writers through it: the data and state directories, `projects/`, `upstream/`, `mirrors/`,
+   `organization-projects/`, `organization/project-files/`, and
    `~/porelo/reviews` (`GatePaths.reviewCheckout`, checked out into by `GateCheckoutCommand`): `reviews/` and each
    checkout's directory are created owner-only before git writes into them, and the working tree, which
    `core.sharedRepository` does not cover, is tightened by a walk once the checkout is written.

@@ -20,14 +20,17 @@ and is held outside the vault. The owner check took its token only from the vaul
 - An installation token whose installation reaches the organisation's repositories answers a 404 as a no; one of
   another organisation, or one that reaches no repository, still cannot say; seen to fail first.
 
+The registry commands are gone; organization access keeps the token and membership checks.
+
 ## Done
 
-- `RegistryReadCommand.token` takes a token declared for the origin in a variable or a file before the vault, with
-  the vault's rule for a port (`RegistryReadCommandTest`, red first; the port rule seen red under a mutant).
+- `OrganizationAccess.forgeToken` takes a token declared for the origin in a variable or a file before the vault, with
+  the vault's rule for a port (`OrganizationAccessTest`; the earlier registry test was red first; the port rule seen
+  red under a mutant).
 - `HttpForgeDirectory` asks `/installation/repositories?per_page=1` after a 404 from a token that is no organisation
   admin, and takes the 404 as a no when the first repository's owner is the organisation (`HttpForgeDirectoryTest`,
   red first; the owner comparison seen red under a mutant). The App needs Members: read.
-- The interface passes the test walk's token as `PORELO_GITHUB_APP_TOKEN` for each `registry` call; a local script
-  declares it with `porelo credentials declare https://github.com/<test-organization>/
+- The interface passed the test walk's token as `PORELO_GITHUB_APP_TOKEN` for each `registry` call during that walk; a
+  local script declares it with `porelo credentials declare https://github.com/<test-organization>/
   --kind=token --env PORELO_GITHUB_APP_TOKEN`. Built during a stopped test walk with its unit tests only; the
   reading follows after the walk.

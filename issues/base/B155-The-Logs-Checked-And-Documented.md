@@ -20,15 +20,19 @@ by default, a period the account's settings may change.
 
 ## Plan
 
-The logs, read in the code:
+Read in the code on 2026-11-04:
 
 - per task, in `TaskPaths.containerState(container)`: `vault.log` (the broker's output, `CredentialWiring`),
   `relay.log` (`CredentialWiring`), `gate.log` (`GateWiring`, the gate's token in its environment), `clearance.log`
   (`ClearanceWiring`, `RunningClearance`), `workspace.log` (`WorkspaceSetup`), `task.log` (an unattended run's
-  output, `TaskLaunch`, `TaskRunCommand` - the agent's own words, so prompt contents), `dnsmasq.log`, `events.jsonl`;
-- per account, in `$XDG_STATE_HOME/porelo`: `failures.log`, `stops.log` (`PoreloPaths`), the clearance journals, the
+  output, `TaskLaunch`, `TaskRunCommand` - the agent's own words, so prompt contents), `dnsmasq.log`, `events.jsonl`,
+  `reader.err` (the reader hook's failures);
+- per account, in `$XDG_STATE_HOME/porelo`: `failures.log`, `stops.log`, `events.jsonl` (`EventLog`,
+  `PoreloPaths.eventLog`), the clearance journals, the
   hand-in record (`HandIns`), the message record (`MessageRecord`), the build records;
 - the daemon's and the user services' output in the user journal.
+
+The field-by-field log page and task-log retention are not built.
 
 Steps:
 
@@ -47,7 +51,8 @@ Steps:
    holds and how long it is kept.
 4. A page `doc/logs.md` (in `mkdocs.yml`): one row per log - who writes it, where it lies, how long it lives, who
    can read it, its fields, and what is never in it (tokens, passphrases, a credential's value). A test reads the
-   page and the code's list of log names (`TaskState`'s list of state files) and fails on a log the page misses.
+   page and the task log rule (`TaskInventory.isLog`), together with the account's log writers, and fails on a log
+   the page misses.
 
 ## Acceptance
 

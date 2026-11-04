@@ -3,15 +3,16 @@
 **Status:** Idea.
 
 **What must be true.** A store that takes what the organization's rules refuse fails `WritesContract`. Today a store
-can do each thing below and still pass every check of `organization/contract`: none of them is held. No fault in the Git
-adapter is known from them; they were found by reading the checks, with nothing run.
+has gaps below that can still pass `organization/contract`; the five operations already have role checks. No fault in
+the Git adapter is known from them; they were found by reading the checks, with nothing run.
 
 ## Plan
 
 Each point is a check to add or change in `organization/contract`, seen to fail first against a broken stand-in.
 
-- **Five operations no check calls.** `unlockProjectMember`, `removeHost`, `changeHost`, `removeHostAdmin` and
-  `removeProjectFromHost` throw `unasked()` in `WritesStandIn`. Fill them in and add `aDeveloperUnlocksNobody`,
+- **Five operations with role checks.** `unlockProjectMember`, `removeHost`, `changeHost`, `removeHostAdmin` and
+  `removeProjectFromHost` are implemented in `WritesStandIn` and called by `WritesContract`. Check the remaining
+  stranger and developer refusals with `aDeveloperUnlocksNobody`,
   `aStrangerRemovesNoHost`, `aStrangerChangesNoHostsCard`, `aStrangerRemovesNoHostAdmin` and
   `aStrangerTakesNoProjectOffAHost`.
 - **The source's silence.** `WritesFixture` can only say yes or no, and `Refused.CANNOT_SAY`, which `GitTreeWrites`

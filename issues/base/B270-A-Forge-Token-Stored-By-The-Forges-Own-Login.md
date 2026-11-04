@@ -13,8 +13,9 @@ Today the only way in is `porelo vault put git.token.<host>`, with a token the p
 The interface would open
 the login in a terminal on the machine, as it does for an agent's sign-in.
 
-Read in the code: `porelo vault authorize` already runs a device-code flow, but only for an `oauth-device` service
-entry. Its grant is kept hidden as `grant/<name>` and spent by the broker for a task; it is never stored as
+Read in the code: `porelo vault authorize` runs a device-code flow for an `oauth-device` service entry and a
+redirect flow for an `oauth-code` entry. Its grant is kept hidden as `grant/<name>` and spent by the broker for a task;
+it is never stored as
 `git.token.<host>` and never lent to the host's own git.
 
 ## Decided

@@ -13,6 +13,10 @@ point out, and Porelo files the card and signs the rest anew by the owner's key.
 admin`, `project address` by the admin, and a signed commit changing `project.yml` by plain git, for which no command exists. A
 window shows only `an admin signs it anew`, not how.
 
+`apps/app-organization/src/main/java/org/fuin/porelo/app/ProjectSignCommand.java` provides `porelo project sign`
+to sign `project.yml` anew. `org person replace` requires an organization admin once that role is listed.
+The unified recovery step remains unbuilt.
+
 **What the listing can and cannot say.** Porelo can list every commit by that key in the organization and the newest
 change of `project.yml`. **It cannot tell which came after the theft:** a commit's date is what its signer wrote, so a thief can
 backdate. Order on the line and what a machine had accepted are firm. So the listing shows that the key signed, dates marked as

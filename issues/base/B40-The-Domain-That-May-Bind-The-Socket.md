@@ -16,11 +16,12 @@ is what this file is for.
 ## What the policy says today
 
 `porelo_socket_t` is placed on the socket object by the server, which sets its socket creation
-context before `bind()`. Three domains appear:
+context before `bind()`. Five domains appear:
 
 - `unconfined_t` — binds the sockets and connects to them as a host-side client.
 - `container_t` — the task, which may only connect.
 - `container_runtime_t` — the relay inside the task's network namespace, which may only connect.
+- `sshd_t` and `sshd_session_t` — SSH forwards to the daemon, which may only connect.
 
 **The container half is already right, and was measured.** Neither container domain may create a
 socket of this type, so a compromised container cannot stand up a listener wearing the label and
@@ -46,13 +47,14 @@ what this buys.
 
 ## Plan
 
-Read in today's code. `SocketContext` (`wire/src/main/java/org/fuin/porelo/wire/SocketContext.java`) labels a socket
-when it is created, through `/proc/thread-self/attr/sockcreate`, and `openUnixSocket()` is the only way a labelled
-socket is made. Its callers are `VarlinkServer` (wire), `VaultProxy` (supervisor) and `SshAgentServer` (vault).
+Read in the code on 2026-11-04. `SocketContext` (`wire/src/main/java/org/fuin/porelo/wire/SocketContext.java`)
+labels a socket when it is created, through `/proc/thread-self/attr/sockcreate`, and `openUnixSocket()` is the
+only way a labeled socket is made. Its callers are `VarlinkServer` (wire), `VaultProxy` (supervisor) and `SshAgentServer` (vault).
 `VarlinkServer` is served by `PoreloDaemon` (`/usr/bin/porelod`), `ClearanceService`, `BuildServer` and `AgentServer`,
-so the agent and build binaries under `/usr/libexec/porelo` bind labelled sockets as well, not only `porelo` and
-`porelod`. `gate serve`, `vault serve` and `vault relay` are subcommands of `/usr/bin/porelo`, so the CLI and the
-helpers are one binary and can be one domain. The relay enters the task's namespace through `podman unshare`, runs
+so agent binaries at `/usr/lib/<package>/<agent>` and build binaries under `/usr/libexec/porelo` bind labeled
+sockets as well, not only `porelo` and `porelod`. `gate serve`, `vault serve` and `vault relay` are subcommands of
+`/usr/bin/porelo`, so the CLI and the helpers are one binary and can be one domain. The relay enters the task's
+namespace through `podman unshare`, runs
 as `container_runtime_t` and only connects. `DoctorCommand` (`apps/app`) holds the `selinux policy` probe. The
 packages ship `selinux/porelo_socket.te` and `install-selinux-policy.sh` under `/usr/share/porelo/selinux`; [B135](README.md#b135) makes
 the package load the module, and this issue changes what it loads.
@@ -63,14 +65,15 @@ Steps, in order:
    and a build binary, started from a shell and from `porelod.service`. The domains go into the policy's comment.
 2. Red first: an acceptance step on the fedora leg in which a script running as the operator writes the socket
    context and binds. It succeeds today; the step expects a refusal.
-3. A domain for Porelo's binaries: `porelo_exec_t` on `/usr/bin/porelo`, `/usr/bin/porelod` and everything under
-   `/usr/libexec/porelo`, through a new `selinux/porelo_socket.fc`, and a transition from `unconfined_t` to `porelo_t`
-   on executing them. Labelling the directory by pattern covers every agent package without a change in the agent
-   repositories. `porelo_t` may do what the operator's processes may do otherwise, so the domain narrows the socket
-   rule and nothing else. That needs the reference policy's interfaces, so `install-selinux-policy.sh` (and the
+3. A domain for Porelo's binaries: `porelo_exec_t` on `/usr/bin/porelo`, `/usr/bin/porelod`, everything under
+   `/usr/libexec/porelo` and agent executables at `/usr/lib/<package>/<agent>`, through a new
+   `selinux/porelo_socket.fc`, and a transition from `unconfined_t` to `porelo_t` on executing them. The file contexts
+   cover every agent package without a change in the agent repositories. `porelo_t` may do what the operator's
+   processes may do otherwise, so the domain narrows the socket rule and nothing else. That needs the reference
+   policy's interfaces, so `install-selinux-policy.sh` (and the
    package scripts of [B135](README.md#b135)) build with the policy development files instead of `checkmodule` alone.
 4. Move `setsockcreate` and `create bind listen accept` from `unconfined_t` to `porelo_t`. `unconfined_t` keeps
-   `connectto`, for host-side clients that are not Porelo. The two container rules stay as they are.
+   `connectto`, for host-side clients that are not Porelo. The two container and two SSH rules stay as they are.
 5. A developer's build is labelled with `chcon`, set by the build after each build: the native build (`-Pnative`)
    runs `chcon -t porelo_exec_t` on every binary it writes when the machine has SELinux enabled and the policy
    loaded, and does nothing elsewhere. The label is lost on every rebuild, and every rebuild sets it again; the

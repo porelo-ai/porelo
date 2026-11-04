@@ -9,22 +9,26 @@ never starts a homeserver. `default` has no room as its normal case, so nothing 
 
 ## What holds today
 
-Read in the code. `default` has no conversation only by how its file is written, and nothing guards that:
+Read in the code on 2026-11-04. `default` has no conversation, guarded at file generation and task enrollment:
 
 - `ProjectSource.resolve` answers `default` first, from `DefaultProject.file()`, which writes the file anew at each
-  read with no `mail` section. No followed project may take the name (`FollowedProjects`), and a recorded file is never
+  read with no `mail` section. An organization project of that name cannot override it, and a recorded file is never
   reached for it.
 - Every way into a room asks `project.mail().conversations()`, which is empty without a `mail` section: `TaskLaunch`
   through `TaskConversations.enroll`, `talk join`, `talk room`, `MessageWatch.withSiblings`.
+- `TaskConversations.enroll` returns before asking any transport for `default`.
 - Nothing from the machine or host is added to a project's `mail`.
 
-**The gap, measured on the native binary in a throwaway state:** `DefaultProject.fileHeld` writes a repository's name
-into the YAML as it stands, and `entries()` takes any string from `repositories.json`, with no check on read. A name
+**The gap measured before the guards, on the native binary in a throwaway state:** `DefaultProject.fileHeld` wrote a
+repository's name into the YAML as it stands, and `entries()` took any string from `repositories.json`, with no check
+on read. A name
 with line ends in that file put a `mail` section with a room peer into the written `project.yml`, and the reader read
 it. Both tries were refused with exit 70, each on the line that follows the name, so no working room was reached and
 none is claimed. The file is the account's own; no task or forge writes it.
 
-No test says that `default` has no conversation (`DefaultProjectTest` names none).
+`DefaultProject.usableEntries` filters invalid and duplicate entries before writing the file;
+`apps/app/src/test/java/org/fuin/porelo/app/DefaultProjectTest.java` checks the empty conversations and peers,
+the invalid entries and the task enrollment guard.
 
 ## Acceptance
 

@@ -9,21 +9,23 @@ also stops the task and revokes its token.
 
 ## Why
 
-Today these are journalled (`reach.md`) and nobody is told while it happens.
+Clearance decisions are journaled; `VaultProxy` logs request methods, redacted targets and outcomes, but no body sizes.
+No anomaly alert is raised for these signals.
 
 **Guideline points it answers:** OWASP AI Agent Cheat Sheet §5/§6; Acalvio 7, 10, 11; ACSC (frequent repetitive prompts, a baseline); AISVS 9.1.3, 9.6.1, 9.6.3. From a review of security guidelines, 2026-10-09.
 
 ## Plan
 
 Which signals, with which thresholds per project; the alert through the channels Porelo already has (a desktop
-notification, the interface); stopping the task per project, off by default. Read in the code on 2026-10-11: every
+notification, the interface); stopping the task per project, off by default. Read in the code on 2026-11-04: every
 signal is already seen on the host, per task, by a process that runs beside the task.
 
 - **Large prompt bodies:** `VaultProxy.handle` (`supervisor/`) reads each request's body, up to `BODY_LIMIT`, before
   it forwards it.
 - **Many clearance attempts:** `ShieldWatchCommand` (`apps/app-egress/`) receives every blocked connection from the
   NFLOG reader and asks through `ClearanceService`; each decision goes to `ClearanceJournal` (`clearance/`).
-- **Unusual names under declared domains:** the task's resolver (`shield/.../DnsPolicy.java`, dnsmasq with its log);
+- **Unusual names under declared domains:** the task's resolver
+  (`shield/src/main/java/org/fuin/porelo/shield/DnsPolicy.java`, dnsmasq with its log);
   a name is unusual by its length, its entropy and the count of distinct names under one declared domain.
 - **Containment exists:** `TaskPanic` stops tasks and their helpers; `TokenBroker.revokeAllFor` revokes a task's
   tokens. There is no freeze: a paused agent holds its session while its tokens' lifetimes run on, so a task is
@@ -33,7 +35,8 @@ Steps, in order:
 
 1. **Baselines measured, not guessed:** a week of the VM's acceptance runs and of real tasks, the body sizes, the
    blocked attempts per minute and the names per declared domain, written into this issue. The thresholds are set
-   from them, each as a project setting with a default (`alerts:` in the project file, read into `core/.../project`).
+   from them, each as a project setting with a default (`alerts:` in the project file, read into
+   `core/src/main/java/org/fuin/porelo/core/project`).
 2. **One alert type, one path.** `Alert(task, signal, measured, threshold, at)` written by each watcher to the task's
    `alerts.jsonl` and sent to the daemon, which shows it by a desktop notification (as `DesktopPrompt` does) and to
    the interface as a new field of the task (`alerts`) in what `15-task.varlink`'s `Watch` answers, a contract

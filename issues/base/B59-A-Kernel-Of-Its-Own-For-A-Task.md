@@ -46,7 +46,7 @@ The first two decide whether the rest is worth doing.
 2. **Can the resolver still lie?** `NXDOMAIN` for every undeclared name, and the resolver filling
    the nftables set for the declared ones, both depend on dnsmasq running in the same namespace as
    the workload. Measure what that becomes, including whether the guest resolves over TCP only.
-3. **Do the hooks still run, and what can they still do?** Three of Porelo's four hooks reach inside
+3. **Do the hooks still run, and what can they still do?** All three of Porelo's hooks reach inside
    the workload's namespaces. A hook that runs on the host while the workload runs under another
    kernel is a different instrument, whatever the runtime reports.
 4. **Do the sockets still arrive?** The vault proxy, the ssh-agent and the clearance socket are unix
@@ -69,8 +69,8 @@ working, the ruleset failing closed, and the cost - and on what question 7 adds.
 
 ## Plan
 
-Read in today's code. `Podman` (`runtime`) starts every task with the host's default runtime; no `--runtime` is
-passed anywhere. `NftHook` (`hooks`) runs at `createRuntime` and loads the ruleset with
+Read in the code on 2026-11-04. `Podman` (`runtime`) starts every task with the host's default runtime;
+no `--runtime` is passed anywhere. `NftHook` (`hooks`) runs at `createRuntime` and loads the ruleset with
 `nsenter --target <pid> --net nft --file -`; `SupervisorHook` starts the resolver in the same namespace; the vault
 proxy, ssh-agent and clearance sockets are bind-mounted from the runtime directory; `task attach` is
 `podman exec -it ... tmux new-session -A`. `SecurityClass` (`core`) has `offline`.

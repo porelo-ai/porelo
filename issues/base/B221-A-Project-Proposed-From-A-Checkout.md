@@ -19,8 +19,8 @@ into a draft, and the checkout's tracked files stay unchanged.
 - **"The person's own files" are those of the account `porelod` runs as**, on the machine, which the interface may
   not run on; each value's origin says `YOURS` (that account's), `CHECKOUT` or `MACHINE`, and the answer names the
   machine.
-- **`DefaultRepository` gains `proposal`**: `UNASKED`, `ASKED` or `CONFIGURED` (`porelo.yml`, `.porelo.yml` or a
-  followed project naming it), so no client derives whether to ask.
+- **`DefaultRepository` gains `proposal`**: `UNASKED`, `ASKED` or `CONFIGURED` (`porelo.yml`, `.porelo.yml` or an
+  organization project naming it), so no client derives whether to ask.
 - **`ProposeProject(project, repository)`** streams one progress reply per plugin and a final one: tools and rules
   as two lists of `{key, value, file, line, origin, unknown, note}`, the disagreements, the cost of leaving out the
   rules as a sentence, the `.porelo.yml` and `project.yml` texts as they would be written, and each credential id
@@ -33,41 +33,50 @@ into a draft, and the checkout's tracked files stay unchanged.
 
 ## Plan
 
-Read in the code on 2026-10-20 (`apps/app-project`, `apps/app-model`, `daemon`).
+Read in the code on 2026-11-04 (`apps/app-organization`, `apps/app-model`, `daemon`).
+
+`apps/app-organization/src/main/java/org/fuin/porelo/app/ProjectProposal.java` already merges findings into
+one `project.yml` draft and a repository row; `ProjectInitCommand` files that row with `--project`, `--yes` and
+`--base`. The two drafts, mirror export, recorded proposal state, daemon methods and first-start question remain
+unbuilt. Following projects by hand is gone; projects are placed from the organization.
 
 1. **One implementation, two renderings**, as `vault authorize` and the daemon's `Authorize` share `Flow`:
-   `ProjectProposal.propose(project, repository, Consumer<PluginDone>)` in `app-project`; `porelo project init`
+   `ProjectProposal.propose(project, repository, Consumer<PluginDone>)` in `apps/app-organization`; `porelo project
+   init`
    prints each step, `ProposeProject` sends it as `replies.more` and ends with `replies.last`, refusing a call that
-   does not stream with `StreamRequired`, as `Authorize` does (`VaultMethods.java:535-600`).
+   does not stream with `StreamRequired`, as `Authorize` does in
+   `daemon/src/main/java/org/fuin/porelo/daemon/VaultMethods.java`.
 2. **The directory the plugins read**:
    - a checkout (`init <checkout>`, or a `default` entry of source `CHECKOUT`): its working tree, as the person sees
      it, never written;
-   - a `REMOTE` entry or a followed project's repository: the mirror's default branch (`git symbolic-ref HEAD` in
-     the bare mirror, `GateSupport.mirror`, `:126`), exported with `git archive | tar -x` into a fresh `0700`
+   - a `REMOTE` entry or an organization project's repository: the mirror's default branch (`git symbolic-ref HEAD` in
+     the bare mirror, `GateSupport.mirror`), exported with `git archive | tar -x` into a fresh `0700`
      directory under `$XDG_RUNTIME_DIR`, removed after. `MirrorTree.export` is new; nothing exports a tree today.
      Branches named `porelo/*` are never read.
 3. **The merge**, `ProposalMerge`: the plugins' findings by `part` and `key`; one value kept with every source; two
    values for one key are a disagreement, listed and left out of the draft; unknowns listed with where they are set;
    a credential named by id only, its value never asked of a plugin. The cost of leaving out the rules is one
    sentence composed here.
-4. **Two writers**, both hand-built text as `DefaultProject.fileHeld` (`:336`) builds its file, each value followed by
+4. **Two writers**, both hand-built text as `DefaultProject.fileHeld` builds its file, each value followed by
    its source as a comment (`# pom.xml:14, from the checkout`):
    - `ToolsDraft` in [B192](README.md#b192)'s format (`image:` with `base_image`, `snippet`, `env`), read back
      through [B192](README.md#b192)'s reader before it is shown;
    - `ProjectDraft`, a `project.yml` naming the repository under `repositories`, read back through `ProjectReader`
-     and the checks `CheckProjectFile` runs.
+     and the project-file checks in
+     `organization/git-tree/src/main/java/org/fuin/porelo/organization/gittree/ProjectFile.java`.
 5. **The recorded state**: `DefaultProject.Entry` gains `proposal`, stored in `repositories.json`, read as `UNASKED`
    when absent, written under the file's lock as `add` is; `CONFIGURED` is computed, not stored - a `porelo.yml` or
-   `.porelo.yml` where [B192](README.md#b192) reads them, or a followed project naming the repository. `asMap()`
+   `.porelo.yml` where [B192](README.md#b192) reads them, or an organization project naming the repository. `asMap()`
    carries it into `DefaultRepository`.
 6. **`TakeProposal`**: `TOOLS` and `TOOLS_AND_DRAFT` write `.porelo.yml` - into the checkout with a line in its
    `.git/info/exclude` for a `CHECKOUT` entry, else to `$XDG_CONFIG_HOME/porelo/projects/default/<repository>/.porelo.yml`
-   (computed beside `ProjectPaths.defaultProjectFile`, `:88`) - and record `ASKED`; `NONE` records `ASKED` only.
+   (computed beside `ProjectPaths.defaultProjectFile`) - and record `ASKED`; `NONE` records `ASKED` only.
    [B192](README.md#b192)'s order for a `REMOTE` entry of `default` gains that file as its first source.
-7. **The daemon**: `20-project.varlink` gains the two methods, the types `Proposal`, `ProposedValue` and
+7. **The daemon**: `daemon/src/main/resources/varlink/org.fuin.porelo.Tasks1/20-project.varlink` gains the two methods,
+   the types `Proposal`, `ProposedValue` and
    `Disagreement`, and `DefaultRepository.proposal`; `ProjectMethods` registers them; `InterfaceDescriptionTest`
    holds the part.
-8. **The command line**: `ProjectInitCommand` beside `ProjectDefaultCommand`, in `ProjectsCommand`'s list,
+8. **The command line**: `ProjectInitCommand`, registered by `PoreloCli.commandLine`, extended to
    `init <checkout | repository>`, showing the drafts and asking which to take at a terminal, `--take
    tools|all|none` without one. `task start` in `default` on an `UNASKED` entry asks the same before the first task
    at a terminal, and without one starts as today with one line saying the drafts wait in `project init`.

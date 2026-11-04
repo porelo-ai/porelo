@@ -5,6 +5,13 @@
 **What must be true.** An organisation passes good settings down to its teams and projects, and can make some of them
 binding. No project or team below can undo a binding setting, and none can slip in a forged one.
 
+Read in the code on 2026-11-04: `ProjectTaking`
+(`apps/app-task/src/main/java/org/fuin/porelo/app/ProjectTaking.java`) takes projects from organization membership
+or host placement and judges them with the project's signing keys. `TreeModel`
+(`organization/git-tree/src/main/java/org/fuin/porelo/organization/gittree/TreeModel.java`) records owners, people,
+projects, hosts and organization admins, not teams or inherited settings. Manual following and its `rewritten`
+state are gone; the pinned file and parent-key chain below remain proposals, and inheritance and locks are not built.
+
 ## The tree is described from the top
 
 - **A machine's administrator pins one organisation file**, root-owned so that a developer cannot remove it, with the
@@ -40,11 +47,11 @@ A block of their own beside the settings, `locks:`, naming paths of settings:
 - **A team may add locks**, but never lift one from above.
 - **A project that breaks a lock starts no task.** It gets a named refusal that names the file and the key.
 
-## Authenticity, as following is today
+## Authenticity proposed
 
 - **A file applies only when its commit is signed by the key its parent names.** The parent is itself signed, so the
   chain runs unbroken to the key the administrator pinned.
-- **A signed commit that does not descend from the one in force waits**, as `rewritten` does today.
+- **A signed commit that does not descend from the one in force waits**.
 - **A team's file takes effect only when it is reached through the organisation.**
 - **A file that cannot be fetched keeps its last verified state.** One never verified starts no task in its branch of
   the tree.
@@ -63,8 +70,7 @@ organisation file. It is to be folded in at analysis.
 
 At analysis:
 
-- **Which commit a file follows:** its newest signed commit or a pinned one. The proposal is the newest, as following
-  does.
+- **Which commit a file follows:** its newest signed commit or a pinned one. The proposal is the newest.
 - **Which keys an organisation or team file may set.** The proposal is settings (`limits`, `egress`, `agents`, values),
   never `repositories` or a project's name.
 - **Whether a changed lock binds running tasks or only the next start.** The proposal is the next start, as `hand_in`

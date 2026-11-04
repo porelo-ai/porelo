@@ -19,17 +19,21 @@ Built from [B144](README.md#b144), [B148](README.md#b148) and [B154](README.md#b
 
 ## Plan
 
-Each part already has its source; the command only gathers them:
+Read in the code on 2026-11-04: the command is not built, and the model and last-use records still need
+[B148](README.md#b148) and [B153](README.md#b153). The sources are:
 
 - agents: the installed agents and their versions, as `porelo agents` reads them (`apps/app-agents/.../
   AgentsCommand.java`, `agents.all()`);
 - providers: as `porelo providers` reads them (`ProvidersCommand`), with the endpoint each points at;
-- credentials: names, kinds and providers as `porelo credentials list` reads them (`CredentialsListCommand`, the
-  credential registry in `VaultPaths.credentialRegistry()`), never a value; device slots with their last use
-  (`Keyslot.lastUsed`); deploy keys (`DeployKeys`);
-- the projects each credential serves: for a deploy key, the project it was made for (`DeployKeys.Key`); for a
-  provider's credential, the projects whose tasks were started with it (`--credential`, `TaskProfile`), and those
-  whose `project.yml` allows its provider once [B151](README.md#b151) is built;
+- credentials: `porelo credentials list` reads declarations through `CredentialDeclarations.asMaps`
+  (`apps/app-model/src/main/java/org/fuin/porelo/app/CredentialDeclarations.java`): match, kind, source, id,
+  presence and protection, never a value. This is not a list of every provider credential in the vault; those
+  need the vault's entries too. Device slots carry their last use (`Keyslot.lastUsed`); legacy deploy keys remain
+  for cleanup in `LeftDeployKeys`;
+- the projects each credential serves: for a legacy deploy key, the project `LeftDeployKeys.held` reads it for; for a
+  provider's credential, the projects whose tasks were started with it (`--credential`); `TaskProfile` records
+  the provider but not the credential, so this association still needs a record. Also include those whose
+  `project.yml` allows its provider once [B151](README.md#b151) is built;
 - the account: the OS user the inventory describes, beside the node id, so a machine with several Porelo accounts
   gives one inventory per account that a collector tells apart;
 - last use of a credential: the `CredentialUse` record [B153](README.md#b153) adds, written where the broker and the gate lend one;

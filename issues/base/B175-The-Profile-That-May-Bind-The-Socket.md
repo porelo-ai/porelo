@@ -5,14 +5,15 @@
 the task's way into one, the package's scripts, `doctor`, and a scenario on the ubuntu leg.
 
 **What must be true.** On a machine that confines programs by AppArmor rather than SELinux, a task connects only to a
-socket that one of Porelo's binaries bound, as the SELinux domain of [B40](README.md#b40) ensures on SELinux machines,
-so a process of the same account that is not Porelo cannot stand in for the broker. Until it is built, that second lock
-holds on SELinux machines only, and `doc/security.md` says so.
+socket that one of Porelo's binaries bound, as the SELinux domain proposed by [B40](README.md#b40) requires,
+so a process of the same account that is not Porelo cannot stand in for the broker. Neither second lock is built:
+`selinux/porelo_socket.te` lets `unconfined_t` bind the labeled socket, and `doc/security.md` does not say where
+that lock holds.
 
 ## Why it cannot be the same rule
 
-[B40](README.md#b40) forbids the bind: only `porelo_t` may create a socket of `porelo_socket_t`, and `container_t` may
-connect only to that type. AppArmor has neither half of that.
+[B40](README.md#b40) proposes forbidding the bind: only `porelo_t` may create a socket of `porelo_socket_t`, and
+`container_t` may connect only to that type. AppArmor has neither half of that.
 
 - **AppArmor cannot forbid an unconfined process anything.** The operator's shell and everything it starts are
   `unconfined`; no profile restricts what they bind. So the rule cannot sit on the binding side.
@@ -46,8 +47,8 @@ claims to be it.
 
 ## Plan
 
-Read in today's code. Sockets a task reaches are opened by `SocketContext.openUnixSocket()` in `VarlinkServer`
-(wire), `VaultProxy` (supervisor) and `SshAgentServer` (vault); `TaskRunner` mounts the vault socket at
+Read in the code on 2026-11-04. Sockets a task reaches are opened by `SocketContext.openUnixSocket()` in
+`VarlinkServer` (wire), `VaultProxy` (supervisor) and `SshAgentServer` (vault); `TaskRunner` mounts the vault socket at
 `TaskWiring.VAULT_MOUNT` and the mailbox at `Mailbox.MOUNT`; agents are started in the container through `podman exec`
 built in `Podman` (runtime); a URL-only agent reaches the broker over TCP through `SocketRelay`, started by
 `VaultRelayCommand` through `podman unshare`. The `.deb` is laid out in `dist/dist-deb/pom.xml` (jdeb, control files in

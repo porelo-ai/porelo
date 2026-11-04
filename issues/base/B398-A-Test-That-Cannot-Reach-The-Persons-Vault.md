@@ -23,7 +23,7 @@ unlocked it would have written its fake token into the person's vault.
 ## To be checked
 
 - A helper started by a test through a launcher that is not `OwnPorelo` runs on whatever account its environment names; the
-  four such launchers were read, and a new one is held by nothing.
+  earlier four such launchers were read; the two registry launchers are gone, and a new one is held by nothing.
 - Whether a person's own project called `uc` ever got a gate from the starts counted below: it means reading the person's
   configuration, so it was not looked at.
 - `TaskLaunch.agentSocket` reads `SSH_AUTH_SOCK` from the process, not the context: the variable is kept from the test JVM, and the read could still move to the context.
@@ -44,6 +44,6 @@ unlocked it would have written its fake token into the person's vault.
   other `new XCommand()` either calls `setContext` on the next lines or uses nothing of its context.
 - **Tests that used `real()` only to walk or parse the tree** (`CliErrorsTest`, `CompleteCommandTest`, `OptionNullnessTest`,
   `CommandsDocumentedTest`) now use `NoAccount`, since building the tree asks the context for its paths.
-- **Child JVMs left without the property, each read:** `RegistryVerifyCommandTest` and `CommitVerifyCommandTest` run with no
-  `HOME` and `-Duser.home` in the test's directory; `HelperSocketOnSignalTest` sets the XDG variables to the test's;
-  `RegistryJoinableCommandTest`'s helper is told the test's `HOME`, XDG variables and vault by `FollowCredential`.
+- **Child JVMs left without the property, each read:** `CommitVerifyCommandTest` runs with no `HOME` and
+  `-Duser.home` in the test's directory; `HelperSocketOnSignalTest` sets the XDG variables to the test's.
+  `RegistryVerifyCommandTest` and `RegistryJoinableCommandTest` are gone; their helpers no longer run.

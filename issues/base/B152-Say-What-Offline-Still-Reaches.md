@@ -17,17 +17,19 @@ An offline task's model calls go to its provider through the host's broker, as i
 
 ## Plan
 
-**Today (read 2026-10-11).** `doc/security.md` says it under `### offline`. Still read as "nothing leaves":
-`how-it-works.md` ("`offline`: nothing resolves and nothing leaves"), `project-file.md` ("no network at all, not even
-for the host"), `faq.md` ("An `offline` project's work stays on the machine"), `reach.md` (only "Work, in `offline`:
-Does not leave at all"), `corporate-security.md` ("`offline` work never leaves") and `index.md`.
+**Read in the code on 2026-11-04.** `doc/security.md` says it under `### offline`; `doc/reach.md` names model
+calls through the broker and declared host services in its offline row. `doc/how-it-works.md` says no external host
+resolves and no Git work leaves on its own; `doc/project-file.md` says no network beyond this host and allows
+`host_services`; `doc/faq.md` names the agent's and provider's hosts before its offline restriction.
+`doc/corporate-security.md` still says "`offline` work never leaves"; `doc/index.md` says "`offline` sends nothing
+upstream". These descriptions do not all explicitly say that offline model calls still reach the provider.
 
 **Steps:**
 
 1. Red first: a test in `apps/app`, tagged `documents`, that for each of these pages finds the sentence or table row
    that describes `offline` and fails unless it names the provider - red on `how-it-works.md` first.
-2. Each says that the agent's model calls still go to its provider through the host's broker; `reach.md` gets a row
-   for them beside the one for work.
+2. Each says that the agent's model calls still go to its provider through the host's broker; `doc/reach.md` keeps
+   its explicit description of them in the row for offline work.
 
 ## Acceptance
 

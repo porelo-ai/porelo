@@ -8,6 +8,6 @@ runs twice without being asked.
 
 ## Why
 
-`TaskLaunch.runUnattended` records the session a run names, but when a continuation fails and names none, the recorded
+`TaskLaunch.runAgentSteps` records the session a run names, but when a continuation fails and names none, the recorded
 session stays: `TaskSession.forget` is called only when a task is removed (`TaskControl`, `Prune`). The next start then
 asks to continue the same failed session again.

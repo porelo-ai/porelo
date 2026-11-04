@@ -13,17 +13,21 @@ Asked for when a read-only review run was wanted in a task with OMP, and `porelo
 
 ### What is missing
 
-A start gives an agent only what its definition declares - `--model`, `--max-turns`, and Porelo's own `--minutes` -
-and that is deliberate: the definition sets the flags that decide what an agent may do (`--auto-approve` among
+A start gives an agent only what its definition declares - `--model`, `--max-turns`, `--subagents`, and Porelo's own
+`--minutes` - and that is deliberate: the definition sets the flags that decide what an agent may do (`--auto-approve`
+among
 them), and an option that passed any flag through would let a start undo them. So a run that should only read and
 write one report had nothing but its prompt to say so, although OMP itself can enable only named tools.
 
 ## Plan
 
-Read in the code on 2026-10-11: an agent's `headless:` section is read by `AgentDefinitionReader`
+Read in the code on 2026-11-04: an agent's `headless:` section is read by `AgentDefinitionReader`
 (`agents/api/`) into `HeadlessFlags` (`model_flag`, `max_turns_flag`, ...), carried to Porelo as JSON by
-`AgentDefinitionJson`, and assembled by `HeadlessCommandBuilder` from a `RunRequest` (`model`, `maxTurns`).
-`TaskRunCommand` takes `--model` and `--max-turns`; `Start` in `15-task.varlink` takes `model` and `maxTurns`.
+`AgentDefinitionJson`, and assembled by `HeadlessCommandBuilder` from a `RunRequest`
+(`model`, `maxTurns`, `subagents`).
+`TaskRunCommand` takes `--model`, `--max-turns` and `--subagents`; `Start` in
+`daemon/src/main/resources/varlink/org.fuin.porelo.Tasks1/15-task.varlink` takes `model`, `maxTurns` and `subagents`.
+Named agent modes and thinking levels are not implemented.
 **`Start` already has a `mode`** - `shell`, `agent` or `unattended` (`TaskMode`) - so the agent's named mode
 needs another name on the wire.
 

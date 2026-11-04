@@ -10,7 +10,8 @@ is read today. A task whose agent declares no `at_rest` keeps saying `unknown`.
 ## Why
 
 A task's activity is observed from outside where it can be: working and idle by the age of `task.log`. An attached
-session writes to its terminal, not to that log, so for it the activity is always `unknown`. That was measured with
+session writes to its terminal, not to that log, so while it runs without waiting its activity is `unknown`. That was
+measured with
 an omp task: `unknown` before its prompt, during a 15-second tool call and after its answer alike. The agents already
 declare what their screen shows at rest, measured for every shipped agent, and the wake reads it to decide when a
 message may be announced. Status and list read the same declaration, so this needs nothing new from an agent and
@@ -25,19 +26,21 @@ about an instant between a prompt and the agent's working line.
 
 ## Plan
 
-Read in the code at `30c8169b`:
+Read in the code on 2026-11-04:
 
 - **Today `activity` has no value for rest.** `TaskInventory.Activity` and the varlink type `Activity`
   (`daemon/src/main/resources/varlink/org.fuin.porelo.Tasks1/15-task.varlink`) hold `DEAD`, `WAITING`, `WORKING`,
-  `IDLE`, `ENDED` and `UNKNOWN`. `TaskInventory.activityOf` answers `UNKNOWN` for every task without `task.log`,
-  which is every attached one.
+  `IDLE`, `ENDED` and `UNKNOWN`. `TaskInventory.activityOf` answers `UNKNOWN` for a running task without `task.log`
+  when it is not waiting; attached rest classification is not implemented.
 - **`AT_REST` becomes a value of its own**, after `IDLE` in both. `IDLE` is inferred from a log that stayed quiet;
   rest is the agent's own declaration read from its screen, and a client should be able to tell the two apart. Adding
   a value is compatible for a client that renders an unknown one; `porelo-frontend` shows it as at rest.
 - **The screen is already read for a listing.** `AgentWaiting` reads each attached task's screen from `ScreenFile`
-  (a file the task writes, no `podman exec`), eight at once in `readScreens`, and keeps each read for `SCREEN` (3 s).
-  So status and list need no new call into a container: the same read is judged against `at_rest` too.
-- **Rest by the wake's rule.** `AgentWake.rests` (`apps/app-messaging/.../AgentWake.java`) is at rest when
+  (a file the task writes), falling back to `podman exec` with `tmux capture-pane` when that file cannot answer,
+  eight at once in `readScreens`, and keeps each read for `SCREEN` (3 s).
+  Status and list can judge the same read against `at_rest` too.
+- **Rest by the wake's rule.** `AgentWake.rests`
+  (`apps/app-messaging/src/main/java/org/fuin/porelo/app/AgentWake.java`) is at rest when
   `at_rest` matches and `waiting` does not. That test moves into `app-model` (a small `Rest` beside `AgentWaiting`)
   and both use it. `AgentWaiting` keeps the reading before the last: a task is `AT_REST` only when this read and the
   one before, at least `AgentWake.LOOK` apart, both rest. A one-off `task status` with no earlier read looks a second
@@ -48,7 +51,8 @@ Read in the code at `30c8169b`:
 
 Steps: `AgentWaiting`'s `installed` supplier hands the whole `AgentDefinition` (today only its `Waiting`); `Derived`
 gains whether rest held; `activityOf` takes it; the varlink type and `TaskStatusCommand`/`TaskListCommand` render
-`at rest` with a space; `doc/commands.md`'s activity table; the stub agent (`agents/stub/.../stub.yaml`) declares an
+`at rest` with a space; `doc/commands.md`'s activity table; the stub agent
+(`agents/stub/src/main/resources/agent/stub.yaml`) declares an
 `at_rest`, which it does not today; a scenario attaching the stub, letting it answer, and reading `task list`.
 
 Red first: `TaskActivityTest` - an attached task whose stand-in screen matches `at_rest` on two reads is `UNKNOWN`

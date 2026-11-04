@@ -6,18 +6,21 @@
 **What must be true.** Several machines run one project on one central homeserver: each is admitted by a person,
 each acts only on the accounts it made, and one can be revoked alone while the others keep messaging.
 
-Porelo's side is built and has never run against a central server: `--machine` to a transport whose `describe`
-lists `"takes": ["machine"]`, `setup`'s `admitted`, `machine`, `address` and `room`, no task started while
+Porelo's side has never run against a central server: `--login` to a transport whose `describe` lists
+`"takes": ["login"]`, `setup`'s `admitted`, `login`, `address` and `room`, no task started while
 `admitted` is false, and the daemon's `SetUpMessages(project)`. A central homeserver has no administrator: each
 machine holds its own provisioning account there, with each task's password kept beside its token. The
-transport's side, several machines on one homeserver with `--machine` on every verb, is built.
+transport is given the person's login to suffix its accounts; Porelo does not supply a machine identity for
+account creation, so separate accounts for the same login on two machines are not assured by this code.
 
 ## Plan
 
-Read in the code on 2026-10-11 (`apps/app-messaging/.../TransportLifecycle.java`):
+Read in the code on 2026-11-04
+(`apps/app-messaging/src/main/java/org/fuin/porelo/app/TransportLifecycle.java`):
 
-- `--machine` is passed to every verb but `settings` when `describe` lists it in `takes`; `setup`'s `admitted`,
-  `machine`, `address` and `room` are kept in what is remembered (`Conversation`), and a task of a project whose
+- `--login` is passed to every verb but `settings`, `part`, `admit` and `dismiss` when `describe` lists `login` in
+  `takes`; `admit` and `dismiss` still take `--machine` to name the other machine. `setup`'s `admitted`,
+  `login`, `address` and `room` are kept in what is remembered (`Conversation`), and a task of a project whose
   machine is not admitted is not started (`TaskConversations`), with whom to let in from `notAdmitted`.
 - **What a transport hands back is kept per scheme, not per homeserver**: `transport/<scheme>/account`,
   `transport/<scheme>/project/<project>` and `transport/<scheme>/task/<task>` in the vault. A machine with one
@@ -30,8 +33,10 @@ Steps:
    (a field such as `"server"` in its answer, so Porelo never parses a homeserver URL); a vault holding the old
    `account` entry keeps it for the server it was made for. Red first: a test in `TransportLifecycleTest` with two
    projects on two homeservers, where the second `setup` is handed the first's account.
-2. **The registration token**: put by a person with `porelo vault put` under a name the transport's `describe`
-   declares, and handed to `setup` as the variable it names, never printed. Red first: `setup` run without it
+2. **The registration token**: use the existing credential lending from `describe`'s `credentials` and `lent`
+   verbs: a person puts it with `porelo vault put` under `<entry>.<server>`, using the HTTPS host from the
+   `homeserver` setting, and it is
+   handed to `setup` as the variable the transport names, never printed. Red first: `setup` run without it
    is refused with the vault name to put it under.
 3. **`doc/transports.md`** says the central mode: the account per machine, admission, revoking one machine.
 4. **The walk** in Acceptance, on two rented machines and one central homeserver, as a scenario in the suite if

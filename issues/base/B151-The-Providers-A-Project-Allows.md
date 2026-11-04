@@ -30,7 +30,8 @@ such as "the provider asked for is not declared here"; `TaskLaunch` and the daem
    `DocumentedProjectFileTest`. Absent means any provider, as today.
 3. `StartCheck` gets an outcome for a provider the project does not allow, checked also for the agent's default
    provider; the outcome reaches the interface through the start's contract (`15-task.varlink`).
-4. A followed project's list comes from its signed configuration, so editing a checkout does not widen it.
+4. An organization's project's list comes from the configuration judged with its signing keys at start
+   (`ProjectSource`), so editing a checkout does not widen it.
 
 ## Acceptance
 

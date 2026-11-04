@@ -11,8 +11,9 @@ plugin. A concurrent push cannot forward unseen work or reuse confirmations made
 
 `GitGate.reviewedCommit` checks a full 40- or 64-digit lowercase object ID when supplied, but null/blank selects the
 current incoming ref. `GateApproveCommand` and daemon `Approve` permit that omission; `GateReviewCommand` reads the
-ref independently for its patch and log. `CheckoutApproval` supplies a reviewed commit. `ProjectEnrollCommand` prints
-an approval command without one. Commit-specific SARIF and co-signatures are consumers of this foundation.
+ref independently for its patch and log. `CheckoutApproval` supplies a reviewed commit.
+`ProjectEnrollCommand` is absent, and no project enrollment command replaces it.
+Commit-specific SARIF and co-signatures are consumers of this foundation.
 
 1. Red first: in `apps/app`, a moved pending ref followed by plain noninteractive `gate approve` currently forwards;
    require refusal with exit 70. In `PoreloDaemonTest`, omitted/blank `commit` must answer `CommitNotNamed`.
@@ -27,8 +28,9 @@ an approval command without one. Commit-specific SARIF and co-signatures are con
 5. Keep `Approve.commit` optional on the wire for compatibility but reject absence with
    `CommitNotNamed(name, waiting)` in `GateMethods` and `35-gate.varlink`. Preserve `MovedSinceReview` and full-ID
    validation. Add a captured commit to the `Review` reply so clients bind their displayed evidence directly.
-6. `ProjectEnrollCommand` prints the exact enrollment commit with `--signed --commit`. Correct approval hints in
-   `GateCheckoutCommand`, `GateCheckCommand`, `WorkspaceSetup`, and the command, project-file, gate, security and
+6. Enrollment must print the exact enrollment commit with `--signed --commit`; that command is absent today.
+   Update approval hints in `GateCheckoutCommand`, `GateCheckCommand`, `WorkspaceSetup`, and the command, project-file,
+   gate, security and
    getting-started documentation to name the bound form.
 7. The commit is the key for [B141](README.md#b141)'s dependency confirmations, [B145](README.md#b145)'s independent
    signatures and [B166](README.md#b166)/[B172](README.md#b172)'s review-run revisions. A different commit invalidates

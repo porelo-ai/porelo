@@ -72,13 +72,17 @@ neither shipping until a token was on somebody's desk.
 
 ## Plan
 
-Read in today's code. `Keyslot` (`vault`) records `storage` as one of `USER_SCOPED`, `APPLICATION_SCOPED`, `FIDO2`
-and `TPM2`, recorded and not verified. `VaultFile.enroll(opener, share, name, storage)` wraps the master key with a
+Read in the code on 2026-11-04. `Keyslot` (`vault`) records `storage` as one of `USER_SCOPED`,
+`APPLICATION_SCOPED`, `FIDO2` and `TPM2`, recorded and not verified.
+`VaultFile.enroll(opener, share, name, storage)` wraps the master key with a
 share, and `Opener.share(byte[])` opens with one. A device enrolls through the daemon's `EnrollDevice` and unlocks
 through `UnlockWithShare` (`30-vault.varlink`); `VaultDevicesCommand` (`apps/app-vault`) prints what each storage is
 worth. No command enrolls the machine itself with a token. `SystemdCredential` (`vault`) already reaches a TPM
 through `systemd-creds` for the unlock cache, and `KernelKeyring` shows how a C library is called through FFM in the
 dynamically linked binaries.
+Host vaults have no passphrase slot and refuse `VaultFile.enroll` with a generic device share: they accept only
+SSH shares during a key change, so the passphrase recovery and token enrollment promised here are not built for
+host vaults. `VaultDevicesCommand` also displays a claimed `FIDO2` or `TPM2` value as proven protection.
 
 It splits into four issues:
 

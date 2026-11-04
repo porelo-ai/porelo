@@ -11,7 +11,7 @@ without a credential tells it none, so `SetupContext.brokered()` is false there,
 `TaskLaunch.placeAgentFiles` runs without a credential too, on purpose: an agent's onboarding and trust files have
 nothing to do with one. `CredentialWiring.endpointFor` then answers a `socket` agent from the environment, which is
 empty without a broker, but answers a `url` agent with the relay's address unconditionally. So an agent reached by
-URL is told it is brokered, and may write its configuration against `127.0.0.1:4318`, where no relay listens.
+URL is told it is brokered, and may write its configuration against `127.0.0.1:9419`, where no relay listens.
 
 Found by the skill reading of 2026-10-22; the line is older than that round.
 

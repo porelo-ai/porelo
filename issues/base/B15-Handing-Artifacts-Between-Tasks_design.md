@@ -1,7 +1,7 @@
 # B15 — Handing Artifacts Between Tasks, design
 
-How [B15](README.md#b15) would be built. **Nothing here exists yet**: every
-class, path, method and file below is a proposal, and none of it has been measured. Facts about the
+How [B15](README.md#b15) would be built. **The artifact path is not built yet**: the artifact-specific
+classes, paths, methods and files below are proposals, and none of it has been measured. Facts about the
 running system are quoted from the code and marked where it matters.
 
 It shares its policy with [B14](README.md#b14)'s design, deliberately. Its record is its
@@ -27,6 +27,8 @@ a repository manager, expiry, and any inspection of what an artifact contains.
 
 The two host-side halves of this — a content-addressed store, and a way to get bytes into a
 container — do not need building. **podman already has both**, and Porelo already requires podman.
+Porelo's `HandIns` also delivers files to running tasks, root-owned and mode `0644`, in `/porelo/files`;
+the artifact path does not yet use it.
 
 | Need | Reused | Left to build |
 |---|---|---|
@@ -73,7 +75,7 @@ of mount `/run/porelo/vault.sock` already is.
 | Module | What is added |
 |---|---|
 | `store/` (new) | `Artifact`, `ArtifactIndex`, `ArtifactJournal`, `StorePolicy`, `StoreService`, `PutOutcome`, `StoreException`. There is no `ArtifactStore` and no `Digest`: podman holds the bytes and computes the digest. |
-| `core/project` | `Store` record on `Project`; `ProjectReader` learns one key. |
+| `core/src/main/java/org/fuin/porelo/core/project/` | `Store` on `Project`; `ProjectReader` learns one key. |
 | `apps/app/` | `StoreCommand` and subcommands, `StoreServeCommand`, `StoreWiring`, `StoreEdit`, one entry in `TaskHelpers`, one method on `PoreloPaths`, and one more `Probe` in `DoctorCommand` for the podman floor. |
 | `runtime/` | `Podman` learns the `artifact` subcommands; `ContainerSpec` learns `--mount type=artifact`. |
 | `daemon/` | New types and methods on `org.fuin.porelo.Tasks1`. |
@@ -90,7 +92,7 @@ sentence without qualification.
 is a convention it has to be told about. **Producing a file is less than that.** Every agent can write a file, so the mechanism can be a
 convention instead of a capability:
 
-- **`/run/porelo/out/`** — writable, bind-mounted from `PoreloPaths.containerState(container)
+- **`/run/porelo/out/`** — writable, bind-mounted from `context.paths().tasks().containerState(container)
   .resolve("out")`. The agent writes finished files here. Nothing else reads it but this task's own
   helper.
 - **`/run/porelo/in/`** — mounted read-only, populated by the helper according to the project's
@@ -213,8 +215,8 @@ policy that only writes down what it allowed cannot answer the question anybody 
 an incident.
 
 `commit` is the provenance that cannot be reconstructed later — the revision the workspace was at
-when the file was dropped. The helper gets it from the gate's view of the task's branch rather than
-by running git in the workspace, which nothing does.
+when the file was dropped. The gate's view gives only the last pushed commit, so it does not meet this
+provenance requirement. How the helper learns the workspace revision remains open below.
 
 ## Policy
 
@@ -318,14 +320,21 @@ remotely that the machine's own tooling says is impossible.
 
 | Event | What happens |
 |---|---|
-| `task run` | The helper starts in phase `BEFORE`; `out/` and `in/` are created `0700` on the host and mounted; artifacts the project already accepts are mounted with `--mount type=artifact`; the command is recorded in `resume.json`. |
+| `task start` (new task) | Start the helper, mount directories and accepted artifacts, record the command.[^start] |
 | A file appears in `out/` | Ingest, as above. Watched with a directory watch, with a sweep on helper start so nothing dropped while it was down is missed. |
 | `store hand` | Policy, journal, then it appears in the receiver's `in/` and its `manifest.json` — mounted if the receiver has not started, extracted if it is already running. In that order. |
 | `task stop` | The poststop hook reaps the helper by its pid file. `out/` is swept once more before it is given up, so a file written at the end is not lost. |
-| `task resume` | The recorded command is replayed. `in/` is rebuilt from the record, so a resumed task finds what it had. |
+| `task start` (existing task) | Replay the command and restore `in/` from the record.[^resume] |
 | A container that never started | `TaskRunner.reapOrphans` covers the helper, since no hook fires for a container that never ran. |
-| `task stop --purge` | The store is **not** touched. It is on the host and outliving the container is the point; removing it is `store withdraw`. |
+| `task remove` | The store is **not** touched; removing an artifact is `store withdraw`. |
 | `porelo panic` | The helper is stopped with everything else. Nothing is removed. |
+
+[^start]: The helper starts in phase `BEFORE`; `out/` and `in/` are created `0700` on the host and mounted;
+    artifacts the project already accepts are mounted with `--mount type=artifact`; the command is recorded
+    in `resume.json`.
+[^resume]: The recorded command is replayed. `in/` is rebuilt from the record, so a resumed task finds what it had.
+
+The store is on the host; outliving the container is the point.
 
 ## Failure modes, and what each must do
 
@@ -427,5 +436,5 @@ requirement, and no store answers them.
   would let the helper notice changes it did not make instead of assuming it is the only writer.
   Both test legs are already above 5.7; the floor is about what an operator's machine must have.
 - **Whether the quota should be bytes, count, or both.** A thousand small artifacts is a different
-  problem from one enormous one, and `Limits` currently models memory, cpus and pids — none of which
-  is a precedent for storage.
+  problem from one enormous one, and `Limits` models memory, cpus, pids, `handIn` and subagents.
+  The `limits.hand_in` project setting is a per-file byte limit, not a storage quota.

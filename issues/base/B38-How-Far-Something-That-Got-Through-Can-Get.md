@@ -16,18 +16,24 @@ differ per agent, so it is a field in the agent's definition, not a branch here.
 
 ## Plan
 
-Read in the code at `30c8169b`.
+Read in the code on 2026-11-04.
 
-- **Where Porelo delivers content.** Every delivery goes through `HandIns` (`apps/app-model/.../HandIns.java`): a
-  person's `HandIn`, and `BuildWatch` (`apps/app-task/...`), which hands each build's verdict (`<base>.txt`) and the
+- **Where Porelo delivers content.** Every delivery goes through `HandIns`
+  (`apps/app-model/src/main/java/org/fuin/porelo/app/HandIns.java`): a person's `HandIn`, and `BuildWatch`
+  (`apps/app-task/src/main/java/org/fuin/porelo/app/BuildWatch.java`), which hands each build's verdict
+  (`<base>.txt`) and the
   failed jobs' logs (`<base>-<n>.log`) into `/porelo/files`. Messages arrive in the mailbox as A2A messages from a
   named peer and are out of scope here. An artifact ([B15](README.md#b15)) will arrive through `HandIns` too. So one place wraps
   them all.
-- **The agent definition** is `AgentDefinition` (`agents/api/...`), read by `AgentDefinitionReader` from each agent's
+- **The agent definition** is `AgentDefinition`
+  (`agents/api/src/main/java/org/fuin/porelo/agent/api/AgentDefinition.java`), read by `AgentDefinitionReader`
+  from each agent's
   manifest, and it has no field for how an agent fences content. Adding one is a change every agent repository
   reads.
-- **Nothing counts what a task installed.** No `podman diff` is taken anywhere; `TaskControl.remove`
-  (`apps/app-task/.../TaskControl.java`) removes the container through `context.podman().remove`.
+- **Removal counts added paths already.** `TaskControl.remove`
+  (`apps/app-task/src/main/java/org/fuin/porelo/app/TaskControl.java`) calls `Podman.addedPaths` before removal.
+  `Podman` (`runtime/src/main/java/org/fuin/porelo/runtime/Podman.java`) counts only `A` lines from `podman diff`,
+  and the removal reply carries that count as `discarded`; changed paths and a durable report remain missing.
 
 Steps:
 
@@ -39,8 +45,9 @@ Steps:
    the record line it already writes - who handed it, when, its digest - and leaves binary content as it is, with
    the `.origin` file. `porelo gate review` names, beside a pushed commit, what had been handed in before it (from
    the `HandIns` record).
-3. **The count (S, needs [B26](README.md#b26)).** `TaskControl.remove` takes `podman diff` of the container before removing it and
-   writes the number of added and changed paths into the machine's journal ([B26](README.md#b26)) beside the task's name, with what
+3. **The count (S, needs [B26](README.md#b26)).** Extend the existing pre-removal `podman diff` count to changed
+   paths and write the number of added and changed paths into the machine's journal ([B26](README.md#b26)) beside
+   the task's name, with what
    it reached for (the egress report) and what it pushed (the gate). Red first: remove a task, then no place answers
    what it installed.
 4. The agent repositories each add the field to their manifest, once the stub shows its shape.

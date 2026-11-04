@@ -102,7 +102,7 @@ gate's lending before a start, but keeps only whether it answered.
 - `MirrorFile` keeps reading `porelo/*` as task branches: the gate drops every branch the pattern matches before a
   mirror is read, so it needs no change.
 - `ApprovalBranch` (`app-model`) is the one rule for `gate approve` and the daemon's `Approve` and `PendingBundle`. A
-  project "has a branch block" when its scheme for the repository is not today's.
+  project "has a branch block" when `Project.declaresBranch` says it was written, even with default values.
 - `task status` shows the branch as `forge`, one word, so a script reads it with `awk`.
 
 **Read against the skills, and what came of it:** `gate serve` judges a recorded branch only by git's rules, so a
@@ -118,9 +118,12 @@ standard input and names refs as git prints them; a mirror whose HEAD names a ta
 `main`, its only branch, or `main` unborn, which a start refuses naming the branches; the daemon's `RestoreGate` keeps
 the scheme's task branches out as `gate restore` does; `CanStart` leaves the project's own repository of a project
 with others to the repository check. **Declined:** an empty upstream with an unborn HEAD is not refused - a push with
-force there replaces nothing; a recorded branch is not checked again on approval, since its start checked it; a
+force there replaces nothing; a
 detached HEAD after the first clone is guarded but untested, since `git clone --bare` gives the mirror a branch even
 from a detached upstream; `EarlierWorkWaits` naming the task as the call did predates this.
+
+Read in the code on 2026-11-04: `ApprovalBranch.of` checks the recorded branch against the current pattern at
+approval and can refuse it after the project file changes; the promise to approve an older task as before is not met.
 
 ## Acceptance
 

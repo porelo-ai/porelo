@@ -21,23 +21,26 @@ more than one peer is refused with a reason today. How groups would be built is
 
 ## Plan
 
-Read in the code at `30c8169b`.
+Read in the code on 2026-11-04.
 
-**What is there.** The messaging lives in `apps/app-messaging/...`: `MessageIntake`, `MessageFiltering`,
-`MessageDispatch`, `MessageDelivery`, `Moderation`, `KnownPeers`, `AllowedSigners`, `SharedKeys`; the daemon's methods
-are `daemon/.../MessagingMethods.java` with `45-messaging.varlink`. `MessageDispatch.addressees` already reads
-`metadata.to` as a string or a list, and a list of more than one is refused. `Moderation` holds or releases one peer
-for the whole project (`Moderate(project, name, held)`); the mode is set in `project.yml` (`mail.rules`, a peer's
-`mode`). The project file has `mail.peers.<peer>` (`address`, `trust`, `per_day`, `mode`) in `ProjectSchema` and no
-`groups`.
+**What is there.** The messaging lives in `apps/app-messaging/src/main/java/org/fuin/porelo/app/`:
+`MessageIntake`, `MessageFiltering`, `MessageDispatch`, `MessageDelivery`, `Moderation`, `MessageSigners`;
+the daemon's methods are `daemon/src/main/java/org/fuin/porelo/daemon/MessagingMethods.java` with
+`daemon/src/main/resources/varlink/org.fuin.porelo.Tasks1/45-messaging.varlink`.
+`MessageDispatch.addressees` already reads `metadata.to` as a string or a list, and a list of more than one is refused.
+`Moderation` holds or releases one peer for the whole project (`Moderate(project, name, held)`); the mode is set
+in `project.yml` (`mail.rules`, a peer's `mode`). The project file has `mail.peers.<peer>`
+(`address`, `trust`, `per_day`, `mode`) in `ProjectSchema` and no `groups`.
 
-**The signed key directory is built.** `KnownPeers` reads, besides `machine-signers` and the shared keys, the
-`machine-signers` file each followed, verified project keeps beside its `project.yml`; `project follow` takes only a
-signed commit that descends from the one in force. So the third Groups criterion holds today; a test that a
-directory signed by another key, or an older one, admits nobody is what is left of it.
+**Task certificates are built.** `MessageIntake` signs with the task's own key, held in the vault on the host;
+`MessageSigners` checks its certificate's task principal, certifier and validity at arrival. `ProjectMembers`
+(`apps/app-model/src/main/java/org/fuin/porelo/app/ProjectMembers.java`) reads current organization project keys
+as certifiers; messaging reads no `machine-signers` or `allowed_signers`, and `project follow` is gone.
+The code does not provide the promised operator-signed peer-key directory or verification against a listed
+machine key; those acceptance criteria remain unmet.
 
-**Not built: trust confirmed once.** `Release(task, id, refuse, reason)` has no way to trust a key, and nothing in
-the messaging code keeps a fingerprint for a peer outside the directory.
+**Not built: trust confirmed once.** `Release(task, id, refuse, reason)` has no way to trust a key.
+The held reason can name the signing key's fingerprint, but no confirmation records trust for that peer.
 
 The split, each an issue of its own when it is started:
 
@@ -87,8 +90,9 @@ The split, each an issue of its own when it is started:
 
 ## To be checked
 
-- **Whether a confirmed key is the account's or the project's** The account's `allowed_signers` is
-  per machine and survives the project; a key in the project repository is signed and travels to every machine.
+- **Whether a confirmed key is the account's or the project's** The proposed account's `allowed_signers`
+  would be per machine and survive the project; a key in the project repository would be signed and travel to
+  every machine.
 - **Where the latency of a direct message from a person to a task goes** Read the transport's and the daemon's
   journal lines for one direct person-to-task delivery to see where the three-second delay is spent and whether a
   small change removes it.

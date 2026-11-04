@@ -17,11 +17,14 @@ lent says which key it was.
 
 ## Done
 
-- `wire.Directories.create` makes each missing directory and takes the group's and others' write from it; every
-  `Files.createDirectories` call of the main code uses it, the acceptance kit's aside, and a person's state home is
-  made through it (`DirectoriesTest`, red under umask 002 without the change).
+- `wire.Directories.create` makes each missing directory and takes the group's and others' write from it; not every
+  directory maker uses it: `OrgAccess.settle` and `ProjectFile.remember` call `Files.createDirectories`
+  without removing group write, so the directory acceptance line remains unmet. `GitTreeStore.keep` sets its
+  directory to `0700` after creation. A person's state home uses `Directories.create`
+  (`DirectoriesTest`, red under umask 002 without the change).
   Natively on the Ubuntu VM, with umask 002 and a fresh home: 5 group-writable directories with 900, none with 955.
-- `FollowCredential.impliedKeyNote`, appended to an unreachable follow when a key was lent (`FollowCredentialTest`;
+- `FollowCredential.impliedKeyNote` names a lent key; the follow command that appended it is gone
+  (`FollowCredentialTest`;
   the declaration check seen red under a mutant). The agent does not win over the vault's key by itself: the
   message sluice reaches its own repository with the vault's `git.ssh.github.com`.
 - `SocketPeer.read` asks `ExtendedSocketOptions.SO_PEERCRED` and compares the caller with the socket's owner; the
@@ -30,12 +33,14 @@ lent says which key it was.
   natively.
 - `SetupCommand` says what opens a vault without a passphrase slot and does not try to open it
   (`SetupCommandTest`, red first); `vault login` and the passphrase commands still name `porelo host unlock`.
-- `registry joinable` takes a `unix:` socket path as `transports.matrix.homeserver`
+- Before the registry commands were removed, `registry joinable` took a `unix:` socket path as
+  `transports.matrix.homeserver`
   (`AddressForm.isUnixSocket`; `RegistryJoinableCommandTest`, red first, the segment check seen red under a
   mutant). A project with an access file names its conversation with a peer at `matrix:` in `project.yml`
   (documented); left: whether such a project should take its conversation from the applied access file's
   `transports` instead, which every reader of `Mail.conversations()` would have to learn.
-- `registry verify` answers every other card under `people/` whose history leads back to the first key filed for
+- Before the registry commands were removed, `registry verify` answered every other card under `people/` whose history
+  leads back to the first key filed for
   its login, after the admins; one that does not verify is left out, since the host keeps a login answered revoked
   revoked for good (`RegistryVerifyCommandTest`, red first; the chain check for an unpinned card seen red under a
   mutant). The host refused the test reviewer as "not named in the host's applied registry", which named its admin

@@ -6,15 +6,17 @@
 **What must be true.** An organization owner's signature counts for a project's `repository.yml`, `members.yml` and
 `project.yml`, with no need to stand as the project's admin first. Host files are kept out.
 
-**Why.** An owner reaches all three today in two steps, as `org project admin` names any admin, so the admin step adds a
-visible commit and no protection. It has a cost: the signing keys come from today's members, so an owner who steps down
+**Why.** An organization admin reaches all three today in two steps, as `org project admin` names any project admin.
+An owner not listed as an organization admin cannot take that first step; the requested owner's authority is distinct.
+It has a cost: the signing keys come from today's members, so an owner who steps down
 leaves a `project.yml` they signed refused again.
 
-**Why host files stay out.** They count from the host's admin, and "An owner does not move a host's pin" holds because a
-stolen owner's key must not carry the whole fleet. An owner's signature on a host's card could point every client at another
-machine.
+**Why host files stay out of this request.** The owner's role alone does not move a host's pin. An organization
+admin does move it, as `organization/git-tree/src/main/java/org/fuin/porelo/organization/gittree/TreePin.java` holds
+and `doc/decisions.md` states: one stolen organization admin key reaches every server's pin.
+The requested owner's authority over project files remains unbuilt.
 
-**What it needs, by reading on 2026-11-03, not run:**
+**What it needs.** Read in the code on 2026-11-04; not run:
 
 - The walk knows the owners already. `project.yml` is judged from `signing_keys`, so each project's answer must also carry
   the owners' keys.

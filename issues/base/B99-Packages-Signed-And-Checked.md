@@ -37,7 +37,7 @@ signed by the packaging key (measured 2026-10-17), and [B196](README.md#b196) se
 
 ## Plan
 
-Read in the code on 2026-10-11:
+Read in the code on 2026-11-04:
 
 - `dist/dist-rpm/pom.xml` sets `rpm.sign.skip` to `true` and says signing is "on for releases, where the key
   exists" - **but no workflow sets it to `false`**: `build.yml` builds the packages with `-Pdist verify` and no
@@ -75,7 +75,7 @@ Steps in Porelo, in order:
 2. **`check-signed` in `porelo-release`** (`porelo-buildtools`), with a test on an unsigned and a foreign-signed RPM
    built in the test - red first, as the check that does not exist yet.
 3. **This tree's `build.yml`**: import the packaging key, build with `-Drpm.sign.skip=false` on every channel,
-   run `check-signed` before `jf rt upload`, sign the setup script, upload the `.asc` and the `latest` pointer.
+   run `check-signed` before `art_put` uploads, sign the setup script, upload the `.asc` and the `latest` pointer.
 4. **In the next release, together with the other repositories**: `porelo-setup.sh`, `doc/getting-started.md` and
    `AgentLeg` move to `gpgcheck=1`, `repo_gpgcheck=1`, `gpgkey=`; the `getting-started` paragraph on why it is
    off goes.

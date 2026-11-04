@@ -13,4 +13,4 @@ and takes the task into no account (`TaskConversations.enroll`). Its send then h
 (`TransportConversations.acting` answers `null`), and `TransportSend` runs the transport with the peer's address and
 no secrets. porelo-message-matrix's `send` requires a homeserver and an access token from its environment and exits 78
 without them, so nothing is sent. The start does not say so; the message is held only once the transport refuses it.
-porelo-host's play still installs the transport's package for that peer (`project inventory`'s `porelo_transports`).
+`project inventory` is gone; transport installation by the host is not established by this checkout.

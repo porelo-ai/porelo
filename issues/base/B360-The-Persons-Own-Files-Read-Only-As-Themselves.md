@@ -8,14 +8,17 @@ under the person's configuration and state directories.
 each, from the XDG home down, is a directory of the person's own account and no link. The rest of Porelo reads
 and writes the person's files as it finds them. The identity verbs leave these out:
 
-- `$XDG_CONFIG_HOME/porelo/revoked.krl`, followed through a link by the configuration gate and `ssh-keygen -Q`;
-- `$XDG_CONFIG_HOME/porelo/project-signers`, read without refusing a link;
-- `$XDG_STATE_HOME/porelo/follow`, whose followed projects and clones are read through links;
-- the registry state `porelo registry read` writes.
+- `$XDG_CONFIG_HOME/porelo/revoked.krl`, followed through a link by `Revocations` and `ssh-keygen -Q`;
+- `$XDG_CONFIG_HOME/porelo/organization.yml`, read by the organization commands;
+- `$XDG_STATE_HOME/porelo/organization-projects`, whose project records and clones lack the identity directory guard;
+- the organization's trust state under `$XDG_STATE_HOME/porelo/organization`.
+
+`project-signers`, manual follows and `registry read` are gone; the directory guard still does not cover all
+organization settings and state. The acceptance lines naming the removed paths and commands need a scope decision.
 
 Each is read or written only when its directories pass the same check, and a file that does not is refused with 66
 naming it, never followed. As for the registry's trust record
-([decision](../../doc/decisions.md#a-registrys-trust-record-is-checked-not-hardened-against-whoever-writes-the-state-directory)),
+([decision][trust-record-decision]),
 whoever can write these directories can change Porelo's configuration and binaries too, so this is a guard against
 mistakes and a misplaced link, not against such an attacker.
 
@@ -27,3 +30,6 @@ mistakes and a misplaced link, not against such an attacker.
   the identity verbs.
 - `registry read` writes its state only into directories that pass the check.
 - Seen to fail first: each is followed today.
+
+[trust-record-decision]:
+../../doc/decisions.md#an-organizations-trust-record-is-checked-not-hardened-against-whoever-writes-the-state-directory

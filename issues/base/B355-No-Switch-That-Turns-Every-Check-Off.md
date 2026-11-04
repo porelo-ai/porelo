@@ -11,9 +11,9 @@ setup - given that working uncertified must always stay possible?
 
 ## The checks today
 
-Paths are in `~/git/porelo` (core, `main`) unless named; `b343:` is the worktree
-`porelo-core-b343` (task certificates, merged since). Host and room rows are as their owners gave them,
-with the places found by grep; *planned* names host work still being built.
+Read in the code on 2026-11-04. Host and room rows below are the earlier reports from their repositories,
+which this checkout cannot establish; *planned* names work those reports described as still being built.
+`b343:` identifies the earlier task-certificate reading, merged since.
 
 **Signatures and the gate**
 
@@ -28,25 +28,19 @@ with the places found by grep; *planned* names host work still being built.
 | Check | Protects | Whom | Where |
 |---|---|---|---|
 | One principal `task:<project>:<task>`, at most 7 days, signed by an admitted person's key | that a task acts for the person who started it | the project, other persons | `b343: apps/app-task/.../TaskCertification.java:23`, `:126`, `:141` |
-| Certifiers are the access file's admitted persons; none without a verified access commit | who may vouch for a task | the project | `b343: .../TaskCertifying.java:33` |
+| Current project members' keys certify tasks | who may vouch | the project | `TaskCertifying`, `ProjectMembers` |
 | Local start without a certifier's key starts **unsigned**; a host refuses (65) | the host's forge and its persons | the host, other persons | `b343: .../TaskLaunch.java:1877`, `:1901` |
 
-**Project file and access file** (`project follow`, `project verify`, the follow's tick)
+**Project and organization files**
 
-| Check | Protects | Whom | Where |
-|---|---|---|---|
-| A configuration commit taken only when signed by a pinned `allowed_signers` key (`git verify-commit`) | the firewall and settings every follower applies | the person themselves, the project | `apps/app-base/.../ConfigurationGate.java` |
-| Retired keys (`valid-before=`) never authorize a new commit | against a stolen old key | the project | `AllowedSigner.java:88`, `ConfigurationGate.java:171` |
-| Protected files (`project.yml`, `machine-signers`, `porelo.yml`, the image, ...) only from a signed commit | what a machine consumes | the person, the project | `apps/app-project/.../ProtectedFiles.java:35` |
-| New commit must descend from the one in force | against a rewritten history | the person | `ProjectFollowCommand.java:40` (`--accept-rewrite` opts out) |
-| Messaging signers taken only from verified follows | who may speak for a peer | other persons | `apps/app-messaging/.../KnownPeers.java:51` |
+`organization/git-tree/src/main/java/org/fuin/porelo/organization/gittree/ProjectFile.java` judges the newest
+change to `project.yml` against current project admins' signing keys and remembers its accepted date.
+It does not require signatures on every image, snippet or tool-settings file; only `project.yml` is judged.
+This is the choice recorded in `doc/decisions.md` on 2026-11-02.
 
-**Registry**
-
-| Check | Protects | Whom | Where |
-|---|---|---|---|
-| `registry verify --repository --host --pinned --since`: bundle signed by the pinned host admin, head descends | the host's persons, keys and projects | the host, all its persons | `apps/app-vault/.../RegistryVerifyCommand.java:29` |
-| Path-by-path signers, `owners.yml`, forge-listed keys | who is who in the organisation | other persons | Idea/Implementing; not found in `main` |
+`organization/git-tree/src/main/java/org/fuin/porelo/organization/gittree/TreeWalk.java` judges the organization's
+paths by their own rules, with the roles that held at each change. Host reads use `TreePin` and the pinned keys.
+Manual `project follow`, its opt-outs, `project following`, `ConfigurationGate` and the `registry` commands are gone.
 
 **Room admission and messages (core side)**
 
@@ -107,9 +101,10 @@ judge the directories above the socket.
 | Gate review | agent pushes reach the upstream unread | already possible: security class `online` | a shared project's upstream another person relies on |
 | Approver's signed merge | unsigned work upstream | no gain: the approver signs with their own git key | anywhere others verify the upstream |
 | Arrival judging | any commit accepted as the task's | already off where a task is uncertified | on a host; in a project with certifiers |
-| Task certificate | task unsigned | **already the case** locally without a certifier's key | a host (`TaskLaunch.java:1901` stays) |
-| Follow signature, protected files, retired keys, rewrite | anyone who can push sets the firewall | yes, per follow: `--unverified`, `--accept-rewrite` exist | a project others sign; never as a global default |
-| Registry verify | the host takes unsigned persons | no: it is a host's | always |
+| Task certificate | task unsigned | **already the case** locally without a certifier's key | a host
+(`TaskLaunch.java:2045` stays) |
+| Project file signature | who sets the firewall | no manual-follow opt-out exists | shared project settings |
+| Organization verification | the host takes unsigned persons | no: it is a host's | always |
 | Moderation, message signatures | a task's words reach others unread | no: the words go to other persons | always; `off` already keeps the filter |
 | Daemon socket mode, vault sockets, SELinux type | another local user or task reaches the daemon or a token | no: the cost falls on other tasks and users | always |
 | Container hardening, egress | the agent gets privileges or the open network | egress: yes, via `shield egress` and clearance `allow`; privileges: no | container isolation from the host, always |
@@ -129,13 +124,10 @@ either protects another person or the host, where one person's switch must never
 - **A per-project setting in the person's own config**, never in a project file others sign. No per-person
   config file was found in core today; it would be new. It adds a second place that decides what a
   project's own file decides, and `default`'s settings are fixed by design (`DefaultProject.java:21`).
-- **A visible mark.** `porelo project following` already says `unverified` and answers `verified: false`
-  (`ProjectFollowingCommand.java:62`, `:126`); `task list` (`TaskListCommand.java`) shows neither an
-  unverified project nor an uncertified task, and the gate's arrival records say only `accepted`. One
-  mark - `unsigned` / `unverified` - in `task list`, `task status --json`, the interface and
-  `ArrivalRecords` makes the weaker state seen without adding one.
-- **Per-check flags that exist:** `project follow --unverified` and `--accept-rewrite`
-  (`ProjectFollowCommand.java:40`, `:47`); security class `online` (no review); `shield egress --add-set`
+- **A visible mark.** `project following` and its `verified: false` answer are gone. `task list` and
+  `task status --json` still lack the requested marks, and `ArrivalRecords` still records bare `accepted`.
+  The `unsigned` / `unverified` promise below remains; its manual-follow acceptance case has no current command.
+- **Per-check flags that exist:** security class `online` (no review); `shield egress --add-set`
   / `--add-domain`; `task clearance TASK allow|off`; moderation `allow|off`; `task remove --force`,
   `--yes`, `--no-input`. Each is narrow, named and reported.
 - **Doing nothing.** Uncertified local work already runs; the risk is that it runs **unmarked**.
@@ -149,8 +141,9 @@ room say the same of theirs. Build instead the mark: an uncertified task and an 
 named as such in `task list`, `task status --json`, the interface and each gate verdict, and
 `TaskLaunch`'s local unsigned start stays as it is.
 
-Size **S** - read-only state (`FollowedProjects.Followed.unverified()`, the task's recorded certificate or
+Size **S** - read-only state (the project verification outcome, the task's recorded certificate or
 its absence) carried into three outputs and one record line; no new check, no new option.
+`FollowedProjects.Followed.unverified()` is gone; which current project state carries the same promise is unsettled.
 
 ## Acceptance
 
@@ -158,7 +151,7 @@ its absence) carried into three outputs and one record line; no new check, no ne
   name it `unsigned`; one with a certificate does not carry the mark.
 - A task of a project followed `--unverified` shows `unverified` in `task list` and the interface.
 - `ArrivalRecords` writes `accepted, unsigned` for an uncertified task's push, never a bare `accepted`.
-- A start on a host without a certificate is still refused with 65 (`TaskLaunch.java:1901`), seen to fail
+- A start on a host without a certificate is still refused with 65 (`TaskLaunch.java:2045`), seen to fail
   if the mark is mistaken for permission.
 - `porelo --insecure` and any `insecure` key are refused as unknown, seen in a test.
 - A message from an uncertified task, or from a task of an unverified project, shows the mark in its line and the

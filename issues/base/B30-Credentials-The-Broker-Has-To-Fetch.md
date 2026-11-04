@@ -10,15 +10,19 @@ seen to succeed end to end, not only in unit tests.
 
 ## Plan
 
-Read in the code at `30c8169b`. The `client_credentials` run is built now. No service is known that needs a
-key-based kind, so after step 1 this issue rests, and steps 2 and 3 are taken up when one is.
+Read in the code on 2026-11-04. A successful `client_credentials` acceptance run is not built. No service is known
+that needs a key-based kind, so after step 1 this issue rests, and steps 2 and 3 are taken up when one is.
 
-**What is there.** `TokenPurchase` (`supervisor/.../TokenPurchase.java`, kind `client-credentials`) buys a token on
-the host, per task and in memory, once however many requests wait, again `MARGIN` (60 s) before its end; it is a
+**What is there.** `TokenPurchase` (`supervisor/src/main/java/org/fuin/porelo/supervisor/TokenPurchase.java`,
+kind `client-credentials`) buys a token on the host, per task and in memory, once however many requests wait.
+It buys again `MARGIN` (60 s) before expiry for lifetimes longer than 120 s, and halfway through lifetimes of
+120 s or less; it is a
 `TokenSource`, as `TokenExchange` and the grants of [B31](README.md#b31) are. `VaultProxy` makes the outbound request with
 `java.net.http.HttpClient`. The vault already signs with a key it holds (`SigningKey`, `StoredKey`, `RsaKey`,
-`SshAgentServer` in `vault/...`), which is the pattern `private_key_jwt` needs. The only acceptance scenario
-(`credential-several.feature`) proves an unreachable authorization server refuses the start.
+`SshAgentServer` in `vault/src/main/java/org/fuin/porelo/vault/`), which is the pattern `private_key_jwt` needs.
+The only `client_credentials` acceptance scenario
+(`acceptance/suite/src/test/resources/org/fuin/porelo/acceptance/credentials/credential-several.feature`)
+proves an unreachable authorization server refuses the start. Neither key-based kind is built.
 
 **One mechanism or two: two.** `private_key_jwt` (RFC 7523) authenticates the client at the token endpoint, so it is
 a way of buying a token - a `TokenSource`. mTLS client authentication happens in the TLS handshake of every
@@ -30,7 +34,8 @@ Steps, each its own commit:
 
 1. **`client_credentials` seen end to end (M).** A stand-in authorization server and resource on the machine's
    loopback in the acceptance kit (`Grants.secure` allows plain http there), issuing tokens of a short lifetime; a
-   task calls the resource for longer than two lifetimes. Seen red first by a lifetime shorter than `MARGIN`.
+   task calls the resource for longer than two lifetimes, including a lifetime shorter than `MARGIN`, which
+   `TokenPurchase` already handles. Red first: the task loses access when the bought token expires.
 2. **`private_key_jwt` (M).** A kind `private-key-jwt`: the key in the vault, `client_id`, `token_url`, `scopes`,
    `alg` as settings. A `TokenSource` signing a short-lived assertion (`iss`, `sub`, `aud`, `jti`, `exp`) per
    purchase with the vault's key and posting `client_assertion`. Red first: `TokenPurchaseTest`'s twin against a

@@ -17,9 +17,10 @@ providers the agent knows nor which wire formats it can register.
 
 ## Plan
 
-Read in today's code. A `native` agent is handed the endpoint with the provider's first dialect's path already on it
+Read in the code on 2026-11-04. A `native` agent is handed the endpoint with the provider's first dialect's path
+already on it
 (`ProviderRoute.of` → `ProviderDefinition.pathFor("native")`), but never the dialect's name: `SetupContext` is token,
-credential type, workspace, endpoint and provider, and `ProviderRoute` keeps only the path. Pi's setup
+credential type, workspace, endpoint, provider and subagents, and `ProviderRoute` keeps only the path. Pi's setup
 (`PiRoutingExtension`) and omp's (`OmpModelsFile`) can therefore only redirect a provider they already know. Both
 agents can register an unknown one if told its wire format - Pi's `registerProvider(name, { baseUrl, apiKey, api,
 models })`, omp's `providers.<name>` with `api` and `models` or a model-list discovery in `models.yml` - so the gap is
@@ -32,22 +33,26 @@ a provider named in `knows` gets its first dialect, as today; any other gets the
 agent lists in `registers`, in the provider's order; none of them is [P09](README.md#p09)'s refusal, now also naming
 the dialects the agent registers.
 
-1. **Red first:** in `apps/app/.../SelectedProviderTest.java`, a `native` agent knowing `openrouter` and registering
+1. **Red first:** in `apps/app/src/test/java/org/fuin/porelo/app/SelectedProviderTest.java`, a `native` agent knowing
+   `openrouter` and registering
    `openai` is given a provider file `example-unknown` declaring `anthropic-messages` then `openai`: chosen, with the
    resolved dialect `openai` and `openai`'s path on the route; the same agent registering nothing is refused as
    `UNKNOWN_TO_AGENT`; a provider in `knows` still resolves to its first dialect. In `AgentProtocolTest`,
    `everyPartOfTheSetupContextSurvivesTheWire` and `theClientSendsEveryFieldOfTheSetupContext` carry the dialect.
-2. **`AgentProvider`** (`agents/api`) gains `registers` (a list, empty by default) and `dialectFor(ProviderDefinition)`,
-   the resolved dialect or `null`; `canDrive` becomes `dialectFor(...) != null`, so `drivable`, `AgentsCommand`,
-   `ProvidersCommand` and `StartCheck` follow without their own rule. For an agent naming a fixed dialect it is that
-   dialect when served, as today. Read by `AgentDefinitionReader` (`provider.registers`), written and read by
+2. **`AgentProvider`** (`agents/api`) gains `registers` (a list, empty by default) and extends
+   `dialectFor(ProviderDefinition)`,
+   the resolved dialect or `null`; `canDrive` already is `dialectFor(...) != null`, so `drivable`, `AgentsCommand`,
+   `ProvidersCommand` and `StartCheck` follow without their own rule. For an agent naming fixed dialects it keeps
+   today's declaration order, choosing the first one served. Read by `AgentDefinitionReader` (`provider.registers`),
+   written and read by
    `AgentDefinitionJson` so it survives `Describe`.
 3. **`ProviderRoute`** gains `dialect`, the resolved name, set by `ProviderRoute.of` from `dialectFor` and used for
    `pathFor`, so the path and the name handed over can never disagree.
 4. **`SetupContext`** gains `dialect` (empty when the task is not brokered); `parameters()` sends it, `AgentServer`
-   reads it with `text(...)`, and the five-argument constructor stays, so an agent's tests compile unchanged. An agent
+   reads it with `text(...)`, and the five- and six-argument constructors stay, so an agent's tests compile unchanged.
+   An agent
    on today's API ignores the extra parameter and an agent on the new one hears `""` from an older Porelo, so
-   `AgentProtocol.VERSION` stays 3, by its own rule (an added optional field does not qualify).
+   `AgentProtocol.VERSION` stays 4, by its own rule (an added optional field does not qualify).
 5. **`TaskLaunch.placeAgentFiles`** passes `selection.route().dialect()`.
 6. **`porelo agents --verbose`** shows a pair reached by registering as such (the provider, `registered as openai`),
    so a person sees which pairs rest on the agent's catalogue and which on the wire format alone.

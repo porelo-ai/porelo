@@ -9,22 +9,26 @@ tool call that its screen does not show, read from the task's `task.log` against
 ## Why
 
 The kit's waits stop on a loop by counting what scrolls into each task's pane history: a declared tool-failure
-marker three times since the step began, or one line more often than `porelo.acceptance.repeats` allows. That sees
-omp, which draws every failed call, and Pi, whose failures scroll. It does not see Claude Code: measured on 2.1.267,
+marker three times since the step began, or one line more often than `porelo.acceptance.repeats` allows. It also counts
+markers in the newest declared tool-call record inside each container, but does not read the host's `task.log`.
+The screen reading sees omp, which draws every failed call, and Pi, whose failures scroll.
+Measured on Claude Code 2.1.267,
 two failed calls collapsed into one line updated in place, so nothing new scrolls and a loop within one turn runs to
 the step's time limit. An unattended Claude writes each tool result to `task.log` as JSON, where a failed one carries
 `"is_error":true` and can be counted.
 
-An attached session writes no `task.log`, so this does not cover it. There, the step's time limit stays the bound.
+An attached session writes no `task.log`, so reading that file does not cover it; tool-call records may cover it.
 
 ## Plan
 
-Read in the code at `30c8169b`, all in `acceptance/kit/src/main/java/org/fuin/porelo/acceptance/`:
+Read in the code on 2026-11-04, all in `acceptance/kit/src/main/java/org/fuin/porelo/acceptance/`:
 
-- `TaskHistories` (a `Terminal.Loops`) runs `LoopWatch.COMMAND` on the machine - one shell line printing each task's
+- `TaskHistories` (a `Terminal.Loops`) runs `LoopWatch.command` on the machine - one shell line printing each task's
   pane history after a separator - and hands it to `LoopWatch.check`, which keeps the first look of a step as its
-  baseline and counts what was added since. `Repeated.untilZero` calls `reset` and `check` the same way for script
-  waits. The screen's marker is declared by `TerminalSteps.aToolFailureLooksLike` into `World.toolFailure`.
+  baseline and counts what was added since. `ToolRecords` also supplies the newest record
+  inside each container; `LoopWatch` keeps a baseline per container and record path. `Repeated.untilZero` calls
+  `reset` and `check` the same way for script waits. The screen's marker is declared by
+  `TerminalSteps.aToolFailureLooksLike` into `World.toolFailure`.
 - **Read from the state directory directly**, as the kit's other reads of a task's state are: `task.log` is at
   `$XDG_RUNTIME_DIR/porelo/<container>/task.log` (`TaskPaths.containerState`). `porelo task logs` would cost a `porelo`
   start per task per look and adds nothing. The command prints, per container, only the count of lines holding the

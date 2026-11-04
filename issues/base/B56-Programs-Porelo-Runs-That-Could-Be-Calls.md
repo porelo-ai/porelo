@@ -21,8 +21,8 @@ version expected. Some could be a function call instead: through the Foreign Fun
 
 ## What already is a call
 
-FFM is used in four places, all in the dynamically linked binaries. GraalVM's C interface is used
-nowhere.
+The 2026-09-13 inventory listed four FFM users. Read in the code on 2026-11-04: there are six, all in the
+dynamically linked binaries. GraalVM's C interface is used nowhere.
 
 | Class | Call | Why a call |
 |---|---|---|
@@ -30,6 +30,8 @@ nowhere.
 | `Exec` | `execvp(3)` | Hands a terminal to a shell without Porelo sitting in between |
 | `NetlinkSocket` | `socket(2)` with `AF_NETLINK` | The JDK has no netlink |
 | `KernelKeyring` | `libkeyutils` | The vault's unlock cache |
+| `SocketPeer` | `getuid(2)` | Checks the process uid against the kernel's socket peer credentials |
+| `LockedSecret` | `getpagesize(2)`, `mlock(2)`, `munlock(2)`, `madvise(2)` | Locks pages; excludes dumps |
 
 ## The constraint that decides most of it
 

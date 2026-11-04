@@ -92,39 +92,48 @@ snapshots, `central.sonatype.com`.
 
 ## Plan
 
-Read in the code at `30c8169b`. The four decisions are independent and are built as four commits, in this order.
+Read in the code on 2026-11-04. The four decisions are independent and are built as four commits, in this order.
+The code still lacks addresses, refused-lookup reporting, set fingerprints and completeness fields.
 
-**1. Addresses in a project.** `Egress` (`core/.../project/Egress.java`) is `(sets, domains, refused)`;
-`ProjectSchema` lists `egress` as `sets`, `domains`, `refused`, and `ProjectReader` reads them at `egress.get(...)`.
-`NftRuleset.allowV4` and `allowV6` (`shield/.../NftRuleset.java`) already take an address or a network on the
-allowed ports.
+**1. Addresses in a project.** `Egress` (`core/src/main/java/org/fuin/porelo/core/project/Egress.java`) is
+`(sets, domains, refused, hostServices)`; `ProjectSchema` lists `egress` as `sets`, `domains`, `refused`,
+`host_services`, and `ProjectReader` reads them at `egress.get(...)`.
+`egress.host_services` names services on this host at the gate address on TCP 443; it does not declare addresses.
+`NftRuleset.allowV4` and `allowV6` (`shield/src/main/java/org/fuin/porelo/shield/NftRuleset.java`) already take an
+address or a network on the allowed ports.
 
 - `Egress` gains `addresses`; `ProjectSchema` gains the key with its description; `ProjectReader` validates each
   as an IPv4 or IPv6 address or CIDR and refuses `0.0.0.0/0` and `::/0` with the reason. A repository's addresses
   are added to the project's, as `Project` merges its sets and domains.
-- `TaskRunner` (`apps/app-base/.../TaskRunner.java`), where the ruleset is built, calls `allowV4`/`allowV6` for
-  each; `EgressControl.reachable` (`apps/app-egress/...`) and the `Egress` reply list them beside the hosts.
-- Red first: `ProjectReaderTest` with `0.0.0.0/0` accepted; then an acceptance scenario in `.../shield/` that
-  declares a network and reaches an address in it.
+- `TaskRunner` (`apps/app-base/src/main/java/org/fuin/porelo/app/TaskRunner.java`), where the ruleset is built,
+  calls `allowV4`/`allowV6` for each; `EgressControl.reachable`
+  (`apps/app-egress/src/main/java/org/fuin/porelo/app/EgressControl.java`) and the `Egress` reply list them
+  beside the hosts.
+- Red first: `ProjectReaderTest` with `0.0.0.0/0` accepted; then an acceptance scenario in
+  `acceptance/suite/src/test/resources/org/fuin/porelo/acceptance/shield/` that declares a network and reaches
+  an address in it.
 
 **2. Refused lookups shown.** dnsmasq already logs every query (`DnsPolicy`: `log-queries`, `log-facility=-`), and
-the hook writes it to the task's `dnsmasq.log` (`hooks/.../SupervisorHook.java`, `LOG_FILE`). `ShieldWatchCommand`
-already reads that log to name an address. A reader of it in `shield` (beside `ResolvedNames`) returns the names
+the hook writes it to the task's `dnsmasq.log`
+(`hooks/src/main/java/org/fuin/porelo/hooks/SupervisorHook.java`, `LOG_FILE`). `ShieldWatchCommand` already reads that
+log to name an address. A reader of it in `shield` (beside `ResolvedNames`) returns the names
 answered NXDOMAIN; where they are shown is the question below. Red first: a test feeding a captured `dnsmasq.log`
 with one refused query, which goes red when the name is missing.
 
-**3. A fingerprint per set.** `EgressSet` (`shield/.../EgressSet.java`) is `(name, label, domains)`, read by
-`EgressSetDirectory`. It gains `fingerprint`: sha256 over the sorted, lower-cased domains, so comments and order do
-not change it. `Sets()` (`daemon/.../EgressMethods.java`) and `porelo shield sets` show it, and the egress report
-(`EgressReport`) names it beside each set. Red first: two directories holding `maven` with different domains whose
-fingerprints agree.
+**3. A fingerprint per set.** `EgressSet` (`shield/src/main/java/org/fuin/porelo/shield/EgressSet.java`) is
+`(name, label, domains)`, read by `EgressSetDirectory`. It gains `fingerprint`: sha256 over the sorted, lower-cased
+domains, so comments and order do not change it.
+`Sets()` (`daemon/src/main/java/org/fuin/porelo/daemon/EgressMethods.java`) and `porelo shield sets` show it, and the
+egress report (`EgressReport`) names it beside each set. Red first: two
+directories holding `maven` with different domains whose fingerprints agree.
 
 **4. A set that cannot be complete.** The set's YAML gains `complete: false` and `incomplete_reason`; `EgressSet`
 carries both, `Sets()` replies with them, and `egress/os-packages-fedora.yaml` moves its comment into them. The way
 out - a `baseurl` pinned in the project's `image.snippet` - goes into `doc/project-file.md` beside the egress keys.
 Red first: the listing of `os-packages-fedora` without `complete: false`.
 
-Contract: `Sets()` and `Egress` grow optional fields in `25-egress.varlink`, which only ever grows;
+Contract: `Sets()` and `Egress` grow optional fields in
+`daemon/src/main/resources/varlink/org.fuin.porelo.Tasks1/25-egress.varlink`, which only ever grows;
 `InterfaceDescriptionTest` holds them to the registration. The interface reads them (porelo-frontend).
 
 ## Acceptance

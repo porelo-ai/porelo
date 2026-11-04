@@ -17,7 +17,7 @@ Read in the code on 2026-10-11 (`daemon/.../TaskMethods.java`, `PoreloDaemon.jav
 - `read` sends at most `MAX_CHUNK` (64 KiB) per reply; a line longer than that goes as several pieces, each
   sent as a line of its own, whole across replies and with nothing to say where it was cut. So no reply is as
   large as the log, but a client shows one line of many megabytes as many lines.
-- A small fault on the way: `read`'s Javadoc sits above `startOfLast`, and `startOfLast` has none of its own
+- A small fault on the way: `read`'s Javadoc sits above `startOfLast`'s, apart from `read`
   for what `read` does.
 
 Steps:

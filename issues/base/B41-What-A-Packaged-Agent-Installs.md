@@ -27,21 +27,25 @@ SHA-256 and `porelo:delivery=fetched-at-image-build`.
 
 ## Plan
 
-Read in today's code. `AgentsCommand` (`apps/app-agents/src/main/java/org/fuin/porelo/app/AgentsCommand.java`) prints
+Read in the code on 2026-11-04. `AgentsCommand`
+(`apps/app-agents/src/main/java/org/fuin/porelo/app/AgentsCommand.java`) prints
 `installs:` from `definition.version()` and each `InstallArtifact`; the daemon's `AgentMethods`
 (`daemon/src/main/java/org/fuin/porelo/daemon/AgentMethods.java`) maps the same artifacts into the `Agent` type of
 `daemon/src/main/resources/varlink/org.fuin.porelo.Tasks1/40-agent.varlink`. A packaged agent's binary is
-`AgentDirectory.PACKAGED/<package>` (`/usr/libexec/porelo/agents`) and its bill is
-`/usr/share/porelo/sbom/<package>.cdx.json` - `agents/pom.xml` installs both under `${project.artifactId}`. So the
-bill's path follows from the executable's file name: no agent name, and no change in the agent repositories.
-`dist/package-check`'s `Bill` already parses these bills with Porelo's own JSON reader.
+`/usr/lib/<package>/<agent>`, named by `/usr/share/porelo/agents.d/<agent>.yaml`, and its bill is
+`/usr/share/porelo/sbom/<package>.cdx.json` - `agents/pom.xml` uses `${project.artifactId}` for the package directory
+and `${agent.name}` for the executable. The bill's path follows from the package directory, not the executable
+file name; the reader must also distinguish legacy binaries in `AgentDirectory.PACKAGED`
+(`/usr/libexec/porelo/agents`) and executables registered elsewhere. No agent name belongs in the reader.
+`Bill` (`dist/package-check/src/main/java/org/fuin/porelo/packagecheck/Bill.java`) already parses these bills
+with Porelo's own JSON reader. The CLI and daemon still report only the definition's artifacts, not the bill.
 
 The question of who reads the file is taken as the `TaskInventory` precedent says: one class answers it, the CLI
 uses it in its own process, and the daemon serializes the same answer for a remote client.
 
 Steps, in order:
 
-1. Red first: `PackagedBillTest` in `apps/app-model` with a bill of three components, one carrying
+1. Red first: `PackagedBillTest` in `apps/app` with a bill of three components, one carrying
    `porelo:delivery=fetched-at-image-build`; then a missing bill and an unreadable one, each `UNVERIFIED` with a
    reason; then an agent outside the packaged directory, which has no bill to read and says so.
 2. `PackagedBill` in `apps/app-model`, beside `TaskInventory`: for an `InstalledAgent`, the components (name,

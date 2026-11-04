@@ -7,13 +7,15 @@ maintained Jackson 2.x dependency set and limits enforced before model binding. 
 worker and become profile documents with explicit completeness, so hostile or unfinished input cannot exhaust the
 daemon or appear clean.
 
+The SARIF dependency and `porelo-review-api` artifact are absent from this checkout.
+
 ## Proposed
 
 - Blocked by: [B291](README.md#b291).
 - Blocks: [B166](README.md#b166), [B171](README.md#b171), [B172](README.md#b172), [B141](README.md#b141),
   [B95](README.md#b95); the message filter, the forge adapters
   and the IDE plugin.
-- The reader, the profile and its fixtures are published as `porelo-review-api`, Porelo's sixth Central artifact,
+- The reader, the profile and its fixtures are published as `porelo-review-api`, Porelo's seventh Central artifact,
   with the fixtures as its tests jar, and AGENTS.md's list of artifacts says so. This issue
   makes the artifact; `Review1`, `ReviewReader` and their registration on `BuildMain` and `BuildServer` come with
   [B171](README.md#b171).

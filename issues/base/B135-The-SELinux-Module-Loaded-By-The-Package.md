@@ -10,7 +10,8 @@ it present after a plain install.
 ## Why
 
 Today the packages ship `selinux/porelo_socket.te` and `install-selinux-policy.sh` under `/usr/share/porelo/selinux`
-and nothing more. Until a person runs `sudo /usr/share/porelo/selinux/install-selinux-policy.sh`, SELinux refuses a
+and reload an already loaded module on RPM upgrade. Until a person runs
+`sudo /usr/share/porelo/selinux/install-selinux-policy.sh`, SELinux refuses a
 task container's `connectto` on Porelo's sockets. The agent then reports an authentication failure, and `doctor` says
 "MISSING - a task cannot reach the vault proxy". Asked on 2026-10-09: why does the install not do what is
 known to be needed? Decided the same day: the package does it.
@@ -31,16 +32,18 @@ known to be needed? Decided the same day: the package does it.
 
 ## Plan
 
-Read in the code on 2026-10-11: both packages carry `selinux/porelo_socket.te` and `install-selinux-policy.sh` under
-`/usr/share/porelo/selinux` (`dist/dist-rpm/pom.xml`, `dist/dist-deb/pom.xml`) and no maintainer script at all;
-`DoctorCommand` reports the module through `SocketContext.selinuxPresent()` and names the script.
+Read in the code on 2026-11-04: both packages carry `selinux/porelo_socket.te` and
+`selinux/install-selinux-policy.sh` under `/usr/share/porelo/selinux`
+(`dist/dist-rpm/pom.xml`, `dist/dist-deb/pom.xml`). The RPM's `afterInstallation` reloads an already loaded module
+on upgrade only; fresh-install loading and removal are not implemented, and the Debian package has no
+maintainer scripts; `DoctorCommand` reports the module through `SocketContext.selinuxPresent()` and names the script.
 
 1. **The script does the work, the packages call it.** `selinux/install-selinux-policy.sh` gains `--quiet-if-off`:
    where `selinuxenabled` fails it exits 0 and does nothing; a missing tool or a failed load says what failed and
    exits non-zero as today. A second script, `selinux/remove-selinux-policy.sh`, runs `semodule -r porelo_socket` only
    where `semodule -l` lists it. Both are installed beside the `.te`.
-2. **`.rpm`:** in `dist/dist-rpm/pom.xml`, `postinstallScriptlet` runs the install script with `--quiet-if-off`
-   and on a failure prints the script's own line to run by hand and exits 0; `postremoveScriptlet` runs the removal
+2. **`.rpm`:** in `dist/dist-rpm/pom.xml`, `afterInstallation` runs the install script with `--quiet-if-off`
+   and on a failure prints the script's own line to run by hand and exits 0; `%postun` runs the removal
    only when `$1` is 0, so an upgrade keeps the module and the next `%post` loads the new one. `requires` gains
    `checkpolicy` and `policycoreutils`; the description's sentence about installing by hand goes.
 3. **`.deb`:** `postinst` (on `configure`) and `postrm` (on `remove` and `purge`) in
@@ -55,7 +58,8 @@ Read in the code on 2026-10-11: both packages carry `selinux/porelo_socket.te` a
    `getenforce`, installs the built `.rpm` with `dnf`, starts a task that reaches the vault proxy, and `dnf remove`
    leaves no `porelo_socket` in `semodule -l`.
 
-Red first: the package check's new reading of the scripts, against today's packages, which carry none.
+Red first: the package check's new reading of the scripts, against today's packages, which lack fresh-install
+loading and removal.
 
 ## Acceptance
 

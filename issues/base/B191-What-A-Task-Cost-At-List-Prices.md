@@ -30,10 +30,10 @@ A receipt, over one task or all of them:
 
 ## Plan
 
-Read in today's code: providers are data, found by `ProviderDirectory` (`agents/api`) in the person's
+Read in the code on 2026-11-04: providers are data, found by `ProviderDirectory` (`agents/api`) in the person's
 `$XDG_DATA_HOME/porelo/providers` first, then the packaged directory (`AgentPaths.providerDirectory`). Nothing on the
-host knows a price. [B148](README.md#b148)'s record has one line per request with agent, provider, credential,
-model answered and the five counts; its `UsageSums` (`core`) sums them.
+host knows a price. [B148](README.md#b148) proposes one line per request with agent, provider, credential,
+model answered and the five counts, and `UsageSums` in `core`; neither the usage record nor its sums is built.
 
 1. **The price table** is data, one file per provider, `prices/<provider>.yaml` in this repository and packaged
    beside the provider files, the person's own `$XDG_DATA_HOME/porelo/prices` first, as providers are found: per

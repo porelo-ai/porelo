@@ -17,11 +17,13 @@ Three levers together save an estimated 5 to 6 min of wall time per leg without 
    account. `task-guarded.feature` takes about 5 min (measured: 4m39s on Fedora, 4m56s on Ubuntu) and runs alone on one
    thread for about 3 min after the other three feature threads finish. Splitting it into smaller features that each
    keep their own account lets the threads share that tail.
-2. **Redundant unit tests in both suite passes.** `Leg.java` runs both acceptance suite passes without
+2. **Redundant unit tests in both suite passes.** `acceptance/legs/src/main/java/org/fuin/porelo/legs/Leg.java` runs
+   both acceptance suite passes without
    `-Dsurefire.skip=true`, so each pass runs `wire`'s and the kit's unit tests again, taking about 1:45 min per leg
    (measured: 1m45s on Fedora, 1m48s on Ubuntu).
 3. **Serial removal of projects and containers at the end of a pass.** The `@AfterAll` teardown in
-   `TerminalSteps.java` (`removeTheProjectsTheKitMade`) unfollows every project and removes its directory one by one,
+   `acceptance/kit/src/main/java/org/fuin/porelo/acceptance/TerminalSteps.java` (`removeTheProjectsTheKitMade`)
+   runs `porelo project remove --force` for every project and removes its directory one by one,
    taking about 2 min serially per leg (measured: 2m10s on Fedora, 1m59s on Ubuntu). Running that removal in parallel
    across accounts or batched per account cuts most of that wait.
 

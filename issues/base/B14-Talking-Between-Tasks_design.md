@@ -1,7 +1,7 @@
 # B14 — Talking Between Tasks, design
 
 How [B14](README.md#b14) is built, and how its groups would be. The mailbox, the host's
-queues, the signature, the sluice, the record and the daemon's methods exist as described here. **Where this
+queues, the signature, the sluice, the record and the daemon's methods exist, with the gaps stated below. **Where this
 file names the local or spool transports, carriage between the Unix users of one machine, or a git transport,
 those are retired**: the carrier is a transport that keeps a conversation
 ([B86](README.md#b86)), and the adapter contract below holds for it with the
@@ -16,7 +16,7 @@ lifecycle [B86](README.md#b86) adds. What is left to build here is groups, and c
   between them, and one adapter per transport.
 - **Transports are packages.** Today's keeps a conversation per project: Matrix.
 - **A message is a narrowed A2A message with a detached signature over its exact bytes**, made on the
-  host with the key the daemon's user already has.
+  host with the task's own certified key, held in the vault.
 - **The message sluice decides what a message may contain**, before anything is queued, and carries
   no model.
 
@@ -67,11 +67,12 @@ restarted agent reads its own half of the conversation.
 on the host and cannot be reached from inside. **The agent definition gains one field**, reported
 through `describe`: `messaging: maildir` or `messaging: none`. Porelo branches on the field, never on
 the agent, and `AgentIsolationTest` fails the build if that is got wrong.
+The code has no `messaging` field; it creates task mailboxes and uses `instructionArguments` for the guide.
 
 ## On the host
 
 ```
-<task state>/mail/                durable, per task, survives every restart
+$XDG_STATE_HOME/porelo/mail/<container>/    durable, per task, survives every restart
 ├─ incoming/                      taken from outbox/new, unchanged
 ├─ filter/  accepted/ feedback/ rejected/ error/ .index/
 ├─ queue/<transport>/ active/ deferred/
@@ -87,11 +88,12 @@ answered twice, never swallowed.
 **The mailbox is created with the task and destroyed with it**, and nothing in between touches it —
 stop, start and a machine restart leave the conversation where it was. It is in the task's durable
 state, never under `$XDG_RUNTIME_DIR`, which the system clears at boot: that is what makes a mailbox
-different from the sockets a task cannot come back to after a reboot today.
+different from the runtime sockets rebuilt when a task starts after a reboot.
 
 **Removal refuses while something is in flight.** A message in `outbox/new/`, or queued and deferred,
 is the same shape as commits that never reached the gate: `--rescue` hands them over first and waits,
 `--force` removes regardless.
+The code does not guard `task remove` against mail in flight or rescue queued messages; its rescue saves git work.
 
 ## The message
 
@@ -134,20 +136,21 @@ Every object is closed: a property the schema does not name is a refusal, not so
 ## The signature
 
 **A detached SSHSIG over the message's exact bytes**, made on the host when it takes a message out of
-`outbox/new/` (`ssh-keygen -Y sign`), verified with `-Y verify` against an allowed-signers list.
+`outbox/new/`, signed and verified by `SshSignature` (`vault/src/main/java/org/fuin/porelo/vault/SshSignature.java`).
+`MessageSigners` (`apps/app-messaging/src/main/java/org/fuin/porelo/app/MessageSigners.java`) traces the signing
+key to a task certificate issued by a current project certifier and valid at arrival.
 
 - **The file is opaque from end to end.** Nothing between the two mailboxes re-serializes it, so the
   bytes signed are the bytes verified — which is why the sluice is required to move a message rather
   than rewrite it.
 - **One verification path for every transport**, whatever carried the two files.
-- **The key is the daemon user's**, held in that user's state directory at `0600` and never mounted
-  anywhere. Porelo runs as a systemd *user* unit, so two people on one machine have two identities and
-  neither can read the other's key; the boundary is exactly Unix-user strength, as it already is for
+- **The key is the task's own**, held in the host's vault and never mounted anywhere. Porelo runs as a
+  systemd *user* unit; the boundary between accounts is Unix-user strength, as it already is for
   the pre-push guard of `porelo gate protect`.
 - **It is not the user's login key.** One lets a machine connect, the other says what it vouches for:
   a login key is often passphrase-protected, and revoking one should not invalidate the other.
-- **It says the installation vouched, not that the agent typed it.** The task never holds a key;
-  which task and project spoke is inside the signed bytes.
+- **It identifies the certified task, not who typed it.** The container never holds a key;
+  the certificate's principal names exactly one task and project.
 
 **Measured on 2026-09-18, both directions.** The format is OpenSSH's, not a shape of our own, and
 that is only worth claiming if OpenSSH agrees:
@@ -199,26 +202,33 @@ transports with no shared object.
 | Signed by a key listed for an **external** peer | Attribution checked, and the content put through the sluice on the way in |
 | Unsigned, or signed by a key not listed for that peer | **Never delivered**: held, and the operator told |
 
-**Inside the group, keys come from a signed directory.** One `allowed_signers` file mapping a
+**Inside the group, keys must come from a signed directory.** One `allowed_signers` file mapping a
 principal to its key, changed only by an operator-signed commit and distributed with the group's
-other configuration. Each host pins one thing out of band: the operator key that signs it. **It travels in the project
-repository, which every machine already follows** - decided 2026-09-20, after the git transport that
+other configuration. Each host must pin one thing out of band: the operator key that signs it.
+**It must travel in the project repository** - decided 2026-09-20, after the git transport that
 was to carry it was closed unbuilt. Same signed commits, same out-of-band key, no new remote and no
-new credential; and `project follow` already refuses a signed commit that is not a descendant of the
-one in force, which is the property a key directory most needs - a revocation that cannot be rolled
-back by re-serving an older signed configuration.
+new credential. The directory must reject a commit that is not a descendant of the
+one in force, so a revocation cannot be rolled back by re-serving an older signed configuration.
+The code does not provide this directory or its rollback check, and `project follow` is gone.
 
-**A certificate authority is left open deliberately.** `cert-authority` is a line in the same
-`allowed_signers` file, so switching later is configuration rather than redesign. It would then need
+**Task certificates are in use.** Read in the code on 2026-11-04: `MessageIntake` signs with the task's own
+key; `MessageSigners` checks its certificate's principal, certifier and validity at arrival.
+`ProjectMembers` (`apps/app-model/src/main/java/org/fuin/porelo/app/ProjectMembers.java`) reads current
+organization project keys as certifiers; messaging reads no `machine-signers` or `allowed_signers`.
+This does not meet the promised operator-signed peer-key directory or listed machine-key verification.
+
+**The directory design leaves a certificate authority open.** `cert-authority` is a line in an
+`allowed_signers` file, so that design permits switching by configuration. It still requires
 certificate expiry, renewal, a revocation list that reaches every host, and a CA key whose loss forges
 every identity in the group.
 
-**Outside the group, a person confirms once.** The first message signed by an unknown key waits in
-`hold/` with its fingerprint shown; one confirmation writes it into that peer's entry. A key that
-changes is held again with both fingerprints, because a rotation and an impersonation are identical to
+**Outside the group, a person must confirm once.** The first message signed by an unknown key waits in
+`hold/` with its fingerprint shown; one confirmation must write it into that peer's entry. A key that
+changes must be held again with both fingerprints, because a rotation and an impersonation are identical to
 software.
+The code holds unattributed messages with a reason, but has no key confirmation or comparison of both fingerprints.
 
-**Fail closed.** An unreachable directory means verifying against the last fetched copy and holding
+**Fail closed.** An unreachable directory must mean verifying against the last fetched copy and holding
 what cannot be verified — never accepting because the list could not be read.
 
 ## What the host promises
@@ -287,9 +297,9 @@ its message **held**. A transport that claims nothing has an `.owner` file ignor
 gain trust by volunteering one.
 
 `send <message> <signature> --to <address>` prints its receipt as one JSON object.
-`poll --into <dir>` writes pairs there and prints how many. **Nothing is ever read from standard
-input**: messages are files, and a transport that read stdin would tempt somebody to stream a message
-through it. A signature file is named `<message file name>.sig`.
+`poll --into <dir>` writes pairs there and prints how many. **Messages are files**; settings and,
+when `describe` declares `secrets: "input"`, secrets are passed on standard input as JSON.
+A signature file is named `<message file name>.sig`.
 
 **An adapter writes in exactly one place, and the host does the rest.** It delivers into the
 recipient's `inbound/tmp/` and renames into `inbound/`; it never removes anything from its own queue.
@@ -320,7 +330,7 @@ and both deserve an answer rather than a directory.
 No network, no credential, no history — and on a developer's machine that was the whole of what was
 needed. **The git transport was designed and never built**, and is closed: what it was to add -
 distribution across machines, a shared ordered record, and a way to distribute the key directory -
-is answered differently now. Federation carries the first, the key directory travels in the project
+is answered differently now. Federation carries the first, the key directory is still required in the project
 repository, and **the shared ordered tamper-evident record is given up**: every commit hashes its
 parent and a room does not, so each host's hash-chained log proves what it saw and nothing to
 anybody else. What would change that answer is somebody other than the two peers needing to verify
@@ -350,6 +360,7 @@ a payload spread over two tasks the same operator started is seen by neither.
 **A hash-chained log per host**, in `record/`: one line per state change — arrived, filtered, queued,
 sent, deferred, refused, delivered — each line's hash including the previous line's, beside the signed
 messages. Tamper-evident locally, identical for every transport, verifiable without a network.
+The code keeps a chain per task mailbox, not the promised chain per host.
 
 **Anchorable later, anchored to nothing today.** If the record ever has to convince somebody who does
 not trust the operator, the head hash can be published where the operator does not control it —
@@ -370,8 +381,14 @@ answer:** tasks living for months, or a `rejected/` too large for anybody to rea
 
 ## The daemon's interface
 
-Additions to `org.fuin.porelo.Tasks1`, which only ever grows. `InterfaceDescriptionTest` fails the build
-if any of this is registered without appearing in the file, or appears without being registered.
+Additions to `org.fuin.porelo.Tasks1`, which only ever grows.
+The proposed interface below includes groups and key confirmation, which are not built.
+The current contract is `daemon/src/main/resources/varlink/org.fuin.porelo.Tasks1/45-messaging.varlink`;
+`InterfaceDescriptionTest` checks it against `daemon/src/main/java/org/fuin/porelo/daemon/MessagingMethods.java`.
+`Peers` takes `task` and `project`; `Say` takes `task`, `peer`, `kind`, `text` and optional `context`.
+`Release` takes `task`, `id`, optional `refuse` and `reason`, with no `trustKey`; `Moderate` takes `project`,
+`name`, optional `task`, `held` and `mode`, and refuses `mode` because `project.yml` sets it.
+`Talk` streams events without message text, so it does not provide the proposed stream of `Message` values.
 
 ```
 type Peer (
@@ -426,13 +443,15 @@ re-decided.
 
 ```
 porelo talk peers
-porelo talk log [<peer>] [--follow]
-porelo talk say <peer> [--kind question]    # text on stdin, never in argv
-porelo talk held
-porelo talk release <id> [--refuse] [--trust-key]
-porelo talk hold <peer> [--release]
-porelo talk verify [<task>]
+porelo talk log <task>
+porelo talk say <task> <peer> [--kind question]    # text on stdin, never in argv
+porelo talk held <task>
+porelo talk release <task> <id> [--refuse] [--reason]
+porelo talk hold <task> <peer> [--release] [--project <name>]
+porelo talk verify <task>
 ```
+
+`--trust-key`, the log's peer selector and `talk log --follow` remain unbuilt.
 
 **`say` reads the text from standard input**, the way `vault put` does: a process list is
 world-readable, and nobody can promise what an operator will paste into a message to an agent.
@@ -444,7 +463,7 @@ world-readable, and nobody can promise what an operator will paste into a messag
 | `task start` | The mailbox is created if it does not exist and bind-mounted; what is waiting in `inbound/` is delivered |
 | A message | Policy, the sluice, the host's signature, the transport queue, the adapter. A failure at any step stops the next |
 | `task stop` | Nothing to reap. The mailbox stays as it is |
-| `task resume` | The same mailbox is mounted again; `inbox/cur/` and `sent/` are still there |
+| `task start` on an existing task | The same mailbox is mounted again; `inbox/cur/` and `sent/` are still there |
 | A machine restart | The mailbox is in durable state, so it survives; the queues resume where they were |
 | `porelo panic` | Tasks stop with everything else; nothing is handed to a transport; the record stays |
 | `task remove` | Refused while something is in flight; otherwise the mailbox goes with the task |

@@ -17,18 +17,18 @@ person's or a peer's message, and the agent may act on it. Found in a security a
 
 ## Plan
 
-Read in today's code:
+Read in the code on 2026-11-04:
 
 - The host stages a message in `inbox/tmp` (not writable by the agent), sets it `rw-r--r--` and renames it into
   `inbox/new` (`Mailbox.intoInbox`). Under rootless podman the account running Porelo is root in the container. The
   agent runs as a user of its own, mapped to a subordinate id.
 - A rename keeps a file's owner, so a delivered message stays root's in `cur`. A file the agent's user writes is that
   user's. A planted file replacing a delivered one by name is the planter's.
-- The host reads the inbox in three places:
-  - `MessageLookup.messages` (a filter's answer and verdict);
-  - `MessageVerify.messageIn`;
-  - `TransportConversations.taken` (names only).
-  The first two test with `Files::isRegularFile`, which follows a link.
+- `MessageLookup` reads the filter's answers from `feedback/` and the host's `record/answers/`, not the inbox;
+  its `messages` still uses `Files::isRegularFile`, which follows links in those host directories.
+- `MessageVerify.messageIn` finds inbox and sent entries without following links; `matches` uses
+  `MessageIntake.taskWritten`, which rejects links. `TransportConversations.taken` reads inbox names only.
+  Neither checks the inbox file's owner, and the guide does not require that check.
 - Outbox reading is already safe: it is not followed and takes regular files only (`MessageIntake`).
 
 The plan:

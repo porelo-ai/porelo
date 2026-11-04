@@ -22,9 +22,11 @@ with an https endpoint on the organisation's network; a page that says how a tas
 
 ## Plan
 
-**Today (read 2026-10-11).** `ProviderDefinition` and `ProviderRoute` (`agents/api`) refuse any upstream that is not
-`https` with a host. A provider without `token_env` gets no broker: `CredentialWiring.agentRoute` says "nothing is
-brokered for it; it will not authenticate" and returns nothing, so the agent is pointed at no endpoint.
+Read in the code on 2026-11-04: `ProviderDefinition` and `ProviderRoute` (`agents/api`) refuse any upstream that is not
+`https` with a host. `AgentDefinition.tokenVariable` uses the agent's `token_env` before the provider's;
+`CredentialWiring.agentRoute` returns no route when neither names a token variable, or no credential is available.
+A provider lacking `token_env` alone does not prevent brokering. Credential-free routes and the HTTP loopback template
+are not implemented.
 
 **How a task reaches a host port while its firewall allows none:** through the broker. The broker runs on the host,
 with the host's network, and the agent reaches it through the relay in its own namespace (`vault relay`,

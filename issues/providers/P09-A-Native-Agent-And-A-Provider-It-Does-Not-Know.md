@@ -9,23 +9,27 @@ refused with a reason before a task starts, naming the providers it knows.
 
 ## Plan
 
-Read in today's code, it does not work, and nothing refuses it. `ProviderDefinition.serves("native")` is true for
+Read in the code on 2026-11-04, it does not work, and nothing refuses it. `ProviderDefinition.serves("native")` is true
+for
 every provider, so `AgentProvider.canDrive` pairs a `native` agent with any provider file, and the start goes ahead.
 The agent is then told only the provider's name and the endpoint (`SetupContext`: token, credential type, workspace,
-endpoint, provider): Pi's setup registers `pi.registerProvider(<name>, { baseUrl, apiKey })`, which redirects a
+endpoint, provider, subagents): Pi's setup registers `pi.registerProvider(<name>, { baseUrl, apiKey })`, which
+redirects a
 provider Pi already knows and gives it nothing to go on for one it does not - no wire format, no models. So the start
 succeeds and the agent answers that it does not know the provider, the failure the acceptance names.
 
 This issue is the refusal, which is small and makes the failure honest. The reach - an agent driving a provider it
 does not know - is out of scope here and will be an issue of its own (see the end of the plan).
 
-1. **Red first:** a test in `apps/app/.../SelectedProviderTest.java` that a `native` agent naming the providers it
+1. **Red first:** a test in `apps/app/src/test/java/org/fuin/porelo/app/SelectedProviderTest.java` that a `native`
+   agent naming the providers it
    knows is refused a provider file outside that list, with a refusal that names the list, and is given one in it.
 2. **`AgentProvider`** (`agents/api`) gains `knows`, the provider names a `native` agent recognizes, read from the
    definition's `provider.knows` by `AgentDefinitionReader`. `canDrive` is unchanged for an agent naming a dialect;
    for `native` it holds only for a name in `knows`. An empty list keeps today's behaviour, so an agent that has not
    taken the new API is not broken by it.
-3. **`SelectedProvider`** gains a refusal `UNKNOWN_TO_AGENT` beside `WRONG_DIALECT`, and `StartCheck` turns it into a
+3. **`SelectedProvider`** (`apps/app-base/src/main/java/org/fuin/porelo/app/SelectedProvider.java`) gains a refusal
+   `UNKNOWN_TO_AGENT` beside `WRONG_DIALECT`, and `StartCheck` turns it into a
    refusal before anything is made, naming the agent, the provider and the providers it knows.
 4. **`porelo agents --verbose`** (`AgentsCommand`, `ProviderInventory`) pairs a `native` agent only with the providers
    it knows.

@@ -18,13 +18,13 @@ already has.
 
 **How it would be built** is
 [B15-Handing-Artifacts-Between-Tasks_design.md](B15-Handing-Artifacts-Between-Tasks_design.md).
-Nothing in it exists or has been measured, and it is written for one machine with podman's store as
+The artifact path is not built or measured, and it is written for one machine with podman's store as
 the storage: it has to be redone around the message transport below before it is built.
 
 One task produces something another needs: a built binary, a dataset, a trained model, a coverage
-report, a screenshot of a failure. Today there is no path at all. A task's workspace is inside its
-container and stays there on purpose, and the only things bind-mounted into a container are the
-vault and ssh sockets. The conditions are [B14](README.md#b14)'s: it must be
+report, a screenshot of a failure. Today there is no artifact hand-over path. A task's workspace is inside its
+container and stays there on purpose; bind mounts include the vault socket, mailbox, screen file,
+guide and, when needed, certificates and the signing shim. The conditions are [B14](README.md#b14)'s: it must be
 controlled, visible to a person, recorded, restrictable and stoppable.
 
 ## Most of this is answered, and the answer is the gate
@@ -109,7 +109,7 @@ is a guard people learn to work around.
 message stays what it is - one text part, no file part, within the transport's `max_bytes`, read by
 the filter - and an artifact is not text the filter can read. But a transport that keeps a project's
 conversation already has what handing a file needs: accounts per task whose secrets stay on the
-host, a place every machine of the project reaches, and a way to announce something with the host's
+host, a place every machine of the project reaches, and a way to announce something with the task's
 signature beside it. A conversation with no server declared is kept on this machine, and an
 `offline` project's reaches nothing beyond it, so one machine is not a special case.
 
@@ -131,7 +131,8 @@ What stays Porelo's, whatever the transport:
   messaging system's business, since it decides what it keeps and for how long.
 - **The signature.** An artifact is signed on the host that took it, over its digest, with this
   machine's signing key, and a receiving host checks it against the keys listed for the peer before
-  anything reaches a task - the guarantee messages already have.
+  anything reaches a task. Messages use task keys held on the host, with certificates checked against the
+  receiving project's certifiers; the machine-key artifact signature is not built.
 - **Whether it happens at all**: off unless the project file switches it on, and a task can be
   started with it off where the project has it on, never the other way round. One switch covers
   handing on and receiving.
@@ -164,22 +165,25 @@ and teaches people to trust it for the deliberate one.
 
 ## Plan
 
-Read in the code at `30c8169b`. Nothing of this exists; the design file is to be redone first, around the message
-transport rather than podman's store.
+Read in the code on 2026-11-04. The artifact path is not built; the design file is to be redone first, around the
+message transport rather than podman's store.
 
 **What is reused.**
 
-- **Delivery into a task is `HandIns`** (`apps/app-model/.../HandIns.java`, the daemon's `HandIn`, `TakeBack`,
-  `HandIns`): a file arrives in parts, is checked by size and sha256, written as root into `/porelo/.incoming` and
+- **Delivery into a task is `HandIns`** (`apps/app-model/src/main/java/org/fuin/porelo/app/HandIns.java`,
+  the daemon's `HandIn`, `TakeBack`, `HandIns`): a file arrives in parts, is checked by size and sha256,
+  written as root into `/porelo/.incoming` and
   renamed into `/porelo/files`, mode 0644, in a directory the agent cannot write, and every hand-in is a line in a
   record. That is "read-only and never executable, into a place of that task's own" already; an artifact received
   is a hand-in whose record line names the artifact, the peer and the signature.
 - **The transport contract** is `TransportDescription`, `TransportSend`, `TransportPoll` and `TransportLifecycle`
-  (`apps/app-messaging/...`): `describe` is read as JSON and `takes` lists the options a transport accepts beyond
-  the common ones. The artifact verbs join it the same way, and `describe` announces them and the size limit.
-- **The signature** is the host's message key, as `MessageIntake` signs a message (SSHSIG over exact bytes, with a
-  namespace of its own) and delivery verifies against `KnownPeers`; an artifact is signed over its digest the same
-  way, under another namespace so one cannot be replayed as the other.
+  (`apps/app-messaging/src/main/java/org/fuin/porelo/app/`): `describe` is read as JSON and `takes` lists
+  the options a transport accepts beyond the common ones. The artifact verbs join it the same way, and `describe`
+  announces them and the size limit.
+- **The signature** uses SSHSIG over exact bytes, with a namespace of its own, in `MessageIntake`;
+  `MessageDelivery` verifies it and `MessageSigners` traces the task key's certificate to the receiving project's
+  certifiers. An artifact is to be signed on the host over its digest with the machine's key, under another
+  namespace so one cannot be replayed as the other.
 - **The push limit** at the gate is `GitHttpServer`'s `LimitedInputStream` over the whole request; a limit per blob
   is a check on the received pack, which is new.
 

@@ -21,9 +21,11 @@ Scenarios in the acceptance suite, tagged, run by the release workflow; each nam
 **Today.** The acceptance suite (`acceptance/suite`, features under
 `src/test/resources/org/fuin/porelo/acceptance/`) checks guarantees one by one: `task-guarded.feature` (no privilege,
 the firewall before the start, the phantom token, declared names only, work only through the gate) and
-`task-forged.feature`. The release job `deploy` in `.github/workflows/build.yml` has `needs: [build, legs]`, so a red
-scenario in a leg already holds a release back. Nothing groups the attacks, and nothing shows they ran: a tag filter
-in `acceptance/legs/.../Leg.java` could leave them out and the release would still go.
+`task-forged.feature`. Read in the code on 2026-11-04: the release job `deploy` in
+`.github/workflows/build.yml` has `needs: [build, proven, legs, native]` and accepts successful legs or a prior proof
+with a successful native build. `acceptance/legs/src/main/java/org/fuin/porelo/legs/Leg.java` runs every scenario:
+with multiple accounts it runs `not @restart`, then `@restart` alone; with one account it uses no tag filter.
+No `@misuse` group or count check proves the requested coverage for either publication path.
 
 **Steps:**
 
@@ -40,11 +42,12 @@ in `acceptance/legs/.../Leg.java` could leave them out and the release would sti
    Red first: a test in `acceptance/suite`, tagged `documents`, that reads every `@misuse` scenario and fails when
    one names no page or a page that does not exist.
 4. The legs report how many `@misuse` scenarios ran; the `deploy` job refuses a release whose legs ran fewer than
-   the suite holds, none included.
-5. **A found hole holds the release back.** A red `@misuse` scenario fails its leg, and `deploy` needs the legs, so
-   no release is made until the hole is closed. A `@misuse` scenario is never skipped to let a release go: the
-   documents test of step 3 also fails when a `@misuse` scenario carries a tag that a leg's filter leaves out
-   (today `@restart`), and `Leg` never filters `@misuse` out.
+   the suite holds, none included; a prior proof must establish the same coverage.
+5. **A found hole holds the release back.** A red `@misuse` scenario fails its leg; `deploy` must refuse publication
+   through both the legs and prior-proof paths until the hole is closed. A `@misuse` scenario is never skipped
+   to let a release go: the documents test of step 3 also fails when a `@misuse` scenario carries a tag excluded from
+   every pass,
+   and `Leg` never filters `@misuse` out across its passes.
 6. `doc/reach.md` says that the suite exists, that a release waits for it, and that a found hole is closed before
    a release, never skipped.
 

@@ -11,7 +11,7 @@ for check rounds, never a person's approval.
 
 ## Plan
 
-`TaskProfile` version 5 records mode, agent, provider and model but no role or reviewed target. `GateWiring` gives a
+`TaskProfile` version 7 records mode, agent, provider and model but no role or reviewed target. `GateWiring` gives a
 per-task `GitHttpServer` its one writable ref; `hidingOthers` hides other incoming refs. `MailboxGuide` has no review
 submission format. No task can call the owner's daemon approval methods merely by having a role.
 

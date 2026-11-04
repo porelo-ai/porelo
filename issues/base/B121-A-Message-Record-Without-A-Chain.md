@@ -20,16 +20,17 @@ peer's events in it, a person's refusal stays final because a `refused` line is 
 it. None of that reads `previous` or `hash`. The homeserver never sees what happens after a message reaches the host,
 so this state is Porelo's.
 
-Signatures are not part of this. A message is signed on the host and checked against a peer's listed keys before it
-is delivered; that decides who may reach a task, not whether a history was changed, and it stays. Checking a kept
-message against its `.sig` again later adds nothing to the check made when it arrived, so `porelo talk verify` goes
+Signatures are not part of this. A message is signed on the host with its task's key and checked against a kept
+certificate and the project's trusted certifiers before it is delivered; that decides who may reach a task,
+not whether a history was changed, and it stays. Checking a kept message against its `.sig` again later adds nothing to
+the check made when it arrived, so `porelo talk verify` goes
 with the chain.
 
 ## Plan
 
 Blocked because the chain is the only tamper-evident record today; it goes only once [B154](README.md#b154)'s event log replaces it.
 
-Read in the code at `30c8169b`:
+Read in the code on 2026-11-04:
 
 - `MessageRecord` (`apps/app-messaging/src/main/java/org/fuin/porelo/app/MessageRecord.java`): `append` reads
   `lastHash()` and writes `previous` and `hash`; `verify` walks the chain; `hash` and `lastHash` serve only these; an
@@ -37,7 +38,8 @@ Read in the code at `30c8169b`:
   refusals and `TalkLogCommand` read `event`, `id`, `peer` and `detail` only.
 - `TalkVerifyCommand` and its registration in `TalkCommand`'s subcommands; no daemon method and no varlink type
   serves it.
-- `talk-commands.feature` (`acceptance/suite/.../talk/`): `verify` in the two tables of subcommands, and the scenario
+- `talk-commands.feature` (`acceptance/suite/src/test/resources/org/fuin/porelo/acceptance/talk/`): `verify` in the
+  two tables of subcommands, and the scenario
   that runs `porelo talk verify {task}`.
 - `doc/commands.md`, `doc/messages.md`, `doc/decisions.md` (the row and the entry "Each host keeps its own record"),
   and the designs of [B14](README.md#b14) and [B15](README.md#b15), which mention the chain.

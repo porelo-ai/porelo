@@ -10,10 +10,13 @@ through the broker with no credential in the task.
 
 ## Plan
 
-Read in the code on 2026-10-20 (`apps/app-task`).
+Read in the code on 2026-11-04 (`apps/app-task`).
 
-1. **Where**: `TaskLaunch` places the agent's files at `:1424` (`placeAgentFiles`, `:1869`), after the container,
-   the relay and the workspace are up. A `ToolSettings.place(project, container, runner)` runs right after it, only
+Tool configuration at task start remains unbuilt.
+
+1. **Where**: `TaskLaunch` places the agent's files at `:2111` (`placeAgentFiles`, `:2842`), after the container
+   starts and before the relay and workspace helpers; workspace files follow workspace preparation. A
+   `ToolSettings.place(project, container, runner)` runs right after it, only
    when the project declares a repository under [B219](README.md#b219)'s key; a project without one starts exactly as
    today.
 2. **What a plugin is given**: each declared repository's name and its URL inside the task ([B219](README.md#b219)'s
@@ -21,13 +24,13 @@ Read in the code on 2026-10-20 (`apps/app-task`).
    credential, which the plugin never holds.
 3. **What comes back**: files relative to the task user's home (`/home/agent`, `Containerfile`'s `useradd`), made
    absolute and checked by `ContainerFile`'s own rules; a path leaving the home, or one the agent's files already
-   took, is refused naming both plugins or the plugin and the agent. Placed with `TaskRunner.place` (`:561`), as the
+   took, is refused naming both plugins or the plugin and the agent. Placed with `TaskRunner.place` (`:713`), as the
    agent's are: owned by `agent`, `0600` when the plugin says owner-only.
 4. **Fail closed**: a plugin that fails or times out stops the start with its name and its answer; a start never
    goes on with some tools configured and others not. The start prints one line per file placed, with the plugin's
    name.
-5. **Resume**: `TaskControl.resumeHeld` reuses the container and places nothing again (`:680`), so the files are
-   there; a start after a reboot (`saved.restore`) gets them as the agent's files get them.
+5. **Resume**: `TaskControl.resumeHeld` reuses the container and places nothing again (`:739`), so the files are
+   there; after a reboot `saved.restore` restores state for the existing container, so its files survive too.
 6. `doc/credentials.md`'s section from [B219](README.md#b219) says where the settings come from.
 
 **Red first:** `ToolSettingsTest` with a fake plugin: its file lands at the absolute path under the home; a file
@@ -43,5 +46,4 @@ placed.
 
 ## To be checked
 
-- Whether `saved.restore` after a reboot recreates the container, and so whether the agent's files and these are
-  placed again there or survive with it.
+- The files survive with the existing container after `saved.restore`; tool-settings placement remains unbuilt.

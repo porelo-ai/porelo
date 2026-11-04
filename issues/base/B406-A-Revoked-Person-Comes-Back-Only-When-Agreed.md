@@ -14,9 +14,9 @@ add a key to their forge account, can come back with no one agreeing.
 **To be settled when it is planned:**
 
 - Whose agreement counts: which admins, an organization's owners alone or a project's admins as well.
-- What agreeing is: an owner's `org person replace`, which exists for a lost key, or a step of its own.
-- How a lost key's replacement stays apart: its old card is revoked too, and an owner's acceptance already brings that
-  person back, which this must not break.
+- What agreeing is: an organization admin's `org person replace`, which exists for a lost key, or a step of its own.
+- How a lost key's replacement stays apart: its old card is revoked too, and an organization admin's acceptance already
+  brings that person back, which this must not break.
 - What a reader that accepted the person earlier does, and what stands of what they signed while they were gone.
 
 Planned after the operator's tests; nothing built yet.

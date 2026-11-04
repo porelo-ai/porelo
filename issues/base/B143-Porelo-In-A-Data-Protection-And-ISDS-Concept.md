@@ -24,7 +24,11 @@ chapter from it.
 `apps/app-base`: the vault `vault.bin` in the data directory with its `.old` copy (`VaultPaths.vaultFile`); in the
 state directory `stops.log` (`PoreloPaths.stopJournal`), `failures.log` (`PoreloPaths.failureLog`) and each task's
 clearance journal `clearance/<task>.jsonl` (`TaskPaths.clearanceJournal`, renamed and kept at removal); the
-messaging key and allowed signers (`MessagingPaths`); a mirror through `porelo gate backup`.
+legacy machine key `message-key` (`MessagingPaths.messageKey`, no longer used to sign messages), task-key
+certificates in `task-certificates` (`TaskPaths.certificates`), moderation in `moderation/<project>.json`
+(`MessagingPaths.moderation`) and message records in `mail/<container>/record/log.jsonl` (`MessagingPaths.mailbox`);
+a mirror through `porelo gate backup`. Task signing keys are kept in the vault; `MessagingPaths` has no allowed-signers
+file. The requested data protection page is not implemented.
 
 **Steps:**
 
