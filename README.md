@@ -7,8 +7,6 @@
 
 **Sandboxing AI agents in YOLO mode using Podman and native Java/GraalVM.**
 
-<img align="left" height="400" width="260" src="doc/images/porelo-400.png" alt="Porelo with AI agent in podman">
-
 Normally, an AI agent will stop and ask you: "Can I edit this file?" or "Can I run this terminal command?". 
 In YOLO mode, it skips those questions and directly modifies code, deletes files, installs packages, 
 or runs terminal scripts completely unattended.
@@ -20,8 +18,6 @@ a desktop notification path for live allow/deny decisions.
 Use the agent as you want: Work locally: interactive in a shell, or headless and unattended.
 
 Supervise agents from a Flutter client — wherever they run :construction:
-
-<br clear="left"/>
 
 **Documentation: [porelo-ai.github.io/core](https://porelo-ai.github.io/core/)**, one chapter of
 [all of Porelo's documentation](https://porelo-ai.github.io).
