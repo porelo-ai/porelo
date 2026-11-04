@@ -1,6 +1,6 @@
 # B431 — Change A Repository Row In One Commit
 
-**Status:** Backlog.
+**Status:** Implementing.
 **Size:** S - one module's new subcommand and one write in `ProjectFile`, with tests; the file's format does not change.
 
 **What must be true.** A Project Admin changes a row of `project.yml` in one signed commit, and every field the change does
@@ -23,6 +23,8 @@ so a `description`, `issues` or `agent` written by hand is lost and must be put 
   `ProjectReader.central`, whichever of the two was named. A change altering nothing writes no commit, and says so.
 - **Not here:** taking a `central` away. A row with none is refused on a host; `remove` and `add` still do that.
 - **`doc/commands.md`** names the command.
+- **`project show --json`** gives each row of `repositories` its `central` as written, `""` where it has none, so an interface can name
+  a row a host takes nothing from and offer this change. A project with one `upstream` and no row has no such field.
 - **Red first:** `ProjectFileTest`: a row with `description`, `issues` and `agent` keeps them through a change of `central`.
 
 ## Acceptance
