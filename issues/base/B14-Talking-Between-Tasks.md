@@ -36,8 +36,21 @@ in `project.yml` (`mail.rules`, a peer's `mode`). The project file has `mail.pee
 `MessageSigners` checks its certificate's task principal, certifier and validity at arrival. `ProjectMembers`
 (`apps/app-model/src/main/java/org/fuin/porelo/app/ProjectMembers.java`) reads current organization project keys
 as certifiers; messaging reads no `machine-signers` or `allowed_signers`, and `project follow` is gone.
-The code does not provide the promised operator-signed peer-key directory or verification against a listed
-machine key; those acceptance criteria remain unmet.
+Decided 2026-11-04: the task certificate from a current certifier replaces the operator-signed peer-key directory
+and the listed machine key.
+
+Whether an older or forked organization state is refused for a project's certifiers, read on 2026-11-04, not run:
+`MessageSigners.certifiers` reads them from `OrganizationProjects` (`ProjectMembers.current`). Off a host a start writes
+them after `IdentityOrganization.read`, whose `GitTreeStore` keeps a trust record and refuses a tip that does not
+continue it (`refused-state`); a stale reading starts nothing (`ProjectTaking.fromTheOrganization`). On a host, root's
+`org fetch --since` does the same and writes the host's file. So the refusal holds where the state is read, with two
+findings:
+
+- **Off a host the certifiers are not read again between starts**: a key revoked in the organization stays a believed
+  certifier until the project's next start (`OrganizationProjects`, its class comment). No old state is served; the
+  running task simply does not look.
+- **A first read has nothing to compare with**: no trust record, no earlier commit. Off a host it starts from the
+  founder's key on the forge, on a host from the pin.
 
 **Not built: trust confirmed once.** `Release(task, id, refuse, reason)` has no way to trust a key.
 The held reason can name the signing key's fingerprint, but no confirmation records trust for that peer.
@@ -60,7 +73,7 @@ The split, each an issue of its own when it is started:
    optional field. Red first: a test delivering under a changed key without a person.
 3. **Another machine (L, blocked by [B86](README.md#b86)).** Nothing new in the mailbox: the transport carries signed pairs. What is
    left is the two-machine scenario on one homeserver - a task on each writes to the other, the bytes hashed in
-   `outbox/new/` and again in the far inbox, a message signed by the other machine's unlisted key held - and a retry
+   `outbox/new/` and again in the far inbox, a message signed by a key no current certifier certified held - and a retry
    by the transport delivered once (`MessageDelivery`'s duplicate suppression, measured across machines).
 
 ## Acceptance
@@ -75,16 +88,18 @@ The split, each an issue of its own when it is started:
 - A message to a closed group is refused at once with the reason "group closed", and nothing is queued; reopening
   the group takes no commit, and the next message is delivered. Seen to fail: a message sent while the group was
   closed is queued or delivered after it reopens, or closing or reopening changes `project.yml`.
-- Inside a group, the keys that may speak for a peer come from a directory signed by an operator key and carried
-  in the project repository; a directory signed by any other key, or older than the one in force, is refused.
+- Inside a group, a message is checked against the task certificate from a current certifier of the project; one
+  signed by a key that no current certifier certified, or whose certificate is not valid at arrival, is held.
+- An older or forked organization state is refused, so a project's certifiers cannot go back to a state before a
+  revocation. Seen to fail: an older state served again changing whom a task believes.
 - A peer outside the group is confirmed once by a person; a changed key is held with both fingerprints and asked
   again. Seen to fail: a message under a changed key delivered without a person.
 
 **Another machine**
 
 - Two machines on one homeserver run one project: a task on each writes to the other, and each message arrives
-  byte for byte (hashed in `outbox/new/` and again at the far end), its signature verified against the sending
-  machine's listed key. Seen to fail: a message signed by the other machine's unlisted key delivered rather than
+  byte for byte (hashed in `outbox/new/` and again at the far end), its signature checked against the sending
+  task's certificate. Seen to fail: a message signed by a key no current certifier certified delivered rather than
   held.
 - A message retried by the transport between machines is delivered once.
 

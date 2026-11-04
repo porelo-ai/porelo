@@ -7,7 +7,7 @@ reads, and it must be published before any of them depends on it.
 **What must be true.** Porelo's `.deb` and `.rpm` each provide `porelo-agent-protocol-<LOWEST>`, the lowest agent
 protocol this build accepts, so an agent's package can depend on it and the package manager refuses only a pairing
 `porelo` itself would refuse; a test holds the provided number to `AgentProtocol.LOWEST`. Neither package declares
-any agent protocol today. Asked for by the Claude Code adapter, which pi's and oh-my-pi's packages follow; it is published before any agent depends on it.
+any agent protocol today. Asked for by the Claude Code adapter, which the packages of pi, oh-my-pi, Codex and agy follow; it is published before any agent depends on it.
 
 ## Plan
 

@@ -1,7 +1,7 @@
 # B99 — Packages Signed And Checked
 
 **Status:** Estimated.
-**Size:** L - crosses seven repositories on one day; Porelo's part is CI signing, one shared check, setup and docs.
+**Size:** L - crosses nine repositories on one day; Porelo's part is CI signing, one shared check, setup and docs.
 
 **What must be true.** An operator installing Porelo or an agent gets only packages, and a setup script, whose
 signature the machine has checked against the repository's packaging key.
@@ -27,7 +27,7 @@ signed by the packaging key (measured 2026-10-17), and [B196](README.md#b196) se
 - **Every place that sets up the repository checks them**: `gpgcheck=1`, `repo_gpgcheck=1` and the key named by
   `gpgkey=`, in `porelo-setup.sh`, the documentation and the legs, moved in one change.
 - **Every repository that publishes to the same package repositories switches signing on with its next release**:
-  `porelo`, the matrix transport and its homeserver, the message filter, the three agents, released together.
+  `porelo`, the matrix transport and its homeserver, the message filter, the five agents, released together.
   Switched on for one alone, the setup refuses the others. So the key, the CI secret that carries it and how a
   repository signs with it are written here first, and every repository moves in that release.
 - **The setup script is signed too.** `porelo-setup-<version>.sh` is the one Porelo interface that is a file, and a
@@ -89,7 +89,7 @@ Steps in Porelo, in order:
 - `porelo-setup.sh`, the documentation and the legs set `gpgcheck=1`, `repo_gpgcheck=1` and `gpgkey=`. Seen to fail:
   installing a package with a broken or missing signature from the configured repository succeeds.
 - The key, the CI secret that carries it and how a repository signs with it are written here before any repository
-  switches signing on, and `porelo`, the matrix transport and its homeserver, the message filter and the three agents
+  switches signing on, and `porelo`, the matrix transport and its homeserver, the message filter and the five agents
   sign from their next release on, together. Seen to fail: a setup on a clean machine refuses a package from one of
   them.
 - A test refuses an unsigned package before it is published. Seen to fail: the build publishes an RPM with signing

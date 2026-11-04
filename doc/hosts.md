@@ -149,6 +149,6 @@ no terminal and standard input closed: `porelo task stop --all`, then, only on i
 account to be purged by hand.
 
 **A host nobody sits at.** The second play stops when `porelo vault status` answers 3 or 4, and the vault is
-opened from outside: a person runs `ssh -t HOST porelo vault unlock`, or, for automation only, a program that holds
-the passphrase writes it into `ssh HOST porelo vault unlock --passphrase-stdin` (`vault init --passphrase-stdin` for
-a new vault), as [Credentials](credentials.md) says. An interface never feeds it from a form of its own.
+opened from outside: on their own machine a person runs `porelo host unlock HOST --host-key SHA256:... --login ACCOUNT`,
+which derives the share with their key and sends it over ssh, and makes the vault when there is none, as
+[Credentials](credentials.md) says. A host vault has no passphrase and never asks for one.

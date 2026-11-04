@@ -129,6 +129,8 @@ would change the answer.
 | A person joins by an account made for them | the login is printed once, no registration stays open, and the recorded account's words reach the project's tasks as `ROLE_USER` | [entry](#a-person-joins-by-an-account-made-for-them) |
 | A machine on a shared server is admitted by a person | a person lets it in, from their client or with `talk admit` on the serving machine; a machine not yet let in starts no task | [entry](#a-machine-on-a-shared-server-is-admitted-by-a-person) |
 | An admitted machine's token may lie in a file | accepted: `talk admit --into` writes it in the clear to a new owner-only file; the interface keeps it in its secrets file instead | [entry](#an-admitted-machines-token-may-lie-in-a-file) |
+| A homeserver's registration token lies on the host that needs it | accepted, a deliberate exception to no token on a server: from the person's vault or asked once, kept in the host's vault | [entry](#a-homeservers-registration-token-lies-on-the-host-that-needs-it) |
+| The keys of a project's store lie on the host for its life | accepted, a deliberate exception to no token on a server: root-only until `down`, limited to the store's bucket | [entry](#the-keys-of-a-projects-store-lie-on-the-host-for-its-life) |
 | The signed project file names a shared server | homeserver, room, CA and token file come from the project file every machine follows; a machine sets none of them | [entry](#the-signed-project-file-names-a-shared-server) |
 | Only a transport a peer names is polled | a transport no peer names is never polled; a failure is said once | [entry](#only-a-transport-a-peer-names-is-polled) |
 | **The build and packages** | | |
@@ -807,6 +809,22 @@ straight into its secrets file and never writes it out. **The exposure:** the fi
 the network path register accounts on this machine's server until it is dismissed. **Why it stays:** it is how a
 person without an interface carries it to the other machine, like the VPN key on a host's disk; `talk dismiss` takes
 it back at once. **What would change it:** an admission that never leaves the two machines' own stores.
+
+## A homeserver's registration token lies on the host that needs it
+
+A project whose homeserver is elsewhere needs that server's registration token on the host, or a task cannot enroll. It
+comes along with `porelo host unlock`, from the person's vault or asked once, and lies in the host's vault. Decided on
+2026-11-04, not built yet. **The exposure:** whoever opens that vault on the host can register accounts on that homeserver
+until the token changes. **Why it stays:** a deliberate exception to no token on a server, since a task enrolls with nobody
+there to ask. **What would change it:** a homeserver that admits a host without a token.
+
+## The keys of a project's store lie on the host for its life
+
+A host copies what a project keeps into the project's store by root's timer, each entry run as its account by `runuser`.
+The store's keys lie in `/etc/porelo-host/store/` at `0600` until `down` removes them. Decided on 2026-11-04, not built yet.
+**The exposure:** root on the host can read, write and delete what the store holds. **Why it stays:** a deliberate
+exception to no token on a server, since the hourly copy and the last one at `down` run with nobody there, and the key is
+limited to the store's bucket. **What would change it:** a copy that needs no key on the host.
 
 ## The signed project file names a shared server
 

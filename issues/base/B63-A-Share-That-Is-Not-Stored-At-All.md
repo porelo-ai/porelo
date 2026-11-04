@@ -82,7 +82,7 @@ through `systemd-creds` for the unlock cache, and `KernelKeyring` shows how a C 
 dynamically linked binaries.
 Host vaults have no passphrase slot and refuse `VaultFile.enroll` with a generic device share: they accept only
 SSH shares during a key change, so the passphrase recovery and token enrollment promised here are not built for
-host vaults. `VaultDevicesCommand` also displays a claimed `FIDO2` or `TPM2` value as proven protection.
+host vaults; with the old key gone, a host vault has no way back. `VaultDevicesCommand` also displays a claimed `FIDO2` or `TPM2` value as proven protection.
 
 It splits into four issues:
 
@@ -123,6 +123,10 @@ It splits into four issues:
   machine's state after an unlock goes red when the share's bytes are found; the reboot test goes
   red when the same token no longer opens the slot; the devices test goes red when a claimed, unproven `FIDO2`
   slot is shown differently from a `USER_SCOPED` one.
+
+**A way back for a host vault**, decided 2026-11-04: a host vault also gets a way back after a lost key, since lasting
+hosts will exist. That is a second way into the vault, so it needs a design, settled with the operator, before anything
+is built; it is none of the four pieces above and has no size yet.
 
 ## To be checked
 

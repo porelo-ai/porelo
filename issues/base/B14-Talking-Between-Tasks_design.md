@@ -202,25 +202,15 @@ transports with no shared object.
 | Signed by a key listed for an **external** peer | Attribution checked, and the content put through the sluice on the way in |
 | Unsigned, or signed by a key not listed for that peer | **Never delivered**: held, and the operator told |
 
-**Inside the group, keys must come from a signed directory.** One `allowed_signers` file mapping a
-principal to its key, changed only by an operator-signed commit and distributed with the group's
-other configuration. Each host must pin one thing out of band: the operator key that signs it.
-**It must travel in the project repository** - decided 2026-09-20, after the git transport that
-was to carry it was closed unbuilt. Same signed commits, same out-of-band key, no new remote and no
-new credential. The directory must reject a commit that is not a descendant of the
-one in force, so a revocation cannot be rolled back by re-serving an older signed configuration.
-The code does not provide this directory or its rollback check, and `project follow` is gone.
+**Inside the group, keys come from task certificates**, decided 2026-11-04: a message is checked against the task
+certificate from a current certifier of the project. The operator-signed `allowed_signers` directory that was to travel
+in the project repository is given up, and so is a host's out-of-band operator key. What it was to give, a revocation
+that cannot be rolled back, is asked of the organization's state: an older or forked one is refused.
 
 **Task certificates are in use.** Read in the code on 2026-11-04: `MessageIntake` signs with the task's own
 key; `MessageSigners` checks its certificate's principal, certifier and validity at arrival.
 `ProjectMembers` (`apps/app-model/src/main/java/org/fuin/porelo/app/ProjectMembers.java`) reads current
 organization project keys as certifiers; messaging reads no `machine-signers` or `allowed_signers`.
-This does not meet the promised operator-signed peer-key directory or listed machine-key verification.
-
-**The directory design leaves a certificate authority open.** `cert-authority` is a line in an
-`allowed_signers` file, so that design permits switching by configuration. It still requires
-certificate expiry, renewal, a revocation list that reaches every host, and a CA key whose loss forges
-every identity in the group.
 
 **Outside the group, a person must confirm once.** The first message signed by an unknown key waits in
 `hold/` with its fingerprint shown; one confirmation must write it into that peer's entry. A key that
@@ -228,8 +218,8 @@ changes must be held again with both fingerprints, because a rotation and an imp
 software.
 The code holds unattributed messages with a reason, but has no key confirmation or comparison of both fingerprints.
 
-**Fail closed.** An unreachable directory must mean verifying against the last fetched copy and holding
-what cannot be verified — never accepting because the list could not be read.
+**Fail closed.** Certifiers that cannot be read must mean holding what cannot be verified — never accepting
+because the list could not be read.
 
 ## What the host promises
 
@@ -330,8 +320,8 @@ and both deserve an answer rather than a directory.
 No network, no credential, no history — and on a developer's machine that was the whole of what was
 needed. **The git transport was designed and never built**, and is closed: what it was to add -
 distribution across machines, a shared ordered record, and a way to distribute the key directory -
-is answered differently now. Federation carries the first, the key directory is still required in the project
-repository, and **the shared ordered tamper-evident record is given up**: every commit hashes its
+is answered differently now. Federation carries the first, task certificates and the organization's state the third,
+and **the shared ordered tamper-evident record is given up**: every commit hashes its
 parent and a room does not, so each host's hash-chained log proves what it saw and nothing to
 anybody else. What would change that answer is somebody other than the two peers needing to verify
 what passed and in which order.
@@ -485,9 +475,9 @@ world-readable, and nobody can promise what an operator will paste into a messag
 ## What must be proven to fail, for groups
 
 - A key change for a known peer **must** hold the message and ask again, with both fingerprints.
-- A key directory signed by a key other than the pinned operator key, or not a descendant of the one in force,
-  **must** be refused, and what it would have admitted held.
-- An unreachable key directory **must** mean verifying against the last fetched copy, never accepting.
+- An organization state that does not continue the one accepted **must** be refused, and what it would have admitted
+  held.
+- Certifiers that cannot be read **must** mean holding, never accepting.
 - A message to a held group **must not** reach any member, asserted on what reaches each task.
 
 Anything needing podman, a second machine or a real restart belongs in the acceptance suite, not in
