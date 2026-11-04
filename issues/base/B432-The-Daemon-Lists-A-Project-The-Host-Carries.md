@@ -1,6 +1,6 @@
 # B432 — The Daemon Lists A Project The Host Carries
 
-**Status:** Backlog.
+**Status:** Implementing.
 **Size:** M - one contract change other repositories read, in two modules, with its documents.
 
 **What must be true.** A project a host carries for a person is in the daemon's `Projects` before its first start, as it is
