@@ -24,6 +24,16 @@ script does it for them, and no second key is made. For that to be enough:
   for it.
 - **At its end, it prints the public key and the page to add it:** at GitHub, `https://github.com/settings/ssh/new`.
 - **`identity show` without `--json` prints the public key too.** Today only `--json` answers it.
+- **Before `--keepassxc` asks for any password, it reads and names what is missing, changing nothing.** Today it checks only
+  for a terminal and that `SSH_AUTH_SOCK` is set, then `keepassxc-cli` asks for the master password at each step, up to three
+  times, and only then does the person learn that KeePassXC is not running. It reads:
+  - whether `keepassxc-cli --debug-info` lists the SSH agent extension, which a minimal build lacks;
+  - whether KeePassXC's own settings, `$XDG_CONFIG_HOME/keepassxc/keepassxc.ini`, say `[SSHAgent] Enabled=true`. Other install
+    forms keep them elsewhere, so a file not found is "cannot tell", which is said and does not refuse;
+  - whether KeePassXC runs;
+  - whether the agent answers at `SSH_AUTH_SOCK`.
+- **`porelo doctor` shows the same lines**, each naming its next action, and they do not make a machine not ready: a person
+  with their own agent and no KeePassXC stays ready.
 
 ## What exists and what is missing
 
@@ -79,6 +89,8 @@ The rights alone do not suffice:
 - Asking changes nothing: no commit, no push, no file written, and the token appears in no answer.
 - When every need says ready, `org create` succeeds against the same stand-in; when one says not ready, `org create`
   refuses for that same reason.
+- With each KeePassXC need missing in turn, `identity create --keepassxc` names it before any password is asked, and
+  KeePassXC's state and files are unchanged.
 - `identity create` run with `--keepassxc` and with `--key` says its plan first and ends with the public key and the page;
   the private half appears nowhere.
 
@@ -89,6 +101,8 @@ The rights alone do not suffice:
   owner's is being measured.
 - Whether the permissions in the table are enough, by a real run.
 - Which rights `org add-read-key` needs, by a real run.
+- How to tell that KeePassXC runs without changing it: `keepassxc --lock`, which `KeePassXcKey` uses later, tells a running one
+  from none but locks its databases. Also what `--debug-info` prints on a full and on a minimal build, by a real run.
 - Which page `identity create` names when the machine has no organization yet, so no forge is known: GitHub's, or GitHub's
   beside a sentence for any other forge. `--json` keeps answering the same fields, the public key added.
 - Whether that call should send the person's token, which would spend their own limit instead of the address's.
