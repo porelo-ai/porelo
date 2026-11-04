@@ -41,6 +41,8 @@ from its side, as *blocked by*.
 | <a id="b418"></a>[B418](B418-Four-Roles-And-A-Pin-That-Follows-The-Organization-Admins.md) | L | - | Owner, Organization Admin, Machine Admin and Project Admin, each answering for the one below, and a pin that follows the Organization Admins, by the operator's word: a Machine Admin replaced takes effect at the next follow, and one stolen key of that role reaches every server. |
 | <a id="b398"></a>[B398](B398-A-Test-That-Cannot-Reach-The-Persons-Vault.md) | - | - | A test that builds a command the wrong way falls to the real context, and so to the person's vault |
 | <a id="b426"></a>[B426](B426-A-Persons-Projects-Listed-From-The-Hosts-File.md) | S | - | `porelo project list` on a host names what the host's file for this person names, also before a first start |
+| <a id="b148"></a>[B148](B148-Token-Counting-Per-Task.md) | L | - | The broker reads four answer formats, streamed or not, into a per-task `usage/<task>.jsonl` kept after removal: agent, provider, models, five counts (`null` when not reported), tools, how it ended, a reported cost; asks for the streamed Chat Completions count; sums in `task status` and `Usage`. |
+| <a id="b231"></a>[B231](B231-The-Usage-Records-Kept-Off-The-Machine.md) | M | - | `porelo keep <dir>` copies the usage records up to their last complete line, `keep --restore <dir>` puts them back before a task runs and never shortens one. |
 
 ## Implementing
 
@@ -48,8 +50,6 @@ from its side, as *blocked by*.
 |---|---|---|---|
 | <a id="b385"></a>[B385](B385-A-KeePassXC-Key-That-Is-Usable.md) | L | - | `--keepassxc` asks the master password once, a retry takes the key already made, no empty entry left, a clear refusal under `su` or a redirected stderr, aligned exit codes |
 | <a id="b154"></a>[B154](B154-A-Tamper-Evident-Event-Log-Per-Node.md) | L | - | One hash-chained event log per account, anchored in the user's journal, optionally copied off the machine, kept by `porelo clear`; written by approve, reject, clearance, hand-in, credentials and project changes.; part 1 built, the copy off the machine after it |
-| <a id="b148"></a>[B148](B148-Token-Counting-Per-Task.md) | L | - | The broker reads four answer formats, streamed or not, into a per-task `usage/<task>.jsonl` kept after removal: agent, provider, models, five counts (`null` when not reported), tools, how it ended, a reported cost; asks for the streamed Chat Completions count; sums in `task status` and `Usage`. |
-| <a id="b231"></a>[B231](B231-The-Usage-Records-Kept-Off-The-Machine.md) | M | - | `porelo keep <dir>` copies the usage records up to their last complete line, `keep --restore <dir>` puts them back before a task runs and never shortens one. |
 
 ## Backlog
 

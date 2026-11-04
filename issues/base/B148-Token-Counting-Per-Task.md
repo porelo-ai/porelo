@@ -1,6 +1,6 @@
 # B148 — Token Counting Per Task
 
-**Status:** Implementing.
+**Status:** Review.
 **Size:** L - four answer formats read in the broker, streamed and not, a request changed for one of them, a
 per-task record that outlives the task, sums in `task status` and a new daemon method.
 
@@ -159,3 +159,7 @@ scenario and add it as a fixture.
 - Where the count sits in a Code Assist answer, which may wrap Gemini's `usageMetadata` in another object, read from
   a recorded agy stream before step 4.
 - How the interface shows a task's usage.
+- What a real provider's answer does to the record. On 2026-11-04 a real broker carried a real Pi 1.4.0 in a task to a
+  stand-in provider and wrote its record, Chat Completions only; the four formats have otherwise met only answers
+  written from the providers' documentation. Live answers of each format, and Oh My Pi and the other agents through the
+  broker with a record, remain to be seen.

@@ -1,6 +1,6 @@
 # B231 — The Usage Records Kept Off The Machine
 
-**Status:** Implementing.
+**Status:** Review.
 **Size:** M - one command with two directions and their refusals, in one module, but a command line the host's
 playbook in porelo-host runs, which is a contract between repositories.
 
