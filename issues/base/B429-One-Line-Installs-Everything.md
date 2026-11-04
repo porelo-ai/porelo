@@ -1,6 +1,7 @@
 # B429 — One Line Installs Everything
 
-**Status:** Idea.
+**Status:** Backlog.
+**Size:** L - crosses repositories, with an agreed order and one outward removal on the operator's word.
 
 **What must be true.** On Debian and Ubuntu, `sudo apt update && sudo apt install 'porelo*' keepassxc` installs all of
 Porelo and updates it the same way, on every published channel, and stays true: nothing meant only for a test can be
@@ -21,7 +22,11 @@ installed by it, and the build says so when the line stops working.
   moves Porelo on, keeps the old reader and brings no adapter. A first `sudo apt purge porelo-build-github` makes the line
   pass. A check on a fresh machine does not see this case, so the page says it.
 
-## The shape
+## Plan
+
+It touches `.github/workflows/build.yml`, `agents/stub/pom.xml`, `dist/package-check` (`Main`, a new command beside `Install`),
+`doc/getting-started.md` and `doc/running.md`. **Red first:** the new check against today's `snapshots` index.
+
 
 **The stub leaves the channels, and the suite keeps it.**
 
@@ -47,6 +52,10 @@ installed by it, and the build says so when the line stops working.
 - It runs at the end of the Publish job, and on a daily schedule, since another repository's publish can break the line
   and no build of this one would see it.
 
+**What the line brings.** `'porelo*'` brings every agent, the Matrix homeserver and the message transports, as meant. No package starts
+a service by itself, read in each repository's packaging: `porelod` and `porelo-matrix-homeserver` are user units installed and
+not enabled, and no Debian package holds an install script.
+
 **The document.** `doc/getting-started.md` says the same line, once the check is green on `releases`; before that the line
 would be untrue. Its removal lines change with it.
 
@@ -70,15 +79,10 @@ that speaks the reader's newer interface.
 - The check fails when apt cannot be asked or the index cannot be read, and says what it asked and what it got.
 - The acceptance suite, `package-check` and the interface's integration test still find the stub.
 
-## Open questions
-
-- Should Fedora and RHEL get the same promise? `dnf install 'porelo*'` is the same line there, and the check would need an
-  `rpm` runner or container; the decision covers apt.
-- `'porelo*'` also installs every agent, the Matrix homeserver and the message transports. Is that the intent for each?
-
 ## To be checked
 
-- Whether the RPM repository indexes a directory of its own without changing its layout.
+- Whether the RPM repository indexes a directory of its own without changing its layout. The promise covers apt alone, and
+  [B435](README.md#b435) holds rpm's, but the stub's reader takes an `.rpm` as well.
 - Whether such a directory's metadata is signed like the channel's, and whether `dnf --repofrompath` with the key and
   `repo_gpgcheck` checks it.
 - That `apt-get -s` on a runner resolves against the distribution's packages as a person's machine would, and which

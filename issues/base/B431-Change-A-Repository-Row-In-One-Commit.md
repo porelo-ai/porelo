@@ -1,6 +1,7 @@
 # B431 — Change A Repository Row In One Commit
 
-**Status:** Idea.
+**Status:** Backlog.
+**Size:** S - one module's new subcommand and one write in `ProjectFile`, with tests; the file's format does not change.
 
 **What must be true.** A Project Admin changes a row of `project.yml` in one signed commit, and every field the change does
 not name stays as it was.
@@ -11,17 +12,18 @@ not name stays as it was.
 That is two commits, with a moment between them when the row is gone. `add` knows only `upstream`, `central` and `review`,
 so a `description`, `issues` or `agent` written by hand is lost and must be put back by hand.
 
-## The shape
+## Plan
 
-`porelo project repository change PROJECT NAME [--upstream ADDRESS] [--central ADDRESS] [--review required|optional]`
-
-- It goes the way of `add` and `remove`: `ProjectRepositoryCommand` and `ProjectFile`, the same rights, and `--id` and
-  `--base` of the project repository.
-- At least one option is named; a run naming none is a usage error.
-- A name the file does not hold is `not-found`, as `remove` answers.
-- The result is read back through the rules `ProjectReader` holds, so a `central` ending in another name than `upstream` is
-  refused before anything is pushed.
-- A change that alters nothing writes no commit, and says so.
+- **`ProjectRepositoryCommand.Change`,** beside `Add` and `Remove`: `porelo project repository change PROJECT NAME [--upstream ADDRESS]
+  [--central ADDRESS] [--review required|optional]`, the same rights, and `--id` and `--base` of the project repository. Naming
+  none of the options is a usage error.
+- **`ProjectFile.changeRow`,** by the existing `change`: `not-found` for a name the file does not hold, as `remove` answers; the
+  named fields replaced and every other field kept; a subject from `TreeRepository.asked`, so a retry under the same id is
+  the same change. A `central` ending in another name than `upstream` is refused before the commit, by the rule of
+  `ProjectReader.central`, whichever of the two was named. A change altering nothing writes no commit, and says so.
+- **Not here:** taking a `central` away. A row with none is refused on a host; `remove` and `add` still do that.
+- **`doc/commands.md`** names the command.
+- **Red first:** `ProjectFileTest`: a row with `description`, `issues` and `agent` keeps them through a change of `central`.
 
 ## Acceptance
 
@@ -29,8 +31,3 @@ so a `description`, `issues` or `agent` written by hand is lost and must be put 
 - Asked again under the same `--id`, it gives the same answer and no second commit.
 - A `central` ending in another name than `upstream` writes nothing.
 - `doc/commands.md` names the command.
-
-## Open questions
-
-- How a `central` is taken away again: `--no-central`, or not at all, since a row without one is refused on a host.
-- Whether the window's rows offer it. That is the interface's to decide.

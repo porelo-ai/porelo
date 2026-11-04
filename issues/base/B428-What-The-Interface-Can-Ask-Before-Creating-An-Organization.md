@@ -1,6 +1,7 @@
 # B428 — What The Interface Can Ask Before Creating An Organization
 
-**Status:** Idea.
+**Status:** Backlog.
+**Size:** L - many modules and a command an interface builds on, against a forge's real answers. Built in the order of its plan, each part on its own.
 
 **What must be true.** An interface can ask Porelo, changing nothing on the machine or the forge, whether an organization
 can be created at an address, and gets each need's state and its next action in one answer, so a person is led through
@@ -83,6 +84,25 @@ The rights alone do not suffice:
 - **The vault's `git.token.<host>` goes to every https repository on that host**, so a token bound to one organization
   fails on a private repository elsewhere; `credentials declare` for the organization's address keeps them apart.
 
+## Plan
+
+1. **Founding at https.** `OrgCreateCommand` allows it, and says that a machine follows an organization by an ssh key of its own, so
+   none can follow this one, and how to move: `setup --organization ADDRESS --replace`. The interface offers ssh first.
+2. **The card's words.** `IdentityCreateCommand`: the plan first, the public key and the page last. `IdentityShowCommand`: the public
+   key without `--json`.
+3. **KeePassXC's needs.** A class of its own beside `KeePassXcKey`, read by `IdentityCreateCommand` before any password and by
+   `DoctorCommand` as lines that do not make a machine not ready.
+4. **The answer before founding.** `porelo org create ADDRESS --check [--json]` in `OrgCreateCommand`, with the needs in the table above,
+   each by the same call the founding makes: `TreeRepository` for reading and for empty, `HttpForgeDirectory` for the account and
+   the ownership, `IdentityFacts.forgeAnswer` for the listing, at the address asked and not the machine's organization. It writes
+   nothing, and a right nothing can read says "not known until created".
+5. **The login's pattern.** `[a-z][a-z0-9-]{0,31}` is checked in `PersonCard`, `IdentityCreateCommand`, `HostUnlockCommand`,
+   `HostVaultShare` and `TransportLifecycle`. It widens to GitHub's rule after that is read in GitHub's own words. On a host a
+   login is also an account's name, whose own limit may stop it there, so the host's repository is asked first. A howto says the
+   pattern until then.
+
+**Red first,** for each part: its refusal or answer against a stand-in forge.
+
 ## Acceptance
 
 - Each state of each need above, against a stand-in forge, gives its own answer with its next action.
@@ -93,13 +113,6 @@ The rights alone do not suffice:
   KeePassXC's state and files are unchanged.
 - `identity create` run with `--keepassxc` and with `--key` says its plan first and ends with the public key and the page;
   the private half appears nowhere.
-
-## Open questions
-
-- Whether founding at an https address is refused, turned into ssh, or allowed with a word. A machine follows an organization
-  by an ssh key of its own, so it can never follow one at https. Proposed: allowed, with ssh offered first, and `org create`
-  saying at https that no machine can follow it and how to move: `setup --organization ADDRESS --replace`. Refusing stops a
-  person with a token and no machine; turning it silently needs an authentication key they may not have.
 
 ## To be checked
 
