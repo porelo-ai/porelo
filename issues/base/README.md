@@ -45,6 +45,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b426"></a>[B426](B426-A-Persons-Projects-Listed-From-The-Hosts-File.md) | S | - | `porelo project list` on a host names what the host's file for this person names, also before a first start |
 | <a id="b385"></a>[B385](B385-A-KeePassXC-Key-That-Is-Usable.md) | L | - | `--keepassxc` asks the master password once, a retry takes the key already made, no empty entry left, a clear refusal under `su` or a redirected stderr, aligned exit codes |
 | <a id="b154"></a>[B154](B154-A-Tamper-Evident-Event-Log-Per-Node.md) | L | - | One hash-chained event log per account, anchored in the user's journal, optionally copied off the machine, kept by `porelo clear`; written by approve, reject, clearance, hand-in, credentials and project changes.; part 1 built, the copy off the machine after it |
 
