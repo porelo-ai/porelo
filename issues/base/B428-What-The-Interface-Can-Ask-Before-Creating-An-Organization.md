@@ -15,6 +15,16 @@ The normal path starts with keys a person already has, made or kept by hand in t
 organization they already have; nothing here assumes Porelo made the key. Answers name the key by its fingerprint, and a
 person may keep a separate key for logging in.
 
+## Making the card says what it does
+
+A person with no key is pointed at `porelo identity create --keepassxc`, and a person with their own key at `--key`; no
+script does it for them, and no second key is made. For that to be enough:
+
+- **Before it starts, `identity create` says what it will do:** one key, where it will lie, and that no file is written
+  for it.
+- **At its end, it prints the public key and the page to add it:** at GitHub, `https://github.com/settings/ssh/new`.
+- **`identity show` without `--json` prints the public key too.** Today only `--json` answers it.
+
 ## What exists and what is missing
 
 Read in the code, nothing run.
@@ -69,6 +79,8 @@ The rights alone do not suffice:
 - Asking changes nothing: no commit, no push, no file written, and the token appears in no answer.
 - When every need says ready, `org create` succeeds against the same stand-in; when one says not ready, `org create`
   refuses for that same reason.
+- `identity create` run with `--keepassxc` and with `--key` says its plan first and ends with the public key and the page;
+  the private half appears nowhere.
 
 ## To be checked
 
@@ -77,6 +89,8 @@ The rights alone do not suffice:
   owner's is being measured.
 - Whether the permissions in the table are enough, by a real run.
 - Which rights `org add-read-key` needs, by a real run.
+- Which page `identity create` names when the machine has no organization yet, so no forge is known: GitHub's, or GitHub's
+  beside a sentence for any other forge. `--json` keeps answering the same fields, the public key added.
 - Whether that call should send the person's token, which would spend their own limit instead of the address's.
 - Whether the repository API's `permissions` answers the push question for a person's token.
 - What [B414](README.md#b414)'s change to who a first read trusts does to Members: read; the table changes with it.
