@@ -968,7 +968,7 @@ class GitTreeWritesTest {
                             assertThat(ex.reason()).isEqualTo("not-opened");
                             assertThat(ex.getMessage())
                                     .as("project address is refused here too, so it is not named")
-                                    .contains("porelo project open demo")
+                                    .contains("porelo project create-repository demo")
                                     .doesNotContain("project address");
                         });
         assertThat(tip()).as("nothing was written").isEqualTo(before);

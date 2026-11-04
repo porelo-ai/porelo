@@ -36,10 +36,13 @@ public class ProjectAddressCommand extends OrgWriting {
             final Session opened,
             final OrganizationWrites.Change change)
             throws IOException {
-        // Only project open opens a project, so that a first signed commit is there.
+        // Only create-repository gives a project its address, so that a first signed commit is
+        // there.
         if (!filed.of(machine, project)) {
             throw new Refused(
-                    Refused.NOT_OPENED, "the project has no address yet: open it first", null);
+                    Refused.NOT_OPENED,
+                    "the project has no address yet: create its repository first",
+                    null);
         }
         return opened.writes().changeProjectRepository(change, project, address);
     }

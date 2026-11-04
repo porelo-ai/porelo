@@ -239,7 +239,9 @@ public class ProjectRepositoryCommand {
         final String revision = state.revision();
         if (!held.filed()) {
             throw new Refused(
-                    Refused.NOT_OPENED, "the project has no address yet: open it first", revision);
+                    Refused.NOT_OPENED,
+                    "the project has no address yet: create its repository first",
+                    revision);
         }
         return new Place(
                 state.getProjectRepository(project).orElseThrow(), state.signingKeys(project));

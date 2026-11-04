@@ -51,7 +51,7 @@ import picocli.CommandLine;
  * Opening a project. Harm guarded: a repository made where nobody asked for one or public by
  * default, a forge's refusal read as something else, or a first file Porelo itself cannot read.
  */
-class ProjectOpenCommandTest {
+class ProjectCreateRepositoryCommandTest {
 
     @Nested
     class ForgeTests {
@@ -107,7 +107,7 @@ class ProjectOpenCommandTest {
         private static String recorded(final String path) throws IOException {
             final String forge = path.startsWith("/api/v1/") ? "forgejo" : "github";
             try (InputStream recording =
-                    ProjectOpenCommandTest.class.getResourceAsStream(
+                    ProjectCreateRepositoryCommandTest.class.getResourceAsStream(
                             "/forge-answers/" + forge + "-create-repository.json")) {
                 return new String(recording.readAllBytes(), StandardCharsets.UTF_8);
             }
@@ -193,7 +193,7 @@ class ProjectOpenCommandTest {
         assertThat(
                         ProjectReader.read(
                                         new java.io.StringReader(
-                                                ProjectOpenCommand.firstFile("demo")),
+                                                ProjectCreateRepositoryCommand.firstFile("demo")),
                                         "first")
                                 .name())
                 .isEqualTo("demo");
@@ -201,11 +201,15 @@ class ProjectOpenCommandTest {
 
     @Test
     void aProjectsRepositoryStandsBesideTheOrganizationsReachedTheSameWay() {
-        assertThat(ProjectOpenCommand.beside("git@github.com:acme/organization.git", "demo"))
+        assertThat(
+                        ProjectCreateRepositoryCommand.beside(
+                                "git@github.com:acme/organization.git", "demo"))
                 .isEqualTo("git@github.com:acme/demo.git");
-        assertThat(ProjectOpenCommand.beside("ssh://git@forge.example:2222/acme/org/", "demo"))
+        assertThat(
+                        ProjectCreateRepositoryCommand.beside(
+                                "ssh://git@forge.example:2222/acme/org/", "demo"))
                 .isEqualTo("ssh://git@forge.example:2222/acme/demo");
-        assertThat(ProjectOpenCommand.beside("https://forge.example/acme/org", "demo"))
+        assertThat(ProjectCreateRepositoryCommand.beside("https://forge.example/acme/org", "demo"))
                 .isEqualTo("https://forge.example/acme/demo");
     }
 
@@ -237,6 +241,10 @@ class ProjectOpenCommandTest {
         private String acting = "alice";
 
         private int made;
+
+        private String asked = "demo";
+
+        private @Nullable String forgeRefuses;
 
         private boolean stopAfterMaking;
 
@@ -312,7 +320,7 @@ class ProjectOpenCommandTest {
             git(work, "config", "gpg.format", "ssh");
             write("owners.yml", "owners:\n  - login: mia\n    key: \"" + key("mia") + "\"\n");
             commit("mia");
-            for (final String login : List.of("alice", "bob", "carol")) {
+            for (final String login : List.of("mia", "alice", "bob", "carol")) {
                 write(
                         "people/" + login + ".card",
                         PersonCard.write(
@@ -415,8 +423,10 @@ class ProjectOpenCommandTest {
                 reading.opener =
                         (machine, ignored) -> new OrgAccess.Opened(store(machine), identities);
             }
-            if (line.getCommand() instanceof ProjectOpenCommand open) {
-                open.session =
+            if (line.getCommand() instanceof ProjectCreateRepositoryCommand
+                    || line.getCommand() instanceof OrgProjectCommand.Add) {
+                final OrgWriting writing = (OrgWriting) line.getCommand();
+                writing.session =
                         machine ->
                                 new OrgWriting.Session(
                                         new GitTreeWrites(
@@ -429,7 +439,7 @@ class ProjectOpenCommandTest {
                                         new OrganizationWrites.Acting(acting, key(acting)),
                                         keys.get(acting),
                                         projectFile());
-                open.maker =
+                final ProjectCreateRepositoryCommand.Maker making =
                         (machine, origin, name) -> {
                             assertThat(origin.organization())
                                     .as(
@@ -438,9 +448,19 @@ class ProjectOpenCommandTest {
                                     .isEqualTo("acme");
                             assertThat(name)
                                     .as("the forge must make the project the admin asked to open")
-                                    .isEqualTo("demo");
+                                    .isEqualTo(asked);
                             made++;
-                            git(dir, "init", "-q", "--bare", "-b", "main", project.toString());
+                            if (forgeRefuses != null) {
+                                throw new Refused(Refused.CANNOT_SAY, forgeRefuses, null);
+                            }
+                            git(
+                                    dir,
+                                    "init",
+                                    "-q",
+                                    "--bare",
+                                    "-b",
+                                    "main",
+                                    project.resolveSibling(asked + ".git").toString());
                             if (stopAfterMaking) {
                                 stopAfterMaking = false;
                                 throw new Refused(
@@ -449,18 +469,45 @@ class ProjectOpenCommandTest {
                                         null);
                             }
                         };
+                if (line.getCommand() instanceof ProjectCreateRepositoryCommand open) {
+                    open.maker = making;
+                }
+                if (line.getCommand() instanceof OrgProjectCommand.Add add) {
+                    add.maker = making;
+                }
             }
             line.getSubcommands().values().forEach(this::wire);
         }
 
         private int run(final String id, final String base) {
+            return execute(
+                    "project", "create-repository", "demo", "--id", id, "--base", base, "--json");
+        }
+
+        private int execute(final String... arguments) {
             out.getBuffer().setLength(0);
             err.getBuffer().setLength(0);
             final CommandLine line = PoreloCli.commandLine(context());
             line.setOut(new PrintWriter(out));
             line.setErr(new PrintWriter(err));
             wire(line);
-            return line.execute("project", "open", "demo", "--id", id, "--base", base, "--json");
+            return line.execute(arguments);
+        }
+
+        private int addingAndCreating(final String admin, final String id) {
+            asked = "fresh";
+            acting = "mia";
+            return execute(
+                    "org",
+                    "project",
+                    "add",
+                    "fresh",
+                    "--admin",
+                    admin,
+                    "--create-repository",
+                    "--id",
+                    id,
+                    "--json");
         }
 
         private Map<?, ?> answer() {
@@ -528,6 +575,112 @@ class ProjectOpenCommandTest {
             assertThat(tip(organization))
                     .as("a refusal must not change the organization")
                     .isEqualTo(base);
+        }
+
+        @Test
+        void aPersonNamingThemselvesAddsAProjectAndCreatesItsRepositoryInOneStep()
+                throws Exception {
+            assertThat(addingAndCreating("mia", "one-step")).as("what it said: %s", err).isZero();
+
+            assertThat(answer().get("address")).isEqualTo("git@github.com:acme/fresh.git");
+            final OrganizationQuestions state = read();
+            assertThat(state.getProjectRepository("fresh"))
+                    .as("the second part passed the admin check on what the first part made")
+                    .contains("git@github.com:acme/fresh.git");
+            assertThat(
+                            projectFile()
+                                    .read(
+                                            "git@github.com:acme/fresh.git",
+                                            state.signingKeys("fresh"))
+                                    .state())
+                    .as("its first file is signed by its admin, and reads")
+                    .isEqualTo(ProjectFile.READ);
+        }
+
+        @Test
+        void namingAnotherPersonAsAdminWritesNothing() {
+            final String before = tip(organization);
+
+            assertThat(addingAndCreating("alice", "for-another"))
+                    .as("what it said: %s", err)
+                    .isEqualTo(64);
+
+            assertThat(tip(organization)).isEqualTo(before);
+            assertThat(made).as("the forge is not asked either").isZero();
+        }
+
+        @Test
+        void aForgeRefusingHalfwayLeavesTheProjectSaysSoAndTheSameIdFinishesIt() throws Exception {
+            forgeRefuses = "the forge said no";
+
+            assertThat(addingAndCreating("mia", "halfway")).isNotZero();
+
+            assertThat(out.toString() + err)
+                    .as("what stands, why, and how to finish")
+                    .contains("fresh is added")
+                    .contains("the forge said no")
+                    .contains("--id halfway");
+            assertThat(read().getProjectRepository("fresh")).as("not opened yet").isEmpty();
+            final String added = tip(organization);
+
+            forgeRefuses = null;
+            assertThat(addingAndCreating("mia", "halfway")).as("what it said: %s", err).isZero();
+
+            assertThat(read().getProjectRepository("fresh")).isPresent();
+            assertThat(tip(organization))
+                    .as("only the address was still to file")
+                    .isNotEqualTo(added);
+            assertThat(git(organization, "rev-list", "--count", added + "..main")).isEqualTo("1");
+        }
+
+        @Test
+        void askedAgainUnderItsIdTheOneStepChangesNothing() throws Exception {
+            assertThat(addingAndCreating("mia", "twice")).as("what it said: %s", err).isZero();
+            final String tip = tip(organization);
+            final int makes = made;
+
+            assertThat(addingAndCreating("mia", "twice")).as("what it said: %s", err).isZero();
+
+            assertThat(tip(organization)).isEqualTo(tip);
+            assertThat(made).isEqualTo(makes);
+        }
+
+        @Test
+        void aReviewWithoutTheRepositoryIsUsage() {
+            acting = "mia";
+
+            assertThat(
+                            execute(
+                                    "org",
+                                    "project",
+                                    "add",
+                                    "fresh",
+                                    "--admin",
+                                    "mia",
+                                    "--review",
+                                    "required",
+                                    "--json"))
+                    .as("what it said: %s", err)
+                    .isEqualTo(64);
+        }
+
+        @Test
+        void theOldNameStillWorksAndIsNotInTheHelp() throws Exception {
+            final String base = tip(organization);
+
+            assertThat(
+                            execute(
+                                    "project", "open", "demo", "--id", "by-old", "--base", base,
+                                    "--json"))
+                    .as("an interface of an earlier build")
+                    .isZero();
+            opened("by-old");
+
+            assertThat(execute("project", "--help")).isZero();
+            assertThat(out.toString())
+                    .contains("create-repository")
+                    .as("hidden")
+                    .doesNotContainPattern("(?m)^\\s+open\\b");
         }
 
         @Test

@@ -789,7 +789,7 @@ public final class ProjectFile {
                     clone.commit(
                             "",
                             Map.of(PATH, text),
-                            "Open the project",
+                            "Create the project's repository",
                             change.id(),
                             signing,
                             acting,

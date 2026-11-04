@@ -818,8 +818,8 @@ public final class GitTreeWrites implements OrganizationWrites {
         return new Refused(
                 Refused.NOT_OPENED,
                 project
-                        + " has no address yet, so no host can follow it. Its admin opens it with"
-                        + " porelo project open "
+                        + " has no address yet, so no host can follow it. Its admin creates its repository with"
+                        + " porelo project create-repository "
                         + project
                         + ".",
                 null);

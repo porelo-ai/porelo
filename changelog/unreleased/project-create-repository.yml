@@ -1,0 +1,2 @@
+title: "`porelo project create-repository` is what `porelo project open` was, which stays hidden for a release, and `porelo org project add --create-repository` adds a project and creates its repository in one step for its own admin."
+type: changed
