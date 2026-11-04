@@ -1,6 +1,6 @@
 # B148 — Token Counting Per Task
 
-**Status:** Analyzed.
+**Status:** Implementing.
 **Size:** L - four answer formats read in the broker, streamed and not, a request changed for one of them, a
 per-task record that outlives the task, sums in `task status` and a new daemon method.
 

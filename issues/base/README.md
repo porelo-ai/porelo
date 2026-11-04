@@ -48,6 +48,8 @@ from its side, as *blocked by*.
 |---|---|---|---|
 | <a id="b385"></a>[B385](B385-A-KeePassXC-Key-That-Is-Usable.md) | L | - | `--keepassxc` asks the master password once, a retry takes the key already made, no empty entry left, a clear refusal under `su` or a redirected stderr, aligned exit codes |
 | <a id="b154"></a>[B154](B154-A-Tamper-Evident-Event-Log-Per-Node.md) | L | - | One hash-chained event log per account, anchored in the user's journal, optionally copied off the machine, kept by `porelo clear`; written by approve, reject, clearance, hand-in, credentials and project changes.; part 1 built, the copy off the machine after it |
+| <a id="b148"></a>[B148](B148-Token-Counting-Per-Task.md) | L | - | The broker reads four answer formats, streamed or not, into a per-task `usage/<task>.jsonl` kept after removal: agent, provider, models, five counts (`null` when not reported), tools, how it ended, a reported cost; asks for the streamed Chat Completions count; sums in `task status` and `Usage`. |
+| <a id="b231"></a>[B231](B231-The-Usage-Records-Kept-Off-The-Machine.md) | M | - | `porelo keep <dir>` copies the usage records up to their last complete line, `keep --restore <dir>` puts them back before a task runs and never shortens one. |
 
 ## Backlog
 
@@ -80,7 +82,6 @@ from its side, as *blocked by*.
 | <a id="b178"></a>[B178](B178-A-Credential-With-No-Expiry-Said-So.md) | M | - | Storing a credential with no end says so (`vault put`, `vault login`, `ImportCredential`), and `vault list` and `Credentials()` mark it with `noExpiry`. | 0 |
 | <a id="b122"></a>[B122](B122-No-Direct-Chat-Between-Tasks.md) | M | - | Peers at an account accepted only for joined persons: checked at the start, in `talk peers`, in the dispatch and again at the send. | - |
 | <a id="b121"></a>[B121](B121-A-Message-Record-Without-A-Chain.md) | M | `porelo` [B154](README.md#b154) | Drop `previous` and `hash` from `MessageRecord`, remove `porelo talk verify`, its rows and scenario, and update the docs and the decision. | - |
-| <a id="b148"></a>[B148](B148-Token-Counting-Per-Task.md) | L | - | The broker reads four answer formats, streamed or not, into a per-task `usage/<task>.jsonl` kept after removal: agent, provider, models, five counts (`null` when not reported), tools, how it ended, a reported cost; asks for the streamed Chat Completions count; sums in `task status` and `Usage`. | - |
 | <a id="b191"></a>[B191](B191-What-A-Task-Cost-At-List-Prices.md) | L | `porelo` [B148](README.md#b148) | Price files per provider with their date, a task, agent and model priced at list prices, unpriced requests counted, a declared subscription and what it saved, in `task status`, `porelo usage` and `Cost`. | - |
 | <a id="b108"></a>[B108](B108-The-Narrowed-Message-Schema-Enforced.md) | M | - | One JSON Schema the filter enforces and the guide and docs are made from; the host does not check the shape again. | - |
 | <a id="b118"></a>[B118](B118-An-Attached-Agent-Said-At-Rest-Or-Working.md) | M | - | A new `AT_REST` activity, judged from the screen reads the listing already makes with the wake's two-look rule; the stub agent gets an `at_rest`. | - |
@@ -104,7 +105,6 @@ from its side, as *blocked by*.
 | <a id="b200"></a>[B200](B200-A-Varlink-Call-Has-A-Read-Deadline.md) | M | - | A call through `VarlinkClient` to a side that accepted and never answers ends within a stated time with a named error; no contract changes. | 0 |
 | <a id="b179"></a>[B179](B179-A-Code-Beside-Why-A-Release-Cannot-Go.md) | M | - | A code beside `detail` when a release is answered `NOT_DELIVERABLE`, so a client can say what to do per case. | 0 |
 | <a id="b230"></a>[B230](B230-The-Package-Provides-The-Lowest-Agent-Protocol.md) | M | - | The `.deb` and `.rpm` provide `porelo-agent-protocol-<LOWEST>`, held to `AgentProtocol.LOWEST` by a test, so an agent's package refuses only what `porelo` refuses. | 0 |
-| <a id="b231"></a>[B231](B231-The-Usage-Records-Kept-Off-The-Machine.md) | M | `porelo` [B148](README.md#b148) | `porelo keep <dir>` copies the usage records up to their last complete line, `keep --restore <dir>` puts them back before a task runs and never shortens one. | 0 |
 
 ## Accepted
 
