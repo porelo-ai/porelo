@@ -671,6 +671,12 @@ final class TaskMethods {
                     replies.last(answer);
                 });
 
+        final org.fuin.porelo.app.CertificateWaits certificates =
+                new org.fuin.porelo.app.CertificateWaits();
+        server.method(
+                "Certify",
+                (parameters, replies) -> replies.last(certified(certificates, parameters)));
+
         server.method(
                 "Start",
                 (parameters, replies) -> {
@@ -781,6 +787,21 @@ final class TaskMethods {
                                     context,
                                     request(parameters, context),
                                     new org.fuin.porelo.app.StartSteps(progress, sink));
+                    if (flag(parameters, "certify") && replies.streaming()) {
+                        launch.certifyingBy(
+                                certificates,
+                                new org.fuin.porelo.app.CertificateWaits.Asker() {
+                                    @Override
+                                    public void ask(final Map<String, Object> request) {
+                                        progress.stream().send(request);
+                                    }
+
+                                    @Override
+                                    public boolean open() {
+                                        return replies.open();
+                                    }
+                                });
+                    }
                     // A task that already exists is brought back, not created again - the same call
                     // the CLI makes first, so a stopped task answers the same over the socket as at
                     // a terminal.
@@ -1004,5 +1025,29 @@ final class TaskMethods {
     /** Who calls: the account the daemon runs as, which is the only one its socket lets in. */
     private static String account() {
         return System.getProperty("user.name", "");
+    }
+
+    /** Answers a waiting start, on a connection of its own: its first is streaming. */
+    static Map<String, Object> certified(
+            final org.fuin.porelo.app.CertificateWaits waits,
+            final Map<String, Object> parameters) {
+        final String start = text(parameters, "start");
+        final String certificate = empty(parameters, "certificate");
+        final String refused = empty(parameters, "refused");
+        if ((certificate == null) == (refused == null)) {
+            throw new VarlinkException(
+                    INTERFACE + ".Failed",
+                    Map.of(
+                            "message",
+                            "Certify takes a certificate or the words it was refused with"));
+        }
+        final boolean waiting =
+                certificate != null
+                        ? waits.certificate(start, certificate)
+                        : waits.refused(start, java.util.Objects.requireNonNull(refused));
+        if (!waiting) {
+            throw new VarlinkException(INTERFACE + ".NoSuchStart", Map.of("start", start));
+        }
+        return Map.of();
     }
 }

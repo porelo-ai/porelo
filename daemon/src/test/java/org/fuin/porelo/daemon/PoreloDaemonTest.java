@@ -140,6 +140,34 @@ class PoreloDaemonTest {
     }
 
     @Test
+    void certifyingAStartNobodyWaitsForIsItsOwnError(@TempDir Path dir) throws Exception {
+        final PoreloContext context = hooked(dir);
+        servingContext(
+                context,
+                dir,
+                socket -> {
+                    try (VarlinkClient client = new VarlinkClient(socket)) {
+                        assertThatThrownBy(
+                                        () ->
+                                                client.call(
+                                                        PoreloDaemon.INTERFACE + ".Certify",
+                                                        Map.of(
+                                                                "start",
+                                                                "no such start",
+                                                                "refused",
+                                                                "no")))
+                                .hasMessageContaining("NoSuchStart");
+                        assertThatThrownBy(
+                                        () ->
+                                                client.call(
+                                                        PoreloDaemon.INTERFACE + ".Certify",
+                                                        Map.of("start", "no such start")))
+                                .hasMessageContaining("takes a certificate");
+                    }
+                });
+    }
+
+    @Test
     void startBringsBackAStoppedTaskRatherThanCreatingIt(@TempDir Path dir) throws Exception {
 
         // Reported from the interface: Start on a stopped task went down the path that creates a

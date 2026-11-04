@@ -1026,6 +1026,38 @@ public final class TaskLaunch {
         return this;
     }
 
+    /** Where a start through the daemon asks for its certificate, or {@code null}. */
+    private @org.jspecify.annotations.Nullable CertificateWaits certificateWaits;
+
+    private CertificateWaits.@org.jspecify.annotations.Nullable Asker certificateAsker;
+
+    /**
+     * Has the person's computer certify the task's key through an interface, as the daemon's {@code
+     * Start} does when it is asked to.
+     *
+     * @param waits Where the answer arrives.
+     * @param asker How this start asks.
+     * @return This launch.
+     */
+    public TaskLaunch certifyingBy(
+            final CertificateWaits waits, final CertificateWaits.Asker asker) {
+        this.certificateWaits = waits;
+        this.certificateAsker = asker;
+        return this;
+    }
+
+    private TaskCertification.@org.jspecify.annotations.Nullable Certifier remoteCertifier(
+            final java.util.List<String> certifiers) {
+        if (certifyIn != null) {
+            return new StdinCertifier(
+                    certifyIn, java.util.Objects.requireNonNull(certifyOut), certifiers);
+        }
+        return certificateWaits == null
+                ? null
+                : certificateWaits.certifier(
+                        java.util.Objects.requireNonNull(certificateAsker), certifiers);
+    }
+
     /**
      * Shows what a host this machine never met offers, and records its key when a person says it is
      * the one its owner publishes: a trust decision, so it defaults to no and is never taken by
@@ -2029,12 +2061,7 @@ public final class TaskLaunch {
                                     request.task(),
                                     System.getProperty("user.name", ""),
                                     certifiers,
-                                    certifyIn == null
-                                            ? null
-                                            : new StdinCertifier(
-                                                    certifyIn,
-                                                    java.util.Objects.requireNonNull(certifyOut),
-                                                    certifiers),
+                                    remoteCertifier(certifiers),
                                     agentSocket(),
                                     java.time.Clock.systemUTC());
             // A host records each task's certificate and makes its forge token: it starts none
@@ -3554,6 +3581,9 @@ public final class TaskLaunch {
         final java.nio.file.Path file =
                 context.paths().tasks().containerState(container).resolve(TaskState.CERTIFIERS);
         java.nio.file.Files.writeString(file, issued.signers());
+        TaskState.certifiedUntil(
+                context.paths().tasks().containerState(container),
+                issued.certificate().validBefore());
         return new GateWiring.Certified(
                 issued.principal(),
                 file,

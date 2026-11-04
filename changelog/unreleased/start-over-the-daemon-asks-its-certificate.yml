@@ -1,0 +1,2 @@
+title: "The daemon's `Start` can ask the person's own computer for a task's certificate, through `certify` and `Certify`, so an interface can start a task on a host with the agent never forwarded; each task row says `certifiedUntil`."
+type: fixed

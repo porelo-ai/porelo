@@ -168,4 +168,125 @@ class TaskCertifyingTest {
         final String[] fields = Files.readString(dir.resolve(name + ".pub")).strip().split(" ");
         return fields[0] + " " + fields[1];
     }
+
+    @Test
+    void aStartNotesWhenItsCertificateEndsForAListToRead(
+            @org.junit.jupiter.api.io.TempDir java.nio.file.Path state) throws Exception {
+        assertThat(TaskState.certifiedUntil(state)).as("none yet").isEmpty();
+
+        TaskState.certifiedUntil(state, java.time.Instant.parse("2026-11-11T00:00:00Z"));
+        assertThat(TaskState.certifiedUntil(state)).isEqualTo("2026-11-11T00:00:00Z");
+
+        java.nio.file.Files.writeString(state.resolve(TaskState.CERTIFIED_UNTIL), "not an instant");
+        assertThat(TaskState.certifiedUntil(state)).as("what does not read says nothing").isEmpty();
+    }
+
+    /** An agent holding the person's key, for a test to sign through. */
+    private Process agentHolding(final Path socket) throws Exception {
+        final Process agent =
+                new ProcessBuilder("ssh-agent", "-D", "-a", socket.toString())
+                        .redirectErrorStream(true)
+                        .redirectOutput(ProcessBuilder.Redirect.DISCARD)
+                        .start();
+        for (int i = 0; i < 100 && !Files.exists(socket); i++) {
+            Thread.sleep(20);
+        }
+        final ProcessBuilder add =
+                new ProcessBuilder("ssh-add", "-q", dir.resolve("person").toString());
+        add.environment().put("SSH_AUTH_SOCK", socket.toString());
+        assertThat(
+                        add.redirectErrorStream(true)
+                                .redirectOutput(ProcessBuilder.Redirect.DISCARD)
+                                .start()
+                                .waitFor())
+                .isZero();
+        return agent;
+    }
+
+    /** A person's computer answering a start: it signs what it is told, or something else. */
+    private CertificateWaits.Asker answering(
+            final CertificateWaits waits,
+            final String person,
+            final Path socket,
+            final String signedPrincipal) {
+        return new CertificateWaits.Asker() {
+            @Override
+            public void ask(final java.util.Map<String, Object> reply) {
+                final java.util.Map<?, ?> asked = (java.util.Map<?, ?>) reply.get("certify");
+                waits.certificate(
+                        String.valueOf(asked.get("start")),
+                        new AgentCertifier(person, socket)
+                                .certify(
+                                        String.valueOf(asked.get("key")),
+                                        signedPrincipal,
+                                        String.valueOf(asked.get("key_id")),
+                                        java.time.Instant.parse(
+                                                String.valueOf(asked.get("valid_before")))));
+            }
+
+            @Override
+            public boolean open() {
+                return true;
+            }
+        };
+    }
+
+    @Test
+    void aStartIsCertifiedByThePersonsComputerThroughItsWait() throws Exception {
+        final String person = keygen("person");
+        final Path socket = dir.resolve("waited.sock");
+        final Process agent = agentHolding(socket);
+        try {
+            final CertificateWaits waits = new CertificateWaits();
+
+            final TaskCertification.Issued issued =
+                    TaskCertifying.atStart(
+                            "demo",
+                            "fix",
+                            "alice",
+                            List.of(person),
+                            waits.certifier(
+                                    answering(waits, person, socket, "task:demo:fix"),
+                                    List.of(person)),
+                            null,
+                            Clock.systemUTC());
+
+            assertThat(issued).isNotNull();
+            assertThat(issued.certificate().signer()).isEqualTo(person);
+            assertThat(issued.principal()).isEqualTo("task:demo:fix");
+        } finally {
+            agent.destroy();
+        }
+    }
+
+    @Test
+    void aCertificateForAnotherTaskIsRefusedThroughItsWaitToo() throws Exception {
+        final String person = keygen("person");
+        final Path socket = dir.resolve("waited.sock");
+        final Process agent = agentHolding(socket);
+        try {
+            final CertificateWaits waits = new CertificateWaits();
+
+            org.assertj.core.api.Assertions.assertThatThrownBy(
+                            () ->
+                                    TaskCertifying.atStart(
+                                            "demo",
+                                            "fix",
+                                            "alice",
+                                            List.of(person),
+                                            waits.certifier(
+                                                    answering(
+                                                            waits,
+                                                            person,
+                                                            socket,
+                                                            "task:demo:other"),
+                                                    List.of(person)),
+                                            null,
+                                            Clock.systemUTC()))
+                    .isInstanceOf(TaskCertification.Refused.class)
+                    .hasMessageContaining("must name exactly task:demo:fix");
+        } finally {
+            agent.destroy();
+        }
+    }
 }

@@ -335,6 +335,13 @@ task's forge token, and pushes its branch, `porelo/<task>`, itself; the containe
 Porelo runs the helper by its path through `sudo -n`, as
 [the host's contract](hosts.md#a-task-certificate-judged-for-the-host) says.
 
+An interface starts a task on a host through the daemon the same way, with the agent at the person's computer and never
+forwarded. `Start` with `certify: true` and `more` carries one reply `certify`, naming the key, the one principal, the key id,
+the end and the keys that may certify. The interface signs there and answers by `Certify(start, certificate)` on a connection of
+its own, or by `Certify(start, refused)` with its words, and the start checks the certificate as any other. A start waits five
+minutes, or until its stream closes, and then ends as refused, leaving nothing. Each row of `List` and `Watch` says when the
+certificate ends as `certifiedUntil`, for `porelo task certify --host` from that computer before then.
+
 `lastWrote` in the JSON status and the daemon's `Task` is the modification time of `task.log`, an
 ISO-8601 instant, or `""` without a readable log. Ask `Tail(last: 1)` for its last line when showing it.
 `inboxWaiting` counts `.json` files in the host-side `inbox/new`, including for an ended or stopped task;

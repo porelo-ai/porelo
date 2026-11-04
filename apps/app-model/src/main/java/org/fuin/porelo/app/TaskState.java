@@ -38,6 +38,9 @@ public final class TaskState {
     /** The keys a certified task's gate accepts its certificate from, as allowed signers. */
     public static final String CERTIFIERS = "certifiers";
 
+    /** When a certified task's current certificate ends, an instant; read with no vault open. */
+    public static final String CERTIFIED_UNTIL = "certified-until";
+
     static final List<String> DURABLE =
             List.of(
                     org.fuin.porelo.wire.Sidecar.RECORDED_ID,
@@ -52,6 +55,7 @@ public final class TaskState {
                     TaskRunner.HOST_ADDRESS_FILE,
                     TaskCertificates.FILE,
                     CERTIFIERS,
+                    CERTIFIED_UNTIL,
                     "dnsmasq.servers",
                     "ruleset.nft",
                     "sidecar.json",
@@ -72,6 +76,33 @@ public final class TaskState {
      */
     public TaskState(PoreloContext context) {
         this.context = context;
+    }
+
+    /**
+     * Notes when a task's current certificate ends.
+     *
+     * @param state The task's state directory.
+     * @param until When it ends.
+     * @throws IOException If it cannot be written.
+     */
+    public static void certifiedUntil(final Path state, final java.time.Instant until)
+            throws IOException {
+        Files.writeString(state.resolve(CERTIFIED_UNTIL), until.toString());
+    }
+
+    /**
+     * Reads when a task's current certificate ends.
+     *
+     * @param state The task's state directory.
+     * @return When, or {@code ""} when it has none or the note does not read.
+     */
+    static String certifiedUntil(final Path state) {
+        try {
+            return java.time.Instant.parse(Files.readString(state.resolve(CERTIFIED_UNTIL)).strip())
+                    .toString();
+        } catch (IOException | java.time.format.DateTimeParseException ex) {
+            return "";
+        }
     }
 
     /**

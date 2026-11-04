@@ -217,6 +217,11 @@ public class TaskCertifyCommand implements Callable<Integer>, PoreloFactory.Cont
                 err.flush();
                 return 70;
             }
+            final java.nio.file.Path state = context.paths().tasks().containerState(container);
+            if (java.nio.file.Files.isDirectory(state)) {
+                TaskState.certifiedUntil(state, issued.certificate().validBefore());
+                new TaskState(context).save(container);
+            }
             new TaskCertificateRecords(context).keep(name, login, issued.certificate());
             out.println(
                     "certified "

@@ -23,7 +23,7 @@ final class StdinCertifier implements TaskCertification.Certifier {
     static final String REQUEST = "certify";
 
     /** A certificate line is a few hundred bytes. */
-    private static final int MAX_LINE = 16 * 1024;
+    static final int MAX_LINE = 16 * 1024;
 
     private final BufferedReader in;
 

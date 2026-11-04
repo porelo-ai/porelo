@@ -64,6 +64,7 @@ public final class TaskInventory {
      *     {@code null} when it has no gate.
      * @param certified Whether its commits are signed by its own key, certified at its start, and
      *     judged at its gate.
+     * @param certifiedUntil When its current certificate ends, or {@code ""} when it has none.
      */
     public record Task(
             String name,
@@ -98,7 +99,8 @@ public final class TaskInventory {
             String lastWrote,
             int inboxWaiting,
             @Nullable String forgeBranch,
-            boolean certified) {
+            boolean certified,
+            String certifiedUntil) {
 
         /** Creates a task whose commits are not signed by a certified key of its own. */
         public Task(
@@ -167,7 +169,8 @@ public final class TaskInventory {
                     lastWrote,
                     inboxWaiting,
                     forgeBranch,
-                    false);
+                    false,
+                    "");
         }
 
         /** Creates a task whose branch beyond the gate is today's or unknown. */
@@ -784,6 +787,7 @@ public final class TaskInventory {
             map.put("branch", branch == null ? "" : branch);
             map.put("forgeBranch", forgeBranch == null ? "" : forgeBranch);
             map.put("certified", certified);
+            map.put("certifiedUntil", certifiedUntil);
             map.put("since", since);
             map.put("activity", activity.name());
             map.put("lastWrote", lastWrote);
@@ -1283,7 +1287,11 @@ public final class TaskInventory {
                 profile == null ? null : profile.forgeBranchOrToday(),
                 java.nio.file.Files.isRegularFile(
                         (restartTookIt ? context.paths().tasks().taskRecord(summary.name()) : state)
-                                .resolve(TaskState.CERTIFIERS)));
+                                .resolve(TaskState.CERTIFIERS)),
+                TaskState.certifiedUntil(
+                        (restartTookIt
+                                ? context.paths().tasks().taskRecord(summary.name())
+                                : state)));
     }
 
     /**

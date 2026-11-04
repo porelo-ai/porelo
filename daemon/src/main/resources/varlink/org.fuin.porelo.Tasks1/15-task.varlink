@@ -152,6 +152,9 @@ type Task (
   # project's access file admits, and judged at its gate when they arrive. false for a task whose
   # starter's agent held no such key, and for every task started before this field existed.
   certified: bool,
+  # When its current certificate ends, ISO-8601 in UTC, renewed by 'porelo task certify'. "" when it
+  # has none, or for a task started before this field existed.
+  certifiedUntil: string,
   # When the current state began, ISO-8601: a running task since it started, a stopped one since
   # it exited. "" when the runtime could not say - a container that was created and never started
   # has no honest answer. This is what "idle for forty minutes" is arithmetic on; state is not.
@@ -525,6 +528,10 @@ method Start(
   # How long the agent may run, in minutes. Default: 30. On expiry the run is killed and whatever
   # it produced is kept - the exit code is 124 and the log holds what it managed to say.
   minutes: ?int,
+  # Asks the person's own computer for the task's certificate, on a stream only: one continuing reply
+  # may carry certify, answered by Certify on another connection. An interface sends it for a machine
+  # that is not its own, as a host starts no task uncertified and holds no person's agent.
+  certify: ?bool,
   # Streams each step as its own reply, carrying step and no line. Default false: the stream is lines only, as before.
   steps: ?bool
 ) -> (
@@ -532,6 +539,9 @@ method Start(
   line: ?string,
   # One step, on a streamed reply only with steps: true. A reply carries line or step, never both.
   step: ?StartStep,
+  # What a certify: true start asks the person's computer to sign. Answer it by Certify. A reply
+  # carrying it carries nothing else.
+  certify: ?CertifyRequest,
   # Every step, on the final reply when not streamed. Absent when streamed.
   steps: ?[]StartStep,
   # Container name of the started task. Set on the final reply, and only then.
@@ -557,6 +567,27 @@ method Start(
   # Set when the image the container was built from has changed since it was created.
   imageDrift: ?string
 )
+
+# What a start asks a person's computer to certify: the key of the one principal, until the end.
+type CertifyRequest (
+  # The id of this one wait, for Certify.
+  start: string,
+  # The task's public key, ssh-ed25519 AAAA...
+  key: string,
+  # The one principal the certificate names, task:<project>:<task>.
+  principal: string,
+  # The certificate's key id.
+  key_id: string,
+  # When it ends, ISO-8601 in UTC.
+  valid_before: string,
+  # The keys that may certify; empty for a task with no project, which its starter's key certifies.
+  certifiers: []string
+)
+
+# Answers a start waiting for its certificate, with the certificate or with the words it ends with,
+# one of them. What comes back is checked as any other, and the start refuses what does not hold. A
+# start waits five minutes, or until its stream closes. An id no start waits by is NoSuchStart.
+method Certify(start: string, certificate: ?string, refused: ?string) -> ()
 
 # Brings a task's repository at the gate up to its source - the checkout it was started in, or its remote - and,
 # when a branch moved, tells its agent through its mailbox, so 'git fetch porelo' in the task brings it. Starting a
@@ -1050,6 +1081,8 @@ method TakeBack(task: string, name: string) -> (file: HandedFile)
 method HandIns(task: string) -> (record: []HandIn)
 
 # A file goes only to a running task, and only a running task gives one back.
+error NoSuchStart(start: string)
+
 error NotRunning(task: string)
 
 # The file has more bytes than the task's handInLimit. Refused before any byte is kept.
