@@ -12,6 +12,7 @@ jobs:
 
     smoke:
         name: Reachable, authorized, writable
+        if: vars.PORELO_PUBLISH != 'false'
         runs-on: ubuntu-26.04
         timeout-minutes: 15
 

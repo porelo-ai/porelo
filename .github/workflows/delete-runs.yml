@@ -18,6 +18,7 @@ permissions: {}
 jobs:
     delete:
         name: Runs up to ${{ inputs.before }}
+        if: vars.PORELO_PUBLISH != 'false'
         # The only permission this needs, and it is the one that lets it delete.
         permissions:
             actions: write
