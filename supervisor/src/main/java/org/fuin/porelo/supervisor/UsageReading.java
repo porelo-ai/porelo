@@ -373,7 +373,7 @@ final class UsageReading {
     }
 
     private static @Nullable String name(@Nullable Object value) {
-        return value instanceof String text && text.matches("[A-Za-z0-9_./:@+\\-]{1,200}")
+        return value instanceof String text && text.matches("[A-Za-z0-9_./:@+~\\-]{1,200}")
                 ? text
                 : null;
     }

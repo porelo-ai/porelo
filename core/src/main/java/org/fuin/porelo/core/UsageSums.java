@@ -131,7 +131,7 @@ public final class UsageSums {
 
     private static String name(@Nullable Object value) {
         if (value == null) return "unknown";
-        if (!(value instanceof String text) || !text.matches("[A-Za-z0-9_./:@+\\-]{1,200}"))
+        if (!(value instanceof String text) || !text.matches("[A-Za-z0-9_./:@+~\\-]{1,200}"))
             throw new IllegalArgumentException("Invalid usage name");
         return text;
     }

@@ -278,4 +278,16 @@ class TaskUsageTest {
                 .as("days")
                 .isEqualTo(4);
     }
+
+    @Test
+    void aModelNameWithATildeIsSummedUnderItsName(@TempDir Path dir) throws Exception {
+        final Path file = record(context(dir));
+        Files.writeString(
+                file,
+                "{\"time\":\"2026-01-01T22:30:00Z\",\"agent\":\"a\",\"model_answered\":\"~v/m\",\"input\":1}\n");
+
+        final var usage = UsageSums.read(file, ZoneId.of("UTC"));
+
+        assertThat(usage.models().stream().map(UsageSums.Group::name)).containsExactly("~v/m");
+    }
 }

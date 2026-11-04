@@ -253,4 +253,23 @@ class UsageReadingTest {
         assertThat(line.get("reasoning")).as("reasoning").isEqualTo(5L);
         assertThat(line.get("output")).as("output").isEqualTo(5L);
     }
+
+    @Test
+    void aModelNameWithATildeIsKept() {
+        // Seen in a real task: OpenRouter's rolling names start with one, and the model asked for
+        // was lost for every such request.
+        final UsageReading reading =
+                new UsageReading(
+                        "/v1/chat/completions",
+                        "{\"model\":\"~vendor/model-latest\"}".getBytes(StandardCharsets.UTF_8),
+                        false,
+                        true);
+        reading.start(false, 200);
+        feed(reading, "{\"model\":\"~vendor/model-latest\"}");
+
+        final var line = reading.finish(null);
+
+        assertThat(line.get("model_asked")).as("asked").isEqualTo("~vendor/model-latest");
+        assertThat(line.get("model_answered")).as("answered").isEqualTo("~vendor/model-latest");
+    }
 }
