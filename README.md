@@ -57,7 +57,9 @@ Why build this rather than use it? See [why](doc/why.md)
 <tr><td><a href="https://docs.anthropic.com">Anthropic</a></td><td>:white_check_mark:</td></tr>
 <tr><td><a href="https://openrouter.ai">OpenRouter</a></td><td>:white_check_mark:</td></tr>
 <tr><td><a href="https://platform.openai.com">OpenAI</a></td><td>:white_check_mark:</td></tr>
+<tr><td><a href="https://chatgpt.com">ChatGPT sign-in</a></td><td>:white_check_mark:</td></tr>
 <tr><td><a href="https://ai.google.dev">Google</a></td><td>:white_check_mark:</td></tr>
+<tr><td><a href="https://antigravity.google">Google sign-in</a></td><td>:white_check_mark:</td></tr>
 <tr><td><a href="https://github.com/features/copilot">GitHub Copilot</a></td><td>:white_check_mark:</td></tr>
 <tr><td><a href="https://docs.x.ai">xAI</a></td><td>:construction:</td></tr>
 <tr><td><a href="https://z.ai">Zhipu</a></td><td>:construction:</td></tr>
