@@ -135,6 +135,7 @@ from its side, as *blocked by*.
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
 | <a id="b435"></a>[B435](B435-One-Line-Installs-Everything-On-Fedora-And-RHEL.md) | - | - | `dnf install 'porelo*'` installs all of Porelo on Fedora and RHEL, and the build says so when it stops working. |
+| <a id="b436"></a>[B436](B436-A-Published-Bom-Test-Runs-From-A-Clean-Tree.md) | - | - | `PublishedBomTest` needs a generated file, so a targeted test run in a clean tree fails. |
 | <a id="b427"></a>[B427](B427-Org-Create-Says-Why.md) | - | - | A failed `org create` says git's own reason and tells a refused push from an unreachable forge, with nothing the forge said passed on. |
 | <a id="b425"></a>[B425](B425-What-Only-A-Host-Check-Holds.md) | - | - | The build fails if a host's rules stop reaching `porelod` or the gate, which only a host check holds today; a removal with the vault shut says the task's token stays. |
 | <a id="b424"></a>[B424](B424-A-Persons-Forge-Token-Replaced-At-Each-Command.md) | - | - | Nothing a person does with their forge token on a host fails because another command, or `porelod` every 15 minutes, asked for a new one. |
