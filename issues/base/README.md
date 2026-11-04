@@ -38,15 +38,15 @@ from its side, as *blocked by*.
 | <a id="b420"></a>[B420](B420-A-Card-Proposed-From-What-Is-Found.md) | S | - | `identity propose`: login, name, email and key found with their sources, so a person only signs. |
 | <a id="b421"></a>[B421](B421-A-Hosts-Keys-Shown-Before-They-Are-Trusted.md) | XS | - | `credentials trust-host --json` answers a host's keys and records nothing, so a window can ask. |
 | <a id="b214"></a>[B214](B214-A-Vault-Entry-Put-Again-Unchanged.md) | M | - | `vault put` given the value an entry already holds says `unchanged` and exits 0, so a second play reports nothing changed |
+| <a id="b418"></a>[B418](B418-Four-Roles-And-A-Pin-That-Follows-The-Organization-Admins.md) | L | - | Owner, Organization Admin, Machine Admin and Project Admin, each answering for the one below, and a pin that follows the Organization Admins, by the operator's word: a Machine Admin replaced takes effect at the next follow, and one stolen key of that role reaches every server. |
+| <a id="b398"></a>[B398](B398-A-Test-That-Cannot-Reach-The-Persons-Vault.md) | - | - | A test that builds a command the wrong way falls to the real context, and so to the person's vault |
 
 ## Implementing
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
-| <a id="b418"></a>[B418](B418-Four-Roles-And-A-Pin-That-Follows-The-Organization-Admins.md) | L | - | Owner, Organization Admin, Machine Admin and Project Admin, each answering for the one below, and a pin that follows the Organization Admins, by the operator's word: a Machine Admin replaced takes effect at the next follow, and one stolen key of that role reaches every server. |
 | <a id="b385"></a>[B385](B385-A-KeePassXC-Key-That-Is-Usable.md) | L | - | `--keepassxc` asks the master password once, a retry takes the key already made, no empty entry left, a clear refusal under `su` or a redirected stderr, aligned exit codes |
 | <a id="b154"></a>[B154](B154-A-Tamper-Evident-Event-Log-Per-Node.md) | L | - | One hash-chained event log per account, anchored in the user's journal, optionally copied off the machine, kept by `porelo clear`; written by approve, reject, clearance, hand-in, credentials and project changes.; part 1 built, the copy off the machine after it |
-| <a id="b398"></a>[B398](B398-A-Test-That-Cannot-Reach-The-Persons-Vault.md) | - | - | A test that builds a command the wrong way falls to the real context, and so to the person's vault |
 
 ## Backlog
 
@@ -191,12 +191,12 @@ from its side, as *blocked by*.
 | <a id="b251"></a>[B251](B251-Porelo-Inside-A-Lima-VM.md) | - | - | Porelo runs its tasks in a Lima VM on a Mac with the task firewall loaded, or says what the VM lacks, where the Mac probe saw `unshare` refused there |
 | <a id="b252"></a>[B252](B252-A-Sign-In-Collected-On-No-Disk.md) | - | - | A sign-in made in a login container reaches the vault without lying in plaintext on a disk, where today it passes through the container's layer and the host's temporary directory |
 | <a id="b257"></a>[B257](B257-A-Direct-Peer-Reached-Without-A-Conversation.md) | - | - | A project whose peer has only a direct transport address reaches it, or its start is refused naming why, where today the send runs with no account and the transport refuses it |
+| <a id="b333"></a>[B333](B333-Porelod-Prunes-Once-A-Day.md) | - | - | `porelod` prunes once a day by itself: what `prune` removes, plus dangling images, replaced Porelo images no running task uses and volumes without a container; work stays |
 
 ## Estimated
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
-| <a id="b333"></a>[B333](B333-Porelod-Prunes-Once-A-Day.md) | - | - | `porelod` prunes once a day by itself: what `prune` removes, plus dangling images, replaced Porelo images no running task uses and volumes without a container; work stays |
 | <a id="b316"></a>[B316](B316-A-Warning-Only-Where-Something-Is-Wrong.md) | M | - | Porelo warns only where something is wrong: `vault put` knows the names placed projects ask for (`builds.credential`, `credentials:`) and says what an entry is used for; a sweep of the command line's 263 warnings for fine states printed as findings |
 | <a id="b184"></a>[B184](B184-Only-What-Porelo-Delivered-Counts-As-A-Message.md) | M | - | A message in the inbox counts only when the account running Porelo owns it (root inside); the host reads the inbox without following links and names a planted file; the guide and the agent kit check the owner. |
 | <a id="b185"></a>[B185](B185-A-Bound-On-What-A-Task-Writes-To-This-Disk.md) | M | - | The daemon measures a task's box and writable layer and pauses it over `limits.disk` (10 GiB), `limits.mailbox` (256 MiB) or under `limits.disk_free` (2 GiB), each settable in `project.yml`, and says how to go on. |
