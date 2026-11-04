@@ -127,6 +127,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b429"></a>[B429](B429-One-Line-Installs-Everything.md) | - | - | `sudo apt install 'porelo*' keepassxc` installs all of Porelo on every channel and stays true: the test agent leaves the channels, and a check runs the line against the published index. |
 | <a id="b428"></a>[B428](B428-What-The-Interface-Can-Ask-Before-Creating-An-Organization.md) | - | - | An interface can ask, changing nothing, whether an organization can be created at an address: each need's state and next action, and the token's rights named. |
 | <a id="b427"></a>[B427](B427-Org-Create-Says-Why.md) | - | - | A failed `org create` says git's own reason and tells a refused push from an unreachable forge, with nothing the forge said passed on. |
 | <a id="b425"></a>[B425](B425-What-Only-A-Host-Check-Holds.md) | - | - | The build fails if a host's rules stop reaching `porelod` or the gate, which only a host check holds today; a removal with the vault shut says the task's token stays. |
