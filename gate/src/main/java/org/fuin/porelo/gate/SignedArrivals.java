@@ -43,6 +43,8 @@ public final class SignedArrivals {
 
     private final Clock clock;
 
+    private final String keygen;
+
     /**
      * Constructor.
      *
@@ -58,6 +60,18 @@ public final class SignedArrivals {
             Path allowedSigners,
             GitHttpServer.GitProcess git,
             Clock clock) {
+        this(mirror, principal, allowedSigners, git, clock, "ssh-keygen");
+    }
+
+    /** Constructor naming the program that verifies; a test has an older one stand in. */
+    SignedArrivals(
+            Path mirror,
+            String principal,
+            Path allowedSigners,
+            GitHttpServer.GitProcess git,
+            Clock clock,
+            String keygen) {
+        this.keygen = keygen;
         this.mirror = mirror;
         this.principal = principal;
         this.allowedSigners = allowedSigners;
@@ -121,9 +135,9 @@ public final class SignedArrivals {
             final Path payload = dir.resolve("commit");
             Files.write(signature, signed.signature());
             Files.write(payload, signed.payload());
-            final Process process =
+            final ProcessBuilder verifying =
                     new ProcessBuilder(
-                                    "ssh-keygen",
+                                    keygen,
                                     "-Y",
                                     "verify",
                                     "-n",
@@ -134,10 +148,12 @@ public final class SignedArrivals {
                                     allowedSigners.toString(),
                                     "-s",
                                     signature.toString(),
-                                    "-Overify-time=" + arrived + "Z")
+                                    "-Overify-time=" + arrived)
                             .redirectInput(payload.toFile())
-                            .redirectErrorStream(true)
-                            .start();
+                            .redirectErrorStream(true);
+            // The arrival in UTC by the environment: a time ending in Z fails before OpenSSH 9.1.
+            verifying.environment().put("TZ", "UTC");
+            final Process process = verifying.start();
             final String said =
                     new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
             try {

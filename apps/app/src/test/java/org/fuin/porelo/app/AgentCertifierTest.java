@@ -17,6 +17,53 @@ class AgentCertifierTest {
     @TempDir Path dir;
 
     @Test
+    void anOpensshOlderThanNineOneCertifiesInUtc() throws Exception {
+        run(
+                "ssh-keygen",
+                "-q",
+                "-t",
+                "ed25519",
+                "-N",
+                "",
+                "-C",
+                "person",
+                "-f",
+                dir.resolve("person").toString());
+        final String person = keyOnly(Files.readString(dir.resolve("person.pub")));
+        final Path said = dir.resolve("said");
+        final Path older = dir.resolve("older-ssh-keygen");
+        Files.writeString(
+                older,
+                """
+                #!/bin/sh
+                while [ $# -gt 1 ]; do
+                  if [ "$1" = -V ]; then time=$2; fi
+                  shift
+                done
+                case "$time" in
+                  *[zZ]*) echo "Invalid from time \\"$time\\"" >&2; exit 255 ;;
+                esac
+                echo "$TZ $time" > "%s"
+                echo cert > "${1%%.pub}-cert.pub"
+                """
+                        .formatted(said));
+        assertThat(older.toFile().setExecutable(true)).as("the stand-in can run").isTrue();
+
+        final String certificate =
+                new AgentCertifier(person, dir.resolve("agent.sock"), older.toString())
+                        .certify(
+                                person,
+                                "task:demo:fix",
+                                "demo-fix",
+                                java.time.Instant.parse("2031-02-03T04:05:06Z"));
+
+        assertThat(certificate).as("a time ending in Z is refused before 9.1").isEqualTo("cert");
+        assertThat(Files.readString(said))
+                .as("the end as asked, by a clock in UTC whatever this desk's is")
+                .matches("UTC \\d{14}:20310203040506\\n");
+    }
+
+    @Test
     void thePersonsAgentCertifiesTheTaskKeyAndNoKeyFileIsRead() throws Exception {
         run(
                 "ssh-keygen",

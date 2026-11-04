@@ -22,6 +22,8 @@ final class AgentCertifier implements TaskCertification.Certifier {
 
     private final Path agent;
 
+    private final String program;
+
     /**
      * Constructor.
      *
@@ -29,8 +31,20 @@ final class AgentCertifier implements TaskCertification.Certifier {
      * @param agent The agent's socket.
      */
     AgentCertifier(String personKey, Path agent) {
+        this(personKey, agent, "ssh-keygen");
+    }
+
+    /**
+     * Constructor naming the program; a test has an older one stand in.
+     *
+     * @param personKey The person's public key, which certifies.
+     * @param agent The agent's socket, which holds its private half.
+     * @param program What signs, as {@code ssh-keygen} does.
+     */
+    AgentCertifier(String personKey, Path agent, String program) {
         this.personKey = personKey;
         this.agent = agent;
+        this.program = program;
     }
 
     @Override
@@ -48,14 +62,12 @@ final class AgentCertifier implements TaskCertification.Certifier {
             Files.writeString(ca, personKey + "\n", StandardCharsets.US_ASCII);
             Files.writeString(task, key + "\n", StandardCharsets.US_ASCII);
             // A minute back, for a clock that is a little behind on the side that checks.
+            // Both in UTC by the environment: a time ending in Z is refused before OpenSSH 9.1.
             final String window =
-                    WHEN.format(Instant.now().minusSeconds(60))
-                            + "Z:"
-                            + WHEN.format(validBefore)
-                            + "Z";
+                    WHEN.format(Instant.now().minusSeconds(60)) + ":" + WHEN.format(validBefore);
             final ProcessBuilder builder =
                     new ProcessBuilder(
-                                    "ssh-keygen",
+                                    program,
                                     "-q",
                                     "-s",
                                     ca.toString(),
@@ -69,6 +81,7 @@ final class AgentCertifier implements TaskCertification.Certifier {
                                     task.toString())
                             .redirectErrorStream(true);
             builder.environment().put("SSH_AUTH_SOCK", agent.toString());
+            builder.environment().put("TZ", "UTC");
             final Process process = builder.start();
             final String said =
                     new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);

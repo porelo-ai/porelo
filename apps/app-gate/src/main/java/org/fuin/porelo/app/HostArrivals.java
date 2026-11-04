@@ -792,7 +792,7 @@ final class HostArrivals {
                         allowed.toAbsolutePath().toString(),
                         "-s",
                         signature.toAbsolutePath().toString(),
-                        "-Overify-time=" + VERIFY_TIME.format(round.now()) + "Z");
+                        "-Overify-time=" + VERIFY_TIME.format(round.now()));
         if (!found.successful()) {
             return List.of();
         }
@@ -819,7 +819,7 @@ final class HostArrivals {
                                         allowed.toAbsolutePath().toString(),
                                         "-s",
                                         signature.toAbsolutePath().toString(),
-                                        "-Overify-time=" + VERIFY_TIME.format(round.now()) + "Z")
+                                        "-Overify-time=" + VERIFY_TIME.format(round.now()))
                                 .withBinaryInput(signed.payload())
                                 .withChosenEnvironment(keygenEnvironment(environment))
                                 .in(round.scratch()))
@@ -868,7 +868,10 @@ final class HostArrivals {
                 "PATH", path == null || path.isEmpty() ? "/usr/bin:/bin" : path, "LC_ALL", "C");
     }
 
-    /** ssh-keygen's: a time in an allowed-signers option without {@code Z} is read as UTC. */
+    /**
+     * ssh-keygen's: a time without {@code Z} is read as UTC here, on every OpenSSH; one ending in
+     * {@code Z} is refused before 9.1.
+     */
     private static Map<String, String> keygenEnvironment(UnaryOperator<String> environment) {
         final Map<String, String> chosen = new LinkedHashMap<>(base(environment));
         chosen.put("TZ", "UTC");

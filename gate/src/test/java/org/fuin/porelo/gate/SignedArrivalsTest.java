@@ -75,6 +75,36 @@ class SignedArrivalsTest {
     }
 
     @Test
+    void an_openssh_older_than_nine_one_reads_the_arrival_time_in_utc() throws Exception {
+        certify("person", PRINCIPAL, "+1d");
+        final String signed = commit("work", "task-cert.pub", null);
+        final Path older = dir.resolve("older-ssh-keygen");
+        Files.writeString(
+                older,
+                """
+                #!/bin/sh
+                case "$*" in
+                  *verify-time=*[zZ]*) echo 'Invalid "verify-time" option' >&2; exit 255 ;;
+                esac
+                [ "$TZ" = UTC ] || { echo "not in UTC: $TZ" >&2; exit 254; }
+                exec ssh-keygen "$@"
+                """);
+        assertThat(older.toFile().setExecutable(true)).as("the stand-in can run").isTrue();
+
+        assertThat(
+                        new SignedArrivals(
+                                        mirror,
+                                        PRINCIPAL,
+                                        dir.resolve("allowed"),
+                                        new GitSubprocess(),
+                                        Clock.systemUTC(),
+                                        older.toString())
+                                .judge(base, signed))
+                .as("a time ending in Z is refused before OpenSSH 9.1")
+                .isNull();
+    }
+
+    @Test
     void a_commit_is_judged_by_its_arrival_not_by_the_date_it_carries() throws Exception {
         certify("person", PRINCIPAL, "-1h:+1h");
         // Dated inside the certificate's hour, arriving after it: refused, naming the expiry.

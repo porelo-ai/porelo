@@ -1,0 +1,2 @@
+title: "A task's certificate is signed, and a signed commit's arrival is judged, on OpenSSH before 9.1 too: those versions refuse a time ending in Z, which refused every `task start --host` from such a desk and every signed commit on such a host."
+type: fixed

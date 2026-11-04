@@ -802,6 +802,22 @@ class CommitVerifyCommandTest {
     }
 
     @Test
+    void an_openssh_older_than_nine_one_reads_the_arrival_time() throws Exception {
+        final String byPerson = commit(person, "by alice", base);
+        final CommandRunner older =
+                command ->
+                        command.arguments().stream()
+                                        .anyMatch(each -> each.matches("-Overify-time=.*[zZ]"))
+                                ? new org.fuin.porelo.core.process.CommandResult(
+                                        command, 255, "", "Invalid \"verify-time\" option\n")
+                                : runner.run(command);
+
+        assertThat(verifyWith(older, Map.of(), push(base, byPerson, "refs/heads/main")))
+                .as("a time ending in Z is refused before OpenSSH 9.1: %s", err)
+                .isZero();
+    }
+
+    @Test
     void runs_every_ssh_keygen_and_git_from_the_chosen_environment() throws Exception {
         final Path krl = dir.resolve("revoked.krl");
         runner.runOrFail(
