@@ -130,6 +130,7 @@ would change the answer.
 | A machine on a shared server is admitted by a person | a person lets it in, from their client or with `talk admit` on the serving machine; a machine not yet let in starts no task | [entry](#a-machine-on-a-shared-server-is-admitted-by-a-person) |
 | An admitted machine's token may lie in a file | accepted: `talk admit --into` writes it in the clear to a new owner-only file; the interface keeps it in its secrets file instead | [entry](#an-admitted-machines-token-may-lie-in-a-file) |
 | A homeserver's registration token lies on the host that needs it | accepted, a deliberate exception to no token on a server: from the person's vault or asked once, kept in the host's vault | [entry](#a-homeservers-registration-token-lies-on-the-host-that-needs-it) |
+| A socket's registration token is lent under the socket's path | `<entry>.unix:<path>`, derived and named by nobody; accepted: a path proves nothing about who listens | [entry](#a-sockets-registration-token-is-lent-under-the-sockets-path) |
 | The keys of a project's store lie on the host for its life | accepted, a deliberate exception to no token on a server: root-only until `down`, limited to the store's bucket | [entry](#the-keys-of-a-projects-store-lie-on-the-host-for-its-life) |
 | The signed project file names a shared server | homeserver, room, CA and token file come from the project file every machine follows; a machine sets none of them | [entry](#the-signed-project-file-names-a-shared-server) |
 | Only a transport a peer names is polled | a transport no peer names is never polled; a failure is said once | [entry](#only-a-transport-a-peer-names-is-polled) |
@@ -817,6 +818,16 @@ comes along with `porelo host unlock`, from the person's vault or asked once, an
 2026-11-04, not built yet. **The exposure:** whoever opens that vault on the host can register accounts on that homeserver
 until the token changes. **Why it stays:** a deliberate exception to no token on a server, since a task enrolls with nobody
 there to ask. **What would change it:** a homeserver that admits a host without a token.
+
+## A socket's registration token is lent under the socket's path
+
+A host reaches a homeserver elsewhere over a tunnel bound to one socket, and that homeserver registers only with a token,
+so a `unix:` homeserver must be lent one. Its entry is `<entry>.unix:<path>`, derived from the address as a server's is
+from its host, so one server's token never reaches another. Not the room's server, which is a claim in the file and says
+nothing of where the socket leads, and not a name in the project file, which would let the file choose the token.
+**The exposure:** `https` proves the server and a path proves nothing, so whoever can bind that path receives the token.
+**Why it stays:** the person stores it for that path alone, and the tunnel's socket lies where only they can bind. **What
+would change it:** a transport that can tell who listens before it sends the token.
 
 ## The keys of a project's store lie on the host for its life
 

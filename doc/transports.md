@@ -79,13 +79,18 @@ Porelo keeps no list of them:
     "credentials": [{"name": "PORELO_MATRIX_REGISTRATION_TOKEN", "as": "env", "lent": ["setup", "enroll"]}]
 
 On such a verb Porelo looks in the person's vault under the name lower-cased, less `PORELO_`, with `_` as `-`:
-`matrix-registration-token`, with `.<server>` after it, the host of `mail.transports.<scheme>.homeserver`. Only that
+`matrix-registration-token`, with `.<server>` after it, the host of `mail.transports.<scheme>.homeserver`, or that
+setting whole when it is a Unix socket, as `matrix-registration-token.unix:/run/room.sock`. Only that
 entry is lent, never a plain one: a project's file names the homeserver, so a plain entry would go to whatever server
 it chose. What it finds goes into that verb's `secrets` under `name`, and is not kept: a value the verb prints back
 under `secrets` or `account` is dropped, and it stays where the person put it with `porelo vault put`.
 
-- **Only a plain `https` homeserver names a server:** an address with a user part, a query, a fragment or a backslash, or
-  one over `http`, lends nothing, since a client could read it as another host.
+- **Only a plain `https` homeserver or a Unix socket names a server:** an address with a user part, a query, a fragment or
+  a backslash, or one over `http`, lends nothing, since a client could read it as another host. A socket is `unix:` and an
+  absolute path of plain characters, spelled the one way; the token goes only to that path.
+- **A socket proves nothing about who listens:** `https` proves the server, and a path only names a file, so the token
+  reaches whoever holds it. Store one only for a path only you can bind. The room's name plays no part, since it says
+  nothing of where a socket leads.
 - **The name leaves out the port:** two homeservers on one host share an entry, so they are lent the same token.
 - **Nothing found:** `secrets` goes without it, and the transport refuses as it would have (78).
 - **A shut or unreadable vault:** 77, and the transport is not run.
