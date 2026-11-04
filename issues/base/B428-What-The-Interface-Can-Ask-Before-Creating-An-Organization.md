@@ -1,6 +1,6 @@
 # B428 — What The Interface Can Ask Before Creating An Organization
 
-**Status:** Backlog.
+**Status:** Implementing.
 **Size:** L - many modules and a command an interface builds on, against a forge's real answers. Built in the order of its plan, each part on its own.
 
 **What must be true.** An interface can ask Porelo, changing nothing on the machine or the forge, whether an organization
@@ -57,7 +57,7 @@ Read in the code, nothing run.
 ## The rights it names, at GitHub
 
 The default is a fine-grained token whose resource owner is the organization, with access to all its repositories, since
-`project open` makes a repository and pushes to it at once. A new person starts with only a GitHub account, so its steps
+`project create-repository` makes a repository and pushes to it at once. A new person starts with only a GitHub account, so its steps
 come first. Read in the code and in GitHub's permissions page, not yet run:
 
 | Act | Calls with the token | Needs |
@@ -65,7 +65,7 @@ come first. Read in the code and in GitHub's permissions page, not yet run:
 | Any git read or push, gate approval included | git over https | Contents: write |
 | A push touching `.github/workflows` | git over https | Workflows: write; the forge refuses without it |
 | Founding and reading the organization | `GET /orgs/<org>/memberships/<login>` | Members: read |
-| `project open`, for a project with no repository | `POST /orgs/<org>/repos` | Administration: write |
+| `project create-repository`, for a project with no repository | `POST /orgs/<org>/repos` | Administration: write |
 | `org add-read-key` | `GET`, `POST /repos/<org>/<repo>/keys`, with a token on standard input, not the vault's | Administration: write |
 | A person's keys | `<login>.keys`, `/users/<login>/ssh_signing_keys` | No token |
 
