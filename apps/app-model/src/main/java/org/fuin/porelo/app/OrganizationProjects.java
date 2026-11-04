@@ -220,6 +220,18 @@ public final class OrganizationProjects {
     }
 
     /**
+     * Tells whether a project is the organization's here, placed by a start or carried by the host
+     * before one: it goes with the organization, and nobody removes it on this machine.
+     *
+     * @param name The project's name.
+     * @return Whether it is.
+     * @throws IOException When a file that is there does not read.
+     */
+    public boolean organizations(final String name) throws IOException {
+        return find(name) != null || host(name) != null;
+    }
+
+    /**
      * Returns the names of the projects placed here.
      *
      * @return Their names, sorted.

@@ -281,6 +281,10 @@ public class DoctorCommand implements Callable<Integer>, PoreloFactory.ContextAw
                 said.add(project.name() + " (no repository yet)");
                 continue;
             }
+            if (project.carried()) {
+                said.add(project.name() + " (on this host, not started here yet)");
+                continue;
+            }
             said.add(
                     project.name()
                             + " "

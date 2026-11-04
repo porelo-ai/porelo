@@ -242,7 +242,8 @@ public final class ProjectInventory {
         }
 
         /**
-         * Returns this project as a host carries it, before any file of it is here.
+         * Returns this project as a host carries it, before its first take. A file of the same name
+         * written here is not the project's: the take decides, and places the host's over it.
          *
          * @return A copy.
          */
@@ -250,7 +251,7 @@ public final class ProjectInventory {
             return new Summary(
                     name,
                     securityClass,
-                    file,
+                    null,
                     mirror,
                     pending,
                     tasks,
@@ -280,7 +281,10 @@ public final class ProjectInventory {
                     running,
                     prepared,
                     readiness,
-                    distance);
+                    distance,
+                    repositories,
+                    lastUsed,
+                    carried);
         }
 
         /**
@@ -395,9 +399,10 @@ public final class ProjectInventory {
         for (final String name : placed) {
             found.put(name, new Summary(name, null, fileOf(name), null, pendingIn(name), 0, 0));
         }
-        final java.util.Set<String> hosted = hosted();
-        for (final String name : hosted) {
-            found.putIfAbsent(name, new Summary(name, null, fileOf(name), null, 0, 0, 0));
+        final java.util.Set<String> untaken = hosted();
+        untaken.removeAll(placed);
+        for (final String name : untaken) {
+            found.putIfAbsent(name, new Summary(name, null, null, null, 0, 0, 0));
         }
         for (final String name : mirroredNames()) {
             found.put(
@@ -458,32 +463,28 @@ public final class ProjectInventory {
         final Map<String, Instant> used = lastUses();
         return found.values().stream()
                 .sorted(java.util.Comparator.comparing(Summary::name))
+                .map(row -> untaken.contains(row.name()) ? row.asCarried() : row)
                 .map(
                         summary -> {
                             final boolean built = images.contains("porelo/" + summary.name());
                             // The class of the file in force, which a new task starts with; a
                             // task's only where no file is read.
-                            final Summary row =
-                                    summary.classed(classOf(summary.file()))
-                                            .prepared(
-                                                    built,
-                                                    readiness(
-                                                            context,
-                                                            summary.name(),
-                                                            summary.file() == null
-                                                                    ? null
-                                                                    : java.nio.file.Path.of(
-                                                                            summary.file()),
-                                                            built))
-                                            .behind(upstream.get(summary.name()))
-                                            .repositories(repositoriesOf(summary, upstream))
-                                            .lastUsed(
-                                                    used.containsKey(summary.name())
-                                                            ? used.get(summary.name()).toString()
-                                                            : "");
-                            return hosted.contains(row.name()) && row.file() == null
-                                    ? row.asCarried()
-                                    : row;
+                            return summary.classed(classOf(summary.file()))
+                                    .prepared(
+                                            built,
+                                            readiness(
+                                                    context,
+                                                    summary.name(),
+                                                    summary.file() == null
+                                                            ? null
+                                                            : java.nio.file.Path.of(summary.file()),
+                                                    built))
+                                    .behind(upstream.get(summary.name()))
+                                    .repositories(repositoriesOf(summary, upstream))
+                                    .lastUsed(
+                                            used.containsKey(summary.name())
+                                                    ? used.get(summary.name()).toString()
+                                                    : "");
                         })
                 .toList();
     }

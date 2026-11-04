@@ -76,7 +76,7 @@ public class ProjectRemoveCommand
     public Integer call() throws Exception {
         final PrintWriter out = spec.commandLine().getOut();
         final PrintWriter err = spec.commandLine().getErr();
-        if (DefaultProject.is(name) || OrganizationProjects.of(context).find(name) != null) {
+        if (DefaultProject.is(name) || OrganizationProjects.of(context).organizations(name)) {
             return notAllowed(out, err);
         }
         // Read before anything goes: which of this machine's keys the forge holds for it is said at

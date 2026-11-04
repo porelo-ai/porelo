@@ -774,21 +774,73 @@ class ProjectInventoryTest {
                 .noneMatch(line -> line.contains("git ") || line.contains("sudo"));
     }
 
+    private ProjectInventory.Summary row(final ProjectInventory inventory, final String name) {
+        return inventory.projects().stream()
+                .filter(each -> each.name().equals(name))
+                .findFirst()
+                .orElseThrow();
+    }
+
     @Test
-    void aProjectThatHasAFileHereIsNotCarried(@TempDir Path dir) throws IOException {
+    void aProjectTakenHereIsNoLongerCarried(@TempDir Path dir) throws IOException {
         final PoreloContext context = context(dir);
         final ProjectInventory inventory = new ProjectInventory(context);
         inventory.hostFiles = hostFiles(dir, "taken");
-        registry(dir, "taken", Files.writeString(dir.resolve("project.yml"), "project:\n"));
+        PlacedFixture.record(context, "taken");
+        final Path clone = context.paths().projects().organizationClone("taken");
+        Files.createDirectories(clone);
+        Files.writeString(clone.resolve("project.yml"), "project:\n");
 
-        final ProjectInventory.Summary row =
-                inventory.projects().stream()
-                        .filter(each -> each.name().equals("taken"))
-                        .findFirst()
-                        .orElseThrow();
+        final ProjectInventory.Summary row = row(inventory, "taken");
 
         assertThat(row.carried()).isFalse();
-        assertThat(row.file()).isNotNull();
+        assertThat(row.file()).isEqualTo(clone.resolve("project.yml").toString());
+    }
+
+    @Test
+    void aFileOfTheSameNameWrittenHereIsNotTheCarriedProjects(@TempDir Path dir)
+            throws IOException {
+        final ProjectInventory inventory = new ProjectInventory(context(dir));
+        inventory.hostFiles = hostFiles(dir, "shadowed");
+        registry(dir, "shadowed", Files.writeString(dir.resolve("project.yml"), "project:\n"));
+
+        final ProjectInventory.Summary row = row(inventory, "shadowed");
+
+        assertThat(row.carried()).isTrue();
+        assertThat(row.file()).isNull();
+    }
+
+    @Test
+    void measuringItsDistanceKeepsWhatARowHolds() {
+        final ProjectInventory.Summary carried =
+                new ProjectInventory.Summary("foo", null, null, null, 0, 0, 0)
+                        .asCarried()
+                        .lastUsed("2026-11-04T00:00:00Z");
+
+        final ProjectInventory.Summary measured =
+                carried.behind(org.fuin.porelo.gate.UpstreamDistance.Distance.neverChecked());
+
+        assertThat(measured.carried()).isTrue();
+        assertThat(measured.lastUsed()).isEqualTo("2026-11-04T00:00:00Z");
+    }
+
+    @Test
+    void aCarriedProjectIsNoLeftover() {
+        final ProjectInventory.Summary carried =
+                new ProjectInventory.Summary("foo", null, null, null, 0, 0, 0).asCarried();
+
+        assertThat(Prune.orphaned(carried, java.util.Set.of())).isFalse();
+    }
+
+    @Test
+    void aCarriedProjectIsTheOrganizationsToRemove(@TempDir Path dir) throws IOException {
+        final PoreloContext context = context(dir);
+        final OrganizationProjects projects =
+                new OrganizationProjects(
+                        context.paths().projects().organizationProjects(), hostFiles(dir, "foo"));
+
+        assertThat(projects.organizations("foo")).isTrue();
+        assertThat(projects.organizations("other")).isFalse();
     }
 
     @Test

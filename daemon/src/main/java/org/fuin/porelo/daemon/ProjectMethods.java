@@ -55,11 +55,12 @@ final class ProjectMethods {
                         "this machine carries no project of that name for this person");
             }
             taker.take(context, project);
-            final java.nio.file.Path file =
-                    org.fuin.porelo.app.ProjectSource.resolve(context, project).file();
-            return file == null
-                    ? take("", "cannot-say", "the project was read, and its file is not here")
-                    : take(file.toString(), "", "");
+            final org.fuin.porelo.app.ProjectSource.Found found =
+                    org.fuin.porelo.app.ProjectSource.resolve(context, project);
+            // A file of that name written here is not what was taken.
+            return found.outcome() == org.fuin.porelo.app.ProjectSource.Outcome.ORGANIZATION
+                    ? take(String.valueOf(found.file()), "", "")
+                    : take("", "cannot-say", "the project was read, and its file is not here");
         } catch (final org.fuin.porelo.app.ProjectTaking.Refused ex) {
             return take("", ex.reason(), String.valueOf(ex.getMessage()));
         } catch (final java.io.IOException ex) {
@@ -584,7 +585,7 @@ final class ProjectMethods {
             throws java.io.IOException {
         final String name = text(parameters, "name");
         if (org.fuin.porelo.app.DefaultProject.is(name)
-                || org.fuin.porelo.app.OrganizationProjects.of(context).find(name) != null) {
+                || org.fuin.porelo.app.OrganizationProjects.of(context).organizations(name)) {
             throw new VarlinkException(
                     INTERFACE + ".NotAllowed",
                     Map.of(

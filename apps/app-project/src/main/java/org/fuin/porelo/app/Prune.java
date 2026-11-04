@@ -211,6 +211,7 @@ public final class Prune {
      */
     static boolean orphaned(final ProjectInventory.Summary project, final Set<String> running) {
         return !DefaultProject.is(project.name())
+                && !project.carried()
                 && !running.contains(project.name())
                 && (project.file() == null || project.repositories().isEmpty());
     }

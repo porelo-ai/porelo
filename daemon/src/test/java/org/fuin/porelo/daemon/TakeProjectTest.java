@@ -103,6 +103,19 @@ class TakeProjectTest {
     }
 
     @Test
+    void aFileOfTheSameNameWrittenHereIsNotAnswered(@TempDir final Path dir) throws IOException {
+        final PoreloContext context = context(dir);
+        final Path written = context.paths().projects().defaultProjectFile("foo");
+        Files.createDirectories(written.getParent());
+        Files.writeString(written, "project:\n  name: foo\n");
+
+        final Map<String, Object> answer =
+                ProjectMethods.taken(context, "foo", carrying(context, dir), (machine, name) -> {});
+
+        assertThat(answer).containsEntry("file", "").containsEntry("reason", "cannot-say");
+    }
+
+    @Test
     void aNameTheHostDoesNotCarryIsNeverTaken(@TempDir final Path dir) throws IOException {
         final PoreloContext context = context(dir);
 
