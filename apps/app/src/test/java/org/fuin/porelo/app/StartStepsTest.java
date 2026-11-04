@@ -330,4 +330,34 @@ class StartStepsTest {
                         "step      " + events.getFirst().text(),
                         "failed    " + events.getLast().text());
     }
+
+    @Test
+    void aStepAfterTheStatesCleanUpWarnsNothing() throws Exception {
+        final java.io.StringWriter warnings = new java.io.StringWriter();
+        final Path state = java.nio.file.Files.createDirectory(dir.resolve("gone"));
+        final StartSteps steps =
+                new StartSteps(step -> {}, new java.io.PrintWriter(warnings, true));
+        steps.recordIn(state);
+        java.nio.file.Files.delete(state);
+
+        steps.started(StartStep.Step.HELPERS);
+        steps.finish(65);
+
+        assertThat(warnings.toString()).isEmpty();
+    }
+
+    @Test
+    void aStepThatCannotBeWrittenForAnotherReasonStillWarns() throws Exception {
+        final java.io.StringWriter warnings = new java.io.StringWriter();
+        final Path state = java.nio.file.Files.createDirectory(dir.resolve("kept"));
+        java.nio.file.Files.setPosixFilePermissions(
+                state, java.nio.file.attribute.PosixFilePermissions.fromString("r-x------"));
+        final StartSteps steps =
+                new StartSteps(step -> {}, new java.io.PrintWriter(warnings, true));
+        steps.recordIn(state);
+
+        steps.started(StartStep.Step.HELPERS);
+
+        assertThat(warnings.toString()).contains("cannot record the start's step");
+    }
 }

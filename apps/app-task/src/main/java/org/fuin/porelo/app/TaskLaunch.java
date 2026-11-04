@@ -2044,14 +2044,11 @@ public final class TaskLaunch {
             // first, is cleaned up with it.
             if (workspace != null && issued == null && host.present()) {
                 throw new TaskCertification.Refused(
-                        certifiers.isEmpty()
-                                ? "this host starts a task only with a key of its own that you"
-                                        + " certify, and project "
-                                        + project.name()
-                                        + "'s access file names no key that may certify it"
-                                : "this host starts a task only with a key of its own that you"
-                                        + " certify: add the key of your card to your agent"
-                                        + " (ssh-add) and start it again");
+                        TaskCertifying.noCertificate(
+                                project.name(),
+                                request.task(),
+                                System.getProperty("user.name", ""),
+                                certifiers));
             }
             if (workspace != null) {
                 if (issued != null) {

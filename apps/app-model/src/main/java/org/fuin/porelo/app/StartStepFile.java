@@ -41,7 +41,10 @@ final class StartStepFile {
                 Files.deleteIfExists(staged);
             }
         } catch (IOException | RuntimeException ex) {
-            warn(ex);
+            // A refused start's clean-up takes its state, so nobody is left to read the step.
+            if (Files.isDirectory(directory)) {
+                warn(ex);
+            }
         }
     }
 

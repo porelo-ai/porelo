@@ -54,6 +54,39 @@ final class TaskCertifying {
     }
 
     /**
+     * Says why a host starts no task uncertified, and what helps. A person here over ssh or through
+     * an interface holds their key on their own computer, which a host does not forward to: so that
+     * way comes first, whole but for the address.
+     *
+     * @param project The project's name.
+     * @param task The task's name.
+     * @param login Who starts it.
+     * @param certifiers The project's certifiers' keys.
+     * @return The words.
+     */
+    static String noCertificate(
+            String project, String task, String login, List<String> certifiers) {
+        final String refused =
+                "this host starts a task only with a key of its own that you certify";
+        if (certifiers.isEmpty()) {
+            return refused
+                    + ", and project "
+                    + project
+                    + "'s access file names no key that may certify it";
+        }
+        return refused
+                + ". On your own computer, where your agent holds the key of your card, run:"
+                + " porelo task start "
+                + task
+                + " --host "
+                + login
+                + "@<this machine's address> --project "
+                + project
+                + " (an agent on this machine holding that key does as well: ssh-add it and start"
+                + " again)";
+    }
+
+    /**
      * Certifies a task at its start, or answers that it starts uncertified.
      *
      * @param project The project's name, or {@link TaskCertification#NO_PROJECT}.
