@@ -1057,6 +1057,35 @@ class OrgReadingCommandsTest {
     }
 
     @Test
+    void aRowSaysItsCentralAndARowWithoutOneSaysThatToo() throws Exception {
+        opened();
+        projectFile =
+                new ProjectFile.Read(
+                        ProjectFile.READ,
+                        "b".repeat(40),
+                        org.fuin.porelo.core.project.ProjectReader.read(
+                                new java.io.StringReader(
+                                        LOCAL_PROJECT.replace("mine", "demo")
+                                                + "\nrepositories:\n  app:\n    upstream:"
+                                                + " git@github.com:acme/app.git\n    central:"
+                                                + " ssh://git@host.example/demo/app.git\n"
+                                                + "  old:\n    upstream:"
+                                                + " git@github.com:acme/old.git\n"),
+                                "test"),
+                        null);
+
+        assertThat(run("project", "show", "demo", "--json")).as("what it said: %s", err).isZero();
+
+        final List<?> names = (List<?>) field(answer().get("repositories"), "names");
+        assertThat(
+                        names.stream()
+                                .map(row -> String.valueOf(((Map<?, ?>) row).get("central")))
+                                .toList())
+                .as("an empty one is a row a host takes nothing from, which absent would not say")
+                .containsExactly("ssh://git@host.example/demo/app.git", "");
+    }
+
+    @Test
     void aProjectsFileNamesTheAdminWhoseSignatureMakesItRead() throws Exception {
         opened();
         projectFile =

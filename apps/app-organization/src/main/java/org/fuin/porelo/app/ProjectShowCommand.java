@@ -198,21 +198,32 @@ public class ProjectShowCommand extends OrgReading {
     /** A project of one repository names it as its own upstream, with no list of them. */
     private List<Map<String, @Nullable Object>> names(final Project read) {
         if (read.repositories().isEmpty() && read.upstream() != null) {
-            return List.of(name(project, read.upstream(), read.review()));
+            // No row, so nothing a person could give a central to.
+            return List.of(name(project, read.upstream(), read.review(), null));
         }
         return read.repositories().stream()
                 .map(
                         repository ->
-                                name(repository.name(), repository.upstream(), repository.review()))
+                                name(
+                                        repository.name(),
+                                        repository.upstream(),
+                                        repository.review(),
+                                        repository.central() == null ? "" : repository.central()))
                 .toList();
     }
 
     private static Map<String, @Nullable Object> name(
-            final String name, final @Nullable String upstream, final String review) {
+            final String name,
+            final @Nullable String upstream,
+            final String review,
+            final @Nullable String central) {
         final Map<String, @Nullable Object> row = new LinkedHashMap<>();
         row.put("name", name);
         row.put("upstream", upstream);
         row.put("review", review);
+        if (central != null) {
+            row.put("central", central);
+        }
         return row;
     }
 

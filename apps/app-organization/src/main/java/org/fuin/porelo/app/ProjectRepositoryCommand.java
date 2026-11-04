@@ -2,6 +2,7 @@ package org.fuin.porelo.app;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.Map;
 import org.fuin.porelo.core.project.Repository;
 import org.fuin.porelo.organization.OrganizationQuestions;
 import org.fuin.porelo.organization.OrganizationQuestions.Refused;
@@ -19,7 +20,11 @@ import picocli.CommandLine.Parameters;
         mixinStandardHelpOptions = true,
         exitCodeOnInvalidInput = 64,
         description = "Changes the repositories a project's own file names.",
-        subcommands = {ProjectRepositoryCommand.Add.class, ProjectRepositoryCommand.Remove.class})
+        subcommands = {
+            ProjectRepositoryCommand.Add.class,
+            ProjectRepositoryCommand.Change.class,
+            ProjectRepositoryCommand.Remove.class
+        })
 public class ProjectRepositoryCommand {
 
     /**
@@ -99,6 +104,63 @@ public class ProjectRepositoryCommand {
                 final ProjectFile file, final OrganizationWrites.Change change, final Place place)
                 throws IOException {
             return file.add(
+                    change,
+                    place.address(),
+                    place.keys(),
+                    name,
+                    upstream,
+                    central,
+                    review == null ? null : review(review));
+        }
+    }
+
+    /** Changes what a row names. */
+    @Command(
+            name = "change",
+            mixinStandardHelpOptions = true,
+            exitCodeOnInvalidInput = 64,
+            description = "Changes a row of the project's own file and keeps all else it says.")
+    public static class Change extends Changing {
+
+        @Parameters(paramLabel = "PROJECT", description = "The project.")
+        private String project = "";
+
+        @Parameters(paramLabel = "NAME", description = "The repository's name.")
+        private String name = "";
+
+        @Option(names = "--upstream", description = "Its address.")
+        private @Nullable String upstream;
+
+        @Option(names = "--central", description = "Where a host takes it from.")
+        private @Nullable String central;
+
+        @Option(
+                names = "--review",
+                description = "Whether a merge needs another person: required or optional.")
+        private @Nullable String review;
+
+        @Override
+        Map<String, @Nullable Object> answer(final PoreloContext machine) throws IOException {
+            // Before anything is opened: an agent or a forge has nothing to add to wrong use.
+            if (upstream == null && central == null && review == null) {
+                throw new Refused(
+                        Refused.USAGE,
+                        "name what changes: --upstream, --central or --review",
+                        null);
+            }
+            return super.answer(machine);
+        }
+
+        @Override
+        String project() {
+            return project;
+        }
+
+        @Override
+        OrganizationWrites.Written make(
+                final ProjectFile file, final OrganizationWrites.Change change, final Place place)
+                throws IOException {
+            return file.changeRow(
                     change,
                     place.address(),
                     place.keys(),

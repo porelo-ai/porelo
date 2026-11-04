@@ -518,7 +518,7 @@ public final class ProjectReader {
         }
         Repository.refuseAsOption(central, "central");
         final String upstream = text(repository.get("upstream"));
-        if (!upstream.isEmpty() && !lastName(upstream).equals(lastName(central))) {
+        if (!centralFits(central, upstream)) {
             throw new ProjectException(
                     origin
                             + ": 'repositories."
@@ -526,6 +526,18 @@ public final class ProjectReader {
                             + ".central' must end in the repository 'upstream' ends in");
         }
         return central;
+    }
+
+    /**
+     * Tells whether a central address is one a row with this upstream may name: the host's forge
+     * names a repository after its central one, so the two must end alike.
+     *
+     * @param central The central address.
+     * @param upstream The upstream's address, or empty for none.
+     * @return Whether it fits.
+     */
+    public static boolean centralFits(final String central, final String upstream) {
+        return upstream.isEmpty() || lastName(upstream).equals(lastName(central));
     }
 
     private static String lastName(String address) {

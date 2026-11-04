@@ -283,6 +283,135 @@ class ProjectFileTest {
         assertThat(read.project()).isNull();
     }
 
+    private static final String ROW =
+            TEXT
+                    + "  app:\n"
+                    + "    upstream: https://forge.example/acme/app.git\n"
+                    + "    description: the app\n"
+                    + "    issues: [\"B\"]\n"
+                    + "    agent: claude\n";
+
+    private Written changeCentral(final String id, final String central) throws IOException {
+        return file().changeRow(
+                        new Change(new Acting("alice", key("alice")), git("rev-parse", "HEAD"), id),
+                        repo.toString(),
+                        rows(),
+                        "app",
+                        null,
+                        central,
+                        null);
+    }
+
+    @Test
+    void aChangedRowKeepsAllItDoesNotName() throws Exception {
+        commit("project.yml", ROW, "alice");
+
+        changeCentral("give-central", "ssh://git@host.example/foo/app.git");
+
+        final String written = git("show", "HEAD:project.yml");
+        assertThat(written)
+                .as("what the change named is there")
+                .contains("central: ssh://git@host.example/foo/app.git");
+        assertThat(written)
+                .as("what it did not name stays")
+                .contains("upstream: https://forge.example/acme/app.git")
+                .contains("description: the app")
+                .contains("- B")
+                .contains("agent: claude");
+    }
+
+    @Test
+    void askedAgainUnderItsIdAChangeIsTheSameAndNoSecondCommit() throws Exception {
+        commit("project.yml", ROW, "alice");
+        final Written first = changeCentral("once", "ssh://git@host.example/foo/app.git");
+
+        final Written again =
+                file().changeRow(
+                                new Change(new Acting("alice", key("alice")), null, "once"),
+                                repo.toString(),
+                                rows(),
+                                "app",
+                                null,
+                                "ssh://git@host.example/foo/app.git",
+                                null);
+
+        assertThat(again.again()).as("it was made before").isTrue();
+        assertThat(again.revision()).isEqualTo(first.revision());
+        assertThat(git("rev-parse", "HEAD").strip()).isEqualTo(first.revision());
+    }
+
+    @Test
+    void anIdOfAnotherChangeIsRefused() throws Exception {
+        commit("project.yml", ROW, "alice");
+        changeCentral("once", "ssh://git@host.example/foo/app.git");
+
+        assertThatThrownBy(
+                        () ->
+                                file().changeRow(
+                                                new Change(
+                                                        new Acting("alice", key("alice")),
+                                                        null,
+                                                        "once"),
+                                                repo.toString(),
+                                                rows(),
+                                                "app",
+                                                null,
+                                                "ssh://git@host.example/bar/app.git",
+                                                null))
+                .as("a retry under that id asks for something else")
+                .hasMessageContaining("named another change");
+    }
+
+    @Test
+    void aCentralEndingInAnotherNameWritesNothing() throws Exception {
+        commit("project.yml", ROW, "alice");
+        final String before = git("rev-parse", "HEAD");
+
+        assertThatThrownBy(() -> changeCentral("wrong", "ssh://git@host.example/foo/other.git"))
+                .as("a host's forge names a repository after its central one")
+                .hasMessageContaining("must end in");
+
+        assertThat(git("rev-parse", "HEAD")).isEqualTo(before);
+    }
+
+    @Test
+    void aChangeAlteringNothingWritesNoCommitAndSaysSo() throws Exception {
+        commit("project.yml", ROW, "alice");
+        changeCentral("once", "ssh://git@host.example/foo/app.git");
+        final String before = git("rev-parse", "HEAD");
+
+        assertThatThrownBy(() -> changeCentral("twice", "ssh://git@host.example/foo/app.git"))
+                .as("under a new id, and nothing to do")
+                .isInstanceOfSatisfying(
+                        Refused.class,
+                        refused -> assertThat(refused.reason()).isEqualTo(Refused.EXISTS))
+                .hasMessageContaining("says that already");
+
+        assertThat(git("rev-parse", "HEAD")).isEqualTo(before);
+    }
+
+    @Test
+    void aRowTheFileDoesNotHoldIsNotFound() throws Exception {
+        commit("project.yml", ROW, "alice");
+
+        assertThatThrownBy(
+                        () ->
+                                file().changeRow(
+                                                new Change(
+                                                        new Acting("alice", key("alice")),
+                                                        git("rev-parse", "HEAD"),
+                                                        "nowhere"),
+                                                repo.toString(),
+                                                rows(),
+                                                "other",
+                                                null,
+                                                "ssh://git@host.example/foo/other.git",
+                                                null))
+                .isInstanceOfSatisfying(
+                        Refused.class,
+                        refused -> assertThat(refused.reason()).isEqualTo(Refused.NOT_FOUND));
+    }
+
     @Test
     void aProposedRowIsOneSignedChangeThatAFreshReaderAccepts() throws Exception {
         final String base = git("rev-parse", "HEAD");

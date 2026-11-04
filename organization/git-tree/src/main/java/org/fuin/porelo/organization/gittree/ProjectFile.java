@@ -659,6 +659,73 @@ public final class ProjectFile {
     }
 
     /**
+     * Changes what a row names and keeps all else it says. A {@code central} that ends in another
+     * name than the row's {@code upstream} does not read, so nothing is written.
+     *
+     * @param change Who acts, against the project repository's revision, under which id.
+     * @param address The project repository.
+     * @param keys The project's signing keys.
+     * @param name The repository's name.
+     * @param upstream Its address, or {@code null} to keep it.
+     * @param central Where a host takes it from, or {@code null} to keep it.
+     * @param review {@code required} or {@code optional}, or {@code null} to keep it.
+     * @return What it made, or made before under this id.
+     * @throws IOException When something unexpected happened; the change may have been made.
+     */
+    @SuppressWarnings("unchecked")
+    public OrganizationWrites.Written changeRow(
+            final OrganizationWrites.Change change,
+            final String address,
+            final List<SigningKey> keys,
+            final String name,
+            final @Nullable String upstream,
+            final @Nullable String central,
+            final @Nullable String review)
+            throws IOException {
+        final Map<String, String> named = new LinkedHashMap<>();
+        if (upstream != null) {
+            named.put("upstream", upstream);
+        }
+        if (central != null) {
+            named.put("central", central);
+        }
+        if (review != null) {
+            named.put("review", review);
+        }
+        final List<String> asked = new ArrayList<>(List.of(name));
+        named.forEach((field, value) -> asked.add(field + "=" + value));
+        return change(
+                change,
+                address,
+                keys,
+                TreeRepository.asked("Change a repository", asked.toArray(String[]::new)),
+                repositories -> {
+                    if (!repositories.containsKey(name)) {
+                        throw new Refused(Refused.NOT_FOUND, "no such repository", null);
+                    }
+                    final Object held = repositories.get(name);
+                    final Map<String, Object> row =
+                            held == null ? new LinkedHashMap<>() : (Map<String, Object>) held;
+                    if (named.entrySet().stream()
+                            .allMatch(each -> each.getValue().equals(row.get(each.getKey())))) {
+                        throw new Refused(Refused.EXISTS, "the row says that already", null);
+                    }
+                    row.putAll(named);
+                    if (row.get("central") instanceof String next
+                            && row.get("upstream") instanceof String from
+                            && !org.fuin.porelo.core.project.ProjectReader.centralFits(
+                                    next, from)) {
+                        throw new Refused(
+                                Refused.USAGE,
+                                "a central must end in the name its upstream ends in",
+                                null);
+                    }
+                    repositories.put(name, row);
+                    return repositories;
+                });
+    }
+
+    /**
      * Takes a repository out of the file.
      *
      * @param change Who acts, against the project repository's revision, under which id.

@@ -722,6 +722,30 @@ class OrgWritingCommandsTest {
     }
 
     @Test
+    void aChangeNamingNothingIsUsageBeforeAnythingIsOpened() {
+        assertThat(run("project", "repository", "change", "demo", "app", "--json"))
+                .as("nothing to change, and no agent or forge is asked")
+                .isEqualTo(64);
+        assertThat(calls).isEmpty();
+    }
+
+    @Test
+    void aChangeOfAProjectNotPlacedAnswersThePlaceFirst() {
+        assertThat(
+                        run(
+                                "project",
+                                "repository",
+                                "change",
+                                "unknown",
+                                "app",
+                                "--central",
+                                ADDRESS,
+                                "--json"))
+                .isEqualTo(66);
+        assertThat(calls).as("the organization is not written to").isEmpty();
+    }
+
+    @Test
     void aProjectsFileAnswersThePlaceFirstAndNothingOfTheOrganization() {
         assertThat(
                         run(
