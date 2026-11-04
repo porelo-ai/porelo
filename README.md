@@ -56,8 +56,8 @@ Why build this rather than use it? See [why](doc/why.md)
 <tr><th>Provider</th><th>State</th></tr>
 <tr><td><a href="https://docs.anthropic.com">Anthropic</a></td><td>:white_check_mark:</td></tr>
 <tr><td><a href="https://openrouter.ai">OpenRouter</a></td><td>:white_check_mark:</td></tr>
-<tr><td><a href="https://platform.openai.com">OpenAI</a></td><td>:construction:</td></tr>
-<tr><td><a href="https://ai.google.dev">Google</a></td><td>:construction:</td></tr>
+<tr><td><a href="https://platform.openai.com">OpenAI</a></td><td>:white_check_mark:</td></tr>
+<tr><td><a href="https://ai.google.dev">Google</a></td><td>:white_check_mark:</td></tr>
 <tr><td><a href="https://github.com/features/copilot">GitHub Copilot</a></td><td>:white_check_mark:</td></tr>
 <tr><td><a href="https://docs.x.ai">xAI</a></td><td>:construction:</td></tr>
 <tr><td><a href="https://z.ai">Zhipu</a></td><td>:construction:</td></tr>
@@ -70,8 +70,8 @@ Why build this rather than use it? See [why](doc/why.md)
 <tr><th>Agent</th><th>State</th></tr>
 <tr><td><a href="https://github.com/anthropics/claude-code">Claude Code</a></td><td>:white_check_mark:</td></tr>
 <tr><td><a href="https://github.com/earendil-works/pi">Pi</a></td><td>:white_check_mark:</td></tr>
-<tr><td><a href="https://github.com/openai/codex">Codex CLI</a></td><td>:construction:</td></tr>
-<tr><td><a href="https://antigravity.google/cli">Antigravity CLI</a></td><td>:construction:</td></tr>
+<tr><td><a href="https://github.com/openai/codex">Codex CLI</a></td><td>:white_check_mark:</td></tr>
+<tr><td><a href="https://antigravity.google/cli">Antigravity CLI</a></td><td>:white_check_mark:</td></tr>
 <tr><td><a href="https://github.com/github/copilot-cli">GitHub Copilot CLI</a></td><td>:construction:</td></tr>
 <tr><td><a href="https://github.com/xai-org/grok-build">Grok Build</a></td><td>:construction:</td></tr>
 <tr><td><a href="https://github.com/sst/opencode">OpenCode</a></td><td>:construction:</td></tr>
