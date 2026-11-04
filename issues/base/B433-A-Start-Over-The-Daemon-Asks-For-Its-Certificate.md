@@ -1,6 +1,7 @@
 # B433 — A Start Over The Daemon Asks For Its Certificate
 
-**Status:** Idea.
+**Status:** Backlog.
+**Size:** M - one contract change other repositories read, in the daemon and the task's start, with its documents.
 
 **What must be true.** A task can be started on a host through the daemon's `Start`, its key certified by the person's own
 agent at their own computer. The agent is never forwarded.
@@ -18,14 +19,27 @@ certificate.
   with `ForwardAgent=no`. It was named for that host; whether the tasks that then ran there went that way is not recorded
   here.
 
-## The shape
+## Plan
 
-- `Start`'s reply stream asks for the certificate, as `--certify-stdin` asks on a line of its output. The interface checks
-  what `RemoteStart` checks and has the person's agent sign.
-- A reply stream cannot answer, so the certificate comes back by a second call into the waiting start, bound to that one
-  start and limited in time.
-- `Start` stays as it is where nothing asks: a client that gives no certificate gets today's answer.
-- `task certify` over the daemon follows the same way, or a task on a host cannot be renewed from an interface.
+The operator chose this way: `Start` carries the request and the interface signs by the local agent.
+
+- **`Start` gains `certify: ?bool`,** declared in `15-task.varlink`, so an interface sees it as it sees `steps`. With it, and only on a
+  stream, the stream may carry one reply `{"certify": {"start", "key", "principal", "key_id", "valid_before", "certifiers"}}`: the
+  fields `StdinCertifier` asks for, with `start`, a random id made for this one wait.
+- **A new method, `Certify(start, certificate: ?string, refused: ?string)`,** on a connection of its own, as the first is streaming.
+  An unknown or spent `start` is an error and changes nothing. `refused` ends the start with those words.
+- **The daemon's side:** a certifier in `daemon` holding the waits by id, reached through a new `TaskLaunch.certifyingBy`, as
+  `certifyingOver` stays for `--certify-stdin`. The certificate is at most what `StdinCertifier` reads, and
+  `TaskCertification.certify` checks it as any other. A wait ends at five minutes, or when the stream closes, as a refused start,
+  and leaves nothing behind.
+- **The interface's side, with no Porelo needed on that computer:** it checks what `RemoteStart.certify` checks: Ed25519, the one
+  principal, the end, a listed certifier its agent holds. It makes the certificate as `AgentCertifier` does, by `ssh-keygen` and the
+  agent, and the daemon's check still has the last word.
+- **`task certify` over the daemon** follows by the same two steps, a method `CertifyTask(task, project)` streaming the same reply and answered by `Certify`, or a
+  task on a host cannot be renewed from an interface.
+- **Off a host nothing changes for a client that does not send `certify`:** a task whose starter's agent holds no certifier's key still
+  starts uncertified there. An interface sends it for a machine that is not its own.
+- **Red first:** a daemon test: a `Start` with `certify` gets the request, and a good certificate through `CertifyStart` lets it go on.
 
 Not by forwarding: `AllowAgentForwarding no` on a host is meant, and a socket forwarded some other way lets root there sign
 anything with the card's key.
@@ -36,8 +50,3 @@ anything with the card's key.
 - A certificate for another task, another key or more than seven days is refused and starts nothing.
 - A certificate that never comes ends the start by its limit, leaving nothing behind.
 - A second caller cannot answer another's waiting start.
-
-## Open questions
-
-- This way, or an interface running `task start --host` itself, which needs nothing new here and leaves `Start`'s progress
-  behind. This one is proposed.
