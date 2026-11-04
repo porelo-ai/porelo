@@ -94,6 +94,13 @@ The rights alone do not suffice:
 - `identity create` run with `--keepassxc` and with `--key` says its plan first and ends with the public key and the page;
   the private half appears nowhere.
 
+## Open questions
+
+- Whether founding at an https address is refused, turned into ssh, or allowed with a word. A machine follows an organization
+  by an ssh key of its own, so it can never follow one at https. Proposed: allowed, with ssh offered first, and `org create`
+  saying at https that no machine can follow it and how to move: `setup --organization ADDRESS --replace`. Refusing stops a
+  person with a token and no machine; turning it silently needs an authentication key they may not have.
+
 ## To be checked
 
 - Whether a fine-grained token's permissions can be read at all, and if not, what stands in: each call's own answer. A

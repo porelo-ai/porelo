@@ -127,6 +127,9 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b434"></a>[B434](B434-A-Refused-Start-Says-What-Helps-There.md) | - | - | A start a host refuses for want of a certificate names `task start --host` at the person's own computer, not `ssh-add`. |
+| <a id="b433"></a>[B433](B433-A-Start-Over-The-Daemon-Asks-For-Its-Certificate.md) | - | - | The daemon's `Start` asks for the certificate, so an interface can start a task on a host with the agent at the person's computer. |
+| <a id="b432"></a>[B432](B432-The-Daemon-Lists-A-Project-The-Host-Carries.md) | - | - | The daemon's `Projects` names a project the host carries before its first start, as `project list` does. |
 | <a id="b431"></a>[B431](B431-Change-A-Repository-Row-In-One-Commit.md) | - | - | `porelo project repository change` changes a row in one signed commit and keeps the fields it does not name. |
 | <a id="b430"></a>[B430](B430-A-Project-With-No-Git-Repository-Yet.md) | - | - | The command says it creates the project's Git repository instead of "open", and adding a project with yourself as its admin can be one step. |
 | <a id="b429"></a>[B429](B429-One-Line-Installs-Everything.md) | - | - | `sudo apt install 'porelo*' keepassxc` installs all of Porelo on every channel and stays true: the test agent leaves the channels, and a check runs the line against the published index. |
