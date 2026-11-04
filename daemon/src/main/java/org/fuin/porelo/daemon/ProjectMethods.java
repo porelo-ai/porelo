@@ -24,6 +24,53 @@ final class ProjectMethods {
 
     private ProjectMethods() {}
 
+    /** Takes a project as a start does; replaced by a test, which has no forge. */
+    @FunctionalInterface
+    interface Taker {
+        void take(PoreloContext context, String project)
+                throws org.fuin.porelo.app.ProjectTaking.Refused;
+    }
+
+    /**
+     * Takes a project a host carries for this person, for their one act and never for a list: it
+     * fetches, and on a host replaces the person's forge token.
+     *
+     * @param context The machine.
+     * @param project The project's name.
+     * @param projects What the host says.
+     * @param taker How it is taken.
+     * @return The file, or why not: each field empty when it does not apply.
+     */
+    static Map<String, Object> taken(
+            PoreloContext context,
+            String project,
+            org.fuin.porelo.app.OrganizationProjects projects,
+            Taker taker) {
+        try {
+            if (!project.matches(org.fuin.porelo.core.project.Project.NAME_PATTERN)
+                    || projects.host(project) == null) {
+                return take(
+                        "",
+                        "not-carried",
+                        "this machine carries no project of that name for this person");
+            }
+            taker.take(context, project);
+            final java.nio.file.Path file =
+                    org.fuin.porelo.app.ProjectSource.resolve(context, project).file();
+            return file == null
+                    ? take("", "cannot-say", "the project was read, and its file is not here")
+                    : take(file.toString(), "", "");
+        } catch (final org.fuin.porelo.app.ProjectTaking.Refused ex) {
+            return take("", ex.reason(), String.valueOf(ex.getMessage()));
+        } catch (final java.io.IOException ex) {
+            return take("", "cannot-say", "what the host says of the project does not read");
+        }
+    }
+
+    private static Map<String, Object> take(String file, String reason, String words) {
+        return Map.of("file", file, "reason", reason, "words", words);
+    }
+
     /**
      * Registers this area's methods.
      *
@@ -90,6 +137,16 @@ final class ProjectMethods {
                                                     .map(summary -> projectRow(context, summary))
                                                     .toList()));
                 });
+
+        server.method(
+                "TakeProject",
+                (parameters, replies) ->
+                        replies.last(
+                                taken(
+                                        context,
+                                        text(parameters, "project"),
+                                        org.fuin.porelo.app.OrganizationProjects.of(context),
+                                        org.fuin.porelo.app.ProjectTaking::take)));
 
         server.method(
                 "RestoreBackup",

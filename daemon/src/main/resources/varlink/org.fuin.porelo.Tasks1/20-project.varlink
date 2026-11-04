@@ -13,6 +13,10 @@ type Project (
   # absent rather than as a path nothing can read, so a call made with it cannot fail for a
   # reason that looks like a fault in the daemon.
   file: string,
+  # A host carries it for this person and it has no file here yet, so file is "". Nothing fetched
+  # it to say so. TakeProject brings the file, when the person acts on this row; false everywhere
+  # else, and once the file is here.
+  carried: bool,
   # The gate's mirror for it. "" when it has never used the gate.
   mirror: string,
   # How many pushes are waiting for review in that mirror.
@@ -138,6 +142,14 @@ type Removal (
 )
 
 method Projects() -> (projects: []Project)
+
+# Brings the file of a project Project.carried names, as a start would. For a person's act, never
+# for a list: it fetches once, and on a host replaces the person's forge token.
+#
+# A refusal is an answer: file is "", reason is the contract's word, and words say it to a person.
+# On success reason and words are "". A name this machine does not carry for this person is
+# reason "not-carried" and writes nothing.
+method TakeProject(project: string) -> (file: string, reason: string, words: string)
 
 # The same answer, again whenever it changes.
 #

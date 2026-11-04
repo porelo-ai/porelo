@@ -731,4 +731,74 @@ class ProjectInventoryTest {
                             assertThat(summary.repositories()).isEmpty();
                         });
     }
+
+    /** A host's files, as root writes them: a person's list, and a project's own file. */
+    private Path hostFiles(Path dir, String project) throws IOException {
+        final Path files = dir.resolve("host/projects");
+        Files.createDirectories(files);
+        final Path persons = files.resolveSibling("persons");
+        Files.createDirectories(persons);
+        Files.writeString(
+                persons.resolve(System.getProperty("user.name") + ".json"),
+                "{\"projects\": [\"" + project + "\"]}");
+        Files.writeString(
+                files.resolve(project + ".json"),
+                """
+                {"project": "%s", "revision": "56420b3", "address": "git@github.com:acme/%s.git",
+                 "fetch_from": null,
+                 "signing_keys": [{"login": "alice", "role": "admin", "key": "ssh-ed25519 AAAA",
+                                   "valid_from": "2026-11-02", "valid_until": "2028-11-02",
+                                   "revoked_since": null}],
+                 "homeserver": null, "room": null}
+                """
+                        .formatted(project, project));
+        return files;
+    }
+
+    @Test
+    void aProjectTheHostCarriesIsListedBeforeItsFirstStart(@TempDir Path dir) throws IOException {
+        final ProjectInventory inventory = new ProjectInventory(context(dir));
+        inventory.hostFiles = hostFiles(dir, "carried");
+
+        final ProjectInventory.Summary row =
+                inventory.projects().stream()
+                        .filter(each -> each.name().equals("carried"))
+                        .findFirst()
+                        .orElseThrow();
+
+        assertThat(row.carried()).isTrue();
+        assertThat(row.file()).isNull();
+        assertThat(row.asMap()).containsEntry("carried", true).containsEntry("file", "");
+        // A list never takes: taking fetches, and on a host replaces the person's forge token.
+        assertThat(runner.lines())
+                .noneMatch(line -> line.contains("git ") || line.contains("sudo"));
+    }
+
+    @Test
+    void aProjectThatHasAFileHereIsNotCarried(@TempDir Path dir) throws IOException {
+        final PoreloContext context = context(dir);
+        final ProjectInventory inventory = new ProjectInventory(context);
+        inventory.hostFiles = hostFiles(dir, "taken");
+        registry(dir, "taken", Files.writeString(dir.resolve("project.yml"), "project:\n"));
+
+        final ProjectInventory.Summary row =
+                inventory.projects().stream()
+                        .filter(each -> each.name().equals("taken"))
+                        .findFirst()
+                        .orElseThrow();
+
+        assertThat(row.carried()).isFalse();
+        assertThat(row.file()).isNotNull();
+    }
+
+    @Test
+    void aMachineThatIsNoHostCarriesNothing(@TempDir Path dir) throws IOException {
+        final ProjectInventory inventory = new ProjectInventory(context(dir));
+        inventory.hostFiles = dir.resolve("no-such-host/projects");
+
+        assertThat(inventory.projects())
+                .extracting(ProjectInventory.Summary::name)
+                .containsExactly(DefaultProject.NAME);
+        assertThat(inventory.projects()).noneMatch(ProjectInventory.Summary::carried);
+    }
 }

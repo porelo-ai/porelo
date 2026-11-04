@@ -56,6 +56,7 @@ public final class ProjectInventory {
      *     stopped task keeps its workspace and can be resumed - so both numbers are reported rather
      *     than one being inferred from the other.
      * @param lastUsed Latest recorded task start or message event, ISO-8601, or "".
+     * @param carried Whether a host carries it for this person and it has no file here yet.
      */
     public record Summary(
             String name,
@@ -69,7 +70,8 @@ public final class ProjectInventory {
             Readiness readiness,
             org.fuin.porelo.gate.UpstreamDistance.Distance behind,
             List<RepositorySummary> repositories,
-            String lastUsed) {
+            String lastUsed,
+            boolean carried) {
 
         /**
          * Constructor for a project whose image has not been looked for yet.
@@ -102,7 +104,8 @@ public final class ProjectInventory {
                     Readiness.ABSENT,
                     org.fuin.porelo.gate.UpstreamDistance.Distance.neverChecked(),
                     List.of(),
-                    "");
+                    "",
+                    false);
         }
 
         /**
@@ -142,7 +145,8 @@ public final class ProjectInventory {
                     readiness,
                     behind,
                     List.of(),
-                    "");
+                    "",
+                    false);
         }
 
         /**
@@ -166,7 +170,8 @@ public final class ProjectInventory {
                             readiness,
                             behind,
                             repositories,
-                            lastUsed);
+                            lastUsed,
+                            carried);
         }
 
         Summary prepared(boolean built, Readiness state) {
@@ -182,7 +187,8 @@ public final class ProjectInventory {
                     state,
                     behind,
                     repositories,
-                    lastUsed);
+                    lastUsed,
+                    carried);
         }
 
         /**
@@ -208,7 +214,8 @@ public final class ProjectInventory {
                     readiness,
                     behind,
                     named,
-                    lastUsed);
+                    lastUsed,
+                    carried);
         }
 
         /**
@@ -230,7 +237,30 @@ public final class ProjectInventory {
                     readiness,
                     behind,
                     repositories,
-                    used);
+                    used,
+                    carried);
+        }
+
+        /**
+         * Returns this project as a host carries it, before any file of it is here.
+         *
+         * @return A copy.
+         */
+        Summary asCarried() {
+            return new Summary(
+                    name,
+                    securityClass,
+                    file,
+                    mirror,
+                    pending,
+                    tasks,
+                    running,
+                    prepared,
+                    readiness,
+                    behind,
+                    repositories,
+                    lastUsed,
+                    true);
         }
 
         /**
@@ -265,6 +295,7 @@ public final class ProjectInventory {
             map.put("lastUsed", lastUsed);
             map.put("securityClass", securityClass == null ? "" : securityClass);
             map.put("file", file == null ? "" : file);
+            map.put("carried", carried);
             map.put("mirror", mirror == null ? "" : mirror);
             map.put("pending", pending);
             map.put("tasks", tasks);
@@ -306,6 +337,9 @@ public final class ProjectInventory {
     }
 
     private final PoreloContext context;
+
+    /** Where a host's files are; another place only in a test. */
+    Path hostFiles = OrganizationProjects.HOST_FILES;
 
     /**
      * Constructor with the context to read from.
@@ -360,6 +394,10 @@ public final class ProjectInventory {
                         0));
         for (final String name : placed) {
             found.put(name, new Summary(name, null, fileOf(name), null, pendingIn(name), 0, 0));
+        }
+        final java.util.Set<String> hosted = hosted();
+        for (final String name : hosted) {
+            found.putIfAbsent(name, new Summary(name, null, fileOf(name), null, 0, 0, 0));
         }
         for (final String name : mirroredNames()) {
             found.put(
@@ -425,24 +463,48 @@ public final class ProjectInventory {
                             final boolean built = images.contains("porelo/" + summary.name());
                             // The class of the file in force, which a new task starts with; a
                             // task's only where no file is read.
-                            return summary.classed(classOf(summary.file()))
-                                    .prepared(
-                                            built,
-                                            readiness(
-                                                    context,
-                                                    summary.name(),
-                                                    summary.file() == null
-                                                            ? null
-                                                            : java.nio.file.Path.of(summary.file()),
-                                                    built))
-                                    .behind(upstream.get(summary.name()))
-                                    .repositories(repositoriesOf(summary, upstream))
-                                    .lastUsed(
-                                            used.containsKey(summary.name())
-                                                    ? used.get(summary.name()).toString()
-                                                    : "");
+                            final Summary row =
+                                    summary.classed(classOf(summary.file()))
+                                            .prepared(
+                                                    built,
+                                                    readiness(
+                                                            context,
+                                                            summary.name(),
+                                                            summary.file() == null
+                                                                    ? null
+                                                                    : java.nio.file.Path.of(
+                                                                            summary.file()),
+                                                            built))
+                                            .behind(upstream.get(summary.name()))
+                                            .repositories(repositoriesOf(summary, upstream))
+                                            .lastUsed(
+                                                    used.containsKey(summary.name())
+                                                            ? used.get(summary.name()).toString()
+                                                            : "");
+                            return hosted.contains(row.name()) && row.file() == null
+                                    ? row.asCarried()
+                                    : row;
                         })
                 .toList();
+    }
+
+    /**
+     * The projects a host carries for this person, before a first start too. A listing is not the
+     * place to fail over a file, and reading them fetches nothing.
+     */
+    private java.util.Set<String> hosted() {
+        final java.util.Set<String> names = new java.util.LinkedHashSet<>();
+        try {
+            for (final OrganizationProjects.Placed each :
+                    new OrganizationProjects(
+                                    context.paths().projects().organizationProjects(), hostFiles)
+                            .hosted(System.getProperty("user.name"))) {
+                names.add(each.project());
+            }
+        } catch (final java.io.IOException ex) {
+            names.clear();
+        }
+        return names;
     }
 
     /** Reads durable use without asking containers. */

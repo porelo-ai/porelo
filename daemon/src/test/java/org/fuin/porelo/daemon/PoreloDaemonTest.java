@@ -1281,6 +1281,25 @@ class PoreloDaemonTest {
     }
 
     @Test
+    void takingANameThisMachineDoesNotCarryIsAnAnswerAndWritesNothing(@TempDir Path dir)
+            throws Exception {
+        serving(
+                dir,
+                socket -> {
+                    try (VarlinkClient client = new VarlinkClient(socket)) {
+                        final Map<String, Object> answer =
+                                client.call(
+                                        PoreloDaemon.INTERFACE + ".TakeProject",
+                                        Map.of("project", "elsewhere"));
+                        assertThat(answer)
+                                .containsEntry("file", "")
+                                .containsEntry("reason", "not-carried");
+                    }
+                });
+        assertThat(context(dir).paths().projects().organizationProjects()).doesNotExist();
+    }
+
+    @Test
     void listsTheProjectsThisMachineKnowsAbout(@TempDir Path dir) throws Exception {
 
         // The method that makes the gate reachable from an interface: every gate call takes a

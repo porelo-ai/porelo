@@ -712,6 +712,9 @@ porelo project default [list | add ADDRESS [--name=NAME] | remove NAME]
   they are not in. An organization named here and never read yet, and out of
   reach, answers 69 `cannot-say`, though a project of this machine alone would start. `Projects()` and `WatchProjects()` carry `lastUsed`: the latest
   recorded task start or message event here, an ISO-8601 instant, or `""` when none is recorded.
+  They also name a project the host carries for this person before a first start there, with `carried` true and `file`
+  empty, having fetched nothing. `TakeProject(project)` brings its file, when the person acts on that row: it answers `file`,
+  or `reason` and `words`; on a host it replaces the person's forge token, so no list calls it.
   A project's conversation carries `messages.waitsOn` (`"vault"` while the vault is shut, or `""` otherwise)
   beside `messages.waits`, and `messages.vault`, the path of the vault file this daemon checked when
   `messages.waitsOn` is `"vault"`, or `""` otherwise; it identifies this account's vault on this machine.
