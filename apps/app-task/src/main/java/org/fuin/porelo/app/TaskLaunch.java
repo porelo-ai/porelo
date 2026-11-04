@@ -2075,7 +2075,8 @@ public final class TaskLaunch {
                                 project.name(),
                                 request.task(),
                                 System.getProperty("user.name", ""),
-                                certifiers));
+                                certifiers,
+                                java.util.Objects.requireNonNull(workedOn).name()));
             }
             if (workspace != null) {
                 if (issued != null) {

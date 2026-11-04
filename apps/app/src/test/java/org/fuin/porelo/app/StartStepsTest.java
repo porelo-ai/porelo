@@ -338,12 +338,14 @@ class StartStepsTest {
         final StartSteps steps =
                 new StartSteps(step -> {}, new java.io.PrintWriter(warnings, true));
         steps.recordIn(state);
+        steps.started(StartStep.Step.HELPERS);
+        // As a refused start's clean-up does, which leaves the failed step to be written late.
+        java.nio.file.Files.delete(state.resolve("start-step.json"));
         java.nio.file.Files.delete(state);
 
-        steps.started(StartStep.Step.HELPERS);
         steps.finish(65);
 
-        assertThat(warnings.toString()).isEmpty();
+        assertThat(warnings.toString()).as("its state is gone with the start").isEmpty();
     }
 
     @Test
@@ -358,6 +360,23 @@ class StartStepsTest {
 
         steps.started(StartStep.Step.HELPERS);
 
-        assertThat(warnings.toString()).contains("cannot record the start's step");
+        assertThat(warnings.toString())
+                .as("it is still there, so what it lost is said")
+                .contains("cannot record the start's step");
+    }
+
+    @Test
+    void aStateThatIsNoDirectoryIsNotTakenForOneThatIsGone() throws Exception {
+        final java.io.StringWriter warnings = new java.io.StringWriter();
+        final Path state = java.nio.file.Files.writeString(dir.resolve("a-file"), "");
+        final StartSteps steps =
+                new StartSteps(step -> {}, new java.io.PrintWriter(warnings, true));
+        steps.recordIn(state);
+
+        steps.started(StartStep.Step.HELPERS);
+
+        assertThat(warnings.toString())
+                .as("something is in its place, which nobody cleaned up")
+                .contains("cannot record the start's step");
     }
 }

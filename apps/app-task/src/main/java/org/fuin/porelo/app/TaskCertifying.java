@@ -62,13 +62,14 @@ final class TaskCertifying {
      * @param task The task's name.
      * @param login Who starts it.
      * @param certifiers The project's certifiers' keys.
+     * @param repository The repository it is for.
      * @return The words.
      */
     static String noCertificate(
-            String project, String task, String login, List<String> certifiers) {
+            String project, String task, String login, List<String> certifiers, String repository) {
         final String refused =
                 "this host starts a task only with a key of its own that you certify";
-        if (certifiers.isEmpty()) {
+        if (certifiers.isEmpty() && !TaskCertification.NO_PROJECT.equals(project)) {
             return refused
                     + ", and project "
                     + project
@@ -82,6 +83,8 @@ final class TaskCertifying {
                 + login
                 + "@<this machine's address> --project "
                 + project
+                + " --repository "
+                + repository
                 + " (an agent on this machine holding that key does as well: ssh-add it and start"
                 + " again)";
     }

@@ -40,11 +40,11 @@ final class StartStepFile {
             } finally {
                 Files.deleteIfExists(staged);
             }
+        } catch (NoSuchFileException ex) {
+            // A refused start's clean-up took its state, so nobody is left to read the step.
+            return;
         } catch (IOException | RuntimeException ex) {
-            // A refused start's clean-up takes its state, so nobody is left to read the step.
-            if (Files.isDirectory(directory)) {
-                warn(ex);
-            }
+            warn(ex);
         }
     }
 

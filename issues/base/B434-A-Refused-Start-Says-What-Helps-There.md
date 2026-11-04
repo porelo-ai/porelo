@@ -1,6 +1,6 @@
 # B434 — A Refused Start Says What Helps There
 
-**Status:** Implementing.
+**Status:** Review.
 **Size:** S - one refusal's words and one file's writing, with their tests; no contract other repositories read.
 
 **What must be true.** A start a host refuses for want of a certificate says what helps the person where they are.
