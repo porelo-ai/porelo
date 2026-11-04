@@ -1,6 +1,6 @@
 # B433 — A Start Over The Daemon Asks For Its Certificate
 
-**Status:** Implementing.
+**Status:** Review.
 **Size:** M - one contract change other repositories read, in the daemon and the task's start, with its documents.
 
 **What must be true.** A task can be started on a host through the daemon's `Start`, its key certified by the person's own
@@ -50,3 +50,6 @@ anything with the card's key.
 - A certificate for another task, another key or more than seven days is refused and starts nothing.
 - A certificate that never comes ends the start by its limit, leaving nothing behind.
 - A second caller cannot answer another's waiting start.
+
+**Shown so far.** On the test VM, by `task-certified-by-the-person.feature`: a real daemon asks, a key outside it signs, the task runs certified and says when
+that ends, and a refusal starts nothing. That machine is no host: the first acceptance line, against a host with its helper, wants a host.
