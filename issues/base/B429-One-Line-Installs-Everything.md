@@ -16,6 +16,11 @@ installed by it, and the build says so when the line stops working.
   package at a time, and each repository publishes into the same channel on its own, so two packages that conflict are
   seen only by the person who types the line.
 
+- **A machine that holds the old GitHub reader stays refused even after the package leaves the index**, as measured: the
+  glob also selects the installed `porelo-build-github`, and it conflicts with `porelo-adapter-github`. `apt-get upgrade`
+  moves Porelo on, keeps the old reader and brings no adapter. A first `sudo apt purge porelo-build-github` makes the line
+  pass. A check on a fresh machine does not see this case, so the page says it.
+
 ## The shape
 
 **The stub leaves the channels, and the suite keeps it.**
@@ -42,11 +47,15 @@ installed by it, and the build says so when the line stops working.
 **The document.** `doc/getting-started.md` says the same line, once the check is green on `releases`; before that the line
 would be untrue. Its removal lines change with it.
 
+`doc/running.md` names `porelo-build-github` as the GitHub reader; it then names `porelo-adapter-github`, which needs a Porelo
+that speaks the reader's newer interface.
+
 ## Order
 
 1. The stub's new place, agreed and in use by its reader.
 2. The stub gone from the upload, then from the index.
-3. The other package in `snapshots` that conflicts gone from the index, which that package's repository owns.
+3. The other package that conflicts gone from `snapshots`, which that package's repository owns. From `releases` only once
+   the adapter and a Porelo speaking its interface are released there, or that channel has no GitHub reader.
 4. The check on, once it can be green.
 5. The document.
 
@@ -54,6 +63,7 @@ would be untrue. Its removal lines change with it.
 
 - `apt-get -s install 'porelo*'` passes on both published indexes, and its output holds no `porelo-agent-stub`.
 - The check has been seen red: today's `snapshots` index fails it, by a conflict between two packages.
+- A re-run of an old build that publishes the old reader again turns the check red.
 - The check fails when apt cannot be asked or the index cannot be read, and says what it asked and what it got.
 - The acceptance suite, `package-check` and the interface's integration test still find the stub.
 
