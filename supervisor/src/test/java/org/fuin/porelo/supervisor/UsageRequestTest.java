@@ -96,4 +96,19 @@ class UsageRequestTest {
 
         assertThat(request.asked()).isTrue();
     }
+
+    @Test
+    void aRequestThatAlreadyAsksForItsCountGoesAsItCame() {
+        // The agents speaking this format ask themselves, so nothing is gained by writing their
+        // request anew, and a client's spacing and numbers would be the broker's to get wrong.
+        final byte[] body =
+                "{ \"stream\": true, \"stream_options\": { \"include_usage\": true }, \"seed\": 1.0 }"
+                        .getBytes(StandardCharsets.UTF_8);
+
+        final var request = UsageRequest.prepare("POST", "/chat/completions", body, null, true);
+
+        assertThat(request.body()).as("the bytes").isEqualTo(body);
+        assertThat(request.rewritten()).as("rewritten").isFalse();
+        assertThat(request.asked()).as("the broker asked for nothing").isFalse();
+    }
 }

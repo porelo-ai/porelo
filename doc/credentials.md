@@ -82,7 +82,7 @@ they are never added across chunks. Cost retains the reported member name (`cost
 `cost_in_usd_ticks`) and a decimal string in that member's unit.
 
 For a streamed Chat Completions JSON request, the broker sets `stream_options.include_usage` to
-`true`, including when the agent set it to `false`. Other stream options survive. A changed compressed
+`true`, including when the agent set it to `false`; one that says `true` already goes as it came. Other stream options survive. A changed compressed
 request is sent as plain JSON with its length recalculated; a non-JSON request stays untouched.
 The model asked for is left unknown for a request over 1 MiB.
 A provider file can set `stream_usage: false` to leave those requests alone and record unknown counts

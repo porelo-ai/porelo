@@ -54,6 +54,10 @@ record UsageRequest(byte[] body, byte[] plain, boolean asked, boolean rewritten)
                             instanceof Map<?, ?> root)
                     || !Boolean.TRUE.equals(root.get("stream")))
                 return new UsageRequest(body, plain, false, false);
+            // The request asks already: nothing is gained by writing it anew.
+            if (root.get("stream_options") instanceof Map<?, ?> given
+                    && Boolean.TRUE.equals(given.get("include_usage")))
+                return new UsageRequest(body, plain, false, false);
             final Map<String, Object> changed = copy(root);
             final Map<String, Object> options =
                     root.get("stream_options") instanceof Map<?, ?> map

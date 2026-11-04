@@ -144,8 +144,12 @@ scenario and add it as a fixture.
 
 ## To be checked
 
-- That the stub, the Pi family and each agent speaking Chat Completions take the extra usage chunk, measured before
-  step 3 ships.
+- That a provider's refusal of the field is survivable. Measured against a stand-in provider, not a live one: Pi 1.4.0
+  and Oh My Pi 18.12.1 send `stream_options.include_usage: true` themselves on every Chat Completions request (under
+  `openrouter`, `github-copilot` and, for Pi, `zai`), finish with or without the usage chunk, and on a 400 naming the
+  field stop with exit 1 after that one request, retrying nothing. So the broker adds no chunk for them and a refusal
+  would fail them with or without Porelo. Oh My Pi under `openrouter` speaks `/responses`, and under `zai` Messages. The
+  stub, Claude Code, Codex and agy speak no Chat Completions by their definitions, so step 3 changes nothing for them.
 - Whether xAI, Zhipu, Copilot and Gemini's `/v1beta/openai` accept `stream_options.include_usage` and report the
   count, measured in [P07](../providers/README.md#p07) and [P08](../providers/README.md#p08)'s live scenarios and for
   Copilot with a live request.
