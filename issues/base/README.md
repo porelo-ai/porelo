@@ -151,7 +151,6 @@ from its side, as *blocked by*.
 | <a id="b384"></a>[B384](B384-A-Start-That-Waits-For-Its-Helpers.md) | S | - | A start and a resume wait for their helpers and fail with 70 when one does not come up, a host's refusals come before the resume record, and a racing start stops only its own task |
 | <a id="b380"></a>[B380](B380-Small-Edge-Cases-Left-By-Readings-And-Fixes.md) | - | - | The small edge cases readings and fixes left, gathered to be placed |
 | <a id="b365"></a>[B365](B365-The-Providers-Usage-Answered-In-One-Form.md) | M | - | `porelo usage` answers each provider's allowance left in one form, per machine, account and window, with a threshold that marks a window critical |
-| <a id="b364"></a>[B364](B364-A-Test-Run-With-Its-Own-Temp-Directory.md) | S | - | Each test JVM gets a temp directory of its own under its module's `target/`, so two suites on one machine never see each other's scratch files |
 | <a id="b360"></a>[B360](B360-The-Persons-Own-Files-Read-Only-As-Themselves.md) | M | - | Every file Porelo keeps in the person's configuration and state directories is read and written only as itself, never through a link or another account's directory |
 | <a id="b359"></a>[B359](B359-A-Trust-Record-That-Keeps-Who-Could-Sign-When.md) | M | - | The organization's trust record keeps who could sign at each change, so its check judges every signer as the walk does |
 | <a id="b357"></a>[B357](B357-Build2-Waits-60-Seconds-When-The-Forge-Names-No-Wait.md) | S | - | When a forge names no wait, `Build2.RateLimited` answers `retryAfter: 60`, as `Review1` does, not 0 |
@@ -388,6 +387,7 @@ from its side, as *blocked by*.
 | <a id="b381"></a>B381 | S | - | A racing start stopping only its own task is not built on its own: it is part of [B384](#b384). |
 | <a id="b386"></a>B386 | S | - | A project access contract without guessing is not built: `project access` and access repositories are gone; the organization's writes and `project verify` have their own contracts. |
 | <a id="b374"></a>B374 | S | - | A registry commit split as git splits it is not built: the two splitters are gone with the registry, and the organization's commits are verified by git itself (`TreeRepository`). |
+| <a id="b364"></a>B364 | S | - | A test run with its own temp directory is not built: only the removed `ProjectAccessCommandTest` showed the fault, and no test lists the shared temp directory now. |
 | <a id="b332"></a>B332 | XS | - | A follow listing the keys it pinned is not built: following by hand is gone, and with it `following --json`; a host follows what the organization has it carry. |
 | <a id="b331"></a>B331 | S | - | A follow taking the access file from a bundle is gone: following by hand went with the cut, and a host follows what the organization has it carry. |
 | <a id="b330"></a>B330 | - | - | A snippet file read from the commit being applied is not built on its own: `Reconcile` is gone, and `ProjectFile` reads a snippet from the pinned commit. |
