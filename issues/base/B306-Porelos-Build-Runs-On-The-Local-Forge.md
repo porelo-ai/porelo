@@ -54,13 +54,13 @@ Steps:
 2. **Publish after the Build alone where nothing is uploaded:** on `PORELO_PUBLISH=false` `deploy` runs after `build`, and
    its binaries, packages, package check and uploads are skipped: no package leaves that forge, and the central forge still
    checks every package before it is published. *Deploy the jars* takes `PORELO_DEPLOY_PROFILE`, refusing an empty value as
-   `porelo-buildtools` does. Only `main` and tags deploy, as today, so no task branch's snapshot can be the newest.
+   `porelo-buildtools` does. The central forge sets it to `central-sonatype-release`.
+   Only `main` and tags deploy, as today, so no task branch's snapshot can be the newest.
 3. **`settings.xml`,** with what `porelo-buildtools`' design says: a server for the forge's registry and the read of both.
 4. **On a host's forge:** a commit green there and on the central forge with no edit between.
 
 ## Open questions
 
-- Whether `PORELO_DEPLOY_PROFILE` is set for this repository on the central forge: step 2 would stop Publish there if not.
 - `settings.xml`: waits on that design, and so does step 2's deploy reaching the registry.
 
 ## To be checked
