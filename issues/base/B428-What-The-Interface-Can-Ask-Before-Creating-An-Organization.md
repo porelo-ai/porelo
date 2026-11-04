@@ -29,17 +29,31 @@ Read in the code, nothing run.
 | The repository is empty | Only in `TreeRepository.founding`, inside `org create` | The answer on its own; `credentials check` says "read" for a filled one too |
 | The push will be taken | Only by pushing | The answer without a push, or "not known until created" |
 
-## The rights it names, at GitHub, for a classic token
+## The rights it names, at GitHub
+
+The default is a fine-grained token whose resource owner is the organization, with access to all its repositories, since
+`project open` makes a repository and pushes to it at once. A new person starts with only a GitHub account, so its steps
+come first. Read in the code and in GitHub's permissions page, not yet run:
 
 | Act | Calls with the token | Needs |
 |---|---|---|
-| `org create` | `git ls-remote`, `git push`; the memberships of the founder | `repo`, `read:org` |
-| `project open` | the same reads and pushes; `POST /orgs/<org>/repos` for a project with no repository | `repo`, `read:org` |
-| `org add-read-key` | `GET` and `POST /repos/<org>/<repo>/keys`, with a token on standard input, not the vault's | `repo` expected: GitHub's page names no scope, and it is not measured |
+| Any git read or push, gate approval included | git over https | Contents: write |
+| A push touching `.github/workflows` | git over https | Workflows: write; the forge refuses without it |
+| Founding and reading the organization | `GET /orgs/<org>/memberships/<login>` | Members: read |
+| `project open`, for a project with no repository | `POST /orgs/<org>/repos` | Administration: write |
+| `org add-read-key` | `GET`, `POST /repos/<org>/<repo>/keys`, with a token on standard input, not the vault's | Administration: write |
 | A person's keys | `<login>.keys`, `/users/<login>/ssh_signing_keys` | No token |
 
-The rights alone do not suffice: the token's account must be the card's login and an active owner of the organization
-(`activeAdmin`), or the forge cannot say who founded it, and the card's key must be listed for that login.
+A classic token also works with `repo` and `read:org`, but is no longer the default.
+
+The rights alone do not suffice:
+
+- **The token's account** must be the card's login and an active owner of the organization (`activeAdmin`), or the forge
+  cannot say who founded it.
+- **The card's key** must be Ed25519 and listed for that login, as an authentication or a signing key; an ssh address
+  also needs the authentication listing.
+- **The vault's `git.token.<host>` goes to every https repository on that host**, so a token bound to one organization
+  fails on a private repository elsewhere; `credentials declare` for the organization's address keeps them apart.
 
 ## Acceptance
 
@@ -50,8 +64,10 @@ The rights alone do not suffice: the token's account must be the card's login an
 
 ## To be checked
 
-- Whether the forge says a classic token's scopes in a response header, and what stands in for that with a fine-grained
-  token, which answered the membership calls with 403 in [B414](README.md#b414)'s measurement.
+- Whether a fine-grained token's permissions can be read at all, and if not, what stands in: each call's own answer. A
+  non-owner's fine-grained token answered the membership calls with 403 in [B414](README.md#b414)'s measurement, and an
+  owner's is being measured.
+- Whether the permissions in the table are enough, by a real run.
 - Which rights `org add-read-key` needs, by a real run.
 - Whether the repository API's `permissions` answers the push question for a person's token.
-- What [B414](README.md#b414)'s change to who a first read trusts does to `read:org`; the table changes with it.
+- What [B414](README.md#b414)'s change to who a first read trusts does to Members: read; the table changes with it.
