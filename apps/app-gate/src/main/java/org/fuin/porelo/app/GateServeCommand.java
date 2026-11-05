@@ -321,9 +321,9 @@ public class GateServeCommand implements Callable<Integer>, PoreloFactory.Contex
                                 + "/"
                                 + project.name()
                                 + ".git");
-                // Abbreviated: this line goes to gate.log, which the daemon streams to whatever is
-                // tailing it. The container is given the token through its environment.
-                out.println("token     " + token.abbreviate());
+                // Where it is and not a character of it: this line goes to gate.log, which the
+                // daemon streams to whatever is tailing it.
+                out.println("token     in the task's environment");
                 out.flush();
 
                 if (seconds > 0) {

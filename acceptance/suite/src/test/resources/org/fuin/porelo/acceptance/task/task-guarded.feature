@@ -81,7 +81,9 @@ Feature: A task in a guarded project, from its image to what it hands back
 
     Scenario: the agent is given a token worth nothing outside the task, and its broker redeems it
         When a task called "token" is started in "guarded" for the "stub" agent and left running
-        Then its output has a line matching "token +[A-Z0-9_]+=porelo_pt_.*"
+        # The variable's name and nothing of its value: a prefix is part of a secret.
+        Then its output has a line matching "token +[A-Z0-9_]+"
+        And its output does not contain "porelo_pt_"
         And the task's container environment does not contain the value of "PORELO_ACCEPTANCE_FAKE_CREDENTIAL"
         # Which service its prompts go to is the task's own record, answerable after the start has scrolled away.
         When a script runs about the task:

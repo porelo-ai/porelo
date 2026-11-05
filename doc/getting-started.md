@@ -201,7 +201,7 @@ project        default
 security class guarded
 agent     claude 2.1.236
 vault     /run/user/1000/porelo/porelo-default-myproject/vault.sock -> https://api.anthropic.com
-token     ANTHROPIC_API_KEY=porelo_pt_lYyo...
+token     ANTHROPIC_API_KEY
 provider  api.anthropic.com reachable; the credential is not, only a task-scoped token
 container porelo-default-myproject
 gate      http://host.containers.internal:38359/myproject.git

@@ -445,11 +445,8 @@ final class CredentialWiring {
                             token,
                             own.route()));
             out.println("vault     " + socket + " -> " + own.route().upstream());
-            out.println(
-                    "token     "
-                            + own.variable()
-                            + "="
-                            + org.fuin.porelo.vault.PhantomToken.abbreviate(token));
+            // The variable's name alone: a prefix is part of a secret.
+            out.println("token     " + own.variable());
         }
         for (final java.util.Map.Entry<String, Destination> credential : served.entrySet()) {
             final String name = credential.getKey();
@@ -476,8 +473,6 @@ final class CredentialWiring {
                             + credential.getValue().host()
                             + " as PORELO_TOKEN_"
                             + suffix
-                            + "="
-                            + org.fuin.porelo.vault.PhantomToken.abbreviate(minted)
                             + ", PORELO_URL_"
                             + suffix);
         }

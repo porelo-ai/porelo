@@ -8,31 +8,12 @@ import org.junit.jupiter.api.Test;
 class TaskTokenTest {
 
     @Test
-    void showsEnoughToRecogniseItAndNotEnoughToUseIt() {
-
-        // The gate used to print the whole token into gate.log, which the daemon streams to
-        // whatever is tailing it - defeating the toString below, which exists for that reason.
-        final TaskToken token = TaskToken.mint();
-
-        assertThat(token.abbreviate()).hasSize(7).endsWith("...");
-        assertThat(token.value()).doesNotContain(token.abbreviate());
-        assertThat(token.value()).startsWith(token.abbreviate().substring(0, 4));
-    }
-
-    @Test
     void keepsItselfOutOfAnyLineItLandsIn() {
 
         final TaskToken token = TaskToken.mint();
 
-        assertThat(token.toString()).doesNotContain(token.value());
-    }
-
-    @Test
-    void abbreviatesATokenShorterThanTheAbbreviation() {
-
-        // Only a hand-supplied one can be this short - the environment carries it between the task
-        // and the gate - and substring would throw rather than say so.
-        assertThat(new TaskToken("ab").abbreviate()).isEqualTo("ab...");
+        // Not a character of it: a prefix is part of a secret.
+        assertThat(token.toString()).isEqualTo("TaskToken");
     }
 
     @Test

@@ -2832,11 +2832,8 @@ public final class TaskLaunch {
                         request.task(),
                         java.time.Duration.ofHours(request.tokenHours()));
 
-        out.println(
-                "token     "
-                        + variable
-                        + "="
-                        + org.fuin.porelo.vault.PhantomToken.abbreviate(token.value()));
+        // The variable's name alone: a prefix is part of a secret.
+        out.println("token     " + variable);
         return java.util.Map.of(variable, token.value());
     }
 
