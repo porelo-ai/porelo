@@ -326,6 +326,33 @@ class ProjectTakingTest {
         assertThat(applied()).isEmpty();
     }
 
+    @Test
+    void an_address_leaves_in_the_log_neither_what_it_carries_nor_what_it_steers() {
+        assertThat(
+                        ProjectTaking.logged(
+                                "https://me:pw@forge.example.org/acme/demo.git?token=EXAMPLE#top"))
+                .isEqualTo("https://forge.example.org/acme/demo.git");
+        assertThat(ProjectTaking.logged("git@github.com:acme/demo.git\n\u001b[2Jforged \u202e"))
+                .isEqualTo("git@github.com:acme/demo.gitforged");
+    }
+
+    @Test
+    void a_file_taken_shows_in_the_log_though_its_record_could_not_be_written() throws Exception {
+        final String tip = git("rev-parse", "HEAD");
+        final ProjectTaking taking = taking();
+        taking.recording =
+                placed -> {
+                    throw new IOException("no room");
+                };
+
+        assertThatThrownBy(() -> taking.taken("demo")).isInstanceOf(ProjectTaking.Refused.class);
+
+        assertThat(applied())
+                .as("its clone was already replaced, so the line comes before the record")
+                .singleElement()
+                .matches(each -> String.valueOf(each.get("detail")).contains(tip));
+    }
+
     private List<Map<String, Object>> applied() throws IOException {
         return EventLog.of(context).entries(null).stream()
                 .filter(each -> EventLog.PROJECT_APPLIED.equals(each.get("kind")))

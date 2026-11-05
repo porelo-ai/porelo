@@ -76,6 +76,14 @@ public final class ProjectTaking {
 
     private final OrganizationProjects projects;
 
+    /** Keeps what was placed; replaced by a test whose record cannot be written. */
+    Recording recording;
+
+    /** Keeps what was placed. */
+    interface Recording {
+        void keep(OrganizationProjects.Placed placed) throws IOException;
+    }
+
     ProjectTaking(
             final PoreloContext context,
             final IdentityOrganization.Opener opener,
@@ -85,6 +93,7 @@ public final class ProjectTaking {
         this.opener = opener;
         this.access = access;
         this.projects = projects;
+        this.recording = projects::write;
     }
 
     /**
@@ -264,7 +273,10 @@ public final class ProjectTaking {
                                     && revision != null
                                     && namesItself(judged, name)) {
                                 fill(clone, from, revision, fetching, tries);
-                                projects.write(
+                                // Under the lock, in the order they were placed; before the
+                                // record, so a crash between them repeats a line and loses none.
+                                applied(name, address, judged, was.get());
+                                recording.keep(
                                         new OrganizationProjects.Placed(
                                                 name,
                                                 revision,
@@ -293,7 +305,6 @@ public final class ProjectTaking {
                     OrganizationQuestions.Refused.REFUSED_STATE,
                     name + " is not started: its project.yml names another project");
         }
-        applied(name, address, read, was.get());
         final Project project =
                 org.fuin.porelo.core.project.ProjectReader.read(clone.resolve("project.yml"));
         for (final String scheme : project.mail().conversations()) {
@@ -303,6 +314,21 @@ public final class ProjectTaking {
                 throw new Refused(78, "no-homeserver", String.valueOf(ex.getMessage()));
             }
         }
+    }
+
+    /**
+     * An address as the log may keep it: a query or a person's part can carry a token, and a host's
+     * file is read unjudged, so what it steers a terminal with goes too.
+     *
+     * @param address The address.
+     * @return Where it leads, and nothing else.
+     */
+    static String logged(final String address) {
+        return StartStep.cleanLines(address)
+                .replace("\n", "")
+                .replaceAll("[?#].*$", "")
+                .replaceAll("^([a-zA-Z][a-zA-Z0-9+.-]*://)[^/@]*@", "$1")
+                .strip();
     }
 
     /**
@@ -326,7 +352,7 @@ public final class ProjectTaking {
                 "revision "
                         + revision
                         + " from "
-                        + address
+                        + logged(address)
                         + (was == null ? "" : ", was " + was)
                         + (signer == null ? "" : ", signed by " + signer));
     }

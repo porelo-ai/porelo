@@ -8,6 +8,9 @@ machine, and a log that `porelo clear` leaves.
 
 **As built.** A project file a start takes through its organization leaves one `project-applied` line each time its revision
 changes, naming the revision, the one before and who signed it. A file read again unchanged leaves none, nor does one refused.
+The line comes after the clone is replaced and before the record is kept, under the placing lock. A log that cannot be written
+loses the line, says so on standard error and the start goes on, as for every event here. The address shows where it leads,
+without a query or a person's part.
 
 ## Why
 
