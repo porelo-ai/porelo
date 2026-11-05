@@ -61,6 +61,8 @@ public final class OrgSetup {
      */
     public int run(final PoreloContext machine, final CommandSpec spec) throws IOException {
         try {
+            spec.commandLine().getErr().println("porelo: reading the organization's repository");
+            spec.commandLine().getErr().flush();
             final Map<String, @Nullable Object> answer = answer(machine);
             if (json) {
                 OrgOutput.answer(spec, answer);

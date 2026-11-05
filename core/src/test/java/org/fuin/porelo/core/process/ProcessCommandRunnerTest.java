@@ -258,4 +258,77 @@ class ProcessCommandRunnerTest {
                 .contains("cut")
                 .endsWith("END\n");
     }
+
+    @Test
+    void aLineOfStandardErrorArrivesWhileTheProgramStillRuns(
+            @org.junit.jupiter.api.io.TempDir final java.nio.file.Path dir) {
+        final java.nio.file.Path seen = dir.resolve("seen");
+        final java.util.List<String> lines = new java.util.concurrent.CopyOnWriteArrayList<>();
+
+        // It ends only once the line was taken: kept until the end, the limit ends it instead.
+        final CommandResult result =
+                new ProcessCommandRunner(Duration.ofSeconds(20))
+                        .run(
+                                Command.of(
+                                        "sh",
+                                        "-c",
+                                        "echo first >&2; printf 'on stdout\\n';"
+                                                + " while [ ! -e \"$0\" ]; do sleep 0.05; done;"
+                                                + " printf 'last without an end' >&2",
+                                        seen.toString()),
+                                line -> {
+                                    lines.add(line);
+                                    try {
+                                        java.nio.file.Files.writeString(seen, "");
+                                    } catch (java.io.IOException ex) {
+                                        throw new java.io.UncheckedIOException(ex);
+                                    }
+                                });
+
+        assertThat(lines).containsExactly("first", "last without an end");
+        assertThat(result.standardError()).isEqualTo("first\nlast without an end");
+        assertThat(result.standardOutput()).isEqualTo("on stdout\n");
+    }
+
+    @Test
+    void aConsumerThatFailsCostsTheProgramNothing() {
+        final CommandResult result =
+                new ProcessCommandRunner(Duration.ofSeconds(20))
+                        .run(
+                                Command.of("sh", "-c", "echo one >&2; echo two >&2; echo done"),
+                                line -> {
+                                    throw new IllegalStateException("no terminal");
+                                });
+
+        assertThat(result.exitCode()).isZero();
+        assertThat(result.standardError()).isEqualTo("one\ntwo\n");
+        assertThat(result.standardOutput()).isEqualTo("done\n");
+    }
+
+    @Test
+    void aLineTooLongIsNotShownInPieces() {
+        final java.util.List<String> lines = new java.util.concurrent.CopyOnWriteArrayList<>();
+
+        new ProcessCommandRunner(Duration.ofSeconds(20))
+                .run(
+                        Command.of(
+                                "sh",
+                                "-c",
+                                "head -c 100000 /dev/zero | tr '\\0' x >&2; echo >&2; echo after >&2"),
+                        lines::add);
+
+        assertThat(lines)
+                .as("a secret cut in two would pass any redaction line by line")
+                .containsExactly("[a line too long to show]", "after");
+    }
+
+    @Test
+    void aRunnerOfNoLinesOfItsOwnHandsThemOverAtTheEnd() {
+        final CommandRunner plain = command -> new CommandResult(command, 0, "", "one\r\ntwo\n");
+        final java.util.List<String> lines = new java.util.ArrayList<>();
+
+        plain.run(Command.of("x"), lines::add);
+
+        assertThat(lines).containsExactly("one", "two");
+    }
 }

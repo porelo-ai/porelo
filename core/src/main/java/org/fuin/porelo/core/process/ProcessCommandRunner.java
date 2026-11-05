@@ -33,6 +33,18 @@ public class ProcessCommandRunner implements CommandRunner {
 
     @Override
     public CommandResult run(Command command) {
+        return running(command, null);
+    }
+
+    @Override
+    public CommandResult run(
+            final Command command, final java.util.function.Consumer<String> lines) {
+        return running(command, lines);
+    }
+
+    private CommandResult running(
+            final Command command,
+            final java.util.function.@org.jspecify.annotations.Nullable Consumer<String> lines) {
 
         final ProcessBuilder builder = new ProcessBuilder(command.arguments());
         if (command.workingDirectory() != null) {
@@ -48,8 +60,8 @@ public class ProcessCommandRunner implements CommandRunner {
 
             final Process process = start(builder);
 
-            final Drain out = new Drain(process.getInputStream());
-            final Drain err = new Drain(process.getErrorStream());
+            final Drain out = new Drain(process.getInputStream(), null);
+            final Drain err = new Drain(process.getErrorStream(), lines);
             final Thread outThread = Thread.ofVirtual().start(out);
             final Thread errThread = Thread.ofVirtual().start(err);
 
@@ -153,8 +165,49 @@ public class ProcessCommandRunner implements CommandRunner {
 
         private volatile @org.jspecify.annotations.Nullable String text;
 
-        private Drain(InputStream stream) {
+        /** The longest line handed over; cut, a secret in it would pass redaction line by line. */
+        private static final int LONGEST_LINE = 16 * 1024;
+
+        private final java.util.function.@org.jspecify.annotations.Nullable Consumer<String> lines;
+
+        private final java.io.ByteArrayOutputStream line = new java.io.ByteArrayOutputStream();
+
+        private boolean tooLong;
+
+        private Drain(
+                InputStream stream,
+                java.util.function.@org.jspecify.annotations.Nullable Consumer<String> lines) {
             this.stream = stream;
+            this.lines = lines;
+        }
+
+        private void handOver(final byte[] bytes, final int length) {
+            if (lines == null) {
+                return;
+            }
+            for (int index = 0; index < length; index++) {
+                if (bytes[index] == '\n') {
+                    endOfLine();
+                } else if (line.size() < LONGEST_LINE) {
+                    line.write(bytes[index]);
+                } else {
+                    tooLong = true;
+                }
+            }
+        }
+
+        private void endOfLine() {
+            final String said =
+                    tooLong
+                            ? "[a line too long to show]"
+                            : line.toString(StandardCharsets.UTF_8).replaceAll("\\r$", "");
+            line.reset();
+            tooLong = false;
+            try {
+                java.util.Objects.requireNonNull(lines).accept(said);
+            } catch (RuntimeException ex) {
+                // Only that line is lost: what the program does is not the consumer's to end.
+            }
         }
 
         @Override
@@ -163,6 +216,7 @@ public class ProcessCommandRunner implements CommandRunner {
                 final byte[] buffer = new byte[8192];
                 int read;
                 while ((read = stream.read(buffer)) != -1) {
+                    handOver(buffer, read);
                     synchronized (collected) {
                         collected.write(buffer, 0, read);
                         if (collected.size() > 2 * KEPT) {
@@ -183,6 +237,9 @@ public class ProcessCommandRunner implements CommandRunner {
                 // case where the output is worth most. Reading incrementally is what makes the
                 // comment above true.
             } finally {
+                if (lines != null && (line.size() > 0 || tooLong)) {
+                    endOfLine();
+                }
                 text = snapshot();
             }
         }

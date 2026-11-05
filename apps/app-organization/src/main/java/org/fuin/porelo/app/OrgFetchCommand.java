@@ -80,6 +80,7 @@ public class OrgFetchCommand extends OrgReading {
         regular(sshKey, "--ssh-key");
         regular(knownHosts, "--known-hosts");
         final FetchAccess access = new HostKey(sshKey, knownHosts);
+        saying("fetching the organization's repository");
         try {
             return new LinkedHashMap<>(
                     fetcher.open(machine, address, access)

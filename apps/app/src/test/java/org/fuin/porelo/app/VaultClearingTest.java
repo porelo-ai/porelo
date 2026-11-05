@@ -204,6 +204,21 @@ class VaultClearingTest {
     }
 
     @Test
+    void clearingSaysWhatItIsDoingAndAListingDoesNot() throws IOException {
+        final PoreloContext context = unlockedVault();
+        final java.io.StringWriter said = new java.io.StringWriter();
+        final picocli.CommandLine line = PoreloCli.commandLine(context);
+        line.setOut(new java.io.PrintWriter(new java.io.StringWriter()));
+        line.setErr(new java.io.PrintWriter(said));
+
+        line.execute("vault", "clear", "--dry-run");
+        assertThat(said.toString()).doesNotContain("porelo: clearing");
+
+        line.execute("vault", "clear", "--yes");
+        assertThat(said.toString()).contains("porelo: clearing");
+    }
+
+    @Test
     void clearingRemovesTheFilesAndForgetsThePassphraseAndEveryDevicesShare() throws IOException {
         final PoreloContext context = unlockedVault();
         Files.writeString(backup(context), "an older copy");

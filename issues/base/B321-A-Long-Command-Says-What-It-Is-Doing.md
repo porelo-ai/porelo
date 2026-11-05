@@ -34,6 +34,24 @@ Read in the code on 2026-11-04.
   expects the line on the person's stderr before the verb ends, with the secret replaced by `[withheld]`. The harm it
   prevents is a secret shown on a terminal by the streamed path, which the failure path already guards.
 
+## As built
+
+- `CommandRunner.run(command, lines)` hands over each line of standard error. A runner of no lines of its own, a test's,
+  hands them over at the end. A line longer than 16 KiB is shown as `[a line too long to show]`, never in pieces.
+- A transport's line reaches a person at a terminal, or the conversation step's `waitingOn` in a task's start. Off a terminal
+  and outside a start it goes nowhere: the daemon's journal gets none.
+- Phase lines, on standard error, so an answer in `--json` is unchanged: `org fetch`, `setup --organization`, `vault clear`,
+  `project remove`. The sweep went by reading; `talk join` and the rest show the transport's own lines through the lifecycle.
+
+Answered from *To be checked*, by reading:
+
+- **Over varlink:** no `more` reply. An interface sees the lines only as a start's step, through `waitingOn`.
+- **A secret across two lines:** a secret of several lines is withheld a line at a time. One written in two pieces by the
+  transport, or one it makes while it runs, is not known and not caught, so a transport must not say one on standard error:
+  `doc/transports.md` says so.
+
+Not measured: the sweep's long steps on the VM.
+
 ## Acceptance
 
 - `porelo talk join` against a transport that writes a progress line every 10 s shows each line as it comes, and

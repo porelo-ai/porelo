@@ -490,6 +490,8 @@ class StartProgressReviewTest {
                 .containsExactly(
                         List.of("STARTED", "", ""),
                         List.of("WAITING", "the room server", ""),
+                        List.of("WAITING", "room: first line", ""),
+                        List.of("WAITING", "room: resume refused", ""),
                         List.of("FAILED", "", "resume refused"));
     }
 

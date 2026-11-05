@@ -65,6 +65,10 @@ public class VaultClearCommand implements Callable<Integer>, PoreloFactory.Conte
         }
         final boolean listOnly = dryRun || !yes;
         final PrintWriter out = spec.commandLine().getOut();
+        if (!listOnly) {
+            spec.commandLine().getErr().println("porelo: clearing, each transport in its turn");
+            spec.commandLine().getErr().flush();
+        }
         final Clearing.Result result = new VaultClearing(context).clear(listOnly, force);
         if (json) {
             // A program decides on --force from these values, never from a sentence.

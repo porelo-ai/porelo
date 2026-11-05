@@ -245,6 +245,14 @@ class OrgFetchCommandTest {
     }
 
     @Test
+    void aFetchSaysWhatItIsDoingWhereTheAnswerIsNotRead() {
+        run();
+
+        assertThat(err.toString()).contains("porelo: fetching the organization's repository");
+        assertThat(out.toString()).doesNotContain("fetching");
+    }
+
+    @Test
     void aHistoryThatProvesNothingIsRefusedAndNotAFailure() {
         unprovable = true;
 

@@ -88,6 +88,10 @@ public class ProjectRemoveCommand
             // A project whose file cannot be read has no keys this machine can name.
         }
 
+        if (!dryRun && ProjectSource.names(context).contains(name)) {
+            err.println("porelo: removing " + name + ", its transports in their turn");
+            err.flush();
+        }
         ProjectDeletion.Result deleted = new ProjectDeletion(context).delete(name, dryRun, force);
         // What a refusal would tell a person to do first is offered instead, and the removal tried
         // again after it: at most once per kind of refusal, so a remedy that did not help ends in

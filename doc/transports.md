@@ -32,6 +32,10 @@ for example `"the room's homeserver"`. Porelo shows it before calling the transp
 error is shown as the cause when `setup` or `enroll` fails, with terminal controls removed and cut
 to 300 characters. That line must never hold a secret.
 
+While a verb runs, each line it writes on standard error reaches a person at a terminal, or the step of a task's start,
+as it comes. Porelo removes control characters and withholds the secrets it handed over, a line at a time. It cannot know
+a secret the transport makes while it runs, or one written in two pieces, so never write those on standard error.
+
 `describe` may also announce options Porelo then passes, each as `true`; an option a transport does not
 announce is never passed, since an unknown one is its 64:
 

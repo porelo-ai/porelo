@@ -148,6 +148,13 @@ final class TransportLifecycle {
 
     private final TransportDirectory transports;
 
+    private java.util.function.Consumer<String> saying =
+            line -> {
+                if (Offer.atTerminal()) {
+                    System.err.println("porelo: " + line);
+                }
+            };
+
     /**
      * Constructor.
      *
@@ -157,6 +164,16 @@ final class TransportLifecycle {
     TransportLifecycle(PoreloContext context, TransportDirectory transports) {
         this.context = context;
         this.transports = transports;
+    }
+
+    /**
+     * Says where what a transport says while it runs goes: a line each, cleaned and with what it
+     * was handed withheld. By default a person at a terminal reads it, and nobody else.
+     *
+     * @param lines Takes each line.
+     */
+    void saying(final java.util.function.Consumer<String> lines) {
+        this.saying = lines;
     }
 
     /**
@@ -1095,7 +1112,8 @@ final class TransportLifecycle {
                                                     Command.of(arguments),
                                                     described,
                                                     settings,
-                                                    secrets)));
+                                                    secrets)),
+                                    line -> say(scheme, line, secrets));
         } catch (org.fuin.porelo.core.process.CommandException ex) {
             throw ex.withStandardError(redact(StartStep.cleanLines(ex.standardError()), secrets));
         }
@@ -1206,6 +1224,19 @@ final class TransportLifecycle {
             // Nothing readable was printed, so nothing printed can be withheld by its value.
         }
         return found;
+    }
+
+    private void say(final String scheme, final String line, final Map<String, String> secrets) {
+        // A secret of several lines comes a line at a time: each is withheld by itself. What the
+        // transport makes while it runs is unknown until it answers, so it must not say that here.
+        final Map<String, String> parts = new LinkedHashMap<>();
+        secrets.forEach(
+                (name, value) ->
+                        value.lines().forEach(part -> parts.put(name + part, part.strip())));
+        final String safe = redact(StartStep.cleanLines(line), parts).strip();
+        if (!safe.isEmpty()) {
+            saying.accept(scheme + ": " + safe);
+        }
     }
 
     private static String redact(String stderr, Map<String, String> secrets) {

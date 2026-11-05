@@ -148,6 +148,9 @@ class OrganizationOverSshTest {
         run(machine, "setup", "--organization", ADDRESS, "--json");
 
         assertThat(agentsSeen()).isNotEmpty().containsOnly("[" + socket + "]");
+        assertThat(err.toString())
+                .as("reading it can take long, and says so")
+                .contains("porelo: reading the organization's repository");
     }
 
     @Test

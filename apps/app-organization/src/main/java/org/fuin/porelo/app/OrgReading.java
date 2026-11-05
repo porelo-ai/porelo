@@ -18,6 +18,16 @@ public abstract class OrgReading implements Callable<Integer>, PoreloFactory.Con
 
     @Spec private CommandSpec spec;
 
+    /**
+     * Says what is about to take long, where a program reading the answer does not read it.
+     *
+     * @param phase What it is doing.
+     */
+    final void saying(final String phase) {
+        spec.commandLine().getErr().println("porelo: " + phase);
+        spec.commandLine().getErr().flush();
+    }
+
     private @Nullable PoreloContext context;
 
     /** Replaced by a test, which has no forge to ask. */

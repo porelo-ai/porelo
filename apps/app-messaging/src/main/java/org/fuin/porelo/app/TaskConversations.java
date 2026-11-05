@@ -61,6 +61,7 @@ final class TaskConversations {
         }
         for (final String scheme : project.mail().conversations()) {
             steps.conversation(scheme);
+            lifecycle.saying(line -> steps.waiting(StartStep.Step.CONVERSATION, line));
             final java.nio.file.Path adapter =
                     context.paths().messaging().transportDirectory().find(scheme);
             final String waitsOn =

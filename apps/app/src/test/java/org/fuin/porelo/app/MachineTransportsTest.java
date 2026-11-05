@@ -211,6 +211,40 @@ class MachineTransportsTest {
                                 command.arguments().getFirst().contains(TransportDirectory.PREFIX));
     }
 
+    // Harm guarded: the streamed path showing what only the failure path redacts today.
+    @Test
+    void whatATransportSaysWhileItWaitsIsShownWithoutTheSecretsHandedIn() throws Exception {
+        final PoreloContext context =
+                unlockedVault(
+                        Map.of(
+                                "ROOM_TOKEN",
+                                TOKEN,
+                                "ROOM_KEY",
+                                "one-line-of-a-key\nanother-line-of-a-key"));
+        transport();
+        project(context, "guarded");
+        runner.answering(
+                " setup",
+                "{\"conversation\":\"!r\",\"room\":\"#p:access.example\",\"login\":\"made-here\",\"admitted\":true}",
+                "waiting on the homeserver\n"
+                        + "using \u001b[31m"
+                        + TOKEN
+                        + "\u001b[0m\n\n"
+                        + "line another-line-of-a-key\n");
+        final List<String> said = new java.util.ArrayList<>();
+        final TransportLifecycle lifecycle =
+                new TransportLifecycle(context, context.paths().messaging().transportDirectory());
+        lifecycle.saying(said::add);
+
+        lifecycle.setup("room", "p", Map.of("homeserver", "https://project.example"), false);
+
+        assertThat(said)
+                .containsExactly(
+                        "room: waiting on the homeserver",
+                        "room: using [withheld]",
+                        "room: line [withheld]");
+    }
+
     // Harm guarded: a saved join must not turn an admission refusal into an existing-account
     // answer.
     @Test
