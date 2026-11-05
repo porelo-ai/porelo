@@ -67,6 +67,9 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b440"></a>[B440](B440-An-OpenSSH-Below-The-Floor-Is-Refused-In-Words.md) | S | - | An OpenSSH below the stated floor is refused in words, and the documents state the floor. |
+| <a id="b441"></a>[B441](B441-A-Credentials-Length-Reaches-No-Agent-And-No-Line.md) | S | - | A credential's length is shown to its owner and reaches no agent and no log. |
+| <a id="b442"></a>[B442](B442-One-Line-Installs-Everything-On-Fedora-And-RHEL.md) | M | - | `sudo dnf install 'porelo*' keepassxc` installs all of Porelo on Fedora and RHEL, shown by a real run. |
 | <a id="b437"></a>[B437](B437-Reading-The-Organization-Costs-A-Whole-Fetch.md) | - | - | A question that only shows the organization or a project answers without waiting on a whole fetch of its repository, and a decision still fetches. |
 | <a id="b14"></a>[B14](B14-Talking-Between-Tasks.md) | XL | `porelo` [B86](README.md#b86) | Talking between tasks, built on one machine; splits into groups (M), trust confirmed once with fingerprints (M), two machines on one homeserver (L). |
 | <a id="b193"></a>[B193](B193-A-Dependency-Cache-Shared-Across-Tasks.md) | XL | - | Downloaded dependencies cached once for a project's tasks and handed in read-only; what a task installs stays its own; analyzed: filled only from reviewed work, mounted `:ro,z`, read through `maven.repo.local.tail`, filled by `dependency:go-offline` on request and when the default branch moved, Maven first |

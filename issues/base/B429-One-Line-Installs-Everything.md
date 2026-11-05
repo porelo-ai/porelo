@@ -7,6 +7,8 @@
 Porelo and updates it the same way, on every published channel, and stays true: nothing meant only for a test can be
 installed by it, and the build says so when the line stops working.
 
+Fedora and RHEL are not part of this: their line, `sudo dnf install 'porelo*' keepassxc`, is [B442](B442-One-Line-Installs-Everything-On-Fedora-And-RHEL.md).
+
 ## Why
 
 - **The test agent is in the `snapshots` index.** `.github/workflows/build.yml` publishes `agents/stub/target/*` into every
