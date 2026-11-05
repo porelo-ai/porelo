@@ -169,4 +169,13 @@ class LegTest {
                 .as("a machine nobody made a key for names none")
                 .noneMatch(argument -> argument.startsWith("-Dporelo.acceptance.hostkey="));
     }
+
+    @org.junit.jupiter.api.Test
+    void anAccountBesideTheBuildUserGetsTheReadersTheBuildUserHas() {
+        // Without its own copy, a feature run under that account found no plugin, and only the
+        // legs, which have several accounts, could show it.
+        assertThat(Leg.prepare("accept2"))
+                .contains("cp -r /home/build/.local/share/porelo/builds /home/accept2/")
+                .contains("cp -r /home/build/.local/share/porelo/ecosystems /home/accept2/");
+    }
 }

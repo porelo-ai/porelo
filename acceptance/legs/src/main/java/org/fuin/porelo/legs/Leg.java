@@ -634,6 +634,13 @@ public final class Leg {
                 + "/.local/share/porelo/builds "
                 + home
                 + "/.local/share/porelo/; fi"
+                + " && if [ -d "
+                + from
+                + "/.local/share/porelo/ecosystems ]; then cp -r "
+                + from
+                + "/.local/share/porelo/ecosystems "
+                + home
+                + "/.local/share/porelo/; fi"
                 + " && chown -R "
                 + user
                 + ":"
