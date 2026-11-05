@@ -32,6 +32,10 @@ Feature: The commands a machine answers about itself
             | keep     |
 
     Scenario: doctor reports whether this machine can run a task
+        # The deploy and other scenarios' scripts write into Porelo's data under the account's own umask, and doctor
+        # rightly fails on that.
+        When a script runs "porelo tighten"
+        Then it exits zero
         When a script runs "porelo doctor"
         Then it exits zero
         And its output contains "hooks registered"

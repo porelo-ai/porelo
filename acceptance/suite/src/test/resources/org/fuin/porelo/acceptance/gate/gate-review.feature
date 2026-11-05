@@ -7,6 +7,10 @@ Feature: Work waiting at the gate, reviewed, backed up and restored
     be refused as not a fast-forward.
 
     Scenario: a push waits for review, names what is dangerous first, opens where nothing in it runs, and its mirror is backed up
+        # The deploy and other scenarios' scripts write here under the account's own umask. Cleared first, so what is
+        # found loose below is what Porelo wrote in this scenario.
+        When a script runs "porelo tighten"
+        Then it exits zero
         Given the environment variable "PORELO_ACCEPTANCE_FAKE_CREDENTIAL" is set
         And a vault of this scenario's own, unlocked with the passphrase "acceptance"
         And the vault holds the value of "PORELO_ACCEPTANCE_FAKE_CREDENTIAL" as "anthropic" of kind "api-key"
