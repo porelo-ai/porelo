@@ -1,6 +1,6 @@
 # B462 — One Model For A Project File
 
-**Status:** Backlog, first in line.
+**Status:** Implementing.
 **Size:** about 1000 minutes, part by part below; no function changes. No question is open.
 
 **What must be true.** A project file and a repository's file are each read and written through one typed model and nothing else. The operator,
