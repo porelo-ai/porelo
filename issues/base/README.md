@@ -54,6 +54,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b321"></a>[B321](B321-A-Long-Command-Says-What-It-Is-Doing.md) | M | - | A long command shows what it is doing while it runs: a transport's stderr streamed line by line, each line redacted against the secrets handed in, and a phase line for the other long commands a sweep finds |
 | <a id="b429"></a>[B429](B429-One-Line-Installs-Everything.md) | L | - | `sudo apt install 'porelo*' keepassxc` installs all of Porelo on every channel and stays true: the test agent leaves the channels, and a check runs the line against the published index. |
 | <a id="b385"></a>[B385](B385-A-KeePassXC-Key-That-Is-Usable.md) | L | - | `--keepassxc` asks the master password once, a retry takes the key already made, no empty entry left, a clear refusal under `su` or a redirected stderr, aligned exit codes |
 | <a id="b154"></a>[B154](B154-A-Tamper-Evident-Event-Log-Per-Node.md) | L | - | One hash-chained event log per account, anchored in the user's journal, optionally copied off the machine, kept by `porelo clear`; written by approve, reject, clearance, hand-in, credentials and project changes.; part 1 built, the copy off the machine after it |
@@ -66,7 +67,6 @@ from its side, as *blocked by*.
 | <a id="b193"></a>[B193](B193-A-Dependency-Cache-Shared-Across-Tasks.md) | XL | - | Downloaded dependencies cached once for a project's tasks and handed in read-only; what a task installs stays its own; analyzed: filled only from reviewed work, mounted `:ro,z`, read through `maven.repo.local.tail`, filled by `dependency:go-offline` on request and when the default branch moved, Maven first |
 | <a id="b207"></a>[B207](B207-An-Image-Built-Within-The-Projects-Egress.md) | L | - | An image's build reaches only the project's egress and its trusted package sources, run in a guard container behind the task's own firewall (measured to hold), so a snippet - a project's or a repository's `porelo.yml` - cannot fetch from anywhere while the image is made.; plan written, two questions for the operator |
 | <a id="b216"></a>[B216](B216-A-Second-Setup-Says-Nothing-Changed.md) | M | - | A second `porelo-setup.sh` run changes nothing and says so, as a last line and in `--json`, so a playbook reports it truly |
-| <a id="b321"></a>[B321](B321-A-Long-Command-Says-What-It-Is-Doing.md) | M | - | A long command shows what it is doing while it runs: a transport's stderr streamed line by line, each line redacted against the secrets handed in, and a phase line for the other long commands a sweep finds |
 | <a id="b371"></a>[B371](B371-A-History-Judged-Under-The-Rules-Of-Its-Time.md) | M | - | A history mode of `porelo commit verify`: each commit judged by the keys and certificates in force at its own time, for a migrated history before the hook is armed |
 
 ## Analyzed

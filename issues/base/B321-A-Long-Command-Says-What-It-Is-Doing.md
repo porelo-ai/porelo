@@ -1,6 +1,6 @@
 # B321 — A Long Command Says What It Is Doing
 
-**Status:** Backlog, planned for a later round, after [B318](README.md#b318).
+**Status:** Implementing.
 **Size:** M - a line-by-line stderr path in the command runner, its redaction, the transport verbs and the other long
 commands found by the sweep, docs and tests.
 
