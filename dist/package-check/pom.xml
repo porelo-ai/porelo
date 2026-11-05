@@ -93,6 +93,19 @@
                             </arguments>
                         </configuration>
                     </execution>
+                    <!-- Each published channel as it stands: 'apt install' of everything, simulated. -->
+                    <execution>
+                        <id>channel-line</id>
+                        <goals>
+                            <goal>java</goal>
+                        </goals>
+                        <configuration>
+                            <mainClass>org.fuin.porelo.packagecheck.ChannelLine</mainClass>
+                            <arguments>
+                                <argument>${maven.multiModuleProjectDirectory}</argument>
+                            </arguments>
+                        </configuration>
+                    </execution>
                 </executions>
             </plugin>
         </plugins>

@@ -1,0 +1,2 @@
+title: "A check says whether `apt install 'porelo*' keepassxc` installs on each published channel, and fails on anything meant only for a test."
+type: added
