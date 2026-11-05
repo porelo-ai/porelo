@@ -90,7 +90,7 @@ public final class DeviceGrant {
         /** Without what it holds, as a line must never carry that. */
         @Override
         public String toString() {
-            return "Client[" + tokenUrl + ", " + clientId + "]";
+            return "Client[" + Grants.printable(tokenUrl) + ", " + clientId + "]";
         }
 
         /**

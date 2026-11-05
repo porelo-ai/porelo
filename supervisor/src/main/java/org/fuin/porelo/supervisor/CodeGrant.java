@@ -58,7 +58,14 @@ public final class CodeGrant {
      *     is.
      * @param expiresIn How long the answer is waited for.
      */
-    public record Started(String link, int port, Duration expiresIn) {}
+    public record Started(String link, int port, Duration expiresIn) {
+
+        /** Without its link, which holds the grant's state. */
+        @Override
+        public String toString() {
+            return "Started[port=" + port + "]";
+        }
+    }
 
     /**
      * What is needed to ask.
@@ -84,7 +91,7 @@ public final class CodeGrant {
         /** Without what it holds, as a line must never carry that. */
         @Override
         public String toString() {
-            return "Client[" + tokenUrl + ", " + clientId + "]";
+            return "Client[" + Grants.printable(tokenUrl) + ", " + clientId + "]";
         }
 
         /**

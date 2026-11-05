@@ -3,6 +3,7 @@ package org.fuin.porelo.supervisor;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.time.Duration;
+import java.util.List;
 import org.junit.jupiter.api.Test;
 
 /** What the broker's records print of themselves, as a line must never carry what they hold. */
@@ -71,6 +72,33 @@ class SecretRecordTextTest {
     void aGrantsServiceDoesNotPrintItsSecret() {
         assertThat(new Grants.Service(URL, "id", SECRET, null).toString())
                 .contains(URL)
+                .doesNotContain(SECRET);
+    }
+
+    @Test
+    void aUrlsCredentialIsNotPrintedByAnyOfThem() {
+        final String url = "https://user:" + SECRET + "@idp.example/token";
+
+        assertThat(
+                        List.of(
+                                new TokenPurchase.Client(url, "id", "x", "s", null),
+                                new TokenPurchase.Refresh(url, "id", "x", "x", each -> {}),
+                                new DeviceGrant.Client(url, url, "id", "x", "s", null),
+                                new CodeGrant.Client(url, url, "id", "x", "s", 0, null),
+                                new Grants.Service(url, "id", "x", null)))
+                .allSatisfy(
+                        each ->
+                                assertThat(each.toString())
+                                        .contains("idp.example/token")
+                                        .doesNotContain(SECRET));
+    }
+
+    @Test
+    void aCodeGrantsStartDoesNotPrintItsLink() {
+        final String link = "https://idp.example/authorize?state=" + SECRET;
+
+        assertThat(new CodeGrant.Started(link, 8123, Duration.ofMinutes(5)).toString())
+                .contains("8123")
                 .doesNotContain(SECRET);
     }
 }

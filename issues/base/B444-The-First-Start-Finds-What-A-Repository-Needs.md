@@ -112,6 +112,9 @@ For an interface on the person's own computer, which then starts as usual by the
 - Known limit: `porelo project remove` leaves the approval's record. It names no project a start would find, but if that
   name is later written by hand, a yes from the recorded upstream may replace that file.
 
+A last reading added two things: a port is compared by its number, so `022` and `22` are one; and a file a new copy names where
+a file of the machine's own stands, with other content, refuses the yes in words, as otherwise it would replace that file.
+
 ## What The Plugin Must Answer
 
 What it found with its source, and each host, as `Detection` holds them.

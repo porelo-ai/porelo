@@ -79,7 +79,7 @@ final class RepositoryAddress {
         if (colon < 0) {
             return "";
         }
-        final String port = authority.substring(colon + 1);
+        final String port = authority.substring(colon + 1).replaceFirst("^0+(?=.)", "");
         final String own =
                 switch (address.substring(0, scheme).toLowerCase(Locale.ROOT)) {
                     case "ssh" -> "22";

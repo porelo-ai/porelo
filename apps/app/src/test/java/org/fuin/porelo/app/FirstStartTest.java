@@ -547,6 +547,9 @@ class FirstStartTest {
                 .isFalse();
         assertThat(approvals.approvedFor("remote", "ssh://git@forge.example:2222/acme/shop.git"))
                 .isFalse();
+        assertThat(approvals.approvedFor("remote", "ssh://git@forge.example:022/acme/shop.git"))
+                .as("the same port, however it is spelled")
+                .isTrue();
         assertThat(approvals.approvedFor("remote", "git@forge.example:acme/shop.git"))
                 .as("ssh and https of one host and path are one repository")
                 .isTrue();
@@ -705,6 +708,22 @@ class FirstStartTest {
 
         assertThat(atTerminal("n").project()).isEqualTo("strangers");
         assertThat(questions).isEmpty();
+    }
+
+    @Test
+    void aNewFileNamingWhereAPersonsOwnFileStandsIsRefusedAndTheirsStays() throws Exception {
+        withSnippet();
+        assertThat(atTerminal("y")).isNotNull();
+        final Path mine = copy().resolveSibling("other.inc");
+        Files.writeString(mine, "RUN echo mine\n");
+        Files.writeString(checkout.resolve("other.inc"), "RUN echo theirs\n");
+        Files.writeString(
+                checkout.resolve("project.yml"), WITH_SNIPPET.replace("image.inc", "other.inc"));
+
+        atTerminal("y");
+
+        assertThat(said.toString()).contains("other.inc");
+        assertThat(mine).hasContent("RUN echo mine\n");
     }
 
     @Test

@@ -20,6 +20,9 @@ package indexes, so `apt install 'porelo*'` and `dnf` do not offer it.
 Step 1 is done: the operator made the repository and set the grants, and the smoke test passed on it. Step 2 is in the workflow. The
 hand-over of steps 3 to 5 waits on the interface's scenario.
 
+A failed listing of the old versions fails the step, and does not pass for an empty one, by a reading of the workflow; only a
+Build on main shows it.
+
 ## Order
 
 1. The repository exists and the publication token may deploy and delete there. Only the operator can do this, and it is outward.

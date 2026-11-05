@@ -53,7 +53,12 @@ fixed when it is published, in the way [B445](README.md#b445) publishes the test
 
 ## On A Mac
 
-**Core has no arm64 build.** Every job in `.github/workflows/build.yml` runs on an x86-64 `ubuntu` runner, and
+**The arm64 build is `PJ55` in `porelo-project`,** Accepted, with its shape and its probe list, and the Mac's day and
+[B251](README.md#b251) hang under it in plan 0.20. This issue does not describe that build anew. What the day proves of it: that
+the build runs in the VM by Maven, for `porelo`, the filter and one agent, and `PJ55`'s probes where they fall in the day; not its
+publishing, which only a Build shows, nor the other native packages it names.
+
+**Core has no arm64 build today.** Every job in `.github/workflows/build.yml` runs on an x86-64 `ubuntu` runner, and
 `dist/dist-deb/src/deb/control/control` says `Architecture: amd64`. Running amd64 under emulation would measure the
 emulation.
 

@@ -409,8 +409,10 @@ jobs:
                       sha256sum "$STUB_BIN" | sed 's| .*||' > porelo-agent-stub.sha256
                       art_put "$STUB_BIN" "porelo-dist-test/porelo-agent-stub/$STUB_VERSION/"
                       art_put porelo-agent-stub.sha256 "porelo-dist-test/porelo-agent-stub/$STUB_VERSION/"
-                      art_api GET "/api/storage/porelo-dist-test/porelo-agent-stub" \
-                          | jq -r '.children[] | select(.folder) | .uri' | sed 's|^/||' | sort -V | head -n -20 \
+                      # Each by itself: a failure in a pipe's first part would pass for an empty listing.
+                      STUB_LISTING="$(art_api GET "/api/storage/porelo-dist-test/porelo-agent-stub")"
+                      STUB_FOLDERS="$(printf '%s' "$STUB_LISTING" | jq -r '.children[] | select(.folder) | .uri')"
+                      printf '%s\n' "$STUB_FOLDERS" | sed 's|^/||' | sort -V | head -n -20 \
                           | while read -r old; do
                               art_api DELETE "/porelo-dist-test/porelo-agent-stub/$old" >/dev/null
                               echo "  gone  $old"

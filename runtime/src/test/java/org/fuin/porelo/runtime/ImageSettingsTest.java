@@ -165,6 +165,30 @@ class ImageSettingsTest {
     }
 
     @Test
+    void aCommentInsideAContinuedEnvLineDoesNotEndIt() {
+        final String snippet = "ENV A=public \\\n# a comment\n    TOKEN=s3cret\nRUN true";
+
+        assertThat(lines(snippet)).containsExactly("ENV A=" + W + " TOKEN=" + W, "RUN true");
+        assertThat(of(snippet).json()).doesNotContain("s3cret");
+    }
+
+    @Test
+    void aUrlsCredentialContinuedOnTheNextLineIsCovered() {
+        final String snippet = "RUN curl https://user:\\\ns3cret@example.org/a\nRUN true";
+
+        assertThat(of(snippet).json()).doesNotContain("s3cret").doesNotContain("user:");
+        assertThat(lines(snippet)).contains("RUN true");
+    }
+
+    @Test
+    void aUrlsCredentialCutTwiceIsCoveredAndTheAddressAfterItStays() {
+        final String snippet = "RUN curl https://user:\\\ns3cret\\\nmore@example.org/a";
+
+        assertThat(lines(snippet))
+                .containsExactly("RUN curl https://" + W + "\\", W + "\\", W + "@example.org/a");
+    }
+
+    @Test
     void aUrlsCredentialIsCoveredAndTheLineStaysAsWritten() {
         final String snippet =
                 "RUN curl -f https://user:s3cret@example.org/a.tgz -o /tmp/a # keep me\n"

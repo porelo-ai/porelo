@@ -42,3 +42,6 @@ known and harmless: nothing is rebuilt by it. Moving identical configuration bet
 is equally harmless. The cap counts lines and packages only: an absurdly long base image name or source is not cut, and is
 refused at read above 1 MiB. A base image carrying a false label is shown by unit tests and by podman in a throwaway root,
 not by a real start.
+
+A last reading added two to what is covered: a comment or an empty line inside a continued `ENV` does not end it, and a URL's
+credential cut by a continuation is withheld across the lines.

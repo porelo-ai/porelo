@@ -302,6 +302,14 @@ final class StagedProject {
         for (final Path each : all) {
             final Path relative = target.relativize(each);
             final Path here = place.resolve(relative);
+            if (!approved.contains(relative)
+                    && Files.exists(here, LinkOption.NOFOLLOW_LINKS)
+                    && Files.mismatch(each, here) >= 0) {
+                throw new IOException(
+                        "this file names "
+                                + relative
+                                + ", where a file of this machine's own stands; move that first");
+            }
             if (!approved.contains(relative) && !Files.exists(here, LinkOption.NOFOLLOW_LINKS)) {
                 Directories.create(java.util.Objects.requireNonNull(here.getParent(), "a parent"));
                 Files.copy(

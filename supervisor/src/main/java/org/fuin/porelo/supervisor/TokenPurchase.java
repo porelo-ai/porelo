@@ -117,7 +117,7 @@ public final class TokenPurchase implements TokenSource {
         /** Without what it holds, as a line must never carry that. */
         @Override
         public String toString() {
-            return "Client[" + tokenUrl + ", " + clientId + "]";
+            return "Client[" + Grants.printable(tokenUrl) + ", " + clientId + "]";
         }
 
         /**
@@ -170,7 +170,7 @@ public final class TokenPurchase implements TokenSource {
         /** Without what it holds, as a line must never carry that. */
         @Override
         public String toString() {
-            return "Refresh[" + tokenUrl + ", " + clientId + "]";
+            return "Refresh[" + Grants.printable(tokenUrl) + ", " + clientId + "]";
         }
     }
 

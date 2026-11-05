@@ -45,11 +45,21 @@ public final class Grants {
         /** Without what it holds, as a line must never carry that. */
         @Override
         public String toString() {
-            return "Service[" + tokenUrl + ", " + clientId + "]";
+            return "Service[" + printable(tokenUrl) + ", " + clientId + "]";
         }
     }
 
     private Grants() {}
+
+    /**
+     * Returns an address as a line may say it, without a credential written into it.
+     *
+     * @param url The address.
+     * @return It, without what stands before an {@code @} in its authority.
+     */
+    static String printable(final String url) {
+        return url.replaceFirst("://[^/@]*@", "://");
+    }
 
     /**
      * Returns whether a vault entry of this kind is one a person grants an authorization for.

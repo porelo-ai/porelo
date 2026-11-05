@@ -21,3 +21,6 @@ content, a task's environment, or a program's output.
 
 `CommandResult` now prints only its exit code, as a program's output may hold anything. Whoever wants the output in a
 message names the stream.
+
+A last reading added two: a URL written with a credential prints without it in the five records that hold an address
+(`Grants.printable`), and `CodeGrant.Started` prints its port only, as its link holds the grant's state.

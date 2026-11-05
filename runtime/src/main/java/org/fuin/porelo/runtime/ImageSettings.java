@@ -92,6 +92,17 @@ public record ImageSettings(
                     "microdnf", "install",
                     "apk", "add");
 
+    private static final String MARK = Matcher.quoteReplacement(WITHHELD);
+
+    /** A URL whose address before its path is cut by a line's continuation. */
+    private static final Pattern AUTHORITY_OPEN = Pattern.compile("://[^/\\s@]*\\\\$");
+
+    /** A line after such a cut that is all address, and cut again. */
+    private static final Pattern AUTHORITY_ALL_OF_IT = Pattern.compile("\\s*[^/\\s@]*\\\\\\s*");
+
+    /** The start of the line after such a cut, up to where that address ends. */
+    private static final Pattern AUTHORITY_GOES_ON = Pattern.compile("^\\s*[^/\\s@]*");
+
     private static final Pattern STANDS_ALONE =
             Pattern.compile(
                     "-[yqfVUulmC]+|--(yes|assume-yes|assumeyes|quiet|no-install-recommends"
@@ -159,22 +170,38 @@ public record ImageSettings(
      */
     private static List<Sourced> recorded(final List<String> lines, final List<String> sources) {
         final List<Sourced> recorded = new ArrayList<>();
+        boolean inAuthority = false;
         for (int index = 0; index < lines.size(); index++) {
             final String source = index < sources.size() ? sources.get(index) : "";
             final Matcher env = ENV.matcher(lines.get(index));
             if (!env.matches()) {
-                recorded.add(
-                        new Sourced(
-                                USERINFO.matcher(lines.get(index))
-                                        .replaceAll(
-                                                "://" + Matcher.quoteReplacement(WITHHELD) + "@"),
-                                source));
+                String line = lines.get(index);
+                if (inAuthority) {
+                    inAuthority = AUTHORITY_ALL_OF_IT.matcher(line).matches();
+                    line =
+                            inAuthority
+                                    ? WITHHELD + "\\"
+                                    : AUTHORITY_GOES_ON.matcher(line).replaceFirst(MARK);
+                }
+                line = USERINFO.matcher(line).replaceAll("://" + MARK + "@");
+                final Matcher open = AUTHORITY_OPEN.matcher(line);
+                if (open.find()) {
+                    line = open.replaceFirst("://" + MARK + "\\\\");
+                    inAuthority = true;
+                }
+                recorded.add(new Sourced(line, source));
                 continue;
             }
+            inAuthority = false;
             final StringBuilder whole = new StringBuilder(env.group(1));
             while (whole.toString().endsWith("\\") && index + 1 < lines.size()) {
+                final String next = lines.get(++index);
+                // A builder drops a comment or an empty line inside a continuation and goes on.
+                if (next.isBlank() || next.stripLeading().startsWith("#")) {
+                    continue;
+                }
                 whole.setLength(whole.length() - 1);
-                whole.append(' ').append(lines.get(++index));
+                whole.append(' ').append(next);
             }
             recorded.add(new Sourced("ENV " + namesOf(whole.toString()), source));
         }
