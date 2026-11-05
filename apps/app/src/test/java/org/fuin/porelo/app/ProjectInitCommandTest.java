@@ -187,6 +187,22 @@ class ProjectInitCommandTest {
     }
 
     @Test
+    void theJsonAnswerKeepsItsSourceAndDiscoveryFieldNames() throws Exception {
+        localDetection = true;
+        install("healthy");
+        final var answer = answer(checkout("https://example.org/sample.git"));
+
+        assertThat(answer.get("plugins"))
+                .as("existing readers still find the discovery outcomes")
+                .isEqualTo(List.of(Map.of("name", "healthy", "state", "recognized", "why", "")));
+        final var findings = (List<?>) answer.get("values");
+        assertThat(findings).as("the adapter contributes a noncredential finding").hasSize(1);
+        assertThat(((Map<?, ?>) findings.getFirst()).get("plugin"))
+                .as("existing readers still attribute a finding to its source adapter")
+                .isEqualTo("healthy");
+    }
+
+    @Test
     void detectionLeavesTrackedUntrackedAndAccountFilesByteForByteUnchanged() throws Exception {
         final var checkout = checkout("https://example.org/sample.git");
         final var before = snapshot(directory);

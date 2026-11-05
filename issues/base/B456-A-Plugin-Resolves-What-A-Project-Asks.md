@@ -44,4 +44,4 @@ A failed lookup's note reaches a window by `notes`, which [B455](README.md#b455)
 
 ## To Say In The Page
 
-`doc/ecosystem-plugins.md:7` says a plugin opens no connection. That changes for this call, plainly.
+`doc/ecosystem-adapters.md:7` says a plugin opens no connection. That changes for this call, plainly.

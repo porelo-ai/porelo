@@ -1235,8 +1235,8 @@ type Finding (
 # what the answer names: the file and each file it names, with their names. An interface then starts as usual, by the project's name.
 # refusal says why a project.yml here cannot be taken, for a person to read as a warning, and "" otherwise: the outcome is then
 # ASK_UNKNOWN_FILE with no file and no hash, and the start goes on in 'default' without it.
-# notes are for a person to read above the question, for any outcome: a plugin that failed or was refused, and what a
-# plugin read and could place nowhere. A note is not part of what a hash names.
+# notes are for a person to read above the question, for any outcome: an adapter that failed or was refused, and what an
+# adapter read and could place nowhere. A note is not part of what a hash names.
 method FirstStart(checkout: string) -> (outcome: string, found: []Finding, hosts: []string, marked: []string, file: string, project: string, hash: string, notes: []string, refusal: string)
 
 # A person's yes to the text a hash names: writes the file into the checkout if it is new, and makes this

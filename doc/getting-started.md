@@ -83,7 +83,7 @@ sudo dnf install porelo porelo-agent-claude porelo-message-sluice-filter
 ```
 
 - **Name what is only recommended.** The repository's index drops what a package recommends, so on
-  Fedora and RHEL `dnf` does not bring along what `apt` brings by itself. The Maven plugin,
+  Fedora and RHEL `dnf` does not bring along what `apt` brings by itself. The Maven adapter,
   `porelo-ecosystem-maven`, is in the snapshots repository only, for now.
 - **`gpgcheck=0` is deliberate, and temporary.** The repository metadata is signed; the RPMs
   are not yet, so `dnf` would refuse them. Once they are, this becomes `gpgcheck=1` with a
@@ -196,7 +196,7 @@ In a checked-out repository with an `origin`:
 porelo task start
 ```
 
-If a plugin recognizes the repository, Porelo says what it found and each host it would open, and asks. At your
+If an ecosystem adapter recognizes the repository, Porelo says what it found and each host it would open, and asks. At your
 yes it writes `project.yml` here, for you to commit and adapt, and starts from it. A later start finds that
 project by itself.
 Its work then comes from your `origin` and goes there, through the gate, as a project's does. At a no, or with

@@ -135,7 +135,7 @@ public final class InstalledEcosystem implements AutoCloseable {
                         + version
                         + ", and this Porelo needs at least "
                         + lowest
-                        + ". Upgrade the plugin.";
+                        + ". Upgrade the ecosystem adapter.";
     }
 
     /**

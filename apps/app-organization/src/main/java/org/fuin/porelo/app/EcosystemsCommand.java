@@ -6,12 +6,12 @@ import org.fuin.porelo.ecosystem.api.InstalledEcosystems;
 import org.jspecify.annotations.Nullable;
 import picocli.CommandLine.Command;
 
-/** Lists the ecosystem plugins this machine can use. */
+/** Lists the ecosystem adapters this machine can use. */
 @Command(
         name = "ecosystems",
         mixinStandardHelpOptions = true,
         exitCodeOnInvalidInput = 64,
-        description = "Lists installed ecosystem plugins.")
+        description = "Lists installed ecosystem adapters.")
 public class EcosystemsCommand extends OrgReading {
     @Override
     Map<String, @Nullable Object> answer(PoreloContext machine) {
@@ -32,7 +32,7 @@ public class EcosystemsCommand extends OrgReading {
     @Override
     void text(Map<String, @Nullable Object> answer) {
         if (answer.get("ecosystems") instanceof java.util.List<?> plugins) {
-            if (plugins.isEmpty()) line("No ecosystem plugins installed.");
+            if (plugins.isEmpty()) line("No ecosystem adapters installed.");
             for (final Object entry : plugins) {
                 if (entry instanceof Map<?, ?> plugin) {
                     line(plugin.get("name") + "  " + plugin.get("path"));

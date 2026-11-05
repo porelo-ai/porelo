@@ -17,7 +17,7 @@ nav:
           - Messages between tasks: messages.md
           - Writing a transport: transports.md
           - Writing a build reader: build-readers.md
-          - Writing a build-tool plugin: ecosystem-plugins.md
+          - Writing an ecosystem adapter: ecosystem-adapters.md
           - FAQ: faq.md
     - How it keeps an agent in its place:
           - Security classes, firewall and names: security.md

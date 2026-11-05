@@ -602,7 +602,7 @@ public final class FirstStart {
                     Outcome.NO_PLUGIN,
                     "",
                     "",
-                    List.of("the installed build-tool plugins could not be listed"));
+                    List.of("the installed ecosystem adapters could not be listed"));
         }
         final List<InstalledEcosystems.Description> usable = new ArrayList<>();
         for (final InstalledEcosystems.Description each : plugins) {
@@ -718,7 +718,7 @@ public final class FirstStart {
                     upstream);
         } catch (ProjectException | IllegalArgumentException ex) {
             // Its words may repeat what it was told: a plugin's answer is a stranger's input.
-            notes.add("a plugin's answer makes no project file, so none is proposed");
+            notes.add("an ecosystem adapter's answer makes no project file, so none is proposed");
             return Answer.plain(Outcome.NOTHING_RECOGNIZED, "", "", notes);
         }
     }

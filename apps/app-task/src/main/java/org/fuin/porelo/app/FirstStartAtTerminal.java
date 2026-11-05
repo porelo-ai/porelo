@@ -67,7 +67,7 @@ final class FirstStartAtTerminal {
                 case NOT_DEFAULT -> null;
                 case NO_PLUGIN -> {
                     say(
-                            "no build-tool plugin is installed, so nothing looked for what this"
+                            "no ecosystem adapter is installed, so nothing looked for what this"
                                     + " repository needs; this start runs in '"
                                     + DefaultProject.NAME
                                     + "'. 'porelo ecosystems' lists them.");
@@ -75,7 +75,7 @@ final class FirstStartAtTerminal {
                 }
                 case NOTHING_RECOGNIZED -> {
                     say(
-                            "the build-tool plugins recognized nothing here; this start runs in '"
+                            "the ecosystem adapters recognized nothing here; this start runs in '"
                                     + DefaultProject.NAME
                                     + "'");
                     yield null;

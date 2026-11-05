@@ -41,7 +41,7 @@ Read in the code on 2026-10-20. `builds/` is the model, one for one.
    depends on anything but `ecosystem.api`, and a literal scan of main code for the stub's name.
 6. **The stub** answers from `answers.json` beside it, as the build stub does; `ci/leg-install.sh`, `Leg` and
    `Deploy.installReaders` install it into `$XDG_DATA_HOME/porelo/ecosystems/stub-ecosystem`.
-7. **Docs**: `doc/ecosystem-plugins.md` (writing one, the contract, opening no connection, never running the project's code),
+7. **Docs**: `doc/ecosystem-adapters.md` (writing one, the contract, opening no connection, never running the project's code),
    in `mkdocs.yml`; `README.md` links `ecosystems/README.md`.
 
 **Red first:** `InstalledEcosystemsTest` with a fake plugin main, as `InstalledBuildReaderTest` has one: two

@@ -157,7 +157,7 @@ What each Maven module is, in a few sentences of its own:
   [vault](vault/README.md), [gate](gate/README.md), [supervisor](supervisor/README.md) - what runs around a task
 - [organization](organization/README.md) - who may do what, behind an API
 - [agents](agents/README.md), [builds](builds/README.md), [ecosystems](ecosystems/README.md) - the contracts agents,
-  build readers and build-tool plugins are written against
+  build readers and ecosystem adapters are written against
 - [apps](apps/README.md) - the `porelo` command line, area by area
 - [daemon](daemon/README.md), [hooks](hooks/README.md) - `porelod` and the OCI hooks
 - [acceptance](acceptance/README.md) - scenarios at a real terminal

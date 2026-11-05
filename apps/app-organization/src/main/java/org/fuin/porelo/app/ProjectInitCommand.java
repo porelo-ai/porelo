@@ -129,7 +129,7 @@ public class ProjectInitCommand extends ProjectRepositoryCommand.Changing {
                         plugin(
                                 description.name(),
                                 "refused",
-                                "the plugin failed to answer Detect"));
+                                "the ecosystem adapter failed to answer Detect"));
             }
         }
         final Map<String, @Nullable Object> answer = made.answer();
@@ -196,6 +196,9 @@ public class ProjectInitCommand extends ProjectRepositoryCommand.Changing {
                         "plugins",
                         "revision"))
             if (answer.containsKey(field))
-                line(field + ": " + org.fuin.porelo.wire.Json.write(answer.get(field)));
+                line(
+                        (field.equals("plugins") ? "adapters" : field)
+                                + ": "
+                                + org.fuin.porelo.wire.Json.write(answer.get(field)));
     }
 }

@@ -172,7 +172,7 @@ class FirstStartTest {
 
         assertThat(detected).isZero();
         assertThat(questions).isEmpty();
-        assertThat(said.toString()).contains("no build-tool plugin is installed");
+        assertThat(said.toString()).contains("no ecosystem adapter is installed");
         assertThat(checkout.resolve("project.yml")).doesNotExist();
     }
 

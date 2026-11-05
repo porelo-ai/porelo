@@ -113,7 +113,7 @@ class InstalledEcosystemTest {
                 .hasMessageContaining(executable.toString())
                 .hasMessageContaining("version 0")
                 .hasMessageContaining("at least " + EcosystemProtocol.LOWEST)
-                .hasMessageContaining("Upgrade the plugin");
+                .hasMessageContaining("Upgrade the ecosystem adapter");
         assertThat(run()).as("a refused plugin leaves nothing behind").isEmptyDirectory();
     }
 
@@ -142,7 +142,7 @@ class InstalledEcosystemTest {
                         })
                 .as("1.5 is no version, and is not read as 1")
                 .isInstanceOf(EcosystemException.class)
-                .hasMessageContaining("Upgrade the plugin");
+                .hasMessageContaining("Upgrade the ecosystem adapter");
         try (InstalledEcosystem plugin =
                 new InstalledEcosystem(named("fake", Version.class, "4294967297"), run())) {
             assertThat(plugin.ecosystem()).as("newer, and not wrapped around").isEqualTo("fake");

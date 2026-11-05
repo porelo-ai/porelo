@@ -1,5 +1,5 @@
-# What a build-tool plugin answers: what it recognizes of its tool in a directory, and the settings files that tool
-# needs in a task. A plugin opens no connection, never runs the project's code, and holds no credential.
+# What an ecosystem adapter answers: what it recognizes of its tool in a directory, and the settings files that tool
+# needs in a task. An adapter opens no connection, never runs the project's code, and holds no credential.
 # Every field is required and of its declared type, an int being whole: an answer with one missing or of another type is
 # refused, never read as empty or false.
 interface org.fuin.porelo.Ecosystem1
@@ -7,7 +7,7 @@ interface org.fuin.porelo.Ecosystem1
 # Which ecosystem, the name its executable is installed under, and the version of this contract it was built against.
 method Describe() -> (protocolVersion: int, ecosystem: string)
 
-# One value a plugin recognized. part says what it belongs to; file and line where it is set, line 0 when the file has
+# One value an adapter recognized. part says what it belongs to; file and line where it is set, line 0 when the file has
 # no line for it. origin says who wrote it: YOURS the person, file relative to the home; CHECKOUT the checkout, file
 # relative to the directory; MACHINE neither, such as a parent in a local repository or the tool's built-in default, file
 # relative to the home, absolute when it lies outside the home, or "" with line 0 when the value comes from no file. Only
@@ -25,11 +25,11 @@ type Finding (
     note: string
 )
 
-# Something a plugin read and can place in no part: where it is, and what it is. A file that keeps the plugin from
+# Something an adapter read and can place in no part: where it is, and what it is. A file that keeps the adapter from
 # trusting what it read of the checkout is reported here, naming that file, with a note. Never a credential's value.
 type Unplaced (file: string, line: int, note: string)
 
-# What the plugin recognizes of its tool in a directory, and in the files of the home the person's own settings are in.
+# What the adapter recognizes of its tool in a directory, and in the files of the home the person's own settings are in.
 # It reads them and writes nothing.
 method Detect(directory: string, home: string) -> (findings: []Finding, unplaced: []Unplaced)
 
@@ -44,7 +44,7 @@ type File (path: string, content: string, ownerOnly: bool)
 # task's workspace from the host, it answers whenever a repository is declared, and it writes nothing itself.
 method Configure(repositories: []Repository) -> (files: []File)
 
-# The directory holds nothing of this plugin's tool.
+# The directory holds nothing of this adapter's tool.
 error NotRecognized ()
 
 # A file it needs cannot be read: detail says which and why, never what the file holds.

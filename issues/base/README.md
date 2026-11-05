@@ -21,6 +21,7 @@ from its side, as *blocked by*.
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
 | <a id="b454"></a>[B454](B454-A-Scenarios-Setup-Says-When-It-Failed.md) | XS | - | The first-start scenario checks its setup and cleans up even after a red. |
+| <a id="b451"></a>[B451](B451-An-Ecosystem-Adapter-Is-Not-A-Plugin.md) | S | - | Documentation and human output say "ecosystem adapter"; JSON stays compatible. Focused tests pass; full units stop at sandbox socket ownership checks. |
 | <a id="b457"></a>[B457](B457-A-File-Not-Taken-Is-A-Warning.md) | XS | - | A start going on without a `project.yml` that was not taken warns in color. |
 | <a id="b452"></a>[B452](B452-A-Value-With-No-File-Prints-No-Line.md) | XS | - | A value with no file prints no `:0` in a draft. |
 | <a id="b455"></a>[B455](B455-A-First-Start-Says-What-A-Plugin-Could-Not-Place.md) | S | - | A first start's question shows what a plugin could not place and its notes. |
@@ -83,7 +84,6 @@ from its side, as *blocked by*.
 | <a id="b459"></a>[B459](B459-Every-Credential-Failure-Says-What-To-Do.md) | M | - | Every credential's failure says what happened and what to do now. |
 | <a id="b456"></a>[B456](B456-A-Plugin-Resolves-What-A-Project-Asks.md) | L | - | A plugin may look up what a project asks when a file is made; a person sees the fetched lines whole. |
 | <a id="b453"></a>[B453](B453-A-Draft-Replaces-A-Repositorys-Own-Image.md) | S | - | A draft does not silently replace the image a repository says it needs. |
-| <a id="b451"></a>[B451](B451-An-Ecosystem-Adapter-Is-Not-A-Plugin.md) | S | - | What a person reads says "ecosystem adapter", not "plugin". |
 | <a id="b450"></a>[B450](B450-The-RPM-Index-Loses-What-A-Package-Recommends.md) | M | Artifactory's settings read | A default `dnf install` brings what the package recommends, which the RPM index loses today. |
 | <a id="b449"></a>[B449](B449-A-Repositorys-Own-File-Reaches-The-Image-Unasked.md) | S | - | A repository's `porelo.yml` chooses no line of an image without a person's yes. |
 | <a id="b442"></a>[B442](B442-One-Line-Installs-Everything-On-Fedora-And-RHEL.md) | M | - | `sudo dnf install 'porelo*' keepassxc` installs all of Porelo on Fedora and RHEL, shown by a real run. |
