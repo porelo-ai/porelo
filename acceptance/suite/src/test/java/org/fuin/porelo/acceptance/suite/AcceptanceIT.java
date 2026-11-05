@@ -12,8 +12,7 @@ import org.junit.platform.suite.api.Suite;
  * output - which is the other half of what this module was asked for: an overview of what is
  * tested, without anybody reading a log.
  *
- * <p>The glue is the kit's, and only the kit's: every step these scenarios use is one any
- * repository can use, which is the property that made the kit possible.
+ * <p>Every step comes from the kit; this suite adds only its fixture cleanup hooks.
  */
 @Suite
 @IncludeEngines("cucumber")

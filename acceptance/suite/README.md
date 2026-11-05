@@ -23,9 +23,8 @@ there - or assert the absence of one, which is half of every such behavior.
 
 ## Writing a scenario
 
-Every step here is the kit's; this module has no glue of its own, which is the property that made
-the kit possible. The two vocabularies - a person watching, a script nobody watches - are described
-there.
+Every step here is the kit's; this module adds only its fixture cleanup hooks. The two vocabularies -
+a person watching, a script nobody watches - are described there.
 
 **A run on a kept machine has one account, a leg has four.** `Leg.prepare` gives the accounts beside the build user a copy of
 what the build user has installed, and only what it names. A scenario relying on something new in an account's install passes on one

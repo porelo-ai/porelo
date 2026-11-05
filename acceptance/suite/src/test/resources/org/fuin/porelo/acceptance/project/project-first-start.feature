@@ -4,9 +4,11 @@ Feature: The first start finds what a repository needs
     A task started at a terminal in a checkout with no project.yml asks the installed plugins, says what they found and
     what it opens, and takes it only at a yes. The stub plugin answers from answers.json beside it.
 
+    @first-start-answers
     Scenario: a yes writes project.yml; the same file from the same upstream is that project, and nothing else is
         Given a script runs:
             """
+            set -eu
             base=~/first-start-probe
             rm -rf "$base"
             mkdir -p "$base"
@@ -22,6 +24,7 @@ Feature: The first start finds what a repository needs
             ],"unplaced":[{"file":"Dockerfile","line":3,"note":"a container is built here"}]}}
             JSON
             """
+        Then it exits zero
         When a script runs:
             """
             cd ~/first-start-probe/shop
@@ -64,7 +67,6 @@ Feature: The first start finds what a repository needs
             cd "$base/shop"
             porelo task remove porelo-shop-project-probe --force > /dev/null 2>&1
             porelo project remove shop-project > /dev/null 2>&1
-            rm -f "${XDG_DATA_HOME:-$HOME/.local/share}/porelo/ecosystems/answers.json"
             rm -rf ~/first-start-probe
             """
         Then its output contains "named: 1"
