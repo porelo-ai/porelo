@@ -59,6 +59,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b446"></a>[B446](B446-A-Record-Prints-What-It-Holds.md) | S | - | A record holding a secret prints what it is for, not what it holds. |
 | <a id="b445"></a>[B445](B445-The-Test-Agent-Has-A-Place-Of-Its-Own.md) | S | - | The stub agent's binary is published by version in a repository of its own, and leaves the package indexes. |
 | <a id="b444"></a>[B444](B444-The-First-Start-Finds-What-A-Repository-Needs.md) | - | - | `task start` in a checkout with no `project.yml` finds what it needs, asks yes or no, writes the file and starts from it. |
 | <a id="b443"></a>[B443](B443-What-A-Tasks-Image-Was-Built-With.md) | M | - | The daemon answers which settings a task's image was built with and where each comes from, and `project show default` answers. |
