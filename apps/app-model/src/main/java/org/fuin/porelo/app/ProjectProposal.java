@@ -41,8 +41,9 @@ final class ProjectProposal {
      * @param what Its name, as the plugin keyed it.
      * @param value What it read, or "" when the name says all.
      * @param source The file it was read from.
+     * @param note What the plugin says of it, or "".
      */
-    record Placed(String what, String value, String source) {}
+    record Placed(String what, String value, String source, String note) {}
 
     /**
      * Returns the name a project on one repository is proposed under. It differs from the
@@ -120,6 +121,34 @@ final class ProjectProposal {
                             each.note(),
                             "plugin",
                             plugin));
+    }
+
+    /**
+     * Returns what each plugin says for a person that has no place of its own in a question: what
+     * it read and could place nowhere, and why it names a host.
+     *
+     * @return One line for each, with its plugin, and its file and line when it has them.
+     */
+    List<String> notesForAPerson() {
+        final List<String> notes = new ArrayList<>();
+        for (var each : unplaced) {
+            final String file = String.valueOf(each.get("file"));
+            notes.add(
+                    each.get("plugin")
+                            + ": "
+                            + (file.isEmpty() ? "" : file + ":" + each.get("line") + ": ")
+                            + each.get("note"));
+        }
+        for (var each : values) {
+            final String key = String.valueOf(each.get("key"));
+            final String note = String.valueOf(each.get("note"));
+            if (key.startsWith("host.")
+                    && !note.isEmpty()
+                    && !Boolean.TRUE.equals(each.get("unknown"))) {
+                notes.add(each.get("plugin") + ": " + key.substring(5) + ": " + note);
+            }
+        }
+        return notes;
     }
 
     /**
@@ -206,14 +235,24 @@ final class ProjectProposal {
                             new Placed(
                                     group.getKey().key(),
                                     String.valueOf(value.get("note")),
-                                    String.valueOf(value.get("file"))));
+                                    String.valueOf(value.get("file")),
+                                    ""));
                 }
             }
             if (known.isEmpty()) continue;
             final String key = group.getKey().key();
             final String value = String.valueOf(known.getFirst().get("value"));
             if (group.getKey().part() == Finding.Part.TOOLS) {
-                found.add(new Placed(key, value, String.valueOf(known.getFirst().get("file"))));
+                found.add(
+                        new Placed(
+                                key,
+                                value,
+                                String.valueOf(known.getFirst().get("file")),
+                                known.stream()
+                                        .map(each -> String.valueOf(each.get("note")))
+                                        .filter(each -> !each.isEmpty())
+                                        .distinct()
+                                        .collect(java.util.stream.Collectors.joining("; "))));
             }
             final String sources =
                     known.stream()
@@ -319,15 +358,12 @@ final class ProjectProposal {
     }
 
     private static String source(Map<String, Object> value) {
-        return plain(
-                value.get("file")
-                        + ":"
-                        + value.get("line")
-                        + " ("
-                        + value.get("origin")
-                        + ", "
-                        + value.get("plugin")
-                        + ")");
+        // A value from no file, such as a tool's built-in default, has no line to name.
+        final String where =
+                String.valueOf(value.get("file")).isEmpty()
+                        ? String.valueOf(value.get("note"))
+                        : value.get("file") + ":" + value.get("line");
+        return plain(where + " (" + value.get("origin") + ", " + value.get("plugin") + ")");
     }
 
     private static String plain(String text) {

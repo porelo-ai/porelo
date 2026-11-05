@@ -70,7 +70,7 @@ class FirstStartMethodsTest {
                                     1,
                                     Finding.Origin.CHECKOUT,
                                     false,
-                                    ""),
+                                    "read from the pom"),
                             new Finding(
                                     Finding.Part.RULES,
                                     "host.nexus.evil.example",
@@ -80,7 +80,9 @@ class FirstStartMethodsTest {
                                     Finding.Origin.CHECKOUT,
                                     false,
                                     "")),
-                    List.of());
+                    List.of(
+                            new org.fuin.porelo.ecosystem.api.Unplaced(
+                                    "Dockerfile", 3, "a container is built here")));
         }
 
         @Override
@@ -157,6 +159,9 @@ class FirstStartMethodsTest {
                     final var asked = firstStart(client);
                     assertThat(asked.get("outcome")).isEqualTo("ASK_NEW");
                     assertThat(asked.get("project")).isEqualTo("shop-project");
+                    assertThat((List<?>) asked.get("notes"))
+                            .anyMatch(
+                                    each -> String.valueOf(each).contains("a container is built"));
                     assertThat(asked.get("hosts")).isEqualTo(List.of("nexus.evil.example"));
                     assertThat(asked.get("marked")).isEqualTo(List.of("nexus.evil.example"));
                     assertThat(asked.get("found"))
@@ -168,7 +173,9 @@ class FirstStartMethodsTest {
                                                     "value",
                                                     "",
                                                     "source",
-                                                    "pom.xml")));
+                                                    "pom.xml",
+                                                    "note",
+                                                    "read from the pom")));
                     assertThat(checkout.resolve("project.yml"))
                             .as("a look writes nothing")
                             .doesNotExist();
@@ -279,7 +286,7 @@ class FirstStartMethodsTest {
                 .contains(
                         "method FirstStart(checkout: string) -> (outcome: string, found: []Finding,"
                                 + " hosts: []string, marked: []string, file: string, project: string,"
-                                + " hash: string)",
+                                + " hash: string, notes: []string)",
                         "method ConfirmFirstStart(checkout: string, hash: string) ->"
                                 + " (project: string)",
                         "type Finding (",

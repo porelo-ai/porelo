@@ -1,11 +1,11 @@
 # B455 — A First Start Says What A Plugin Could Not Place
 
-**Status:** Backlog.
+**Status:** Review.
 **Size:** S - two fields on the wire, the terminal's lines, their tests; Agent Frontend then shows them.
 
 **What must be true.** What a plugin says for a person to read before a yes reaches that person, at the terminal and in an interface.
 
-Not in the test's version unless the operator says so.
+The operator's word, 2026-11-05: built before the test.
 
 ## Found
 
@@ -27,3 +27,12 @@ Agent Ecosystems, reading what the Maven adapter says at a first start, and read
   each note beside its finding, before a yes.
 - They are not in the hash: the file and what it names are what a yes takes, and a note changes nothing written.
 - A scenario with the stub's `unplaced`, at the terminal and over the socket.
+
+## As built
+
+As asked. A note sits on `Finding` as `note` and on the answer as `notes`, for every outcome. The scenario shows it at the terminal, and
+`FirstStartMethodsTest` over the socket; what an interface shows of it is Agent Frontend's.
+
+A reading added three: what a plugin says of a host goes among `notes`, two plugins agreeing keep both their words, and a draft that cannot
+be made still says what could not be placed. A note in a draft's comment, by [B452](README.md#b452), is written, so that one does count in
+the hash.

@@ -215,4 +215,27 @@ class ProjectProposalTest {
                 .get("draft")
                 .toString();
     }
+
+    @Test
+    void aValueFromNoFileIsSaidByItsNoteAndNotByALineZero() {
+        final ProjectProposal proposal = new ProjectProposal("shop", null, null, null, null);
+        proposal.add(
+                "maven",
+                new Detection(
+                        List.of(
+                                new Finding(
+                                        Finding.Part.RULES,
+                                        "host.repo.maven.apache.org",
+                                        "yes",
+                                        "",
+                                        0,
+                                        Finding.Origin.MACHINE,
+                                        false,
+                                        "built into Maven")),
+                        List.of()));
+
+        assertThat(proposal.answer().get("draft").toString())
+                .contains("built into Maven (MACHINE, maven)")
+                .doesNotContain(":0");
+    }
 }

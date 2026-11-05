@@ -110,7 +110,8 @@ final class FirstStartAtTerminal {
                         "  found    "
                                 + each.what()
                                 + (each.value().isEmpty() ? "" : " " + each.value())
-                                + (each.source().isEmpty() ? "" : " (" + each.source() + ")"));
+                                + (each.source().isEmpty() ? "" : " (" + each.source() + ")")
+                                + (each.note().isEmpty() ? "" : ": " + each.note()));
             }
         }
         for (final String host : answer.hosts()) {

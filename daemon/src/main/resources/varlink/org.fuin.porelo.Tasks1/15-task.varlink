@@ -1221,7 +1221,8 @@ method Usage(task: string) -> (usage: Usage)
 type Finding (
   what: string,
   value: string,
-  source: string
+  source: string,
+  note: string
 )
 
 # What a first start in a checkout on this computer is to do, changing nothing. outcome is ASK_NEW
@@ -1232,7 +1233,9 @@ type Finding (
 # for which a yes is not the default. file is the text that would be written; for a project.yml already
 # there, every line of it and of each file it names, under a line '--- <name> ---', made printable. hash is
 # what the answer names: the file and each file it names, with their names. An interface then starts as usual, by the project's name.
-method FirstStart(checkout: string) -> (outcome: string, found: []Finding, hosts: []string, marked: []string, file: string, project: string, hash: string)
+# notes are for a person to read above the question, for any outcome: a plugin that failed or was refused, and what a
+# plugin read and could place nowhere. A note is not part of what a hash names.
+method FirstStart(checkout: string) -> (outcome: string, found: []Finding, hosts: []string, marked: []string, file: string, project: string, hash: string, notes: []string)
 
 # A person's yes to the text a hash names: writes the file into the checkout if it is new, and makes this
 # machine's copy the project, which a start by the project's name reads whatever the checkout then holds. A

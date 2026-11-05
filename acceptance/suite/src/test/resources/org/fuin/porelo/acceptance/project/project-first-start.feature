@@ -19,7 +19,7 @@ Feature: The first start finds what a repository needs
             {"detect":{"findings":[
               {"part":"TOOLS","key":"package.maven","value":"","file":"pom.xml","line":1,"origin":"CHECKOUT","unknown":false,"note":""},
               {"part":"RULES","key":"host.nexus.first-start.example","value":"yes","file":"pom.xml","line":2,"origin":"CHECKOUT","unknown":false,"note":""}
-            ],"unplaced":[]}}
+            ],"unplaced":[{"file":"Dockerfile","line":3,"note":"a container is built here"}]}}
             JSON
             """
         When a script runs:
@@ -32,7 +32,8 @@ Feature: The first start finds what a repository needs
         And its output contains "no file yet"
         Given a terminal on the machine
         When I run "cd ~/first-start-probe/shop && porelo task start probe --agent stub --detach --clearance deny"
-        Then the terminal shows "nexus.first-start.example  <- only this repository names it"
+        Then the terminal shows "Dockerfile:3: a container is built here"
+        And the terminal shows "nexus.first-start.example  <- only this repository names it"
         And the terminal shows "[y/N]"
         When I type "y"
         Then the terminal shows "shop-project"

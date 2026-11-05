@@ -50,6 +50,11 @@ repository would read that repository as its own, where no task works. Nothing a
 says yes at a terminal; the file then goes into the checkout, and this machine's copy of it is what starts. The daemon's `FirstStart` and `ConfirmFirstStart` answer the same for an interface on the
 same computer.
 
+What a plugin says for a person reaches the question, at a terminal and through `FirstStart`: each `unplaced` thing, with its
+plugin, file and line, among `notes`, as is what it says of a host; a tool's `note` stands beside it. These are not part of what a yes
+names, as they change nothing written. A value from no file, such as a tool's built-in default, is said by its `note` in a draft's
+comment: that is written, so it is part of what a yes names.
+
 A plugin runs no code and is bounded by a time and a size, and its answer is still input from a stranger's repository:
 what it says goes through the project reader, and a person reads it before it counts. An unknown finding is said
 with its `note`, which should name why and where, such as the parent POM that is not in the local repository; the

@@ -118,8 +118,9 @@ public final class FirstStart {
      * @param source The file it was read from; printable.
      * @param unknown Whether it is set where nothing can read it without running something; {@code
      *     value} then says why.
+     * @param note What a plugin says of it, or ""; printable.
      */
-    public record Found(String what, String value, String source, boolean unknown) {
+    public record Found(String what, String value, String source, boolean unknown, String note) {
 
         /**
          * Returns this as the wire has it.
@@ -131,6 +132,7 @@ public final class FirstStart {
             map.put("what", what);
             map.put("value", unknown ? "unknown: " + value : value);
             map.put("source", source);
+            map.put("note", note);
             return map;
         }
     }
@@ -210,6 +212,7 @@ public final class FirstStart {
             map.put("file", file);
             map.put("project", project);
             map.put("hash", hash);
+            map.put("notes", notes);
             return map;
         }
     }
@@ -585,7 +588,7 @@ public final class FirstStart {
     }
 
     private static Found found(final String what, final String value) {
-        return new Found(printable(what), printable(value), FILE_NAME, false);
+        return new Found(printable(what), printable(value), FILE_NAME, false, "");
     }
 
     private Answer detected(final Path here, final Path top, final String origin) {
@@ -639,6 +642,8 @@ public final class FirstStart {
                     notes.add(printable(each.name() + " failed to answer"));
                 }
             }
+            // Before the draft is made: one that cannot be made still says these.
+            proposal.notesForAPerson().forEach(each -> notes.add(printable(each)));
             final String text = String.valueOf(proposal.answer().get("draft"));
             proposal.tools()
                     .forEach(
@@ -648,7 +653,8 @@ public final class FirstStart {
                                                     printable(one.what()),
                                                     printable(one.value()),
                                                     printable(one.source()),
-                                                    false)));
+                                                    false,
+                                                    printable(one.note()))));
             proposal.unknowns()
                     .forEach(
                             one ->
@@ -657,7 +663,8 @@ public final class FirstStart {
                                                     printable(one.what()),
                                                     printable(one.value()),
                                                     printable(one.source()),
-                                                    true)));
+                                                    true,
+                                                    "")));
             proposal.credentialIds()
                     .forEach(
                             id ->
@@ -666,7 +673,8 @@ public final class FirstStart {
                                                     "credential needed",
                                                     printable(id),
                                                     "",
-                                                    false)));
+                                                    false,
+                                                    "")));
             if (!proposal.applies() && found.isEmpty()) {
                 return Answer.plain(Outcome.NOTHING_RECOGNIZED, "", "", notes);
             }

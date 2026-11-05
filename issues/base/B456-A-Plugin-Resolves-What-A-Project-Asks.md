@@ -1,13 +1,13 @@
 # B456 — A Plugin Resolves What A Project Asks
 
-**Status:** Implementing.
+**Status:** Backlog.
 **Size:** L - a contract's method, the draft's two new kinds of key, the question, the wire and the page.
 
 **What must be true.** When a project file is made, a plugin may look up what a project asks, and a person sees the lines it fetched
 whole before a yes. Porelo's side of `EC09` in `porelo-ecosystems`, whose adapter does the looking up.
 
-**The operator's word, 2026-11-05:** before the test, including on `main`, with a first start's lookup to vendors before a yes, which
-they know of. [B453](README.md#b453) and [B455](README.md#b455) stay after the test, apart from the piece named below.
+**The operator's word, 2026-11-05:** after the test. It replaced their earlier "before the test" the same day; nothing of it was built.
+[B453](README.md#b453) stays after the test too.
 
 ## The Contract
 
@@ -37,13 +37,10 @@ call alone. They can hold a credential: it never goes into a finding, a note or 
 
 Fetched lines run as root of the build, so they are shown whole for a new file too, and count in the hash.
 
-**Comes along from [B455](README.md#b455):** `notes: []string` on `method FirstStart`, as a failed lookup's note would otherwise reach the
-terminal and no window. The rest of that issue stays after the test.
+A failed lookup's note reaches a window by `notes`, which [B455](README.md#b455) put on the wire. A resolved value's comment needs no
+`:0`, by [B452](README.md#b452).
 
-**Comes along from [B452](README.md#b452):** all of it, as every resolved value has no file and would print `:0`.
-
-**Stays after the test:** with [B453](README.md#b453) later, a repository with its own image is resolved over, as a draft is today: the same
-stop in kind, and no new one.
+**With [B453](README.md#b453) still open,** a repository with its own image is resolved over, as a draft is today: the same stop in kind.
 
 ## To Say In The Page
 

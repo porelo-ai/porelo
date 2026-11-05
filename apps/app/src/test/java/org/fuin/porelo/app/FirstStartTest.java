@@ -1211,4 +1211,150 @@ class FirstStartTest {
                         FirstStart.Refused.class,
                         ex -> assertThat(ex.reason()).isEqualTo(FirstStart.Reason.NOT_A_CHECKOUT));
     }
+
+    @Test
+    void whatAPluginSaysForAPersonReachesTheQuestion() throws Exception {
+        plugin();
+        detector =
+                (plugin, directory, home) ->
+                        new Detection(
+                                List.of(
+                                        new Finding(
+                                                Finding.Part.TOOLS,
+                                                "package.maven",
+                                                "",
+                                                "pom.xml",
+                                                1,
+                                                Finding.Origin.CHECKOUT,
+                                                false,
+                                                "the extensions here need a build to read")),
+                                List.of(
+                                        new org.fuin.porelo.ecosystem.api.Unplaced(
+                                                "Dockerfile", 3, "a container is built here")));
+
+        final FirstStart.Answer answer = firstStart().look(checkout);
+        try {
+            assertThat(answer.found().getFirst().note())
+                    .isEqualTo("the extensions here need a build to read");
+            assertThat(answer.notes())
+                    .anyMatch(
+                            each ->
+                                    each.contains("maven")
+                                            && each.contains("Dockerfile:3")
+                                            && each.contains("a container is built here"));
+            assertThat(answer.asMap().get("notes")).isEqualTo(answer.notes());
+        } finally {
+            answer.discard();
+        }
+
+        atTerminal("n");
+
+        assertThat(said.toString())
+                .contains("the extensions here need a build to read")
+                .contains("a container is built here");
+    }
+
+    @Test
+    void aNoteIsNotPartOfWhatAYesNames() throws Exception {
+        plugin();
+        final FirstStart.Answer plain = firstStart().look(checkout);
+        final String hash = plain.hash();
+        plain.discard();
+        detector =
+                (plugin, directory, home) ->
+                        new Detection(
+                                List.of(tool("package.maven", "", "pom.xml")),
+                                List.of(
+                                        new org.fuin.porelo.ecosystem.api.Unplaced(
+                                                "Dockerfile", 3, "a container is built here")));
+
+        final FirstStart.Answer noted = firstStart().look(checkout);
+        try {
+            assertThat(noted.hash()).isEqualTo(hash);
+        } finally {
+            noted.discard();
+        }
+    }
+
+    @Test
+    void whatAPluginSaysOfAHostReachesTheQuestionToo() throws Exception {
+        plugin();
+        detector =
+                (plugin, directory, home) ->
+                        new Detection(
+                                List.of(
+                                        new Finding(
+                                                Finding.Part.RULES,
+                                                "host.nexus.example",
+                                                "yes",
+                                                "pom.xml",
+                                                1,
+                                                Finding.Origin.CHECKOUT,
+                                                false,
+                                                "needed only for publishing")),
+                                List.of());
+
+        final FirstStart.Answer answer = firstStart().look(checkout);
+        try {
+            assertThat(answer.notes())
+                    .anyMatch(
+                            each ->
+                                    each.contains("nexus.example")
+                                            && each.contains("needed only for publishing"));
+        } finally {
+            answer.discard();
+        }
+    }
+
+    @Test
+    void twoPluginsAgreeingKeepBothTheirWords() throws Exception {
+        final Path own = context.paths().ecosystemDirectories().getFirst();
+        plugin();
+        final Path other = own.resolve("gradle");
+        Files.writeString(
+                other, "#!/bin/sh\nprintf '{\"protocolVersion\":1,\"ecosystem\":\"gradle\"}'\n");
+        Files.setPosixFilePermissions(other, PosixFilePermissions.fromString("rwx------"));
+        detector =
+                (plugin, directory, home) ->
+                        new Detection(
+                                List.of(
+                                        new Finding(
+                                                Finding.Part.TOOLS,
+                                                "package.maven",
+                                                "",
+                                                "pom.xml",
+                                                1,
+                                                Finding.Origin.CHECKOUT,
+                                                false,
+                                                "said by " + plugin.name())),
+                                List.of());
+
+        final FirstStart.Answer answer = firstStart().look(checkout);
+        try {
+            assertThat(answer.found().getFirst().note())
+                    .contains("said by maven")
+                    .contains("said by gradle");
+        } finally {
+            answer.discard();
+        }
+    }
+
+    @Test
+    void aDraftThatCannotBeMadeStillSaysWhatAPluginCouldNotPlace() throws Exception {
+        plugin();
+        detector =
+                (plugin, directory, home) ->
+                        new Detection(
+                                List.of(host("bad host", Finding.Origin.CHECKOUT)),
+                                List.of(
+                                        new org.fuin.porelo.ecosystem.api.Unplaced(
+                                                "Dockerfile", 3, "a container is built here")));
+
+        final FirstStart.Answer answer = firstStart().look(checkout);
+        try {
+            assertThat(answer.notes()).anyMatch(each -> each.contains("a container is built here"));
+        } finally {
+            answer.discard();
+        }
+    }
 }
