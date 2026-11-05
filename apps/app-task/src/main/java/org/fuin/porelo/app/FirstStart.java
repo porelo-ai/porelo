@@ -613,7 +613,7 @@ public final class FirstStart {
         }
         final String upstream = upstream(origin, top);
         final String repository = RepositoryAddress.nameOf(upstream);
-        final String name = projectName(repository);
+        final String name = ProjectProposal.projectName(repository);
         final ProjectProposal proposal;
         try {
             // A repository with no origin is reached where a task in 'default' reaches it.
@@ -712,13 +712,6 @@ public final class FirstStart {
             notes.add("a plugin's answer makes no project file, so none is proposed");
             return Answer.plain(Outcome.NOTHING_RECOGNIZED, "", "", notes);
         }
-    }
-
-    /** A project's name differs from its repository's: {@code OwnRepository} says why. */
-    private static String projectName(final String repository) {
-        final String word = repository.replace('.', '-');
-        final String cut = word.length() > 55 ? word.substring(0, 55) : word;
-        return cut.replaceAll("-+$", "") + "-project";
     }
 
     private List<String> outsideCuratedSets(final List<String> hosts) {

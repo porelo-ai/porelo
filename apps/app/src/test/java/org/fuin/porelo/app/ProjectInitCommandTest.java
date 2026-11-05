@@ -109,7 +109,7 @@ class ProjectInitCommandTest {
                 .isZero();
         assertThat(out.toString())
                 .as("the printed draft keeps its YAML line breaks")
-                .startsWith("project:\n  name: \"proposed\"\n");
+                .startsWith("project:\n  name: \"sample-project\"\n");
     }
 
     @Test

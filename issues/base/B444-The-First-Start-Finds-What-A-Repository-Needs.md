@@ -39,8 +39,8 @@ neither Maven nor Java nor Maven Central, and the agent cannot build there.
   that repository as the project's own, where no task works.
 - A name that is already another local project's, or `default`, is refused at the question, so a repository cannot take over a
   project this machine has.
-- The writing path shares `ProjectProposal` and passes the name through its `project` parameter. Its own default for no name,
-  `proposed` (`draft` for a repository of that name), stays for `project init`, whose tests and readers hold it.
+- The writing path shares `ProjectProposal` and passes the name through its `project` parameter. `project init` without a name
+  takes the same `<repository>-project`, from one helper there; it printed `proposed` until the operator's first try showed it.
 
 ## What Is New In The Start
 

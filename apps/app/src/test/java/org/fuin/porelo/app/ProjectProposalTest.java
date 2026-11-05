@@ -198,4 +198,21 @@ class ProjectProposalTest {
         final Map<?, ?> image = (Map<?, ?>) proposal.row().get("image");
         assertThat(String.valueOf(image.get("snippet"))).startsWith("RUN apt-get update");
     }
+
+    @Test
+    void aDraftWithNoProjectNamedTakesItsNameFromItsRepository() {
+        assertThat(draftNamed("utils4j")).contains("name: \"utils4j-project\"");
+        assertThat(draftNamed("a.b")).contains("name: \"a-b-project\"");
+        assertThat(draftNamed("x".repeat(60))).contains("name: \"" + "x".repeat(55) + "-project\"");
+        assertThat(draftNamed("x".repeat(54) + "-y"))
+                .contains("name: \"" + "x".repeat(54) + "-project\"");
+        assertThat(draftNamed("proposed")).contains("name: \"proposed-project\"");
+    }
+
+    private static String draftNamed(final String repository) {
+        return new ProjectProposal(repository, null, null, null, null)
+                .answer()
+                .get("draft")
+                .toString();
+    }
 }

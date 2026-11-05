@@ -44,6 +44,19 @@ final class ProjectProposal {
      */
     record Placed(String what, String value, String source) {}
 
+    /**
+     * Returns the name a project on one repository is proposed under. It differs from the
+     * repository's: {@code OwnRepository} says why.
+     *
+     * @param repository The repository's name.
+     * @return The project's name.
+     */
+    static String projectName(final String repository) {
+        final String word = repository.replace('.', '-');
+        final String cut = word.length() > 55 ? word.substring(0, 55) : word;
+        return cut.replaceAll("-+$", "") + "-project";
+    }
+
     ProjectProposal(
             String repository,
             @Nullable String upstream,
@@ -58,10 +71,9 @@ final class ProjectProposal {
             @Nullable String central,
             @Nullable String review,
             @Nullable String project) {
-        this.project =
-                project == null ? (repository.equals("proposed") ? "draft" : "proposed") : project;
         if (!repository.matches(Repository.NAME_PATTERN))
             throw new IllegalArgumentException("invalid repository name");
+        this.project = project == null ? projectName(repository) : project;
         this.repository = repository;
         this.upstream = upstream;
         if (upstream != null) row.put("upstream", upstream);
