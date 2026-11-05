@@ -113,6 +113,81 @@ class SetupScriptChannelTest {
         assertThat(said.strip().lines().toList().getLast()).isEqualTo("nothing would change");
     }
 
+    @Test
+    void aHeldPackageIsInstalledAndOneToBeReinstalledIsNot() throws Exception {
+        status = "hi ";
+        assertThat(prepared("ubuntu", true, false)).doesNotContain("apt-get install");
+
+        status = "iiR";
+        assertThat(prepared("ubuntu", true, false)).contains("apt-get install");
+    }
+
+    @Test
+    void aVirtualPackageAnotherProvidesIsThere() throws Exception {
+        final String said = prepared("ubuntu", true, false, "--with", "mail-transport-agent");
+
+        assertThat(said).doesNotContain("apt-get install");
+        assertThat(said.strip().lines().toList().getLast()).isEqualTo("nothing would change");
+    }
+
+    @Test
+    void aFedoraPackageNewerInTheRepositoryIsSaidAndAFailedQuestionToo() throws Exception {
+        dnfExit = 100;
+        assertThat(prepared("fedora", true, false))
+                .contains("is installed and the repository offers newer");
+
+        dnfExit = 1;
+        assertThat(prepared("fedora", true, false))
+                .contains("cannot tell whether")
+                .doesNotContain("is installed and the repository offers newer");
+    }
+
+    @Test
+    void takingTheSpoolBackShowsNoDropForASpoolThatWouldBeGone() throws Exception {
+        Files.createDirectories(dir.resolve("machine/spool/drop"));
+
+        final String said = prepared("ubuntu", true, false, "--between-users", "off");
+
+        assertThat(said.strip().lines().toList().getLast())
+                .isEqualTo("would change: between-users");
+    }
+
+    @Test
+    void aPackageOfTheOldSpoolNamesItsPart() throws Exception {
+        final String said = prepared("ubuntu", true, false, "--between-users", "retired-on");
+
+        assertThat(said.strip().lines().toList().getLast())
+                .isEqualTo("would change: between-users");
+    }
+
+    @Test
+    void aFilterThatCameWithPoreloIsNamedToo() throws Exception {
+        show = false;
+        comesWithPorelo = true;
+
+        final String said = prepared("ubuntu", true, false);
+
+        assertThat(said.strip().lines().toList().getLast()).isEqualTo("changed: porelo filter");
+    }
+
+    @Test
+    void aRealSecondRunSaysNothingChanged() throws Exception {
+        show = false;
+
+        final String said = prepared("ubuntu", true, false, "--json");
+
+        assertThat(said.strip().lines().toList()).contains("nothing changed");
+        assertThat(standardOutput).isEqualTo("{\"changed\":false,\"parts\":[]}\n");
+    }
+
+    private String status = "ii ";
+
+    private int dnfExit;
+
+    private boolean show = true;
+
+    private boolean comesWithPorelo;
+
     private String standardOutput = "";
 
     /**
@@ -164,34 +239,62 @@ class SetupScriptChannelTest {
                         .replace("/etc/apt/sources.list.d/porelo.list", list.toString())
                         .replace("/etc/yum.repos.d/porelo.repo", repo.toString())
                         .replace("/etc/subuid", subuid.toString())
-                        .replace("/etc/subgid", subgid.toString()));
+                        .replace("/etc/subgid", subgid.toString())
+                        .replace("/var/spool/porelo", root.resolve("spool").toString()));
         final Path stand = Files.createDirectories(dir.resolve("standing"));
-        standIn(stand.resolve("id"), ready ? "echo 1000\n" : "exit 1\n");
+        final Path installed = root.resolve("installed");
+        Files.deleteIfExists(installed);
+        standIn(stand.resolve("id"), ready ? "echo " + (show ? "1000" : "0") + "\n" : "exit 1\n");
+        standIn(
+                stand.resolve("apt-get"),
+                "case \"$*\" in *install*) : > '" + installed + "' ;; esac\n");
+        standIn(stand.resolve("dnsmasq"), "echo nftset\n");
+        standIn(stand.resolve("porelo"), "echo porelo 1.0\n");
+        standIn(stand.resolve("setfacl"), "exit 0\n");
+        standIn(stand.resolve("getent"), "exit 1\n");
         standIn(stand.resolve("loginctl"), ready ? "echo Linger=yes\n" : "exit 1\n");
+        final String came =
+                comesWithPorelo
+                        ? "*Status*porelo*) [ -e '"
+                                + installed
+                                + "' ] && printf '"
+                                + status
+                                + "' || exit 1 ;;\n"
+                        : "";
         standIn(
                 stand.resolve("dpkg-query"),
                 ready
-                        ? "case \"$*\" in *Status*) printf 'ii ' ;; *) printf '1.0' ;; esac\n"
+                        ? "case \"$*\" in\n*Provides*) echo 'ii |mail-transport-agent, other' ;;\n"
+                                + "*mail-transport-agent*) exit 1 ;;\n"
+                                + came
+                                + "*Status*) printf '"
+                                + status
+                                + "' ;;\n*) printf '1.0' ;;\nesac\n"
                         : "exit 1\n");
         standIn(
                 stand.resolve("apt-cache"),
-                "echo '  Candidate: " + (older ? "2.0" : "1.0") + "'\n");
+                "case \"$*\" in *podman*) echo '  Candidate: 5.0' ;;\n"
+                        + "*) echo 'porelo-dist-deb'; echo '  Candidate: "
+                        + (older ? "2.0" : "1.0")
+                        + "' ;; esac\n");
         standIn(stand.resolve("dpkg"), older ? "exit 0\n" : "exit 1\n");
         standIn(stand.resolve("rpm"), ready ? "printf '1.0'\n" : "exit 1\n");
-        standIn(stand.resolve("dnf"), "exit 0\n");
+        standIn(stand.resolve("dnf"), "exit " + dnfExit + "\n");
 
         final List<String> command = new ArrayList<>();
         command.add("sh");
         command.add(copy.toString());
         command.addAll(
                 List.of(
-                        "--show",
                         "--os-release",
                         osRelease.toString(),
                         "--user",
                         "x",
                         "--distribution",
                         "releases"));
+        if (show) {
+            command.add("--show");
+        }
         command.addAll(List.of(more));
         final ProcessBuilder builder = new ProcessBuilder(command);
         builder.environment().put("PATH", stand + ":" + System.getenv("PATH"));

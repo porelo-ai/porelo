@@ -1,6 +1,6 @@
 # B216 — A Second Setup Says Nothing Changed
 
-**Status:** Implementing.
+**Status:** Review.
 **Size:** M - one shell script, but a `--json` answer porelo-host's role reads, docs in `doc/running.md` and `doc/hosts.md`, and tests that stub the machine.
 
 **What must be true.** `porelo-setup.sh` run on a machine it already prepared changes nothing, and says so in a
@@ -48,6 +48,9 @@ Read in `dist/dist-setup/porelo-setup.sh` and `SetupScriptChannelTest`.
 The tests point a copy of the script at their own paths, by replacing the fixed paths in the copy, so root reads no variable
 that could move them. `--show` on the prepared test VM, with its real `dpkg` and `apt`, answered `{"changed":false,"parts":[]}`
 and showed no install. The real second run as root is not run: the VM's account has no `sudo`, so that is for a host.
+
+Left as they were, read and not changed: an install that fails ends with the package manager's own exit, not 5, and
+`--list --json` does not escape a control character in a package's description.
 
 ## Acceptance
 

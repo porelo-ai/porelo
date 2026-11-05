@@ -128,12 +128,16 @@ changed() {
 
 is_installed() { # package
     if [ "$FAMILY" = apt ]; then
+        # Wanted or held, installed, and no error: 'iiR' needs a reinstall. Or another package provides
+        # it, which a name --with gives may be.
         case "$(dpkg-query -W -f='${db:Status-Abbrev}' "$1" 2>/dev/null || true)" in
-        ii*) return 0 ;;
-        *) return 1 ;;
+        ?i\ *) return 0 ;;
         esac
+        dpkg-query -W -f='${db:Status-Abbrev}|${Provides}\n' 2>/dev/null |
+            grep -Eq "^.i [^|]*\\|(.*, )?$1( |,|\$)"
+        return
     fi
-    rpm -q "$1" >/dev/null 2>&1
+    rpm -q --whatprovides "$1" >/dev/null 2>&1
 }
 
 # Says an installed package older than the repository offers, and leaves it: this prepares a machine,
@@ -151,6 +155,8 @@ say_when_older() { # package
         dnf -q check-update "$1" >/dev/null 2>&1 || answered=$?
         if [ "$answered" = 100 ]; then
             note "$1 $(rpm -q --qf '%{VERSION}-%{RELEASE}' "$1") is installed and the repository offers newer; run your package manager to take it"
+        elif [ "$answered" != 0 ]; then
+            note "cannot tell whether the repository offers newer than the installed $1: dnf check-update ended $answered"
         fi
     fi
 }
@@ -465,6 +471,8 @@ say "Porelo"
 # have - a local build, say - and it would make running this twice do work the second time.
 # Re-fetching a snapshot whose version string did not change is 'apt install --reinstall porelo',
 # and that belongs in an operator's hands, not here.
+FILTER_WAS=no
+is_installed porelo-message-sluice-filter && FILTER_WAS=yes
 ensure porelo porelo
 
 # Always: the filter, because without it nothing leaves a task. Which transport carries messages is
@@ -473,6 +481,10 @@ say "the message filter"
 MESSAGING=no
 if is_installed porelo-message-sluice-filter || $HAVE porelo-message-sluice-filter >/dev/null 2>&1; then
     ensure filter porelo-message-sluice-filter
+    # Recommended by porelo, so its install may have brought it.
+    if [ "$FILTER_WAS" = no ]; then
+        changed filter
+    fi
     MESSAGING=yes
 else
     note "not published yet - this machine can run tasks but not exchange messages"
@@ -521,6 +533,7 @@ fi
 # unless somebody asked for it: the default is that another user's mailbox is refused, and a
 # machine where this was never run refuses every such send permanently.
 SPOOL=/var/spool/porelo
+SPOOL_TAKEN=no
 GROUP=agents
 
 drop_for() { # user
@@ -548,7 +561,11 @@ if [ "$BETWEEN" = retired-on ]; then
         echo "readable by every member of '$GROUP'. Install acl and run this again." >&2
         exit 5
     fi
-    getent group "$GROUP" >/dev/null 2>&1 || run groupadd "$GROUP"
+    if ! getent group "$GROUP" >/dev/null 2>&1; then
+        run groupadd "$GROUP"
+        changed between-users
+    fi
+    [ -d "$SPOOL/drop" ] || changed between-users
     run install -d -m 0755 -o root -g root "$SPOOL"
     run install -d -m 0755 -o root -g root "$SPOOL/drop"
     note "allowed"
@@ -557,6 +574,7 @@ elif [ "$BETWEEN" = off ]; then
     if [ -d "$SPOOL" ]; then
         run rm -rf "$SPOOL"
         changed between-users
+        SPOOL_TAKEN=yes
         note "taken back - every send between users is refused again"
     else
         note "was not allowed here"
@@ -566,7 +584,7 @@ elif [ -n "$BETWEEN" ]; then
     exit 2
 fi
 
-if [ -d "$SPOOL/drop" ]; then
+if [ -d "$SPOOL/drop" ] && [ "$SPOOL_TAKEN" = no ]; then
     # Only where it was allowed: adding a user never turns this on, which is the difference
     # between a deliberate step and a side effect.
     say "this user's drop"
