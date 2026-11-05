@@ -71,3 +71,20 @@ today.
 ## To be checked
 
 - How `porelo-frontend` draws `AT_REST` beside `IDLE` and `UNKNOWN`.
+
+## Question For The Operator
+
+Could `porelo task status` also say when a task last reached its provider, as a plain fact beside `at rest` and not as an
+inference from silence? Read in the code, not run:
+
+- **What passes the broker:** only a credential it brokers. A login the agent keeps inside the task, or a key the task
+  holds itself, reaches the provider without it, and says nothing here. So the fact can be absent, and absence must then
+  say "not known" and never "no contact".
+- **What it records:** one line per generation request, by path. Counting, model listings and other paths write none, and
+  WebSocket answers are not observed.
+- **When:** the line is written when the answer ends, so a long stream shows nothing until it finishes. The `time` in it
+  is taken when its reading is made, near the request's start, not at its end.
+
+So the record can honestly say when the last finished request through the broker began. Saying when it ended would need
+another field, and saying that a stream is running now would need the broker to answer about its open requests, which it
+holds but does not offer today.
