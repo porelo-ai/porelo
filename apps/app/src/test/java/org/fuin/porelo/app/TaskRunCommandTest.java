@@ -273,6 +273,40 @@ class TaskRunCommandTest {
     }
 
     @Test
+    void aTaskMountsNeitherTheDaemonsSocketNorADirectoryAboveIt(@TempDir Path dir)
+            throws IOException {
+        // The daemon answers a credential's length to whoever reaches its socket. In a rootless
+        // container the root user is the account itself, so its peer check is not what keeps a task
+        // out: not being mounted is.
+        final PoreloContext context = context(dir, true);
+
+        final int code =
+                execute(
+                        context,
+                        "task",
+                        "start",
+                        "-p",
+                        projectFile(dir, MINIMAL),
+                        "--attach",
+                        "shell");
+
+        assertThat(code).as(out + "\n" + err).isZero();
+        final String create =
+                runner.lines().stream()
+                        .filter(line -> line.contains("podman create"))
+                        .findFirst()
+                        .orElseThrow();
+        final List<Path> mounted =
+                java.util.regex.Pattern.compile("--volume (/[^:]+):")
+                        .matcher(create)
+                        .results()
+                        .map(found -> Path.of(found.group(1)))
+                        .toList();
+        assertThat(mounted).as("the mounts this reads: %s", create).isNotEmpty();
+        assertThat(mounted).noneMatch(context.paths().daemonSocket()::startsWith);
+    }
+
+    @Test
     void anOpenSshBelowTheFloorRefusesAStartBeforeAnythingIsMade(@TempDir Path dir)
             throws IOException {
         runner.answering("ssh -V", "", "OpenSSH_8.8p1 Ubuntu-1, OpenSSL 3.0.2\n");

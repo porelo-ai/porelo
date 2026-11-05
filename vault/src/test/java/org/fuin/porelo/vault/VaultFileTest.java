@@ -514,6 +514,17 @@ class VaultFileTest {
     }
 
     @Test
+    void anEntrysTextNamesItsKindAndSettingsAndNeitherItsSecretNorItsLength() {
+        final String secret = "s".repeat(137);
+
+        assertThat(new VaultEntry(secret, "api-key", java.util.Map.of("scope", "read")).toString())
+                .contains("api-key")
+                .contains("scope=read")
+                .doesNotContain(secret.substring(0, 8))
+                .doesNotContain("137");
+    }
+
+    @Test
     void spotsAValueThatIsNotACredential() {
 
         // All three reached a real vault. The placeholder is the one a length check misses: it is

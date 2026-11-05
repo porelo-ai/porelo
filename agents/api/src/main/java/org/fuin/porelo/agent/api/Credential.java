@@ -107,7 +107,7 @@ public record Credential(
 
     @Override
     public String toString() {
-        // Credentials reach logs and exception messages by accident.
-        return "Credential[" + type + ", " + secret.length() + " chars]";
+        // Credentials reach logs and exception messages by accident, and a length narrows a guess.
+        return "Credential[" + type + "]";
     }
 }

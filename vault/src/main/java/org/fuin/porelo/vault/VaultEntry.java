@@ -56,20 +56,14 @@ public record VaultEntry(String value, @Nullable String type, Map<String, String
     }
 
     /**
-     * Says what the entry is, never its secret: a record would print every component, and whatever
-     * printed one would print the credential.
+     * Says what the entry is, never its secret or its length: a record would print every component,
+     * and whatever printed one would print the credential.
      *
-     * @return The kind, the secret's length and the settings.
+     * @return The kind and the settings.
      */
     @Override
     public String toString() {
-        return "VaultEntry[type="
-                + type
-                + ", value=<"
-                + value.length()
-                + " characters>, settings="
-                + settings
-                + "]";
+        return "VaultEntry[type=" + type + ", settings=" + settings + "]";
     }
 
     /**
