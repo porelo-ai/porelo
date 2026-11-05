@@ -155,7 +155,8 @@ class RepositoriesTest {
                     upstream: "git@example.com:acme/other.git"
                 """))
                 .isInstanceOf(ProjectException.class)
-                .hasMessageContaining("the project's own repository");
+                .hasMessageContaining("project.name 'acme'")
+                .hasMessageContaining("acme-project");
     }
 
     @Test

@@ -11,6 +11,8 @@ final class FirstStartAtTerminal {
 
     private final PrintWriter err;
 
+    private final boolean colour;
+
     /**
      * Constructor.
      *
@@ -18,8 +20,20 @@ final class FirstStartAtTerminal {
      * @param err Where it is said: nothing a script reads off a start's output changes.
      */
     FirstStartAtTerminal(final FirstStart firstStart, final PrintWriter err) {
+        this(firstStart, err, colours(Path.of("/proc/self/fd/2"), System.getenv("NO_COLOR")));
+    }
+
+    /**
+     * Constructor.
+     *
+     * @param firstStart The question.
+     * @param err Where it is said.
+     * @param colour Whether a warning is painted; the words say it either way.
+     */
+    FirstStartAtTerminal(final FirstStart firstStart, final PrintWriter err, final boolean colour) {
         this.firstStart = firstStart;
         this.err = err;
+        this.colour = colour;
     }
 
     /**
@@ -69,12 +83,13 @@ final class FirstStartAtTerminal {
                 case ASK_NEW, ASK_UNKNOWN_FILE -> asked(answer, offer, unasked);
             };
         } catch (FirstStart.Refused ex) {
-            say(
+            warn(
                     "not taken: "
                             + org.fuin.porelo.vault.RegistryText.printable(ex.detail())
-                            + "; this start runs in '"
+                                    .replaceFirst("\\.$", "")
+                            + ". This start runs in '"
                             + DefaultProject.NAME
-                            + "'");
+                            + "', not from this file");
             return null;
         } finally {
             answer.discard();
@@ -131,11 +146,17 @@ final class FirstStartAtTerminal {
             answer.file().lines().forEach(line -> say("  | " + line));
         }
         if (offer == null) {
-            say(
+            final String words =
                     "nothing written and nothing opened: this start runs in '"
                             + DefaultProject.NAME
                             + "'. "
-                            + unasked);
+                            + unasked;
+            // A file standing here and passed over is not the same as no file at all.
+            if (isNew) {
+                say(words);
+            } else {
+                warn(words);
+            }
             return null;
         }
         final boolean yes =
@@ -168,6 +189,26 @@ final class FirstStartAtTerminal {
                         + "', from "
                         + org.fuin.porelo.vault.RegistryText.printable(file.toString())
                         + (isNew ? ", which is yours to commit and adapt" : ""));
+    }
+
+    /**
+     * Returns whether a warning is painted: by where it goes, standard error, as a log taking it
+     * must not hold escapes while the rest of a start is on a terminal.
+     *
+     * @param descriptor The link of the descriptor it goes to.
+     * @param noColor {@code NO_COLOR}, or {@code null} when it is not set; set at all, even empty,
+     *     it means none.
+     * @return Whether to paint.
+     */
+    static boolean colours(final Path descriptor, final @Nullable String noColor) {
+        return noColor == null && StandardInput.isTerminal(descriptor);
+    }
+
+    /** A start going on without the file a person wrote must not pass as one more line. */
+    private void warn(final String words) {
+        final String line = "porelo: warning: " + words;
+        err.println(colour ? "\u001b[33m" + line + "\u001b[0m" : line);
+        err.flush();
     }
 
     private void say(final String words) {

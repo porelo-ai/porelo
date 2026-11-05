@@ -826,12 +826,14 @@ public record Project(
                 // one name meant two repositories would hand a task the wrong mirror without ever
                 // saying so.
                 throw new ProjectException(
-                        "Project '"
+                        "project.name '"
                                 + name
-                                + "' names a repository '"
-                                + repository.name()
-                                + "', which is the name of the project's own"
-                                + " repository. Call it something else.");
+                                + "' is also the name of a repository this file names, and they"
+                                + " must differ. For a project of this one repository, write"
+                                + " project.name as '"
+                                + name
+                                + "-project', for example; in a project already in use, rename"
+                                + " that repository instead.");
             }
             if (!named.add(repository.name())) {
                 throw new ProjectException(

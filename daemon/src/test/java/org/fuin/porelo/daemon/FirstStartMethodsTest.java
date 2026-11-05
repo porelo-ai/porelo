@@ -286,7 +286,7 @@ class FirstStartMethodsTest {
                 .contains(
                         "method FirstStart(checkout: string) -> (outcome: string, found: []Finding,"
                                 + " hosts: []string, marked: []string, file: string, project: string,"
-                                + " hash: string, notes: []string)",
+                                + " hash: string, notes: []string, refusal: string)",
                         "method ConfirmFirstStart(checkout: string, hash: string) ->"
                                 + " (project: string)",
                         "type Finding (",

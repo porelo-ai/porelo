@@ -104,7 +104,7 @@ final class StagedProject {
                 ProjectReader.read(place.resolve(FILE_NAME));
             } catch (ProjectException ex) {
                 throw new Unreadable(
-                        "it does not read as a project file: "
+                        "project.yml does not read as a project file: "
                                 + RegistryText.printable(String.valueOf(ex.getMessage())));
             } catch (UncheckedIOException ex) {
                 throw ex.getCause();

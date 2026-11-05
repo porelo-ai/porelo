@@ -1357,4 +1357,88 @@ class FirstStartTest {
             answer.discard();
         }
     }
+
+    private static final String OWN_NAME =
+            "project:\n  name: shop\n  security_class: guarded\n"
+                    + "image:\n  base_image: ubuntu:24.04\n"
+                    + "repositories:\n  shop: {}\n";
+
+    private String saidWith(final boolean colour) {
+        new FirstStartAtTerminal(firstStart(), new PrintWriter(said), colour)
+                .choose(checkout, null, "Start once at a terminal to be asked.");
+        return said.toString();
+    }
+
+    @Test
+    void aFileNotTakenIsAWarningInColourSayingWhatToWrite() throws Exception {
+        Files.writeString(checkout.resolve("project.yml"), OWN_NAME);
+
+        assertThat(saidWith(true))
+                .contains("\u001b[33mporelo: warning: not taken: project.yml")
+                .contains("project.name 'shop'")
+                .contains("shop-project")
+                .contains("This start runs in 'default', not from this file")
+                .contains("\u001b[0m");
+    }
+
+    @Test
+    void aWarningWithoutColourIsStillOne() throws Exception {
+        Files.writeString(checkout.resolve("project.yml"), OWN_NAME);
+
+        assertThat(saidWith(false))
+                .contains("porelo: warning: not taken: project.yml")
+                .doesNotContain("\u001b");
+    }
+
+    @Test
+    void aFileNobodyWasThereToApproveIsAWarningToo() throws Exception {
+        plugin();
+        Files.writeString(checkout.resolve("project.yml"), FILE);
+
+        assertThat(saidWith(true)).contains("\u001b[33mporelo: warning: nothing written");
+    }
+
+    @Test
+    void anInterfaceIsToldWhyAFileIsNotTaken() throws Exception {
+        Files.writeString(checkout.resolve("project.yml"), OWN_NAME);
+
+        final FirstStart.Answer answer = firstStart().look(checkout);
+        try {
+            assertThat(String.valueOf(answer.asMap().get("refusal")))
+                    .contains("project.name 'shop'")
+                    .contains("shop-project");
+        } finally {
+            answer.discard();
+        }
+    }
+
+    @Test
+    void aFileAPersonAnsweredNoToIsNoWarning() throws Exception {
+        plugin();
+
+        atTerminal("n");
+
+        assertThat(said.toString()).doesNotContain("warning:");
+    }
+
+    @Test
+    void aWarningIsPaintedByWhereItGoesAndNotByWhereTheRestGoes() throws Exception {
+        final Path terminal = root.resolve("fd-terminal");
+        Files.createSymbolicLink(terminal, Path.of("/dev/pts/7"));
+        final Path file = root.resolve("fd-file");
+        Files.createSymbolicLink(file, root.resolve("start.log"));
+
+        assertThat(FirstStartAtTerminal.colours(terminal, null)).isTrue();
+        assertThat(FirstStartAtTerminal.colours(terminal, "")).as("NO_COLOR, even empty").isFalse();
+        assertThat(FirstStartAtTerminal.colours(file, null)).isFalse();
+    }
+
+    @Test
+    void theNameRefusalSaysBothWaysOutOfIt() throws Exception {
+        Files.writeString(checkout.resolve("project.yml"), OWN_NAME);
+
+        assertThat(saidWith(false))
+                .contains("project of this one repository")
+                .contains("rename that repository");
+    }
 }

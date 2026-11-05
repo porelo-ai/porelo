@@ -213,6 +213,7 @@ public final class FirstStart {
             map.put("project", project);
             map.put("hash", hash);
             map.put("notes", notes);
+            map.put("refusal", refusal == null ? "" : printable(refusal.detail()));
             return map;
         }
     }
