@@ -363,7 +363,8 @@ The command line and the daemon's logic are modules by area, `app-<area>`, submo
 - **A name's shape is no evidence that it names something**: a task exists as a container or by its logs.
 - **Counts cross the boundary and the sentence stays where it is read** (`Held.phrase()`); a note of an unknown
   version is refused.
-- **`project.yml` is edited as text**, never round-tripped through a YAML model (`EgressEdit`).
+- **Porelo never changes an existing `project.yml`**: a change answers the entry a person writes, built through the
+  model and `ProjectFileWriter.entry`; only a new file is written.
 - **A process wrapper streams a long command's lines as they arrive**, so a killed one leaves them.
 - **A verb that ends something answers for everything the machine lists**, whoever filed it.
 

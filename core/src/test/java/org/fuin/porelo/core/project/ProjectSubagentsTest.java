@@ -34,27 +34,6 @@ class ProjectSubagentsTest {
                 .isZero();
     }
 
-    @Test
-    void aProjectsNumberIsEveryRepositorysTasks() {
-        final Project project =
-                read(
-                        HEAD
-                                + """
-                limits:
-                  subagents: 2
-                repositories:
-                  web: {}
-                """);
-
-        assertThat(project.limits().subagents()).as("the project's number").isEqualTo(2);
-        assertThat(
-                        project.limitsFor(
-                                        java.util.Objects.requireNonNull(project.repository("web")))
-                                .subagents())
-                .as("limits are the project's alone, so a repository's task has the project's")
-                .isEqualTo(2);
-    }
-
     @ParameterizedTest
     @ValueSource(strings = {"-1", "two", "1.5", "\"2\"", "[]", "99999999999"})
     void aNumberBelowNoneOrNoWholeNumberIsRefused(String value) {

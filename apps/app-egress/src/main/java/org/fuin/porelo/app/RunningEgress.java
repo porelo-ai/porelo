@@ -36,17 +36,26 @@ public final class RunningEgress {
         /** This run only. The project file is untouched, and the next task will ask again. */
         RUN,
 
-        /** This run, and the project file, so the next task starts with it. */
+        /**
+         * This run, and the section a person writes into the project file so the next task starts
+         * with it; Porelo changes no project file itself.
+         */
         RUN_AND_PROJECT
     }
 
     /** What became of a widening. */
     public enum Outcome {
 
-        /** Applied to the running task. */
+        /**
+         * Applied to the running task; with {@link Scope#RUN_AND_PROJECT}, {@code detail} says what
+         * a person writes into the project file.
+         */
         WIDENED,
 
-        /** Taken back from the running task. */
+        /**
+         * Taken back from the running task; with {@link Scope#RUN_AND_PROJECT}, {@code detail} says
+         * what a person writes into the project file.
+         */
         NARROWED,
 
         /** What it would do, having changed nothing. */
@@ -67,7 +76,8 @@ public final class RunningEgress {
         REFUSED_NAME,
 
         /**
-         * The run was widened and the project file could not be, because nothing knows where it is.
+         * The run was changed, and no section for the project file can be said: nothing knows where
+         * it is, or the change would not read there.
          */
         NO_PROJECT_FILE,
 
@@ -80,9 +90,11 @@ public final class RunningEgress {
      *
      * @param outcome What became of it.
      * @param opens Names it grants, in the order they were asked for.
-     * @param persisted Whether the project file was changed as well.
-     * @param detail Why it was refused or what went wrong, or {@code null}.
-     * @param file The project file that was changed, or {@code null} when none was.
+     * @param persisted Whether the project file was changed as well; never, as Porelo changes no
+     *     project file.
+     * @param detail Why it was refused or what went wrong, or what a person writes into the project
+     *     file; {@code null} when there is nothing to say.
+     * @param file The project file a person writes into, or {@code null}.
      */
     public record Effect(
             Outcome outcome,
@@ -139,7 +151,7 @@ public final class RunningEgress {
     }
 
     /**
-     * Grants names to a running task, and optionally to its project file as well.
+     * Grants names to a running task, and optionally says what to write into its project file.
      *
      * @param container Container name.
      * @param names Host names to grant.
@@ -241,9 +253,11 @@ public final class RunningEgress {
      * @param outcome What became of it.
      * @param closes Names it takes back, in the order they were asked for.
      * @param addresses How many addresses were removed from the firewall.
-     * @param persisted Whether the project file was changed as well.
-     * @param detail Why it was refused or what went wrong, or {@code null}.
-     * @param file The project file that was changed, or {@code null} when none was.
+     * @param persisted Whether the project file was changed as well; never, as Porelo changes no
+     *     project file.
+     * @param detail Why it was refused or what went wrong, or what a person writes into the project
+     *     file; {@code null} when there is nothing to say.
+     * @param file The project file a person writes into, or {@code null}.
      */
     public record Withdrawal(
             Outcome outcome,
@@ -471,7 +485,8 @@ public final class RunningEgress {
     }
 
     /**
-     * Takes the names out of the project file as well, so the next task does not start with them.
+     * Says what a person writes into the project file so the next task does not start with the
+     * names; the file itself is not changed.
      *
      * @param task The running task.
      * @param names Names withdrawn from the run.
@@ -502,7 +517,7 @@ public final class RunningEgress {
                     false,
                     "the run was narrowed; nothing knows where project '"
                             + project
-                            + "' keeps its file, so it was not written down");
+                            + "' keeps its file, so nothing can be said to write into it");
         }
         final EgressControl.Effect written =
                 new EgressControl(context)
@@ -514,20 +529,24 @@ public final class RunningEgress {
                                 task.repository(),
                                 new EgressControl.Change(List.of(), List.of(), List.of(), names),
                                 false);
-        if (written.outcome() != EgressControl.Outcome.CHANGED
-                && written.outcome() != EgressControl.Outcome.NO_CHANGE) {
+        if (written.outcome() == EgressControl.Outcome.NO_CHANGE) {
+            return new Withdrawal(Outcome.NARROWED, names, addresses, false, null);
+        }
+        if (written.outcome() != EgressControl.Outcome.BY_HAND) {
             return new Withdrawal(
                     Outcome.NO_PROJECT_FILE,
                     names,
                     addresses,
                     false,
-                    "the run was narrowed; the project file was not: " + written.detail());
+                    "the run was narrowed; no section for the project file can be said: "
+                            + written.detail());
         }
-        return new Withdrawal(Outcome.NARROWED, names, addresses, true, null, file);
+        return new Withdrawal(Outcome.NARROWED, names, addresses, false, written.detail(), file);
     }
 
     /**
-     * Writes the same names into the project file, so the next task starts with them.
+     * Says what a person writes into the project file so the next task starts with the names; the
+     * file itself is not changed.
      *
      * @param task The running task.
      * @param names Names that were granted.
@@ -555,7 +574,7 @@ public final class RunningEgress {
                     false,
                     "the run was widened; nothing knows where project '"
                             + project
-                            + "' keeps its file, so it was not written down");
+                            + "' keeps its file, so nothing can be said to write into it");
         }
         final EgressControl.Effect written =
                 new EgressControl(context)
@@ -567,15 +586,18 @@ public final class RunningEgress {
                                 task.repository(),
                                 new EgressControl.Change(List.of(), List.of(), names, List.of()),
                                 false);
-        if (written.outcome() != EgressControl.Outcome.CHANGED
-                && written.outcome() != EgressControl.Outcome.NO_CHANGE) {
+        if (written.outcome() == EgressControl.Outcome.NO_CHANGE) {
+            return new Effect(Outcome.WIDENED, names, false, null);
+        }
+        if (written.outcome() != EgressControl.Outcome.BY_HAND) {
             return new Effect(
                     Outcome.NO_PROJECT_FILE,
                     names,
                     false,
-                    "the run was widened; the project file was not: " + written.detail());
+                    "the run was widened; no section for the project file can be said: "
+                            + written.detail());
         }
-        return new Effect(Outcome.WIDENED, names, true, null, file);
+        return new Effect(Outcome.WIDENED, names, false, written.detail(), file);
     }
 
     /**

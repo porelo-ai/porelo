@@ -399,13 +399,10 @@ type Repository (
   # Why 'behind' is what it is. Same values as the project's.
   behindReason: string,
   behindDetail: string,
-  # Everything a task on this repository may reach, each saying which block granted it.
-  #
-  # ONE list with a source per entry, not two to subtract from one another: a repository's grants
-  # are ADDED to the project's, and a screen showing both halves should not have to work out which
-  # is which.
+  # Everything a task on this repository may reach, each saying which block granted it: always the
+  # project's, since what a task may reach is the project's alone.
   egress: []Grant,
-  # What a task on this repository may consume, and where each key came from.
+  # What a task on this repository may consume, and where each key came from: always the project.
   limits: ResolvedLimits,
   # The agent the project file names for this repository, by the name Agents reports; "" when it
   # names none. Start takes it when its own 'agent' is omitted. Whether it is installed here is
@@ -424,16 +421,15 @@ type Grant (
   value: string,
   # "set" or "domain".
   kind: string,
-  # "project" or "repository" - which block declared it.
+  # Which block declared it: "project", since what a task may reach is the project's alone.
   from: string
 )
 
 # What a task on one repository may consume, resolved.
 #
-# A repository's limits REPLACE the project's key by key, so the interesting part is which key it
-# replaced. The three '...From' fields say "repository" when that repository declared the key and
-# "project" otherwise - and "project" covers BOTH a value the project file wrote and Porelo's own
-# default, which this side cannot tell apart today. Do not render "project" as "written by hand".
+# What a task may consume is the project's alone, so the three '...From' fields say "project" - which
+# covers BOTH a value the project file wrote and Porelo's own default, which this side cannot tell
+# apart today. Do not render "project" as "written by hand".
 type ResolvedLimits (
   # Memory limit, or "" for no limit.
   memory: string,

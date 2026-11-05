@@ -16,11 +16,12 @@ import picocli.CommandLine.Option;
 import picocli.CommandLine.Spec;
 
 /**
- * Shows what a project may reach, and changes it.
+ * Shows what a project may reach, and what a change to it would open and how to write it.
  *
  * <p>The highest-consequence line in the project file, so both halves are here: what is open and
  * who decided it, and what a change would add or take away <em>in hosts</em> rather than in set
  * names. A set is a name for eight hosts, and an operator adding one is entitled to see the eight.
+ * Porelo changes no project file: a change answers the section the person writes.
  *
  * <p>The deciding is {@link EgressControl}'s, which the daemon calls too. This class is the
  * terminal: it turns a request into words and an exit code, and decides nothing.
@@ -28,7 +29,9 @@ import picocli.CommandLine.Spec;
 @Command(
         name = "egress",
         mixinStandardHelpOptions = true,
-        description = "Shows what a project may reach, and adds or removes sets and hosts.")
+        description =
+                "Shows what a project may reach, and the egress section to write for adding or"
+                        + " removing sets and hosts.")
 public class ShieldEgressCommand implements Callable<Integer>, PoreloFactory.ContextAware {
 
     @Option(
@@ -43,8 +46,9 @@ public class ShieldEgressCommand implements Callable<Integer>, PoreloFactory.Con
             names = {"-r", "--repository"},
             paramLabel = "<name>",
             description =
-                    "Which of the project's repositories to declare this for. Default: the"
-                            + " project's own. A repository's grants are ADDED to the project's.")
+                    "Which of the project's repositories the task works on. Egress is the"
+                            + " project's alone: what is shown to write applies to every"
+                            + " repository of the project.")
     private @Nullable String repository;
 
     @Option(
@@ -90,11 +94,14 @@ public class ShieldEgressCommand implements Callable<Integer>, PoreloFactory.Con
     @Option(
             names = "--also-project",
             description =
-                    "With --task: write the same names into the project file as well, so the"
-                            + " next task starts with them.")
+                    "With --task: also show the egress section to write into the project file,"
+                            + " so the next task starts with them.")
     private boolean alsoProject;
 
-    @Option(names = "--dry-run", description = "Shows what the change would do and writes nothing.")
+    @Option(
+            names = "--dry-run",
+            description =
+                    "Shows what the change would do and the section to write, and refuses nothing.")
     private boolean dryRun;
 
     @Spec private CommandSpec spec;
@@ -214,14 +221,12 @@ public class ShieldEgressCommand implements Callable<Integer>, PoreloFactory.Con
         out.println(
                 "               the attempt that was refused is not retried - the agent's next"
                         + " one goes through");
-        if (effect.file() != null) {
-            // The file the task's own project keeps: with --task nobody named a project.
-            out.println("written        " + effect.file() + " as well");
-        } else if (effect.outcome() == RunningEgress.Outcome.NO_PROJECT_FILE) {
+        if (effect.outcome() == RunningEgress.Outcome.NO_PROJECT_FILE) {
             err.println("porelo: " + effect.detail());
             err.flush();
-            out.flush();
-            return 0;
+        } else if (effect.detail() != null) {
+            // The file the task's own project keeps: with --task nobody named a project.
+            out.println(effect.detail());
         }
         out.flush();
         return 0;
@@ -280,13 +285,11 @@ public class ShieldEgressCommand implements Callable<Integer>, PoreloFactory.Con
         out.println(
                 "stopped        new connections only - anything already transferring runs to"
                         + " its end; stop the task to end that");
-        if (taken.file() != null) {
-            out.println("written        " + taken.file() + " as well");
-        } else if (taken.outcome() == RunningEgress.Outcome.NO_PROJECT_FILE) {
+        if (taken.outcome() == RunningEgress.Outcome.NO_PROJECT_FILE) {
             err.println("porelo: " + taken.detail());
             err.flush();
-            out.flush();
-            return 0;
+        } else if (taken.detail() != null) {
+            out.println(taken.detail());
         }
         out.flush();
         return 0;
@@ -336,9 +339,9 @@ public class ShieldEgressCommand implements Callable<Integer>, PoreloFactory.Con
     }
 
     /**
-     * Prints what a change did, or why it did nothing.
+     * Prints what a change would do and the section to write for it, or why there is none.
      *
-     * @param file The project file the change was made to.
+     * @param file The project file the change is for.
      * @param effect What the domain decided.
      * @param out Where to report.
      * @param err Where to report a refusal.
@@ -379,22 +382,22 @@ public class ShieldEgressCommand implements Callable<Integer>, PoreloFactory.Con
         if (effect.cost() != null) {
             out.println("cost           " + effect.cost());
         }
-        if (effect.outcome() == EgressControl.Outcome.NOT_WRITTEN) {
-            err.println("porelo: " + effect.detail());
-            err.flush();
-            return 70;
-        }
         if (effect.outcome() == EgressControl.Outcome.PREVIEWED) {
-            out.println("dry run        nothing was written");
+            out.println(
+                    "dry run        nothing was written; the section to write in " + file + ":");
+            out.print(effect.entry());
             out.flush();
             return 0;
         }
-        out.println("written        " + file);
+        out.flush();
+        // Refused, since nothing changed: the file is the person's, and reviewed as theirs.
+        err.println("porelo: " + effect.detail());
         // The change applies to the next task. A container's ruleset and resolver are built when it
         // starts and are not reloaded under a running agent.
-        out.println("               applies to the next task, not to one already running");
-        out.flush();
-        return 0;
+        err.println(
+                "porelo: once written, it applies to the next task, not to one already running");
+        err.flush();
+        return 2;
     }
 
     /**

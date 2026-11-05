@@ -27,19 +27,8 @@ import org.jspecify.annotations.Nullable;
  *     classes a repository without one is a repository whose work stays on this machine, which is a
  *     legitimate state rather than a broken one.
  * @param description What it is for, for people. May be empty.
- * @param egress What this repository's own tooling needs, <strong>added</strong> to the project's.
- *     Empty when it declared none. Additive because egress is a list of grants: adding is the only
- *     operation that makes sense, and a repository's declaration must never take away something the
- *     project granted - not least because allowing a blocked connection writes itself back into
- *     this block.
- * @param limits What this repository's work needs, <strong>replacing</strong> the project's key by
- *     key. Not additive, because a limit is one number with nothing to add it to, and two memory
- *     limits for one container is not something podman can be asked for. The rule follows the
- *     value.
  * @param issues The issue prefixes this repository owns, each one or more capital letters; empty
  *     when it has none.
- * @param image What the project file says this repository's image is built from, or {@code null}
- *     when it says nothing; a later source in the order gives what it leaves unset.
  * @param agent The agent this repository is worked with, by the name {@code porelo agents} lists,
  *     or {@code null} when the project file names none. Whether it is installed is the start's
  *     question: a followed project is read on machines without it.
@@ -53,10 +42,7 @@ public record Repository(
         String name,
         @Nullable String upstream,
         String description,
-        Egress egress,
-        Limits.Declared limits,
         java.util.List<String> issues,
-        @Nullable ImageSource image,
         @Nullable String agent,
         @Nullable String nickname,
         @Nullable BranchScheme branch,
@@ -90,18 +76,7 @@ public record Repository(
      */
     public Repository reachedAt(final String address) {
         return new Repository(
-                name,
-                address,
-                description,
-                egress,
-                limits,
-                issues,
-                image,
-                agent,
-                nickname,
-                branch,
-                review,
-                central);
+                name, address, description, issues, agent, nickname, branch, review, central);
     }
 
     /**
@@ -110,50 +85,7 @@ public record Repository(
      * @param name Its name.
      * @param upstream Where approved work goes, or {@code null}.
      * @param description What it is.
-     * @param egress Added to the project's.
-     * @param limits Replacing the project's key by key.
      * @param issues The issue prefixes it owns.
-     * @param image What its image is built from, or {@code null}.
-     * @param agent The agent it is worked with, or {@code null}.
-     * @param nickname The one word its agent is addressed by, or {@code null}.
-     * @param branch How a task's branch at its forge is named, or {@code null}.
-     */
-    public Repository(
-            String name,
-            @Nullable String upstream,
-            String description,
-            Egress egress,
-            Limits.Declared limits,
-            java.util.List<String> issues,
-            @Nullable ImageSource image,
-            @Nullable String agent,
-            @Nullable String nickname,
-            @Nullable BranchScheme branch) {
-        this(
-                name,
-                upstream,
-                description,
-                egress,
-                limits,
-                issues,
-                image,
-                agent,
-                nickname,
-                branch,
-                REVIEW_REQUIRED,
-                null);
-    }
-
-    /**
-     * Constructor for a repository that names no branch scheme of its own.
-     *
-     * @param name Repository name.
-     * @param upstream Where approved work goes, or {@code null}.
-     * @param description What it is for.
-     * @param egress Added to the project's.
-     * @param limits Replacing the project's key by key.
-     * @param issues The issue prefixes it owns.
-     * @param image What its image is built from, or {@code null}.
      * @param agent The agent it is worked with, or {@code null}.
      * @param nickname The one word its agent is addressed by, or {@code null}.
      */
@@ -161,87 +93,24 @@ public record Repository(
             String name,
             @Nullable String upstream,
             String description,
-            Egress egress,
-            Limits.Declared limits,
             java.util.List<String> issues,
-            @Nullable ImageSource image,
             @Nullable String agent,
             @Nullable String nickname) {
-        this(name, upstream, description, egress, limits, issues, image, agent, nickname, null);
-    }
-
-    /**
-     * Constructor for a repository that names no agent.
-     *
-     * @param name Repository name.
-     * @param upstream Where approved work goes, or {@code null}.
-     * @param description What it is for.
-     * @param egress Added to the project's.
-     * @param limits Replacing the project's key by key.
-     * @param issues The issue prefixes it owns.
-     * @param image What its image is built from, or {@code null}.
-     */
-    public Repository(
-            String name,
-            @Nullable String upstream,
-            String description,
-            Egress egress,
-            Limits.Declared limits,
-            java.util.List<String> issues,
-            @Nullable ImageSource image) {
-        this(name, upstream, description, egress, limits, issues, image, null, null);
-    }
-
-    /**
-     * Constructor for a repository whose image the project file does not name.
-     *
-     * @param name Repository name.
-     * @param upstream Where approved work goes, or {@code null}.
-     * @param description What it is for.
-     * @param egress Added to the project's.
-     * @param limits Replacing the project's key by key.
-     * @param issues The issue prefixes it owns.
-     */
-    public Repository(
-            String name,
-            @Nullable String upstream,
-            String description,
-            Egress egress,
-            Limits.Declared limits,
-            java.util.List<String> issues) {
-        this(name, upstream, description, egress, limits, issues, null);
+        this(name, upstream, description, issues, agent, nickname, null, REVIEW_REQUIRED, null);
     }
 
     /** What an issue prefix looks like: one or more capital letters. */
     public static final String ISSUES_PATTERN = "[A-Z]+";
 
     /**
-     * Constructor for a repository that names no issue prefixes.
-     *
-     * @param name Repository name.
-     * @param upstream Where approved work goes, or {@code null}.
-     * @param description What it is for.
-     * @param egress What its own tooling needs, added to the project's.
-     * @param limits What its work needs, replacing the project's key by key.
-     */
-    public Repository(
-            String name,
-            @Nullable String upstream,
-            String description,
-            Egress egress,
-            Limits.Declared limits) {
-        this(name, upstream, description, egress, limits, java.util.List.of());
-    }
-
-    /**
-     * Constructor for a repository that declares neither egress nor limits.
+     * Constructor for a repository that names nothing but where its work goes and what it is.
      *
      * @param name Repository name.
      * @param upstream Where approved work goes, or {@code null}.
      * @param description What it is for.
      */
     public Repository(String name, @Nullable String upstream, String description) {
-        this(name, upstream, description, Egress.none(), Limits.Declared.none());
+        this(name, upstream, description, java.util.List.of(), null, null);
     }
 
     /**
@@ -271,8 +140,6 @@ public record Repository(
      * @param description What it is for.
      */
     public Repository {
-        egress = egress == null ? Egress.none() : egress;
-        limits = limits == null ? Limits.Declared.none() : limits;
         if (name == null || !NAME.matcher(name).matches()) {
             // It becomes a mirror directory and part of an image's name, so it is refused here,
             // not where a path turns out to hold a slash or a dot-dot.
@@ -382,15 +249,5 @@ public record Repository(
      */
     public boolean hasUpstream() {
         return upstream != null;
-    }
-
-    /**
-     * Tells whether this repository asks for anything of its own.
-     *
-     * @return {@code true} when it declared neither egress nor limits, and so runs exactly as the
-     *     project says.
-     */
-    public boolean addsNothing() {
-        return egress.isEmpty() && limits.isEmpty();
     }
 }

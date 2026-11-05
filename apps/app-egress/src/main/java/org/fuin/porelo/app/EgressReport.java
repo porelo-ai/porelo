@@ -34,7 +34,8 @@ final class EgressReport {
     }
 
     /**
-     * Returns the hosts the project declared, each mapped to where it came from.
+     * Returns the hosts the project declared, each mapped to where it came from. What a task may
+     * reach is the project's alone, whichever of its repositories it works on.
      *
      * @param project The project.
      * @param sets Where the installed sets are found.
@@ -42,26 +43,7 @@ final class EgressReport {
      */
     static java.util.Map<String, String> projectEgress(
             Project project, org.fuin.porelo.shield.EgressSetDirectory sets) {
-        return projectEgress(project, project.ownRepository(), sets);
-    }
-
-    /**
-     * Returns the hosts a task on one repository may reach, each mapped to where it came from.
-     *
-     * <p>The project's grants and the repository's, added rather than replaced, and each host
-     * labelled with which of the two granted it - so a person reading the report can see that a
-     * host is reachable because of the repository they are in and not because of the project.
-     *
-     * @param project The project.
-     * @param repository The repository the task works on.
-     * @param sets Where the installed sets are found.
-     * @return Host to origin, empty when neither declared anything.
-     */
-    static java.util.Map<String, String> projectEgress(
-            Project project,
-            org.fuin.porelo.core.project.Repository repository,
-            org.fuin.porelo.shield.EgressSetDirectory sets) {
-        final org.fuin.porelo.core.project.Egress egress = project.egressFor(repository);
+        final org.fuin.porelo.core.project.Egress egress = project.egress();
         if (egress.isEmpty()) {
             return java.util.Map.of();
         }
@@ -69,17 +51,7 @@ final class EgressReport {
         sets.origins(egress.sets()).forEach((host, set) -> origins.put(host, "set " + set));
         // A directly named host wins the label: an operator who wrote it down should see it
         // reported as their own decision, not as whichever set happens to contain it too.
-        egress.domains()
-                .forEach(
-                        domain ->
-                                origins.put(
-                                        domain,
-                                        repository.egress().domains().contains(domain)
-                                                        && !project.egress()
-                                                                .domains()
-                                                                .contains(domain)
-                                                ? "repository " + repository.name()
-                                                : "project"));
+        egress.domains().forEach(domain -> origins.put(domain, "project"));
         return origins;
     }
 
@@ -91,13 +63,10 @@ final class EgressReport {
      *
      * @param selected The chosen agent, or {@code null}.
      * @param project The project.
-     * @param repository The repository the task works on.
-     * @return Host to who refused it - the agent, the project or the repository - first one wins.
+     * @return Host to who refused it - the agent or the project - first one wins.
      */
     static java.util.Map<String, String> refusals(
-            @Nullable InstalledAgent selected,
-            Project project,
-            org.fuin.porelo.core.project.Repository repository) {
+            @Nullable InstalledAgent selected, Project project) {
         final java.util.Map<String, String> refused = new java.util.LinkedHashMap<>();
         if (selected != null) {
             selected.definition()
@@ -108,10 +77,6 @@ final class EgressReport {
                                             domain, "agent " + selected.definition().name()));
         }
         project.egress().refused().forEach(domain -> refused.putIfAbsent(domain, "project"));
-        repository
-                .egress()
-                .refused()
-                .forEach(domain -> refused.putIfAbsent(domain, "repository " + repository.name()));
         return refused;
     }
 

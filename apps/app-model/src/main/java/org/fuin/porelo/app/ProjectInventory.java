@@ -719,23 +719,13 @@ public final class ProjectInventory {
     private static List<Grant> grantsOf(
             final org.fuin.porelo.core.project.Project project,
             final org.fuin.porelo.core.project.Repository repository) {
+        // What a task may reach is the project's alone, whichever repository it works on.
         final List<Grant> grants = new java.util.ArrayList<>();
-        final org.fuin.porelo.core.project.Egress effective = project.egressFor(repository);
-        for (final String set : effective.sets()) {
-            grants.add(
-                    new Grant(
-                            set,
-                            "set",
-                            project.egress().sets().contains(set) ? "project" : "repository"));
+        for (final String set : project.egress().sets()) {
+            grants.add(new Grant(set, "set", "project"));
         }
-        for (final String domain : effective.domains()) {
-            grants.add(
-                    new Grant(
-                            domain,
-                            "domain",
-                            project.egress().domains().contains(domain)
-                                    ? "project"
-                                    : "repository"));
+        for (final String domain : project.egress().domains()) {
+            grants.add(new Grant(domain, "domain", "project"));
         }
         return List.copyOf(grants);
     }
@@ -750,15 +740,15 @@ public final class ProjectInventory {
     private static ResolvedLimits limitsOf(
             final org.fuin.porelo.core.project.Project project,
             final org.fuin.porelo.core.project.Repository repository) {
-        final org.fuin.porelo.core.project.Limits limits = project.limitsFor(repository);
-        final org.fuin.porelo.core.project.Limits.Declared own = repository.limits();
+        // What a task may consume is the project's alone, whichever repository it works on.
+        final org.fuin.porelo.core.project.Limits limits = project.limits();
         return new ResolvedLimits(
                 limits.memory() == null ? "" : limits.memory(),
                 limits.cpus() == null ? "" : limits.cpus(),
                 limits.pids(),
-                own.memory() == null ? "project" : "repository",
-                own.cpus() == null ? "project" : "repository",
-                own.pids() == null ? "project" : "repository");
+                "project",
+                "project",
+                "project");
     }
 
     /**
@@ -806,11 +796,9 @@ public final class ProjectInventory {
     /**
      * What a task on one repository may consume, and where each key came from.
      *
-     * <p>A repository's limits <em>replace</em> the project's key by key, so the interesting part
-     * is which key it replaced. {@code memoryFrom} and its two siblings say {@code repository} when
-     * that repository declared the key and {@code project} otherwise - and {@code project} covers
-     * both a value the project file wrote and Porelo's own default, which this side cannot tell
-     * apart today.
+     * <p>What a task may consume is the project's alone, so {@code memoryFrom} and its two siblings
+     * say {@code project} - which covers both a value the project file wrote and Porelo's own
+     * default, which this side cannot tell apart today.
      *
      * @param memory Value for the memory limit, or "" for no limit.
      * @param cpus Value for the CPU limit, or "" for no limit.

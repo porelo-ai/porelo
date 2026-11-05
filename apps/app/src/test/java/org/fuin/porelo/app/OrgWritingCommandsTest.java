@@ -773,41 +773,82 @@ class OrgWritingCommandsTest {
     }
 
     @Test
-    void aChangeOfAProjectNotPlacedAnswersThePlaceFirst() {
+    void namingARepositoryChangesNoProjectFileAndShowsTheEntryAPersonWrites() {
+        assertThat(run("project", "repository", "add", "demo", "app", "--upstream", ADDRESS))
+                .as("refused: the file is the project admins', signed by them")
+                .isEqualTo(65);
+        assertThat(calls).as("nothing is opened or written").isEmpty();
+        assertThat(err.toString())
+                .contains("Porelo changes no project file")
+                .contains("project 'demo'")
+                .contains("add this entry:\nrepositories:\n  app:\n    upstream: " + ADDRESS + "\n")
+                .doesNotContain("?");
+    }
+
+    @Test
+    void aRepositoryNamedAsItsProjectIsNoEntryToWrite() {
+        assertThat(run("project", "repository", "add", "demo", "demo", "--upstream", ADDRESS))
+                .as("the reader would refuse the file the entry makes")
+                .isEqualTo(64);
+        assertThat(err.toString())
+                .contains("named as its project")
+                .doesNotContain("add this entry");
+    }
+
+    @Test
+    void changingARowShowsOnlyTheKeysThatChange() {
         assertThat(
                         run(
                                 "project",
                                 "repository",
                                 "change",
-                                "unknown",
+                                "demo",
                                 "app",
-                                "--central",
-                                ADDRESS,
+                                "--review",
+                                "optional",
                                 "--json"))
-                .isEqualTo(66);
-        assertThat(calls).as("the organization is not written to").isEmpty();
+                .isEqualTo(65);
+        assertThat(calls).as("nothing is opened or written").isEmpty();
+        assertThat(out.toString())
+                .contains("by-hand")
+                .contains("keep the others:\\nrepositories:\\n  app:\\n    review: optional");
     }
 
     @Test
-    void aProjectsFileAnswersThePlaceFirstAndNothingOfTheOrganization() {
+    void takingARepositoryOutSaysWhichEntryAndWritesNothing() {
+        assertThat(run("project", "repository", "remove", "demo", "app"))
+                .as("whether it is there is the file's to say, not a fetch's")
+                .isEqualTo(65);
+        assertThat(calls).isEmpty();
+        assertThat(err.toString()).contains("take the entry 'app' out of repositories");
+    }
+
+    @Test
+    void aReviewIsTheKeyAPersonWritesForTheProjectOrForOneRepository() {
+        assertThat(run("project", "review", "demo", "optional")).isEqualTo(65);
+        assertThat(err.toString()).contains("keep the others:\nproject:\n  review: optional\n");
+
+        err.getBuffer().setLength(0);
+        assertThat(run("project", "review", "demo", "app", "required")).isEqualTo(65);
+        assertThat(err.toString()).contains("repositories:\n  app:\n    review: required\n");
+        assertThat(calls).as("nothing is opened or written").isEmpty();
+    }
+
+    @Test
+    void aCentralOfAnotherNameIsUsageAndNoEntry() {
         assertThat(
                         run(
                                 "project",
                                 "repository",
                                 "add",
-                                "unknown",
+                                "demo",
                                 "app",
                                 "--upstream",
-                                ADDRESS,
-                                "--json"))
-                .isEqualTo(66);
-        assertThat(calls).as("the organization is not written to").isEmpty();
-
-        out.getBuffer().setLength(0);
-        assertThat(run("project", "repository", "remove", "demo", "app", "--json", "--id", "one"))
-                .as("nowhere to fetch from, so it cannot say and asks for the id")
-                .isEqualTo(69);
-        assertThat(out.toString()).contains("one");
+                                "ssh://git@host.example/foo/app.git",
+                                "--central",
+                                "ssh://git@host.example/foo/other.git"))
+                .isEqualTo(64);
+        assertThat(err.toString()).contains("must end in").doesNotContain("repositories:");
     }
 
     private ProjectFile.Look look =
@@ -944,12 +985,6 @@ class OrgWritingCommandsTest {
                 .isEqualTo(69);
         assertThat(out.toString()).contains("one");
         assertThat(new ProjectSignCommand().of()).isEqualTo("project");
-    }
-
-    @Test
-    void aChangeOfAProjectsFileAnswersThatItsRevisionIsTheProjects() {
-        assertThat(new ProjectRepositoryCommand.Add().of()).isEqualTo("project");
-        assertThat(new ProjectRepositoryCommand.Remove().of()).isEqualTo("project");
     }
 
     @Test

@@ -26,6 +26,7 @@ final class OrgOutput {
                     Map.entry(Refused.ON_ANOTHER_HOST, 65),
                     Map.entry(Refused.NO_CARD, 65),
                     Map.entry(Refused.REFUSED_STATE, 65),
+                    Map.entry(Refused.BY_HAND, 65),
                     Map.entry(Refused.NOT_FOUND, 66),
                     Map.entry(Refused.NOT_OPENED, 66),
                     Map.entry(Refused.NO_REPOSITORY, 66),
@@ -85,7 +86,14 @@ final class OrgOutput {
         if (json) {
             print(spec, reason, words, revision);
         }
-        spec.commandLine().getErr().println("porelo: " + RegistryText.printable(words));
+        // An entry to write keeps its lines, each made printable on its own.
+        spec.commandLine()
+                .getErr()
+                .println(
+                        "porelo: "
+                                + (Refused.BY_HAND.equals(reason)
+                                        ? String.valueOf(safe(words))
+                                        : RegistryText.printable(words)));
         spec.commandLine().getErr().flush();
         return exit;
     }

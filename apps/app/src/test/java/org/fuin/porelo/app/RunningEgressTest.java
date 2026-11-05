@@ -177,11 +177,13 @@ class RunningEgressTest {
     }
 
     @Test
-    void writesTheProjectFileTooWhenAskedTo(@TempDir Path dir) throws IOException {
+    void changesNoProjectFileAndSaysTheSectionToWriteWhenAskedTo(@TempDir Path dir)
+            throws IOException {
 
         final PoreloContext context = context(dir);
         task("porelo-uc-shell-1", "guarded");
         final Path projectFile = project(dir);
+        final String before = Files.readString(projectFile);
 
         final RunningEgress.Effect effect =
                 new RunningEgress(context)
@@ -192,11 +194,14 @@ class RunningEgressTest {
                                 false);
 
         assertThat(effect.outcome()).isEqualTo(RunningEgress.Outcome.WIDENED);
-        assertThat(effect.persisted()).isTrue();
-        assertThat(Files.readString(projectFile)).contains("docs.example.test");
+        assertThat(effect.persisted()).isFalse();
+        assertThat(Files.readString(projectFile)).as("the file is the person's").isEqualTo(before);
+        assertThat(effect.detail())
+                .contains("Porelo does not change " + projectFile)
+                .endsWith("egress:\n  domains:\n    - docs.example.test");
         // What the command prints: with --task nobody named the project, so the file comes from
         // here.
-        assertThat(effect.file()).as("the file that was written").isNotNull();
+        assertThat(effect.file()).as("the file to write into").isNotNull();
         assertThat(Path.of(effect.file())).isEqualTo(projectFile);
     }
 

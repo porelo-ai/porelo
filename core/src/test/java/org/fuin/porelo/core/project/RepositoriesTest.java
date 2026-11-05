@@ -71,13 +71,6 @@ class RepositoriesTest {
     }
 
     @Test
-    void aRepositoryReadFromTheProjectFileHasNoImageOfItsOwn() {
-        assertThat(read(HEAD + "repositories:\n  backend: {}\n").repository("backend").image())
-                .as("its image comes from its own porelo.yml alone")
-                .isNull();
-    }
-
-    @Test
     void aProjectThatNamesNoneStillHasItsOwn() {
         final Project project = read(HEAD);
         assertThat(project.repositories()).isEmpty();

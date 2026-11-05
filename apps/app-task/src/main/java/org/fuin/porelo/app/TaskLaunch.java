@@ -1388,7 +1388,8 @@ public final class TaskLaunch {
             out.println("agent          " + wanted.name() + " (named for the repository)");
         }
         out.println("security class " + project.securityClass().name().toLowerCase());
-        // Chosen per repository, key by key, and each key named with where it came from: the image
+        // Chosen per repository, one source taken whole and named with where it came from: the
+        // image
         // is built as root outside the task's firewall, so which file said what is not a detail.
         final boolean gated = !request.noGate() && !request.dryRun();
         ImageChoice image;
@@ -1440,7 +1441,7 @@ public final class TaskLaunch {
                                         + " ("
                                         + given.origin()
                                         + ")"));
-        if (!settleSubagents(project, repository, out, err)) {
+        if (!settleSubagents(project, out, err)) {
             return 64;
         }
         if (!request.noGate()) {
@@ -1458,7 +1459,7 @@ public final class TaskLaunch {
                             + forgeBranch
                             + (request.branch() == null ? "" : " (named with --branch)"));
         } else {
-            final String refused = StartCheck.hostServicesWithoutAGate(project, repository.name());
+            final String refused = StartCheck.hostServicesWithoutAGate(project);
             if (refused != null) {
                 err.println("porelo: --no-gate: " + refused + "; start it with its gate");
                 err.println("porelo: nothing was created");
@@ -1474,8 +1475,7 @@ public final class TaskLaunch {
         final java.util.Map<String, String> projectOrigins;
         try {
             projectOrigins =
-                    EgressReport.projectEgress(
-                            project, repository, context.paths().egress().egressSets());
+                    EgressReport.projectEgress(project, context.paths().egress().egressSets());
         } catch (org.fuin.porelo.shield.EgressSetException ex) {
             err.println("porelo: " + ex.getMessage());
             err.flush();
@@ -1521,8 +1521,8 @@ public final class TaskLaunch {
                 EgressReport.reportReachable(
                         project,
                         EgressReport.compose(selected, serving, projectOrigins).origins(),
-                        EgressReport.refusals(selected, project, repository),
-                        project.egressFor(repository).hostServices(),
+                        EgressReport.refusals(selected, project),
+                        project.egress().hostServices(),
                         out);
             } catch (org.fuin.porelo.agent.api.AgentException ex) {
                 err.println("porelo: " + ex.getMessage());
@@ -1962,7 +1962,7 @@ public final class TaskLaunch {
             // Every mode: a shell without a gate cannot reach the host services either.
             final String gateless =
                     gated && workspace == null
-                            ? StartCheck.hostServicesWithoutAGate(project, repository.name())
+                            ? StartCheck.hostServicesWithoutAGate(project)
                             : null;
             if (gateless != null) {
                 err.println(
@@ -2189,10 +2189,9 @@ public final class TaskLaunch {
                 environmentCache.putAll(workspace.environment(project, request.task()));
             }
 
-            final java.util.Map<String, String> refusals =
-                    EgressReport.refusals(selected, project, repository);
+            final java.util.Map<String, String> refusals = EgressReport.refusals(selected, project);
             EgressReport.reportReachable(
-                    project, origins, refusals, project.egressFor(repository).hostServices(), out);
+                    project, origins, refusals, project.egress().hostServices(), out);
             runner.refusing(java.util.List.copyOf(refusals.keySet()));
 
             // The port is decided before this, so the firewall rule can name it; the gate itself
@@ -2667,19 +2666,14 @@ public final class TaskLaunch {
 
     /**
      * Settles how many subagents the task's agent may run at the same time: {@code --subagents},
-     * else the repository's {@code limits.subagents}, else the project's, else none.
+     * else the project's {@code limits.subagents}, else none.
      *
      * @param project The project.
-     * @param repository The repository the task works on.
      * @param out Where the number is said.
      * @param err Where a number below none is refused.
      * @return {@code false} when refused.
      */
-    private boolean settleSubagents(
-            Project project,
-            org.fuin.porelo.core.project.Repository repository,
-            PrintWriter out,
-            PrintWriter err) {
+    private boolean settleSubagents(Project project, PrintWriter out, PrintWriter err) {
         final Integer flag = request.subagents();
         if (flag != null && flag < 0) {
             err.println("porelo: --subagents takes 0 or more, not " + flag);
@@ -2687,8 +2681,8 @@ public final class TaskLaunch {
             err.flush();
             return false;
         }
-        subagents = flag != null ? flag : project.limitsFor(repository).subagents();
-        final String from = subagentsFrom(flag, repository);
+        subagents = flag != null ? flag : project.limits().subagents();
+        final String from = subagentsFrom(flag);
         subagentsAsked = from + " " + subagents;
         out.println(
                 "subagents      "
@@ -2703,16 +2697,10 @@ public final class TaskLaunch {
      * Says where a start's number of subagents comes from, as a refusal names it.
      *
      * @param flag Value of {@code --subagents}, or {@code null}.
-     * @param repository The repository the task works on.
      * @return The option or the key.
      */
-    static String subagentsFrom(
-            @Nullable Integer flag, org.fuin.porelo.core.project.Repository repository) {
-        return flag != null
-                ? "--subagents"
-                : repository.limits().subagents() != null
-                        ? "repository " + repository.name() + "'s limits.subagents"
-                        : "limits.subagents";
+    static String subagentsFrom(@Nullable Integer flag) {
+        return flag != null ? "--subagents" : "limits.subagents";
     }
 
     /**

@@ -38,20 +38,6 @@ class HostServicesTest {
                 .containsExactly("forge.example", "registry.example");
     }
 
-    @Test
-    void aRepositoryTakesTheProjectsHostServices() {
-        final Project project =
-                read(
-                        """
-                  host_services: [forge.example]
-                repositories:
-                  backend: {}
-                """);
-        assertThat(project.egressFor(project.repository("backend")).hostServices())
-                .as("egress is the project's alone, so each repository's task has the project's")
-                .containsExactly("forge.example");
-    }
-
     private static Project read(String egress) {
         return ProjectReader.read(
                 new StringReader(

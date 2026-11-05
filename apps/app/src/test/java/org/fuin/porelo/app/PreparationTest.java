@@ -162,7 +162,10 @@ class PreparationTest {
                 repositories:
                   backend:
                 """);
-        override(dir, file, "image:\n  run: |\n    RUN apt-get install -y gradle\n");
+        override(
+                dir,
+                file,
+                "image:\n  from: \"debian:13\"\n  run: |\n    RUN apt-get install -y gradle\n");
 
         Preparation.prepare(
                 context(dir),
@@ -175,8 +178,8 @@ class PreparationTest {
 
         final var settings = recorded(dir, "demo_backend");
         assertThat(settings.baseImageSource())
-                .as("the base image is still the project's")
-                .isEqualTo("project.yml");
+                .as("the image is the override's, whole")
+                .endsWith(".porelo.yml (local override)");
         assertThat(settings.packages())
                 .extracting(ImageSettings.Sourced::value)
                 .containsExactly("gradle");
@@ -184,9 +187,9 @@ class PreparationTest {
     }
 
     @Test
-    void eachLineOfAMergedImageNamesItsOwnSource(@TempDir Path dir) throws Exception {
-        // The snippet is the project's and a variable the repository's: one source for both says
-        // something false about one of them.
+    void aRepositorysImageHoldsNoLineOfTheProjects(@TempDir Path dir) throws Exception {
+        // Taken whole: the project's lines on the repository's base image make an image nobody
+        // wrote.
         final Path file = dir.resolve("project.yml");
         Files.writeString(
                 file,
@@ -201,7 +204,10 @@ class PreparationTest {
                 repositories:
                   backend:
                 """);
-        override(dir, file, "image:\n  env:\n    NPM_TOKEN: \"the-value-itself\"\n");
+        override(
+                dir,
+                file,
+                "image:\n  from: \"debian:13\"\n  env:\n    NPM_TOKEN: \"the-value-itself\"\n");
 
         Preparation.prepare(
                 context(dir),
@@ -215,10 +221,8 @@ class PreparationTest {
         final var settings = recorded(dir, "demo_backend");
         assertThat(settings.lines())
                 .extracting(ImageSettings.Sourced::source)
-                .as("the project's line, then the repository's")
-                .satisfiesExactly(
-                        first -> assertThat(first).isEqualTo("project.yml"),
-                        second -> assertThat(second).endsWith("(local override)"));
+                .as("the repository's line alone")
+                .satisfiesExactly(only -> assertThat(only).endsWith("(local override)"));
         assertThat(settings.lines().getLast().value())
                 .as("recorded by its name")
                 .isEqualTo("ENV NPM_TOKEN=" + ImageSettings.WITHHELD);
@@ -279,7 +283,7 @@ class PreparationTest {
                 repositories:
                   backend:
                 """);
-        override(dir, file, "image:\n  env:\n    FROM_OVERRIDE: \"yes\"\n");
+        override(dir, file, "image:\n  from: \"debian:13\"\n  env:\n    FROM_OVERRIDE: \"yes\"\n");
 
         final Preparation.Result result =
                 Preparation.prepare(
@@ -303,7 +307,8 @@ class PreparationTest {
     void aPreparedSnippetNamesTheFileThatSuppliedIt(@TempDir Path dir) throws Exception {
         final Path file = projectFile(dir);
         Files.writeString(file, Files.readString(file) + "repositories:\n  backend:\n");
-        final Path override = override(dir, file, "image:\n  run: RUN true\n");
+        final Path override =
+                override(dir, file, "image:\n  from: \"debian:13\"\n  run: RUN true\n");
 
         final Preparation.Result result =
                 Preparation.prepare(

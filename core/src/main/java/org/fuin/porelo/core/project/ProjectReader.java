@@ -203,12 +203,8 @@ public final class ProjectReader {
         // 'none' is how a project opts out on purpose, which reads differently from having
         // forgotten to set one.
         return new Limits(
-                memory == null
-                        ? Limits.DEFAULT_MEMORY
-                        : Limits.Declared.NONE.equals(memory) ? null : memory,
-                cpus == null
-                        ? Limits.DEFAULT_CPUS
-                        : Limits.Declared.NONE.equals(cpus) ? null : cpus,
+                memory == null ? Limits.DEFAULT_MEMORY : Limits.NONE.equals(memory) ? null : memory,
+                cpus == null ? Limits.DEFAULT_CPUS : Limits.NONE.equals(cpus) ? null : cpus,
                 pids == null ? Limits.DEFAULT_PIDS : pids,
                 handIn == null ? Limits.DEFAULT_HAND_IN : Limits.bytes(handIn, "limits.hand_in"),
                 subagents == null ? 0 : subagents);
@@ -267,10 +263,7 @@ public final class ProjectReader {
                                         name,
                                         blankless(entry.upstream()),
                                         text(entry.description()),
-                                        Egress.none(),
-                                        Limits.Declared.none(),
                                         entry.issues(),
-                                        null,
                                         entry.agent(),
                                         entry.nickname(),
                                         branch(entry.branch()),

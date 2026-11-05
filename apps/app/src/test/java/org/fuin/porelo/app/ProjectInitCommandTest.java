@@ -113,47 +113,14 @@ class ProjectInitCommandTest {
     }
 
     @Test
-    void aProjectPreviewNamesItsRevisionWithoutOpeningASigningSession() throws Exception {
+    void forAProjectItAnswersTheEntryAPersonWritesAndChangesNothing() throws Exception {
         final Path checkout = checkout("https://example.org/sample.git");
-        final var key = org.fuin.porelo.vault.SigningKey.generate("mia");
-        final Path card = context().paths().xdg().config().resolve("identity/card");
-        Files.createDirectories(card.getParent());
-        Files.writeString(
-                card,
-                org.fuin.porelo.vault.PersonCard.write(
-                        "mia",
-                        "mia",
-                        "",
-                        key,
-                        java.time.LocalDate.of(2000, 1, 1),
-                        java.time.LocalDate.of(2999, 1, 1),
-                        null));
-        final var line = PoreloCli.commandLine(context());
-        final ProjectInitCommand init =
-                (ProjectInitCommand)
-                        line.getSubcommands()
-                                .get("project")
-                                .getSubcommands()
-                                .get("init")
-                                .getCommand();
-        init.places =
-                (machine, project, login) ->
-                        new ProjectRepositoryCommand.Place("unused", List.of());
-        init.looks =
-                (machine, address, place) ->
-                        new org.fuin.porelo.organization.gittree.ProjectFile.Look(
-                                new org.fuin.porelo.organization.gittree.ProjectFile.Read(
-                                        "read", "revision", null, null),
-                                "revision",
-                                "unused",
-                                null);
-        init.session =
-                machine -> {
-                    throw new AssertionError("preview must never open a signing session");
-                };
         final var before = snapshot(directory);
+        final var line = PoreloCli.commandLine(context());
         final var out = new StringWriter();
         line.setOut(new PrintWriter(out));
+        line.setErr(new PrintWriter(new StringWriter()));
+
         assertThat(
                         line.execute(
                                 "project",
@@ -162,14 +129,42 @@ class ProjectInitCommandTest {
                                 "--project",
                                 "demo",
                                 "--json"))
-                .as("preview answers without signing")
+                .as("the proposal answers without asking the organization")
                 .isZero();
+
         assertThat(out.toString())
-                .as("the answer names the revision to approve and the project")
-                .contains("\"revision\":\"revision\"", "\"project\":\"demo\"");
+                .as("the row to add, as the file holds it")
+                .contains("\"project\":\"demo\"")
+                .contains(
+                        "\"entry\":\"repositories:\\n  sample:\\n"
+                                + "    upstream: https://example.org/sample.git\\n\"");
         assertThat(snapshot(directory))
-                .as("preview changes neither checkout nor account files")
+                .as("neither checkout nor account files change")
                 .isEqualTo(before);
+    }
+
+    @Test
+    void filingIntoAProjectsFileIsRefusedWithTheEntry() throws Exception {
+        final Path checkout = checkout("https://example.org/sample.git");
+        final var line = PoreloCli.commandLine(context());
+        final var err = new StringWriter();
+        line.setOut(new PrintWriter(new StringWriter()));
+        line.setErr(new PrintWriter(err));
+
+        assertThat(
+                        line.execute(
+                                "project",
+                                "init",
+                                checkout.toString(),
+                                "--project",
+                                "demo",
+                                "--yes"))
+                .as("Porelo changes no project file that exists")
+                .isEqualTo(65);
+        assertThat(err.toString())
+                .contains("Porelo changes no project file")
+                .contains(
+                        "add this entry:\nrepositories:\n  sample:\n    upstream: https://example.org/sample.git\n");
     }
 
     @Test

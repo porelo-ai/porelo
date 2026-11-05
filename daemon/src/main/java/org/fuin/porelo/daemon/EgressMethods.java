@@ -117,9 +117,8 @@ final class EgressMethods {
                             new EgressControl(context)
                                     .apply(
                                             projectFile(parameters, context),
-                                            // Which block it lands in. A repository's grants are
-                                            // added to the project's, so this never takes anything
-                                            // away from the repository it names.
+                                            // Only to be found: what a task may reach is the
+                                            // project's, whichever repository it works on.
                                             empty(parameters, "repository"),
                                             new EgressControl.Change(
                                                     strings(parameters, "addSets"),
@@ -127,12 +126,22 @@ final class EgressMethods {
                                                     strings(parameters, "addDomains"),
                                                     strings(parameters, "removeDomains")),
                                             flag(parameters, "dryRun"));
+                    if (effect.outcome() == EgressControl.Outcome.BY_HAND) {
+                        // Porelo changes no project file: the person writes the section, and the
+                        // message names the file and holds the section.
+                        throw new VarlinkException(
+                                INTERFACE + ".Failed",
+                                Map.of("message", String.valueOf(effect.detail())));
+                    }
                     final Map<String, Object> answer = new LinkedHashMap<>();
                     answer.put("outcome", effect.outcome().name());
                     answer.put("opens", hosts(effect.opens()));
                     answer.put("closes", hosts(effect.closes()));
                     answer.put("cost", effect.cost() == null ? "" : effect.cost());
                     answer.put("detail", effect.detail() == null ? "" : effect.detail());
+                    if (effect.entry() != null) {
+                        answer.put("entry", effect.entry());
+                    }
                     replies.last(answer);
                 });
 

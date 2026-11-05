@@ -322,7 +322,7 @@ public class TaskRunner {
         Directories.create(state);
         final Path authority = TaskCertificates.prepare(paths, state);
 
-        final List<String> hostServices = project.egressFor(repository).hostServices();
+        final List<String> hostServices = project.egress().hostServices();
         if (!hostServices.isEmpty()) {
             java.util.Objects.requireNonNull(
                     wiring.gateAddress(), "declared host services require the gate's address");
@@ -398,9 +398,8 @@ public class TaskRunner {
         final ContainerSpec specification =
                 new ContainerSpec(container, image)
                         .command("sleep", "infinity")
-                        // The repository's, over the project's, key by key. A repository that says
-                        // nothing gets the project's unchanged.
-                        .limits(project.limitsFor(repository))
+                        // The project's alone, whichever of its repositories the task works on.
+                        .limits(project.limits())
                         .resolver(org.fuin.porelo.shield.DnsPolicy.LISTEN_ADDRESS)
                         .annotation(Sidecar.ANNOTATION, sidecarFile.toString())
                         // The same two facts as in the sidecar, on the container itself. The
@@ -416,7 +415,7 @@ public class TaskRunner {
                         // What this task's configuration was verified at, so the question survives
                         // the project moving on. "" for a project nothing verified.
                         .label(Sidecar.COMMIT_LABEL, commit);
-        final org.fuin.porelo.core.project.Limits limits = project.limitsFor(repository);
+        final org.fuin.porelo.core.project.Limits limits = project.limits();
         // Fixed when the task starts, like the others: what the daemon refuses above and what a
         // client is told.
         Files.writeString(
@@ -432,13 +431,7 @@ public class TaskRunner {
                         + " processes"
                         + ", files handed in up to "
                         + limits.handIn() / (1024 * 1024)
-                        + " MiB"
-                        // Said, because a task running under different limits from the ones in the
-                        // project's own block is a thing somebody reading the file would not
-                        // expect.
-                        + (repository.limits().isEmpty()
-                                ? ""
-                                : " (from repository " + repository.name() + ")"));
+                        + " MiB");
         environment.forEach(specification::environment);
         if (authority != null) {
             specification

@@ -2857,7 +2857,11 @@ class TaskRunCommandTest {
     @Test
     void aStartRecordsItsChosenBranchForReviewAfterItReturns(@TempDir Path dir) throws Exception {
         // Without a durable choice, the next review silently falls back to main.
-        final String file = changedRepositoryImage(dir, "image: {}\n", "image:\n  run: RUN true\n");
+        final String file =
+                changedRepositoryImage(
+                        dir,
+                        "image:\n  from: ubuntu:24.04\n",
+                        "image:\n  from: ubuntu:24.04\n  run: RUN true\n");
         final Path mirror = dir.resolve("data/porelo/mirrors/uc.git");
         git(dir.resolve("upstream"), "branch", "develop", "main");
         final PoreloContext context = repositoryImageContext(dir);
@@ -2893,7 +2897,11 @@ class TaskRunCommandTest {
     void aWorkspaceThatCannotCheckOutItsStartingBranchDoesNotStartWork(@TempDir Path dir)
             throws Exception {
         // A failed checkout must not start an agent with the wrong files or an empty workspace.
-        final String file = changedRepositoryImage(dir, "image: {}\n", "image:\n  run: RUN true\n");
+        final String file =
+                changedRepositoryImage(
+                        dir,
+                        "image:\n  from: ubuntu:24.04\n",
+                        "image:\n  from: ubuntu:24.04\n  run: RUN true\n");
         final PoreloContext context = repositoryImageContext(dir);
         final Path workspace = Files.createDirectories(dir.resolve("workspace"));
         Files.writeString(workspace.resolve("porelo.yml"), "a file supplied by the image\n");
@@ -3123,7 +3131,8 @@ class TaskRunCommandTest {
     @Test
     void aStartRecoversWhenTheFetchedRepositoryImageIsValid(@TempDir Path dir) throws IOException {
         final String file =
-                changedRepositoryImage(dir, "egress: {}\n", "image:\n  run: RUN true\n");
+                changedRepositoryImage(
+                        dir, "egress: {}\n", "image:\n  from: ubuntu:24.04\n  run: RUN true\n");
         final int exit =
                 execute(
                         repositoryImageContext(dir),
@@ -3181,8 +3190,8 @@ class TaskRunCommandTest {
         final String file =
                 changedRepositoryImage(
                         dir,
-                        "image:\n  run: RUN true\n",
-                        "image:\n  run: RUN true\n  env: {FROM_UPSTREAM: yes}\n");
+                        "image:\n  from: ubuntu:24.04\n  run: RUN true\n",
+                        "image:\n  from: ubuntu:24.04\n  run: RUN true\n  env: {FROM_UPSTREAM: yes}\n");
         final int exit =
                 execute(
                         repositoryImageContext(dir),

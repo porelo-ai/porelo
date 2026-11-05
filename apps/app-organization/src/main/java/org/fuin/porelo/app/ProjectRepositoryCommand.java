@@ -1,25 +1,37 @@
 package org.fuin.porelo.app;
 
 import java.io.IOException;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Stream;
+import org.fuin.porelo.core.project.ProjectException;
+import org.fuin.porelo.core.project.ProjectReader;
 import org.fuin.porelo.core.project.Repository;
+import org.fuin.porelo.core.project.file.ProjectFile;
+import org.fuin.porelo.core.project.file.ProjectFileWriter;
+import org.fuin.porelo.core.project.file.ProjectInfo;
+import org.fuin.porelo.core.project.file.RepositoryEntry;
 import org.fuin.porelo.organization.OrganizationQuestions;
 import org.fuin.porelo.organization.OrganizationQuestions.Refused;
 import org.fuin.porelo.organization.OrganizationQuestions.SigningKey;
 import org.fuin.porelo.organization.OrganizationWrites;
-import org.fuin.porelo.organization.gittree.ProjectFile;
 import org.jspecify.annotations.Nullable;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Option;
 import picocli.CommandLine.Parameters;
 
-/** Changes the repositories a project's own file names. */
+/**
+ * Shows the entry that changes the repositories a project's own file names. Porelo changes no
+ * project file that exists: a project admin writes the entry and signs that commit.
+ */
 @Command(
         name = "repository",
         mixinStandardHelpOptions = true,
         exitCodeOnInvalidInput = 64,
-        description = "Changes the repositories a project's own file names.",
+        description =
+                "Shows the entry a project admin writes to change the repositories a project's own"
+                        + " file names.",
         subcommands = {
             ProjectRepositoryCommand.Add.class,
             ProjectRepositoryCommand.Change.class,
@@ -41,7 +53,7 @@ public class ProjectRepositoryCommand {
         Place of(PoreloContext machine, String project, String login) throws IOException;
     }
 
-    /** A change of the file. */
+    /** A signed change of the file that leaves what it says as it is: signing it anew. */
     abstract static class Changing extends OrgWriting {
 
         Places places =
@@ -66,7 +78,127 @@ public class ProjectRepositoryCommand {
         abstract String project();
 
         abstract OrganizationWrites.Written make(
-                ProjectFile file, OrganizationWrites.Change change, Place place) throws IOException;
+                org.fuin.porelo.organization.gittree.ProjectFile file,
+                OrganizationWrites.Change change,
+                Place place)
+                throws IOException;
+    }
+
+    /**
+     * A change of the file, which Porelo does not make: it refuses, and its words name the file and
+     * hold the entry a project admin writes into it.
+     */
+    abstract static class ByHand extends OrgReading {
+
+        @Override
+        final Map<String, @Nullable Object> answer(final PoreloContext machine) {
+            throw new Refused(Refused.BY_HAND, words(project(), what()), null);
+        }
+
+        @Override
+        final void text(final Map<String, @Nullable Object> answer) {
+            // A refusal is all it answers.
+        }
+
+        abstract String project();
+
+        /**
+         * Says what to write, after the usage is checked.
+         *
+         * @return What to do in the file, the entry's lines after it.
+         */
+        abstract String what();
+    }
+
+    /**
+     * Says where a person changes a project's own file, and what.
+     *
+     * @param project The project.
+     * @param what What to do in the file, an entry's lines after it.
+     * @return The words.
+     */
+    static String words(final String project, final String what) {
+        return "Porelo changes no project file: in the project.yml of project '"
+                + project
+                + "'s own repository, "
+                + what.stripTrailing()
+                + "\nand commit it signed with the key of an admin of the project";
+    }
+
+    /**
+     * Writes a repository's entry, or the keys of it that change, as the file holds it.
+     *
+     * @param name The repository.
+     * @param upstream Its address, or {@code null} to say nothing of it.
+     * @param central Where a host takes it from, or {@code null}.
+     * @param review {@code required} or {@code optional}, or {@code null}.
+     * @return The {@code repositories} section with that one entry.
+     */
+    static String entry(
+            final String name,
+            final @Nullable String upstream,
+            final @Nullable String central,
+            final @Nullable String review) {
+        if (!name.matches(Repository.NAME_PATTERN)) {
+            throw new Refused(
+                    Refused.USAGE,
+                    "a repository's name is lower-case letters, digits, hyphens and dots",
+                    null);
+        }
+        try {
+            if (upstream != null) {
+                Repository.refuseAsOption(upstream, "--upstream");
+            }
+            if (central != null) {
+                Repository.refuseAsOption(central, "--central");
+            }
+        } catch (ProjectException ex) {
+            throw new Refused(Refused.USAGE, "that is no address", null);
+        }
+        if (central != null && upstream != null && !ProjectReader.centralFits(central, upstream)) {
+            throw new Refused(
+                    Refused.USAGE, "a central must end in the name its upstream ends in", null);
+        }
+        final Map<String, RepositoryEntry> repositories = new LinkedHashMap<>();
+        repositories.put(
+                name,
+                new RepositoryEntry(
+                        upstream, central, review, null, List.of(), null, null, null, null));
+        return ProjectFileWriter.entry(
+                new ProjectFile(
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        Map.of(),
+                        null,
+                        Map.of(),
+                        repositories));
+    }
+
+    /**
+     * Writes the project's own review, as the file holds it.
+     *
+     * @param review {@code required} or {@code optional}.
+     * @return The {@code project} section with that one key.
+     */
+    static String projectReview(final String review) {
+        return ProjectFileWriter.entry(
+                new ProjectFile(
+                        new ProjectInfo(null, null, null, null, review, null),
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        Map.of(),
+                        null,
+                        Map.of(),
+                        Map.of()));
     }
 
     /** Names a repository. */
@@ -74,8 +206,10 @@ public class ProjectRepositoryCommand {
             name = "add",
             mixinStandardHelpOptions = true,
             exitCodeOnInvalidInput = 64,
-            description = "Names a repository in the project's own file.")
-    public static class Add extends Changing {
+            description =
+                    "Shows the entry that names a repository in the project's own file, for a"
+                            + " project admin to write.")
+    public static class Add extends ByHand {
 
         @Parameters(paramLabel = "PROJECT", description = "The project.")
         private String project = "";
@@ -100,17 +234,19 @@ public class ProjectRepositoryCommand {
         }
 
         @Override
-        OrganizationWrites.Written make(
-                final ProjectFile file, final OrganizationWrites.Change change, final Place place)
-                throws IOException {
-            return file.add(
-                    change,
-                    place.address(),
-                    place.keys(),
-                    name,
-                    upstream,
-                    central,
-                    review == null ? null : review(review));
+        String what() {
+            // The reader refuses a repository named as its project, so an entry that would be
+            // refused is not shown as one to write.
+            if (name.equals(project)) {
+                throw new Refused(
+                        Refused.USAGE,
+                        "a repository cannot be named as its project '"
+                                + project
+                                + "'; name the repository otherwise",
+                        null);
+            }
+            return "add this entry:\n"
+                    + entry(name, upstream, central, review == null ? null : review(review));
         }
     }
 
@@ -119,8 +255,10 @@ public class ProjectRepositoryCommand {
             name = "change",
             mixinStandardHelpOptions = true,
             exitCodeOnInvalidInput = 64,
-            description = "Changes a row of the project's own file and keeps all else it says.")
-    public static class Change extends Changing {
+            description =
+                    "Shows the keys that change a row of the project's own file, for a project"
+                            + " admin to write.")
+    public static class Change extends ByHand {
 
         @Parameters(paramLabel = "PROJECT", description = "The project.")
         private String project = "";
@@ -140,37 +278,26 @@ public class ProjectRepositoryCommand {
         private @Nullable String review;
 
         @Override
-        Map<String, @Nullable Object> answer(final PoreloContext machine) throws IOException {
-            // Before anything is opened: an agent or a forge has nothing to add to wrong use.
+        String project() {
+            return project;
+        }
+
+        @Override
+        String what() {
             if (upstream == null && central == null && review == null) {
                 throw new Refused(
                         Refused.USAGE,
                         "name what changes: --upstream, --central or --review",
                         null);
             }
-            if (review != null) {
-                review(review);
+            if (Stream.of(upstream, central, review).anyMatch(""::equals)) {
+                throw new Refused(
+                        Refused.USAGE,
+                        "name what changes, with a value: nothing is taken away",
+                        null);
             }
-            return super.answer(machine);
-        }
-
-        @Override
-        String project() {
-            return project;
-        }
-
-        @Override
-        OrganizationWrites.Written make(
-                final ProjectFile file, final OrganizationWrites.Change change, final Place place)
-                throws IOException {
-            return file.changeRow(
-                    change,
-                    place.address(),
-                    place.keys(),
-                    name,
-                    upstream,
-                    central,
-                    review == null ? null : review(review));
+            return "set these keys and keep the others:\n"
+                    + entry(name, upstream, central, review == null ? null : review(review));
         }
     }
 
@@ -179,8 +306,8 @@ public class ProjectRepositoryCommand {
             name = "remove",
             mixinStandardHelpOptions = true,
             exitCodeOnInvalidInput = 64,
-            description = "Takes a repository out of the project's own file.")
-    public static class Remove extends Changing {
+            description = "Says which entry a project admin takes out of the project's own file.")
+    public static class Remove extends ByHand {
 
         @Parameters(paramLabel = "PROJECT", description = "The project.")
         private String project = "";
@@ -194,10 +321,14 @@ public class ProjectRepositoryCommand {
         }
 
         @Override
-        OrganizationWrites.Written make(
-                final ProjectFile file, final OrganizationWrites.Change change, final Place place)
-                throws IOException {
-            return file.remove(change, place.address(), place.keys(), name);
+        String what() {
+            if (!name.matches(Repository.NAME_PATTERN)) {
+                throw new Refused(
+                        Refused.USAGE,
+                        "a repository's name is lower-case letters, digits, hyphens and dots",
+                        null);
+            }
+            return "take the entry '" + name + "' out of repositories, and all it holds";
         }
     }
 

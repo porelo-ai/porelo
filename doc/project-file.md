@@ -112,7 +112,7 @@ image:
   from: "ubuntu:24.04"
 
   # Optional. Variables set in the image, each an ENV line after the 'run' lines. A repository's
-  # porelo.yml may give one of them another value.
+  # porelo.yml names an image of its own, taken whole instead of this one.
   env:
     JAVA_HOME: /opt/graalvm
 
@@ -325,7 +325,8 @@ by every task of a project that declares a host service: see [the accepted expos
 ## A repository's own image
 
 A repository says what it needs to be built in, in a file of its own: `porelo.yml` at its top, checked in. It holds
-`image:` and nothing else - `from`, `run` or `run_file`, and `env`, as the project file's `image` does:
+`image:` and nothing else - `from`, which it must name, `run` or `run_file`, and `env`, as the project file's `image`
+does:
 
 ```yaml
 image:
@@ -356,12 +357,11 @@ image:
   naming the repository's own `porelo.yml` as the place for it.
 - **A local override** lies in `$XDG_CONFIG_HOME/porelo/projects/<project>/<repository>/.porelo.yml`, in the same format,
   never checked in.
-- **What wins, key by key:** the local override, then the repository's `porelo.yml`, then the project's `image`. In
+- **What wins, whole:** the local override, then the repository's `porelo.yml`, then the project's `image`. In
   the built-in project `default`, a task started from a checkout reads `.porelo.yml` in that checkout, then
   `porelo.yml` there, then the default image; approved work lands on `porelo/<task>`, never on the checked-out branch,
-  so a task cannot change either file under the person. `from` and the lines of `run` or `run_file` are each taken
-  whole from one of them; `env` per variable, so an override that sets one variable changes only that one, and the
-  project's `env` gives what no other source sets.
+  so a task cannot change either file under the person. The first of them there is gives the whole image - `from`, its
+  lines and its `env` - and nothing of a later one is mixed in, so an image is always one that somebody wrote whole.
 - **The start and its dry run name each key's source** (`base image ... (from ...)`, `image lines from ...`,
   `image env NAME from ...`, and `snippet ... lines from ...`). An image a repository's own sources shape is built as
   `porelo/<project>_<repository>` in its own build directory, so two repositories' images never replace or block each

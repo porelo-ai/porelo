@@ -1245,14 +1245,8 @@ class OrgReadingCommandsTest {
         line.setOut(new PrintWriter(out));
         line.setErr(new PrintWriter(err));
         wire(line);
-        final CommandLine add =
-                line.getSubcommands()
-                        .get("project")
-                        .getSubcommands()
-                        .get("repository")
-                        .getSubcommands()
-                        .get("add");
-        ((OrgWriting) add.getCommand()).session =
+        final CommandLine sign = line.getSubcommands().get("project").getSubcommands().get("sign");
+        ((OrgWriting) sign.getCommand()).session =
                 machine ->
                         new OrgWriting.Session(
                                 (org.fuin.porelo.organization.OrganizationWrites)
@@ -1280,12 +1274,13 @@ class OrgReadingCommandsTest {
         final int exit =
                 line.execute(
                         "project",
-                        "repository",
-                        "add",
+                        "sign",
                         "demo",
-                        "app",
-                        "--upstream",
-                        "git@github.com:acme/app.git",
+                        "--yes",
+                        "--base",
+                        "b".repeat(40),
+                        "--id",
+                        "one",
                         "--json");
 
         assertThat(exit).as("what it said: %s", out).isEqualTo(69);

@@ -6,35 +6,38 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import org.fuin.porelo.ecosystem.api.EcosystemException;
 import org.fuin.porelo.ecosystem.api.EcosystemRefused;
 import org.fuin.porelo.ecosystem.api.InstalledEcosystems;
 import org.fuin.porelo.organization.OrganizationQuestions.Refused;
-import org.fuin.porelo.organization.OrganizationWrites;
-import org.fuin.porelo.organization.gittree.CommitSigning;
-import org.fuin.porelo.organization.gittree.ProjectFile;
 import org.jspecify.annotations.Nullable;
 import picocli.CommandLine.Option;
 import picocli.CommandLine.Parameters;
 
-/** Proposes a repository from a checkout, filing it only against an approved revision. */
+/**
+ * Proposes a repository from a checkout. Porelo changes no project file that exists: for a project
+ * it answers the entry a project admin adds, and {@code --yes} refuses with it.
+ */
 @picocli.CommandLine.Command(
         name = "init",
         mixinStandardHelpOptions = true,
         exitCodeOnInvalidInput = 64,
         description = "Proposes a project's repository from a checkout.")
-public class ProjectInitCommand extends ProjectRepositoryCommand.Changing {
+public class ProjectInitCommand extends OrgReading {
     @Parameters(paramLabel = "CHECKOUT", description = "The checkout to read.")
     private Path checkout = Path.of("");
 
     @Option(names = "--name", description = "The repository's name.")
     private @Nullable String name;
 
-    @Option(names = "--project", description = "The project whose file to change.")
+    @Option(names = "--project", description = "The project whose file the entry is for.")
     private @Nullable String project;
 
-    @Option(names = "--yes", description = "Files the proposal at --base.")
+    @Option(
+            names = "--yes",
+            description =
+                    "Refused: Porelo changes no project file; says the entry a project admin"
+                            + " writes.")
     private boolean yes;
 
     @Option(names = "--central", description = "Where a host takes the repository from.")
@@ -52,32 +55,12 @@ public class ProjectInitCommand extends ProjectRepositoryCommand.Changing {
             description = "Whether a merge needs a review: required or optional.")
     private @Nullable String review;
 
-    private @Nullable ProjectProposal proposal;
-
     /** Asks the installed plugin; tests can exercise refusals without a socket. */
     EcosystemDetector detector = EcosystemDetector.INSTALLED;
 
-    ProjectSignCommand.Looks looks =
-            (machine, address, place) ->
-                    new ProjectFile(
-                                    machine.runner(),
-                                    OrganizationAccess.lent(machine),
-                                    CommitSigning.agent(""),
-                                    OrgAccess.projectFiles(machine))
-                            .look(address, place.keys(), project());
-
-    @Override
-    String project() {
-        return Objects.requireNonNull(project, "filing needs --project");
-    }
-
     @Override
     Map<String, @Nullable Object> answer(PoreloContext machine) throws IOException {
-        if (yes && (project == null || base() == null))
-            throw new Refused(
-                    Refused.USAGE, "--yes needs --project and --base, the revision you read", null);
-        if (!yes && (base() != null || id() != null))
-            throw new Refused(Refused.USAGE, "--base and --id go with --yes", null);
+        if (yes && project == null) throw new Refused(Refused.USAGE, "--yes needs --project", null);
         checkout = checkout.toAbsolutePath().normalize();
         if (!Files.isDirectory(checkout))
             throw new Refused(Refused.USAGE, "CHECKOUT must be a directory", null);
@@ -110,7 +93,6 @@ public class ProjectInitCommand extends ProjectRepositoryCommand.Changing {
                         from,
                         review == null ? null : ProjectRepositoryCommand.review(review),
                         project);
-        proposal = made;
         final List<Map<String, Object>> plugins = new ArrayList<>();
         for (var description : InstalledEcosystems.all(machine.paths().ecosystemDirectories())) {
             if (description.refusal() != null) {
@@ -145,45 +127,20 @@ public class ProjectInitCommand extends ProjectRepositoryCommand.Changing {
             // The row names the repository only; the project's image and egress stay as the
             // project's file says, so what was found for them is said rather than silently lost.
             answer.put("by_hand", made.byHand());
-            if (yes) answer.putAll(super.answer(machine));
-            else {
-                final String login =
-                        OrgAccess.ownLogin(machine)
-                                .orElseThrow(
-                                        () ->
-                                                new Refused(
-                                                        Refused.NOT_ALLOWED,
-                                                        "a project admin may change this",
-                                                        null));
-                final ProjectRepositoryCommand.Place place = places.of(machine, project(), login);
-                final var look = looks.of(machine, place.address(), place);
-                if (ProjectFile.CANNOT_SAY.equals(look.read().state()))
-                    throw new Refused(
-                            Refused.CANNOT_SAY, "the project repository cannot be reached", null);
-                answer.put("revision", look.revision());
-                answer.put("of", of());
-            }
+            final String entry = made.entry();
+            answer.put("entry", entry);
+            if (yes)
+                // Porelo changes no project file that exists: a project admin writes the entry.
+                throw new Refused(
+                        Refused.BY_HAND,
+                        ProjectRepositoryCommand.words(project, "add this entry:\n" + entry),
+                        null);
         }
         return answer;
     }
 
     private static Map<String, Object> plugin(String name, String state, String why) {
         return Map.of("name", name, "state", state, "why", why);
-    }
-
-    @Override
-    OrganizationWrites.Written make(
-            ProjectFile file,
-            OrganizationWrites.Change change,
-            ProjectRepositoryCommand.Place place)
-            throws IOException {
-        final ProjectProposal made = Objects.requireNonNull(proposal, "detection precedes filing");
-        return file.propose(
-                change,
-                place.address(),
-                place.keys(),
-                String.valueOf(made.answer().get("repository")),
-                made.row());
     }
 
     @Override
@@ -197,12 +154,15 @@ public class ProjectInitCommand extends ProjectRepositoryCommand.Changing {
                         "not_placed",
                         "by_hand",
                         "credentials_needed",
-                        "plugins",
-                        "revision"))
+                        "plugins"))
             if (answer.containsKey(field))
                 line(
                         (field.equals("plugins") ? "adapters" : field)
                                 + ": "
                                 + org.fuin.porelo.wire.Json.write(answer.get(field)));
+        if (answer.get("entry") instanceof String entry) {
+            line("entry: add this to the project.yml of the project's own repository:");
+            for (final String each : entry.stripTrailing().split("\n", -1)) line(each);
+        }
     }
 }

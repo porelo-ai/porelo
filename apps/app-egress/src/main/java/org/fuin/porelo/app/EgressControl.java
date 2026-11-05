@@ -1,9 +1,6 @@
 package org.fuin.porelo.app;
 
-import java.io.IOException;
 import java.io.StringReader;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -14,17 +11,25 @@ import org.fuin.porelo.agent.api.InstalledAgents;
 import org.fuin.porelo.core.project.Project;
 import org.fuin.porelo.core.project.ProjectException;
 import org.fuin.porelo.core.project.ProjectReader;
+import org.fuin.porelo.core.project.file.Egress;
+import org.fuin.porelo.core.project.file.ProjectFile;
+import org.fuin.porelo.core.project.file.ProjectFileReader;
+import org.fuin.porelo.core.project.file.ProjectFileWriter;
 import org.fuin.porelo.shield.EgressSetDirectory;
 import org.fuin.porelo.shield.EgressSetException;
 import org.jspecify.annotations.Nullable;
 
 /**
- * Reading and changing what a project may reach.
+ * Reading what a project may reach, and saying what a change to it opens and how to write it.
  *
- * <p>The CLI renders this and the daemon serializes it, so the most consequential edit in the
- * product is made in one place. Two implementations would differ exactly where it matters - which
+ * <p>The CLI renders this and the daemon serializes it, so the most consequential change in the
+ * product is judged in one place. Two implementations would differ exactly where it matters - which
  * sets are refused, whether a class forbids the change, what a change is reported to open - and the
  * one that drifted would be the one nobody was watching.
+ *
+ * <p><strong>Porelo never changes an existing project file.</strong> The file is the person's, and
+ * reviewed as theirs: a change answers the {@code egress} section as it must read, and the person
+ * writes it.
  */
 public final class EgressControl {
 
@@ -74,11 +79,11 @@ public final class EgressControl {
     /** What became of a change. */
     public enum Outcome {
 
-        /** Applied and written. */
-        CHANGED,
-
-        /** What it would do, having written nothing. */
+        /** What it would do, and the section a person writes for it. */
         PREVIEWED,
+
+        /** Right, and not written: Porelo changes no project file; the person writes the entry. */
+        BY_HAND,
 
         /** The file already said that. */
         NO_CHANGE,
@@ -90,10 +95,7 @@ public final class EgressControl {
         REFUSED_BY_CLASS,
 
         /** The project file could not be read. */
-        UNREADABLE,
-
-        /** The change was right and the file could not be written. */
-        NOT_WRITTEN
+        UNREADABLE
     }
 
     /**
@@ -104,13 +106,16 @@ public final class EgressControl {
      * @param closes Hosts it takes away, each with the origin that granted it.
      * @param cost What reaching a forge costs a guarded project, when this change opens one.
      * @param detail Why it was refused, or {@code null}.
+     * @param entry The {@code egress} section as the file must read for the change, or {@code null}
+     *     when there is nothing to write.
      */
     public record Effect(
             Outcome outcome,
             Map<String, String> opens,
             Map<String, String> closes,
             @Nullable String cost,
-            @Nullable String detail) {
+            @Nullable String detail,
+            @Nullable String entry) {
 
         /**
          * Constructor with defensive copies.
@@ -120,6 +125,7 @@ public final class EgressControl {
          * @param closes Hosts it takes away.
          * @param cost The forge sentence, or {@code null}.
          * @param detail Why it was refused, or {@code null}.
+         * @param entry The section to write, or {@code null}.
          */
         public Effect {
             // Order is the report: hosts come out grouped by the set that granted them, which is
@@ -129,8 +135,22 @@ public final class EgressControl {
         }
 
         static Effect refused(Outcome outcome, String detail) {
-            return new Effect(outcome, Map.of(), Map.of(), null, detail);
+            return new Effect(outcome, Map.of(), Map.of(), null, detail, null);
         }
+    }
+
+    /**
+     * Says what a person writes, and where, for a change Porelo does not make itself.
+     *
+     * @param file The project file.
+     * @param entry The {@code egress} section as it must read.
+     * @return The words, the section's lines after them.
+     */
+    public static String byHand(final Path file, final String entry) {
+        return "Porelo does not change "
+                + file
+                + "; write its egress section as:\n"
+                + entry.stripTrailing();
     }
 
     private final PoreloContext context;
@@ -160,18 +180,14 @@ public final class EgressControl {
     public Map<String, String> reachable(
             Path projectFile, @Nullable String repository, @Nullable String agentName) {
         final Project project = ProjectReader.read(projectFile);
+        // Named only to be found: what a task may reach is the project's, whichever repository.
+        final org.fuin.porelo.core.project.Repository chosen =
+                GateSupport.repository(project, repository);
         final Map<String, String> declared =
-                EgressReport.projectEgress(
-                        project,
-                        GateSupport.repository(project, repository),
-                        context.paths().egress().egressSets());
+                EgressReport.projectEgress(project, context.paths().egress().egressSets());
         try (InstalledAgents agents = context.agents()) {
             final AgentChoice.Choice choice =
-                    AgentChoice.decided(
-                            context,
-                            agents,
-                            agentName,
-                            GateSupport.repository(project, repository));
+                    AgentChoice.decided(context, agents, agentName, chosen);
             final InstalledAgent selected = choice.agent();
             final SelectedProvider serving =
                     selected == null
@@ -182,8 +198,7 @@ public final class EgressControl {
             // reachable plans on a name the task's resolver answers NXDOMAIN.
             return EgressReport.reachable(
                     EgressReport.compose(selected, serving, declared).origins(),
-                    EgressReport.refusals(
-                            selected, project, GateSupport.repository(project, repository)));
+                    EgressReport.refusals(selected, project));
         }
     }
 
@@ -206,21 +221,16 @@ public final class EgressControl {
                             agents,
                             agentName,
                             GateSupport.repository(project, repository)),
-                    project,
-                    GateSupport.repository(project, repository));
+                    project);
         }
     }
 
     /**
-     * Applies a change to a project's declaration, or reports what it would do.
-     *
-     * <p>Nothing is written until the result has been parsed by the reader that would have to read
-     * it later, so an edit that produced something the project reader refuses fails here rather
-     * than at the next task.
+     * Judges a change to a project's declaration and answers the section to write for it.
      *
      * @param projectFile The project file.
      * @param change What to change.
-     * @param dryRun Whether to stop before writing.
+     * @param dryRun Whether only to preview it.
      * @return What it does, or why it was refused.
      */
     public Effect apply(Path projectFile, Change change, boolean dryRun) {
@@ -228,32 +238,33 @@ public final class EgressControl {
     }
 
     /**
-     * Applies a change for a task on one repository, or reports what it would do.
+     * Judges a change for a task on one repository and answers the section to write for it.
      *
      * <p><strong>The change is the project's.</strong> What a task may reach is the project's
-     * alone, whichever of its repositories the task works on, so a grant is written into the
-     * project's {@code egress} block. A repository the project does not name is refused, so a
-     * mistyped name writes nothing.
+     * alone, whichever of its repositories the task works on, so the section is the project's
+     * {@code egress}. A repository the project does not name is refused, so a mistyped name is not
+     * mistaken for a grant.
      *
-     * @param projectFile The project file.
+     * <p>The section is checked in the whole file it makes, by the check that would read it later,
+     * so an entry the reader would refuse is never shown.
+     *
+     * @param projectFile The project file, which is never written.
      * @param repository Which repository the task works on, or {@code null} for the project's own.
      * @param change What to change.
-     * @param dryRun Whether to stop before writing.
+     * @param dryRun Whether only to preview it; {@link Outcome#PREVIEWED} instead of {@link
+     *     Outcome#BY_HAND}.
      * @return What it does, or why it was refused.
      */
     public Effect apply(
             Path projectFile, @Nullable String repository, Change change, boolean dryRun) {
 
         final Project project;
-        final String original;
+        final ProjectFile file;
         try {
             project = ProjectReader.read(projectFile);
-            original = Files.readString(projectFile, StandardCharsets.UTF_8);
+            file = ProjectFileReader.read(projectFile);
         } catch (ProjectException ex) {
             return Effect.refused(Outcome.UNREADABLE, CliErrors.reason(ex));
-        } catch (IOException ex) {
-            return Effect.refused(
-                    Outcome.UNREADABLE, "cannot read " + projectFile + ": " + ex.getMessage());
         }
 
         if (DefaultProject.is(project.name())) {
@@ -264,43 +275,49 @@ public final class EgressControl {
 
         // The project's own repository is named after the project; a caller that passed the
         // project's name means that one.
-        final String block =
+        final String named =
                 repository == null || repository.isBlank() || repository.equals(project.name())
                         ? null
                         : repository;
-        final org.fuin.porelo.core.project.Repository chosen;
         try {
-            chosen = GateSupport.repository(project, block);
+            // Only to be found: what a task may reach is the project's, whichever repository.
+            GateSupport.repository(project, named);
         } catch (ProjectException ex) {
             return Effect.refused(Outcome.UNREADABLE, CliErrors.reason(ex));
         }
-        // What a task may reach is the project's alone, whichever repository it works on, so the
-        // change is applied to the project's block; the repository named only has to exist.
-        final org.fuin.porelo.core.project.Egress declared = project.egress();
+
+        final Egress declared =
+                file.egress() == null
+                        ? new Egress(List.of(), List.of(), List.of(), List.of())
+                        : file.egress();
+        final Egress wanted =
+                new Egress(
+                        edited(declared.sets(), change.addSets(), change.removeSets()),
+                        edited(declared.domains(), change.addDomains(), change.removeDomains()),
+                        declared.hostServices(),
+                        declared.refused());
+        final ProjectFile changed = withEgress(file, isEmpty(wanted) ? null : wanted);
 
         final EgressSetDirectory sets = context.paths().egress().egressSets();
-        final String updated =
-                EgressEdit.withEgress(
-                        original,
-                        edited(declared.sets(), change.addSets(), change.removeSets()),
-                        edited(declared.domains(), change.addDomains(), change.removeDomains()));
-
         final Project after;
+        final String entry;
         final Map<String, String> before;
         final Map<String, String> now;
         try {
-            after = ProjectReader.read(new StringReader(updated), projectFile.toString());
-            before = EgressReport.projectEgress(project, chosen, sets);
-            now = EgressReport.projectEgress(after, GateSupport.repository(after, block), sets);
+            entry = ProjectFileWriter.entry(changed, onlyEgress(wanted));
+            after =
+                    ProjectReader.read(
+                            new StringReader(ProjectFileWriter.write(changed)),
+                            projectFile.toString());
+            before = EgressReport.projectEgress(project, sets);
+            now = EgressReport.projectEgress(after, sets);
         } catch (ProjectException ex) {
             // Where an offline project is refused, in the words that rule already chose.
             return Effect.refused(Outcome.REFUSED_BY_CLASS, CliErrors.reason(ex));
         } catch (EgressSetException ex) {
             // A set this machine does not have, whether the change added it or the file already
-            // named one. Refused before anything is written: the file would otherwise name
-            // something no task here could resolve, and every run would fail on it rather than this
-            // one call. Checked by resolving rather than by a second look-up beside it - deleting
-            // that look-up changed no behavior, which is how it was found to be redundant.
+            // named one. Refused before any entry is shown: the file would otherwise name
+            // something no task here could resolve, and every run would fail on it.
             return Effect.refused(Outcome.NO_SUCH_SET, CliErrors.reason(ex));
         }
 
@@ -309,7 +326,7 @@ public final class EgressControl {
         final Map<String, String> closes = new LinkedHashMap<>(before);
         now.keySet().forEach(closes::remove);
 
-        // Said at the moment it becomes true, and not again on a later edit: a warning repeated
+        // Said at the moment it becomes true, and not again on a later change: a warning repeated
         // when nothing changed is one an operator learns to skip.
         final String cost =
                 EgressReport.forgeNote(after, now) != null
@@ -318,22 +335,42 @@ public final class EgressControl {
                         : null;
 
         if (opens.isEmpty() && closes.isEmpty()) {
-            return new Effect(Outcome.NO_CHANGE, opens, closes, cost, null);
+            return new Effect(Outcome.NO_CHANGE, opens, closes, cost, null, null);
         }
         if (dryRun) {
-            return new Effect(Outcome.PREVIEWED, opens, closes, cost, null);
+            return new Effect(Outcome.PREVIEWED, opens, closes, cost, null, entry);
         }
-        try {
-            Files.writeString(projectFile, updated, StandardCharsets.UTF_8);
-        } catch (IOException ex) {
-            return new Effect(
-                    Outcome.NOT_WRITTEN,
-                    opens,
-                    closes,
-                    cost,
-                    "cannot write " + projectFile + ": " + ex.getMessage());
-        }
-        return new Effect(Outcome.CHANGED, opens, closes, cost, null);
+        return new Effect(Outcome.BY_HAND, opens, closes, cost, byHand(projectFile, entry), entry);
+    }
+
+    private static boolean isEmpty(final Egress egress) {
+        return egress.sets().isEmpty()
+                && egress.domains().isEmpty()
+                && egress.hostServices().isEmpty()
+                && egress.refused().isEmpty();
+    }
+
+    /** The file with another egress section and all else as it was. */
+    private static ProjectFile withEgress(final ProjectFile file, final @Nullable Egress egress) {
+        return new ProjectFile(
+                file.project(),
+                file.image(),
+                file.build(),
+                egress,
+                file.limits(),
+                file.mail(),
+                file.builds(),
+                file.parameters(),
+                file.branch(),
+                file.credentials(),
+                file.repositories(),
+                file.baseBranch());
+    }
+
+    /** The egress section alone, which is what a person writes. */
+    private static ProjectFile onlyEgress(final Egress egress) {
+        return new ProjectFile(
+                null, null, null, egress, null, null, null, Map.of(), null, Map.of(), Map.of());
     }
 
     /**

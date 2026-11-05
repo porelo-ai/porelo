@@ -35,6 +35,12 @@ public interface OrganizationQuestions {
         /** Options or arguments are wrong. */
         public static final String USAGE = "usage";
 
+        /**
+         * Porelo changes no project file that exists: the words name the file and hold the entry a
+         * person writes into it.
+         */
+        public static final String BY_HAND = "by-hand";
+
         /** The acting person does not hold the role. */
         public static final String NOT_ALLOWED = "not-allowed";
 

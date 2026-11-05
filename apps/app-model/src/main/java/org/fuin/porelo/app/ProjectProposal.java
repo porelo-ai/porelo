@@ -229,6 +229,39 @@ final class ProjectProposal {
         return Map.copyOf(row);
     }
 
+    /**
+     * Returns the repository's entry, which a person adds under {@code repositories} in an existing
+     * project's file: Porelo changes no project file that exists.
+     *
+     * @return The {@code repositories} section with this one entry, as the file holds it.
+     */
+    String entry() {
+        return ProjectFileWriter.entry(
+                new ProjectFile(
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        Map.of(),
+                        null,
+                        Map.of(),
+                        Map.of(
+                                repository,
+                                new RepositoryEntry(
+                                        text(row.get("upstream")),
+                                        text(row.get("central")),
+                                        text(row.get("review")),
+                                        null,
+                                        List.of(),
+                                        null,
+                                        null,
+                                        null,
+                                        null))));
+    }
+
     Map<String, @Nullable Object> answer() {
         final List<Map<String, Object>> disagreements = new ArrayList<>();
         final List<Map<String, Object>> notPlaced = new ArrayList<>();

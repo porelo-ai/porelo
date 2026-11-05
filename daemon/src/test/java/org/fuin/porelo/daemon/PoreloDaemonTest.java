@@ -1129,7 +1129,7 @@ class PoreloDaemonTest {
     }
 
     @Test
-    void answersWhatAProjectMayReachAndChangesIt(@TempDir Path dir) throws Exception {
+    void answersWhatAProjectMayReachAndTheSectionToWrite(@TempDir Path dir) throws Exception {
 
         // The pair that makes the egress editor reachable from an interface. Driven over the wire
         // because that is the half that was missing; what the edit does to the file is covered
@@ -1179,21 +1179,37 @@ class PoreloDaemonTest {
                         assertThat(String.valueOf(preview.get("opens")))
                                 .contains("repo.maven.apache.org")
                                 .contains("set maven");
+                        assertThat(preview.get("entry"))
+                                .as("the section a person writes")
+                                .isEqualTo("egress:\n  sets:\n    - maven\n");
 
                         // A preview writes nothing, which is the whole of its promise.
                         assertThat(Files.readString(projectFile)).doesNotContain("egress");
 
-                        assertThat(
-                                        client.call(
+                        // Porelo changes no project file: the change is refused with the section.
+                        assertThatThrownBy(
+                                        () ->
+                                                client.call(
                                                         PoreloDaemon.INTERFACE + ".SetEgress",
                                                         Map.of(
                                                                 "project",
                                                                 PROJECT,
                                                                 "addSets",
-                                                                List.of("maven")))
-                                                .get("outcome"))
-                                .isEqualTo("CHANGED");
-                        assertThat(Files.readString(projectFile)).contains("sets: [maven]");
+                                                                List.of("maven"))))
+                                .isInstanceOfSatisfying(
+                                        VarlinkException.class,
+                                        ex -> {
+                                            assertThat(ex.getErrorName())
+                                                    .isEqualTo(PoreloDaemon.INTERFACE + ".Failed");
+                                            assertThat(
+                                                            String.valueOf(
+                                                                    ex.getParameters()
+                                                                            .get("message")))
+                                                    .contains(
+                                                            "Porelo does not change " + projectFile)
+                                                    .contains("egress:\n  sets:\n    - maven");
+                                        });
+                        assertThat(Files.readString(projectFile)).doesNotContain("egress");
 
                         assertThat(
                                         (List<?>)
@@ -1201,7 +1217,7 @@ class PoreloDaemonTest {
                                                                 PoreloDaemon.INTERFACE + ".Egress",
                                                                 Map.of("project", PROJECT))
                                                         .get("hosts"))
-                                .hasSize(1);
+                                .isEmpty();
                     }
                 });
     }

@@ -241,7 +241,7 @@ final class ProjectSchema {
                             "image",
                             "env",
                             "Variables set in the image, each a name and its value; a repository's"
-                                    + " porelo.yml may give one another value.",
+                                    + " porelo.yml names an image of its own, taken whole.",
                             "map",
                             "",
                             false),

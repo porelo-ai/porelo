@@ -27,38 +27,29 @@ class ImageChoiceTest {
     private final ProcessCommandRunner runner = new ProcessCommandRunner();
 
     @Test
-    void anOverrideThatSetsTwoKeysChangesOnlyThose() {
+    void theFirstSourceIsTakenWholeAndNoLineOfALaterOneIsMixedIn() {
 
+        // Mixed key by key, a project's lines ran on a repository's base image that nobody wrote
+        // them for, and a variable the repository never set reached its build.
         final ImageChoice choice =
                 ImageChoice.merge(
                         List.of(
                                 new ImageSource(
-                                        "override-base", null, Map.of("A", "override"), "local"),
+                                        "file-base", null, Map.of("A", "file"), "porelo.yml"),
                                 new ImageSource(
-                                        null,
-                                        "RUN from-entry",
-                                        Map.of("A", "entry", "B", "entry"),
-                                        "entry"),
-                                new ImageSource(
-                                        "file-base", "RUN from-file", Map.of("C", "file"), "file"),
-                                new ImageSource(
-                                        "project-base", "RUN project", Map.of(), "project")));
+                                        "project-base",
+                                        "RUN project",
+                                        Map.of("A", "project", "B", "project"),
+                                        "project")));
 
-        assertThat(choice.baseImage()).as("base image").isEqualTo("override-base");
-        assertThat(choice.baseFrom()).isEqualTo("local");
-        assertThat(choice.snippet())
-                .as("snippet, whole from one source")
-                .isEqualTo("RUN from-entry");
-        assertThat(choice.snippetFrom()).isEqualTo("entry");
+        assertThat(choice.baseImage()).as("base image").isEqualTo("file-base");
+        assertThat(choice.baseFrom()).isEqualTo("porelo.yml");
+        assertThat(choice.snippet()).as("no line of the project's").isNull();
+        assertThat(choice.snippetFrom()).isNull();
         assertThat(choice.env())
-                .as("variables, each from the first source that sets it")
-                .containsEntry("A", "override")
-                .containsEntry("B", "entry")
-                .containsEntry("C", "file");
-        assertThat(choice.envFrom())
-                .containsEntry("A", "local")
-                .containsEntry("B", "entry")
-                .containsEntry("C", "file");
+                .as("variables of the one source only")
+                .isEqualTo(Map.of("A", "file"));
+        assertThat(choice.envFrom()).isEqualTo(Map.of("A", "porelo.yml"));
     }
 
     @Test
@@ -103,7 +94,10 @@ class ImageChoiceTest {
                         ImageChoice.merge(
                                         List.of(
                                                 new ImageSource(
-                                                        null, "RUN x", Map.of(), "porelo.yml"),
+                                                        "project-base",
+                                                        "RUN x",
+                                                        Map.of(),
+                                                        "porelo.yml"),
                                                 own))
                                 .applyTo(project, backend)
                                 .imageName())
@@ -121,7 +115,7 @@ class ImageChoiceTest {
                 ImageChoice.merge(
                                 List.of(
                                         new ImageSource(
-                                                null,
+                                                "file-base",
                                                 "RUN true",
                                                 Map.of("A", "say \"hi\" for $HOME \\ now"),
                                                 "porelo.yml"),
@@ -130,7 +124,7 @@ class ImageChoiceTest {
 
         assertThat(built.imageSnippet())
                 .isEqualTo("RUN true\nENV A=\"say \\\"hi\\\" for \\$HOME \\\\ now\"\n");
-        assertThat(built.baseImage()).isEqualTo("project-base");
+        assertThat(built.baseImage()).isEqualTo("file-base");
     }
 
     @Test
@@ -173,10 +167,8 @@ class ImageChoiceTest {
                 ImageChoice.of(context, project, project.repositories().getFirst());
 
         assertThat(choice.baseImage()).as("from the override").isEqualTo("local");
-        assertThat(choice.snippet())
-                .as("from the checked-in file")
-                .isEqualTo("RUN from-the-checkout");
-        assertThat(choice.snippetFrom()).endsWith("work/porelo.yml");
+        assertThat(choice.baseFrom()).endsWith("work/.porelo.yml");
+        assertThat(choice.snippet()).as("nothing of the checked-in file").isNull();
     }
 
     private void git(Path directory, String... arguments) {
@@ -393,12 +385,20 @@ class ImageChoiceTest {
         git(source, "init", "-q", ".");
         Files.writeString(
                 source.resolve("porelo.yml"),
-                "image:\n  run: \"RUN from-file\"\n  env:\n    FROM_FILE: \"yes\"\n");
+                "image:\n  from: \"file-base\"\n  run: \"RUN from-file\"\n  env:\n    FROM_FILE: \"yes\"\n");
         git(source, "add", "-A");
         git(source, "commit", "-q", "-m", "reviewed");
         final Path mirror = GateSupport.mirror(context, project, backend);
         Files.createDirectories(mirror.getParent());
         git(dir, "clone", "-q", "--mirror", source.toString(), mirror.toString());
+
+        final ImageChoice reviewed = ImageChoice.of(context, project, backend);
+        assertThat(reviewed.baseImage()).as("from the mirror").isEqualTo("file-base");
+        assertThat(reviewed.snippet()).isEqualTo("RUN from-file");
+        assertThat(reviewed.snippetFrom()).contains("porelo.yml at refs/heads/main of backend");
+        assertThat(reviewed.env())
+                .as("the mirror's variables, none of the project's")
+                .isEqualTo(Map.of("FROM_FILE", "yes"));
 
         final Path override = ImageChoice.override(context, project, backend);
         assertThat(override)
@@ -411,10 +411,7 @@ class ImageChoiceTest {
 
         assertThat(choice.baseImage()).as("from the override").isEqualTo("local-base");
         assertThat(choice.baseFrom()).contains("local override");
-        assertThat(choice.snippet()).as("from the mirror").isEqualTo("RUN from-file");
-        assertThat(choice.snippetFrom()).contains("porelo.yml at refs/heads/main of backend");
-        assertThat(choice.env())
-                .containsEntry("FROM_PROJECT", "yes")
-                .containsEntry("FROM_FILE", "yes");
+        assertThat(choice.snippet()).as("nothing of the mirror's").isNull();
+        assertThat(choice.env()).as("nothing of the mirror's or the project's").isEmpty();
     }
 }

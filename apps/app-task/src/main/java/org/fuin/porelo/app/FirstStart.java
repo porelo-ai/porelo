@@ -476,9 +476,6 @@ public final class FirstStart {
                     upstream);
         }
         final Set<String> hosts = new LinkedHashSet<>(project.egress().domains());
-        for (final Repository each : project.allRepositories()) {
-            hosts.addAll(each.egress().domains());
-        }
         final List<String> printed = hosts.stream().map(FirstStart::printable).toList();
         return new Answer(
                 Outcome.ASK_UNKNOWN_FILE,
@@ -561,28 +558,6 @@ public final class FirstStart {
         for (final Repository each : project.allRepositories()) {
             if (each.upstream() != null) {
                 found.add(found("repository", each.name() + " at " + each.upstream()));
-            }
-            each.egress().sets().forEach(set -> found.add(found("egress set", set)));
-            each.egress().hostServices().forEach(one -> found.add(found("host service", one)));
-            if (each.image() != null) {
-                if (each.image().baseImage() != null) {
-                    found.add(found("base image of " + each.name(), each.image().baseImage()));
-                }
-                if (each.image().snippet() != null) {
-                    each.image()
-                            .snippet()
-                            .lines()
-                            .forEach(
-                                    line -> found.add(found("image line of " + each.name(), line)));
-                }
-                each.image()
-                        .env()
-                        .forEach(
-                                (name, value) ->
-                                        found.add(
-                                                found(
-                                                        "image setting of " + each.name(),
-                                                        name + "=" + value)));
             }
         }
         return List.copyOf(found);

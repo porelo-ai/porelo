@@ -522,9 +522,9 @@ public final class StartCheck {
             Map<String, org.fuin.porelo.core.project.Parameters.Given> parameters,
             @Nullable String branch) {
 
-        // One repository for its agent and its limits, as Start settles one for both.
+        // One repository for its agent, as Start settles it.
         final org.fuin.porelo.core.project.Repository settled =
-                limitsFrom(projectFile, repository, needsRepository);
+                settledRepository(projectFile, repository, needsRepository);
         final Result checked =
                 checkEverythingElse(
                         context,
@@ -589,7 +589,7 @@ public final class StartCheck {
         } catch (RuntimeException ex) {
             return rest;
         }
-        final String refused = hostServicesWithoutAGate(project, repository);
+        final String refused = hostServicesWithoutAGate(project);
         return refused == null
                 ? rest
                 : new Result(
@@ -603,19 +603,11 @@ public final class StartCheck {
     /**
      * Says why a task of this repository cannot run without a gate, when it cannot.
      *
-     * @param project The project.
-     * @param repository The repository's name, or {@code null} for the project's own egress.
-     * @return The refusal, or {@code null} when the project declares no host service for it.
+     * @param project The project, whose egress is every repository's.
+     * @return The refusal, or {@code null} when the project declares no host service.
      */
-    static @Nullable String hostServicesWithoutAGate(
-            org.fuin.porelo.core.project.Project project, @Nullable String repository) {
-        final java.util.List<String> hostServices =
-                project.repositories().stream()
-                        .filter(each -> each.name().equals(repository))
-                        .findFirst()
-                        .map(project::egressFor)
-                        .orElse(project.egress())
-                        .hostServices();
+    static @Nullable String hostServicesWithoutAGate(org.fuin.porelo.core.project.Project project) {
+        final java.util.List<String> hostServices = project.egress().hostServices();
         if (hostServices.isEmpty()) {
             return null;
         }
@@ -1211,7 +1203,7 @@ public final class StartCheck {
     }
 
     /**
-     * Returns the repository whose limits a start would take, as Start settles it.
+     * Returns the repository whose agent a start would take, as Start settles it.
      *
      * @param projectFile The project file, or {@code null}.
      * @param repository The name given, or {@code null}.
@@ -1219,7 +1211,7 @@ public final class StartCheck {
      * @return The repository; the project's own for a run without a gate and none named; {@code
      *     null} when there is none to take, which the other checks say.
      */
-    private static org.fuin.porelo.core.project.@Nullable Repository limitsFrom(
+    private static org.fuin.porelo.core.project.@Nullable Repository settledRepository(
             @Nullable Path projectFile, @Nullable String repository, boolean needsRepository) {
         if (projectFile == null) {
             return null;
@@ -1242,27 +1234,21 @@ public final class StartCheck {
      *
      * @param agent The task's agent.
      * @param projectFile The project file.
-     * @param repository The repository whose limits the start takes.
      * @return Start's refusal, or {@code null} when the agent can enforce it.
      */
-    private static @Nullable String subagentsRefused(
-            InstalledAgent agent,
-            Path projectFile,
-            org.fuin.porelo.core.project.Repository repository) {
+    private static @Nullable String subagentsRefused(InstalledAgent agent, Path projectFile) {
         final int asked;
         try {
             asked =
                     org.fuin.porelo.core.project.ProjectReader.read(projectFile)
-                            .limitsFor(repository)
+                            .limits()
                             .subagents();
         } catch (RuntimeException ex) {
             // A file that cannot be read is the other checks' to say.
             return null;
         }
         return TaskLaunch.subagentsRefused(
-                agent.definition(),
-                asked,
-                TaskLaunch.subagentsFrom(null, repository) + " " + asked);
+                agent.definition(), asked, TaskLaunch.subagentsFrom(null) + " " + asked);
     }
 
     /**
@@ -1370,7 +1356,7 @@ public final class StartCheck {
         final String tooMany =
                 projectFile == null || repository == null
                         ? null
-                        : subagentsRefused(agent, projectFile, repository);
+                        : subagentsRefused(agent, projectFile);
         if (tooMany != null) {
             return new Result(Outcome.SUBAGENTS_REFUSED, agent.name(), "", "", tooMany);
         }

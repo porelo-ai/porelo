@@ -39,8 +39,11 @@ class ContainerSpecTest {
         final ContainerSpec specification =
                 new ContainerSpec("box", "ubuntu:24.04")
                         .limits(
-                                new Limits.Declared(null, "none", null, null)
-                                        .over(Limits.defaults()));
+                                new Limits(
+                                        Limits.DEFAULT_MEMORY,
+                                        null,
+                                        Limits.DEFAULT_PIDS,
+                                        Limits.DEFAULT_HAND_IN));
         assertThat(specification.toArguments())
                 .as("opting out must remove both the quota and the worker hint")
                 .doesNotContain("--cpus", "--env-merge", "OMP_NUM_THREADS");

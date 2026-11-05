@@ -394,11 +394,12 @@ The declaration is reviewed and applies to everyone. See what is declared and wi
 ```
 porelo shield sets                                # the curated host lists, e.g. maven, nodejs
 porelo shield egress                              # what this project may reach, and who decided
-porelo shield egress --add-set maven --dry-run    # the hosts it would open, writing nothing
+porelo shield egress --add-set maven --dry-run    # the hosts it would open, and what to write
 porelo shield egress --add-set maven --add-domain nexus.corp.example
 ```
 
-The change applies to the next task. Only ports 80 and 443 open; declaring a forge does not
+Porelo never changes your `project.yml`: the last command shows the hosts it opens and the
+`egress` section to write into the file, and you write it. The change applies to the next task. Only ports 80 and 443 open; declaring a forge does not
 open ssh. A project in `default` uses Porelo's settings: to reach more, make a project of your
 own.
 

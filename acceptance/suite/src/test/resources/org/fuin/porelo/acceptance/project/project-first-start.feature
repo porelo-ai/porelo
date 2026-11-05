@@ -44,7 +44,7 @@ Feature: The first start finds what a repository needs
             """
             base=~/first-start-probe
             cd "$base/shop"
-            grep -c 'name: "shop-project"' project.yml | sed 's/^/named: /'
+            grep -c -E 'name: "?shop-project"?$' project.yml | sed 's/^/named: /'
             git log --oneline -- project.yml | wc -l | sed 's/^/commits of it: /'
             git add project.yml
             git -c user.name=T -c user.email=t@example.org commit -q -m 'the project'

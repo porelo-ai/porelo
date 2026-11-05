@@ -1,21 +1,23 @@
 package org.fuin.porelo.app;
 
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import org.fuin.porelo.organization.OrganizationQuestions.Refused;
-import org.fuin.porelo.organization.OrganizationWrites;
-import org.fuin.porelo.organization.gittree.ProjectFile;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Parameters;
 
-/** Says in the project's own file whether a merge needs another person's approval. */
+/**
+ * Shows the entry that says in the project's own file whether a merge needs another person's
+ * approval. Porelo changes no project file that exists: a project admin writes it.
+ */
 @Command(
         name = "review",
         mixinStandardHelpOptions = true,
         exitCodeOnInvalidInput = 64,
-        description = "Says whether a merge needs another person: required or optional.")
-public class ProjectReviewCommand extends ProjectRepositoryCommand.Changing {
+        description =
+                "Shows the entry that says whether a merge needs another person (required or"
+                        + " optional), for a project admin to write.")
+public class ProjectReviewCommand extends ProjectRepositoryCommand.ByHand {
 
     @Parameters(arity = "2..3", paramLabel = "PROJECT [NAME] WORD", description = "What to say.")
     private List<String> words = new ArrayList<>();
@@ -26,19 +28,16 @@ public class ProjectReviewCommand extends ProjectRepositoryCommand.Changing {
     }
 
     @Override
-    OrganizationWrites.Written make(
-            final ProjectFile file,
-            final OrganizationWrites.Change change,
-            final ProjectRepositoryCommand.Place place)
-            throws IOException {
+    String what() {
         if (words.size() < 2) {
             throw new Refused(Refused.USAGE, "name a project and a word", null);
         }
-        return file.review(
-                change,
-                place.address(),
-                place.keys(),
-                words.size() == 3 ? words.get(1) : null,
-                ProjectRepositoryCommand.review(words.getLast()));
+        final String review = ProjectRepositoryCommand.review(words.getLast());
+        if (words.size() == 3) {
+            return "set this key and keep the others:\n"
+                    + ProjectRepositoryCommand.entry(words.get(1), null, null, review);
+        }
+        return "set this key and keep the others:\n"
+                + ProjectRepositoryCommand.projectReview(review);
     }
 }

@@ -30,4 +30,31 @@ public final class ProjectFileWriter {
         }
         return written;
     }
+
+    /**
+     * Writes the part of a file a person adds to theirs, after checking the whole it makes.
+     *
+     * <p>Porelo changes no project file that exists: it shows the entry, and the person writes it.
+     * The whole is checked so that an entry that would make the file unusable is never shown.
+     *
+     * @param whole The file as it reads once the entry is in it.
+     * @param part The sections, keys and entries the person writes; only what it holds is shown.
+     * @return The part's text.
+     * @throws ProjectFileException If the check finds a fault in the whole.
+     */
+    public static String entry(final ProjectFile whole, final ProjectFile part) {
+        FileYaml.refuse(ProjectFileCheck.check(whole, null));
+        return FileYaml.dump(FileYaml.project(part));
+    }
+
+    /**
+     * Writes the part of a file a person adds to theirs, where the file it goes into is not at
+     * hand; what reads it later checks the whole.
+     *
+     * @param part The sections, keys and entries the person writes.
+     * @return The part's text.
+     */
+    public static String entry(final ProjectFile part) {
+        return FileYaml.dump(FileYaml.project(part));
+    }
 }

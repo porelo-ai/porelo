@@ -21,8 +21,6 @@ import org.fuin.porelo.agent.api.Finder;
 import org.fuin.porelo.agent.api.Finding;
 import org.fuin.porelo.agent.api.InstalledAgents;
 import org.fuin.porelo.core.config.XdgPaths;
-import org.fuin.porelo.core.project.Egress;
-import org.fuin.porelo.core.project.Limits;
 import org.fuin.porelo.core.project.Repository;
 import org.fuin.porelo.testing.FakeCommandRunner;
 import org.fuin.porelo.vault.KernelKeyring;
@@ -38,16 +36,7 @@ import org.junit.jupiter.api.io.TempDir;
 class AgentChoiceTest {
 
     private static Repository workedWith(final String agent) {
-        return new Repository(
-                "backend",
-                null,
-                "",
-                Egress.none(),
-                Limits.Declared.none(),
-                List.of(),
-                null,
-                agent,
-                null);
+        return new Repository("backend", null, "", List.of(), agent, null);
     }
 
     @Test

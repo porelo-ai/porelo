@@ -181,8 +181,9 @@ class FileRoundTripTest {
                                 Map.of("JAVA_HOME", "/opt/graalvm", "EMPTY", ""),
                                 "RUN apt-get install -y rpm\n",
                                 null)),
-                new RepositoryFile(new Image(null, Map.of(), null, "build/Containerfile.part")),
-                new RepositoryFile(new Image(null, Map.of(), null, null)));
+                new RepositoryFile(
+                        new Image("debian:13", Map.of(), null, "build/Containerfile.part")),
+                new RepositoryFile(new Image("debian:13", Map.of(), null, null)));
     }
 
     @ParameterizedTest

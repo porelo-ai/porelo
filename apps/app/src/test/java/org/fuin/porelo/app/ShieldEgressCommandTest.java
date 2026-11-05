@@ -181,10 +181,13 @@ class ShieldEgressCommandTest {
     }
 
     @Test
-    void writesTheChangeAndSaysWhereAndWhen(@TempDir Path dir) throws IOException {
+    void changesNoProjectFileAndShowsTheSectionAPersonWrites(@TempDir Path dir) throws IOException {
 
+        // A project file is the person's: changed by Porelo, a change nobody reviewed reaches the
+        // next task, and what they wrote around it is gone.
         installSets(dir);
         final String file = project(dir, "guarded", "");
+        final String before = Files.readString(projectFileIn(dir));
 
         assertThat(
                         execute(
@@ -197,15 +200,17 @@ class ShieldEgressCommandTest {
                                 "maven",
                                 "--add-domain",
                                 "nexus.corp.example"))
-                .isZero();
+                .as("refused, since nothing was changed")
+                .isEqualTo(2);
 
         assertThat(Files.readString(projectFileIn(dir)))
-                .contains("  sets: [maven]")
-                .contains("  domains: [\"nexus.corp.example\"]")
-                .contains("# A comment an operator wrote.");
-        assertThat(out.toString())
-                .contains("written")
-                .contains("applies to the next task, not to one already running");
+                .as("the file as the person left it")
+                .isEqualTo(before);
+        assertThat(out.toString()).contains("repo.maven.apache.org").contains("nexus.corp.example");
+        assertThat(err.toString())
+                .as("which file, and the section to write in it")
+                .contains("Porelo does not change " + projectFileIn(dir))
+                .contains("egress:\n  sets:\n    - maven\n  domains:\n    - nexus.corp.example\n");
     }
 
     @Test
@@ -230,10 +235,11 @@ class ShieldEgressCommandTest {
                                 file,
                                 "--remove-set",
                                 "git-hosting"))
-                .isZero();
+                .isEqualTo(2);
 
         assertThat(out.toString()).contains("closes").contains("github.com");
-        assertThat(Files.readString(projectFileIn(dir))).contains("  sets: [maven]");
+        assertThat(Files.readString(projectFileIn(dir))).contains("  sets: [maven, git-hosting]");
+        assertThat(err.toString()).contains("egress:\n  sets:\n    - maven\n");
     }
 
     @Test
@@ -295,7 +301,7 @@ class ShieldEgressCommandTest {
     @Test
     void saysWhatReachingAForgeCosts(@TempDir Path dir) throws IOException {
 
-        // The edit that turns the gate from a wall into a convention. Said while it is being made,
+        // The change that turns the gate from a wall into a convention. Said while it is shown,
         // not only at the top of the next run.
         installSets(dir);
         final String file = project(dir, "guarded", "");
@@ -308,7 +314,8 @@ class ShieldEgressCommandTest {
                                 "-p",
                                 file,
                                 "--add-set",
-                                "git-hosting"))
+                                "git-hosting",
+                                "--dry-run"))
                 .isZero();
 
         assertThat(out.toString())
@@ -320,12 +327,21 @@ class ShieldEgressCommandTest {
     @Test
     void doesNotRepeatTheForgeCostWhenItWasAlreadyPaid(@TempDir Path dir) throws IOException {
 
-        // It was true before the edit and is true after it. Repeating it on an unrelated change
+        // It was true before the change and is true after it. Repeating it on an unrelated change
         // teaches an operator to skip the line.
         installSets(dir);
         final String file = project(dir, "guarded", "egress:\n  sets: [git-hosting]\n");
 
-        assertThat(execute(context(dir), "shield", "egress", "-p", file, "--add-set", "maven"))
+        assertThat(
+                        execute(
+                                context(dir),
+                                "shield",
+                                "egress",
+                                "-p",
+                                file,
+                                "--add-set",
+                                "maven",
+                                "--dry-run"))
                 .isZero();
 
         assertThat(out.toString()).doesNotContain("cost");

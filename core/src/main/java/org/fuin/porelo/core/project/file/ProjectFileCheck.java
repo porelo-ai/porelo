@@ -131,7 +131,8 @@ public final class ProjectFileCheck {
         if (file.image() == null) {
             check.fault("image", "'image' is required");
         } else {
-            check.image(file.image(), "image", false);
+            // Taken whole, with nothing of the project's, so it names its own base image.
+            check.image(file.image(), "image");
         }
         return List.copyOf(check.faults);
     }
@@ -154,7 +155,7 @@ public final class ProjectFileCheck {
         if (file.image() == null) {
             fault("image", "'image' is required");
         } else {
-            image(file.image(), "image", true);
+            image(file.image(), "image");
         }
         if (file.build() != null) {
             build(file.build(), label);
@@ -243,12 +244,10 @@ public final class ProjectFileCheck {
         return securityClass;
     }
 
-    private void image(final Image image, final String path, final boolean fromRequired) {
+    private void image(final Image image, final String path) {
         final String from = image.from();
         if (from == null || from.isBlank()) {
-            if (fromRequired) {
-                fault(path + ".from", "'" + path + ".from' is required");
-            }
+            fault(path + ".from", "'" + path + ".from' is required");
         } else {
             refuseAsOption(from, path + ".from");
         }

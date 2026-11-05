@@ -25,13 +25,15 @@ type Scope (
   # ask again - a resumed task loses it too, because its ruleset and resolver are rebuilt from
   # what is on disk.
   RUN,
-  # The running task, and the project file, so the next task starts with it.
+  # The running task, and detail says what a person writes into the project file so the next task
+  # starts with it. Porelo changes no project file itself.
   RUN_AND_PROJECT
 )
 
 # What became of widening a running task.
 type WidenOutcome (
-  # Applied to the running task. persisted says whether the file was written too.
+  # Applied to the running task. With RUN_AND_PROJECT, detail names the project file and holds the
+  # egress section a person writes into it; persisted is always false.
   WIDENED,
   # NarrowTask: taken back from the running task.
   NARROWED,
@@ -46,8 +48,9 @@ type WidenOutcome (
   # A name asked for is refused for this task - by its agent, its project or its repository - and
   # a widening does not take a refusal back. Nothing was changed; detail names it and who refused.
   REFUSED_NAME,
-  # The run WAS widened and the project file was not, because nothing knows where it is. Not a
-  # failure: the task can now reach the host, and detail says why the file was not written.
+  # The run WAS changed, and no section for the project file can be said: nothing knows where it
+  # is, or the change would not read there. Not a failure: the task can now reach the host, and
+  # detail says why.
   NO_PROJECT_FILE,
   # The run could not be widened at all. detail says why.
   FAILED
@@ -55,11 +58,11 @@ type WidenOutcome (
 
 # What became of a change to a project's egress.
 type EgressOutcome (
-  # Applied and written to the project file.
+  # No longer sent: Porelo changes no project file. A change without dryRun is refused with Failed.
   CHANGED,
-  # What it would do. Nothing was written, because dryRun was set.
+  # What it would do, with dryRun set; entry is the egress section to write.
   PREVIEWED,
-  # The file already said that. Nothing was written.
+  # The file already says that.
   NO_CHANGE,
   # A named set is not installed on this machine, so the file would name nothing real. Nothing
   # was written; detail says which.
@@ -69,8 +72,7 @@ type EgressOutcome (
   REFUSED_BY_CLASS,
   # The project file could not be read. detail says why.
   UNREADABLE,
-  # The change was right and the file could not be written. detail says why; opens and closes
-  # still describe what it would have done.
+  # No longer sent: Porelo changes no project file.
   NOT_WRITTEN
 )
 
@@ -103,10 +105,8 @@ method Egress(
   project: string,
   # Which of its repositories to answer for. Default: the project's own.
   #
-  # A repository's grants are ADDED to the project's, so without this you get the project-level
-  # set - true of every repository - and with it that set PLUS what the repository adds. Each host
-  # says which of the two granted it, in EgressHost.origin: "project", "set <name>", or
-  # "repository <name>".
+  # What a task may reach is the project's alone, so every repository answers the same; one the
+  # file does not name is refused. Each host says what granted it, in EgressHost.origin.
   repository: ?string,
   # Agent whose grants to include. Default: the agent the project file names for the repository,
   # else the only one installed.
@@ -118,32 +118,32 @@ method Egress(
   refused: []string
 )
 
-# Changes what a project may reach, or says what a change would do.
+# Says what a change to what a project may reach would do, and the egress section a person writes
+# for it.
 #
-# The highest-consequence edit in the product, so it answers in hosts rather than in set names: a
-# set is a name for several hosts and whoever adds one is entitled to see them. The project file
-# is edited in place - comments, key order and quoting survive - and the result is parsed by the
-# reader that would have to read it later before anything is written.
+# The highest-consequence change in the product, so it answers in hosts rather than in set names: a
+# set is a name for several hosts and whoever adds one is entitled to see them. Porelo changes no
+# project file: with dryRun the answer is PREVIEWED and entry holds the egress section as the file
+# must read, checked in the whole file by the reader that would read it later. Without dryRun a
+# change is refused with Failed, whose message names the file and holds the same section.
 #
 # Nothing here applies to a task that is already running: a container's ruleset and resolver are
 # built when it starts.
 method SetEgress(
   # Project NAME, as Projects.name gives it.
   project: string,
-  # Which of the project's repositories to declare this for. Default: the project's own.
+  # Which of the project's repositories the change is asked for. Default: the project's own.
   #
-  # A repository's grants are ADDED to the project's, so declaring one here never takes away what
-  # the project granted - and never widens the project's other repositories, which is the whole
-  # reason this parameter exists. A repository this file does not name is refused rather than
-  # written to the project's block.
+  # What a task may reach is the project's alone, so the section is the project's egress whichever
+  # repository is named; one the file does not name is refused.
   repository: ?string,
-  # Curated sets to declare. A set this machine does not have is refused rather than written.
+  # Curated sets to declare. A set this machine does not have is refused.
   addSets: ?[]string,
   removeSets: ?[]string,
   # Hosts to declare directly, for a mirror no set covers.
   addDomains: ?[]string,
   removeDomains: ?[]string,
-  # Stop before writing and report what would have happened.
+  # Answer PREVIEWED with entry rather than refusing; nothing is written either way.
   dryRun: ?bool
 ) -> (
   outcome: EgressOutcome,
@@ -154,8 +154,11 @@ method SetEgress(
   # What reaching a forge costs a guarded project, when this change opens one and the project
   # did not already reach one. "" otherwise - said once, when it becomes true.
   cost: string,
-  # Why it was refused, or what could not be written. "" when nothing went wrong.
-  detail: string
+  # Why it was refused. "" when nothing went wrong.
+  detail: string,
+  # With PREVIEWED, the egress section as the project file must read for the change, YAML in the
+  # file's own form, which a person writes. Absent otherwise.
+  entry: ?string
 )
 
 # Gives a task that is already running somewhere new to reach.
@@ -172,7 +175,7 @@ method SetEgress(
 # **The attempt that was already refused is not retried.** The packet was dropped; whether the
 # agent tries again is the agent's business. An interface may say the host is now reachable and
 # must not say that the request which just failed will now succeed.
-# Takes names back from a running task, and optionally from its project file.
+# Takes names back from a running task, and optionally says what to write into its project file.
 #
 # THIS STOPS NEW CONNECTIONS AND NOT THE ONES ALREADY RUNNING. The name stops resolving and its
 # recorded addresses come out of the firewall, so nothing new can be reached - but the ruleset
@@ -226,11 +229,11 @@ method NarrowTask(
   # Reports what it would take back, having changed nothing.
   dryRun: ?bool
 ) -> (
-  #   NARROWED         taken back from the run; persisted says whether the file was too
+  #   NARROWED         taken back from the run; with RUN_AND_PROJECT detail says what to write
   #   PREVIEWED        what it would take back, having changed nothing
   #   NO_CHANGE        none of these names is granted to this run
   #   NOT_RUNNING      no such task, or it is not up
-  #   NO_PROJECT_FILE  the RUN was narrowed and the file was not; NOT a failure
+  #   NO_PROJECT_FILE  the RUN was narrowed and no section can be said; NOT a failure
   #   FAILED           the run could not be narrowed; detail says why
   outcome: WidenOutcome,
   # Names taken back, in the order they were asked for.
@@ -238,7 +241,7 @@ method NarrowTask(
   # How many addresses came out of the firewall. Zero with a non-empty 'closes' is a real state:
   # the name was granted and the container never reached it, so nothing was in the set.
   addresses: int,
-  # Whether the project file was changed as well.
+  # Always false: Porelo changes no project file. With RUN_AND_PROJECT, detail holds what to write.
   persisted: bool,
   # Why it was refused or what went wrong. "" otherwise.
   detail: string
@@ -257,9 +260,10 @@ method WidenTask(
   outcome: WidenOutcome,
   # The names it grants, in the order they were asked for.
   opens: []string,
-  # Whether the project file was written as well. Always false for RUN.
+  # Always false: Porelo changes no project file. With RUN_AND_PROJECT, detail holds what to write.
   persisted: bool,
-  # Why it was refused, or what could not be written. "" when nothing went wrong.
+  # Why it was refused; with RUN_AND_PROJECT, the project file and the egress section a person
+  # writes into it. "" when there is nothing to say.
   detail: string
 )
 

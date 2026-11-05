@@ -49,13 +49,14 @@ class RepositoryImageReaderTest {
     }
 
     @Test
-    void leavesUnsetWhatTheFileDoesNotSay() {
+    void refusesAFileThatNamesNoBaseImage() {
 
-        // A later source in the order gives it; a value made up here would hide that source.
-        final ImageSource source = read("image:\n  env:\n    FOO: bar\n");
-
-        assertThat(source.baseImage()).as("base image").isNull();
-        assertThat(source.snippet()).as("snippet").isNull();
+        // Its image is taken whole, with nothing of the project's: lines and variables without a
+        // base image would build on one nobody chose for them.
+        assertThatThrownBy(() -> read("image:\n  env:\n    FOO: bar\n"))
+                .isInstanceOf(ProjectException.class)
+                .hasMessageContaining("porelo.yml:1:")
+                .hasMessageContaining("'image.from' is required");
     }
 
     @Test
@@ -134,13 +135,17 @@ class RepositoryImageReaderTest {
 
         assertThat(
                         RepositoryImageReader.read(
-                                        "image:\n  run_file: image.sh\n", file.toString(), beside)
+                                        "image:\n  from: a\n  run_file: image.sh\n",
+                                        file.toString(),
+                                        beside)
                                 .snippet())
                 .isEqualTo("RUN true\n");
         assertThatThrownBy(
                         () ->
                                 RepositoryImageReader.read(
-                                        "image:\n  run_file: ../secret\n", file.toString(), beside))
+                                        "image:\n  from: a\n  run_file: ../secret\n",
+                                        file.toString(),
+                                        beside))
                 .isInstanceOf(ProjectException.class)
                 .hasMessageContaining("must name a file of the repository");
     }

@@ -17,14 +17,14 @@ import org.fuin.porelo.core.project.SnippetFiles;
 import org.jspecify.annotations.Nullable;
 
 /**
- * The image a task on one repository is built from, chosen key by key along a fixed order, with the
- * source of each key so a start can name it.
+ * The image a task on one repository is built from: one source, taken whole, and named so a start
+ * can say which.
  *
- * <p>The order, first that sets a key wins: the person's local override, the repository's own
+ * <p>The order, the first that is there wins: the person's local override, the repository's own
  * {@code porelo.yml} at its reviewed default branch, and the project's {@code image}. In the
  * project {@code default}, a task started from a person's checkout reads that checkout's {@code
- * .porelo.yml}, then its {@code porelo.yml}, then the default image. {@code from} and the lines of
- * {@code run} or {@code run_file} are each taken whole from one source; {@code env} per variable.
+ * .porelo.yml}, then its {@code porelo.yml}, then the default image. Nothing of a later source is
+ * mixed in: a project's lines written for its own base image never run on a repository's.
  *
  * @param baseImage The image to build on.
  * @param baseFrom Where it came from.
@@ -60,41 +60,30 @@ public record ImageChoice(
     }
 
     /**
-     * Chooses along sources given in the order they win in.
+     * Takes the first of the sources given in the order they win in, whole.
      *
      * @param order The sources, first wins; the last is the project's own image, which always names
      *     a base image.
      * @return The choice.
      */
     static ImageChoice merge(List<ImageSource> order) {
-        String base = null;
-        String baseFrom = null;
-        String snippet = null;
-        String snippetFrom = null;
-        final Map<String, String> env = new LinkedHashMap<>();
-        final Map<String, String> envFrom = new LinkedHashMap<>();
-        for (final ImageSource source : order) {
-            if (base == null && source.baseImage() != null) {
-                base = source.baseImage();
-                baseFrom = source.from();
-            }
-            if (snippet == null && source.snippet() != null) {
-                snippet = source.snippet();
-                snippetFrom = source.from();
-            }
-            source.env()
-                    .forEach(
-                            (name, value) -> {
-                                if (!env.containsKey(name)) {
-                                    env.put(name, value);
-                                    envFrom.put(name, source.from());
-                                }
-                            });
-        }
-        if (base == null || baseFrom == null) {
+        if (order.isEmpty()) {
             throw new ProjectException("No source names a base image");
         }
-        return new ImageChoice(base, baseFrom, snippet, snippetFrom, env, envFrom);
+        final ImageSource source = order.getFirst();
+        final String base = source.baseImage();
+        if (base == null) {
+            throw new ProjectException(source.from() + " names no base image");
+        }
+        final Map<String, String> envFrom = new LinkedHashMap<>();
+        source.env().keySet().forEach(name -> envFrom.put(name, source.from()));
+        return new ImageChoice(
+                base,
+                source.from(),
+                source.snippet(),
+                source.snippet() == null ? null : source.from(),
+                source.env(),
+                envFrom);
     }
 
     /**

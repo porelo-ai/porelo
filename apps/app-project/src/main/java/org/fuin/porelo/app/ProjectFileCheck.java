@@ -81,7 +81,7 @@ public final class ProjectFileCheck {
         }
         for (final org.fuin.porelo.core.project.Repository repository : project.allRepositories()) {
             try {
-                context.paths().egress().egressSets().origins(project.egressFor(repository).sets());
+                context.paths().egress().egressSets().origins(project.egress().sets());
             } catch (org.fuin.porelo.shield.EgressSetException ex) {
                 refusedHere.add("an egress set this machine does not have: " + ex.getMessage());
             }

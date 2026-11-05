@@ -73,6 +73,7 @@
                                 <porelo.check.deb>${project.basedir}/../dist-deb/target</porelo.check.deb>
                                 <porelo.check.rpm>${project.basedir}/../dist-rpm/target</porelo.check.rpm>
                                 <porelo.check.stub>${project.basedir}/../../agents/stub/target</porelo.check.stub>
+                                <porelo.check.binary>${project.basedir}/../../apps/app/target/porelo</porelo.check.binary>
                             </systemPropertyVariables>
                         </configuration>
                     </plugin>

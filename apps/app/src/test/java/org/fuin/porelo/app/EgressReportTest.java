@@ -263,7 +263,7 @@ class EgressReportTest {
                                 List.of("iana.org"),
                                 List.of("www.iana.org", "example.net")));
 
-        assertThat(EgressReport.refusals(null, project, project.ownRepository()))
+        assertThat(EgressReport.refusals(null, project))
                 .containsExactly(
                         Map.entry("www.iana.org", "project"), Map.entry("example.net", "project"));
     }

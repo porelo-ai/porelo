@@ -34,7 +34,7 @@ package org.fuin.porelo.core.project;
  * @param baseBranch Starting branch when no caller checkout or explicit branch is given.
  * @param review Whether a merge in its own repository needs another person's approval.
  * @param imageEnv Variables the project's own image sets, in the order written; empty when it sets
- *     none. A repository's own file may give each of them another value.
+ *     none. A repository's own file names an image of its own, taken whole instead.
  */
 public record Project(
         String name,
@@ -942,16 +942,7 @@ public record Project(
      * @return Never {@code null}. Every project has one.
      */
     public Repository ownRepository() {
-        return new Repository(
-                name,
-                upstream,
-                description,
-                Egress.none(),
-                Limits.Declared.none(),
-                java.util.List.of(),
-                null,
-                null,
-                nickname);
+        return new Repository(name, upstream, description, java.util.List.of(), null, nickname);
     }
 
     /**
@@ -1029,55 +1020,6 @@ public record Project(
                 .filter(each -> each.name().equals(repository))
                 .findFirst()
                 .orElse(null);
-    }
-
-    /**
-     * Returns what a task on one repository may reach: the project's grants plus that repository's.
-     *
-     * <p><strong>Added, never replaced.</strong> Egress is a list of grants, and a repository's
-     * declaration must not take away what the project gave - not least because allowing a blocked
-     * connection writes itself back into the repository's block, and a grant that removes a grant
-     * is the wrong direction for the most dangerous key in this file.
-     *
-     * <p>The project's entries come first and duplicates are dropped, so a set named in both places
-     * is named once and reads as the project's.
-     *
-     * @param repository One of this project's repositories.
-     * @return What a task of that repository may reach.
-     */
-    public Egress egressFor(final Repository repository) {
-        if (repository.egress().isEmpty()) {
-            return egress;
-        }
-        // A refusal of either place holds for the task: nothing a repository adds takes one back.
-        return new Egress(
-                merged(egress.sets(), repository.egress().sets()),
-                merged(egress.domains(), repository.egress().domains()),
-                merged(egress.refused(), repository.egress().refused()),
-                merged(egress.hostServices(), repository.egress().hostServices()));
-    }
-
-    private static java.util.List<String> merged(
-            java.util.List<String> first, java.util.List<String> second) {
-        final java.util.Set<String> all = new java.util.LinkedHashSet<>(first);
-        all.addAll(second);
-        return java.util.List.copyOf(all);
-    }
-
-    /**
-     * Returns what a task on one repository may consume: the project's limits with that
-     * repository's over them, key by key.
-     *
-     * <p><strong>Absent means the project's, never the default.</strong> A repository that names
-     * only {@code pids} keeps the project's memory - including a memory the project deliberately
-     * raised. Falling back to {@link Limits#defaults()} per key would quietly undo that for one
-     * repository, and nothing on screen would mention it.
-     *
-     * @param repository One of this project's repositories.
-     * @return The limits a task of that repository runs under.
-     */
-    public Limits limitsFor(final Repository repository) {
-        return repository.limits().over(limits);
     }
 
     /**

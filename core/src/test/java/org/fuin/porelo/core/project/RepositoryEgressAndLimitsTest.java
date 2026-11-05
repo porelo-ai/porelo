@@ -1,10 +1,8 @@
 package org.fuin.porelo.core.project;
 
-import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.io.StringReader;
-import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
@@ -34,28 +32,6 @@ class RepositoryEgressAndLimitsTest {
               sets: [maven]
               domains: ["nexus.corp.example"]
             """;
-
-    @Test
-    void everyRepositoryRunsExactlyAsTheProjectSays() {
-        final Project project =
-                read(
-                        HEAD
-                                + """
-                repositories:
-                  backend:
-                  frontend: {}
-                """);
-
-        for (final Repository repository : project.repositories()) {
-            assertThat(repository.addsNothing()).as(repository.name()).isTrue();
-            assertThat(project.egressFor(repository))
-                    .as("a task on %s reaches what the project grants", repository.name())
-                    .isEqualTo(project.egress());
-            assertThat(project.limitsFor(repository))
-                    .as("a task on %s consumes what the project allows", repository.name())
-                    .isEqualTo(project.limits());
-        }
-    }
 
     @ParameterizedTest
     @ValueSource(strings = {"egress:\n      sets: [flutter]", "limits:\n      memory: \"32g\""})

@@ -5,7 +5,8 @@ Feature: A repository says what its tasks are built in
     read from the repository's mirror at its default branch, which holds reviewed work only, and it
     may name nothing but the image: a file that tried to name a rule of the project is refused before
     anything is built. The start says where each part of the image came from, and a repository's own
-    image is named apart from the project's.
+    image is named apart from the project's. Each source is taken whole: the person's override first,
+    then the repository's file, then the project's image, and nothing of a later one is mixed in.
 
     Background:
         Given the suite runs as an unprivileged user
@@ -21,7 +22,8 @@ Feature: A repository says what its tasks are built in
             set -e
             source=~/imaged/.git/tooled-source
             rm -rf "$source" && git init -q -b main "$source"
-            printf '%s\n' 'image:' '  run: |' '    RUN echo from-the-repository > /etc/porelo-repository-image' \
+            printf '%s\n' 'image:' '  from: "ubuntu:24.04"' '  run: |' \
+                '    RUN echo from-the-repository > /etc/porelo-repository-image' \
                 '  env:' '    REPOSITORY_IMAGE: "said by the repository"' > "$source/porelo.yml"
             git -C "$source" -c user.name=T -c user.email=t@example.com add porelo.yml
             git -C "$source" -c user.name=T -c user.email=t@example.com commit -q -m image
@@ -66,13 +68,14 @@ Feature: A repository says what its tasks are built in
         And its output has a line matching "exit [1-9][0-9]*"
         And its output contains "no image was built"
 
-    Scenario: a person's local override changes only the keys it sets
+    Scenario: a person's local override replaces the repository's image whole
         When a script runs:
             """
             set -e
             source=~/imaged/.git/tooled-source
             rm -rf "$source" && git init -q -b main "$source"
-            printf '%s\n' 'image:' '  run: |' '    RUN echo from-the-repository > /etc/porelo-repository-image' \
+            printf '%s\n' 'image:' '  from: "ubuntu:24.04"' '  run: |' \
+                '    RUN echo from-the-repository > /etc/porelo-repository-image' \
                 '  env:' '    REPOSITORY_IMAGE: "said by the repository"' '    KEPT: "the repository'"'"'s"' > "$source/porelo.yml"
             git -C "$source" -c user.name=T -c user.email=t@example.com add porelo.yml
             git -C "$source" -c user.name=T -c user.email=t@example.com commit -q -m image
@@ -82,18 +85,19 @@ Feature: A repository says what its tasks are built in
             # Taken back whatever happens below: a leftover override would speak in the next run.
             trap 'rm -rf -- "$override"' EXIT
             mkdir -p "$override"
-            printf '%s\n' 'image:' '  env:' '    REPOSITORY_IMAGE: "said by the person"' > "$override/.porelo.yml"
+            printf '%s\n' 'image:' '  from: "ubuntu:24.04"' '  env:' '    REPOSITORY_IMAGE: "said by the person"' \
+                > "$override/.porelo.yml"
             timeout 600 porelo task start overridden --project imaged --repository tooled --agent stub \
                 --attach shell --detach --clearance deny
-            podman exec porelo-imaged-overridden sh -c 'echo "env: $REPOSITORY_IMAGE / $KEPT"; cat /etc/porelo-repository-image'
+            podman exec porelo-imaged-overridden sh -c \
+                'echo "env: $REPOSITORY_IMAGE / ${KEPT:-unset}"; cat /etc/porelo-repository-image 2>/dev/null || echo "no repository lines"'
             porelo task remove porelo-imaged-overridden --force > /dev/null
             podman rmi porelo/imaged_tooled > /dev/null 2>&1 || true
             """
         Then it exits zero
         And its output has a line matching "image env +REPOSITORY_IMAGE from .*/projects/imaged/tooled/.porelo.yml \(local override\)"
-        And its output has a line matching "image env +KEPT from porelo.yml at refs/heads/main of tooled.*"
-        And its output contains "env: said by the person / the repository's"
-        And its output contains "from-the-repository"
+        And its output contains "env: said by the person / unset"
+        And its output contains "no repository lines"
 
     Scenario: a task started from a checkout in 'default' takes the checkout's own files, the override first
         When a script runs:
@@ -104,22 +108,24 @@ Feature: A repository says what its tasks are built in
             trap 'porelo task remove porelo-default-fromco --force > /dev/null 2>&1; porelo project default remove "$repo" > /dev/null 2>&1; podman rmi "porelo/default_$repo" > /dev/null 2>&1; rm -rf "$base"' EXIT
             git init -q --bare --initial-branch=main "$base/$repo.git"
             git init -q --initial-branch=main "$base/seed"
-            printf '%s\n' 'image:' '  run: |' '    RUN echo from-the-checkout > /etc/porelo-checkout-image' \
+            printf '%s\n' 'image:' '  from: "ubuntu:24.04"' '  run: |' \
+                '    RUN echo from-the-checkout > /etc/porelo-checkout-image' \
                 '  env:' '    CHECKOUT_IMAGE: "checked in"' > "$base/seed/porelo.yml"
             git -C "$base/seed" add porelo.yml
             git -C "$base/seed" -c user.name=T -c user.email=t@example.org commit -q -m 'image'
             git -C "$base/seed" push -q "$base/$repo.git" HEAD:main
             git clone -q "$base/$repo.git" "$base/$repo"
-            printf '%s\n' 'image:' '  env:' '    CHECKOUT_IMAGE: "the person'"'"'s"' > "$base/$repo/.porelo.yml"
+            printf '%s\n' 'image:' '  from: "ubuntu:24.04"' '  env:' '    CHECKOUT_IMAGE: "the person'"'"'s"' \
+                > "$base/$repo/.porelo.yml"
             cd "$base/$repo"
             set +e
             timeout 600 porelo task start fromco --agent stub --attach shell --detach --clearance deny
             echo "start exit $?"
-            podman exec porelo-default-fromco sh -c 'echo "env: $CHECKOUT_IMAGE"; cat /etc/porelo-checkout-image'
+            podman exec porelo-default-fromco sh -c \
+                'echo "env: $CHECKOUT_IMAGE"; cat /etc/porelo-checkout-image 2>/dev/null || echo "no checked-in lines"'
             """
         Then its output contains "start exit 0"
-        And its output has a line matching "image lines +from .*/dimg[a-z0-9]*/porelo.yml"
         And its output has a line matching "image env +CHECKOUT_IMAGE from .*/dimg[a-z0-9]*/.porelo.yml"
         And its output has a line matching "task image +porelo/default_dimg[a-z0-9]*"
         And its output contains "env: the person's"
-        And its output contains "from-the-checkout"
+        And its output contains "no checked-in lines"
