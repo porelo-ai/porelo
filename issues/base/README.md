@@ -73,6 +73,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b455"></a>[B455](B455-A-First-Start-Says-What-A-Plugin-Could-Not-Place.md) | S | - | A first start's question shows what a plugin could not place and its notes. |
 | <a id="b454"></a>[B454](B454-A-Scenarios-Setup-Says-When-It-Failed.md) | XS | - | The first-start scenario checks its setup and cleans up even after a red. |
 | <a id="b453"></a>[B453](B453-A-Draft-Replaces-A-Repositorys-Own-Image.md) | S | - | A draft does not silently replace the image a repository says it needs. |
 | <a id="b452"></a>[B452](B452-A-Value-With-No-File-Prints-No-Line.md) | XS | - | A value with no file prints no `:0` in a draft. |
