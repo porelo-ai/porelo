@@ -21,6 +21,7 @@ jobs:
             JF_ACCESS_TOKEN: ${{ secrets.JF_ACCESS_TOKEN }}
             DEB_REPO: porelo-dist-deb
             RPM_REPO: porelo-dist-rpm
+            TEST_REPO: porelo-dist-test
 
         steps:
             # For .github/scripts/artifactory.sh, the file Publish speaks to Artifactory through.
@@ -119,5 +120,31 @@ jobs:
                       art_api DELETE "/$path" >/dev/null
                       echo "  OK    $repo allows delete, so the probe left nothing behind"
                   done
+                  rm -f smoke.txt
+                  exit "$FAILED"
+
+            # The test agent's place: a generic repository, read with no token by whoever runs a test.
+            - name: The token can write there and delete, and anybody can read
+              run: |
+                  set -eu
+                  . .github/scripts/artifactory.sh
+                  art_login
+                  got="$(art_api GET "/api/repositories/$TEST_REPO" | jq -r '.packageType // "MISSING"' | tr 'A-Z' 'a-z')"
+                  [ "$got" = generic ] || { echo "::error::$TEST_REPO has packageType '$got', expected generic"; exit 1; }
+                  echo "  OK    $TEST_REPO is a generic repository"
+                  echo "porelo smoke ${GITHUB_RUN_ID}" > smoke.txt
+                  path="$TEST_REPO/.smoke/${GITHUB_RUN_ID}.txt"
+                  art_put smoke.txt "$path" >/dev/null
+                  echo "  OK    $TEST_REPO accepts an upload"
+                  FAILED=0
+                  # No token here, on purpose: this is how a test reads it.
+                  if [ "$(curl -fsS "${JF_URL%/}/artifactory/$path")" = "porelo smoke ${GITHUB_RUN_ID}" ]; then
+                      echo "  OK    $TEST_REPO is read without a token"
+                  else
+                      echo "::error::$TEST_REPO cannot be read without a token"
+                      FAILED=1
+                  fi
+                  art_api DELETE "/$path" >/dev/null
+                  echo "  OK    $TEST_REPO allows delete, so the probe left nothing behind"
                   rm -f smoke.txt
                   exit "$FAILED"
