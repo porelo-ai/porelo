@@ -63,6 +63,9 @@ final class KeePassXcStandIn {
     final Path gui;
     final Path guiCalls;
 
+    /** What the machine says of KeePassXC: it runs, until a test says otherwise. */
+    boolean running = true;
+
     /** The test's own temporary directory, under which the JVM's temporary files lie. */
     private final Path temp = Path.of(System.getProperty("java.io.tmpdir"));
 
@@ -97,6 +100,12 @@ final class KeePassXcStandIn {
                         + "sock='"
                         + socket
                         + "'\n"
+                        + "if [ \"$1\" = --debug-info ]; then\n"
+                        + "  if [ -e \"$here/debug-info\" ]; then cat \"$here/debug-info\";"
+                        + " else printf 'Enabled extensions:\\n- Auto-Type\\n- SSH Agent\\n"
+                        + "\\nCryptographic libraries:\\n- x\\n'; fi\n"
+                        + "  exit 0\n"
+                        + "fi\n"
                         + "printf '%s\\n' \"$*\" >> \"$here/arguments\"\n"
                         + "case \"$1\" in\n"
                         + "add)\n"
@@ -199,7 +208,8 @@ final class KeePassXcStandIn {
                 Path.of("/dev/null"),
                 terminal,
                 KeePassXcKey.TYPING,
-                false);
+                false,
+                () -> running);
     }
 
     /** As {@link #store}, a prompt waiting this long. */
@@ -211,7 +221,8 @@ final class KeePassXcStandIn {
                 Path.of("/dev/null"),
                 terminal,
                 typing,
-                false);
+                false,
+                () -> running);
     }
 
     /** As {@link #store}, with its input and error output as given and looked at first. */
@@ -223,7 +234,8 @@ final class KeePassXcStandIn {
                 in,
                 out,
                 KeePassXcKey.TYPING,
-                true);
+                true,
+                () -> running);
     }
 
     /** The entries the database holds outside its recycle bin. */

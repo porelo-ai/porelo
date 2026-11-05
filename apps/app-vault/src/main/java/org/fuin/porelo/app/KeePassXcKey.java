@@ -40,6 +40,7 @@ import org.jspecify.annotations.Nullable;
  *     output, so the answer on standard output stays the verb's alone.
  * @param typing How long a person has for one prompt.
  * @param judging Whether the two are looked at before anything runs; a test's are files.
+ * @param running Whether KeePassXC runs; a test says, and a real one looks.
  */
 record KeePassXcKey(
         String program,
@@ -48,7 +49,8 @@ record KeePassXcKey(
         Path terminalIn,
         Path terminalOut,
         Duration typing,
-        boolean judging) {
+        boolean judging,
+        java.util.function.BooleanSupplier running) {
 
     /** The attachment KeePassXC's agent integration takes the key from. */
     static final String KEY_ATTACHMENT = "id_ed25519";
@@ -140,7 +142,8 @@ record KeePassXcKey(
                 Path.of(self + "0"),
                 Path.of(self + "2"),
                 TYPING,
-                true);
+                true,
+                KeePassXcNeeds::runs);
     }
 
     /**
@@ -201,6 +204,7 @@ record KeePassXcKey(
                     null,
                     "--entry is GROUP/NAME: groups and a name, none empty, without a leading '-'");
         }
+        ready(context);
         if (!answers(socket)) {
             throw new IdentityChange.Refused(
                     65,
@@ -319,6 +323,29 @@ record KeePassXcKey(
                             + AnswerText.printable(me)
                             + " rather than through su or sudo");
         }
+    }
+
+    /** Says what is missing before any password is asked; what cannot be told does not refuse. */
+    private void ready(final PoreloContext context) throws IdentityChange.Refused {
+        final List<KeePassXcNeeds.Need> missing =
+                KeePassXcNeeds.read(context, program, running).stream()
+                        .filter(need -> need.state() == KeePassXcNeeds.State.MISSING)
+                        .filter(need -> !KeePassXcNeeds.AGENT.equals(need.name()))
+                        .toList();
+        if (missing.isEmpty()) {
+            return;
+        }
+        final StringBuilder words = new StringBuilder();
+        for (final KeePassXcNeeds.Need need : missing) {
+            words.append(need.detail()).append(": ").append(need.next()).append("; ");
+        }
+        final boolean absent =
+                missing.getFirst().name().equals(KeePassXcNeeds.EXTENSION)
+                        && missing.getFirst().detail().contains("not installed");
+        throw new IdentityChange.Refused(
+                65,
+                absent ? "key-store-missing" : "key-store-not-ready",
+                words + "no password was asked and nothing changed; then ask again");
     }
 
     private static IdentityChange.Refused noTerminal(final String why) {
@@ -647,7 +674,7 @@ record KeePassXcKey(
     }
 
     /** Whether an agent answers at the socket, whatever it serves. */
-    private static boolean answers(final String socket) {
+    static boolean answers(final String socket) {
         try {
             new SshAgentClient(Path.of(socket)).identities();
             return true;

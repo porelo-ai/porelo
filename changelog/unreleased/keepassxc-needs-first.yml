@@ -1,0 +1,2 @@
+title: "`--keepassxc` names what KeePassXC lacks before asking for any password, and `doctor` shows the same lines without making a machine not ready."
+type: changed

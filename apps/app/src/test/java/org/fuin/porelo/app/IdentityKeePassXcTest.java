@@ -87,6 +87,123 @@ class IdentityKeePassXcTest {
                 .doesNotContain("PRIVATE KEY");
     }
 
+    private void refusedNaming(final KeePassXcStandIn keepass, final String words)
+            throws Exception {
+        org.assertj.core.api.Assertions.assertThat(
+                        create(
+                                keepass.store(Duration.ofSeconds(5)),
+                                "--keepassxc",
+                                keepass.database.toString(),
+                                "--json"))
+                .as("what it said: %s", registry.err)
+                .isEqualTo(65);
+        org.assertj.core.api.Assertions.assertThat(registry.answer().get("reason"))
+                .as("a need, by its name")
+                .isEqualTo("key-store-not-ready");
+        org.assertj.core.api.Assertions.assertThat(registry.err.toString())
+                .as("what is missing, and that nothing was asked")
+                .contains(words)
+                .contains("no password was asked");
+        org.assertj.core.api.Assertions.assertThat(keepass.arguments)
+                .as("keepassxc-cli was never asked to change anything, so never asked a password")
+                .doesNotExist();
+    }
+
+    @org.junit.jupiter.api.Test
+    void aKeePassXcWithoutItsAgentExtensionIsSaidBeforeAnyPassword() throws Exception {
+        final KeePassXcStandIn keepass = standIn(KeePassXcStandIn.Mode.SERVES);
+        java.nio.file.Files.writeString(
+                keepass.dir.resolve("debug-info"),
+                "Enabled extensions:\n- Auto-Type\n\nCryptographic libraries:\n- x\n");
+
+        refusedNaming(keepass, "no SSH agent extension");
+    }
+
+    @org.junit.jupiter.api.Test
+    void anAgentIntegrationTurnedOffIsSaidBeforeAnyPassword() throws Exception {
+        final KeePassXcStandIn keepass = standIn(KeePassXcStandIn.Mode.SERVES);
+        registry.variables.put("XDG_CONFIG_HOME", dir.resolve("settings").toString());
+        final Path ini = dir.resolve("settings/keepassxc/keepassxc.ini");
+        java.nio.file.Files.createDirectories(ini.getParent());
+        java.nio.file.Files.writeString(
+                ini, "[General]\nEnabled=true\n[SSHAgent]\nEnabled=false\n");
+
+        refusedNaming(keepass, "agent integration is off");
+    }
+
+    @org.junit.jupiter.api.Test
+    void aKeePassXcNotRunningIsSaidBeforeAnyPassword() throws Exception {
+        final KeePassXcStandIn keepass = standIn(KeePassXcStandIn.Mode.SERVES);
+        keepass.running = false;
+
+        refusedNaming(keepass, "KeePassXC is not running");
+    }
+
+    @org.junit.jupiter.api.Test
+    void anAgentThatDoesNotAnswerIsStillTheAgentsOwnRefusal() throws Exception {
+        final KeePassXcStandIn keepass = standIn(KeePassXcStandIn.Mode.SERVES);
+        java.nio.file.Files.deleteIfExists(Path.of(registry.environment().apply("SSH_AUTH_SOCK")));
+
+        org.assertj.core.api.Assertions.assertThat(
+                        create(
+                                keepass.store(Duration.ofSeconds(5)),
+                                "--keepassxc",
+                                keepass.database.toString(),
+                                "--json"))
+                .as("what it said: %s", registry.err)
+                .isEqualTo(65);
+        org.assertj.core.api.Assertions.assertThat(registry.answer().get("reason"))
+                .as("the same name a script already knows")
+                .isEqualTo("key-not-in-agent");
+    }
+
+    @org.junit.jupiter.api.Test
+    void settingsNotFoundAreNotARefusalAndSayWhatCannotBeTold() throws Exception {
+        final KeePassXcStandIn keepass = standIn(KeePassXcStandIn.Mode.SERVES);
+
+        org.assertj.core.api.Assertions.assertThat(
+                        KeePassXcNeeds.read(
+                                registry.context(), keepass.program.toString(), () -> true))
+                .as("no settings file in this account: a state of its own")
+                .filteredOn(need -> need.name().equals("keepassxc-settings"))
+                .extracting(KeePassXcNeeds.Need::state)
+                .containsExactly(KeePassXcNeeds.State.CANNOT_TELL);
+    }
+
+    @org.junit.jupiter.api.Test
+    void noNeedMakesAMachineNotReady() throws Exception {
+        final KeePassXcStandIn keepass = standIn(KeePassXcStandIn.Mode.SERVES);
+        java.nio.file.Files.writeString(keepass.dir.resolve("debug-info"), "Enabled extensions:\n");
+
+        final List<Probe> probes =
+                KeePassXcNeeds.read(registry.context(), keepass.program.toString(), () -> false)
+                        .stream()
+                        .map(KeePassXcNeeds.Need::probe)
+                        .toList();
+
+        org.assertj.core.api.Assertions.assertThat(probes)
+                .as("each names its next action")
+                .isNotEmpty()
+                .noneMatch(probe -> probe.state() == Probe.State.MISSING);
+        org.assertj.core.api.Assertions.assertThat(DoctorCommand.ready(probes))
+                .as("a person with an agent of their own and no KeePassXC stays ready")
+                .isTrue();
+    }
+
+    @org.junit.jupiter.api.Test
+    void keepassxcIsToldFromItsToolsAndUnderAWrapper() {
+        org.assertj.core.api.Assertions.assertThat(
+                        List.of(
+                                "/usr/bin/keepassxc",
+                                "/nix/store/x/bin/.keepassxc-wrapped",
+                                "/usr/bin/keepassxc-cli",
+                                "/usr/bin/keepassxc-proxy",
+                                "/usr/bin/ssh-agent"))
+                .as("only KeePassXC itself holds databases open")
+                .filteredOn(KeePassXcNeeds::isKeePassXc)
+                .containsExactly("/usr/bin/keepassxc", "/nix/store/x/bin/.keepassxc-wrapped");
+    }
+
     private Path cardFile() {
         return new IdentityStore(registry.context()).cardFile();
     }
@@ -803,7 +920,8 @@ class IdentityKeePassXcTest {
                         Path.of("/dev/null"),
                         keepass.terminal,
                         KeePassXcKey.TYPING,
-                        false);
+                        false,
+                        () -> true);
 
         assertThat(create(missing, "--keepassxc", keepass.database.toString(), "--json"))
                 .isEqualTo(65);

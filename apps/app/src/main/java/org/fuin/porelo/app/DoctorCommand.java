@@ -737,6 +737,14 @@ public class DoctorCommand implements Callable<Integer>, PoreloFactory.ContextAw
      * @return The probes.
      */
     java.util.List<Probe> probes() {
+        final java.util.List<Probe> all = new java.util.ArrayList<>(machine());
+        KeePassXcNeeds.read(context, "keepassxc-cli", KeePassXcNeeds::runs).stream()
+                .map(KeePassXcNeeds.Need::probe)
+                .forEach(all::add);
+        return java.util.List.copyOf(all);
+    }
+
+    private java.util.List<Probe> machine() {
         return java.util.List.of(
                 podmanVersion(),
                 hookRegistration(),
