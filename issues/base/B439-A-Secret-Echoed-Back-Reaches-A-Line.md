@@ -1,6 +1,7 @@
 # B439 — A Secret Echoed Back Reaches A Line
 
-**Status:** Idea.
+**Status:** Implementing.
+**Size:** S - the four paths that print today; the records stay for later.
 
 **What must be true.** Text Porelo did not write, an error from a service or a helper's standard error, reaches no line
 unless it is known to hold no secret, and a value holding a secret cannot be printed by accident.
