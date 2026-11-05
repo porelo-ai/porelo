@@ -244,6 +244,8 @@ public final class ProjectTaking {
                         CommitSigning.agent(""),
                         context.paths().projects().projectFileMemory());
         final Path clone = context.paths().projects().organizationClone(name);
+        final java.util.concurrent.atomic.AtomicReference<@Nullable String> was =
+                new java.util.concurrent.atomic.AtomicReference<>();
         // Judged under the lock as well: a start judged older must not place over a newer one.
         final ProjectFile.Read read =
                 FileLocks.holding(
@@ -256,6 +258,8 @@ public final class ProjectTaking {
                                 judged = file.read(from, questionKeys(keys));
                             }
                             final String revision = judged.revision();
+                            final OrganizationProjects.Placed before = projects.find(name);
+                            was.set(before == null ? null : before.revision());
                             if (ProjectFile.READ.equals(judged.state())
                                     && revision != null
                                     && namesItself(judged, name)) {
@@ -289,6 +293,7 @@ public final class ProjectTaking {
                     OrganizationQuestions.Refused.REFUSED_STATE,
                     name + " is not started: its project.yml names another project");
         }
+        applied(name, address, read, was.get());
         final Project project =
                 org.fuin.porelo.core.project.ProjectReader.read(clone.resolve("project.yml"));
         for (final String scheme : project.mail().conversations()) {
@@ -298,6 +303,32 @@ public final class ProjectTaking {
                 throw new Refused(78, "no-homeserver", String.valueOf(ex.getMessage()));
             }
         }
+    }
+
+    /**
+     * A project's file is its permissions: one that changed shows afterwards, the same does not.
+     */
+    private void applied(
+            final String name,
+            final String address,
+            final ProjectFile.Read read,
+            final @Nullable String was) {
+        final String revision = String.valueOf(read.revision());
+        if (revision.equals(was)) {
+            return;
+        }
+        final String signer = read.signer();
+        EventLog.record(
+                context,
+                EventLog.PROJECT_APPLIED,
+                name,
+                "",
+                "revision "
+                        + revision
+                        + " from "
+                        + address
+                        + (was == null ? "" : ", was " + was)
+                        + (signer == null ? "" : ", signed by " + signer));
     }
 
     private static boolean namesItself(final ProjectFile.Read read, final String name) {

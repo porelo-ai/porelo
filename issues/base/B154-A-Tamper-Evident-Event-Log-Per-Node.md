@@ -6,8 +6,8 @@ machine, and a log that `porelo clear` leaves.
 
 **What must be true.** Every security-relevant event of a node - approve, reject, clearance, hand-in, runtime extensions, and every change of permissions (a clearance at run time, `--credential`, a change of `project.yml`) - is written to a log that shows when it was changed afterwards.
 
-**Not kept today.** A change of `project.yml` is not written: since `1948c99f`, `EventLog.PROJECT_APPLIED` is declared and
-nothing writes it, so a project file a start takes through its organization (`ProjectTaking`) leaves no line. Read, not run.
+**As built.** A project file a start takes through its organization leaves one `project-applied` line each time its revision
+changes, naming the revision, the one before and who signed it. A file read again unchanged leaves none, nor does one refused.
 
 ## Why
 

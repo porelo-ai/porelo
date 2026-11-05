@@ -296,6 +296,43 @@ class ProjectTakingTest {
     }
 
     @Test
+    void a_change_of_the_file_a_start_takes_leaves_a_line_and_the_same_file_none()
+            throws Exception {
+        final String first = git("rev-parse", "HEAD");
+
+        taking().taken("demo");
+        taking().taken("demo");
+        assertThat(applied()).as("one file, however often it is read").hasSize(1);
+        assertThat(applied().getFirst().get("project")).isEqualTo("demo");
+        assertThat(String.valueOf(applied().getFirst().get("detail")))
+                .contains(first)
+                .contains("signed by " + machine.key("michael"));
+
+        final String later = commit("michael", FILE + "# a later change\n");
+        taking().taken("demo");
+
+        assertThat(applied()).as("a change of permissions shows afterwards").hasSize(2);
+        assertThat(String.valueOf(applied().get(1).get("detail")))
+                .contains(later)
+                .contains("was " + first);
+    }
+
+    @Test
+    void a_file_refused_leaves_no_line_that_it_was_applied() throws Exception {
+        commit("alice", FILE + "# nobody may\n");
+
+        refused(65, "refused-state");
+
+        assertThat(applied()).isEmpty();
+    }
+
+    private List<Map<String, Object>> applied() throws IOException {
+        return EventLog.of(context).entries(null).stream()
+                .filter(each -> EventLog.PROJECT_APPLIED.equals(each.get("kind")))
+                .toList();
+    }
+
+    @Test
     void a_file_signed_by_nobody_it_may_be_is_refused_and_nothing_is_placed() throws Exception {
         commit("alice", FILE + "# nobody may\n");
 
