@@ -140,23 +140,21 @@ run makes it with no organization and no question is to be settled, and tried fi
 Sources: [Lima's VM types](https://lima-vm.io/docs/config/vmtype/),
 [a blog on Podman 6.0](https://www.youngju.dev/blog/2026-07-17-podman-6-0-breaking-changes-libkrun-pasta.en),
 [Scaleway's Apple silicon pricing](https://scaleway.com/en/pricing/apple-silicon), and
-[its documents on creating a Mac mini](https://scaleway.com/en/docs/apple-silicon/how-to/create-mac-mini),
-and for the Hetzner figures [a report on June 2026's rise](https://wz-it.com/en/blog/hetzner-price-increase-june-2026-cpx-ccx-alternatives/).
+[its documents on creating a Mac mini](https://scaleway.com/en/docs/apple-silicon/how-to/create-mac-mini).
 
 ## What We Have To Measure On
 
 **Linux:** a server rented at Hetzner, by the operator's word. Each has dedicated vCPUs and no desktop beside it, so what stays for
 a desktop is left to the reader. Each rental stays for the operator's word, with its price.
 
-| Row | Type | vCPUs | Memory | Monthly, EUR, without IPv4, from a third party |
-| --- | --- | --- | --- | --- |
-| 8 GB | `ccx13` | 2 | 8 GB | 42.99 |
-| 16 GB | `ccx23` | 4 | 16 GB | 85.99 |
-| **32 GB, the case** | `ccx33` | 8 | 32 GB | 138.49 |
+| Row | Type | vCPUs | Memory | Disk | Per hour, EUR, net |
+| --- | --- | --- | --- | --- | --- |
+| 8 GB | `ccx13` | 2 | 8 GB | 80 GB | 0.0689 |
+| 16 GB | `ccx23` | 4 | 16 GB | 160 GB | 0.1378 |
+| **32 GB, the case** | `ccx33` | 8 | 32 GB | 240 GB | 0.2219 |
 
-8 GB is worth a row as the smallest a person may ask about, and 16 GB as a common laptop. **The price per hour is not read from
-Hetzner's API,** which needs a token this issue's writer does not hold; these are third parties' figures after June 2026's rise, and
-they disagree by source. The API's figure goes here before the operator is asked, as `ccx43`'s did.
+Read from Hetzner's API by Agent Machines on 2026-11-05, the same in `fsn1`, `hel1` and `nbg1`. 8 GB is worth a row as the smallest
+a person may ask about, and 16 GB as a common laptop.
 
 **Windows:** the operator's own machine with WSL, by hand. **Mac:** a rented day, as above.
 
