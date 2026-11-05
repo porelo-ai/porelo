@@ -1,6 +1,6 @@
 # B445 — The Test Agent Has A Place Of Its Own
 
-**Status:** Implementing.
+**Status:** Review.
 **Size:** S - one upload step with its cleaning, then one removal.
 
 **What must be true.** Every snapshot Build publishes the stub agent's binary by version, with its checksum, in a repository of
@@ -17,11 +17,11 @@ package indexes, so `apt install 'porelo*'` and `dnf` do not offer it.
 
 ## Where It Stands
 
-Step 1 is done: the operator made the repository and set the grants, and the smoke test passed on it. Step 2 is in the workflow. The
-hand-over of steps 3 to 5 waits on the interface's scenario.
+Steps 1 to 4 are done. The folder has held every Build's binary since 408, read anonymously, its digest matching. The interface's
+scenario reads a named version since its Build 289. The upload to the indexes is gone from the workflow. **Not yet shown:** the cleaning of
+the older versions, as it needs more than 20 of them. A failed listing fails the step, by a reading of the workflow.
 
-A failed listing of the old versions fails the step, and does not pass for an empty one, by a reading of the workflow; only a
-Build on main shows it.
+**What stays until step 5:** the old files remain in the indexes, so `apt install 'porelo*'` still takes `.408` or the like, with nothing newer.
 
 ## Order
 

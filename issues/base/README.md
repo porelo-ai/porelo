@@ -20,6 +20,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b445"></a>[B445](B445-The-Test-Agent-Has-A-Place-Of-Its-Own.md) | S | - | The stub agent's binary is published by version in a repository of its own, and leaves the package indexes. |
 | <a id="b457"></a>[B457](B457-A-File-Not-Taken-Is-A-Warning.md) | XS | - | A start going on without a `project.yml` that was not taken warns in color. |
 | <a id="b452"></a>[B452](B452-A-Value-With-No-File-Prints-No-Line.md) | XS | - | A value with no file prints no `:0` in a draft. |
 | <a id="b455"></a>[B455](B455-A-First-Start-Says-What-A-Plugin-Could-Not-Place.md) | S | - | A first start's question shows what a plugin could not place and its notes. |
@@ -67,7 +68,6 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
-| <a id="b445"></a>[B445](B445-The-Test-Agent-Has-A-Place-Of-Its-Own.md) | S | - | The stub agent's binary is published by version in a repository of its own, and leaves the package indexes. |
 | <a id="b429"></a>[B429](B429-One-Line-Installs-Everything.md) | L | - | `sudo apt install 'porelo*' keepassxc` installs all of Porelo on every channel and stays true: the test agent leaves the channels, and a check runs the line against the published index. |
 | <a id="b385"></a>[B385](B385-A-KeePassXC-Key-That-Is-Usable.md) | L | - | `--keepassxc` asks the master password once, a retry takes the key already made, no empty entry left, a clear refusal under `su` or a redirected stderr, aligned exit codes |
 | <a id="b154"></a>[B154](B154-A-Tamper-Evident-Event-Log-Per-Node.md) | L | - | One hash-chained event log per account, anchored in the user's journal, optionally copied off the machine, kept by `porelo clear`; written by approve, reject, clearance, hand-in, credentials and project changes.; part 1 built, the copy off the machine after it |

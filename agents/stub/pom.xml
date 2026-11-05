@@ -25,8 +25,8 @@
              has something to compare. -->
         <agent.cli.version>1.0.0</agent.cli.version>
         <!-- It packages itself, so the packaging machinery still has an agent to exercise once
-             the real agents live elsewhere. Never published: the publish step uploads dist-deb
-             and dist-rpm and nothing else. -->
+             the real agents live elsewhere. The package is never published: only its binary goes
+             up, to a repository of its own, and into no package index. -->
         <agent.package.skip>false</agent.package.skip>
         <!-- Packaged as a vendor's agent is: /usr/lib/porelo-agent-stub/stub, found by agents.d/stub.yaml alone. -->
         <agent.name>stub</agent.name>

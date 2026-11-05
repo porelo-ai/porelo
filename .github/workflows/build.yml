@@ -390,18 +390,8 @@ jobs:
                   DEB_PROPS="deb.distribution=${CHANNEL};deb.component=main;deb.architecture=amd64"
                   for f in dist/dist-deb/target/*.deb; do art_put "$f" "porelo-dist-deb/pool/main/p/porelo/" "$DEB_PROPS"; done
                   for f in dist/dist-rpm/target/*.rpm; do art_put "$f" "porelo-dist-rpm/${CHANNEL}/"; done
-                  # Porelo's own test agent, for a machine a leg leases ('lease --package porelo-agent-stub'): snapshots only,
-                  # and never offered as an agent to install - it declares no 'Provides: porelo-agent', so it is taken by its
-                  # name alone. A scenario that needs it fails where it is missing rather than skipping.
-                  if [ "$CHANNEL" != releases ]; then
-                      for f in agents/stub/target/*.deb; do
-                          art_put "$f" "porelo-dist-deb/pool/main/p/porelo-agent-stub/" "$DEB_PROPS"
-                      done
-                      for f in agents/stub/target/*.rpm; do art_put "$f" "porelo-dist-rpm/${CHANNEL}/"; done
-                  fi
-
-                  # Its place of its own, by version and readable by anybody who runs a test: no package index is
-                  # involved. The 20 newest stay, and a reader moves its named version with its other pins.
+                  # Porelo's own test agent has a place of its own, by version and readable by anybody who runs a test: no
+                  # package index holds it, so that installing 'porelo*' never offers it. The 20 newest stay, and a reader moves its named version with its other pins.
                   if [ "$CHANNEL" != releases ]; then
                       STUB_VERSION="$(basename agents/stub/target/*.deb | sed -n 's/^porelo-agent-stub_\(.*\)_amd64\.deb$/\1/p')"
                       [ -n "$STUB_VERSION" ] || { echo "::error::no version from the stub's package"; exit 1; }
