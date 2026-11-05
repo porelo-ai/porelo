@@ -29,6 +29,23 @@ neither Maven nor Java nor Maven Central, and the agent cannot build there.
   the command for the Project Admin, `porelo project init ... --project ...`.
 - No at the question: the start runs as today, nothing is kept, and the next start asks again.
 - The question shows the packages and tools found and the network access it opens, so a repository decides nothing by itself.
+- A `project.yml` in a checkout this machine does not know gets the same yes or no at the start. Porelo keeps its hash locally and
+  asks again when the file changes. It is an approval, with no comparison to what a plugin would say. A No or `--yes` starts as
+  today. This holds only for the Default path: an organization's project takes its signed file, and a `project.yml` in its
+  checkout decides nothing.
+- The file's project name is `<repository>-project`. A project named like its repository is refused, because `OwnRepository` reads
+  that repository as the project's own, where no task works.
+- A name that is already another local project's, or `default`, is refused at the question, so a repository cannot take over a
+  project this machine has.
+- The writing path shares `ProjectProposal` and passes the name through its `project` parameter. Its own default for no name,
+  `proposed` (`draft` for a repository of that name), stays for `project init`, whose tests and readers hold it.
+
+## What Is New In The Start
+
+A start reads no `project.yml` from the checkout today. `TaskRunCommand` takes a project by name, from `-p` or `WorkOrigin`, else
+`default`, and `ProjectSource` finds its file by that name: the organization's judged clone, one written under the configuration
+directory, or one this machine recorded. So both the question and starting from the file are new here, and they go before
+`ProjectTaking`. An approved file becomes a recorded project of this machine.
 
 ## Open
 
