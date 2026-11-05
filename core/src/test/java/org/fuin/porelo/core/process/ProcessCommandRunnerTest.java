@@ -291,6 +291,38 @@ class ProcessCommandRunnerTest {
     }
 
     @Test
+    void aConsumerThatHoldsItsLineHoldsNeitherTheProgramNorWhatItSaid() throws Exception {
+        final java.util.concurrent.CountDownLatch release =
+                new java.util.concurrent.CountDownLatch(1);
+        final java.util.List<String> lines = new java.util.concurrent.CopyOnWriteArrayList<>();
+
+        final CommandResult result =
+                org.junit.jupiter.api.Assertions.assertTimeoutPreemptively(
+                        Duration.ofSeconds(15),
+                        () ->
+                                new ProcessCommandRunner(Duration.ofSeconds(60))
+                                        .run(
+                                                Command.of(
+                                                        "sh", "-c", "seq 1 20000 >&2; echo done"),
+                                                line -> {
+                                                    lines.add(line);
+                                                    try {
+                                                        release.await();
+                                                    } catch (InterruptedException ex) {
+                                                        Thread.currentThread().interrupt();
+                                                    }
+                                                }));
+
+        assertThat(result.standardOutput()).isEqualTo("done\n");
+        assertThat(result.standardError().lines().count())
+                .as("all of it, though nobody took more than its first line")
+                .isEqualTo(20000);
+        release.countDown();
+        Thread.sleep(300);
+        assertThat(lines).as("nothing is handed over once the run has ended").containsExactly("1");
+    }
+
+    @Test
     void aConsumerThatFailsCostsTheProgramNothing() {
         final CommandResult result =
                 new ProcessCommandRunner(Duration.ofSeconds(20))

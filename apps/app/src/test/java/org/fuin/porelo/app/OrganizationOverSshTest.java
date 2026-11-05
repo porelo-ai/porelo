@@ -142,6 +142,13 @@ class OrganizationOverSshTest {
     }
 
     @Test
+    void an_address_refused_at_once_says_it_is_reading_nothing() throws Exception {
+        run(machine(socket), "setup", "--organization", "not an address", "--json");
+
+        assertThat(err.toString()).doesNotContain("reading the organization");
+    }
+
+    @Test
     void naming_an_organization_is_lent_the_persons_agent() throws Exception {
         final PoreloContext machine = machine(socket);
 

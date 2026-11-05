@@ -211,6 +211,30 @@ class MachineTransportsTest {
                                 command.arguments().getFirst().contains(TransportDirectory.PREFIX));
     }
 
+    // Harm guarded: a later verb's words reported under a start that has moved on.
+    @Test
+    void aStartsStepHearsNothingOfWhatComesAfterItsConversation() throws Exception {
+        final PoreloContext context = unlockedVault();
+        transport();
+        final Project project = project(context, "guarded");
+        runner.answering(
+                " setup",
+                "{\"conversation\":\"!r\",\"room\":\"#p:access.example\",\"login\":\"made-here\",\"admitted\":true}");
+        runner.answering(
+                " enroll", "{\"secrets\":{\"TASK_TOKEN\":\"kept-for-the-task\"}}", "enrolling\n");
+        runner.answering(" retire", "{}", "retiring\n");
+        final List<StartStep> steps = new java.util.ArrayList<>();
+        final TaskConversations conversations = new TaskConversations(context);
+
+        conversations.enroll(project, "t1", new StartSteps(steps::add));
+        conversations.retire(project, "t1", new PrintWriter(new StringWriter()));
+
+        assertThat(runner.lines()).as("it did run").anyMatch(line -> line.contains(" retire"));
+        assertThat(steps)
+                .extracting(StartStep::waitingOn)
+                .noneMatch(said -> said.contains("retiring"));
+    }
+
     // Harm guarded: the streamed path showing what only the failure path redacts today.
     @Test
     void whatATransportSaysWhileItWaitsIsShownWithoutTheSecretsHandedIn() throws Exception {
@@ -220,7 +244,7 @@ class MachineTransportsTest {
                                 "ROOM_TOKEN",
                                 TOKEN,
                                 "ROOM_KEY",
-                                "one-line-of-a-key\nanother-line-of-a-key"));
+                                "one-line-of-a-key\nshort7x\n  spaced7  "));
         transport();
         project(context, "guarded");
         runner.answering(
@@ -230,7 +254,7 @@ class MachineTransportsTest {
                         + "using \u001b[31m"
                         + TOKEN
                         + "\u001b[0m\n\n"
-                        + "line another-line-of-a-key\n");
+                        + "line short7x and spaced7\n");
         final List<String> said = new java.util.ArrayList<>();
         final TransportLifecycle lifecycle =
                 new TransportLifecycle(context, context.paths().messaging().transportDirectory());
@@ -242,7 +266,7 @@ class MachineTransportsTest {
                 .containsExactly(
                         "room: waiting on the homeserver",
                         "room: using [withheld]",
-                        "room: line [withheld]");
+                        "room: line [withheld] and [withheld]");
     }
 
     // Harm guarded: a saved join must not turn an admission refusal into an existing-account

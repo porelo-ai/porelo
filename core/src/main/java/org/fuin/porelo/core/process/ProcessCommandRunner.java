@@ -61,7 +61,8 @@ public class ProcessCommandRunner implements CommandRunner {
             final Process process = start(builder);
 
             final Drain out = new Drain(process.getInputStream(), null);
-            final Drain err = new Drain(process.getErrorStream(), lines);
+            final Handing handing = lines == null ? null : Handing.to(lines);
+            final Drain err = new Drain(process.getErrorStream(), handing);
             final Thread outThread = Thread.ofVirtual().start(out);
             final Thread errThread = Thread.ofVirtual().start(err);
 
@@ -87,6 +88,9 @@ public class ProcessCommandRunner implements CommandRunner {
                 throw new CommandException(command, ex);
             } finally {
                 joinInput(inputThread);
+                if (handing != null) {
+                    handing.end();
+                }
             }
 
         } catch (IOException ex) {
@@ -148,6 +152,83 @@ public class ProcessCommandRunner implements CommandRunner {
         }
     }
 
+    /**
+     * Takes lines to a consumer on a thread of its own, so a consumer that is slow or stuck holds
+     * neither the program nor what it said, and ends with the run: a grandchild holding the stream
+     * open reaches nobody after that. Lines beyond what waits here are lost to the consumer only.
+     */
+    private static final class Handing {
+
+        private static final int WAITING = 1024;
+
+        private final java.util.concurrent.BlockingQueue<String> waiting =
+                new java.util.concurrent.ArrayBlockingQueue<>(WAITING);
+
+        private final java.util.function.Consumer<String> consumer;
+
+        private volatile boolean ended;
+
+        private volatile boolean abandoned;
+
+        private @org.jspecify.annotations.Nullable Thread thread;
+
+        private Handing(final java.util.function.Consumer<String> consumer) {
+            this.consumer = consumer;
+        }
+
+        private static Handing to(final java.util.function.Consumer<String> consumer) {
+            final Handing handing = new Handing(consumer);
+            handing.thread = Thread.ofVirtual().start(handing::hand);
+            return handing;
+        }
+
+        private void offer(final String line) {
+            if (!ended) {
+                waiting.offer(line);
+            }
+        }
+
+        private void hand() {
+            try {
+                while (!abandoned) {
+                    final String line =
+                            waiting.poll(50, java.util.concurrent.TimeUnit.MILLISECONDS);
+                    if (line != null) {
+                        take(line);
+                    } else if (ended) {
+                        return;
+                    }
+                }
+            } catch (InterruptedException ex) {
+                Thread.currentThread().interrupt();
+            }
+        }
+
+        private void take(final String line) {
+            try {
+                consumer.accept(line);
+            } catch (RuntimeException ex) {
+                // Only that line is lost: what the program does is not the consumer's to end.
+            }
+        }
+
+        /** No line is taken any more, and what still waits has a moment to arrive. */
+        private void end() {
+            ended = true;
+            final Thread running = java.util.Objects.requireNonNull(thread);
+            boolean interrupted = Thread.interrupted();
+            try {
+                running.join(OUTPUT_GRACE_MILLIS);
+            } catch (InterruptedException ex) {
+                interrupted = true;
+            }
+            abandoned = true;
+            if (interrupted) {
+                Thread.currentThread().interrupt();
+            }
+        }
+    }
+
     /** Reads one stream to the end, keeping whatever it managed to read if the stream breaks. */
     private static final class Drain implements Runnable {
 
@@ -168,15 +249,13 @@ public class ProcessCommandRunner implements CommandRunner {
         /** The longest line handed over; cut, a secret in it would pass redaction line by line. */
         private static final int LONGEST_LINE = 16 * 1024;
 
-        private final java.util.function.@org.jspecify.annotations.Nullable Consumer<String> lines;
+        private final @org.jspecify.annotations.Nullable Handing lines;
 
         private final java.io.ByteArrayOutputStream line = new java.io.ByteArrayOutputStream();
 
         private boolean tooLong;
 
-        private Drain(
-                InputStream stream,
-                java.util.function.@org.jspecify.annotations.Nullable Consumer<String> lines) {
+        private Drain(InputStream stream, @org.jspecify.annotations.Nullable Handing lines) {
             this.stream = stream;
             this.lines = lines;
         }
@@ -203,11 +282,7 @@ public class ProcessCommandRunner implements CommandRunner {
                             : line.toString(StandardCharsets.UTF_8).replaceAll("\\r$", "");
             line.reset();
             tooLong = false;
-            try {
-                java.util.Objects.requireNonNull(lines).accept(said);
-            } catch (RuntimeException ex) {
-                // Only that line is lost: what the program does is not the consumer's to end.
-            }
+            java.util.Objects.requireNonNull(lines).offer(said);
         }
 
         @Override
@@ -216,7 +291,6 @@ public class ProcessCommandRunner implements CommandRunner {
                 final byte[] buffer = new byte[8192];
                 int read;
                 while ((read = stream.read(buffer)) != -1) {
-                    handOver(buffer, read);
                     synchronized (collected) {
                         collected.write(buffer, 0, read);
                         if (collected.size() > 2 * KEPT) {
@@ -226,6 +300,7 @@ public class ProcessCommandRunner implements CommandRunner {
                             collected.write(all, all.length - KEPT, KEPT);
                         }
                     }
+                    handOver(buffer, read);
                 }
             } catch (IOException ex) {
                 // The process is gone. Whatever was read before that is still the best diagnostic

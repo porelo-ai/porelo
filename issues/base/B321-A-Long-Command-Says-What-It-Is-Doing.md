@@ -1,6 +1,6 @@
 # B321 — A Long Command Says What It Is Doing
 
-**Status:** Implementing.
+**Status:** Review.
 **Size:** M - a line-by-line stderr path in the command runner, its redaction, the transport verbs and the other long
 commands found by the sweep, docs and tests.
 
@@ -37,7 +37,9 @@ Read in the code on 2026-11-04.
 ## As built
 
 - `CommandRunner.run(command, lines)` hands over each line of standard error. A runner of no lines of its own, a test's,
-  hands them over at the end. A line longer than 16 KiB is shown as `[a line too long to show]`, never in pieces.
+  hands them over at the end. A line longer than 16 KiB is shown as `[a line too long to show]`, never in pieces. The
+  consumer runs on a thread of its own with 1024 lines waiting at most, so a stuck one holds neither the program nor its
+  standard error, and it gets nothing after the run ended, though a grandchild holds the stream open.
 - A transport's line reaches a person at a terminal, or the conversation step's `waitingOn` in a task's start. Off a terminal
   and outside a start it goes nowhere: the daemon's journal gets none.
 - Phase lines, on standard error, so an answer in `--json` is unchanged: `org fetch`, `setup --organization`, `vault clear`,
@@ -46,7 +48,7 @@ Read in the code on 2026-11-04.
 Answered from *To be checked*, by reading:
 
 - **Over varlink:** no `more` reply. An interface sees the lines only as a start's step, through `waitingOn`.
-- **A secret across two lines:** a secret of several lines is withheld a line at a time. One written in two pieces by the
+- **A secret across two lines:** a secret of several lines is withheld a line at a time, each part at any length. One written in two pieces by the
   transport, or one it makes while it runs, is not known and not caught, so a transport must not say one on standard error:
   `doc/transports.md` says so.
 

@@ -61,9 +61,7 @@ public final class OrgSetup {
      */
     public int run(final PoreloContext machine, final CommandSpec spec) throws IOException {
         try {
-            spec.commandLine().getErr().println("porelo: reading the organization's repository");
-            spec.commandLine().getErr().flush();
-            final Map<String, @Nullable Object> answer = answer(machine);
+            final Map<String, @Nullable Object> answer = answer(machine, spec);
             if (json) {
                 OrgOutput.answer(spec, answer);
             } else {
@@ -83,7 +81,8 @@ public final class OrgSetup {
         }
     }
 
-    private Map<String, @Nullable Object> answer(final PoreloContext machine) throws IOException {
+    private Map<String, @Nullable Object> answer(
+            final PoreloContext machine, final CommandSpec spec) throws IOException {
         final String named = OrgAccess.settable(String.valueOf(address));
         final String held = OrgAccess.repository(machine).orElse(null);
         if (held != null && !held.equals(named) && !replace) {
@@ -93,6 +92,8 @@ public final class OrgSetup {
                             + " place",
                     null);
         }
+        spec.commandLine().getErr().println("porelo: reading the organization's repository");
+        spec.commandLine().getErr().flush();
         final OrganizationQuestions state = checked(machine, named);
         final String login = keepOwnCard(machine, state);
         OrgAccess.settle(machine, named);

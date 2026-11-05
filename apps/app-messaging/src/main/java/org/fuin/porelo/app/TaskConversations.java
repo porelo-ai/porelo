@@ -54,6 +54,16 @@ final class TaskConversations {
     }
 
     @Nullable String enroll(Project project, String container, StartSteps steps) {
+        final java.util.function.Consumer<String> before =
+                lifecycle.saying(line -> steps.waiting(StartStep.Step.CONVERSATION, line));
+        try {
+            return enrolling(project, container, steps);
+        } finally {
+            lifecycle.saying(before);
+        }
+    }
+
+    private @Nullable String enrolling(Project project, String container, StartSteps steps) {
         // 'default' has no room as its normal case: a task there talks to nobody, whatever a file
         // of that name says and whatever this machine has.
         if (DefaultProject.is(project.name())) {
@@ -61,7 +71,6 @@ final class TaskConversations {
         }
         for (final String scheme : project.mail().conversations()) {
             steps.conversation(scheme);
-            lifecycle.saying(line -> steps.waiting(StartStep.Step.CONVERSATION, line));
             final java.nio.file.Path adapter =
                     context.paths().messaging().transportDirectory().find(scheme);
             final String waitsOn =

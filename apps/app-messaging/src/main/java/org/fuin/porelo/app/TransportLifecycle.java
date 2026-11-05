@@ -171,9 +171,12 @@ final class TransportLifecycle {
      * was handed withheld. By default a person at a terminal reads it, and nobody else.
      *
      * @param lines Takes each line.
+     * @return What took them until now.
      */
-    void saying(final java.util.function.Consumer<String> lines) {
+    java.util.function.Consumer<String> saying(final java.util.function.Consumer<String> lines) {
+        final java.util.function.Consumer<String> before = this.saying;
         this.saying = lines;
+        return before;
     }
 
     /**
@@ -1227,13 +1230,20 @@ final class TransportLifecycle {
     }
 
     private void say(final String scheme, final String line, final Map<String, String> secrets) {
-        // A secret of several lines comes a line at a time: each is withheld by itself. What the
-        // transport makes while it runs is unknown until it answers, so it must not say that here.
-        final Map<String, String> parts = new LinkedHashMap<>();
-        secrets.forEach(
-                (name, value) ->
-                        value.lines().forEach(part -> parts.put(name + part, part.strip())));
-        final String safe = redact(StartStep.cleanLines(line), parts).strip();
+        // A secret comes a line at a time, each part withheld whatever its length: it is the whole
+        // value's length that makes it a secret here, as in a failure's words.
+        String safe = StartStep.cleanLines(line);
+        for (final String part :
+                secrets.values().stream()
+                        .filter(value -> value.length() >= 8)
+                        .flatMap(String::lines)
+                        .map(String::strip)
+                        .filter(part -> !part.isEmpty())
+                        .sorted(java.util.Comparator.comparingInt(String::length).reversed())
+                        .toList()) {
+            safe = safe.replace(part, "[withheld]");
+        }
+        safe = safe.strip();
         if (!safe.isEmpty()) {
             saying.accept(scheme + ": " + safe);
         }
