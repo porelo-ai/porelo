@@ -30,8 +30,11 @@ class StubAgentTest {
      * they keep working whatever form the line takes. An earlier version read the body out of a
      * here-document, which was both brittle and a form podman 4 cannot build at all.
      */
-    /** How long an attached stub is given to have done what a test waits for. */
-    private static final long AT_WORK_MILLIS = 3_500;
+    /**
+     * How long an attached stub is given to have done what a test waits for. Only a test about to
+     * fail waits this long; a runner's disk has taken seconds for one step.
+     */
+    private static final long AT_WORK_MILLIS = 30_000;
 
     /** Polls until {@code done} says so or {@link #AT_WORK_MILLIS} have passed. */
     private static void awaitWork(final java.util.concurrent.Callable<Boolean> done)
@@ -187,9 +190,16 @@ class StubAgentTest {
         java.nio.file.Files.writeString(workspace.resolve(".porelo-stub-works"), "1 load\n");
         final java.nio.file.Path asked = dir.resolve("asked.txt");
         final java.nio.file.Path bin = java.nio.file.Files.createDirectories(dir.resolve("bin"));
-        // A curl that writes down what it was asked, standing in for the provider's socket.
+        final java.nio.file.Path written = dir.resolve("written.txt");
+        // A curl that writes down what it was asked, standing in for the provider's socket. A step
+        // calls it before it writes, so it finds the last step's file whole, its size and its time.
         java.nio.file.Files.writeString(
-                bin.resolve("curl"), "#!/bin/sh\necho \"$*\" >> " + asked + "\n");
+                bin.resolve("curl"),
+                "#!/bin/sh\necho \"$*\" >> "
+                        + asked
+                        + "\nstat -c '%s %y' .porelo-stub-disk >> "
+                        + written
+                        + " 2>/dev/null\n");
         bin.resolve("curl").toFile().setExecutable(true);
         final java.nio.file.Path screen = dir.resolve("screen.txt");
         final ProcessBuilder attached =
@@ -200,13 +210,11 @@ class StubAgentTest {
         attached.environment().put("PORELO_STUB_SOCKET", dir.resolve("provider.sock").toString());
         attached.environment().put("PATH", bin + ":" + System.getenv("PATH"));
         final Process process = attached.start();
-        final java.nio.file.Path disk = workspace.resolve(".porelo-stub-disk");
+        // Two steps, or a disk that grows at each would still read as one step's.
         awaitWork(
                 () ->
-                        // Two steps, or a disk that grows at each would still read as one step's.
-                        holds(asked, "\"stream\":true")
-                                && java.nio.file.Files.readAllLines(asked).size() >= 2
-                                && java.nio.file.Files.exists(disk));
+                        java.nio.file.Files.exists(written)
+                                && java.nio.file.Files.readAllLines(written).size() >= 2);
         process.destroy();
         process.waitFor(5, java.util.concurrent.TimeUnit.SECONDS);
         process.destroyForcibly();
@@ -215,8 +223,9 @@ class StubAgentTest {
                 .as("a request at every step")
                 .contains("--unix-socket " + dir.resolve("provider.sock"))
                 .contains("\"stream\":true");
-        assertThat(java.nio.file.Files.size(workspace.resolve(".porelo-stub-disk")))
-                .isEqualTo(8L * 1024 * 1024);
+        final List<String> steps = java.nio.file.Files.readAllLines(written);
+        assertThat(steps.subList(0, 2)).allMatch(each -> each.startsWith((8L * 1024 * 1024) + " "));
+        assertThat(steps.get(1)).as("written anew at the next step").isNotEqualTo(steps.get(0));
     }
 
     /**
