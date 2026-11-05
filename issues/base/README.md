@@ -134,6 +134,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b437"></a>[B437](B437-Reading-The-Organization-Costs-A-Whole-Fetch.md) | - | - | A question that only shows the organization or a project answers without waiting on a whole fetch of its repository, and a decision still fetches. |
 | <a id="b435"></a>[B435](B435-One-Line-Installs-Everything-On-Fedora-And-RHEL.md) | - | - | `dnf install 'porelo*'` installs all of Porelo on Fedora and RHEL, and the build says so when it stops working. |
 | <a id="b436"></a>[B436](B436-A-Published-Bom-Test-Runs-From-A-Clean-Tree.md) | - | - | `PublishedBomTest` needs a generated file, so a targeted test run in a clean tree fails. |
 | <a id="b427"></a>[B427](B427-Org-Create-Says-Why.md) | - | - | A failed `org create` says git's own reason and tells a refused push from an unreachable forge, with nothing the forge said passed on. |
