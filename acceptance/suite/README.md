@@ -27,6 +27,10 @@ Every step here is the kit's; this module has no glue of its own, which is the p
 the kit possible. The two vocabularies - a person watching, a script nobody watches - are described
 there.
 
+**A run on a kept machine has one account, a leg has four.** `Leg.prepare` gives the accounts beside the build user a copy of
+what the build user has installed, and only what it names. A scenario relying on something new in an account's install passes on one
+account and can fail on the others, so add it there; a run on one account cannot show this, only a Build's legs can.
+
 ## What it costs
 
 Each scenario talks to a real machine over ssh. A scenario that waits for something that never
