@@ -1,6 +1,6 @@
 # B441 — A Credential's Length Reaches No Agent And No Line
 
-**Status:** Backlog.
+**Status:** Implementing.
 **Size:** S - a check of who can read two fields, and closing what it finds.
 
 **What must be true.** A credential's length is shown to its owner and reaches no agent and no log.

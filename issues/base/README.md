@@ -59,6 +59,9 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b443"></a>[B443](B443-What-A-Tasks-Image-Was-Built-With.md) | M | - | The daemon answers which settings a task's image was built with and where each comes from, and `project show default` answers. |
+| <a id="b441"></a>[B441](B441-A-Credentials-Length-Reaches-No-Agent-And-No-Line.md) | S | - | A credential's length is shown to its owner and reaches no agent and no log. |
+| <a id="b440"></a>[B440](B440-An-OpenSSH-Below-The-Floor-Is-Refused-In-Words.md) | S | - | An OpenSSH below the stated floor is refused in words, and the documents state the floor. |
 | <a id="b429"></a>[B429](B429-One-Line-Installs-Everything.md) | L | - | `sudo apt install 'porelo*' keepassxc` installs all of Porelo on every channel and stays true: the test agent leaves the channels, and a check runs the line against the published index. |
 | <a id="b385"></a>[B385](B385-A-KeePassXC-Key-That-Is-Usable.md) | L | - | `--keepassxc` asks the master password once, a retry takes the key already made, no empty entry left, a clear refusal under `su` or a redirected stderr, aligned exit codes |
 | <a id="b154"></a>[B154](B154-A-Tamper-Evident-Event-Log-Per-Node.md) | L | - | One hash-chained event log per account, anchored in the user's journal, optionally copied off the machine, kept by `porelo clear`; written by approve, reject, clearance, hand-in, credentials and project changes.; part 1 built, the copy off the machine after it |
@@ -69,9 +72,6 @@ from its side, as *blocked by*.
 |---|---|---|---|
 | <a id="b445"></a>[B445](B445-The-Test-Agent-Has-A-Place-Of-Its-Own.md) | S | - | The stub agent's binary is published by version in a repository of its own, and leaves the package indexes. |
 | <a id="b444"></a>[B444](B444-The-First-Start-Finds-What-A-Repository-Needs.md) | - | - | `task start` in a checkout with no `project.yml` finds what it needs, asks yes or no, writes the file and starts from it. |
-| <a id="b443"></a>[B443](B443-What-A-Tasks-Image-Was-Built-With.md) | M | - | The daemon answers which settings a task's image was built with and where each comes from, and `project show default` answers. |
-| <a id="b440"></a>[B440](B440-An-OpenSSH-Below-The-Floor-Is-Refused-In-Words.md) | S | - | An OpenSSH below the stated floor is refused in words, and the documents state the floor. |
-| <a id="b441"></a>[B441](B441-A-Credentials-Length-Reaches-No-Agent-And-No-Line.md) | S | - | A credential's length is shown to its owner and reaches no agent and no log. |
 | <a id="b442"></a>[B442](B442-One-Line-Installs-Everything-On-Fedora-And-RHEL.md) | M | - | `sudo dnf install 'porelo*' keepassxc` installs all of Porelo on Fedora and RHEL, shown by a real run. |
 | <a id="b437"></a>[B437](B437-Reading-The-Organization-Costs-A-Whole-Fetch.md) | - | - | A question that only shows the organization or a project answers without waiting on a whole fetch of its repository, and a decision still fetches. |
 | <a id="b14"></a>[B14](B14-Talking-Between-Tasks.md) | XL | `porelo` [B86](README.md#b86) | Talking between tasks, built on one machine; splits into groups (M), trust confirmed once with fingerprints (M), two machines on one homeserver (L). |

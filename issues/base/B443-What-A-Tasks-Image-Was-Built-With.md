@@ -1,6 +1,6 @@
 # B443 — What A Task's Image Was Built With
 
-**Status:** Backlog.
+**Status:** Implementing.
 **Size:** M - a record at build, a field over the daemon, and `project show` for Default.
 
 **What must be true.** The daemon answers for a task which settings its image was built with: base image, packages and tools,
