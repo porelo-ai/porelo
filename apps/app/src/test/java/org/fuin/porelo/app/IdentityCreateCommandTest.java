@@ -89,6 +89,27 @@ class IdentityCreateCommandTest {
     }
 
     @Test
+    void a_login_in_capitals_is_told_why_and_what_to_type() {
+        assertThat(
+                        IdentityRun.identity(
+                                registry,
+                                "create",
+                                "--login",
+                                "Alice",
+                                "--name",
+                                "Alice Doe",
+                                "--key",
+                                "SHA256:" + "a".repeat(43)))
+                .as("nothing can be made of it on a host")
+                .isEqualTo(64);
+
+        assertThat(registry.err.toString())
+                .as("why, and the way on for a forge login with a capital")
+                .contains("an account's name")
+                .contains("in lower case");
+    }
+
+    @Test
     void a_json_answer_has_no_plan_in_it() throws Exception {
         registry.agent("bob", "alice");
 

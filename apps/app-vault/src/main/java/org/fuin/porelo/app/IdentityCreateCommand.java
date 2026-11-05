@@ -468,7 +468,9 @@ public class IdentityCreateCommand implements Callable<Integer>, PoreloFactory.C
                     "'"
                             + AnswerText.printable(login)
                             + "' is not a login: a lower-case letter, then up to 31 lower-case"
-                            + " letters, digits or dashes");
+                            + " letters, digits or dashes, since on a host it is an account's"
+                            + " name. The forge reads a login in any case, so yours in lower case"
+                            + " is the same one");
         }
         // Porelo's own accounts on a host carry these names; a person taking one would be them.
         if (login.equals("porelo") || login.startsWith("porelo-")) {

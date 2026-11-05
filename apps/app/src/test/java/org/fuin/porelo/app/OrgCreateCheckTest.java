@@ -222,6 +222,13 @@ class OrgCreateCheckTest {
     }
 
     @Test
+    void aForgeLoginInCapitalsIsTheCardsLogin() {
+        token = new TokenAccount(TokenState.ACCEPTED, "Alice");
+
+        says("token", "ready", "");
+    }
+
+    @Test
     void aForgeNotReachedCannotTell() {
         token = new TokenAccount(TokenState.NOT_REACHED, null);
 

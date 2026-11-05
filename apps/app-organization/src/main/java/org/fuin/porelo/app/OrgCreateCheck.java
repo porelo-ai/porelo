@@ -256,7 +256,7 @@ final class OrgCreateCheck {
                                     "see that it is your account's"));
             case ACCEPTED -> {
                 final String login = String.valueOf(account.login());
-                if (card != null && !login.equals(card.login())) {
+                if (card != null && !login.equalsIgnoreCase(card.login())) {
                     needs.add(
                             need(
                                     "token",

@@ -96,10 +96,10 @@ The rights alone do not suffice:
    each by the same call the founding makes: `TreeRepository` for reading and for empty, `HttpForgeDirectory` for the account and
    the ownership, `IdentityFacts.forgeAnswer` for the listing, at the address asked and not the machine's organization. It writes
    nothing, and a right nothing can read says "not known until created".
-5. **The login's pattern.** `[a-z][a-z0-9-]{0,31}` is checked in `PersonCard`, `IdentityCreateCommand`, `HostUnlockCommand`,
-   `HostVaultShare` and `TransportLifecycle`. It widens to GitHub's rule after that is read in GitHub's own words. On a host a
-   login is also an account's name, whose own limit may stop it there, so the host's repository is asked first. A howto says the
-   pattern until then.
+5. **The login's pattern stays.** `[a-z][a-z0-9-]{0,31}` is checked in `PersonCard`, `IdentityCreateCommand`, `HostUnlockCommand`,
+   `HostVaultShare` and `TransportLifecycle`. GitHub allows capitals and 39 characters, but on a host a login is a Linux account's
+   name, and the host's repository refuses anything else, as well as `root`, `porelo` and `porelo-...`. `doc/hosts.md` says so.
+   A forge login with a capital is the same login in lower case; one past 32 characters cannot have a card.
 
 **Red first,** for each part: its refusal or answer against a stand-in forge.
 

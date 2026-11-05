@@ -42,6 +42,10 @@ access:
 - **Neither tasks nor agents.** A machine file naming `tasks` or `agents` is refused: the machine installs every
   agent, and which tasks run is decided by the person when they start them.
 
+## A person's login on a host
+
+On a host a person's login is the name of a Linux account, so a card's login is a lower-case letter, then up to 31 lower-case letters, digits or dashes. A host also refuses `root`, `porelo` and any `porelo-...`. GitHub allows more: a login with a capital is the same login in lower case, and one past 32 characters cannot have a card.
+
 ## Where a host reaches a project's repositories
 
 On a host, whatever `upstream` a row of a project's file says, a row with a `central` is reached at
