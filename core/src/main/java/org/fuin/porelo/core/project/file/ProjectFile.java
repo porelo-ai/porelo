@@ -1,0 +1,64 @@
+package org.fuin.porelo.core.project.file;
+
+import java.util.Collections;
+import java.util.LinkedHashMap;
+import java.util.Map;
+import org.jspecify.annotations.Nullable;
+
+/**
+ * A {@code project.yml}, as it is written: each section its own type, and nothing it cannot hold.
+ *
+ * <p>A section the file leaves out is {@code null}, a named list it leaves out is empty; whether
+ * the whole is usable is {@link ProjectFileCheck}'s question.
+ *
+ * @param project Who the project is ({@code project}).
+ * @param image What a task's container is built from ({@code image}).
+ * @param build What the image build itself fetches from ({@code build}).
+ * @param egress What a task may reach ({@code egress}).
+ * @param limits What one task may consume ({@code limits}).
+ * @param mail Whom the project's tasks may write to ({@code mail}).
+ * @param builds Where an online project's builds are read ({@code builds}).
+ * @param parameters The values a task may be started with, by name, in the order written.
+ * @param branch How a task's branch at the forge is named ({@code branch}).
+ * @param credentials Vault entry to the destination it is for, in the order written.
+ * @param repositories The repositories the work happens in, by name, in the order written.
+ */
+public record ProjectFile(
+        @Nullable ProjectInfo project,
+        @Nullable Image image,
+        @Nullable BuildSources build,
+        @Nullable Egress egress,
+        @Nullable Limits limits,
+        @Nullable Mail mail,
+        @Nullable Builds builds,
+        Map<String, Parameter> parameters,
+        @Nullable BranchScheme branch,
+        Map<String, String> credentials,
+        Map<String, RepositoryEntry> repositories) {
+
+    /**
+     * Constructor.
+     *
+     * @param project Who the project is.
+     * @param image What a task's container is built from.
+     * @param build What the image build fetches from.
+     * @param egress What a task may reach.
+     * @param limits What one task may consume.
+     * @param mail Whom its tasks may write to.
+     * @param builds Where its builds are read.
+     * @param parameters The values a task may be started with.
+     * @param branch How a task's branch is named.
+     * @param credentials Vault entries to their destinations.
+     * @param repositories The repositories by name.
+     */
+    public ProjectFile {
+        parameters = ordered(parameters);
+        credentials = ordered(credentials);
+        repositories = ordered(repositories);
+    }
+
+    /** An unmodifiable copy that keeps the order written. */
+    static <V> Map<String, V> ordered(@Nullable Map<String, V> map) {
+        return map == null ? Map.of() : Collections.unmodifiableMap(new LinkedHashMap<>(map));
+    }
+}
