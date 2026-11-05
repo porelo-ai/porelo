@@ -114,6 +114,11 @@ public final class TokenPurchase implements TokenSource {
             String clientSecret,
             String scopes,
             @Nullable String audience) {
+        /** Without what it holds, as a line must never carry that. */
+        @Override
+        public String toString() {
+            return "Client[" + tokenUrl + ", " + clientId + "]";
+        }
 
         /**
          * Reads a client from a vault entry's secret and settings.
@@ -161,7 +166,13 @@ public final class TokenPurchase implements TokenSource {
             String clientId,
             @Nullable String clientSecret,
             String refreshToken,
-            java.util.function.Consumer<String> rotated) {}
+            java.util.function.Consumer<String> rotated) {
+        /** Without what it holds, as a line must never carry that. */
+        @Override
+        public String toString() {
+            return "Refresh[" + tokenUrl + ", " + clientId + "]";
+        }
+    }
 
     private final Client client;
 

@@ -498,7 +498,13 @@ public final class TaskLaunch {
             String container,
             java.util.Map<String, String> environment,
             Project project,
-            IntUnaryOperator cleanUp) {}
+            IntUnaryOperator cleanUp) {
+        /** Without what it holds, as a line must never carry that. */
+        @Override
+        public String toString() {
+            return "Running[" + container + "]";
+        }
+    }
 
     /** How long an unattended agent may run when nothing says otherwise. */
     public static final int DEFAULT_MINUTES = 30;

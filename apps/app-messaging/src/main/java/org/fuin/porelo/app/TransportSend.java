@@ -82,6 +82,11 @@ public final class TransportSend {
             java.util.Map<String, String> environment,
             @org.jspecify.annotations.Nullable String to,
             java.util.Map<String, String> accounts) {
+        /** Without what it holds, as a line must never carry that. */
+        @Override
+        public String toString() {
+            return "Acting[to=" + to + "]";
+        }
 
         /**
          * Constructor for a transport that is told whom to mention by nobody.

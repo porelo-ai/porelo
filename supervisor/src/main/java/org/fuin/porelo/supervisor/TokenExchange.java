@@ -22,6 +22,11 @@ public interface TokenExchange {
      */
     record Granted(String credential, @org.jspecify.annotations.Nullable String scope)
             implements Result {
+        /** Without what it holds, as a line must never carry that. */
+        @Override
+        public String toString() {
+            return "Granted[scope=" + scope + "]";
+        }
 
         /**
          * A grant for the one route, as every grant was before a task held more than one

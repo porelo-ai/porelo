@@ -8,6 +8,11 @@ package org.fuin.porelo.agent.api;
  * @param ownerOnly Whether the file must be readable only by the agent user.
  */
 public record ContainerFile(String path, String content, boolean ownerOnly) {
+    /** Without what it holds, as a line must never carry that. */
+    @Override
+    public String toString() {
+        return "ContainerFile[" + path + "]";
+    }
 
     /**
      * Constructor.

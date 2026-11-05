@@ -40,7 +40,13 @@ public final class DeviceGrant {
             String userCode,
             String link,
             Duration expiresIn,
-            Duration interval) {}
+            Duration interval) {
+        /** Without what it holds, as a line must never carry that. */
+        @Override
+        public String toString() {
+            return "Started[" + link + "]";
+        }
+    }
 
     /**
      * What a person decided, or that they did not in time.
@@ -55,7 +61,13 @@ public final class DeviceGrant {
             String state,
             @Nullable String refreshToken,
             @Nullable String accessToken,
-            @Nullable Duration expiresIn) {}
+            @Nullable Duration expiresIn) {
+        /** Without what it holds, as a line must never carry that. */
+        @Override
+        public String toString() {
+            return "Outcome[" + state + "]";
+        }
+    }
 
     /**
      * What is needed to ask.
@@ -75,6 +87,11 @@ public final class DeviceGrant {
             @Nullable String clientSecret,
             String scopes,
             @Nullable String revocationUrl) {
+        /** Without what it holds, as a line must never carry that. */
+        @Override
+        public String toString() {
+            return "Client[" + tokenUrl + ", " + clientId + "]";
+        }
 
         /**
          * Reads a client from a vault entry's secret and settings.

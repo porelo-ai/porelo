@@ -203,7 +203,13 @@ final class CredentialWiring {
             java.nio.file.Path socket,
             String upstreamHost,
             java.util.Map<String, String> environment,
-            boolean servesOthers) {}
+            boolean servesOthers) {
+        /** Without what it holds, as a line must never carry that. */
+        @Override
+        public String toString() {
+            return "CredentialPlumbing[" + socket + ", " + upstreamHost + "]";
+        }
+    }
 
     /**
      * Says why this task will run without a credential, or {@code null} when it will have one.

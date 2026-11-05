@@ -20,6 +20,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b446"></a>[B446](B446-A-Record-Prints-What-It-Holds.md) | S | - | A record holding a secret prints what it is for, not what it holds. |
 | <a id="b439"></a>[B439](B439-A-Secret-Echoed-Back-Reaches-A-Line.md) | S | - | Text Porelo did not write reaches no line unless known to hold no secret, and a value holding one cannot be printed by accident. |
 | <a id="b50"></a>[B50](B50-Whose-Business-The-Files-Porelo-Leaves-Behind-Are.md) | M | - | Data and state directories and `~/porelo/reviews` owner-only at creation, mirrors with `--shared=0600`, and a doctor probe that corrects older machines. |
 | <a id="b438"></a>[B438](B438-No-Character-Of-A-Token-In-A-Line.md) | S | - | No character of a token in a start's lines, a log or an exception: the variable is named, and the abbreviations are gone. |
@@ -59,7 +60,6 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
-| <a id="b446"></a>[B446](B446-A-Record-Prints-What-It-Holds.md) | S | - | A record holding a secret prints what it is for, not what it holds. |
 | <a id="b445"></a>[B445](B445-The-Test-Agent-Has-A-Place-Of-Its-Own.md) | S | - | The stub agent's binary is published by version in a repository of its own, and leaves the package indexes. |
 | <a id="b444"></a>[B444](B444-The-First-Start-Finds-What-A-Repository-Needs.md) | - | - | `task start` in a checkout with no `project.yml` finds what it needs, asks yes or no, writes the file and starts from it. |
 | <a id="b443"></a>[B443](B443-What-A-Tasks-Image-Was-Built-With.md) | M | - | The daemon answers which settings a task's image was built with and where each comes from, and `project show default` answers. |

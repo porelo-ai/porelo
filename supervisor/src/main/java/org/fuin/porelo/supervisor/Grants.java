@@ -41,7 +41,13 @@ public final class Grants {
             String tokenUrl,
             String clientId,
             @Nullable String clientSecret,
-            @Nullable String revocationUrl) {}
+            @Nullable String revocationUrl) {
+        /** Without what it holds, as a line must never carry that. */
+        @Override
+        public String toString() {
+            return "Service[" + tokenUrl + ", " + clientId + "]";
+        }
+    }
 
     private Grants() {}
 

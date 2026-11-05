@@ -1,6 +1,6 @@
 # B446 — A Record Prints What It Holds
 
-**Status:** Implementing.
+**Status:** Review.
 **Size:** S - sixteen records, one override each.
 
 **What must be true.** A value holding a secret cannot be printed by accident: its `toString` names what it is for, and

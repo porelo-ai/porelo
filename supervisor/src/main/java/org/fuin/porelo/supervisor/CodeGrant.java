@@ -81,6 +81,11 @@ public final class CodeGrant {
             String scopes,
             int port,
             @Nullable String revocationUrl) {
+        /** Without what it holds, as a line must never carry that. */
+        @Override
+        public String toString() {
+            return "Client[" + tokenUrl + ", " + clientId + "]";
+        }
 
         /**
          * Reads a client from a vault entry's secret and settings.

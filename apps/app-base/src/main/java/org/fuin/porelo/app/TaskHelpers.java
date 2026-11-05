@@ -46,7 +46,13 @@ record TaskHelpers(List<Helper> helpers) {
      * @param phase {@link #BEFORE} or {@link #AFTER}, relative to starting the container.
      */
     record Helper(
-            String name, List<String> command, Map<String, String> environment, String phase) {}
+            String name, List<String> command, Map<String, String> environment, String phase) {
+        /** Without what it holds, as a line must never carry that. */
+        @Override
+        public String toString() {
+            return "Helper[" + name + ", " + phase + "]";
+        }
+    }
 
     /**
      * Writes the record into a task's state directory.

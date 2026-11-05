@@ -66,6 +66,11 @@ public final class TaskSecrets {
      */
     public record Tokens(
             @Nullable String gate, @Nullable String provider, Map<String, String> routes) {
+        /** Without what it holds, as a line must never carry that. */
+        @Override
+        public String toString() {
+            return "Tokens[routes=" + routes.keySet() + "]";
+        }
 
         /**
          * Tokens of a task that holds only its agent's credential, the shape before a task held

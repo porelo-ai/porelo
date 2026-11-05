@@ -26,6 +26,19 @@ public record SetupContext(
         String endpoint,
         String provider,
         int subagents) {
+    /** Without what it holds, as a line must never carry that. */
+    @Override
+    public String toString() {
+        return "SetupContext["
+                + credentialType
+                + ", "
+                + workspace
+                + ", "
+                + endpoint
+                + ", "
+                + provider
+                + "]";
+    }
 
     /**
      * Constructor with checks.

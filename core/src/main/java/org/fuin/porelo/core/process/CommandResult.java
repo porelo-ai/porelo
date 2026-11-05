@@ -10,6 +10,11 @@ package org.fuin.porelo.core.process;
  */
 public record CommandResult(
         Command command, int exitCode, String standardOutput, String standardError) {
+    /** Without what it holds, as a line must never carry that. */
+    @Override
+    public String toString() {
+        return "CommandResult[exitCode=" + exitCode + "]";
+    }
 
     /**
      * Tells whether the program succeeded.
