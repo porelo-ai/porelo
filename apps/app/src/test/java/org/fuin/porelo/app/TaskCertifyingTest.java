@@ -232,6 +232,20 @@ class TaskCertifyingTest {
     }
 
     @Test
+    void aStartInDefaultOnAMachineThatIsNoHostAsksNobody() {
+        assertThat(TaskCertifying.asksThePerson(TaskCertification.NO_PROJECT, false))
+                .as("nothing there needs a certificate, and no key is named to give one with")
+                .isFalse();
+        assertThat(TaskCertifying.asksThePerson(TaskCertification.NO_PROJECT, true))
+                .as("a host starts nothing uncertified, and its starter's key certifies")
+                .isTrue();
+        assertThat(TaskCertifying.asksThePerson("demo", false))
+                .as("a project's members' keys are named, on a machine that is no host too")
+                .isTrue();
+        assertThat(TaskCertifying.asksThePerson("demo", true)).isTrue();
+    }
+
+    @Test
     void aStartIsCertifiedByThePersonsComputerThroughItsWait() throws Exception {
         final String person = keygen("person");
         final Path socket = dir.resolve("waited.sock");

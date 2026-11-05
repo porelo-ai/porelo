@@ -531,6 +531,7 @@ method Start(
   # Asks the person's own computer for the task's certificate, on a stream only: one continuing reply
   # may carry certify, answered by Certify on another connection. An interface sends it for a machine
   # that is not its own, as a host starts no task uncertified and holds no person's agent.
+  # A start in default on a machine that is no host asks nothing, as nothing there needs a certificate.
   certify: ?bool,
   # Streams each step as its own reply, carrying step and no line. Default false: the stream is lines only, as before.
   steps: ?bool

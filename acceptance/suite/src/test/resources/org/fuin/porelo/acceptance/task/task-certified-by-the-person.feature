@@ -131,3 +131,63 @@ Feature: A start through the daemon has the person's own computer certify its ta
             rm -f "$places/certifying.json" "$places/certifying.git"
             true
             """
+
+    Scenario: a start in default through the daemon, as a window asks it, needs no certificate and asks for none
+        When a script runs:
+            """
+            base=$(mktemp -d)
+            repo="dflt$(basename "$base" | tr 'A-Z' 'a-z' | tr -dc 'a-z0-9')"
+            git init -q --bare --initial-branch=main "$base/$repo.git"
+            git init -q --initial-branch=main "$base/seed"
+            git -C "$base/seed" -c user.name=T -c user.email=t@example.org commit -q --allow-empty -m 'first'
+            git -C "$base/seed" push -q "$base/$repo.git" HEAD:main
+            porelo project default add "$base/$repo.git" --name "$repo" > /dev/null
+            echo "added exit $?"
+            cat > "$base/start.py" <<'PY'
+            import json, subprocess, sys
+            connection = subprocess.Popen(["porelo", "daemon", "connect"], stdin=subprocess.PIPE,
+                                          stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
+            connection.stdin.write(json.dumps({"method": "org.fuin.porelo.Tasks1.Start", "more": True, "parameters": {
+                "task": sys.argv[1], "project": "default", "agent": "stub", "repository": sys.argv[1],
+                "clearance": "deny", "keep": True, "certify": True}}).encode() + b"\0")
+            connection.stdin.flush()
+            asked = 0
+            buffer = b""
+            while True:
+                byte = connection.stdout.read(1)
+                if not byte:
+                    print("closed")
+                    break
+                if byte != b"\0":
+                    buffer += byte
+                    continue
+                reply = json.loads(buffer)
+                buffer = b""
+                parameters = reply.get("parameters", {})
+                if "error" in reply:
+                    print("error:", json.dumps(reply))
+                if "certify" in parameters:
+                    asked += 1
+                    print("asked for:", parameters["certify"]["principal"])
+                    print("certifiers:", len(parameters["certify"]["certifiers"]))
+                    break
+                if parameters.get("line"):
+                    print("line:", parameters["line"])
+                if not reply.get("continues"):
+                    print("exit code:", parameters.get("exitCode"))
+                    break
+            connection.terminate()
+            print("asked:", asked)
+            PY
+            timeout 600 python3 "$base/start.py" "$repo"
+            porelo task list | grep -c "porelo-default-$repo" | sed 's/^/a task in default: /'
+            porelo task remove "porelo-default-$repo" --force > /dev/null 2>&1
+            porelo project default remove "$repo" > /dev/null 2>&1
+            rm -rf "${XDG_DATA_HOME:-$HOME/.local/share}/porelo/mirrors/default/$repo.git"
+            rm -rf "$base"
+            true
+            """
+        Then its output contains "added exit 0"
+        And its output contains "asked: 0"
+        And its output contains "exit code: 0"
+        And its output contains "a task in default: 1"

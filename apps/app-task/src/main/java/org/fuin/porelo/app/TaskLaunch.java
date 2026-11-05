@@ -1047,12 +1047,12 @@ public final class TaskLaunch {
     }
 
     private TaskCertification.@org.jspecify.annotations.Nullable Certifier remoteCertifier(
-            final java.util.List<String> certifiers) {
+            final String project, final boolean onAHost, final java.util.List<String> certifiers) {
         if (certifyIn != null) {
             return new StdinCertifier(
                     certifyIn, java.util.Objects.requireNonNull(certifyOut), certifiers);
         }
-        return certificateWaits == null
+        return certificateWaits == null || !TaskCertifying.asksThePerson(project, onAHost)
                 ? null
                 : certificateWaits.certifier(
                         java.util.Objects.requireNonNull(certificateAsker), certifiers);
@@ -2049,6 +2049,7 @@ public final class TaskLaunch {
             }
             // Certified before its git is set up, so a task with a key signs from its first commit;
             // one whose starter's agent holds no certifier's key starts as it did, unsigned.
+            final HostPerson host = new HostPerson(context);
             final java.util.List<String> certifiers =
                     workspace == null
                             ? java.util.List.of()
@@ -2061,12 +2062,11 @@ public final class TaskLaunch {
                                     request.task(),
                                     System.getProperty("user.name", ""),
                                     certifiers,
-                                    remoteCertifier(certifiers),
+                                    remoteCertifier(project.name(), host.present(), certifiers),
                                     agentSocket(),
                                     java.time.Clock.systemUTC());
             // A host records each task's certificate and makes its forge token: it starts none
             // without one, since what it passes on is then vouched for by nobody.
-            final HostPerson host = new HostPerson(context);
             // Refused where every refusal is, so what was started for it, its vault's broker
             // first, is cleaned up with it.
             if (workspace != null && issued == null && host.present()) {

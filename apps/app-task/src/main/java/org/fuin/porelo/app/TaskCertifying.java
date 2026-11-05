@@ -90,6 +90,20 @@ final class TaskCertifying {
     }
 
     /**
+     * Whether a start through the daemon asks the person's computer for its certificate.
+     *
+     * <p>Default on a machine that is no host needs none, so it goes as a start on the command line
+     * does: its own agent's key, else uncertified.
+     *
+     * @param project The project's name, or {@link TaskCertification#NO_PROJECT}.
+     * @param host Whether this machine is a host.
+     * @return Whether it asks.
+     */
+    static boolean asksThePerson(final String project, final boolean host) {
+        return host || !TaskCertification.NO_PROJECT.equals(project);
+    }
+
+    /**
      * Certifies a task at its start, or answers that it starts uncertified.
      *
      * @param project The project's name, or {@link TaskCertification#NO_PROJECT}.
