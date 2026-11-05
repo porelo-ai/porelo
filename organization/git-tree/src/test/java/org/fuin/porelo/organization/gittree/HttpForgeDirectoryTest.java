@@ -111,6 +111,50 @@ class HttpForgeDirectoryTest {
     }
 
     @Test
+    void aTokenTheForgeTakesSaysWhoseItIs() {
+        replies.put("/api/v1/user", Reply.of(200, "{\"login\":\"mia\"}"));
+
+        final HttpForgeDirectory.TokenAccount account =
+                new HttpForgeDirectory(base, TOKEN, client).tokenAccount();
+
+        assertThat(account)
+                .as("accepted, and whose")
+                .isEqualTo(
+                        new HttpForgeDirectory.TokenAccount(
+                                HttpForgeDirectory.TokenState.ACCEPTED, "mia"));
+        assertThat(account.toString()).as("the token is no part of it").doesNotContain(TOKEN);
+    }
+
+    @Test
+    void aTokenTheForgeRefusesIsToldFromOneNotReached() throws Exception {
+        replies.put("/api/v1/user", Reply.of(401, "{}"));
+        assertThat(new HttpForgeDirectory(base, TOKEN, client).tokenAccount().state())
+                .as("401 is the forge's own word")
+                .isEqualTo(HttpForgeDirectory.TokenState.REFUSED);
+
+        replies.put("/api/v1/user", Reply.of(403, "{}"));
+        assertThat(new HttpForgeDirectory(base, TOKEN, client).tokenAccount().state())
+                .as("taken, and whose it is not said")
+                .isEqualTo(HttpForgeDirectory.TokenState.CANNOT_SAY);
+
+        assertThat(new HttpForgeDirectory(base, null, client).tokenAccount().state())
+                .as("none to ask with")
+                .isEqualTo(HttpForgeDirectory.TokenState.NONE);
+
+        final int closed;
+        try (ServerSocket socket = new ServerSocket(0)) {
+            closed = socket.getLocalPort();
+        }
+        assertThat(
+                        new HttpForgeDirectory(
+                                        URI.create("http://127.0.0.1:" + closed), TOKEN, client)
+                                .tokenAccount()
+                                .state())
+                .as("nobody answered")
+                .isEqualTo(HttpForgeDirectory.TokenState.NOT_REACHED);
+    }
+
+    @Test
     void discovery_keeps_signing_and_authentication_keys_separate() {
         replies.put("/alice.keys", Reply.of(200, ONE));
         replies.put(

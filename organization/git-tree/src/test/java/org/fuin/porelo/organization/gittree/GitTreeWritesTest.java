@@ -1278,6 +1278,70 @@ class GitTreeWritesTest {
     }
 
     @Test
+    void whatARepositoryIsSaidToHoldIsWhatFoundingFinds() throws Exception {
+        final Path bare = emptyRepository();
+        final Change first = new Change(new Acting("mia", key("mia")), null, "found");
+
+        assertThat(GitTreeWrites.repositoryState(bare.toString(), runner, FetchAccess.NONE))
+                .as("nothing in it")
+                .isEqualTo(GitTreeWrites.RepositoryState.EMPTY);
+        assertThat(
+                        runner.runOrFail(
+                                        org.fuin.porelo.core.process.Command.of(
+                                                "git", "-C", bare.toString(), "for-each-ref"))
+                                .standardOutput())
+                .as("asking pushed nothing")
+                .isEmpty();
+        founding(bare).createOrganization(first, card("mia", "mia"));
+
+        assertThat(GitTreeWrites.repositoryState(bare.toString(), runner, FetchAccess.NONE))
+                .as("the founding filled it")
+                .isEqualTo(GitTreeWrites.RepositoryState.HOLDS);
+        assertThatThrownBy(
+                        () ->
+                                founding(bare)
+                                        .createOrganization(
+                                                new Change(
+                                                        new Acting("mia", key("mia")),
+                                                        null,
+                                                        "another"),
+                                                card("mia", "mia")))
+                .as("and a second founding finds it held")
+                .isInstanceOfSatisfying(
+                        Refused.class,
+                        refused -> assertThat(refused.reason()).isEqualTo(Refused.EXISTS));
+        final Path gone = dir.resolve("gone.git");
+        assertThat(GitTreeWrites.repositoryState(gone.toString(), runner, FetchAccess.NONE))
+                .as("nothing there")
+                .isEqualTo(GitTreeWrites.RepositoryState.NOT_THERE);
+        assertThatThrownBy(() -> founding(gone).createOrganization(first, card("mia", "mia")))
+                .as("and a founding finds nothing there")
+                .isInstanceOfSatisfying(
+                        Refused.class,
+                        refused -> assertThat(refused.reason()).isEqualTo(Refused.NO_REPOSITORY));
+    }
+
+    @Test
+    void aHostKeyNotTrustedIsSaidSoItsWayOutCanBeNamed() throws Exception {
+        final org.fuin.porelo.core.process.CommandRunner strict =
+                command ->
+                        command.arguments().contains("ls-remote")
+                                ? new org.fuin.porelo.core.process.CommandResult(
+                                        command, 128, "", "Host key verification failed.\n")
+                                : runner.run(command);
+
+        assertThatThrownBy(
+                        () ->
+                                GitTreeWrites.repositoryState(
+                                        "git@forge.example:acme/organization.git",
+                                        strict,
+                                        FetchAccess.NONE))
+                .as("what tells it from any other failure to read")
+                .isInstanceOf(GitTreeStore.Unreachable.class)
+                .hasMessageContaining("Host key verification failed");
+    }
+
+    @Test
     void anEmptyRepositoryIsFoundedWithItsOnlyOwnerAndCardAndAFreshReaderTrustsIt()
             throws Exception {
         final Path bare = emptyRepository();

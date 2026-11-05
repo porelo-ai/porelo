@@ -29,6 +29,9 @@ import org.jspecify.annotations.Nullable;
  */
 final class TreeRepository implements AutoCloseable {
 
+    /** What ssh says of a host it does not trust, which has its own way out. */
+    private static final String HOST_KEY_FAILED = "Host key verification failed";
+
     /**
      * What git, and the forges behind it, say of a repository that is not there. Anything else that
      * fails is unreachable: never read as no.
@@ -152,7 +155,11 @@ final class TreeRepository implements AutoCloseable {
                             null);
                 }
                 if (!asked.successful()) {
-                    throw new GitTreeStore.Unreachable("cannot read the organization's repository");
+                    throw new GitTreeStore.Unreachable(
+                            asked.standardError().contains(HOST_KEY_FAILED)
+                                    ? "cannot read the organization's repository: "
+                                            + HOST_KEY_FAILED
+                                    : "cannot read the organization's repository");
                 }
                 if (!asked.standardOutput().isBlank()) {
                     clone.close();

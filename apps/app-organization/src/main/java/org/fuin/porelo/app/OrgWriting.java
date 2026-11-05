@@ -259,7 +259,7 @@ public abstract class OrgWriting extends OrgReading {
         return Files.readString(file, StandardCharsets.UTF_8);
     }
 
-    private static PersonCard ownCard(final PoreloContext machine) throws IOException {
+    static PersonCard ownCard(final PoreloContext machine) throws IOException {
         try {
             return PersonCard.read(ownCardText(machine), "own card");
         } catch (CardException ex) {
@@ -267,7 +267,7 @@ public abstract class OrgWriting extends OrgReading {
         }
     }
 
-    private static AgentKey served(final @Nullable String socket, final String fingerprint) {
+    static AgentKey served(final @Nullable String socket, final String fingerprint) {
         if (socket == null || socket.isBlank()) {
             throw noKey(fingerprint);
         }

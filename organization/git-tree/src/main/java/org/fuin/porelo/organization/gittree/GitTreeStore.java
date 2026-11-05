@@ -36,7 +36,7 @@ public final class GitTreeStore {
 
         private static final long serialVersionUID = 1L;
 
-        Unreachable(final String message) {
+        public Unreachable(final String message) {
             super(message);
         }
     }

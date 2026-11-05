@@ -357,6 +357,43 @@ public final class GitTreeWrites implements OrganizationWrites {
         }
     }
 
+    /** What a repository holds, for the founding of an organization or a project's. */
+    public enum RepositoryState {
+        /** It is there and holds nothing: a founding can fill it. */
+        EMPTY,
+        /** It holds something. */
+        HOLDS,
+        /** It is not there, or may not be seen. */
+        NOT_THERE
+    }
+
+    /**
+     * Asks what a repository holds by the call a founding makes, writing nothing.
+     *
+     * @param address Where the repository is.
+     * @param runner How git runs.
+     * @param access What the asking may use, lent for its length.
+     * @return What it holds.
+     * @throws IOException When it cannot be asked.
+     */
+    public static RepositoryState repositoryState(
+            final String address, final CommandRunner runner, final FetchAccess access)
+            throws IOException {
+        try {
+            final Optional<TreeRepository> empty = TreeRepository.founding(address, runner, access);
+            if (empty.isEmpty()) {
+                return RepositoryState.HOLDS;
+            }
+            empty.orElseThrow().close();
+            return RepositoryState.EMPTY;
+        } catch (Refused refused) {
+            if (Refused.NO_REPOSITORY.equals(refused.reason())) {
+                return RepositoryState.NOT_THERE;
+            }
+            throw refused;
+        }
+    }
+
     /** Asked again, the founding is answered; anything else already there is somebody's. */
     private Written filledAlready(final Change change, final String subject) throws IOException {
         try (TreeRepository clone = TreeRepository.fetch(address, runner, access)) {

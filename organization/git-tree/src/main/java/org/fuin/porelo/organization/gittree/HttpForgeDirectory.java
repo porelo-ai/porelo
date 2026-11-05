@@ -152,6 +152,54 @@ public final class HttpForgeDirectory implements IdentitySource {
                 : profileGet(apiBase() + "/user", (api == null ? "token " : "Bearer ") + token);
     }
 
+    /**
+     * What the forge says of the configured token, without saying it anywhere.
+     *
+     * @param state How it stands.
+     * @param login Whose it is, when the forge said.
+     */
+    public record TokenAccount(TokenState state, @Nullable String login) {}
+
+    /** How a token stands at the forge. */
+    public enum TokenState {
+        /** No token was configured. */
+        NONE,
+        /** The forge took it, and says whose it is. */
+        ACCEPTED,
+        /** The forge refused it. */
+        REFUSED,
+        /** The forge took it and will not say whose, as for an app's installation token. */
+        CANNOT_SAY,
+        /** The forge did not answer. */
+        NOT_REACHED
+    }
+
+    /**
+     * Asks whose the configured token is, telling refused from not reached.
+     *
+     * @return The answer.
+     */
+    public TokenAccount tokenAccount() {
+        if (token == null) {
+            return new TokenAccount(TokenState.NONE, null);
+        }
+        final Answer answer =
+                get(apiBase() + "/user", (api == null ? "token " : "Bearer ") + token);
+        if (answer == null) {
+            return new TokenAccount(TokenState.NOT_REACHED, null);
+        }
+        if (answer.status() == 401) {
+            return new TokenAccount(TokenState.REFUSED, null);
+        }
+        final @Nullable String login =
+                answer.status() == 200 && json(answer.body()) instanceof Map<?, ?> fields
+                        ? field(fields, "login")
+                        : null;
+        return login == null
+                ? new TokenAccount(TokenState.CANNOT_SAY, null)
+                : new TokenAccount(TokenState.ACCEPTED, login);
+    }
+
     /** The public profile of a login. */
     public Optional<Profile> profile(final String login) {
         return profileGet(apiBase() + "/users/" + name(login, "login"), null);

@@ -2,6 +2,7 @@ package org.fuin.porelo.app;
 
 import java.io.IOException;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import org.fuin.porelo.organization.OrganizationQuestions.Refused;
@@ -38,11 +39,26 @@ public class OrgCreateCommand extends OrgReading {
     @Option(names = "--replace", description = "Replaces the organization this machine has.")
     private boolean replace;
 
+    @Option(
+            names = "--check",
+            description =
+                    "Says what founding here needs and how each need stands, changing nothing.")
+    private boolean check;
+
     Founder founder = OrgWriting::at;
+
+    OrgCreateCheck.Asker asker = OrgCreateCheck::real;
 
     @Override
     Map<String, @Nullable Object> answer(final PoreloContext machine) throws IOException {
         final String settable = OrgAccess.settable(address);
+        if (check) {
+            if (id != null) {
+                throw new Refused(
+                        Refused.USAGE, "--check changes nothing, so it has no --id", null);
+            }
+            return OrgCreateCheck.answer(machine, settable, replace, asker.ask(machine, settable));
+        }
         // The same address goes on: the store says whether this is the same change asked again.
         final String held = OrgAccess.repository(machine).orElse(null);
         if (held != null && !held.equals(settable) && !replace) {
@@ -107,6 +123,10 @@ public class OrgCreateCommand extends OrgReading {
 
     @Override
     void text(final Map<String, @Nullable Object> answer) {
+        if (answer.get("needs") instanceof List<?> needs) {
+            OrgCreateCheck.lines(needs).forEach(this::line);
+            return;
+        }
         line("Filled at " + answer.get("revision") + ", under the id " + answer.get("id"));
         line(
                 "Your key must stay on the forge until a card is handed on, so keep a second owner"
