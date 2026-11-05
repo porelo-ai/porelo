@@ -1,0 +1,93 @@
+# Once, by hand: deletes the test agent's old packages from the package indexes, now that its binary has a place of its
+# own. Only 'porelo-agent-stub' files up to snapshot 410, in the Debian pool and the RPM snapshots, and nothing else:
+# the folder porelo-dist-test/porelo-agent-stub/ stays. Without 'delete' it lists what it would delete and stops.
+# Removed again once it has run.
+name: Delete the old stub packages
+
+on:
+    workflow_dispatch:
+        inputs:
+            delete:
+                description: Delete them; without it, only list them
+                type: boolean
+                default: false
+            expected:
+                description: How many files of each kind are expected; any other count stops it
+                type: number
+                default: 101
+
+permissions:
+    contents: read
+
+jobs:
+
+    delete:
+        name: Old stub packages
+        runs-on: ubuntu-26.04
+        timeout-minutes: 30
+
+        env:
+            JF_URL: ${{ vars.JF_URL }}
+            JF_ACCESS_TOKEN: ${{ secrets.JF_ACCESS_TOKEN }}
+            DELETE: ${{ inputs.delete }}
+            EXPECTED: ${{ inputs.expected }}
+
+        steps:
+            - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+              with:
+                  persist-credentials: false
+
+            - name: List, and delete when asked
+              run: |
+                  set -euo pipefail
+                  . .github/scripts/artifactory.sh
+                  art_login
+                  # pick FOLDER PATTERN OUT: the names in FOLDER matching PATTERN exactly, into OUT, each checked to be at
+                  # most 410 and their count to be the one expected. Both lists are checked before anything is deleted.
+                  pick() {
+                      art_api GET "/api/storage/$1" | jq -r '.children[] | select(.folder | not) | .uri' \
+                          | sed 's|^/||' | { grep -E "^$2\$" || true; } > "$3"
+                      while read -r name; do
+                          run="$(printf '%s' "$name" | sed -E 's/.*~snapshot\.([0-9]+).*/\1/')"
+                          [ "$run" -le 410 ] || { echo "::error::$name is newer than 410"; exit 1; }
+                      done < "$3"
+                      count="$(wc -l < "$3")"
+                      echo "$count in $1"
+                      sed 's/^/    /' "$3"
+                      [ "$count" = "$EXPECTED" ] || { echo "::error::$count files in $1, not $EXPECTED"; exit 1; }
+                  }
+                  DEB_DIR=porelo-dist-deb/pool/main/p/porelo-agent-stub
+                  RPM_DIR=porelo-dist-rpm/snapshots
+                  pick "$DEB_DIR" 'porelo-agent-stub_0\.5\.[01]~snapshot\.[0-9]+_amd64\.deb' deb.txt
+                  pick "$RPM_DIR" 'porelo-agent-stub-0\.5\.[01]~snapshot\.[0-9]+-1\.x86_64\.rpm' rpm.txt
+                  [ "$DELETE" = true ] || { echo "Listed only; nothing deleted."; exit 0; }
+                  while read -r name; do art_api DELETE "/$DEB_DIR/$name" > /dev/null; echo "  deleted $DEB_DIR/$name"; done < deb.txt
+                  while read -r name; do art_api DELETE "/$RPM_DIR/$name" > /dev/null; echo "  deleted $RPM_DIR/$name"; done < rpm.txt
+
+            # As apt and dnf read them, without the token: the indexes no longer name the package.
+            - name: The indexes no longer offer it
+              if: inputs.delete
+              run: |
+                  set -euo pipefail
+                  BASE="${JF_URL%/}/artifactory"
+                  # count FILE PATTERN: how often PATTERN stands in a gzip FILE; fails on a file that is not one, so a
+                  # broken download never reads as an index without the package.
+                  count() {
+                      gunzip -t "$1" || return 1
+                      n="$(gunzip -c "$1" | grep -c -- "$2")" || [ $? = 1 ] || return 1
+                      echo "${n:-0}"
+                  }
+                  for i in $(seq 1 60); do
+                      curl -fsSL --retry 5 -o deb.gz "$BASE/porelo-dist-deb/dists/snapshots/main/binary-amd64/Packages.gz"
+                      deb="$(count deb.gz '^Package: porelo-agent-stub$')"
+                      curl -fsSL --retry 5 -o repomd.xml "$BASE/porelo-dist-rpm/snapshots/repodata/repomd.xml"
+                      primary="$(grep -o 'repodata/[^"]*primary\.xml\.gz' repomd.xml | head -1)"
+                      [ -n "$primary" ] || { echo "::error::repomd.xml names no primary file"; exit 1; }
+                      curl -fsSL --retry 5 -o rpm.gz "$BASE/porelo-dist-rpm/snapshots/$primary"
+                      rpm="$(count rpm.gz '<name>porelo-agent-stub</name>')"
+                      echo "  after ${i}0 s: $deb in the Debian index, $rpm in the RPM index"
+                      [ "$deb" = 0 ] && [ "$rpm" = 0 ] && exit 0
+                      sleep 10
+                  done
+                  echo "::error::an index still names porelo-agent-stub after 10 minutes"
+                  exit 1
