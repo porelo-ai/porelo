@@ -86,6 +86,25 @@ For an interface on the person's own computer, which then starts as usual by the
   file.
 - Not built: a start in an organization's repository does not name the `porelo project init ... --project ...` command
   for what is missing, since it runs no detection there to know that.
+- **The approval's comparison** is `RepositoryAddress.sameUpstream`: host, port and path, with a local path never equal to a
+  remote address; ssh and https of one host and path stay equal. `same`, which drops the port, stays as it was for its
+  other callers. A person's own `git remote` setting (`insteadOf`, a differing push URL) is trusted, as `.git/config` is not
+  committed, and the start still uses the stored copy.
+- **One yes at a time.** A file lock per project, `projects/.approving-NAME.lock`, is held over the check, the install and the
+  record, for the terminal and the daemon alike. The record is written first and made true by the last rename; if that
+  fails, the old copy, the old record and a new file's place in the checkout are put back.
+- **What a person put there stays.** A reapproval drops the files the old copy was approved with and keeps what else lies in
+  `projects/NAME/`, such as `<repository>/.porelo.yml`. The hash covers only the project's file and what it names, so such a
+  file asks nothing.
+- `project.name: 123` is `NO_NAME` at the look, as the reader takes it and a start by name does not. The reader is unchanged.
+- **Not in the question: a repository's `porelo.yml`.** The question covers `project.yml` and the files it names. `porelo.yml`
+  is read as `ImageChoice` says: in `default` from the person's checkout, also after a No; for an approved project from the
+  mirror's default branch, also after a yes, ahead of the copy's own `image`. So "a repository decides nothing by itself"
+  and "a `project.yml` ... decides nothing" in Decided hold for `project.yml` only. Whether `porelo.yml` should be part of
+  it is a question for the operator.
+- Known limit: a process killed between the two renames of a reapproval leaves the old copy as `projects/.replaced-*` and no
+  copy in its place. A start in that moment also finds no file. Both are put right by asking again, but the old copy is not
+  moved back by itself.
 - Known limit: a parent directory swapped for a link while the question waits can redirect a read. That needs a process
   of the same account, as the socket race in [security](../../doc/security.md) does, so it is left.
 - Known limit: `porelo project remove` leaves the approval's record. It names no project a start would find, but if that

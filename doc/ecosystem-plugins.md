@@ -46,7 +46,7 @@ comments do not survive and the answer retains the sources. No daemon operation 
 
 `porelo task start` with no project named, in a checkout on the `default` path with no `project.yml`, asks the same
 plugins and takes the same draft, with the project named `<repository>-project`, since a project named like its
-repository would read that repository as its own, where no task works. Nothing is written or opened until a person
+repository would read that repository as its own, where no task works. Nothing a plugin found is written or opened until a person
 says yes at a terminal; the file then goes into the checkout, and this machine's copy of it is what starts. The daemon's `FirstStart` and `ConfirmFirstStart` answer the same for an interface on the
 same computer.
 

@@ -11,6 +11,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import org.fuin.porelo.core.process.Command;
 import org.fuin.porelo.core.process.CommandResult;
@@ -60,7 +61,7 @@ public final class FirstStart {
         NOT_A_CHECKOUT,
         /** The name is {@code default} or another local project's. */
         NAME_TAKEN,
-        /** The repository gives no name a project can have. */
+        /** The repository or its file gives no name a project can have. */
         NO_NAME,
         /** The file does not read as a project, is a link, or is too large. */
         FILE_UNREADABLE,
@@ -251,7 +252,8 @@ public final class FirstStart {
         }
         final String origin = origin(top);
         if (!origin.isEmpty()) {
-            // Before any file in the checkout is read: it decides nothing for such a project.
+            // Before any file in the checkout is read: a project.yml decides nothing for such a
+            // project.
             final WorkOrigin.Choice placed = WorkOrigin.organizationNaming(context, origin);
             if (placed != null) {
                 return Answer.plain(
@@ -320,21 +322,54 @@ public final class FirstStart {
         final Path file = Objects.requireNonNull(answer.target(), "a question names its file");
         final StagedProject staged =
                 Objects.requireNonNull(answer.staged(), "a question holds its copy");
-        final Refused now = nameRefusal(answer.project(), answer.upstream());
-        if (now != null) {
-            throw now;
-        }
-        final Path copy = context.paths().projects().defaultProjectFile(answer.project());
+        final Path place =
+                Objects.requireNonNull(
+                        context.paths().projects().defaultProjectFile(answer.project()).getParent(),
+                        "a place has a parent");
+        final Optional<Refused> refused;
         try {
-            if (answer.outcome() == Outcome.ASK_NEW) {
-                write(file, answer.file());
-            }
-            staged.install(Objects.requireNonNull(copy.getParent(), "a place has a parent"));
-            new ProjectApprovals(context).approve(answer.project(), answer.upstream());
+            // Check, copy and record under one lock, for this process and any other: without it two
+            // yeses both pass the check and the copy of one stands beside the record of the other.
+            refused =
+                    FileLocks.holding(
+                            projects().resolve(".approving-" + answer.project() + ".lock"),
+                            () -> install(answer, file, staged, place));
         } catch (IOException ex) {
             throw new Refused(Reason.NOT_WRITTEN, "cannot keep it: " + printable(ex.toString()));
         }
+        if (refused.isPresent()) {
+            throw refused.get();
+        }
         return answer.project();
+    }
+
+    private Optional<Refused> install(
+            final Answer answer, final Path file, final StagedProject staged, final Path place)
+            throws IOException {
+        final Refused now = nameRefusal(answer.project(), answer.upstream());
+        if (now != null) {
+            return Optional.of(now);
+        }
+        final ProjectApprovals.Prepared record =
+                new ProjectApprovals(context).prepare(answer.project(), answer.upstream());
+        boolean wrote = false;
+        try {
+            if (answer.outcome() == Outcome.ASK_NEW) {
+                write(file, answer.file());
+                wrote = true;
+            }
+            staged.install(place, record::commit);
+        } catch (Refused ex) {
+            record.abandon();
+            return Optional.of(ex);
+        } catch (IOException ex) {
+            record.abandon();
+            if (wrote) {
+                Files.deleteIfExists(file);
+            }
+            throw ex;
+        }
+        return Optional.empty();
     }
 
     /** Never over what is there, and never through a link. */
@@ -395,10 +430,31 @@ public final class FirstStart {
                     new Refused(
                             Reason.NOT_WRITTEN, "cannot stage it: " + printable(ex.toString())));
         }
+        final String declared;
+        try {
+            declared = staged.declaredName();
+        } catch (IOException ex) {
+            staged.discard();
+            return refused(
+                    file,
+                    new Refused(
+                            Reason.NOT_WRITTEN, "cannot stage it: " + printable(ex.toString())));
+        }
+        if (declared == null) {
+            staged.discard();
+            return refused(
+                    file,
+                    new Refused(
+                            Reason.NO_NAME,
+                            "project.name in "
+                                    + FILE_NAME
+                                    + " is no text, so no start could find that project by it;"
+                                    + " write it as a name, in quotes if it is only digits"));
+        }
         final Project project = staged.project();
         final String repository = repositoryOf(project, origin, top);
         final String upstream = upstream(origin, top);
-        if (holdsTheCopy(project.name(), hash, upstream)) {
+        if (holdsTheCopy(project.name(), staged, upstream)) {
             staged.discard();
             return new Answer(
                     Outcome.KNOWN,
@@ -448,19 +504,12 @@ public final class FirstStart {
      * Same file, same project: the name finds this machine's copy, holding just what was hashed,
      * and approved for this upstream.
      */
-    private boolean holdsTheCopy(final String name, final String hash, final String upstream) {
+    private boolean holdsTheCopy(
+            final String name, final StagedProject staged, final String upstream) {
         final Path copy = context.paths().projects().defaultProjectFile(name);
-        if (!copy.equals(ProjectSource.resolve(context, name).file())
-                || !new ProjectApprovals(context).approvedFor(name, upstream)) {
-            return false;
-        }
-        try {
-            return ProjectApprovals.hash(
-                            Objects.requireNonNull(copy.getParent(), "a place has a parent"))
-                    .equals(hash);
-        } catch (IOException ex) {
-            return false;
-        }
+        return copy.equals(ProjectSource.resolve(context, name).file())
+                && new ProjectApprovals(context).approvedFor(name, upstream)
+                && staged.sameAs(Objects.requireNonNull(copy.getParent(), "a place has a parent"));
     }
 
     private Answer refused(final Path file, final Refused refusal) {
@@ -482,8 +531,8 @@ public final class FirstStart {
 
     private static String repositoryOf(final Project project, final String origin, final Path top) {
         for (final Repository each : project.workRepositories()) {
-            if ((!origin.isEmpty() && RepositoryAddress.same(each.upstream(), origin))
-                    || RepositoryAddress.same(each.upstream(), top.toString())) {
+            if ((!origin.isEmpty() && RepositoryAddress.sameUpstream(each.upstream(), origin))
+                    || RepositoryAddress.sameUpstream(each.upstream(), top.toString())) {
                 return each.name();
             }
         }

@@ -718,7 +718,12 @@ final class TaskMethods {
                 "FirstStart",
                 (parameters, replies) -> {
                     try {
-                        replies.last(firstStart(context).look(checkout(parameters)).asMap());
+                        final var answer = firstStart(context).look(checkout(parameters));
+                        try {
+                            replies.last(answer.asMap());
+                        } finally {
+                            answer.discard();
+                        }
                     } catch (org.fuin.porelo.app.FirstStart.Refused ex) {
                         throw firstStartRefused(ex);
                     }

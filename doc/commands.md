@@ -189,8 +189,13 @@ At a terminal a shut vault asks for its passphrase; a script must unlock it firs
   path as upstream, so a second such checkout is not the same project. A changed file from the same upstream asks
   again, and a yes replaces the copy; a no, `--yes` or no terminal go on in `default`. Another upstream, or a name that is
   `default` or another local project's, is refused and goes on in `default`, saying so, as does a link, a named file
-  outside the checkout, a file over 1 MiB or one that does not read. In a repository of an organization's project such
-  a file decides nothing.
+  outside the checkout, a file over 1 MiB, a `project.name` that is no text, or one that does not read. In a repository of
+  an organization's project such a file decides nothing.
+- The question covers `project.yml` and the files it names. A repository's `porelo.yml` is not part of it and is read as
+  [its decision](decisions.md#a-repositorys-image-comes-from-poreloyml-chosen-key-by-key-and-its-build-keeps-the-hosts-network)
+  says, also after a no in `default` and after a yes.
+- Same upstream means same host, port and path, by ssh or https alike; a path on this machine is never a remote address.
+  A reapproval keeps what you put beside the copy, such as `projects/NAME/<repository>/.porelo.yml`.
 - `-r REPOSITORY`: which of the project's repositories to work on (see [names](#completion)).
 - Without a name, the task is named after its repository, or the next free name (`my-first-2`); a repository
   named `people` or `person` gives `work`, and a leading `porelo-` is left out (`porelo-pi` gives `pi`).

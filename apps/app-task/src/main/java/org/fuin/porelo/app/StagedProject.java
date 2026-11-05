@@ -2,6 +2,7 @@ package org.fuin.porelo.app;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.Reader;
 import java.io.StringReader;
 import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
@@ -19,6 +20,7 @@ import java.util.stream.Stream;
 import org.fuin.porelo.core.project.Project;
 import org.fuin.porelo.core.project.ProjectException;
 import org.fuin.porelo.core.project.ProjectReader;
+import org.fuin.porelo.core.project.SnippetFiles;
 import org.fuin.porelo.vault.RegistryText;
 import org.fuin.porelo.wire.Directories;
 import org.jspecify.annotations.Nullable;
@@ -167,7 +169,43 @@ final class StagedProject {
      * @throws IOException When the copy cannot be read.
      */
     String hash() throws IOException {
-        return ProjectApprovals.hash(place);
+        return ProjectApprovals.hash(place, files());
+    }
+
+    /**
+     * Tells whether a project's place holds just what this copy does. What else lies there, such as
+     * a person's override, is no part of what was approved.
+     *
+     * @param target The project's place.
+     * @return {@code true} when each of this copy's files is there with the same bytes.
+     */
+    boolean sameAs(final Path target) {
+        try {
+            return ProjectApprovals.hash(target, files()).equals(hash());
+        } catch (IOException ex) {
+            return false;
+        }
+    }
+
+    private Set<String> files() {
+        final Set<String> files = new LinkedHashSet<>(named);
+        files.add(FILE_NAME);
+        return files;
+    }
+
+    /**
+     * Returns the project's name as a start will read it, or {@code null} when it is no text: the
+     * reader takes {@code name: 123}, and a start by name refuses it.
+     *
+     * @return The name it declares, or {@code null}.
+     * @throws IOException When the copy cannot be read.
+     */
+    @Nullable String declaredName() throws IOException {
+        try (Reader reader = Files.newBufferedReader(place.resolve(FILE_NAME))) {
+            return ProjectReader.name(reader, FILE_NAME);
+        } catch (ProjectException ex) {
+            return null;
+        }
     }
 
     /**
@@ -204,18 +242,33 @@ final class StagedProject {
                 .collect(Collectors.joining());
     }
 
+    /** The last step of a yes: when it fails, the yes did not happen. */
+    @FunctionalInterface
+    interface Commit {
+
+        /**
+         * Runs.
+         *
+         * @throws IOException When it cannot.
+         */
+        void run() throws IOException;
+    }
+
     /**
-     * Makes this copy what a project's place holds; what was there goes.
+     * Makes this copy what a project's place holds, and runs what must happen with it. The files
+     * the old copy was approved with go; what a person put beside them, such as an override, stays.
      *
      * @param target The project's place.
-     * @throws IOException When it cannot be moved; what was there then stays.
+     * @param commit What happens with it.
+     * @throws IOException When either fails; what was there then stays there.
      */
-    void install(final Path target) throws IOException {
+    void install(final Path target, final Commit commit) throws IOException {
         final Path root =
                 java.util.Objects.requireNonNull(target.getParent(), "a place has a root");
         final Path aside = root.resolve(".replaced-" + UUID.randomUUID());
-        final boolean replacing = Files.exists(target);
+        final boolean replacing = Files.exists(target, LinkOption.NOFOLLOW_LINKS);
         if (replacing) {
+            keepWhatAPersonPut(target);
             Files.move(target, aside, StandardCopyOption.ATOMIC_MOVE);
         }
         try {
@@ -226,9 +279,55 @@ final class StagedProject {
             }
             throw ex;
         }
+        try {
+            commit.run();
+        } catch (IOException ex) {
+            Files.move(target, place, StandardCopyOption.ATOMIC_MOVE);
+            if (replacing) {
+                Files.move(aside, target, StandardCopyOption.ATOMIC_MOVE);
+            }
+            throw ex;
+        }
         if (replacing) {
             remove(aside);
         }
+    }
+
+    private void keepWhatAPersonPut(final Path target) throws IOException {
+        final Set<Path> approved = approvedIn(target);
+        final List<Path> all;
+        try (Stream<Path> walk = Files.walk(target)) {
+            all = walk.filter(each -> !Files.isDirectory(each, LinkOption.NOFOLLOW_LINKS)).toList();
+        }
+        for (final Path each : all) {
+            final Path relative = target.relativize(each);
+            final Path here = place.resolve(relative);
+            if (!approved.contains(relative) && !Files.exists(here, LinkOption.NOFOLLOW_LINKS)) {
+                Directories.create(java.util.Objects.requireNonNull(here.getParent(), "a parent"));
+                Files.copy(
+                        each, here, LinkOption.NOFOLLOW_LINKS, StandardCopyOption.COPY_ATTRIBUTES);
+            }
+        }
+    }
+
+    /** What an approved copy holds by its own file's word. */
+    private static Set<Path> approvedIn(final Path target) {
+        final Set<Path> approved = new LinkedHashSet<>(Set.of(Path.of(FILE_NAME)));
+        final Path file = target.resolve(FILE_NAME);
+        try (Reader reader = Files.newBufferedReader(file)) {
+            final SnippetFiles beside = SnippetFiles.beside(file);
+            ProjectReader.read(
+                    reader,
+                    FILE_NAME,
+                    (name, origin) -> {
+                        approved.add(Path.of(name).normalize());
+                        return beside.read(name, origin);
+                    });
+        } catch (IOException | ProjectException ex) {
+            // A copy that no longer reads names nothing more: what it held stays beside the new.
+            return approved;
+        }
+        return approved;
     }
 
     /** Ends a question that took nothing. */

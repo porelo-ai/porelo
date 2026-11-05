@@ -24,7 +24,7 @@ would change the answer.
 | Nested containers never in a guarded project | `guarded` never sets them; only on a task's own kernel where the assessment says so | [entry](#nested-containers-never-in-a-guarded-project) |
 | A devcontainer file's features are not fetched | its image or Dockerfile is used, each feature named as not installed; nothing runs at build that the project file does not name | [entry](#a-devcontainer-files-features-are-not-fetched) |
 | A repository's image comes from porelo.yml, chosen key by key, and its build keeps the host's network | accepted: `image` only (`base_image`, snippet, `env`), merged key by key from override, project file, reviewed default branch and project; the build still reaches the network outside the task's firewall | [entry](#a-repositorys-image-comes-from-poreloyml-chosen-key-by-key-and-its-build-keeps-the-hosts-network) |
-| A repository's first start takes nothing without a yes | a person's yes to the text at a terminal; this machine's own copy of it is what starts; same upstream and same hash is the same project; no comparison to a plugin; only on the `default` path | [entry](#a-repositorys-first-start-takes-nothing-without-a-yes) |
+| A first start takes no project.yml without a yes | a person's yes to the text at a terminal; this machine's own copy of it is what starts; same upstream and same hash is the same project; no comparison to a plugin; only on the `default` path | [entry](#a-first-start-takes-no-projectyml-without-a-yes) |
 | A project's own file is judged by its newest change alone | accepted: an admin's signature on the newest change to `project.yml` is what counts, an older one is refused, and a file it names needs none, so a snippet file gets around `egress` while the image is built | [entry](#a-projects-own-file-is-judged-by-its-newest-change-alone) |
 | Several attempts share one credential | not split or queued; a reached limit said per attempt; five attempts by default | [entry](#several-attempts-share-one-credential) |
 | A reviewer task reviews only its own project | another project's waiting work is never read | [entry](#a-reviewer-task-reviews-only-its-own-project) |
@@ -994,7 +994,7 @@ refresh updates the mirror's `HEAD` from the upstream's), the review ranks `pore
 and each key's source is printed at the start. **What would change the answer:** building the image within the
 project's egress and trusted package sources.
 
-## A repository's first start takes nothing without a yes
+## A first start takes no project.yml without a yes
 
 *2026-11-05, the operator's.* `porelo task start` in a checkout with no project asks the installed plugins and shows what
 they found and each host it would open. A `project.yml` in a checkout this machine does not know gets the same question,
@@ -1010,6 +1010,15 @@ running question is simply not what was approved.
 Same file, same project: a checkout with the upstream the project was approved for and the same hash, a second clone or
 a git worktree, uses it with no question. A checkout with no usable `origin` has its own path as upstream, so a second
 one is not the same project. Another upstream takes over nothing: it is refused and goes on in `default`.
+
+The question covers `project.yml` and the files it names, and nothing else a repository holds. A repository's `porelo.yml`
+is not part of it. It is read as `ImageChoice` says and as the entry above states: in `default` from the person's
+checkout, also after a no; for an approved project from the mirror's default branch, also after a yes, where it comes
+behind a local override and `repositories.<name>.image` and ahead of the copy's own `image`.
+
+Same upstream means same host, port and path, by ssh or https alike, and a path on this machine is never a remote address.
+A person's own `git remote` setting (`insteadOf`, a differing push URL) is trusted, as `.git/config` is not committed, and
+the start still uses the stored copy.
 
 `--yes`, `--no-input`, `--dry-run` and no terminal write and open nothing. A host only the checkout names, in no curated
 set, is marked and the question defaults to no. An organization's project comes first, and a `project.yml` in its

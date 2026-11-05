@@ -7,9 +7,11 @@ import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.util.Collection;
 import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
+import java.util.TreeSet;
 import java.util.stream.Stream;
 import org.fuin.porelo.core.project.Project;
 import org.fuin.porelo.core.project.ProjectException;
@@ -50,33 +52,84 @@ public final class ProjectApprovals {
     }
 
     /**
-     * Returns the hash a yes names: every file under a directory, each with its relative name, so a
-     * change in a file the project names asks again.
+     * Returns the hash a yes names: each of a project's files with its relative name, so a change
+     * in a file the project names asks again and a person's own file beside them does not.
      *
-     * @param place The directory, holding a project's file and what it names.
+     * @param place The directory holding them.
+     * @param names The project's file and each file it names, relative to the directory.
      * @return Their SHA-256, in hex.
-     * @throws IOException When it cannot be read.
+     * @throws IOException When one cannot be read, as when the directory does not hold it.
      */
-    public static String hash(final Path place) throws IOException {
+    public static String hash(final Path place, final Collection<String> names) throws IOException {
         final MessageDigest digest;
         try {
             digest = MessageDigest.getInstance("SHA-256");
         } catch (NoSuchAlgorithmException ex) {
             throw new IllegalStateException("every Java has SHA-256", ex);
         }
-        final List<Path> files;
-        try (Stream<Path> walk = Files.walk(place)) {
-            files = walk.filter(Files::isRegularFile).sorted().toList();
-        }
-        for (final Path file : files) {
-            final byte[] name = place.relativize(file).toString().getBytes(StandardCharsets.UTF_8);
-            final byte[] bytes = Files.readAllBytes(file);
+        for (final String each : new TreeSet<>(names)) {
+            final byte[] name = each.getBytes(StandardCharsets.UTF_8);
+            final byte[] bytes = Files.readAllBytes(place.resolve(each));
             digest.update((name.length + ":").getBytes(StandardCharsets.UTF_8));
             digest.update(name);
             digest.update((":" + bytes.length + ":").getBytes(StandardCharsets.UTF_8));
             digest.update(bytes);
         }
         return HexFormat.of().formatHex(digest.digest());
+    }
+
+    /** A record written and not yet true: one rename makes it so, and nothing else is touched. */
+    public final class Prepared {
+
+        private final String project;
+
+        private final Path temporary;
+
+        private Prepared(final String project, final Path temporary) {
+            this.project = project;
+            this.temporary = temporary;
+        }
+
+        /**
+         * Makes the record true.
+         *
+         * @throws IOException When it cannot; the record there stays.
+         */
+        public void commit() throws IOException {
+            Files.move(
+                    temporary,
+                    directory.resolve(project),
+                    StandardCopyOption.REPLACE_EXISTING,
+                    StandardCopyOption.ATOMIC_MOVE);
+        }
+
+        /**
+         * Leaves the record as it was.
+         *
+         * @throws IOException When what was written cannot be removed.
+         */
+        public void abandon() throws IOException {
+            Files.deleteIfExists(temporary);
+        }
+    }
+
+    /**
+     * Writes that a person said yes to a project for a repository, without it counting yet, so
+     * whoever installs the copy can have both or neither.
+     *
+     * @param project The project.
+     * @param upstream The checkout's origin, or its own path when it has no usable one.
+     * @return What makes it true.
+     * @throws IOException When it cannot be written; nothing then changed.
+     */
+    public Prepared prepare(final String project, final String upstream) throws IOException {
+        Directories.create(directory);
+        final Path temporary = Files.createTempFile(directory, "." + project, ".new");
+        Files.writeString(
+                temporary,
+                Json.write(Map.of("project", project, "upstream", upstream)),
+                StandardCharsets.UTF_8);
+        return new Prepared(project, temporary);
     }
 
     /**
@@ -87,17 +140,13 @@ public final class ProjectApprovals {
      * @throws IOException When it cannot be kept; the yes then did not happen.
      */
     public void approve(final String project, final String upstream) throws IOException {
-        Directories.create(directory);
-        final Path temporary = Files.createTempFile(directory, project, ".new");
-        Files.writeString(
-                temporary,
-                Json.write(Map.of("project", project, "upstream", upstream)),
-                StandardCharsets.UTF_8);
-        Files.move(
-                temporary,
-                directory.resolve(project),
-                StandardCopyOption.REPLACE_EXISTING,
-                StandardCopyOption.ATOMIC_MOVE);
+        final Prepared prepared = prepare(project, upstream);
+        try {
+            prepared.commit();
+        } catch (IOException ex) {
+            prepared.abandon();
+            throw ex;
+        }
     }
 
     /**
@@ -111,7 +160,7 @@ public final class ProjectApprovals {
      */
     public boolean approvedFor(final String project, final String upstream) {
         final String kept = upstream(project);
-        return kept != null && RepositoryAddress.same(kept, upstream);
+        return kept != null && RepositoryAddress.sameUpstream(kept, upstream);
     }
 
     /**
@@ -187,7 +236,7 @@ public final class ProjectApprovals {
             return null;
         }
         for (final Repository repository : project.allRepositories()) {
-            if (RepositoryAddress.same(repository.upstream(), upstream)) {
+            if (RepositoryAddress.sameUpstream(repository.upstream(), upstream)) {
                 return repository;
             }
         }

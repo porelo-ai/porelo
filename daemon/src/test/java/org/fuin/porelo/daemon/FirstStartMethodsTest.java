@@ -237,6 +237,22 @@ class FirstStartMethodsTest {
     }
 
     @Test
+    void aQuestionOverTheSocketLeavesNoStagedCopy() throws Exception {
+        Files.writeString(checkout.resolve("project.yml"), FILE);
+        final Path projects = context.paths().xdg().config().resolve("projects");
+        serving(
+                client -> {
+                    firstStart(client);
+                    firstStart(client);
+                });
+
+        try (var entries = Files.list(projects)) {
+            assertThat(entries.map(each -> each.getFileName().toString()))
+                    .noneMatch(name -> name.startsWith(".staging-"));
+        }
+    }
+
+    @Test
     void noPluginIsAnOutcome() throws Exception {
         serving(client -> assertThat(firstStart(client).get("outcome")).isEqualTo("NO_PLUGIN"));
     }

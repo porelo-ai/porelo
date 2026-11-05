@@ -521,6 +521,285 @@ class FirstStartTest {
         return context.paths().projects().defaultProjectFile("strangers");
     }
 
+    private Path lockOf(final String project) {
+        return context.paths()
+                .xdg()
+                .config()
+                .resolve("projects")
+                .resolve(".approving-" + project + ".lock");
+    }
+
+    @Test
+    void theApprovalKeepsHostPortAndPathAndALocalPathIsNotARemoteOne() throws Exception {
+        final ProjectApprovals approvals = new ProjectApprovals(context);
+
+        approvals.approve("onport", "http://127.0.0.1:3000/acme/shop.git");
+        assertThat(approvals.approvedFor("onport", "http://127.0.0.1:3000/acme/shop.git")).isTrue();
+        assertThat(approvals.approvedFor("onport", "http://127.0.0.1:4000/acme/shop.git"))
+                .isFalse();
+        assertThat(approvals.approvedFor("onport", "http://127.0.0.1/acme/shop.git")).isFalse();
+
+        approvals.approve("remote", "https://forge.example/acme/shop.git");
+        assertThat(approvals.approvedFor("remote", "/forge.example/acme/shop.git")).isFalse();
+        assertThat(approvals.approvedFor("remote", "file:///forge.example/acme/shop.git"))
+                .isFalse();
+        assertThat(approvals.approvedFor("remote", "https://forge.example/acme/other.git"))
+                .isFalse();
+        assertThat(approvals.approvedFor("remote", "ssh://git@forge.example:2222/acme/shop.git"))
+                .isFalse();
+        assertThat(approvals.approvedFor("remote", "git@forge.example:acme/shop.git"))
+                .as("ssh and https of one host and path are one repository")
+                .isTrue();
+        assertThat(approvals.approvedFor("remote", "ssh://git@forge.example/acme/shop")).isTrue();
+        assertThat(approvals.approvedFor("remote", "ssh://git@forge.example:22/acme/shop.git"))
+                .isTrue();
+        assertThat(approvals.approvedFor("remote", "https://FORGE.example:443/acme/shop/"))
+                .isTrue();
+
+        approvals.approve("local", "/srv/git/shop.git");
+        assertThat(approvals.approvedFor("local", "file:///srv/git/shop")).isTrue();
+        assertThat(approvals.approvedFor("local", "/srv/git/other.git")).isFalse();
+    }
+
+    @Test
+    void aSecondCheckoutOnAnotherPortIsNotTheSameProject() throws Exception {
+        runner.answering("get-url origin", "http://127.0.0.1:3000/acme/shop.git");
+        withSnippet();
+        assertThat(atTerminal("y")).isNotNull();
+        secondCheckout("http://127.0.0.1:4000/acme/shop.git");
+
+        final FirstStart.Answer answer = firstStart().look(checkout);
+
+        assertThat(answer.refusal().reason()).isEqualTo(FirstStart.Reason.NAME_TAKEN);
+        answer.discard();
+    }
+
+    @Test
+    void aCloneBySshOfWhatWasApprovedByHttpsIsTheSameProject() throws Exception {
+        withSnippet();
+        assertThat(atTerminal("y")).isNotNull();
+        secondCheckout("git@forge.example:acme/shop.git");
+        questions.clear();
+
+        assertThat(atTerminal("n").project()).isEqualTo("strangers");
+        assertThat(questions).isEmpty();
+    }
+
+    @Test
+    void aYesWaitsForTheLockOfItsProject() throws Exception {
+        withSnippet();
+        final FirstStart.Answer answer = firstStart().look(checkout);
+        try (var pool = java.util.concurrent.Executors.newSingleThreadExecutor()) {
+            final var taken =
+                    FileLocks.holding(
+                            lockOf("strangers"),
+                            () -> {
+                                final var future = pool.submit(() -> firstStart().take(answer));
+                                assertThatThrownBy(
+                                                () ->
+                                                        future.get(
+                                                                700,
+                                                                java.util.concurrent.TimeUnit
+                                                                        .MILLISECONDS))
+                                        .as("a yes takes nothing while another holds the name")
+                                        .isInstanceOf(java.util.concurrent.TimeoutException.class);
+                                assertThat(copy()).doesNotExist();
+                                return future;
+                            });
+            assertThat(taken.get()).isEqualTo("strangers");
+        }
+        assertThat(copy()).exists();
+    }
+
+    @Test
+    void aConfirmationAsTheDaemonGivesItWaitsForTheLockToo() throws Exception {
+        withSnippet();
+        final FirstStart.Answer looked = firstStart().look(checkout);
+        final String hash = looked.hash();
+        looked.discard();
+        try (var pool = java.util.concurrent.Executors.newSingleThreadExecutor()) {
+            final var taken =
+                    FileLocks.holding(
+                            lockOf("strangers"),
+                            () -> {
+                                final var future =
+                                        pool.submit(() -> firstStart().confirm(checkout, hash));
+                                assertThatThrownBy(
+                                                () ->
+                                                        future.get(
+                                                                700,
+                                                                java.util.concurrent.TimeUnit
+                                                                        .MILLISECONDS))
+                                        .isInstanceOf(java.util.concurrent.TimeoutException.class);
+                                return future;
+                            });
+            assertThat(taken.get()).isEqualTo("strangers");
+        }
+    }
+
+    @Test
+    void twoYesesFromTwoUpstreamsAtOnceLeaveOneProjectThatAgreesWithItsRecord() throws Exception {
+        withSnippet();
+        final FirstStart.Answer first = firstStart().look(checkout);
+        secondCheckout("https://forge.example/stranger/thing.git");
+        Files.writeString(checkout.resolve("image.inc"), "RUN echo other\n");
+        final FirstStart.Answer second = firstStart().look(checkout);
+        final java.util.concurrent.CountDownLatch go = new java.util.concurrent.CountDownLatch(1);
+        final List<String> taken = java.util.Collections.synchronizedList(new ArrayList<>());
+        final List<FirstStart.Reason> refused =
+                java.util.Collections.synchronizedList(new ArrayList<>());
+        final List<Thread> threads = new ArrayList<>();
+        for (final FirstStart.Answer each : List.of(first, second)) {
+            threads.add(
+                    Thread.ofVirtual()
+                            .start(
+                                    () -> {
+                                        try {
+                                            go.await();
+                                            taken.add(firstStart().take(each) + each.upstream());
+                                        } catch (FirstStart.Refused ex) {
+                                            refused.add(ex.reason());
+                                        } catch (InterruptedException ex) {
+                                            Thread.currentThread().interrupt();
+                                        }
+                                    }));
+        }
+        go.countDown();
+        for (final Thread each : threads) {
+            each.join();
+        }
+
+        assertThat(taken).hasSize(1);
+        assertThat(refused).containsExactly(FirstStart.Reason.NAME_TAKEN);
+        final boolean firstWon = taken.getFirst().endsWith(ORIGIN);
+        assertThat(new ProjectApprovals(context).approvedFor("strangers", ORIGIN))
+                .isEqualTo(firstWon);
+        assertThat(Files.readString(copy().resolveSibling("image.inc")))
+                .isEqualTo(firstWon ? "RUN echo approved\n" : "RUN echo other\n");
+    }
+
+    @Test
+    void aReapprovalKeepsAnOverrideAPersonPutThere() throws Exception {
+        withSnippet();
+        assertThat(atTerminal("y")).isNotNull();
+        final Path override = copy().resolveSibling("shop/.porelo.yml");
+        Files.createDirectories(override.getParent());
+        Files.writeString(override, "image:\n  base_image: mine:1\n");
+        Files.writeString(checkout.resolve("image.inc"), "RUN echo changed\n");
+
+        assertThat(atTerminal("y")).isNotNull();
+
+        assertThat(Files.readString(copy().resolveSibling("image.inc")))
+                .isEqualTo("RUN echo changed\n");
+        assertThat(override).hasContent("image:\n  base_image: mine:1\n");
+    }
+
+    @Test
+    void anOverrideAPersonPutThereDoesNotAskAgain() throws Exception {
+        withSnippet();
+        assertThat(atTerminal("y")).isNotNull();
+        final Path override = copy().resolveSibling("shop/.porelo.yml");
+        Files.createDirectories(override.getParent());
+        Files.writeString(override, "image:\n  base_image: mine:1\n");
+        questions.clear();
+
+        assertThat(atTerminal("n").project()).isEqualTo("strangers");
+        assertThat(questions).isEmpty();
+    }
+
+    @Test
+    void aReapprovalDropsAFileTheOldCopyNamedAndTheNewOneDoesNot() throws Exception {
+        withSnippet();
+        assertThat(atTerminal("y")).isNotNull();
+        Files.writeString(checkout.resolve("other.inc"), "RUN echo other\n");
+        Files.writeString(
+                checkout.resolve("project.yml"), WITH_SNIPPET.replace("image.inc", "other.inc"));
+
+        assertThat(atTerminal("y")).isNotNull();
+
+        assertThat(copy().resolveSibling("other.inc")).exists();
+        assertThat(copy().resolveSibling("image.inc")).doesNotExist();
+    }
+
+    @Test
+    void aRecordThatCannotBeWrittenLeavesTheOldCopyAndTheOldApproval() throws Exception {
+        withSnippet();
+        assertThat(atTerminal("y")).isNotNull();
+        Files.writeString(checkout.resolve("image.inc"), "RUN echo changed\n");
+        final FirstStart.Answer answer = firstStart().look(checkout);
+        final Path approvals = context.paths().projects().projectApprovals();
+        Files.setPosixFilePermissions(approvals, PosixFilePermissions.fromString("r-x------"));
+        try {
+            assertThatThrownBy(() -> firstStart().take(answer))
+                    .isInstanceOfSatisfying(
+                            FirstStart.Refused.class,
+                            ex -> assertThat(ex.reason()).isEqualTo(FirstStart.Reason.NOT_WRITTEN));
+        } finally {
+            Files.setPosixFilePermissions(approvals, PosixFilePermissions.fromString("rwx------"));
+            answer.discard();
+        }
+
+        assertThat(Files.readString(copy().resolveSibling("image.inc")))
+                .isEqualTo("RUN echo approved\n");
+        Files.writeString(checkout.resolve("image.inc"), "RUN echo approved\n");
+        final FirstStart.Answer again = firstStart().look(checkout);
+        assertThat(again.outcome()).isEqualTo(FirstStart.Outcome.KNOWN);
+    }
+
+    @Test
+    void aRecordThatFailsAtTheLastStepTakesTheCopyAndTheNewFileBack() throws Exception {
+        plugin();
+        // A directory in the record's place: the record is written, and only its rename fails.
+        Files.createDirectories(
+                context.paths().projects().projectApprovals().resolve("shop-project/in-the-way"));
+        final FirstStart.Answer answer = firstStart().look(checkout);
+        assertThat(answer.outcome()).isEqualTo(FirstStart.Outcome.ASK_NEW);
+
+        assertThatThrownBy(() -> firstStart().take(answer))
+                .isInstanceOfSatisfying(
+                        FirstStart.Refused.class,
+                        ex -> assertThat(ex.reason()).isEqualTo(FirstStart.Reason.NOT_WRITTEN));
+        answer.discard();
+
+        assertThat(context.paths().projects().defaultProjectFile("shop-project")).doesNotExist();
+        assertThat(checkout.resolve("project.yml")).doesNotExist();
+    }
+
+    @Test
+    void aNameThatIsNoTextIsRefusedAtTheLookInWords() throws Exception {
+        Files.writeString(
+                checkout.resolve("project.yml"),
+                "project:\n  name: 123\n  security_class: guarded\n"
+                        + "image:\n  base_image: ubuntu:24.04\n");
+
+        final FirstStart.Answer answer = firstStart().look(checkout);
+
+        assertThat(answer.refusal()).isNotNull();
+        assertThat(answer.refusal().reason()).isEqualTo(FirstStart.Reason.NO_NAME);
+        assertThat(answer.refusal().detail()).contains("project.name");
+        answer.discard();
+        assertThat(atTerminal("y")).isNull();
+        assertThat(questions).isEmpty();
+        assertThat(said.toString()).contains("project.name", "'default'");
+        assertThat(context.paths().projects().defaultProjectFile("123")).doesNotExist();
+    }
+
+    @Test
+    void anImageAtAStartAfterAYesTakesTheCopysNamedFileWhateverTheCheckoutHolds() throws Exception {
+        withSnippet();
+        assertThat(atTerminal("y")).isNotNull();
+        Files.writeString(checkout.resolve("image.inc"), "RUN echo edited\n");
+
+        final org.fuin.porelo.core.project.Project project =
+                org.fuin.porelo.core.project.ProjectReader.read(
+                        ProjectSource.require(context, "strangers"));
+        final ImageChoice choice =
+                ImageChoice.preview(context, project, project.workRepositories().getFirst())
+                        .choice();
+
+        assertThat(choice.snippet()).contains("RUN echo approved").doesNotContain("edited");
+    }
+
     @Test
     void aChangeInANamedFileAloneAsksAgain() throws Exception {
         withSnippet();
