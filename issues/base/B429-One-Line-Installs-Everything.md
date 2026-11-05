@@ -1,6 +1,6 @@
 # B429 — One Line Installs Everything
 
-**Status:** Backlog.
+**Status:** Implementing.
 **Size:** L - crosses repositories, with an agreed order and one outward removal on the operator's word.
 
 **What must be true.** On Debian and Ubuntu, `sudo apt update && sudo apt install 'porelo*' keepassxc` installs all of
