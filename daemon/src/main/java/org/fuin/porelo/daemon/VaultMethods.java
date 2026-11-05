@@ -567,7 +567,7 @@ final class VaultMethods {
                             Map.of(
                                     "keys",
                                     new org.fuin.porelo.app.SshKeys(context.paths().xdg().home())
-                                            .all().stream()
+                                            .all(context).stream()
                                                     .map(
                                                             key -> {
                                                                 final Map<String, Object> row =

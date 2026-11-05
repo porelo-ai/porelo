@@ -95,12 +95,23 @@ public final class ForgeIdentity {
                                     "-o",
                                     "UserKnownHostsFile="
                                             + FollowCredential.knownHostsFile(context)));
-            if (offered != null
-                    && offered.source() == org.fuin.porelo.core.credential.Credential.Source.FILE) {
+            command.addAll(credential.identityArguments());
+            final var selected =
+                    offered == null ? context.credentialRegistry().forUrl("git", url) : offered;
+            if (selected != null
+                    && selected.source()
+                            == org.fuin.porelo.core.credential.Credential.Source.FILE) {
                 // A key in a file is named to ssh directly. The lease says so in GIT_SSH_COMMAND,
                 // which git reads and ssh does not - so asking with the lease's environment alone
                 // asked about no key at all.
-                command.addAll(java.util.List.of("-i", offered.id(), "-o", "IdentitiesOnly=yes"));
+                command.addAll(
+                        java.util.List.of(
+                                "-F",
+                                "/dev/null",
+                                "-i",
+                                selected.id(),
+                                "-o",
+                                "IdentitiesOnly=yes"));
             }
             // On the address's own port: a forge on 7999 is not the service that answers on 22.
             final HostKeys.Address address = HostKeys.Address.ofUpstream(url);

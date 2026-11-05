@@ -100,7 +100,7 @@ type Connection (
 # records where.
 method CredentialDeclare(
   # What the secret is called. For VAULT the entry name; for FILE the path; for ENVIRONMENT the
-  # variable. Omitted for AGENT.
+  # variable. For AGENT, one SHA256 fingerprint or public key line; omitted means all agent keys.
   #
   # Omitted for VAULT too, which means "you name it": the name becomes the one this machine
   # already looks in for that destination - git.ssh.<host> or git.token.<host> - so a credential
@@ -191,10 +191,12 @@ type SshKey (
   privateHalf: bool,
   # Whether this machine can sign with it as it stands.
   usable: bool,
-  # DIRECTORY (found in ~/.ssh) or CONFIGURED (named by an IdentityFile line in ~/.ssh/config).
+  # DIRECTORY, CONFIGURED (IdentityFile in ~/.ssh/config), or AGENT (public identity from ssh-agent).
   found: string,
   # Why it cannot be used as it stands, with what to do about it, or "".
-  obstacle: string
+  obstacle: string,
+  # Public half for an AGENT key, empty for files. No private value crosses this socket.
+  publicKey: ?string
 )
 
 # The ssh keys this account already has.

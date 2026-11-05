@@ -1007,7 +1007,7 @@ public class GitGate {
         // The one command here that reaches the forge. It ran with nothing: an approved change
         // could not be forwarded to a private upstream unless the account happened to have a key of
         // its own lying about, which is exactly the arrangement the vault exists to replace.
-        try (GitCredentials.Lease lease = lending.forUrl(upstreamUrl)) {
+        try (GitCredentials.Lease lease = lending.forPush(upstreamUrl)) {
             refuseEarlierWork(lease, upstreamUrl, branch, commit);
             gitWith(
                     lease,
@@ -1163,7 +1163,7 @@ public class GitGate {
         if (upstreamUrl == null) {
             return "no upstream is configured for this project";
         }
-        try (GitCredentials.Lease lease = lending.forUrl(upstreamUrl)) {
+        try (GitCredentials.Lease lease = lending.forPush(upstreamUrl)) {
             gitWith(
                     lease,
                     "push",
@@ -1274,7 +1274,7 @@ public class GitGate {
             throw new GateException("Cannot make " + noHooks, ex);
         }
         gitAt(target, "config", "core.hooksPath", noHooks.toString());
-        try (GitCredentials.Lease lease = lending.forUrl(upstreamUrl)) {
+        try (GitCredentials.Lease lease = lending.forPush(upstreamUrl)) {
             gitAtWith(
                     lease,
                     target,
@@ -1350,7 +1350,7 @@ public class GitGate {
         try {
             return runner.runOrFail(Command.of(all).withEnvironment(lease.environment()));
         } catch (CommandException ex) {
-            throw new GateException(ex.getMessage() == null ? "git failed" : ex.getMessage(), ex);
+            throw lease.failure(ex);
         }
     }
 
@@ -1565,7 +1565,7 @@ public class GitGate {
         try {
             return runner.runOrFail(Command.of(all).withEnvironment(lease.environment()));
         } catch (CommandException ex) {
-            throw new GateException(ex.getMessage() == null ? "git failed" : ex.getMessage(), ex);
+            throw lease.failure(ex);
         }
     }
 }

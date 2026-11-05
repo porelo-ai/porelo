@@ -26,6 +26,7 @@ import picocli.CommandLine.Spec;
             CredentialsForgetCommand.class,
             CredentialsCheckCommand.class,
             CredentialsKeysCommand.class,
+            CredentialsTryPushCommand.class,
             CredentialsTrustHostCommand.class
         },
         description = "Says what this machine connects out with, and records more.")

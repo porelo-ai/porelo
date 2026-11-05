@@ -481,7 +481,8 @@ vault" from "nothing is configured, store one".
 ```
 porelo credentials declare "ssh://github.com" --kind ssh-key --vault github-work
 porelo vault put github-work < <your-key-file>      # the value, separately
-porelo credentials declare "ssh://github.com" --kind ssh-key --agent   # or: use my own ssh-agent
+porelo credentials keys                            # files and public identities in the SSH agent
+porelo credentials declare "ssh://github.com" --kind ssh-key --agent --key SHA256:PUBLIC_FINGERPRINT
 porelo credentials check git@github.com:acme/x.git    # what would be used, and whether it reads
 ```
 
@@ -490,7 +491,19 @@ porelo credentials check git@github.com:acme/x.git    # what would be used, and 
   its brackets, so `git@[2001:db8::1]:x` and `ssh://[2001:db8::1]/x` are one destination.
 - **Four sources.** `vault` is encrypted and shut when idle. `file` (such as a key in the SSH folder)
   and `env` are not protected by Porelo, and `credentials list` says so. `agent` uses the account's
-  own ssh-agent and reads nothing.
+  own ssh-agent. `--key` selects one SHA256 fingerprint or public key line; only its public half is
+  placed in a temporary file for SSH. A missing key? Open KeePassXC, unlock it, and refresh the list.
+- **An SSH push requires a declared identity.** With none declared, or an agent declaration that names
+  no single key, forwarding stops before contacting the forge. Fetches keep their existing fallback.
+  A key can be tried before it is kept:
+
+  ```
+  porelo credentials try-push git@forge.example:team/repo.git --repository /path/to/repository --refspec HEAD:refs/heads/work --agent --key SHA256:PUBLIC_FINGERPRINT
+  ```
+
+  This runs `git push --dry-run` with that key alone, disables hooks, and saves no credential or remote ref.
+  `--file /path/to/private-key` selects a file instead. After a successful trial, `credentials declare`
+  keeps the choice for the address, and the existing approval command forwards the reviewed work.
 - **With no `credentials.yml`** a git URL falls back to vault entries named after its host, an IPv6 host with
   its brackets (`git.token.[2001:db8::1]`): `git.ssh.<host>`, `git.token.<host>`, then `ssh.default`.
 - **A key never leaves the vault.** Porelo serves an ssh-agent for the length of the command. A token

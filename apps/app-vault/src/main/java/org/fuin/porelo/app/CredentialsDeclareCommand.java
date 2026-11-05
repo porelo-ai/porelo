@@ -67,6 +67,9 @@ public class CredentialsDeclareCommand implements Callable<Integer>, PoreloFacto
             description = "Use the ssh-agent this account already runs. Nothing is read or kept.")
     private boolean agent;
 
+    @Option(names = "--key", description = "One agent key: SHA256 fingerprint or public key line.")
+    private @Nullable String agentKey;
+
     @Option(
             names = "--user",
             paramLabel = "<name>",
@@ -122,6 +125,10 @@ public class CredentialsDeclareCommand implements Callable<Integer>, PoreloFacto
             err.flush();
             return 64;
         }
+        if (agentKey != null && !agent) {
+            err.println("porelo: --key goes with --agent");
+            return 64;
+        }
         final Credential.Source source =
                 agent
                         ? Credential.Source.AGENT
@@ -134,7 +141,7 @@ public class CredentialsDeclareCommand implements Callable<Integer>, PoreloFacto
         // over the socket, and it is named from the destination below.
         final String id =
                 agent
-                        ? ""
+                        ? agentKey == null ? "" : AgentPublicKeys.select(context, agentKey)
                         : file != null
                                 ? file
                                 : variable != null

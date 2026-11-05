@@ -1,6 +1,6 @@
 # B458 — A Refused Key Gets Help
 
-**Status:** Backlog.
+**Status:** Implementing.
 **Size:** M - five parts, below; the window is Agent Frontend's `F389`.
 
 **What must be true.** A person whose push is refused for its key is led through it: told what happened and which key was used, shown
@@ -47,3 +47,49 @@ it offered one GitHub knows as a deploy key without that right.
 The fields are agreed with Agent Frontend in the room after the test. Each warning names only what has been seen to work, by the operator's rule.
 
 The rule beyond this case is [B459](README.md#b459).
+
+## Plan
+
+- `FollowCredential` selects an agent key by fingerprint or public half, places only the public half for SSH,
+  and isolates SSH from configured identities. `CredentialDeclarations` keeps that selection in its readable record.
+- `SshKeys` adds public identities from the account's SSH agent through the context's command runner; the CLI and
+  daemon answer the same inventory, including the source and public half for an agent key.
+- `GitCredentials.forPush` separates forwarding from fetching. `VaultGitCredentials` refuses an undeclared or
+  unavailable SSH identity before a remote command; `GitGate` uses it for ordinary, signed and automatic forwarding.
+- `PushCredentialHelp` runs the trial with `git push --dry-run`, one identity, and hooks disabled. The CLI's
+  `credentials try-push` and the daemon's `CredentialTryPush` share it; neither saves a declaration nor publishes work.
+- `PushRefused` carries public credential metadata, the forge's known classification and the next command as
+  arguments. The terminal renders the same explanation the daemon returns. The window implements its chooser,
+  refresh, terminal launch and declare-then-approve flow in its own repository.
+- Unit guards first reproduce implicit or wrong identity selection, a missing key falling back, a trial publishing
+  or saving a key, lost public inventory and saved selection, and a diagnostic reporting a different identity.
+
+## Decisions
+
+- An SSH forward with no declared identity stops before contacting the forge. Fetches retain their fallback.
+- A temporary public `IdentityFile`, `IdentitiesOnly=yes` and `-F /dev/null` isolate a selected agent key; no private
+  key is copied. A vault lease also excludes default identity files. The host's gate applies this to a task's forward.
+- The forge is called a deploy key only when its diagnostic says so. Other causes are reported as unknown rather
+  than inferred from an unsuccessful push. Raw remote output is not returned in the SSH refusal.
+- The daemon trial resolves a project's existing mirror, without initializing or fetching it. Its source is AGENT or FILE.
+
+## Acceptance
+
+- The SSH-origin scenario in `acceptance/suite/src/test/resources/org/fuin/porelo/acceptance/project/project-default.feature`
+  covers a refused undeclared approval, a trial that leaves the remote branch absent, then keeping one key and forwarding.
+  It also checks that the task holds neither the key nor the SSH agent socket. Not run in this checkout.
+- Window work: consume `PushRefused`, refresh `SshKeys`, offer `CredentialTryPush`, save the chosen public identity
+  with `CredentialDeclare` and call `Approve` again; launch a terminal with the returned command arguments when needed.
+
+## Verification
+
+- The required read-only skill review found four defects. Each was reproduced in a failing unit test and fixed:
+  registry edits swapping the selected credential, security-key identities breaking inventory, missing fingerprints
+  bypassing the named refusal, and a signed approval suggesting a deleted scratch checkout. The forwarding lease
+  now validates and lends one snapshot; signed refusals offer the durable key-list command.
+- The focused application guards pass. The gate module's unit tests pass, including its 70 gate cases.
+- The full clean unit run stops in the wire module: the socket ancestor guard refuses directories owned by uid 65534
+  in this sandbox. The broader application run also finds a fixture writing into read-only `/run/user/<uid>` and
+  failing agent/plugin fixture assertions, root-owner checks and a missing generated BOM. Complete unit verification
+  is not green; this stays Implementing.
+- No acceptance scenario, VM, installed-machine test, window change, commit or push was performed.

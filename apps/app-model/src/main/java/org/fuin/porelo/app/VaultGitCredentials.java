@@ -17,6 +17,8 @@ public final class VaultGitCredentials implements GitCredentials {
     private final PoreloContext context;
 
     private final String label;
+    private final java.util.function.Supplier<org.fuin.porelo.core.credential.CredentialRegistry>
+            registries;
 
     /**
      * Constructor.
@@ -25,13 +27,55 @@ public final class VaultGitCredentials implements GitCredentials {
      * @param label Names the agent socket, so two commands cannot collide.
      */
     public VaultGitCredentials(final PoreloContext context, final String label) {
+        this(context, label, context::credentialRegistry);
+    }
+
+    VaultGitCredentials(
+            PoreloContext context,
+            String label,
+            java.util.function.Supplier<org.fuin.porelo.core.credential.CredentialRegistry>
+                    registries) {
         this.context = context;
         this.label = label;
+        this.registries = registries;
+    }
+
+    @Override
+    public Lease forPush(final String url) {
+        final var declared = registries.get().forUrl("git", url);
+        if (GitCredentialNames.kindOf(url) == GitCredentialNames.Kind.KEY) {
+            if (declared == null
+                    || declared.source() == org.fuin.porelo.core.credential.Credential.Source.AGENT
+                            && declared.id().isBlank()) {
+                throw PushCredentialHelp.refused(context, url, declared, "NO_CREDENTIAL", null);
+            }
+        }
+        return lease(url, true, declared);
     }
 
     @Override
     public Lease forUrl(final String url) {
-        final FollowCredential lent = FollowCredential.open(context, url, label);
+        return lease(url, false, registries.get().forUrl("git", url));
+    }
+
+    private Lease lease(
+            String url,
+            boolean push,
+            org.fuin.porelo.core.credential.@org.jspecify.annotations.Nullable Credential
+                    declared) {
+        final FollowCredential lent;
+        try {
+            lent = FollowCredential.open(context, url, label, "git", declared);
+        } catch (org.fuin.porelo.core.credential.CredentialException ex) {
+            if (push && GitCredentialNames.kindOf(url) == GitCredentialNames.Kind.KEY) {
+                throw PushCredentialHelp.refused(context, url, declared, "KEY_UNAVAILABLE", null);
+            }
+            throw ex;
+        }
+        if (push && GitCredentialNames.kindOf(url) == GitCredentialNames.Kind.KEY && !lent.lent()) {
+            lent.close();
+            throw PushCredentialHelp.refused(context, url, declared, "KEY_UNAVAILABLE", null);
+        }
         return new Lease() {
 
             @Override
@@ -42,6 +86,17 @@ public final class VaultGitCredentials implements GitCredentials {
             @Override
             public List<String> arguments() {
                 return lent.arguments();
+            }
+
+            @Override
+            public org.fuin.porelo.gate.GateException failure(
+                    org.fuin.porelo.core.process.CommandException failure) {
+                return push && GitCredentialNames.kindOf(url) == GitCredentialNames.Kind.KEY
+                        ? PushCredentialHelp.refused(
+                                context, url, declared, "PUSH_REFUSED", failure)
+                        : new org.fuin.porelo.gate.GateException(
+                                failure.getMessage() == null ? "git failed" : failure.getMessage(),
+                                failure);
             }
 
             @Override

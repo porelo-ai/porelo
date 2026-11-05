@@ -67,6 +67,11 @@ public interface GitCredentials {
      */
     Lease forUrl(String url);
 
+    /** Lends an explicitly chosen identity for forwarding work. */
+    default Lease forPush(String url) {
+        return forUrl(url);
+    }
+
     /** What one git command may use, and the undoing of it. */
     interface Lease extends AutoCloseable {
 
@@ -103,6 +108,15 @@ public interface GitCredentials {
          * @return Arguments, possibly empty. Never a secret - a name at most.
          */
         List<String> arguments();
+
+        /**
+         * Explains a refused remote command, retaining the default diagnostic when no credential is
+         * known.
+         */
+        default GateException failure(org.fuin.porelo.core.process.CommandException failure) {
+            return new GateException(
+                    failure.getMessage() == null ? "git failed" : failure.getMessage(), failure);
+        }
 
         @Override
         void close();

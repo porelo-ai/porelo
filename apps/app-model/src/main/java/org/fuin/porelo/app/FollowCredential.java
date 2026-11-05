@@ -288,21 +288,39 @@ public final class FollowCredential implements AutoCloseable {
             final String url,
             final String label) {
         return switch (credential.source()) {
-            case AGENT ->
-                    new FollowCredential(
-                            Map.of(
-                                    // Nothing is read and nothing is lent: the command inherits the
-                                    // account's own agent, and whoever added keys to it decides.
-                                    // The plainest answer to "use my own keys", and the one that
-                                    // keeps no copy anywhere.
-                                    "GIT_SSH_COMMAND", sshCommand(context, null)),
-                            null,
-                            null,
-                            false);
+            case AGENT -> fromAgent(context, credential);
             case FILE -> fromFile(context, credential, url);
             case ENVIRONMENT -> fromEnvironment(context, credential, url);
             case VAULT -> fromVault(context, credential, url, label);
         };
+    }
+
+    private static FollowCredential fromAgent(PoreloContext context, Credential credential) {
+        if (credential.id().isBlank()) {
+            return new FollowCredential(
+                    Map.of("GIT_SSH_COMMAND", sshCommand(context, null)), null, null, false);
+        }
+        final String publicKey = AgentPublicKeys.select(context, credential.id());
+        try {
+            final Path directory = context.paths().xdg().runtime().resolve("porelo");
+            Directories.create(directory);
+            final Path identity = Files.createTempFile(directory, "git-identity-", ".pub");
+            Files.writeString(identity, publicKey + "\n", java.nio.charset.StandardCharsets.UTF_8);
+            final Map<String, String> environment = new java.util.LinkedHashMap<>();
+            environment.put("GIT_SSH_COMMAND", sshCommand(context, identity.toString()));
+            final String socket = context.environment().apply("SSH_AUTH_SOCK");
+            if (socket != null) environment.put("SSH_AUTH_SOCK", socket);
+            return new FollowCredential(Map.copyOf(environment), null, identity, false);
+        } catch (IOException ex) {
+            throw new IllegalStateException("Cannot place the selected public identity", ex);
+        }
+    }
+
+    /** Arguments for directly asking SSH about the selected public identity. */
+    List<String> identityArguments() {
+        return agent == null && socket != null
+                ? List.of("-F", "/dev/null", "-i", socket.toString(), "-o", "IdentitiesOnly=yes")
+                : List.of();
     }
 
     private static FollowCredential fromFile(
@@ -383,8 +401,10 @@ public final class FollowCredential implements AutoCloseable {
             Thread.ofVirtual().start(serving);
             return new FollowCredential(
                     Map.of(
-                            "SSH_AUTH_SOCK", where.toString(),
-                            "GIT_SSH_COMMAND", sshCommand(context, null)),
+                            "SSH_AUTH_SOCK",
+                            where.toString(),
+                            "GIT_SSH_COMMAND",
+                            sshCommand(context, null) + " -F /dev/null -o IdentityFile=none"),
                     serving,
                     where,
                     false);
@@ -565,12 +585,12 @@ public final class FollowCredential implements AutoCloseable {
     static String sshCommand(final PoreloContext context, final @Nullable String identityFile) {
         // Each path one shell word: git runs this through a shell, so a state directory with a
         // space broke every fetch, and a key path with ';' ran as shell.
-        return "ssh -o StrictHostKeyChecking=yes"
+        return "ssh -o BatchMode=yes -o StrictHostKeyChecking=yes"
                 + " -o UserKnownHostsFile="
                 + word(knownHosts(context).toString())
                 + (identityFile == null
                         ? ""
-                        : " -i " + word(identityFile) + " -o IdentitiesOnly=yes");
+                        : " -F /dev/null -i " + word(identityFile) + " -o IdentitiesOnly=yes");
     }
 
     /**

@@ -21,6 +21,81 @@ import org.junit.jupiter.params.provider.ValueSource;
 /** Tests for {@link FollowCredential}: what git is given to reach a destination. */
 class FollowCredentialTest {
 
+    @Test
+    void anAgentDeclarationNamesOnlyTheChosenPublicKey(@TempDir Path dir) throws Exception {
+        // Prevent a configured identity from silently authenticating as another account.
+        final String publicKey =
+                "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA chosen";
+        final PoreloContext context =
+                new PoreloContext(
+                        new FakeCommandRunner(),
+                        new PoreloPaths(
+                                XdgPaths.of(
+                                        name ->
+                                                "XDG_RUNTIME_DIR".equals(name)
+                                                        ? dir.resolve("run").toString()
+                                                        : null,
+                                        dir),
+                                dir.resolve("bin")),
+                        args -> 0);
+        try (FollowCredential lent =
+                FollowCredential.open(
+                        context,
+                        "git@forge.example:team/repo.git",
+                        "test",
+                        "git",
+                        new Credential(
+                                publicKey,
+                                Credential.Kind.SSH_KEY,
+                                "ssh://forge.example/team/repo.git",
+                                null,
+                                "git",
+                                Credential.Source.AGENT))) {
+            final String command = lent.environment().get("GIT_SSH_COMMAND");
+            assertThat(command)
+                    .as("only the chosen identity may authenticate")
+                    .contains("IdentitiesOnly=yes", "-F /dev/null", " -i ");
+            final var arguments = new java.util.ArrayList<>(java.util.List.of("ssh", "-G"));
+            arguments.addAll(lent.identityArguments());
+            arguments.add("forge.example");
+            final Process ssh = new ProcessBuilder(arguments).start();
+            final String configured =
+                    new String(
+                            ssh.getInputStream().readAllBytes(),
+                            java.nio.charset.StandardCharsets.UTF_8);
+            assertThat(ssh.waitFor())
+                    .as("OpenSSH can read the selected public identity without connecting")
+                    .isZero();
+            assertThat(configured.lines().filter(line -> line.startsWith("identityfile ")).toList())
+                    .as("OpenSSH has exactly one identity to offer")
+                    .hasSize(1);
+            assertThat(configured)
+                    .as("OpenSSH refuses other agent identities")
+                    .contains("identitiesonly yes");
+        }
+    }
+
+    @Test
+    void anUndeclaredSshForwardCannotChooseAnAccountsKey(@TempDir Path dir) {
+        // A forward must not publish work through an unrelated implicit identity.
+        final FakeCommandRunner runner =
+                new FakeCommandRunner()
+                        .answering("for-each-ref", "refs/porelo/incoming/work\n")
+                        .answering("rev-parse", "a".repeat(40));
+        final org.fuin.porelo.gate.GitGate gate =
+                new org.fuin.porelo.gate.GitGate(
+                                runner,
+                                dir.resolve("mirror"),
+                                org.fuin.porelo.gate.GateMode.GATEKEEPING,
+                                "git@forge.example:team/repo.git")
+                        .using(new VaultGitCredentials(context(dir), "test"));
+        assertThat(
+                        org.assertj.core.api.Assertions.catchThrowable(
+                                () -> gate.approve("work", "main")))
+                .as("an undeclared forwarding identity fails before git runs")
+                .isInstanceOf(org.fuin.porelo.gate.GateException.class);
+    }
+
     @AfterEach
     void forgetThePassphrase() {
         PoreloContext.forgetAsked();
@@ -126,6 +201,10 @@ class FollowCredentialTest {
                 assertThat(FollowCredential.sshKeyFor(context, upstream))
                         .as("the address selects the person's own ssh key")
                         .isEqualTo(entry);
+                assertThat(lent.environment().get("GIT_SSH_COMMAND"))
+                        .as(
+                                "a vault key must not be supplemented by private files or configured identities")
+                        .contains("-F /dev/null", "IdentityFile=none");
                 assertThat(Path.of(lent.environment().get("SSH_AUTH_SOCK")))
                         .as("git can request signatures from the lent key")
                         .exists();

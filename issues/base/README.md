@@ -70,6 +70,7 @@ from its side, as *blocked by*.
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
 | <a id="b459"></a>[B459](B459-Every-Credential-Failure-Says-What-To-Do.md) | L | - | Credential failure inventory and shared upstream-probe fixes; remaining backend paths, frontend agreement, window controls and live remedies still pending. |
+| <a id="b458"></a>[B458](B458-A-Refused-Push-Says-Which-Credential.md) | M | - | Backend built: selected SSH identities, public key inventory, trial and named refusal; focused guards pass, complete unit verification blocked, window remains. |
 | <a id="b462"></a>[B462](B462-One-Model-For-A-Project-File.md) | XL | - | A project file is read and written through one typed model only; measured first. |
 | <a id="b429"></a>[B429](B429-One-Line-Installs-Everything.md) | L | - | `sudo apt install 'porelo*' keepassxc` installs all of Porelo on every channel and stays true: the test agent leaves the channels, and a check runs the line against the published index. |
 | <a id="b385"></a>[B385](B385-A-KeePassXC-Key-That-Is-Usable.md) | L | - | `--keepassxc` asks the master password once, a retry takes the key already made, no empty entry left, a clear refusal under `su` or a redirected stderr, aligned exit codes |
@@ -80,7 +81,6 @@ from its side, as *blocked by*.
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
 | <a id="b463"></a>[B463](B463-A-File-Written-Back-Keeps-Its-Comments.md) | S | - | A YAML file Porelo writes back changed keeps its comments, through SnakeYAML's node tree. |
-| <a id="b458"></a>[B458](B458-A-Refused-Push-Says-Which-Credential.md) | M | - | A push refused for its key leads a person through it: which key, their keys, try one, keep it. |
 | <a id="b460"></a>[B460](B460-A-Task-Starts-On-The-Branch-Of-Its-Checkout.md) | L | - | A task started from a checkout starts on its branch, and says so; `--from`, `base_branch`. |
 | <a id="b456"></a>[B456](B456-A-Plugin-Resolves-What-A-Project-Asks.md) | L | - | A plugin may look up what a project asks when a file is made; a person sees the fetched lines whole. |
 | <a id="b453"></a>[B453](B453-A-Draft-Replaces-A-Repositorys-Own-Image.md) | S | - | A draft does not silently replace the image a repository says it needs. |

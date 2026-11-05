@@ -573,7 +573,8 @@ Which secret a destination uses, and where it lives. Nothing here prints a value
 | `porelo credentials declare MATCH --kind=KIND` | Records a destination's credential: `--vault`, `--file`, `--env` or `--agent`. |
 | `porelo credentials check URL [--no-connect]` | Says which credential a URL would use and, for git, reads the URL with it as a start does: a refused key, a missing repository or a host out of reach is named with its fix. `--no-connect` only says what would be used. |
 | `porelo credentials forget MATCH` | Forgets a record. The value is left alone. |
-| `porelo credentials keys` | Lists this account's ssh keys without reading them. |
+| `porelo credentials keys` | Lists file keys and public SSH agent identities, with their fingerprints and sources. |
+| `porelo credentials try-push URL --repository PATH --refspec SOURCE:refs/heads/BRANCH` | Tries only `--agent --key FINGERPRINT` or `--file PATH` with `git push --dry-run`; saves no credential and publishes no work. |
 | `porelo credentials trust-host HOST[:PORT] [--fingerprint=SHA256:...] [--json]` | Shows a host's keys and records the one you confirm. Name the port when its ssh is not on 22 - `forge.example.org:7999` - as the hint at a start does. `--json` answers `{"host", "keys": [{"type", "fingerprint", "key"}], "known"}`, recording nothing, or with `--fingerprint` `{"host", "recorded": {"type", "fingerprint"}}`. A host that offers nothing, or no key with that fingerprint, is exit 70 with the words on standard error. |
 
 ## card

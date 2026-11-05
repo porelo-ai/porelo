@@ -189,3 +189,32 @@ error BranchRefused(branch: string, pattern: string)
 # nothing was pushed. 'at' is the commit the branch holds. Approve onto another branch, such as the next free
 # '<branch>-2'; never a force over it, since it can be somebody's reviewed work.
 error BranchExists(branch: string, at: string)
+
+# Tries one SSH identity without saving a credential or publishing work. Uses the existing mirror;
+# it never initializes or fetches one. source is AGENT (fingerprint or public key id) or FILE (path).
+method CredentialTryPush(
+  project: string,
+  repository: ?string,
+  refspec: string,
+  source: string,
+  id: string
+) -> (
+  accepted: bool,
+  fingerprint: string,
+  message: string
+)
+
+# Forwarding could not use the chosen SSH identity. No raw remote output is returned.
+error PushRefused(
+  # NO_CREDENTIAL, KEY_UNAVAILABLE, or PUSH_REFUSED.
+  outcome: string,
+  address: string,
+  source: string,
+  id: string,
+  fingerprint: string,
+  # DEPLOY_KEY when the forge said so, otherwise UNKNOWN.
+  forge: string,
+  # A complete command for a person to start in a terminal, as arguments.
+  command: []string,
+  message: string
+)

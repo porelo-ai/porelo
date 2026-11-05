@@ -35,7 +35,10 @@ public final class SshKeys {
         DIRECTORY,
 
         /** Named by an {@code IdentityFile} line in {@code ~/.ssh/config}. */
-        CONFIGURED
+        CONFIGURED,
+
+        /** Offered by the account's SSH agent. */
+        AGENT
     }
 
     /**
@@ -61,7 +64,21 @@ public final class SshKeys {
             boolean encrypted,
             boolean privateHalf,
             boolean usable,
-            Found found) {
+            Found found,
+            String publicKey) {
+
+        /** Describes a file key without exporting its value. */
+        public Key(
+                String path,
+                String type,
+                String fingerprint,
+                String comment,
+                boolean encrypted,
+                boolean privateHalf,
+                boolean usable,
+                Found found) {
+            this(path, type, fingerprint, comment, encrypted, privateHalf, usable, found, "");
+        }
 
         /**
          * Returns this as plain values, for a caller that has to put it on a wire.
@@ -78,6 +95,7 @@ public final class SshKeys {
             map.put("privateHalf", privateHalf);
             map.put("usable", usable);
             map.put("found", found.name());
+            map.put("publicKey", publicKey);
             return map;
         }
 
@@ -87,6 +105,7 @@ public final class SshKeys {
          * @return One sentence with what to do.
          */
         public @Nullable String obstacle() {
+            if (found == Found.AGENT) return null;
             if (!privateHalf) {
                 return "only the public half is here; the private key is what a machine signs with";
             }
@@ -142,6 +161,27 @@ public final class SshKeys {
                     keys.add(key);
                 }
             }
+        }
+        return List.copyOf(keys);
+    }
+
+    /** Lists files and the agent's public identities using only this machine's context. */
+    public List<Key> all(PoreloContext context) {
+        final List<Key> keys = new ArrayList<>(all());
+        for (final String line : AgentPublicKeys.all(context)) {
+            final String[] parts = line.strip().split("\\s+", 3);
+            final String fingerprint = AgentPublicKeys.fingerprint(line);
+            keys.add(
+                    new Key(
+                            fingerprint,
+                            parts[0],
+                            fingerprint,
+                            parts.length > 2 ? parts[2] : "",
+                            false,
+                            false,
+                            true,
+                            Found.AGENT,
+                            AgentPublicKeys.validated(line)));
         }
         return List.copyOf(keys);
     }

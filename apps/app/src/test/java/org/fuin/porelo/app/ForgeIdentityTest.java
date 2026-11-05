@@ -41,6 +41,41 @@ class ForgeIdentityTest {
     }
 
     @Test
+    void aProbeUsesTheSelectedAgentIdentityRatherThanAnotherKey() throws Exception {
+        // A successful check of a different identity would authorize keeping the wrong key.
+        final var paths =
+                XdgPaths.of(
+                        name ->
+                                "XDG_RUNTIME_DIR".equals(name)
+                                        ? dir.resolve("run").toString()
+                                        : null,
+                        dir);
+        final PoreloContext context =
+                new PoreloContext(runner, new PoreloPaths(paths, dir.resolve("bin")), args -> 0);
+        final String key =
+                "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
+        ForgeIdentity.ask(
+                context,
+                "git@forge.example:team/repo.git",
+                "probe",
+                new org.fuin.porelo.core.credential.Credential(
+                        key,
+                        org.fuin.porelo.core.credential.Credential.Kind.SSH_KEY,
+                        "ssh://forge.example/team/repo.git",
+                        null,
+                        "git",
+                        org.fuin.porelo.core.credential.Credential.Source.AGENT));
+        assertThat(sshRuns())
+                .as("the direct SSH probe uses the same isolated identity as git")
+                .singleElement()
+                .satisfies(
+                        command ->
+                                assertThat(command.arguments())
+                                        .as("no configured file or other agent identity may win")
+                                        .contains("-i", "IdentitiesOnly=yes", "-F", "/dev/null"));
+    }
+
+    @Test
     void askingAHostWhoWeAreNeverLearnsAHostKeyNobodyConfirmed() {
         // It asked with accept-new, into the known_hosts every fetch trusts: a check of a
         // credential, or the explanation of a refused fetch, trusted a host nobody had compared,

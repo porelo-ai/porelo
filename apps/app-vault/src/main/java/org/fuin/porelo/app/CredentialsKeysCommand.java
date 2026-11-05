@@ -32,10 +32,11 @@ public class CredentialsKeysCommand implements Callable<Integer>, PoreloFactory.
     @Override
     public Integer call() {
         final PrintWriter out = spec.commandLine().getOut();
-        final List<SshKeys.Key> keys = new SshKeys(context.paths().xdg().home()).all();
+        final List<SshKeys.Key> keys = new SshKeys(context.paths().xdg().home()).all(context);
+        out.println("A key missing from the list? Open KeePassXC, unlock it, and refresh.");
         if (keys.isEmpty()) {
             out.println(
-                    "No ssh keys in ~/.ssh. 'ssh-keygen -t ed25519' makes one, and its public"
+                    "No SSH keys were found in files or the agent. 'ssh-keygen -t ed25519' makes one, and its public"
                             + " half is what a forge has to be told about.");
             out.flush();
             return 0;
@@ -43,10 +44,11 @@ public class CredentialsKeysCommand implements Callable<Integer>, PoreloFactory.
         final int width = keys.stream().mapToInt(key -> key.path().length()).max().orElse(0);
         for (final SshKeys.Key key : keys) {
             out.printf(
-                    "%-" + width + "s  %-12s  %s%n",
+                    "%-" + width + "s  %-12s  %s  %s%n",
                     key.path(),
                     key.type().isEmpty() ? "(encrypted)" : key.type(),
-                    key.fingerprint().isEmpty() ? "" : key.fingerprint());
+                    key.fingerprint().isEmpty() ? "" : key.fingerprint(),
+                    key.found());
             if (!key.comment().isEmpty()) {
                 out.printf("%-" + width + "s  %s%n", "", key.comment());
             }

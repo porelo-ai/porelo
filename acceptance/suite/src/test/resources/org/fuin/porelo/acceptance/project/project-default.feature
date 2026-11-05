@@ -56,7 +56,7 @@ Feature: Work starts without a project, in the project every machine has
             git -C "$base/seed" push -q "$base/$repo.git" HEAD:main
             ssh-keygen -q -t ed25519 -N '' -C "porelo-acceptance-$repo" -f "$base/key"
             # Taken back whatever happens below: the key is allowed into this account for this scenario only.
-            trap 'sed -i "/porelo-acceptance-$repo\$/d" ~/.ssh/authorized_keys; ssh-agent -k > /dev/null 2>&1' EXIT
+            trap 'porelo credentials forget "$origin" > /dev/null 2>&1; sed -i "/porelo-acceptance-$repo\$/d" ~/.ssh/authorized_keys; ssh-agent -k > /dev/null 2>&1' EXIT
             cat "$base/key.pub" >> ~/.ssh/authorized_keys
             eval "$(ssh-agent -s)" > /dev/null && ssh-add -q "$base/key"
             origin="ssh://$USER@127.0.0.1$base/$repo.git"
@@ -82,10 +82,22 @@ Feature: Work starts without a project, in the project every machine has
             # As a person types it: no repository named. The task's own record says which one it worked on.
             porelo gate pending --project default | grep -c "^$repo  *sshwork " | sed 's/^/listed as pending: /'
             porelo gate pending | grep -c "^default  *$repo  *sshwork " | sed 's/^/listed with nothing named: /'
+            porelo gate approve sshwork --project default --branch porelo/sshwork > "$base/undeclared" 2>&1
+            echo "undeclared approve exit $?"
+            grep -o "the push was not attempted" "$base/undeclared"
+            mirror="${XDG_DATA_HOME:-$HOME/.local/share}/porelo/mirrors/default/$repo.git"
+            fingerprint=$(ssh-keygen -lf "$base/key.pub" | awk '{ print $2 }')
+            porelo credentials try-push "$origin" --repository "$mirror" \
+                --refspec refs/porelo/incoming/sshwork:refs/heads/porelo/sshwork --agent --key "$fingerprint"
+            echo "trial exit $?"
+            git --git-dir="$base/$repo.git" show-ref --verify --quiet refs/heads/porelo/sshwork
+            echo "branch after trial $?"
+            porelo credentials declare "$origin" --kind ssh-key --agent --key "$fingerprint"
             porelo gate approve sshwork --project default --branch porelo/sshwork > "$base/approve" 2>&1
             echo "approve exit $?"
             git --git-dir="$base/$repo.git" log --format='%s' -1 porelo/sshwork | sed 's/^/arrived: /'
             porelo task remove porelo-default-sshwork --force > /dev/null 2>&1
+            porelo credentials forget "$origin" > /dev/null
             porelo project default remove "$repo" > /dev/null
             ssh-agent -k > /dev/null
             sed -i "/porelo-acceptance-$repo\$/d" ~/.ssh/authorized_keys
@@ -102,6 +114,10 @@ Feature: Work starts without a project, in the project every machine has
         And its output contains "in the task (agent socket, key): 0 0"
         And its output contains "listed as pending: 1"
         And its output contains "listed with nothing named: 1"
+        And its output contains "undeclared approve exit 1"
+        And its output contains "the push was not attempted"
+        And its output contains "trial exit 0"
+        And its output contains "branch after trial 1"
         And its output contains "approve exit 0"
         And its output contains "arrived: acceptance: work for an ssh origin"
         And its output contains "key left allowed: 0"

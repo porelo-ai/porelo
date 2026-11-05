@@ -42,6 +42,35 @@ final class GateMethods {
             TaskInventory inventory,
             TaskControl control) {
         server.method(
+                "CredentialTryPush",
+                (parameters, replies) -> {
+                    final String source = text(parameters, "source");
+                    if (!source.equals("AGENT") && !source.equals("FILE")) {
+                        throw new VarlinkException(
+                                INTERFACE + ".Failed",
+                                Map.of("message", "source must be AGENT or FILE"));
+                    }
+                    final var project = GateSupport.byName(context, text(parameters, "project"));
+                    final var repository =
+                            GateSupport.repository(project, text(parameters, "repository"));
+                    final String upstream = repository.upstream();
+                    if (upstream == null) {
+                        throw new VarlinkException(
+                                INTERFACE + ".Failed",
+                                Map.of("message", "This repository has no upstream."));
+                    }
+                    final var gate = GateSupport.gate(context, project, repository, null, null);
+                    replies.last(
+                            org.fuin.porelo.app.PushCredentialHelp.tryPush(
+                                    context,
+                                    gate.mirror(),
+                                    upstream,
+                                    text(parameters, "refspec"),
+                                    "AGENT".equals(text(parameters, "source")),
+                                    text(parameters, "id")));
+                });
+
+        server.method(
                 "Pending",
                 (parameters, replies) -> {
                     final GitGate gate = gate(parameters, context);
@@ -150,6 +179,8 @@ final class GateMethods {
                             gate.approve(
                                     text(parameters, "name"), branch, empty(parameters, "commit"));
                         }
+                    } catch (org.fuin.porelo.app.PushRefused ex) {
+                        throw new VarlinkException(INTERFACE + ".PushRefused", ex.details());
                     } catch (org.fuin.porelo.gate.GateException.MovedSinceReview ex) {
                         // Typed, so an interface says it in its own words and offers the review
                         // again.

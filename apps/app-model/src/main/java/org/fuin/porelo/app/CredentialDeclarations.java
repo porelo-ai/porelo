@@ -579,7 +579,8 @@ public final class CredentialDeclarations {
                 case FILE -> text.append("    file: ").append(quoted(credential.id())).append('\n');
                 case ENVIRONMENT ->
                         text.append("    env: ").append(quoted(credential.id())).append('\n');
-                case AGENT -> text.append("    # the account's own ssh-agent answers\n");
+                case AGENT ->
+                        text.append("    vault: ").append(quoted(credential.id())).append('\n');
             }
             if (credential.user() != null && !credential.user().isBlank()) {
                 text.append("    user: ").append(quoted(credential.user())).append('\n');

@@ -1,6 +1,6 @@
 Feature: The credentials commands
 
-    Six commands that decide which secret a destination gets and where it lives. What matters is that
+    Commands that decide which secret a destination gets and where it lives. What matters is that
     each says what it did, refuses what it cannot do, and never leaves a record behind that nobody
     asked for. Every address here is under .invalid, so nothing is ever reached or presented to.
 
@@ -16,6 +16,7 @@ Feature: The credentials commands
             | check      |
             | keys       |
             | trust-host |
+            | try-push   |
 
     Scenario: a declared credential is listed, checked and forgotten
         # Cleared first, so a run that failed half-way does not decide this one.
@@ -58,7 +59,7 @@ Feature: The credentials commands
     Scenario: the account's ssh keys are named without being read
         When a script runs "porelo credentials keys"
         Then it exits zero
-        And its output mentions one of "No ssh keys, .ssh/"
+        And its output mentions one of "No SSH keys, .ssh/, SHA256:"
         And its output does not contain "PRIVATE KEY"
 
     Scenario: a host's keys are shown, and nothing is recorded without a fingerprint

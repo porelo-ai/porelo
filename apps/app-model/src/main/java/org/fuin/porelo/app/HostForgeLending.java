@@ -49,6 +49,11 @@ final class HostForgeLending implements GitCredentials {
     }
 
     @Override
+    public Lease forPush(String url) {
+        return onTheForge(url) ? forUrl(url) : otherwise.forPush(url);
+    }
+
+    @Override
     public Lease forUrl(final String url) {
         if (!onTheForge(url)) {
             return otherwise.forUrl(url);
