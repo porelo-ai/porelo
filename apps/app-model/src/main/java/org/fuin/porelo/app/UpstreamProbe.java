@@ -289,13 +289,18 @@ public final class UpstreamProbe {
         if (check.outcome() == CredentialDeclarations.Outcome.VAULT_LOCKED) {
             return new Answer(
                     Cause.KEY_REFUSED,
-                    host
-                            + " refused this machine: the vault is shut, so "
-                            + (used == null ? "what it holds" : "'" + used.id() + "'")
-                            + " was not offered.",
-                    "porelo vault unlock");
+                    host + " refused this machine: " + check.detail(),
+                    check.storeCommand());
         }
-        if (used == null || check.outcome() != CredentialDeclarations.Outcome.READY) {
+        if (used != null && check.outcome() != CredentialDeclarations.Outcome.READY) {
+            return new Answer(
+                    Cause.KEY_REFUSED,
+                    host + " refused this machine: " + check.detail(),
+                    check.storeCommand().isEmpty()
+                            ? "porelo credentials list"
+                            : check.storeCommand());
+        }
+        if (used == null) {
             final String offered =
                     overSsh
                             ? "nothing is stored for it, so ssh offered only its default key files and, at a terminal, your"

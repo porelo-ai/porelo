@@ -65,24 +65,41 @@ class CredentialDryRunTest {
         // With a vault that exists and is open: the value simply is not in it. That is a different
         // answer from having no vault at all, which the test below measures - and telling them
         // apart is the point of both.
-        final PoreloContext context = context(dir);
+        final PoreloContext base = context(dir);
+        final PoreloContext context =
+                new PoreloContext(
+                        base.runner(),
+                        base.paths(),
+                        base.exec(),
+                        base.environment(),
+                        false,
+                        prompt -> "a-passphrase".toCharArray());
         context.vault().write(java.util.Map.of(), "a-passphrase".toCharArray());
+        try {
+            assertThat(
+                            context.openerAsking(
+                                    false, new java.io.PrintWriter(new java.io.StringWriter())))
+                    .as("the fixture is open before asking whether an entry is missing")
+                    .isPresent();
+            final CredentialDeclarations.Check would =
+                    new CredentialDeclarations(context)
+                            .wouldDeclare(
+                                    new Credential(
+                                            "",
+                                            Credential.Kind.TOKEN,
+                                            "https://forge.example/acme/",
+                                            null,
+                                            "git",
+                                            Credential.Source.VAULT));
 
-        final CredentialDeclarations.Check would =
-                new CredentialDeclarations(context)
-                        .wouldDeclare(
-                                new Credential(
-                                        "",
-                                        Credential.Kind.TOKEN,
-                                        "https://forge.example/acme/",
-                                        null,
-                                        "git",
-                                        Credential.Source.VAULT));
-
-        assertThat(would.outcome()).isEqualTo(CredentialDeclarations.Outcome.MISSING_VALUE);
-        // Named, though nobody named it - so what a person is told to run is a command that works.
-        assertThat(would.storeCommand())
-                .isEqualTo("porelo vault put git.token.forge.example --type token");
+            assertThat(would.outcome()).isEqualTo(CredentialDeclarations.Outcome.MISSING_VALUE);
+            // Named, though nobody named it - so what a person is told to run is a command that
+            // works.
+            assertThat(would.storeCommand())
+                    .isEqualTo("porelo vault put git.token.forge.example --type token");
+        } finally {
+            context.forgetTyped();
+        }
     }
 
     @Test

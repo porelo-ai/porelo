@@ -64,16 +64,12 @@ public class CredentialsCheckCommand implements Callable<Integer>, PoreloFactory
                 check.outcome().name().toLowerCase(java.util.Locale.ROOT)
                         + "      "
                         + check.detail());
-        final org.fuin.porelo.core.credential.Credential credential = check.credential();
         final java.util.List<String> store =
-                credential == null || check.storeCommand().isEmpty()
-                        ? null
-                        : store(
-                                credential.id(),
-                                credential.kind(),
-                                Offer.atTerminal()
-                                        ? new Offer(Offer.Asker.terminal(), false, false, err)
-                                        : Offer.NOBODY);
+                store(
+                        check,
+                        Offer.atTerminal()
+                                ? new Offer(Offer.Asker.terminal(), false, false, err)
+                                : Offer.NOBODY);
         if (store != null) {
             // The command's own code, on this terminal; then the declaration is checked again,
             // never assumed.
@@ -94,6 +90,19 @@ public class CredentialsCheckCommand implements Callable<Integer>, PoreloFactory
         }
         err.flush();
         return 70;
+    }
+
+    static java.util.@org.jspecify.annotations.Nullable List<String> store(
+            final CredentialDeclarations.Check check, final Offer offer) {
+        final var credential = check.credential();
+        return credential == null
+                        || credential.source()
+                                != org.fuin.porelo.core.credential.Credential.Source.VAULT
+                        || (check.outcome() != CredentialDeclarations.Outcome.MISSING_VALUE
+                                && check.outcome() != CredentialDeclarations.Outcome.EXPIRED)
+                        || check.storeCommand().isEmpty()
+                ? null
+                : store(credential.id(), credential.kind(), offer);
     }
 
     /**

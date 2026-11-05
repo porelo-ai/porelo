@@ -21,6 +21,86 @@ import org.junit.jupiter.api.io.TempDir;
 class UpstreamProbeTest {
 
     @Test
+    void aTaskDoesNotOfferToCopyADeclaredExternalKeyIntoTheVault(@TempDir final Path dir)
+            throws Exception {
+        final PoreloContext context = context(dir);
+        new CredentialDeclarations(context)
+                .declare(
+                        new org.fuin.porelo.core.credential.Credential(
+                                "",
+                                org.fuin.porelo.core.credential.Credential.Kind.SSH_KEY,
+                                "ssh://forge.example.org",
+                                null,
+                                "git",
+                                org.fuin.porelo.core.credential.Credential.Source.AGENT));
+        final var questions = new java.util.ArrayList<String>();
+        final var launch =
+                new TaskLaunch(
+                                context,
+                                new TaskLaunch.Request(
+                                        "task",
+                                        dir.resolve("project.yml"),
+                                        null,
+                                        null,
+                                        null,
+                                        8,
+                                        UPSTREAM,
+                                        false,
+                                        false,
+                                        "deny",
+                                        true))
+                        .offering(
+                                new Offer(
+                                        question -> {
+                                            questions.add(question);
+                                            return null;
+                                        },
+                                        false,
+                                        false,
+                                        new java.io.PrintWriter(new java.io.StringWriter())));
+        final var finding =
+                new UpstreamProbe.Finding(
+                        new UpstreamProbe.Answer(UpstreamProbe.Cause.KEY_REFUSED, "no agent", ""),
+                        true);
+
+        launch.storeRefusedKey(
+                finding,
+                project(dir, "guarded"),
+                new java.io.PrintWriter(new java.io.StringWriter()));
+
+        assertThat(questions)
+                .as("the person chose an agent, so vault storage cannot repair it")
+                .isEmpty();
+    }
+
+    @Test
+    void aMissingDeclaredFileIsNotReplacedByAdviceToCreateAVaultCopy(@TempDir final Path dir)
+            throws Exception {
+        final PoreloContext context = context(dir);
+        final Path missing = dir.resolve("missing-key");
+        new CredentialDeclarations(context)
+                .declare(
+                        new org.fuin.porelo.core.credential.Credential(
+                                missing.toString(),
+                                org.fuin.porelo.core.credential.Credential.Kind.SSH_KEY,
+                                "ssh://forge.example.org",
+                                null,
+                                "git",
+                                org.fuin.porelo.core.credential.Credential.Source.FILE));
+
+        final var answer =
+                UpstreamProbe.answer(context, UPSTREAM, "Permission denied (publickey).");
+
+        assertThat(answer.detail())
+                .as("the recorded source is the one that needs repair")
+                .contains(missing.toString(), "cannot be read")
+                .doesNotContain("nothing is stored");
+        assertThat(answer.fix())
+                .as("the owner chose a file, not a vault copy")
+                .doesNotContain("vault put");
+    }
+
+    @Test
     void aCleanupFailureDoesNotClaimTheRemoteWasNeverRead(@TempDir final Path dir) {
         final UpstreamProbe.Answer answer =
                 UpstreamProbe.probe(

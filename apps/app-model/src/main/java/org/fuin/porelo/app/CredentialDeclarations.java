@@ -11,6 +11,9 @@ import java.util.Locale;
 import java.util.Map;
 import org.fuin.porelo.core.credential.Credential;
 import org.fuin.porelo.core.credential.CredentialRegistry;
+import org.fuin.porelo.core.process.Command;
+import org.fuin.porelo.core.process.CommandException;
+import org.fuin.porelo.core.process.CommandResult;
 import org.fuin.porelo.wire.Directories;
 import org.jspecify.annotations.Nullable;
 
@@ -152,11 +155,9 @@ public final class CredentialDeclarations {
             final Map<String, org.fuin.porelo.vault.VaultEntry> held =
                     context.readableCredentials().orElse(null);
             if (held == null) {
-                return new Check(
-                        Outcome.VAULT_LOCKED,
+                return locked(
                         null,
-                        "",
-                        "this account's vault is shut, so what it holds for "
+                        "this account's vault is shut or unreadable, so what it holds for "
                                 + url
                                 + " cannot be read");
             }
@@ -186,6 +187,10 @@ public final class CredentialDeclarations {
                             + " - declare a credential for it, or store one"
                             + " under a name it implies");
         }
+        return checkDeclared(declared, url);
+    }
+
+    private Check checkDeclared(final Credential declared, final String url) {
         if (declared.expiredAt(java.time.Instant.now())) {
             return new Check(
                     Outcome.EXPIRED,
@@ -195,11 +200,11 @@ public final class CredentialDeclarations {
                             + declared.id()
                             + "' expired at "
                             + declared.expires()
-                            + " and nothing here can renew it without you");
+                            + " and nothing here can renew it without you; replace the value"
+                            + " at its declared source and update the declaration's expiration");
         }
         return switch (declared.source()) {
-            case AGENT ->
-                    new Check(Outcome.READY, declared, "", "your own ssh-agent answers for " + url);
+            case AGENT -> checkAgent(declared);
             case FILE ->
                     Files.isReadable(Path.of(declared.id()))
                             ? new Check(
@@ -217,7 +222,8 @@ public final class CredentialDeclarations {
                                     declared.id()
                                             + " is declared for "
                                             + url
-                                            + " and cannot be read");
+                                            + " and cannot be read; restore the file and make it"
+                                            + " readable by this account, then retry");
             case ENVIRONMENT ->
                     System.getenv(declared.id()) != null
                             ? new Check(
@@ -237,20 +243,19 @@ public final class CredentialDeclarations {
                                             + declared.id()
                                             + " is declared for "
                                             + url
-                                            + " and is not set");
+                                            + " and is not set; set it in the environment of the"
+                                            + " process running Porelo, then retry");
             case VAULT -> {
                 final Map<String, org.fuin.porelo.vault.VaultEntry> held =
                         context.readableCredentials().orElse(null);
                 if (held == null) {
-                    yield new Check(
-                            Outcome.VAULT_LOCKED,
+                    yield locked(
                             declared,
-                            "",
                             "'"
                                     + declared.id()
                                     + "' is declared for "
                                     + url
-                                    + " and this account's vault is shut");
+                                    + " and this account's vault is shut or unreadable");
                 }
                 if (!context.vault().exists()) {
                     // No vault at all. A readable, empty answer covers this and "the vault is open
@@ -279,6 +284,79 @@ public final class CredentialDeclarations {
                                         + url
                                         + " and the vault has no such entry");
             }
+        };
+    }
+
+    private Check locked(final @Nullable Credential credential, final String detail) {
+        if (context.vault().isHostVault()) {
+            return new Check(
+                    Outcome.VAULT_LOCKED,
+                    credential,
+                    "",
+                    detail
+                            + "; on your client computer, run 'porelo host unlock <host>"
+                            + " --host-key <verified-fingerprint> --login <account>', then retry");
+        }
+        if (!context.vault().hasPassphrase()) {
+            return new Check(
+                    Outcome.VAULT_LOCKED,
+                    credential,
+                    "",
+                    detail + "; unlock it with an enrolled device, then retry");
+        }
+        return new Check(
+                Outcome.VAULT_LOCKED,
+                credential,
+                "porelo vault unlock",
+                detail + "; unlock it and check again before replacing any credential");
+    }
+
+    private Check checkAgent(final Credential credential) {
+        final String socket = context.environment().apply("SSH_AUTH_SOCK");
+        if (socket == null || socket.isBlank()) {
+            return new Check(
+                    Outcome.MISSING_VALUE,
+                    credential,
+                    "",
+                    "no SSH agent is available to this process; start or reconnect your agent,"
+                            + " set SSH_AUTH_SOCK for Porelo, then retry");
+        }
+        final CommandResult identities;
+        try {
+            identities =
+                    context.runner()
+                            .run(
+                                    Command.of("ssh-add", "-l")
+                                            .withEnvironment(Map.of("SSH_AUTH_SOCK", socket)));
+        } catch (final CommandException ex) {
+            return new Check(
+                    Outcome.KEY_REFUSED,
+                    credential,
+                    "ssh-add -l",
+                    "the SSH agent's identities could not be checked; check that ssh-add is"
+                            + " installed and SSH_AUTH_SOCK reaches your agent, then retry");
+        }
+        return switch (identities.exitCode()) {
+            case 0 ->
+                    new Check(
+                            Outcome.READY,
+                            credential,
+                            "",
+                            "your own ssh-agent offers keys for " + credential.match());
+            case 1 ->
+                    new Check(
+                            Outcome.MISSING_VALUE,
+                            credential,
+                            "",
+                            "the SSH agent offers no keys; it may be empty or locked. Unlock it or add"
+                                    + " the required private key with 'ssh-add <private-key-file>', then retry");
+            default ->
+                    new Check(
+                            Outcome.KEY_REFUSED,
+                            credential,
+                            "ssh-add -l",
+                            "the SSH agent could not answer the identity check; check SSH_AUTH_SOCK and"
+                                    + " reconnect your agent, then retry");
         };
     }
 
@@ -352,21 +430,7 @@ public final class CredentialDeclarations {
         // The same question the check asks of a destination, asked of the record as it would be: is
         // the value actually there. One implementation, so a dry run cannot answer differently from
         // the thing it stands for.
-        final Check about = check(credential.match(), credential.purpose());
-        if (about.outcome() == Outcome.READY || about.credential() == null) {
-            return new Check(
-                    present(credential) ? Outcome.READY : Outcome.MISSING_VALUE,
-                    credential,
-                    storeCommandFor(credential),
-                    present(credential)
-                            ? "it would be used for " + credential.match()
-                            : "nothing holds its value yet");
-        }
-        return new Check(
-                present(credential) ? Outcome.READY : about.outcome(),
-                credential,
-                storeCommandFor(credential),
-                about.detail());
+        return checkDeclared(credential, credential.match());
     }
 
     /**
@@ -655,7 +719,7 @@ public final class CredentialDeclarations {
 
     private boolean present(final Credential credential) {
         return switch (credential.source()) {
-            case AGENT -> true;
+            case AGENT -> checkAgent(credential).outcome() == Outcome.READY;
             case FILE -> Files.isReadable(Path.of(credential.id()));
             case ENVIRONMENT -> System.getenv(credential.id()) != null;
             case VAULT ->

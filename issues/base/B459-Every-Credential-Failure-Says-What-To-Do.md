@@ -26,9 +26,9 @@ This inventory is from reading code; no live credential or remedy was exercised.
 | Refused HTTPS token or password, `app-model/UpstreamProbe` | Explains possible expiration, revocation or missing access; never SSH public-half advice. | Keep `KEY_REFUSED` for compatibility; explain expiration, revocation or missing access without claiming to distinguish them. |
 | Failed credential lease or unclassified git failure, `app-model/UpstreamProbe` | Owned prose with an inspection command; untrusted helper and tool output is withheld. | Return owned prose and `porelo credentials list`; never relay untrusted output. |
 | Missing value, `app-model/CredentialDeclarations` | Missing file, unset variable, or missing vault entry. | `MISSING_VALUE`; vault entries name `vault put`, other sources need restoring at their source. |
-| Expired declaration, `app-model/CredentialDeclarations` | Expiration and inability to renew without the person. | `EXPIRED`; a vault source names `vault put`; file, variable and agent sources have no command. |
-| Locked or absent vault, `app-model/CredentialDeclarations` | Vault shut or no vault yet. | `VAULT_LOCKED` currently has no command; `NO_VAULT` names `porelo vault init`. Reads also fold an unreadable vault into locked. |
-| No keys in the account's SSH agent, `app-model/CredentialDeclarations` and `FollowCredential` | An agent declaration is assumed ready; the remote refusal then supplies advice. | Agent readiness does not query identities. Distinguish an absent socket, locked agent and empty agent before promising a key. |
+| Expired declaration, `app-model/CredentialDeclarations` | Expiration, inability to renew without the person, and replacement at the declared source. | `EXPIRED` also requires updating the declaration's expiration; a readable file cannot make an expired proposal ready. |
+| Locked or absent vault, `app-model/CredentialDeclarations` | Vault shut or unreadable, or no vault yet. | Passphrase vaults name `porelo vault unlock`; host vaults give the client-computer `host unlock` action and its required options; other share-only vaults require an enrolled device. `NO_VAULT` names `porelo vault init`. |
+| No keys in the account's SSH agent, `app-model/CredentialDeclarations` and `FollowCredential` | Readiness checks the process's socket and `ssh-add -l`, withholding tool output. | An absent socket needs reconnecting; no identities may mean empty or locked, so the advice gives both possibilities. A failed identity check cannot promise readiness. No private key is copied into the vault. |
 | Missing task credential, `app-task/TaskLaunch` and `CredentialWiring` | Missing grant, sign-in or key; an agent start refuses before creating the task. | Existing `Offer` remedy and daemon start needs name the sign-in or authorization command. |
 | Provider sign-in expired or revoked, `app-vault/LoginRenewal` | Ended sign-in and a remedy; other purchase failures retain `TokenPurchase.Refused`. | Existing authorization stream raises `ended`; imported sign-ins must not be renewed. |
 | Provider denies a running task, `app-task` activity handling | Provider refusal and task activity. | Window must connect this to the credential's authorization or sign-in action; a task's last exit code alone is not a credential diagnosis. |
@@ -43,15 +43,24 @@ This inventory is from reading code; no live credential or remedy was exercised.
   Preserve refusal classification and do not change which credentials git offers.
 - Listing declarations is an inspection step, not a promise that it repairs access. The person must restore or replace a file/environment credential at its source,
   or grant the existing credential the required access. Never tell a token owner to install an SSH public key.
+- Proposed and recorded declarations now share the check of the credential actually supplied, rather than letting a record already on disk decide a proposal's readiness.
+  Agent listings and checks query identities through the context's command runner; empty and locked agents cannot reliably be distinguished by that query.
+- Locked results carry an unlock action, never a storage offer. CLI declarations, upstream refusals and daemon declarations preserve that action, including an empty
+  command for a manual client-computer unlock. Task start never offers to copy a declared file or agent key into the vault.
+- Keep the existing outcomes and fields. A failed local agent inspection uses `KEY_REFUSED` with owned prose that states what could not be checked; it makes no claim
+  that the remote refused a particular key. No credential selection or git lending behavior changes.
 
 ## Remaining work and window handoff
 
 - The frontend repository must agree whether existing `fix` and `storeCommand` fields suffice across all entry points; this remains a proposal.
   Show `detail` with a control for the supplied action, allow retry, and open a terminal for interactive commands on the machine named by the result.
   An empty command must show the manual action in `detail`; never invent a remedy or auto-trust a changed host key.
-- Complete locked-vault and expired-source remedies, SSH-agent identity readiness, forward/push failures, and running-provider failures after reproducing each behavior.
-  Do not send a locked-vault check into the CLI's missing-value `vault put` offer: unlock and recheck first.
+- Complete forward/push failures and running-provider failures after reproducing each behavior. A provider's refusal must identify the affected authorization or sign-in
+  action without claiming that every 403 means expiration.
 - Check each proposed remedy on a real machine before claiming that it works. No VM or acceptance run is authorized in this worktree.
+- The frontend still needs to render unlock, inspection and storage actions according to the returned outcome, preserve manual actions when the command is empty,
+  retry the check after the action, and run host-unlock controls on the client computer. Existing `storeCommand` can contain an inspection command such as `ssh-add -l`;
+  its presence alone never means a value is missing or should be stored.
 
 ## Acceptance
 
@@ -64,6 +73,13 @@ This inventory is from reading code; no live credential or remedy was exercised.
 
 - The disclosure and HTTPS-advice tests failed before the fixes. A separate run exposed the connection-failure branch's raw output before that fix.
 - Read-only review found an unsupported claim that nothing was read after a cleanup failure. A test reproduced it before the wording was corrected.
-- A clean reactor run of `UpstreamProbeTest` and `CredentialDeclarationsTest` passes with the required JDK; no test in that run is skipped.
+- Unavailable-agent, expired-proposal, locked-vault, incorrect storage-offer and source-repair tests failed before their fixes. CLI declaration and task-start tests
+  also reproduced advice that offered vault storage in the wrong state.
+- The independent read-only review found that the daemon's changed action selection lost a supplied `fromFile` for a missing value. Both SSH-key and token cases
+  reproduced it before the fix preserved the supplied file while retaining unlock/init actions.
+- A clean reactor run passes 54 focused tests with the required JDK: `CredentialReadinessTest`, `CredentialVaultReadinessTest`, `CredentialRemedyTest`,
+  `CredentialDeclarationsTest`, `CredentialDryRunTest`, `UpstreamProbeTest`, `StoreOfferTest` and the daemon's `CredentialActionTest`. None is skipped.
+- The open-empty-vault test fixture now actually opens its isolated vault before checking, and forgets the typed passphrase in `finally`.
+- The document-tagged reactor tests pass. Root validation passes the action-pin, shared-rules, citation, README and documentation-site checks.
 - The unrestricted unit build stops in unchanged `wire` socket tests: directory ownership checks see the sandbox's root as uid 65534.
   No ownership check was bypassed. The full unit suite, acceptance scenarios, window controls and real-machine remedies remain unverified.

@@ -21,6 +21,26 @@ final class VaultMethods {
 
     private VaultMethods() {}
 
+    static String declarationCommand(
+            org.fuin.porelo.app.CredentialDeclarations.Check check,
+            org.fuin.porelo.core.credential.Credential declared,
+            @org.jspecify.annotations.Nullable String fromFile) {
+        if (check.outcome() == org.fuin.porelo.app.CredentialDeclarations.Outcome.VAULT_LOCKED) {
+            return check.storeCommand();
+        }
+        return check.storeCommand().isEmpty()
+                        || (fromFile != null
+                                && (check.outcome()
+                                                == org.fuin.porelo.app.CredentialDeclarations
+                                                        .Outcome.MISSING_VALUE
+                                        || check.outcome()
+                                                == org.fuin.porelo.app.CredentialDeclarations
+                                                        .Outcome.EXPIRED))
+                ? org.fuin.porelo.app.CredentialDeclarations.storeCommandFor(
+                        check.credential() == null ? declared : check.credential(), fromFile)
+                : check.storeCommand();
+    }
+
     static boolean forgetHostVault(PoreloContext context, Map<String, Object> parameters) {
         return ownsVault(context, parameters) && context.hostVault().forget();
     }
@@ -456,15 +476,7 @@ final class VaultMethods {
                         // vault that is 'vault init', and recomputing it here sent somebody to
                         // 'vault put' while the sentence beside it said there was nowhere to put
                         // anything.
-                        final String store =
-                                would.storeCommand().isEmpty()
-                                        ? org.fuin.porelo.app.CredentialDeclarations
-                                                .storeCommandFor(
-                                                        would.credential() == null
-                                                                ? declared
-                                                                : would.credential(),
-                                                        fromFile)
-                                        : would.storeCommand();
+                        final String store = declarationCommand(would, declared, fromFile);
                         replies.last(
                                 Map.of(
                                         "connection",
@@ -511,9 +523,9 @@ final class VaultMethods {
                                 INTERFACE + ".Failed",
                                 Map.of("message", String.valueOf(ex.getMessage())));
                     }
-                    final String store =
-                            org.fuin.porelo.app.CredentialDeclarations.storeCommandFor(
-                                    declared, fromFile);
+                    final org.fuin.porelo.app.CredentialDeclarations.Check check =
+                            declarations.check(declared.match(), declared.purpose());
+                    final String store = declarationCommand(check, declared, fromFile);
                     replies.last(
                             Map.of(
                                     "connection",
@@ -526,7 +538,7 @@ final class VaultMethods {
                                     "identity",
                                     "",
                                     "detail",
-                                    "",
+                                    check.detail(),
                                     "replaced",
                                     replaced,
                                     "recorded",

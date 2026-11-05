@@ -1183,7 +1183,10 @@ public final class TaskLaunch {
         final CredentialDeclarations.Check check =
                 new CredentialDeclarations(context).check(url, "git");
         if (check.outcome() == CredentialDeclarations.Outcome.READY
-                || check.outcome() == CredentialDeclarations.Outcome.VAULT_LOCKED) {
+                || check.outcome() == CredentialDeclarations.Outcome.VAULT_LOCKED
+                || (check.credential() != null
+                        && check.credential().source()
+                                != org.fuin.porelo.core.credential.Credential.Source.VAULT)) {
             return finding;
         }
         final java.util.List<String> names = GitCredentialNames.candidatesFor(url);

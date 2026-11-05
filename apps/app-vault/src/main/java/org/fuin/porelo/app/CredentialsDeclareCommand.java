@@ -189,9 +189,11 @@ public class CredentialsDeclareCommand implements Callable<Integer>, PoreloFacto
         // stored reads as though the declaration had not taken.
         final CredentialDeclarations.Check check =
                 new CredentialDeclarations(context).check(match, purpose);
-        final String store = CredentialDeclarations.storeCommandFor(credential);
-        if (!store.isEmpty() && check.outcome() != CredentialDeclarations.Outcome.READY) {
-            out.println("           store the value with: " + store);
+        if (check.outcome() != CredentialDeclarations.Outcome.READY) {
+            out.println("           " + check.detail());
+            if (!check.storeCommand().isEmpty()) {
+                out.println("           " + check.storeCommand());
+            }
         }
         out.flush();
         return 0;
