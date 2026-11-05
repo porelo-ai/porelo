@@ -28,9 +28,10 @@ class ImageSettingsMethodTest {
             new ImageSettings(
                     "ubuntu:24.04",
                     "project.yml",
-                    List.of("maven"),
-                    List.of("RUN apt-get install -y maven"),
-                    "project.yml",
+                    List.of(new ImageSettings.Sourced("maven", "project.yml")),
+                    List.of(
+                            new ImageSettings.Sourced(
+                                    "RUN apt-get install -y maven", "project.yml")),
                     List.of("git"),
                     "an-agent",
                     "1.2.3",

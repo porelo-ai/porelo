@@ -1010,7 +1010,9 @@ type ImageSetting (
 #
 # Answered for the image the task's container was made from, also after the project's image was built anew.
 # A task whose image recorded nothing - built before Porelo recorded this - answers known false, with every
-# value "" and every list empty: it does not know, and nothing is read from the project's file in its place.
+# value "" and every list empty: it does not know, and nothing is read from the project's file in its place. A
+# label over 1 MiB answers the same. One limit stays: an image built before this, from a base image that itself
+# carries this label, answers with the base image's claim, as nothing covered it.
 # Empty lists with known true are an answer. A name that is no task here is NoSuchTask.
 method ImageSettings(
   # Container name.
@@ -1019,16 +1021,23 @@ method ImageSettings(
   # Whether the image recorded its settings.
   known: bool,
   baseImage: ImageSetting,
-  # What the install commands (apt-get, apt, dnf, yum, microdnf, apk) in the build lines name, as written. Read
-  # from those lines, never run: what they fetch some other way is in lines and not here.
+  # What the install commands (apt-get, apt, dnf, yum, microdnf, apk) in the build lines' RUN lines name, as
+  # written, each with its line's source. Read from those lines, never run: an installer counts as a command's own
+  # word, and a word after an option not known to stand alone is left out. What they fetch some other way is in
+  # lines and not here.
   packages: []ImageSetting,
   # What Porelo asks for in every image, source "porelo". A base image may bring its own instead.
   tools: []ImageSetting,
-  # The project's or repository's own build lines, as written.
+  # The project's or repository's own build lines, each with its own source: an image's lines can come from
+  # several places. As written, except that an ENV line (from image.env or a snippet) holds its names and
+  # "<withheld>" for each value, and so does a URL's user and password (https://<withheld>@host). That catches
+  # nothing else: a secret written into a snippet in any other way is shown as written. A record over 64 KiB loses
+  # lines from the end, and its last line then says, with source "porelo", that it was cut.
   lines: []ImageSetting,
   # The agent whose tooling it carries. value "" for an image with none.
   agent: ImageSetting,
-  # That agent's version; "" when its definition names none. From the same source as agent.
+  # That agent's version; "" when its definition names none, or names anything that is not a version. From the
+  # same source as agent.
   agentVersion: string,
   # offline, guarded or online.
   securityClass: ImageSetting,

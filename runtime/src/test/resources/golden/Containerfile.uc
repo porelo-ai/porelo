@@ -154,3 +154,4 @@ ENV LANG=C.UTF-8
 LABEL org.fuin.porelo.project="uc"
 LABEL org.fuin.porelo.recipe="06c8a81f76e5b121"
 LABEL org.fuin.porelo.security-class="guarded"
+LABEL org.fuin.porelo.settings=""

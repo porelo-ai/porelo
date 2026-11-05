@@ -186,18 +186,14 @@ public final class Containerfile {
                         + "\"");
         // Last, so every layer above stays cached. It holds no time and nothing of the task: a
         // value that changed between two starts would give the same image a new id each time.
+        // Empty when nothing is recorded, which covers a label that came through FROM.
         final ImageSettings settings = layers.settings();
-        if (settings != null) {
-            lines.add(
-                    "LABEL "
-                            + ImageSettings.LABEL
-                            + "=\""
-                            + settings.json()
-                                    .replace("\\", "\\\\")
-                                    .replace("\"", "\\\"")
-                                    .replace("$", "\\$")
-                            + "\"");
-        }
+        lines.add(
+                "LABEL "
+                        + ImageSettings.LABEL
+                        + "=\""
+                        + (settings == null ? "" : settings.rendered())
+                        + "\"");
 
         return String.join("\n", lines) + "\n";
     }

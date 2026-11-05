@@ -329,9 +329,14 @@ container was made from, whatever the project's file says now and whichever imag
 was built. Each comes with its `source`: `project.yml`, `porelo` for Porelo's own settings (the project `default`'s,
 and the tools of every image), `agent package`, or the file a repository's own image was read from. `packages` is
 what the install commands in `lines` name, read and never run, so what a line fetches some other way is only in
-`lines`. An image built before Porelo recorded this answers `known` false with nothing filled in; it is not read
-from the project's file instead. The first build after that adds one cached layer, and a task made from the earlier
-image says the image has changed since, as it does after any rebuild.
+`lines`. `lines` holds an `ENV` line by its names and `<withheld>` for each value, and a URL's user and password as
+`https://<withheld>@host`; a secret written into a snippet any other way is shown as written, so a snippet holds none.
+A record over 64 KiB loses lines from the end and says so in its last line. An image built before Porelo recorded
+this answers `known` false with nothing filled in, and so does a build that records nothing, whatever its base image
+carries; it is not read from the project's file instead. An image built before this from a base image that itself
+carries the label answers with that claim. The first build after that adds one cached layer, and a task made from the
+earlier image says the image has changed since, as it does after any rebuild; nothing is rebuilt by it. Moving the
+same settings to another file changes the image's id the same way.
 
 **A task's own key.** Every task with a gate gets an Ed25519 key of its own, held outside its container,
 and a certificate for it: valid seven days, for the one principal `task:<project>:<task>` (`default` for

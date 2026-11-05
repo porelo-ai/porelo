@@ -37,9 +37,9 @@ public final class TaskImageSettings {
         final Map<String, Object> answer = new LinkedHashMap<>();
         answer.put("known", true);
         answer.put("baseImage", setting(settings.baseImage(), settings.baseImageSource()));
-        answer.put("packages", settings(settings.packages(), settings.linesSource()));
+        answer.put("packages", sourced(settings.packages()));
         answer.put("tools", settings(settings.tools(), ImageRecording.PORELO));
-        answer.put("lines", settings(settings.lines(), settings.linesSource()));
+        answer.put("lines", sourced(settings.lines()));
         answer.put(
                 "agent",
                 setting(
@@ -64,6 +64,10 @@ public final class TaskImageSettings {
         answer.put("securityClass", setting("", ""));
         answer.put("recorded", "");
         return answer;
+    }
+
+    private static List<Map<String, Object>> sourced(final List<ImageSettings.Sourced> values) {
+        return values.stream().map(each -> setting(each.value(), each.source())).toList();
     }
 
     private static List<Map<String, Object>> settings(

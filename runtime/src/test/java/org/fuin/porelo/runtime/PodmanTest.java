@@ -39,9 +39,8 @@ class PodmanTest {
                 new ImageSettings(
                         "fedora:43",
                         "project.yml",
-                        List.of("maven"),
-                        List.of("RUN dnf install maven"),
-                        "project.yml",
+                        List.of(new ImageSettings.Sourced("maven", "project.yml")),
+                        List.of(new ImageSettings.Sourced("RUN dnf install maven", "project.yml")),
                         List.of("git"),
                         "an-agent",
                         "1.2.3",

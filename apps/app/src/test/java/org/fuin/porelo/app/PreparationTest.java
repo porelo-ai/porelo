@@ -8,6 +8,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import org.fuin.porelo.core.config.XdgPaths;
+import org.fuin.porelo.runtime.ImageSettings;
 import org.fuin.porelo.runtime.Podman;
 import org.fuin.porelo.testing.FakeCommandRunner;
 import org.junit.jupiter.api.Test;
@@ -68,8 +69,7 @@ class PreparationTest {
                 .orElse(List.of());
     }
 
-    private org.fuin.porelo.runtime.ImageSettings recorded(final Path dir, final String key)
-            throws Exception {
+    private ImageSettings recorded(final Path dir, final String key) throws Exception {
         final String line =
                 Files.readAllLines(
                                 context(dir)
@@ -81,7 +81,7 @@ class PreparationTest {
                         .filter(each -> each.startsWith("LABEL org.fuin.porelo.settings="))
                         .findFirst()
                         .orElseThrow();
-        return org.fuin.porelo.runtime.ImageSettings.parse(
+        return ImageSettings.parse(
                         line.substring(line.indexOf('"') + 1, line.length() - 1)
                                 .replaceAll("\\\\(.)", "$1"))
                 .orElseThrow();
@@ -109,8 +109,11 @@ class PreparationTest {
         final var settings = recorded(dir, "demo");
         assertThat(settings.baseImage()).isEqualTo("ubuntu:24.04");
         assertThat(settings.baseImageSource()).isEqualTo("project.yml");
-        assertThat(settings.packages()).containsExactly("maven");
-        assertThat(settings.linesSource()).isEqualTo("project.yml");
+        assertThat(settings.packages())
+                .containsExactly(new ImageSettings.Sourced("maven", "project.yml"));
+        assertThat(settings.lines())
+                .containsExactly(
+                        new ImageSettings.Sourced("RUN apt-get install -y maven", "project.yml"));
         assertThat(settings.securityClass()).isEqualTo("offline");
         assertThat(settings.securityClassSource()).isEqualTo("project.yml");
         assertThat(settings.agent()).as("no agent here to install").isEmpty();
@@ -166,8 +169,54 @@ class PreparationTest {
         assertThat(settings.baseImageSource())
                 .as("the base image is still the project's")
                 .isEqualTo("project.yml");
-        assertThat(settings.packages()).containsExactly("gradle");
-        assertThat(settings.linesSource()).endsWith("project.yml (repositories.backend.image)");
+        assertThat(settings.packages())
+                .extracting(ImageSettings.Sourced::value)
+                .containsExactly("gradle");
+        assertThat(settings.lines().getFirst().source())
+                .endsWith("project.yml (repositories.backend.image)");
+    }
+
+    @Test
+    void eachLineOfAMergedImageNamesItsOwnSource(@TempDir Path dir) throws Exception {
+        // The snippet is the project's and a variable the repository's: one source for both says
+        // something false about one of them.
+        final Path file = dir.resolve("project.yml");
+        Files.writeString(
+                file,
+                """
+                project:
+                  name: "demo"
+                  security_class: "guarded"
+                image:
+                  base_image: "ubuntu:24.04"
+                  snippet: |
+                    RUN apt-get install -y maven
+                repositories:
+                  backend:
+                    image:
+                      env:
+                        NPM_TOKEN: "the-value-itself"
+                """);
+
+        Preparation.prepare(
+                context(dir),
+                file,
+                "backend",
+                null,
+                Podman.Rebuild.CACHED,
+                false,
+                new PrintWriter(out, true));
+
+        final var settings = recorded(dir, "demo_backend");
+        assertThat(settings.lines())
+                .extracting(ImageSettings.Sourced::source)
+                .as("the project's line, then the repository's")
+                .satisfiesExactly(
+                        first -> assertThat(first).isEqualTo("project.yml"),
+                        second -> assertThat(second).endsWith("(repositories.backend.image)"));
+        assertThat(settings.lines().getLast().value())
+                .as("recorded by its name")
+                .isEqualTo("ENV NPM_TOKEN=" + ImageSettings.WITHHELD);
     }
 
     @Test

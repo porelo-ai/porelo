@@ -499,8 +499,9 @@ class ContainerfileTest {
                     "ubuntu:24.04",
                     "project.yml",
                     List.of(),
-                    List.of("ENV A=\"$HOME \\\"quoted\\\"\""),
-                    "project.yml",
+                    List.of(
+                            new ImageSettings.Sourced(
+                                    "RUN echo \"$HOME \\\"quoted\\\"\"", "project.yml")),
                     List.of("git"),
                     "an-agent",
                     "1.2.3",
@@ -523,8 +524,10 @@ class ContainerfileTest {
 
         final String with = Containerfile.render(project, layers.recording(RECORDED));
 
-        assertThat(with).as("only a last line is added").startsWith(without);
-        assertThat(with.lines().count()).isEqualTo(without.lines().count() + 1);
+        assertThat(with)
+                .as("only the last line differs")
+                .startsWith(without.substring(0, without.indexOf(settingsLabel(without))));
+        assertThat(with.lines().count()).isEqualTo(without.lines().count());
         assertThat(with.stripTrailing().lines().toList().getLast()).isEqualTo(settingsLabel(with));
         assertThat(with).contains("org.fuin.porelo.recipe=\"" + Containerfile.fingerprint(project));
     }
@@ -577,10 +580,14 @@ class ContainerfileTest {
     }
 
     @Test
-    void aBuildNobodyAskedToRecordRecordsNothing() {
+    void aBuildThatRecordsNothingCoversALabelItsBaseImageCarries() {
+        // A label comes through FROM (measured, podman 5.7): left alone, a base image's false claim
+        // would answer as this image's record. podman reads an empty one back as empty.
         final Project project = new Project("uc", "", SecurityClass.GUARDED, "ubuntu:24.04", null);
 
-        assertThat(settingsLabel(Containerfile.render(project))).isEmpty();
+        assertThat(settingsLabel(Containerfile.render(project)))
+                .isEqualTo("LABEL " + ImageSettings.LABEL + "=\"\"");
+        assertThat(ImageSettings.parse("")).as("which answers known false").isEmpty();
     }
 
     @Test
