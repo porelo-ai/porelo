@@ -445,7 +445,7 @@ public class VaultServeCommand implements Callable<Integer>, PoreloFactory.Conte
             out.println(authQuery == null ? "header    " + authHeader : "query     " + authQuery);
             // The token itself is not printed. It goes in a 0600 file instead, because this
             // process's output is redirected to a log that outlives the task.
-            out.println("token     in its 0600 file");
+            out.println("token     not shown");
             routes.forEach(
                     (name, route) -> out.println("route     " + name + " -> " + route.upstream()));
             out.flush();

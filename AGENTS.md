@@ -84,7 +84,8 @@ The command line and the daemon's logic are modules by area, `app-<area>`, submo
 - **A secret reaches a container as `--env NAME`**, the value copied from Porelo's own environment; podman drops a name
   it cannot resolve instead of failing, so the names and the values come from one object
   (`ContainerSpec.toArguments()` and `environment()`), tested at both places.
-- **A token is logged abbreviated** (`PhantomToken.abbreviate`, `TaskToken.toString`), never by its value.
+- **A line holds no character of a token**: a start names its variable, and `PhantomToken.toString` and
+  `TaskToken.toString` say what it is for. A prefix is part of a secret.
 - **The real credential never enters a task container**: the agent holds a phantom token that the broker swaps on the
   way out, and the provider's own host stays reachable, since the token is worthless there.
 - **Fail closed on the start path**: the nft hook refuses to start a container whose ruleset does not load.

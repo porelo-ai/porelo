@@ -15,9 +15,7 @@ class PhantomTokenLineTest {
                 new TokenBroker(() -> Map.of("credential", "secret"))
                         .mint("credential", "task", Duration.ofHours(1));
 
-        assertThat(token.toString())
-                .doesNotContain(token.value().substring(0, PhantomToken.PREFIX.length() + 1))
-                .doesNotContain("porelo_pt_")
-                .contains("credential", "task");
+        // Exactly this: neither a prefix nor a suffix nor its length.
+        assertThat(token.toString()).isEqualTo("PhantomToken[credential/task]");
     }
 }

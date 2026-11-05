@@ -321,9 +321,9 @@ public class GateServeCommand implements Callable<Integer>, PoreloFactory.Contex
                                 + "/"
                                 + project.name()
                                 + ".git");
-                // Where it is and not a character of it: this line goes to gate.log, which the
-                // daemon streams to whatever is tailing it.
-                out.println("token     in the task's environment");
+                // Not a character of it: this line goes to gate.log, which the daemon streams to
+                // whatever is tailing it.
+                out.println("token     not shown");
                 out.flush();
 
                 if (seconds > 0) {

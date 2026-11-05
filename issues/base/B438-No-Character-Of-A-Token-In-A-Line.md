@@ -14,8 +14,8 @@ streams, said the first four characters of a task's gate token.
 ## As built
 
 `PhantomToken.abbreviate` and `TaskToken.abbreviate` are gone, so nothing can print a prefix. A start says the variable's
-name; a credential's line says `as PORELO_TOKEN_<NAME>`; the gate says `in the task's environment`, the broker
-`in its 0600 file`. `toString` of each holds no character of the value. A log written before this keeps what it holds, until
+name; a credential's line says `as PORELO_TOKEN_<NAME>`; the gate and the broker say `not shown`. `toString` of each holds
+no character of the value. A log written before this keeps what it holds, until
 it ages out.
 
 ## Acceptance
