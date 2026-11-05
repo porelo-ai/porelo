@@ -67,6 +67,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b444"></a>[B444](B444-The-First-Start-Finds-What-A-Repository-Needs.md) | - | - | `task start` in a checkout with no `project.yml` finds what it needs, asks yes or no, writes the file and starts from it. |
 | <a id="b443"></a>[B443](B443-What-A-Tasks-Image-Was-Built-With.md) | M | - | The daemon answers which settings a task's image was built with and where each comes from, and `project show default` answers. |
 | <a id="b440"></a>[B440](B440-An-OpenSSH-Below-The-Floor-Is-Refused-In-Words.md) | S | - | An OpenSSH below the stated floor is refused in words, and the documents state the floor. |
 | <a id="b441"></a>[B441](B441-A-Credentials-Length-Reaches-No-Agent-And-No-Line.md) | S | - | A credential's length is shown to its owner and reaches no agent and no log. |
