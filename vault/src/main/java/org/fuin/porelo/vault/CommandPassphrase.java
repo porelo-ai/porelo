@@ -45,9 +45,8 @@ public class CommandPassphrase implements PassphraseSource {
                 throw new VaultException(
                         "The passphrase command failed with exit code "
                                 + result.exitCode()
-                                + (result.standardError().isBlank()
-                                        ? ""
-                                        : ": " + result.standardError().strip()));
+                                + ". What it printed is not repeated, as it may hold the"
+                                + " passphrase: run the command yourself to see it");
             }
             final String first = result.standardOutput().lines().findFirst().orElse("");
             return first.isEmpty() ? Optional.empty() : Optional.of(first.toCharArray());

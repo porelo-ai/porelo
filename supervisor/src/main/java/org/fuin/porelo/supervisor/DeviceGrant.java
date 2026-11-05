@@ -235,7 +235,7 @@ public final class DeviceGrant {
                                 "the service at "
                                         + host(client.tokenUrl())
                                         + " answered '"
-                                        + error
+                                        + Grants.named(error)
                                         + "' while the person was deciding");
             }
         }
@@ -272,7 +272,7 @@ public final class DeviceGrant {
                             + ", "
                             + (document.get("error") == null
                                     ? "no error named"
-                                    : document.get("error"))
+                                    : Grants.named(document.get("error")))
                             + ")");
         }
         return document;

@@ -75,4 +75,17 @@ class GrantsTest {
         assertThat(Grants.cause(new IOException())).isEqualTo("IOException");
         assertThat(Grants.cause(new IOException("said"))).isEqualTo("said");
     }
+
+    @Test
+    void anErrorIsRepeatedOnlyWhenItIsACodeOAuthDefines() {
+        assertThat(Grants.error("{\"error\":\"invalid_grant\"}")).isEqualTo("invalid_grant");
+        assertThat(Grants.error("{\"error\":\"invalid_redirect_uri\"}"))
+                .isEqualTo("invalid_redirect_uri");
+        assertThat(Grants.error("{\"error\":\"unsupported_token_type\"}"))
+                .isEqualTo("unsupported_token_type");
+        assertThat(Grants.error("{\"error\":\"the-client-secret-sent\"}"))
+                .isEqualTo("an error code OAuth does not define");
+        assertThat(Grants.error("{\"error\":7}")).isEqualTo("an error code OAuth does not define");
+        assertThat(Grants.error("not json")).isEqualTo("no error named");
+    }
 }

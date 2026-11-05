@@ -254,7 +254,7 @@ public final class TokenPurchase implements TokenSource {
     /**
      * The error codes OAuth defines for a token endpoint (RFC 6749, 8628): the only ones repeated.
      */
-    private static final java.util.Set<String> OAUTH_ERRORS =
+    static final java.util.Set<String> OAUTH_ERRORS =
             java.util.Set.of(
                     "invalid_request",
                     "invalid_client",

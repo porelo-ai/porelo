@@ -1,6 +1,6 @@
 # B439 — A Secret Echoed Back Reaches A Line
 
-**Status:** Implementing.
+**Status:** Review.
 **Size:** S - the four paths that print today; the records stay for later.
 
 **What must be true.** Text Porelo did not write, an error from a service or a helper's standard error, reaches no line
@@ -28,3 +28,10 @@ run. **Prints it today, given a service or a helper that echoes:**
 `vault login` and the daemon's `length` and `characters`, and a passphrase prompt prints one star a character. Whether
 length counts as part of a secret is the operator's question. `ReadHostVaultShare` answers a whole share over the
 owner-only socket, on purpose.
+
+## As built
+
+The four that print today are closed: only a code OAuth defines is repeated; a failing passphrase command is said by its exit
+code, and a person runs it to see the rest; a transport's every value is withheld whatever its length, line by line, in both
+its failure and its streamed lines; `porelo vault credential` answers no terminal, exit 2, read from where standard output
+really goes, as `Console.isTerminal` asks about standard input too. The records and the question of length stay as found.

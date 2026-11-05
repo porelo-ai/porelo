@@ -66,6 +66,10 @@ public class VaultCredentialCommand implements Callable<Integer>, PoreloFactory.
             description = "What to answer as the user. Default: ${DEFAULT-VALUE}")
     private String username = "x-access-token";
 
+    /** Whether what this prints lands on a person's screen. */
+    java.util.function.BooleanSupplier standardOutputIsATerminal =
+            VaultCredentialCommand::outputIsATerminal;
+
     @Spec private CommandSpec spec;
 
     private PoreloContext context = PoreloContext.real();
@@ -86,6 +90,16 @@ public class VaultCredentialCommand implements Callable<Integer>, PoreloFactory.
         // helper, and is quieter than failing on every successful fetch.
         if (!"get".equals(operation)) {
             return 0;
+        }
+        // Its answer is for git's pipe. A person running it by hand would have the secret on their
+        // screen and in their scrollback.
+        if (standardOutputIsATerminal.getAsBoolean()) {
+            err.println(
+                    "porelo vault credential answers git, with the secret: standard output is a"
+                            + " terminal, so nothing was printed. porelo vault list shows what is"
+                            + " stored.");
+            err.flush();
+            return 2;
         }
         // Read git's request even though every field is already known: git waits for the helper to
         // consume it, and a helper that answers without reading can deadlock on a full pipe.
@@ -165,5 +179,19 @@ public class VaultCredentialCommand implements Callable<Integer>, PoreloFactory.
             return null;
         }
         return held.value();
+    }
+
+    private static boolean outputIsATerminal() {
+        try {
+            final String to =
+                    java.nio.file.Files.readSymbolicLink(java.nio.file.Path.of("/proc/self/fd/1"))
+                            .toString();
+            return to.startsWith("/dev/pts/")
+                    || to.startsWith("/dev/tty")
+                    || "/dev/console".equals(to);
+        } catch (final IOException | RuntimeException ex) {
+            // Nothing says it is one, and git is who this is for.
+            return false;
+        }
     }
 }

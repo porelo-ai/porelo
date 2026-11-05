@@ -20,6 +20,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b439"></a>[B439](B439-A-Secret-Echoed-Back-Reaches-A-Line.md) | S | - | Text Porelo did not write reaches no line unless known to hold no secret, and a value holding one cannot be printed by accident. |
 | <a id="b50"></a>[B50](B50-Whose-Business-The-Files-Porelo-Leaves-Behind-Are.md) | M | - | Data and state directories and `~/porelo/reviews` owner-only at creation, mirrors with `--shared=0600`, and a doctor probe that corrects older machines. |
 | <a id="b438"></a>[B438](B438-No-Character-Of-A-Token-In-A-Line.md) | S | - | No character of a token in a start's lines, a log or an exception: the variable is named, and the abbreviations are gone. |
 | <a id="b216"></a>[B216](B216-A-Second-Setup-Says-Nothing-Changed.md) | M | - | A second `porelo-setup.sh` run changes nothing and says so, as a last line and in `--json`, so a playbook reports it truly |
@@ -58,7 +59,6 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
-| <a id="b439"></a>[B439](B439-A-Secret-Echoed-Back-Reaches-A-Line.md) | S | - | Text Porelo did not write reaches no line unless known to hold no secret, and a value holding one cannot be printed by accident. |
 | <a id="b429"></a>[B429](B429-One-Line-Installs-Everything.md) | L | - | `sudo apt install 'porelo*' keepassxc` installs all of Porelo on every channel and stays true: the test agent leaves the channels, and a check runs the line against the published index. |
 | <a id="b385"></a>[B385](B385-A-KeePassXC-Key-That-Is-Usable.md) | L | - | `--keepassxc` asks the master password once, a retry takes the key already made, no empty entry left, a clear refusal under `su` or a redirected stderr, aligned exit codes |
 | <a id="b154"></a>[B154](B154-A-Tamper-Evident-Event-Log-Per-Node.md) | L | - | One hash-chained event log per account, anchored in the user's journal, optionally copied off the machine, kept by `porelo clear`; written by approve, reject, clearance, hand-in, credentials and project changes.; part 1 built, the copy off the machine after it |

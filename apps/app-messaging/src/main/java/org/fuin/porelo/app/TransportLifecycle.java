@@ -1118,7 +1118,7 @@ final class TransportLifecycle {
                                                     secrets)),
                                     line -> say(scheme, line, secrets));
         } catch (org.fuin.porelo.core.process.CommandException ex) {
-            throw ex.withStandardError(redact(StartStep.cleanLines(ex.standardError()), secrets));
+            throw ex.withStandardError(withheld(StartStep.cleanLines(ex.standardError()), secrets));
         }
         if (!result.successful()) {
             // What it printed before failing may hold secrets it made; they are withheld too.
@@ -1127,7 +1127,7 @@ final class TransportLifecycle {
             final Map<String, String> withheld = new LinkedHashMap<>(secrets);
             withheld.putAll(printed(result.standardOutput()));
             final String said =
-                    redact(StartStep.cleanLines(result.standardError()), withheld).strip();
+                    withheld(StartStep.cleanLines(result.standardError()), withheld).strip();
             throw new Refused(
                     "the "
                             + scheme
@@ -1230,33 +1230,32 @@ final class TransportLifecycle {
     }
 
     private void say(final String scheme, final String line, final Map<String, String> secrets) {
-        // A secret comes a line at a time, each part withheld whatever its length: it is the whole
-        // value's length that makes it a secret here, as in a failure's words.
-        String safe = StartStep.cleanLines(line);
-        for (final String part :
-                secrets.values().stream()
-                        .filter(value -> value.length() >= 8)
-                        .flatMap(String::lines)
-                        .map(String::strip)
-                        .filter(part -> !part.isEmpty())
-                        .sorted(java.util.Comparator.comparingInt(String::length).reversed())
-                        .toList()) {
-            safe = safe.replace(part, "[withheld]");
-        }
+        String safe = withheld(StartStep.cleanLines(line), secrets);
         safe = safe.strip();
         if (!safe.isEmpty()) {
             saying.accept(scheme + ": " + safe);
         }
     }
 
-    private static String redact(String stderr, Map<String, String> secrets) {
-        String safe = stderr;
-        for (final String secret :
+    /**
+     * Takes every value a transport was handed out of what it said. Whatever its length, as one
+     * short password is as much a secret as a long one, and line by line, as a key of many lines
+     * comes back a line at a time.
+     *
+     * @param text What it said.
+     * @param secrets What it was handed.
+     * @return The text without them.
+     */
+    static String withheld(final String text, final Map<String, String> secrets) {
+        String safe = text;
+        for (final String part :
                 secrets.values().stream()
-                        .filter(value -> value.length() >= 8)
+                        .flatMap(String::lines)
+                        .map(String::strip)
+                        .filter(part -> !part.isEmpty())
                         .sorted(java.util.Comparator.comparingInt(String::length).reversed())
                         .toList()) {
-            safe = safe.replace(secret, "[withheld]");
+            safe = safe.replace(part, "[withheld]");
         }
         return safe;
     }

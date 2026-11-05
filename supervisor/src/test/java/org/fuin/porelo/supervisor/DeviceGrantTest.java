@@ -107,6 +107,37 @@ class DeviceGrantTest {
     }
 
     @Test
+    void aFailedPollRepeatsOnlyACodeOAuthDefines() {
+        tokenAnswers.add(new String[] {"400", "{\"error\":\"the-client-secret-sent\"}"});
+
+        final DeviceGrant grant = grant();
+
+        assertThatThrownBy(() -> grant.await(grant.start(), slept::add))
+                .hasMessageNotContaining("the-client-secret-sent")
+                .hasMessageContaining("does not define");
+    }
+
+    @Test
+    void aRefusedStartRepeatsOnlyACodeOAuthDefines() {
+        tokenAnswers.add(new String[] {"400", "{\"error\":\"the-client-secret-sent\"}"});
+        final String base = "http://127.0.0.1:" + server.getAddress().getPort();
+        final DeviceGrant grant =
+                new DeviceGrant(
+                        new DeviceGrant.Client(
+                                base + "/token",
+                                base + "/token",
+                                "porelo-client",
+                                null,
+                                "repo",
+                                base + "/revoke"),
+                        HttpClient.newHttpClient());
+
+        assertThatThrownBy(grant::start)
+                .hasMessageNotContaining("the-client-secret-sent")
+                .hasMessageContaining("does not define");
+    }
+
+    @Test
     void showsTheCompleteLinkAndTheCode() throws Exception {
         final DeviceGrant.Started started = grant().start();
 

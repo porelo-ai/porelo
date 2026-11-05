@@ -43,6 +43,17 @@ class PassphraseTiersTest {
     }
 
     @Test
+    void aFailedCommandIsSaidWithoutWhatItPrinted() {
+        final FakeCommandRunner failing =
+                new FakeCommandRunner().failing("sh -c", 3, "wrapper: could not use hunter2");
+
+        assertThatThrownBy(() -> new CommandPassphrase(failing, "pass show vault").passphrase())
+                .isInstanceOf(VaultException.class)
+                .hasMessageContaining("exit code 3")
+                .hasMessageNotContaining("hunter2");
+    }
+
+    @Test
     void readsTheFirstLineOfACommand() {
 
         final FakeCommandRunner runner =
@@ -71,7 +82,8 @@ class PassphraseTiersTest {
 
         assertThatThrownBy(() -> new CommandPassphrase(runner, "pass show vault").passphrase())
                 .isInstanceOf(VaultException.class)
-                .hasMessageContaining("No secret key");
+                .hasMessageContaining("exit code 2")
+                .hasMessageContaining("run the command yourself");
     }
 
     @Test

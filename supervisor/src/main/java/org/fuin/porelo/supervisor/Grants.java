@@ -248,22 +248,47 @@ public final class Grants {
         }
     }
 
+    /** The codes OAuth defines for registering a client and revoking a token (RFC 7591, 7009). */
+    private static final java.util.Set<String> OTHER_ERRORS =
+            java.util.Set.of(
+                    "invalid_redirect_uri",
+                    "invalid_client_metadata",
+                    "invalid_software_statement",
+                    "unapproved_software_statement",
+                    "unsupported_token_type");
+
     /**
-     * Returns the error code an answer names - its own code, never its body whole, since an error
-     * answer may echo what was sent.
+     * Returns the error code an answer names, never its body whole, since an error answer may echo
+     * what was sent.
      *
      * @param body The answer's body.
-     * @return The code, or "no error named".
+     * @return What may be repeated of it, or "no error named".
      */
     static String error(String body) {
         try {
             if (Json.parse(body) instanceof Map<?, ?> document && document.get("error") != null) {
-                return String.valueOf(document.get("error"));
+                return named(document.get("error"));
             }
         } catch (RuntimeException ex) {
             // Not JSON; the status says enough.
         }
         return "no error named";
+    }
+
+    /**
+     * Returns what may be repeated of an answer's error: a code OAuth defines. The field is the
+     * server's text like any other, and a server that put what it was sent into it would hand a
+     * client secret to a line.
+     *
+     * @param error The answer's error field.
+     * @return The code, or words that say it was another.
+     */
+    static String named(Object error) {
+        return error instanceof String code
+                        && (TokenPurchase.OAUTH_ERRORS.contains(code)
+                                || OTHER_ERRORS.contains(code))
+                ? code
+                : "an error code OAuth does not define";
     }
 
     static String host(String url) {
