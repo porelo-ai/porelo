@@ -96,7 +96,9 @@ class StartStepsTest {
         final StartSteps steps =
                 new StartSteps(
                         event -> {
-                            if (event.state() == StartStep.State.WAITING) {
+                            // What the transport says while it runs comes after it was called.
+                            if (event.state() == StartStep.State.WAITING
+                                    && !event.waitingOn().startsWith("room: ")) {
                                 assertThat(called)
                                         .as("the wait must be reported before setup can block")
                                         .doesNotExist();
