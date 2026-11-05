@@ -322,6 +322,17 @@ A removed task's latest retained usage remains readable by its full task name; `
 and still exits 69, since there is no such task. A killed broker's half line costs one request's counts,
 not the record's. `List` and `Watch` keep their existing task shape and do not read usage records.
 
+**What a task's image was built with.** Every image a start or a prepare builds records its settings in the
+label `org.fuin.porelo.settings`, and the daemon's `ImageSettings(task)` answers them for the image that task's
+container was made from, whatever the project's file says now and whichever image its name has come to name:
+`baseImage`, `packages`, `tools`, `lines`, `agent`, `agentVersion`, `securityClass` and `recorded`, when the image
+was built. Each comes with its `source`: `project.yml`, `porelo` for Porelo's own settings (the project `default`'s,
+and the tools of every image), `agent package`, or the file a repository's own image was read from. `packages` is
+what the install commands in `lines` name, read and never run, so what a line fetches some other way is only in
+`lines`. An image built before Porelo recorded this answers `known` false with nothing filled in; it is not read
+from the project's file instead. The first build after that adds one cached layer, and a task made from the earlier
+image says the image has changed since, as it does after any rebuild.
+
 **A task's own key.** Every task with a gate gets an Ed25519 key of its own, held outside its container,
 and a certificate for it: valid seven days, for the one principal `task:<project>:<task>` (`default` for
 a task without a project), signed by your key through your own agent. A project's task is certified by a
@@ -650,7 +661,7 @@ Admin's work. A person holding more than one role may exercise each of them.
 | `porelo project verify --repository GIT-DIR --signers FILE [--json]` | Run by a host at each follow, with no network, home, vault or person. Reads `project.yml` in a copy of the project's repository, bare or not and owned by anyone, at `main`, and judges its newest change against the keys in `FILE`, the project's admins in allowed signers format, judged by day: a `valid-after` or `valid-before` holding a time of day is usage, 64. An address holding a web user, a password or a query is refused, 65, and not repeated. Answers `project`, `revision`, `project_review`, and `repositories`, each name with `review`, `upstream` and `central`, in the order written. `review` left out is `required`. A file not signed by a signer, or one that does not read, is `refused-state`, exit 65, naming why; a bad `--signers` is `usage`, exit 64. Nothing is written but a scratch directory under the temporary directory. |
 | `porelo project create-repository PROJECT [--review required\|optional]` | A Project Admin creates the project's repository on the organization's forge, private and empty, with your token, signs its first `project.yml` and files its address, all in this one command. The Organization Admin role grants no right here. A run stopped anywhere is answered again under the same `--id`. The answer adds `address`. 77 when the vault is shut and may hold the token. |
 | `porelo project address PROJECT ADDRESS` | A Project Admin changes the address of a project that is opened, or files again one a lost key filed, which a new reader refuses; `not-opened` otherwise. The Organization Admin role grants no right here. |
-| `porelo project show PROJECT [--json]` | Answers a project for its members, `not-allowed` for anyone else, or one registered on this machine alone, its organization fields `null`. A filed project's `repositories` are not read yet: `state` is `not-opened` or `cannot-say`, with `names` empty. Opened, `repositories` adds `file_signer`, the login of the admin whose signature makes the file read, `null` while it stands refused: an interface warns before removing, locking or demoting that person, as the file then stands refused until another admin runs `project sign`. `repositories.review` and each of `repositories.names[].review` say what the file sets, `required` or `optional`. |
+| `porelo project show PROJECT [--json]` | Answers a project for its members, `not-allowed` for anyone else, or one registered on this machine alone or `default`, from Porelo's settings, its organization fields `null`. A filed project's `repositories` are not read yet: `state` is `not-opened` or `cannot-say`, with `names` empty. Opened, `repositories` adds `file_signer`, the login of the admin whose signature makes the file read, `null` while it stands refused: an interface warns before removing, locking or demoting that person, as the file then stands refused until another admin runs `project sign`. `repositories.review` and each of `repositories.names[].review` say what the file sets, `required` or `optional`. |
 
 ## commit
 

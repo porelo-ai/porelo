@@ -897,6 +897,44 @@ public class Podman {
     }
 
     /**
+     * Returns what an image records about the settings it was built with.
+     *
+     * @param image Image name, tag or id.
+     * @return The settings, or empty when there is no such image or it recorded none it can say.
+     */
+    public Optional<ImageSettings> imageSettings(String image) {
+        final CommandResult result =
+                runner.run(
+                        podman(
+                                "image",
+                                "inspect",
+                                "--format",
+                                "{{index .Labels \"" + ImageSettings.LABEL + "\"}}",
+                                image));
+        return result.successful() ? ImageSettings.parse(result.trimmedOutput()) : Optional.empty();
+    }
+
+    /**
+     * Returns when an image was built.
+     *
+     * @param image Image name, tag or id.
+     * @return The time, ISO-8601, or empty when there is no such image.
+     */
+    public Optional<String> imageBuilt(String image) {
+        final CommandResult result =
+                runner.run(
+                        podman(
+                                "image",
+                                "inspect",
+                                "--format",
+                                "{{.Created.Format \"2006-01-02T15:04:05Z07:00\"}}",
+                                image));
+        return result.successful() && !result.trimmedOutput().isBlank()
+                ? Optional.of(result.trimmedOutput())
+                : Optional.empty();
+    }
+
+    /**
      * Lists Porelo's containers with the state the runtime reports for each.
      *
      * @return Summaries, running or not, in the runtime's own order.

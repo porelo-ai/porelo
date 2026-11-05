@@ -34,6 +34,47 @@ class PodmanTest {
     }
 
     @Test
+    void readsTheSettingsAnImageRecordedByTheIdItIsAsked() {
+        final ImageSettings recorded =
+                new ImageSettings(
+                        "fedora:43",
+                        "project.yml",
+                        List.of("maven"),
+                        List.of("RUN dnf install maven"),
+                        "project.yml",
+                        List.of("git"),
+                        "an-agent",
+                        "1.2.3",
+                        "online",
+                        "project.yml");
+        runner.answering("org.fuin.porelo.settings\"}} sha256abc", recorded.json() + "\n");
+
+        assertThat(podman.imageSettings("sha256abc")).contains(recorded);
+    }
+
+    @Test
+    void anImageWithoutTheLabelRecordedNothing() {
+        // Both things podman answers for a label an image does not carry, and no image at all.
+        runner.answering("org.fuin.porelo.settings", "<no value>\n");
+        assertThat(podman.imageSettings("old")).isEmpty();
+
+        runner.answering("org.fuin.porelo.settings", "\n");
+        assertThat(podman.imageSettings("old")).isEmpty();
+
+        runner.failing("org.fuin.porelo.settings", 125, "no such image");
+        assertThat(podman.imageSettings("gone")).isEmpty();
+    }
+
+    @Test
+    void anImageSaysWhenItWasBuilt() {
+        runner.answering("Created", "2026-11-05T08:22:05Z\n");
+        assertThat(podman.imageBuilt("sha256abc")).contains("2026-11-05T08:22:05Z");
+
+        runner.failing("Created", 125, "no such image");
+        assertThat(podman.imageBuilt("gone")).isEmpty();
+    }
+
+    @Test
     void asksPodmanWhereAContainerReachesTheHost() {
 
         // Both answers seen in the wild on the same project: pasta on podman 5, and the host's own

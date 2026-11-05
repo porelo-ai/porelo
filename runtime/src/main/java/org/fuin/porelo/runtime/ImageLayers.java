@@ -1,6 +1,7 @@
 package org.fuin.porelo.runtime;
 
 import java.util.List;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Container-build fragments contributed by something outside this module.
@@ -11,18 +12,41 @@ import java.util.List;
  *
  * @param asRoot Fragments run before the image drops to the unprivileged user.
  * @param asAgent Fragments run as the agent user.
+ * @param settings What the image records about its build, or {@code null} to record nothing.
  */
-public record ImageLayers(List<String> asRoot, List<String> asAgent) {
+public record ImageLayers(
+        List<String> asRoot, List<String> asAgent, @Nullable ImageSettings settings) {
 
     /**
      * Constructor with all data.
      *
      * @param asRoot Fragments run as root.
      * @param asAgent Fragments run as the agent user.
+     * @param settings What the image records, or {@code null}.
      */
     public ImageLayers {
         asRoot = List.copyOf(asRoot);
         asAgent = List.copyOf(asAgent);
+    }
+
+    /**
+     * Constructor for layers that record nothing.
+     *
+     * @param asRoot Fragments run as root.
+     * @param asAgent Fragments run as the agent user.
+     */
+    public ImageLayers(List<String> asRoot, List<String> asAgent) {
+        this(asRoot, asAgent, null);
+    }
+
+    /**
+     * Returns these layers recording what the image was built with.
+     *
+     * @param recorded What to record.
+     * @return The same layers, with the record.
+     */
+    public ImageLayers recording(ImageSettings recorded) {
+        return new ImageLayers(asRoot, asAgent, recorded);
     }
 
     /**
@@ -46,7 +70,7 @@ public record ImageLayers(List<String> asRoot, List<String> asAgent) {
         appendSeparated(root, moreAsRoot);
         final List<String> agent = new java.util.ArrayList<>(asAgent);
         appendSeparated(agent, moreAsAgent);
-        return new ImageLayers(root, agent);
+        return new ImageLayers(root, agent, settings);
     }
 
     private static void appendSeparated(List<String> target, List<String> addition) {

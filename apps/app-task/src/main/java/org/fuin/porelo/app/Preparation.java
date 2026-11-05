@@ -102,6 +102,7 @@ public final class Preparation {
         }
         final Project project;
         final @Nullable String snippetFrom;
+        @Nullable ImageChoice chosen = null;
         // The agent a start on this repository would take, so the image carries what it runs.
         @Nullable String wantedAgent = agentName;
         if (repositoryName == null) {
@@ -130,6 +131,7 @@ public final class Preparation {
             } catch (RuntimeException ex) {
                 return new Result(Outcome.FAILED, "", rebuild, CliErrors.reason(ex));
             }
+            chosen = choice;
             project = choice.applyTo(declared, repository.get());
             wantedAgent = AgentChoice.wanted(agentName, repository.get()).name();
             snippetFrom = choice.snippetFrom();
@@ -178,6 +180,11 @@ public final class Preparation {
                                 + (snippetFrom == null ? "the image environment" : snippetFrom));
                 layers = layers.and(project.imageSnippetLines(), java.util.List.of());
             }
+            layers =
+                    layers.recording(
+                            chosen == null
+                                    ? ImageRecording.of(project, selected.orElse(null))
+                                    : ImageRecording.of(project, chosen, selected.orElse(null)));
 
             out.println("rebuild   " + describe(rebuild));
             if (dryRun) {

@@ -580,6 +580,23 @@ final class TaskMethods {
                 });
 
         server.method(
+                "ImageSettings",
+                (parameters, replies) -> {
+                    final String task = text(parameters, "task");
+                    if (!ContainerName.isTask(task)
+                            || context.podman().poreloTasks().stream()
+                                    .noneMatch(each -> each.name().equals(task))) {
+                        throw new VarlinkException(INTERFACE + ".NoSuchTask", Map.of("task", task));
+                    }
+                    try {
+                        replies.last(org.fuin.porelo.app.TaskImageSettings.read(context, task));
+                    } catch (org.fuin.porelo.runtime.NotATaskException ex) {
+                        // Named like a task, with no id recorded: no method acts on one of those.
+                        throw new VarlinkException(INTERFACE + ".NoSuchTask", Map.of("task", task));
+                    }
+                });
+
+        server.method(
                 "CanStart",
                 (parameters, replies) -> {
                     // The rule lives in one place and this is not it: StartCheck delegates every

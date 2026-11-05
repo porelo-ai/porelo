@@ -68,6 +68,108 @@ class PreparationTest {
                 .orElse(List.of());
     }
 
+    private org.fuin.porelo.runtime.ImageSettings recorded(final Path dir, final String key)
+            throws Exception {
+        final String line =
+                Files.readAllLines(
+                                context(dir)
+                                        .paths()
+                                        .tasks()
+                                        .buildContext(key)
+                                        .resolve("Containerfile"))
+                        .stream()
+                        .filter(each -> each.startsWith("LABEL org.fuin.porelo.settings="))
+                        .findFirst()
+                        .orElseThrow();
+        return org.fuin.porelo.runtime.ImageSettings.parse(
+                        line.substring(line.indexOf('"') + 1, line.length() - 1)
+                                .replaceAll("\\\\(.)", "$1"))
+                .orElseThrow();
+    }
+
+    @Test
+    void aPreparedImageRecordsThatItsSettingsAreTheProjectFiles(@TempDir Path dir)
+            throws Exception {
+        final Path file = dir.resolve("project.yml");
+        Files.writeString(
+                file,
+                """
+                project:
+                  name: "demo"
+                  security_class: "offline"
+                image:
+                  base_image: "ubuntu:24.04"
+                  snippet: |
+                    RUN apt-get install -y maven
+                """);
+
+        Preparation.prepare(
+                context(dir), file, null, Podman.Rebuild.CACHED, false, new PrintWriter(out, true));
+
+        final var settings = recorded(dir, "demo");
+        assertThat(settings.baseImage()).isEqualTo("ubuntu:24.04");
+        assertThat(settings.baseImageSource()).isEqualTo("project.yml");
+        assertThat(settings.packages()).containsExactly("maven");
+        assertThat(settings.linesSource()).isEqualTo("project.yml");
+        assertThat(settings.securityClass()).isEqualTo("offline");
+        assertThat(settings.securityClassSource()).isEqualTo("project.yml");
+        assertThat(settings.agent()).as("no agent here to install").isEmpty();
+    }
+
+    @Test
+    void theDefaultProjectsImageRecordsPorelosSettings(@TempDir Path dir) throws Exception {
+        // A person must not go looking for a project.yml that Default does not have.
+        final PoreloContext context = context(dir);
+
+        Preparation.prepare(
+                context,
+                new DefaultProject(context).file(),
+                null,
+                Podman.Rebuild.CACHED,
+                false,
+                new PrintWriter(out, true));
+
+        final var settings = recorded(dir, "default");
+        assertThat(settings.baseImageSource()).isEqualTo("porelo");
+        assertThat(settings.securityClass()).isEqualTo("guarded");
+        assertThat(settings.securityClassSource()).isEqualTo("porelo");
+    }
+
+    @Test
+    void aRepositorysOwnLinesNameWhereTheyCameFrom(@TempDir Path dir) throws Exception {
+        final Path file = dir.resolve("project.yml");
+        Files.writeString(
+                file,
+                """
+                project:
+                  name: "demo"
+                  security_class: "guarded"
+                image:
+                  base_image: "ubuntu:24.04"
+                repositories:
+                  backend:
+                    image:
+                      snippet: |
+                        RUN apt-get install -y gradle
+                """);
+
+        Preparation.prepare(
+                context(dir),
+                file,
+                "backend",
+                null,
+                Podman.Rebuild.CACHED,
+                false,
+                new PrintWriter(out, true));
+
+        final var settings = recorded(dir, "demo_backend");
+        assertThat(settings.baseImageSource())
+                .as("the base image is still the project's")
+                .isEqualTo("project.yml");
+        assertThat(settings.packages()).containsExactly("gradle");
+        assertThat(settings.linesSource()).endsWith("project.yml (repositories.backend.image)");
+    }
+
     @Test
     void aCachedRebuildPassesNeitherFlag(@TempDir Path dir) throws Exception {
 

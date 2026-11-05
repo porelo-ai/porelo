@@ -2584,7 +2584,7 @@ public final class TaskLaunch {
                                     : image.snippetFrom()));
             layers = layers.and(project.imageSnippetLines(), java.util.List.of());
         }
-        return layers;
+        return layers.recording(ImageRecording.of(project, image, agent));
     }
 
     /**

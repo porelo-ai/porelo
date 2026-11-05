@@ -494,6 +494,95 @@ class ContainerfileTest {
                 .isNotEqualTo(Containerfile.fingerprint(project));
     }
 
+    private static final ImageSettings RECORDED =
+            new ImageSettings(
+                    "ubuntu:24.04",
+                    "project.yml",
+                    List.of(),
+                    List.of("ENV A=\"$HOME \\\"quoted\\\"\""),
+                    "project.yml",
+                    List.of("git"),
+                    "an-agent",
+                    "1.2.3",
+                    "guarded",
+                    "project.yml");
+
+    private static String settingsLabel(final String rendered) {
+        return rendered.lines()
+                .filter(line -> line.startsWith("LABEL " + ImageSettings.LABEL + "="))
+                .findFirst()
+                .orElse("");
+    }
+
+    @Test
+    void recordingTheSettingsKeepsEveryLayerAboveItCached() {
+        // Anything above the new label that moved would rebuild every image on the next start.
+        final Project project = new Project("uc", "", SecurityClass.GUARDED, "ubuntu:24.04", null);
+        final ImageLayers layers = new ImageLayers(List.of("RUN one"), List.of("RUN two"));
+        final String without = Containerfile.render(project, layers);
+
+        final String with = Containerfile.render(project, layers.recording(RECORDED));
+
+        assertThat(with).as("only a last line is added").startsWith(without);
+        assertThat(with.lines().count()).isEqualTo(without.lines().count() + 1);
+        assertThat(with.stripTrailing().lines().toList().getLast()).isEqualTo(settingsLabel(with));
+        assertThat(with).contains("org.fuin.porelo.recipe=\"" + Containerfile.fingerprint(project));
+    }
+
+    @Test
+    void theRecordIsKeptWhenMoreLayersAreAdded() {
+        // The start adds the project's lines after the agent's; a record lost there says nothing.
+        final Project project = new Project("uc", "", SecurityClass.GUARDED, "ubuntu:24.04", null);
+
+        final ImageLayers layers =
+                ImageLayers.none().recording(RECORDED).and(List.of("RUN one"), List.of());
+
+        assertThat(settingsLabel(Containerfile.render(project, layers))).isNotEmpty();
+    }
+
+    @Test
+    void theLabelHidesNothingFromTheBuildsOwnExpansion() {
+        // podman expands $VAR in a LABEL and strips a backslash: unescaped, the record would be
+        // what the build's environment made of it, and a quote would end the value.
+        final Project project = new Project("uc", "", SecurityClass.GUARDED, "ubuntu:24.04", null);
+
+        final String label =
+                settingsLabel(
+                        Containerfile.render(project, ImageLayers.none().recording(RECORDED)));
+
+        assertThat(label).startsWith("LABEL " + ImageSettings.LABEL + "=\"{").endsWith("}\"");
+        final String value =
+                label.substring(label.indexOf('"') + 1, label.length() - 1)
+                        .replaceAll("\\\\(.)", "$1");
+        assertThat(ImageSettings.parse(value))
+                .as("what podman leaves of the value, measured with podman 5.7")
+                .contains(RECORDED);
+        assertThat(label).as("not left for the build to expand").contains("\\$HOME");
+    }
+
+    @Test
+    void theToolsAnImageRecordsAreTheOnesItsPackageStepsInstall() {
+        // The list is written twice, here and in the steps; a person trusts the list.
+        final String apt =
+                Containerfile.render(
+                                new Project("uc", "", SecurityClass.GUARDED, "ubuntu:24.04", null))
+                        .lines()
+                        .filter(line -> line.contains("apt-get install"))
+                        .map(line -> line.substring(line.indexOf("--no-install-recommends")))
+                        .collect(java.util.stream.Collectors.joining(" "));
+
+        assertThat(List.of(apt.replace("&&", " ").split("\\s+")))
+                .as("what apt-get is asked for: %s", apt)
+                .containsAll(Containerfile.TOOLS);
+    }
+
+    @Test
+    void aBuildNobodyAskedToRecordRecordsNothing() {
+        final Project project = new Project("uc", "", SecurityClass.GUARDED, "ubuntu:24.04", null);
+
+        assertThat(settingsLabel(Containerfile.render(project))).isEmpty();
+    }
+
     @Test
     void theAgentsLayersAreStillNotInTheFingerprint() {
 

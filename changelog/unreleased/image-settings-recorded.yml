@@ -1,0 +1,2 @@
+title: "A task's image records what it was built with, the daemon's ImageSettings answers it, and `porelo project show default` answers from Porelo's settings"
+type: added

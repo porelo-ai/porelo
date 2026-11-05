@@ -100,6 +100,10 @@ public final class Containerfile {
      */
     public static final String LAYER_EPOCH = "PORELO_LAYER_EPOCH";
 
+    /** What the image's own package steps ask for, as the Debian family names it. */
+    static final List<String> TOOLS =
+            List.of("curl", "ca-certificates", "git", "openssh-client", "tmux", "python3");
+
     private Containerfile() {
         throw new UnsupportedOperationException("Utility class");
     }
@@ -180,6 +184,20 @@ public final class Containerfile {
                 "LABEL org.fuin.porelo.security-class=\""
                         + project.securityClass().name().toLowerCase()
                         + "\"");
+        // Last, so every layer above stays cached. It holds no time and nothing of the task: a
+        // value that changed between two starts would give the same image a new id each time.
+        final ImageSettings settings = layers.settings();
+        if (settings != null) {
+            lines.add(
+                    "LABEL "
+                            + ImageSettings.LABEL
+                            + "=\""
+                            + settings.json()
+                                    .replace("\\", "\\\\")
+                                    .replace("\"", "\\\"")
+                                    .replace("$", "\\$")
+                            + "\"");
+        }
 
         return String.join("\n", lines) + "\n";
     }

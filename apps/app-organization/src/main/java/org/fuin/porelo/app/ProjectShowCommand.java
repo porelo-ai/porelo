@@ -48,6 +48,10 @@ public class ProjectShowCommand extends OrgReading {
 
     @Override
     Map<String, @Nullable Object> answer(final PoreloContext machine) throws IOException {
+        // Every machine has it and no organization holds it, so none is asked.
+        if (DefaultProject.is(project)) {
+            return local(new DefaultProject(machine).file().toString());
+        }
         final String localFile = OrgAccess.localProjects(machine).get(project);
         if (OrgAccess.repository(machine).isEmpty() && localFile != null) {
             return local(localFile);

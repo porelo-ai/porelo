@@ -998,6 +998,44 @@ method WorkHeld(
   asOf: ?string
 )
 
+# One thing an image was built with, and where it came from: "project.yml", "porelo" for Porelo's own settings
+# (all of the project default's that no checkout overrides, and the tools of every image), "agent package" for the
+# agent, or the file a repository's own image was read from, as a start names it. Show an unknown one as it comes.
+type ImageSetting (
+  value: string,
+  source: string
+)
+
+# What a task's image was built with, as the image recorded it at its build, whatever the settings say now.
+#
+# Answered for the image the task's container was made from, also after the project's image was built anew.
+# A task whose image recorded nothing - built before Porelo recorded this - answers known false, with every
+# value "" and every list empty: it does not know, and nothing is read from the project's file in its place.
+# Empty lists with known true are an answer. A name that is no task here is NoSuchTask.
+method ImageSettings(
+  # Container name.
+  task: string
+) -> (
+  # Whether the image recorded its settings.
+  known: bool,
+  baseImage: ImageSetting,
+  # What the install commands (apt-get, apt, dnf, yum, microdnf, apk) in the build lines name, as written. Read
+  # from those lines, never run: what they fetch some other way is in lines and not here.
+  packages: []ImageSetting,
+  # What Porelo asks for in every image, source "porelo". A base image may bring its own instead.
+  tools: []ImageSetting,
+  # The project's or repository's own build lines, as written.
+  lines: []ImageSetting,
+  # The agent whose tooling it carries. value "" for an image with none.
+  agent: ImageSetting,
+  # That agent's version; "" when its definition names none. From the same source as agent.
+  agentVersion: string,
+  # offline, guarded or online.
+  securityClass: ImageSetting,
+  # When the image was built, ISO-8601. A later start that changed nothing reuses the image and keeps this.
+  recorded: string
+)
+
 method Tail(
   # Container name.
   task: string,

@@ -886,6 +886,43 @@ class OrgReadingCommandsTest {
     }
 
     @Test
+    void theBuiltInProjectAnswersFromThisMachineWithNoOrganizationField() throws Exception {
+        // An interface reads the null organization fields as "the settings are not an
+        // organization's": it asks where they come from by this call.
+        new DefaultProject(context()).add("https://example.org/acme/work.git", "work", "");
+
+        assertThat(run("project", "show", DefaultProject.NAME, "--json"))
+                .as("what it said: %s", err)
+                .isZero();
+
+        assertThat(answer().get("project")).isEqualTo(DefaultProject.NAME);
+        assertThat(answer().containsKey("revision")).isTrue();
+        assertThat(answer().get("revision")).isNull();
+        assertThat(answer().get("host")).isNull();
+        assertThat(answer().get("me")).isNull();
+        assertThat(answer().get("address")).isNull();
+        assertThat(answer().get("members")).isEqualTo(List.of());
+        assertThat(field(answer().get("repositories"), "state")).isEqualTo("read");
+        assertThat((List<?>) field(answer().get("repositories"), "names"))
+                .as("the repositories added here")
+                .singleElement()
+                .satisfies(row -> assertThat(field(row, "name")).isEqualTo("work"));
+    }
+
+    @Test
+    void theBuiltInProjectAnswersWithAnOrganizationNamed() throws Exception {
+        // Every machine has it, whatever the organization holds or whether it can be reached.
+        organizationYml(ORGANIZATION_YML);
+        iAm("alice");
+
+        assertThat(run("project", "show", DefaultProject.NAME, "--json"))
+                .as("what it said: %s", err)
+                .isZero();
+
+        assertThat(answer().get("revision")).isNull();
+    }
+
+    @Test
     void aProjectNobodyKnowsIsNotFound() throws Exception {
         organizationYml(ORGANIZATION_YML);
         iAm("alice");

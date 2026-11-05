@@ -3420,6 +3420,74 @@ class TaskRunCommandTest {
         assertThat(state.resolve("vault.pid")).exists();
     }
 
+    private org.fuin.porelo.runtime.ImageSettings recordedFor(
+            final PoreloContext context, final String image) throws IOException {
+        assertThat(context.paths().tasks().buildContext(image).resolve("Containerfile"))
+                .as("what the start said: %s", err)
+                .exists();
+        final String line =
+                Files.readAllLines(
+                                context.paths()
+                                        .tasks()
+                                        .buildContext(image)
+                                        .resolve("Containerfile"))
+                        .stream()
+                        .filter(each -> each.startsWith("LABEL org.fuin.porelo.settings="))
+                        .findFirst()
+                        .orElseThrow(
+                                () -> new AssertionError("no record in what was built: " + err));
+        return org.fuin.porelo.runtime.ImageSettings.parse(
+                        line.substring(line.indexOf('"') + 1, line.length() - 1)
+                                .replaceAll("\\\\(.)", "$1"))
+                .orElseThrow();
+    }
+
+    @Test
+    void theImageAStartBuildsRecordsItsSettings(@TempDir Path dir) throws IOException {
+        // The route every task takes: a record only a prepare wrote would leave them all unknown.
+        final PoreloContext context = context(dir, true);
+
+        execute(
+                context,
+                "task",
+                "start",
+                "--attach",
+                "shell",
+                "-p",
+                projectFile(dir, MINIMAL),
+                "--no-gate");
+
+        final var settings = recordedFor(context, "uc");
+        assertThat(settings.baseImage()).isEqualTo("ubuntu:24.04");
+        assertThat(settings.baseImageSource()).isEqualTo("project.yml");
+        assertThat(settings.securityClass()).isEqualTo("guarded");
+    }
+
+    @Test
+    void theImageAStartBuildsRecordsTheAgentItCarries(@TempDir Path dir) throws IOException {
+        final char[] passphrase = "test-passphrase".toCharArray();
+        final PoreloContext context = countingContext(dir).asking(shown -> passphrase.clone());
+        try {
+            Files.createDirectories(context.vault().path().getParent());
+            context.vault().write(java.util.Map.of(), passphrase.clone());
+            context.openerAsking(false, new PrintWriter(new StringWriter()));
+
+            execute(
+                    context,
+                    "task",
+                    "start",
+                    "-p",
+                    projectFile(dir, MINIMAL),
+                    "--agent",
+                    "preview",
+                    "--no-gate");
+
+            assertThat(recordedFor(context, "uc").agent()).isEqualTo("preview");
+        } finally {
+            PoreloContext.forgetAsked();
+        }
+    }
+
     @Test
     void removesTheContainerWhenTheShellExits(@TempDir Path dir) throws IOException {
 
