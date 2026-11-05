@@ -145,6 +145,8 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b447"></a>[B447](B447-What-Core-Takes-On-A-Persons-Computer.md) | M | - | A measured overhead of Core on a person's computer, in Linux, in WSL and in a VM on a Mac. |
+| <a id="b448"></a>[B448](B448-A-Test-Fails-In-A-Deep-Checkout.md) | XS | - | One unit test fails in a deep checkout, by a socket path too long. |
 | <a id="b435"></a>[B435](B435-One-Line-Installs-Everything-On-Fedora-And-RHEL.md) | - | - | `dnf install 'porelo*'` installs all of Porelo on Fedora and RHEL, and the build says so when it stops working. |
 | <a id="b436"></a>[B436](B436-A-Published-Bom-Test-Runs-From-A-Clean-Tree.md) | - | - | `PublishedBomTest` needs a generated file, so a targeted test run in a clean tree fails. |
 | <a id="b427"></a>[B427](B427-Org-Create-Says-Why.md) | - | - | A failed `org create` says git's own reason and tells a refused push from an unreachable forge, with nothing the forge said passed on. |
