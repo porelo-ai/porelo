@@ -73,6 +73,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b453"></a>[B453](B453-A-Draft-Replaces-A-Repositorys-Own-Image.md) | S | - | A draft does not silently replace the image a repository says it needs. |
 | <a id="b452"></a>[B452](B452-A-Value-With-No-File-Prints-No-Line.md) | XS | - | A value with no file prints no `:0` in a draft. |
 | <a id="b451"></a>[B451](B451-An-Ecosystem-Adapter-Is-Not-A-Plugin.md) | S | - | What a person reads says "ecosystem adapter", not "plugin". |
 | <a id="b450"></a>[B450](B450-The-RPM-Index-Loses-What-A-Package-Recommends.md) | M | - | A default `dnf install` brings what the package recommends, which the RPM index loses today. |
