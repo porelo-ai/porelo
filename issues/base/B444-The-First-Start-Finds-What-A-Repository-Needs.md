@@ -1,6 +1,6 @@
 # B444 — The First Start Finds What A Repository Needs
 
-**Status:** Implementing.
+**Status:** Review.
 **Size:** L - the start, the daemon and a question at a terminal.
 
 **What must be true.** `porelo task start` in a checkout with no `project.yml` runs the detection, says what it found and what
@@ -29,6 +29,8 @@ neither Maven nor Java nor Maven Central, and the agent cannot build there.
   the command for the Project Admin, `porelo project init ... --project ...`.
 - No at the question: the start runs as today, nothing is kept, and the next start asks again.
 - The question shows the packages and tools found and the network access it opens, so a repository decides nothing by itself.
+  As built that holds for `project.yml` and the files it names; a repository's `porelo.yml` is not part of the question until
+  [B449](README.md#b449), by the operator's word.
 - A `project.yml` in a checkout this machine does not know gets the same yes or no at the start. Porelo keeps its hash locally and
   asks again when the file changes. It is an approval, with no comparison to what a plugin would say. A No or `--yes` starts as
   today. This holds only for the Default path: an organization's project takes its signed file, and a `project.yml` in its
