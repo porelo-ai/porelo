@@ -12,7 +12,8 @@ import org.jspecify.annotations.Nullable;
  *
  * <p>In a project with a {@code branch} block, the task's own branch, as its start recorded it,
  * unless a person names another, and a named one only when the forge's pattern accepts it: so work
- * reaches only branches the forge's rules cover. A project without one approves as before.
+ * reaches only branches the forge's rules cover. Without a scheme, new tasks approve onto their
+ * recorded starting branch.
  */
 public final class ApprovalBranch {
 
@@ -105,7 +106,15 @@ public final class ApprovalBranch {
             return named;
         }
         if (!declared) {
-            return null;
+            final TaskBase pending =
+                    TaskBase.waiting(GateSupport.mirror(context, project, repository), task);
+            final TaskBase base =
+                    pending != null
+                            ? pending
+                            : TaskBase.recorded(
+                                    context,
+                                    org.fuin.porelo.runtime.ContainerName.of(project, task));
+            return base == null ? null : base.branch();
         }
         final String container = org.fuin.porelo.runtime.ContainerName.of(project, task);
         org.fuin.porelo.wire.TaskProfile profile =

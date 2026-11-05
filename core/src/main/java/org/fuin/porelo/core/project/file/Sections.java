@@ -51,7 +51,8 @@ final class Sections {
                         "credentials",
                         "builds",
                         "parameters",
-                        "branch"));
+                        "branch",
+                        "base_branch"));
         keys.put(
                 "project",
                 List.of("name", "description", "security_class", "upstream", "review", "nickname"));

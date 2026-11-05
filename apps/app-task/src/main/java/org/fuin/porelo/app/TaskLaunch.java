@@ -58,6 +58,7 @@ public final class TaskLaunch {
      *     against the project's declarations.
      * @param branch Value of {@code --branch}: the task's branch at the forge named outright, or
      *     {@code null} for the one the project's scheme makes.
+     * @param base The caller's starting branch, or null for the project and mirror default.
      * @param subagents Value of {@code --subagents}: the most subagents the agent may run at the
      *     same time, or {@code null} for what the project file says, and none when it says nothing.
      */
@@ -82,7 +83,55 @@ public final class TaskLaunch {
             java.util.Map<String, String> credentials,
             java.util.Map<String, org.fuin.porelo.core.project.Parameters.Given> parameters,
             @Nullable String branch,
-            @Nullable Integer subagents) {
+            @Nullable Integer subagents,
+            @Nullable TaskBase base) {
+        /** Constructor leaving the starting branch to the project and mirror. */
+        public Request(
+                String task,
+                Path projectFile,
+                @Nullable String agentName,
+                @Nullable String providerName,
+                @Nullable String credentialType,
+                int tokenHours,
+                @Nullable String upstream,
+                boolean noGate,
+                boolean dryRun,
+                String clearance,
+                boolean keep,
+                org.fuin.porelo.wire.TaskMode mode,
+                @Nullable String prompt,
+                @Nullable String model,
+                @Nullable Integer maxTurns,
+                int minutes,
+                @Nullable String repository,
+                java.util.Map<String, String> credentials,
+                java.util.Map<String, org.fuin.porelo.core.project.Parameters.Given> parameters,
+                @Nullable String branch,
+                @Nullable Integer subagents) {
+            this(
+                    task,
+                    projectFile,
+                    agentName,
+                    providerName,
+                    credentialType,
+                    tokenHours,
+                    upstream,
+                    noGate,
+                    dryRun,
+                    clearance,
+                    keep,
+                    mode,
+                    prompt,
+                    model,
+                    maxTurns,
+                    minutes,
+                    repository,
+                    credentials,
+                    parameters,
+                    branch,
+                    subagents,
+                    null);
+        }
 
         /**
          * Constructor for a request that leaves its subagents to the project file.
@@ -474,7 +523,8 @@ public final class TaskLaunch {
                     credentials,
                     parameters,
                     branch,
-                    subagents);
+                    subagents,
+                    base);
         }
     }
 
@@ -711,9 +761,11 @@ public final class TaskLaunch {
             err.flush();
             return new Existing(container, project.name(), 64);
         }
+        startingBranch = TaskBase.recorded(context, container);
         // Its branch at the forge was settled when it was created and recorded; one handed to a
         // start that brings it back would change nothing, and say nothing.
-        if (request.branch() != null) {
+        if (request.branch() != null
+                || (request.base() != null && "FROM".equals(request.base().source()))) {
             err.println(
                     "porelo: "
                             + container
@@ -933,7 +985,8 @@ public final class TaskLaunch {
                             request.credentials(),
                             request.parameters(),
                             request.branch(),
-                            request.subagents());
+                            request.subagents(),
+                            request.base());
         }
         return null;
     }
@@ -1852,6 +1905,28 @@ public final class TaskLaunch {
                 err.flush();
                 return 64;
             }
+            if (workspace != null) {
+                try {
+                    startingBranch =
+                            TaskBase.select(
+                                    context, project, workspace.gate().mirror(), request.base());
+                    if (startingBranch != null) {
+                        workspace.startingFrom(startingBranch);
+                        out.println(
+                                "starts from    "
+                                        + startingBranch.branch()
+                                        + " ("
+                                        + startingBranch.phrase()
+                                        + ")");
+                        out.flush();
+                    }
+                } catch (ProjectException ex) {
+                    err.println("porelo: " + ex.getMessage());
+                    err.println("porelo: nothing was created");
+                    err.flush();
+                    return 64;
+                }
+            }
             // Only the fetched file can settle a refused preview.
             if (workspace != null) {
                 final ImageChoice fetched;
@@ -1959,6 +2034,10 @@ public final class TaskLaunch {
             // pid there, and it has to be listening before the container exists.
             final java.nio.file.Path state = context.paths().tasks().containerState(container);
             Directories.create(state);
+            if (startingBranch != null && workspace != null) {
+                startingBranch.writeTo(state);
+                startingBranch.writeForGate(workspace.gate().mirror(), request.task());
+            }
             steps.recordIn(state);
             steps.started(StartStep.Step.IMAGE);
 
@@ -2184,8 +2263,13 @@ public final class TaskLaunch {
                                                 project.name() + "/" + repository.name()),
                                 out,
                                 err);
-                workspace()
-                        .prepareWorkspace(runner, workspace, container, environmentCache, out, err);
+                final boolean prepared =
+                        workspace()
+                                .prepareWorkspace(
+                                        runner, workspace, container, environmentCache, out, err);
+                if (!prepared && startingBranch != null) {
+                    return cleanUp(runner, container, 70, false, out, err);
+                }
             }
             if (!placeWorkspaceFiles(runner, selected, container, inWorkspace, out, err)) {
                 return cleanUp(runner, container, 70, false, out, err);
@@ -3334,6 +3418,13 @@ public final class TaskLaunch {
         } catch (org.fuin.porelo.supervisor.TokenPurchase.Refused ex) {
             return ex.getMessage();
         }
+    }
+
+    private @Nullable TaskBase startingBranch;
+
+    /** Returns the branch and source this task starts from, once settled. */
+    public @Nullable TaskBase startingBranch() {
+        return startingBranch;
     }
 
     /**

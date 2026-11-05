@@ -73,6 +73,43 @@ class TaskWorkspaceTest {
                         null));
     }
 
+    @Test
+    void aNamedStartingBranchDoesNotSilentlyCheckOutTheDefaultBranch(@TempDir Path root)
+            throws IOException {
+        // Starting on the wrong branch makes the agent change the wrong line of development.
+        final Path mirror = seededMirror(root, "main");
+        final Path source = root.resolve("source");
+        git(source, "checkout", "-q", "-b", "develop");
+        Files.writeString(source.resolve("development.txt"), "only on develop\n");
+        git(source, "add", "-A");
+        git(source, "commit", "-q", "-m", "development");
+        git(mirror, "fetch", "-q", source.toString(), "develop:develop");
+        final Path workspace = Files.createDirectories(root.resolve("workspace"));
+        final String script =
+                TaskWorkspace.cloneScript()
+                        .replace("cd " + TaskWorkspace.MOUNT + ";", "cd " + workspace + ";");
+        runner.runOrFail(
+                new Command(
+                        List.of("sh", "-c", script),
+                        workspace,
+                        Map.of(
+                                "PORELO_REMOTE_URL",
+                                mirror.toString(),
+                                "PORELO_TASK_REF",
+                                "refs/porelo/incoming/fix",
+                                "PORELO_BASE_BRANCH",
+                                "develop",
+                                "GIT_CONFIG_GLOBAL",
+                                "/dev/null"),
+                        null));
+        assertThat(git(workspace, "branch", "--show-current"))
+                .as("the workspace uses the branch the person chose")
+                .isEqualTo("develop");
+        assertThat(workspace.resolve("development.txt"))
+                .as("the agent receives the development branch's files")
+                .hasContent("only on develop\n");
+    }
+
     /** Starts a server that records the Authorization header of each request and answers 404. */
     private static com.sun.net.httpserver.HttpServer recording(List<String> seen)
             throws IOException {

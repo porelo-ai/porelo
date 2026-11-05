@@ -187,7 +187,8 @@ public final class ProjectReader {
                 info.nickname(),
                 branch(file.branch()),
                 review(info.review()),
-                image.env());
+                image.env(),
+                file.baseBranch());
     }
 
     private static Limits limits(org.fuin.porelo.core.project.file.@Nullable Limits limits) {

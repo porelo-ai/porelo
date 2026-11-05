@@ -124,6 +124,13 @@ public class TaskWorkspace {
         return new TaskWorkspace(gate, host, repository.name(), repository.goesBy());
     }
 
+    private @Nullable TaskBase base;
+
+    /** Selects the branch whose committed history the workspace starts from. */
+    public void startingFrom(TaskBase chosen) {
+        base = chosen;
+    }
+
     /**
      * Returns the port the gate will listen on.
      *
@@ -193,6 +200,9 @@ public class TaskWorkspace {
                         TaskSigning.gitEnvironment(
                                 "http://" + host + ":" + port() + "/", token.value(), certificate));
         environment.put("PORELO_REMOTE_URL", url(project));
+        if (base != null) {
+            environment.put("PORELO_BASE_BRANCH", base.branch());
+        }
         // A push goes to a ref no branch points at, so nothing an operator is reading moves
         // underneath them. An online task's gate passes it on as porelo/<task> at the upstream at
         // once; a guarded one's keeps it for approval.
@@ -341,6 +351,8 @@ public class TaskWorkspace {
                 + "  if [ -n \"${fetched:-}\" ]; then git remote set-head porelo -a >/dev/null 2>&1 || true; fi; "
                 + "  start=$(git symbolic-ref -q --short refs/remotes/porelo/HEAD"
                 + " 2>/dev/null || true); "
+                + "  if [ -n \"${PORELO_BASE_BRANCH:-}\" ]; then start=\"porelo/$PORELO_BASE_BRANCH\"; "
+                + "git rev-parse -q --verify \"$start^{commit}\" >/dev/null || { echo 'starting branch unavailable' >&2; exit 65; }; fi; "
                 + "  if [ -z \"$start\" ]; then "
                 + "    for candidate in porelo/main porelo/master; do "
                 + "      if git rev-parse -q --verify \"$candidate\" >/dev/null; then "
@@ -417,7 +429,7 @@ public class TaskWorkspace {
      *
      * @return The gate.
      */
-    public @Nullable GitGate gate() {
+    public GitGate gate() {
         return gate;
     }
 

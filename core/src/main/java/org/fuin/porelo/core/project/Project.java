@@ -31,6 +31,7 @@ package org.fuin.porelo.core.project;
  * @param branch How a task's branch at the forge is named, for its own repository and every
  *     repository that names no scheme of its own; {@code null} when the file has no {@code branch}
  *     block, which names it {@code porelo/<task>}.
+ * @param baseBranch Starting branch when no caller checkout or explicit branch is given.
  * @param review Whether a merge in its own repository needs another person's approval.
  * @param imageEnv Variables the project's own image sets, in the order written; empty when it sets
  *     none. A repository's own file may give each of them another value.
@@ -54,7 +55,8 @@ public record Project(
         @org.jspecify.annotations.Nullable String nickname,
         @org.jspecify.annotations.Nullable BranchScheme branch,
         String review,
-        java.util.Map<String, String> imageEnv) {
+        java.util.Map<String, String> imageEnv,
+        @org.jspecify.annotations.Nullable String baseBranch) {
 
     /**
      * Constructor for a project whose own image sets no variables.
@@ -116,7 +118,8 @@ public record Project(
                 nickname,
                 branch,
                 review,
-                java.util.Map.of());
+                java.util.Map.of(),
+                null);
     }
 
     /**
@@ -989,7 +992,8 @@ public record Project(
                 nickname,
                 branch,
                 review,
-                imageEnv);
+                imageEnv,
+                baseBranch);
     }
 
     /**
@@ -1178,6 +1182,9 @@ public record Project(
                 repository,
                 parameters,
                 nickname,
-                branch);
+                branch,
+                review,
+                java.util.Map.of(),
+                baseBranch);
     }
 }

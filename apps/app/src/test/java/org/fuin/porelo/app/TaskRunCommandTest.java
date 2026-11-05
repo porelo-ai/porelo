@@ -541,6 +541,14 @@ class TaskRunCommandTest {
                             paths.hooksDirectory(), paths.binaryDirectory())
                     .install();
         }
+        // Workspace execution succeeds unless a test supplies a specific failure; other direct
+        // podman calls still see no container. The checkout script itself has real-git tests.
+        final Path workspacePodman = dir.resolve("workspace-podman");
+        Files.writeString(
+                workspacePodman,
+                "#!/bin/sh\ncase \"$*\" in *'git fetch -q porelo'*) exit 0 ;; esac\nexit 125\n");
+        workspacePodman.toFile().setExecutable(true);
+        System.setProperty(org.fuin.porelo.runtime.Podman.NAMED, workspacePodman.toString());
         final var git = new org.fuin.porelo.core.process.ProcessCommandRunner();
         return new PoreloContext(
                 command ->
@@ -2705,8 +2713,14 @@ class TaskRunCommandTest {
         assertThat(err.toString()).contains("binaries that are not installed");
         // Asking podman and ssh their versions comes first and reads nothing else; what must not
         // happen is a container existing without the hooks that give it a firewall.
+        // Finding which checkout the start was run in, and whether the task exists, only reads.
         assertThat(runner.lines())
-                .allMatch(line -> line.startsWith("podman version") || line.equals("ssh -V"));
+                .allMatch(
+                        line ->
+                                line.startsWith("podman version")
+                                        || line.equals("ssh -V")
+                                        || line.startsWith("podman ps ")
+                                        || line.equals("git -C . rev-parse --show-toplevel"));
     }
 
     @Test
@@ -2838,6 +2852,124 @@ class TaskRunCommandTest {
                         "  security_class: \"guarded\"",
                         "  security_class: \"guarded\"\n  upstream: \"file://%s\""
                                 .formatted(upstream)));
+    }
+
+    @Test
+    void aStartRecordsItsChosenBranchForReviewAfterItReturns(@TempDir Path dir) throws Exception {
+        // Without a durable choice, the next review silently falls back to main.
+        final String file = changedRepositoryImage(dir, "image: {}\n", "image:\n  run: RUN true\n");
+        final Path mirror = dir.resolve("data/porelo/mirrors/uc.git");
+        git(dir.resolve("upstream"), "branch", "develop", "main");
+        final PoreloContext context = repositoryImageContext(dir);
+        final int code =
+                execute(
+                        context,
+                        "task",
+                        "start",
+                        "--attach",
+                        "shell",
+                        "--detach",
+                        "-p",
+                        file,
+                        "--from",
+                        "develop");
+        assertThat(code).as("the selected branch exists: %s", err).isZero();
+        assertThat(TaskBase.recorded(context, containerName()))
+                .as("review retains the actual starting branch after launch")
+                .isEqualTo(new TaskBase("develop", "FROM"));
+        Files.delete(
+                context.paths().tasks().containerState(containerName()).resolve(TaskBase.FILE));
+        new TaskState(context).forget(containerName());
+        final var project = GateSupport.byName(context, "uc");
+        assertThat(ApprovalBranch.of(context, project, project.ownRepository(), "shell", null))
+                .as("pending work keeps its starting branch after the task's state is removed")
+                .isEqualTo("develop");
+        assertThat(out.toString())
+                .as("the person sees the choice before work starts")
+                .contains("starts from    develop (named with --from)");
+    }
+
+    @Test
+    void aWorkspaceThatCannotCheckOutItsStartingBranchDoesNotStartWork(@TempDir Path dir)
+            throws Exception {
+        // A failed checkout must not start an agent with the wrong files or an empty workspace.
+        final String file = changedRepositoryImage(dir, "image: {}\n", "image:\n  run: RUN true\n");
+        final PoreloContext context = repositoryImageContext(dir);
+        final Path workspace = Files.createDirectories(dir.resolve("workspace"));
+        Files.writeString(workspace.resolve("porelo.yml"), "a file supplied by the image\n");
+        final Path script = dir.resolve("checkout.sh");
+        Files.writeString(
+                script,
+                TaskWorkspace.cloneScript()
+                        .replace(
+                                "cd " + TaskWorkspace.MOUNT + ";",
+                                "cd " + shellArgument(workspace.toString()) + ";"));
+        final Path refused = dir.resolve("refused-podman");
+        Files.writeString(
+                refused,
+                "#!/bin/sh\nexport PORELO_REMOTE_URL="
+                        + shellArgument(dir.resolve("data/porelo/mirrors/uc.git").toString())
+                        + "\nexec sh "
+                        + shellArgument(script.toString())
+                        + "\n");
+        refused.toFile().setExecutable(true);
+        final String earlier = System.getProperty(org.fuin.porelo.runtime.Podman.NAMED);
+        System.setProperty(org.fuin.porelo.runtime.Podman.NAMED, refused.toString());
+        try {
+            final int code =
+                    execute(
+                            context,
+                            "task",
+                            "start",
+                            "--attach",
+                            "shell",
+                            "--detach",
+                            "-p",
+                            file,
+                            "--from",
+                            "main");
+            assertThat(
+                            Files.readString(
+                                    context.paths()
+                                            .tasks()
+                                            .containerState(containerName())
+                                            .resolve("workspace.log")))
+                    // git's own words follow the machine's language; the file it names does not.
+                    .as("the real checkout failed on an image file it would overwrite")
+                    .contains("porelo.yml");
+            assertThat(code)
+                    .as("a selected branch that could not be checked out ends the start")
+                    .isNotZero();
+            assertThat(execCalls).as("no session begins in a failed checkout").isEmpty();
+        } finally {
+            if (earlier == null) System.clearProperty(org.fuin.porelo.runtime.Podman.NAMED);
+            else System.setProperty(org.fuin.porelo.runtime.Podman.NAMED, earlier);
+        }
+    }
+
+    @Test
+    void anExistingTaskDoesNotTakeItsBranchFromADetachedCaller(@TempDir Path dir) throws Exception {
+        // Bringing back existing work must not be changed or refused by the caller's current
+        // branch.
+        final PoreloContext context = context(dir, true);
+        final Path checkout = Files.createDirectories(dir.resolve("checkout"));
+        Files.writeString(checkout.resolve("project.yml"), MINIMAL);
+        runner.answering("--show-toplevel", checkout.toString());
+        runner.failing("symbolic-ref --quiet --short HEAD", 1, "detached");
+        runner.answering("ps", RUNNING_SHELL);
+        final int code =
+                execute(
+                        context,
+                        "task",
+                        "start",
+                        "shell",
+                        "-p",
+                        projectFile(dir, MINIMAL),
+                        "--detach");
+        assertThat(code).as("the existing task answers as already running: %s", err).isEqualTo(65);
+        assertThat(err.toString())
+                .as("the caller's detached branch is irrelevant to existing work")
+                .doesNotContain("checkout is detached");
     }
 
     /** Uses real local git for image reads and the fake runtime for containers. */

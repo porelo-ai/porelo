@@ -37,6 +37,13 @@ final class ProjectSchema {
                             "map",
                             "",
                             false),
+                    key(
+                            "",
+                            "base_branch",
+                            "Starting branch when no caller checkout or explicit --from is given.",
+                            "string",
+                            "",
+                            false),
                     key("", "limits", "What one task may consume.", "map", "", false),
                     key(
                             "",

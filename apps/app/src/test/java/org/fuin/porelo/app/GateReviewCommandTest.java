@@ -29,6 +29,22 @@ class GateReviewCommandTest {
     void aReviewWithoutABaseShowsEveryCommitOfTheWorkOnARepositoryWhoseBranchIsNotMain(
             @TempDir Path dir) throws Exception {
 
+        review(dir, false, false);
+    }
+
+    @Test
+    void aReviewUsesTheStartingBranchAndLeavesItsEarlierChangesOut(@TempDir Path dir)
+            throws Exception {
+        review(dir, true, false);
+    }
+
+    @Test
+    void aMissingRecordedBaseRefusesRatherThanShowingOnlyTheLastCommit(@TempDir Path dir)
+            throws Exception {
+        review(dir, true, true);
+    }
+
+    private void review(Path dir, boolean develop, boolean missing) throws Exception {
         // Without --against it compared with 'main', which a repository on 'trunk' does not have:
         // the patch was the last commit's alone, and a person approved commits the review never
         // showed.
@@ -64,6 +80,14 @@ class GateReviewCommandTest {
                         null,
                         checkout.toString());
         gate.initialize();
+        if (develop) {
+            git(checkout, "checkout", "-q", "-b", "develop");
+            Files.writeString(checkout.resolve("earlier.txt"), "already in develop\n");
+            git(checkout, "add", ".");
+            git(checkout, "commit", "-q", "-m", "earlier development");
+            git(checkout, "push", "-q", gate.mirror().toString(), "develop:develop");
+            new TaskBase("develop", "CHECKOUT").writeForGate(gate.mirror(), "writer");
+        }
         final Path work = dir.resolve("work");
         git(dir, "clone", "-q", checkout.toString(), work.toString());
         identity(work);
@@ -75,6 +99,9 @@ class GateReviewCommandTest {
         git(work, "commit", "-q", "-m", "the second change");
         git(work, "push", "-q", gate.mirror().toString(), "HEAD:" + GitGate.INCOMING + "writer");
 
+        if (missing) {
+            git(dir, "--git-dir", gate.mirror().toString(), "branch", "-D", "develop");
+        }
         final StringWriter out = new StringWriter();
         final StringWriter err = new StringWriter();
         final picocli.CommandLine cli = PoreloCli.commandLine(context);
@@ -90,11 +117,21 @@ class GateReviewCommandTest {
                         choice.repository(),
                         "writer");
 
+        if (missing) {
+            assertThat(code).as("an incomplete review must not invite approval").isNotZero();
+            assertThat(out.toString()).as("no partial patch is offered").doesNotContain("+second");
+            return;
+        }
         assertThat(code).as(err.toString()).isZero();
         assertThat(out.toString())
                 .as("both commits' changes are in the patch")
                 .contains("+first")
                 .contains("+second");
+        if (develop) {
+            assertThat(out.toString())
+                    .as("review excludes the starting branch's own changes")
+                    .doesNotContain("+already in develop");
+        }
     }
 
     private void identity(final Path repository) {

@@ -806,7 +806,8 @@ public final class PoreloDaemon {
                 values(parameters),
                 empty(parameters, "branch"),
                 // Absent leaves it to the project file, as at the command line.
-                subagents(parameters));
+                subagents(parameters),
+                org.fuin.porelo.app.TaskBase.named(empty(parameters, "from")));
     }
 
     /**

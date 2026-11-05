@@ -47,6 +47,28 @@ class GateApprovalBranchTest {
     }
 
     @Test
+    void aStartCanNameItsStartingBranchIndependentlyOfItsForgeBranch() throws Exception {
+        final var request =
+                PoreloDaemon.request(
+                        Map.of(
+                                "project",
+                                "uc",
+                                "task",
+                                "t",
+                                "repository",
+                                "uc",
+                                "from",
+                                "develop",
+                                "branch",
+                                "porelo/t"),
+                        context(""));
+        assertThat(request.base())
+                .as("the daemon forwards the person's starting branch")
+                .isEqualTo(new org.fuin.porelo.app.TaskBase("develop", "FROM"));
+        assertThat(request.branch()).as("the forge branch remains separate").isEqualTo("porelo/t");
+    }
+
+    @Test
     void inAProjectWithABlockAnApprovalOntoMainIsRefusedNamingThePattern() throws Exception {
         final PoreloContext context =
                 context("branch:\n  template: \"fix/{task}\"\n  pattern: \"^fix/.+$\"\n");

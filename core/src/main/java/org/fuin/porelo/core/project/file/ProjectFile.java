@@ -22,6 +22,8 @@ import org.jspecify.annotations.Nullable;
  * @param branch How a task's branch at the forge is named ({@code branch}).
  * @param credentials Vault entry to the destination it is for, in the order written.
  * @param repositories The repositories the work happens in, by name, in the order written.
+ * @param baseBranch The branch a task starts from when neither a checkout nor {@code --from} names
+ *     one ({@code base_branch}).
  */
 public record ProjectFile(
         @Nullable ProjectInfo project,
@@ -34,7 +36,8 @@ public record ProjectFile(
         Map<String, Parameter> parameters,
         @Nullable BranchScheme branch,
         Map<String, String> credentials,
-        Map<String, RepositoryEntry> repositories) {
+        Map<String, RepositoryEntry> repositories,
+        @Nullable String baseBranch) {
 
     /**
      * Constructor.
@@ -50,11 +53,54 @@ public record ProjectFile(
      * @param branch How a task's branch is named.
      * @param credentials Vault entries to their destinations.
      * @param repositories The repositories by name.
+     * @param baseBranch The branch a task starts from by default.
      */
     public ProjectFile {
         parameters = ordered(parameters);
         credentials = ordered(credentials);
         repositories = ordered(repositories);
+    }
+
+    /**
+     * Constructor for a file that names no starting branch.
+     *
+     * @param project Who the project is.
+     * @param image What a task's container is built from.
+     * @param build What the image build fetches from.
+     * @param egress What a task may reach.
+     * @param limits What one task may consume.
+     * @param mail Whom its tasks may write to.
+     * @param builds Where its builds are read.
+     * @param parameters The values a task may be started with.
+     * @param branch How a task's branch is named.
+     * @param credentials Vault entries to their destinations.
+     * @param repositories The repositories by name.
+     */
+    public ProjectFile(
+            @Nullable ProjectInfo project,
+            @Nullable Image image,
+            @Nullable BuildSources build,
+            @Nullable Egress egress,
+            @Nullable Limits limits,
+            @Nullable Mail mail,
+            @Nullable Builds builds,
+            Map<String, Parameter> parameters,
+            @Nullable BranchScheme branch,
+            Map<String, String> credentials,
+            Map<String, RepositoryEntry> repositories) {
+        this(
+                project,
+                image,
+                build,
+                egress,
+                limits,
+                mail,
+                builds,
+                parameters,
+                branch,
+                credentials,
+                repositories,
+                null);
     }
 
     /** An unmodifiable copy that keeps the order written. */

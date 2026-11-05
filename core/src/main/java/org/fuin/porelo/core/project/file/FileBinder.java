@@ -61,7 +61,8 @@ final class FileBinder {
                 parameters,
                 branch(b, top.get("branch"), "branch"),
                 credentials,
-                repositories);
+                repositories,
+                b.word(top.get("base_branch"), "base_branch"));
     }
 
     /**

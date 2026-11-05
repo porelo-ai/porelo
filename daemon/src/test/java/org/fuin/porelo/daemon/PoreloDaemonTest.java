@@ -3568,6 +3568,15 @@ class PoreloDaemonTest {
     void aReviewWithNoBaseNamedShowsTheWholePushAgainstTheDefaultBranch(@TempDir Path dir)
             throws Exception {
 
+        reviewWithBase(dir, false);
+    }
+
+    @Test
+    void aReviewUsesTheRecordedStartingBranchOverTheSocket(@TempDir Path dir) throws Exception {
+        reviewWithBase(dir, true);
+    }
+
+    private void reviewWithBase(Path dir, boolean develop) throws Exception {
         // The contract says "Default: the upstream's default branch"; the daemon showed the push's
         // last commit alone, and a client saw half of the work.
         final PoreloContext context = context(dir);
@@ -3601,10 +3610,24 @@ class PoreloDaemonTest {
                 org.fuin.porelo.app.GateSupport.gate(
                         context, project, project.repository("app"), null, null);
         gate.initialize();
+        if (develop) {
+            in.accept(checkout, new String[] {"checkout", "-q", "-b", "develop"});
+            Files.writeString(checkout.resolve("earlier.txt"), "already in develop\n");
+            in.accept(checkout, new String[] {"add", "."});
+            in.accept(checkout, new String[] {"commit", "-q", "-m", "earlier"});
+            in.accept(
+                    checkout,
+                    new String[] {"push", "-q", gate.mirror().toString(), "develop:develop"});
+            new org.fuin.porelo.app.TaskBase("develop", "CHECKOUT")
+                    .writeForGate(gate.mirror(), "t");
+        }
         final Path work = dir.resolve("work");
         git.runOrFail(
                 org.fuin.porelo.core.process.Command.of(
                         "git", "clone", "-q", gate.mirror().toString(), work.toString()));
+        if (develop) {
+            in.accept(work, new String[] {"checkout", "-q", "develop"});
+        }
         for (final String file : java.util.List.of("first.txt", "second.txt")) {
             Files.writeString(work.resolve(file), file + "\n");
             in.accept(work, new String[] {"add", "."});

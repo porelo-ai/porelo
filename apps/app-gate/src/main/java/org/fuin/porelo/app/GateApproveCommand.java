@@ -46,7 +46,7 @@ public class GateApproveCommand implements Callable<Integer>, PoreloFactory.Cont
             names = "--branch",
             paramLabel = "<name>",
             description =
-                    "Upstream branch. Default: main; in a project with a branch block, the task's own"
+                    "Upstream branch. Default: the starting branch (main for older tasks); with a branch block, the task's own"
                             + " branch, and a named one must match its branch.pattern.")
     private @Nullable String branch;
 

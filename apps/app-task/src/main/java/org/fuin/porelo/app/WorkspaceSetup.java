@@ -336,7 +336,7 @@ final class WorkspaceSetup {
      * @param out Where progress is reported.
      * @param err Where a failure is reported.
      */
-    void prepareWorkspace(
+    boolean prepareWorkspace(
             TaskRunner runner,
             TaskWorkspace workspace,
             String container,
@@ -375,5 +375,6 @@ final class WorkspaceSetup {
             err.flush();
         }
         out.flush();
+        return code == 0;
     }
 }

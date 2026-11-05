@@ -84,6 +84,23 @@ class ApprovalBranchTest {
     }
 
     @Test
+    void withoutABranchSchemeApprovalFollowsTheRecordedStartingBranch() throws Exception {
+        // Work started on develop must not be forwarded onto main by default.
+        final PoreloContext context = context();
+        final Project project = project("");
+        final Path state =
+                Files.createDirectories(
+                        context.paths()
+                                .tasks()
+                                .containerState(
+                                        org.fuin.porelo.runtime.ContainerName.of(project, "fix")));
+        new TaskBase("develop", "CHECKOUT").writeTo(state);
+        assertThat(ApprovalBranch.of(context, project, project.ownRepository(), "fix", null))
+                .as("approval retains the line of development selected at start")
+                .isEqualTo("develop");
+    }
+
+    @Test
     void inAProjectWithABlockAnApprovalWithoutABranchGoesToTheTasksOwn() throws Exception {
         final PoreloContext context = context();
         final Project project = project(BLOCK);

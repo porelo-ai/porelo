@@ -12,6 +12,11 @@ import java.nio.file.Path;
  */
 public record GatePaths(PoreloPaths paths) {
 
+    /** Returns the host-owned start record retained while work waits in this mirror. */
+    public static Path taskStart(Path mirror, String task) {
+        return mirror.resolve("porelo-starts").resolve(task);
+    }
+
     /**
      * Returns the directory recording what backups have been taken.
      *

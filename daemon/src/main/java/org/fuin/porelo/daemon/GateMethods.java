@@ -117,12 +117,13 @@ final class GateMethods {
                 (parameters, replies) -> {
                     final GitGate gate = gate(parameters, context);
                     final String name = text(parameters, "name");
-                    // As the contract says and 'porelo gate review' does: without a base, the
-                    // mirror's HEAD - its source's default branch. Passing nothing showed the
-                    // push's last commit alone, and a review of several commits looked like one.
                     final String against =
                             text(parameters, "against").isEmpty()
-                                    ? "HEAD"
+                                    ? org.fuin.porelo.app.TaskBase.reviewAgainst(
+                                            context,
+                                            GateSupport.project(projectFile(parameters, context)),
+                                            name,
+                                            gate)
                                     : text(parameters, "against");
                     final org.fuin.porelo.gate.ReviewRanking.Review review =
                             gate.rankedReview(name, against, flag(parameters, "ignoreLineEndings"));

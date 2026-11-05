@@ -46,9 +46,8 @@ public class GateReviewCommand implements Callable<Integer>, PoreloFactory.Conte
     @Option(
             names = "--against",
             paramLabel = "<ref>",
-            description =
-                    "Ref to compare against. Default: the mirror's HEAD, its upstream's default branch.")
-    private String against = "HEAD";
+            description = "Ref to compare against. Default: the branch the task started from.")
+    private @Nullable String against;
 
     @Spec private CommandSpec spec;
 
@@ -77,12 +76,16 @@ public class GateReviewCommand implements Callable<Integer>, PoreloFactory.Conte
             gate.initialize();
             // What matters before what is merely large: the instruction, the files dangerous by
             // kind, and the patch in that same order, reformatting and generated files last.
-            final ReviewRanking.Review review = gate.rankedReview(name, against);
+            final String base =
+                    against == null
+                            ? TaskBase.reviewAgainst(context, project, name, gate)
+                            : against;
+            final ReviewRanking.Review review = gate.rankedReview(name, base);
             out.print(
                     ReviewText.render(
                             ReviewText.instruction(context.paths(), project.name(), name),
                             review.files()));
-            out.println(shown(gate.log(name, against)));
+            out.println(shown(gate.log(name, base)));
             out.println(shown(review.patch()));
             out.flush();
             return 0;

@@ -87,7 +87,7 @@ method Review(
   repository: ?string,
   # Ref name, from PendingPush.name.
   name: string,
-  # What to diff against. Default: the upstream's default branch.
+  # What to diff against. Default: the task's recorded starting branch, or the mirror's HEAD for older tasks.
   against: ?string,
   # Ignore whitespace at line endings in the diff (git --ignore-space-at-eol). Default: false.
   # Counts, file ranking and log are unchanged by this switch.
@@ -141,7 +141,7 @@ method PendingBundle(
   # Which repository of the project. Default: the project's own.
   repository: ?string,
   name: string,
-  # The branch it is to be merged onto. Default: main; in a project with a branch block, the task's own
+  # The branch it is to be merged onto. Default: the recorded starting branch (main for older tasks); with a branch block, the task's own
   # branch, and a named one must match its branch.pattern (BranchRefused otherwise).
   branch: ?string
 ) -> (

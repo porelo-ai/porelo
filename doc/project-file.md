@@ -244,6 +244,19 @@ branch:
   pattern: "^(feature|bugfix|hotfix|release)/porelo/[a-z0-9-]+$"   # required with a template
 ```
 
+## Starting branch
+
+A task started from a checkout uses that checkout's branch. `porelo task start --from develop` names
+another branch. Without a matching checkout, the root-level `base_branch: develop` setting chooses
+one; otherwise the repository's default branch is used. The start prints the branch and its source.
+A detached checkout needs `--from`. A branch absent from the mirror is refused before a container is
+created: publish it to the repository's source and fetch, or choose an available branch.
+
+Review compares with the recorded starting branch, including after a restart. Without a `branch`
+scheme, approval defaults to that branch; a declared scheme still chooses the task's forge branch.
+An `online` task still forwards to its own forge branch. The starting branch does not change where
+Porelo reads trusted image settings: `porelo.yml` still comes from the mirror's default branch.
+
 ## branch
 
 A forge commonly allows branches only under its own paths, one per kind of work, with rules attached to each. The

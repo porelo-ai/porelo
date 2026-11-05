@@ -175,6 +175,12 @@ public final class ProjectFileCheck {
         if (file.branch() != null) {
             branch(file.branch(), "branch");
         }
+        if (file.baseBranch() != null
+                && !org.fuin.porelo.core.project.BranchScheme.refFormat(file.baseBranch())) {
+            fault(
+                    "base_branch",
+                    "'base_branch' names no branch: '" + shown(file.baseBranch()) + "'");
+        }
         credentials(file.credentials(), label, securityClass);
         repositories(file, label, securityClass);
     }

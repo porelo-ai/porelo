@@ -196,6 +196,13 @@ public class TaskRunCommand implements Callable<Integer>, PoreloFactory.ContextA
     private @Nullable String branch;
 
     @Option(
+            names = "--from",
+            paramLabel = "<branch>",
+            description =
+                    "Starting branch. Default: your checkout, base_branch, then the repository default.")
+    private @Nullable String from;
+
+    @Option(
             names = "--no-gate",
             description =
                     "Runs without a workspace or a git gate. The agent gets an empty"
@@ -636,8 +643,21 @@ public class TaskRunCommand implements Callable<Integer>, PoreloFactory.ContextA
         // the
         // start itself, as a daemon's start is.
         final java.util.Map<String, org.fuin.porelo.core.project.Parameters.Given> given;
+        final TaskBase base;
         try {
-            given = given(ProjectReader.read(projectFile).parameters());
+            final var project = ProjectReader.read(projectFile);
+            given = given(project.parameters());
+            base =
+                    from != null
+                            ? TaskBase.named(from)
+                            : noGate || dryRun || repository == null || exists(project)
+                                    ? null
+                                    : TaskBase.requested(
+                                            context,
+                                            project,
+                                            GateSupport.repository(project, repository),
+                                            standing,
+                                            null);
         } catch (final ProjectException ex) {
             err.println("porelo: " + ex.getMessage());
             err.flush();
@@ -670,7 +690,8 @@ public class TaskRunCommand implements Callable<Integer>, PoreloFactory.ContextA
                                         credentials,
                                         given,
                                         branch,
-                                        subagents),
+                                        subagents,
+                                        base),
                                 new StartSteps(step -> StartSteps.render(out, step), err))
                         // What a refusal would name is offered at a terminal instead; a script or a
                         // pipe is refused as before.
@@ -1240,6 +1261,7 @@ public class TaskRunCommand implements Callable<Integer>, PoreloFactory.ContextA
                     "--set-file",
                     "--set-env",
                     "--branch",
+                    "--from",
                     "--credential-type",
                     "--token-hours",
                     "--shell",
@@ -1279,5 +1301,15 @@ public class TaskRunCommand implements Callable<Integer>, PoreloFactory.ContextA
             return 64;
         }
         return TaskAttachCommand.goInto(context, container, out);
+    }
+
+    /**
+     * Tells whether the task already exists, which keeps the branch it was started on: a caller's
+     * checkout, detached or not, chooses nothing for it.
+     */
+    private boolean exists(final org.fuin.porelo.core.project.Project project) {
+        final String container = context.tasks().containerName(project, task);
+        return context.podman().poreloTasks().stream()
+                .anyMatch(summary -> summary.name().equals(container));
     }
 }

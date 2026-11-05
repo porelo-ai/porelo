@@ -126,4 +126,14 @@ class FileEdgesTest {
         assertThatThrownBy(() -> RepositoryFileWriter.write(file))
                 .isInstanceOf(ProjectException.class);
     }
+
+    @Test
+    void aStartingBranchIsReadWrittenAndChecked() {
+        final ProjectFile file = read(BASE + "base_branch: develop\n");
+
+        assertThat(file.baseBranch()).isEqualTo("develop");
+        assertThat(read(ProjectFileWriter.write(file))).isEqualTo(file);
+        assertThat(faults(BASE + "base_branch: 'a..b'\n"))
+                .anyMatch(f -> f.contains("project.yml:6:") && f.contains("base_branch"));
+    }
 }

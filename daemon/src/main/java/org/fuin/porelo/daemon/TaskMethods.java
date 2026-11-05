@@ -977,6 +977,10 @@ final class TaskMethods {
                     final Map<String, Object> reply = new LinkedHashMap<>();
                     reply.put("container", container);
                     reply.put("exitCode", code);
+                    if (launch.startingBranch() != null) {
+                        reply.put("baseBranch", launch.startingBranch().branch());
+                        reply.put("baseSource", launch.startingBranch().source());
+                    }
                     reply.put(
                             "output",
                             replies.streaming()

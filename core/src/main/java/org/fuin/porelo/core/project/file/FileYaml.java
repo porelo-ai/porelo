@@ -107,6 +107,9 @@ final class FileYaml {
         if (file.branch() != null) {
             top.put("branch", branch(file.branch()));
         }
+        if (file.baseBranch() != null) {
+            top.put("base_branch", file.baseBranch());
+        }
         return top;
     }
 
