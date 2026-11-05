@@ -1214,3 +1214,30 @@ type Usage (
 
 # Reads current usage or the last retained record of a removed task, without network access.
 method Usage(task: string) -> (usage: Usage)
+
+# A package, a tool or another setting a first start found, and the file it was read from. Where
+# something is set and could not be read without running something, value starts with "unknown: " and
+# says why.
+type Finding (
+  what: string,
+  value: string,
+  source: string
+)
+
+# What a first start in a checkout on this computer is to do, changing nothing. outcome is ASK_NEW
+# (nothing is configured and something was recognized), ASK_UNKNOWN_FILE (a project.yml this machine has
+# not approved), KNOWN (nothing to ask), NOT_DEFAULT (a repository of an organization's project),
+# NO_PLUGIN or NOTHING_RECOGNIZED. A repository decides nothing by itself: found, hosts and marked are for
+# a person to read before a yes, and 'marked' names the hosts only the checkout names, in no curated set,
+# for which a yes is not the default. file is the text that would be or was written, and hash is what the
+# answer names. An interface then starts as usual, by the project's name.
+method FirstStart(checkout: string) -> (outcome: string, found: []Finding, hosts: []string, marked: []string, file: string, project: string, hash: string)
+
+# A person's yes to the text a hash names: writes the file if it is new, keeps the hash and records the
+# project. A No has no call, and nothing is kept.
+method ConfirmFirstStart(checkout: string, hash: string) -> (project: string)
+
+# A first start's yes cannot be taken. reason is NOT_A_CHECKOUT, NAME_TAKEN (the name is 'default' or
+# another local project's), NO_NAME, FILE_UNREADABLE, MOVED_ON (the text is no longer what the hash named),
+# NOTHING_ASKED or NOT_WRITTEN; detail says it in words.
+error FirstStartRefused(reason: string, detail: string)

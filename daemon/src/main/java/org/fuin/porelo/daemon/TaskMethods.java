@@ -39,6 +39,30 @@ final class TaskMethods {
 
     private TaskMethods() {}
 
+    private static org.fuin.porelo.app.FirstStart firstStart(final PoreloContext context) {
+        return new org.fuin.porelo.app.FirstStart(
+                context, org.fuin.porelo.app.EcosystemDetector.INSTALLED);
+    }
+
+    /** A daemon has a directory of its own: a relative path would name something else. */
+    private static Path checkout(final Map<String, Object> parameters)
+            throws org.fuin.porelo.app.FirstStart.Refused {
+        final Path checkout = Path.of(text(parameters, "checkout"));
+        if (!checkout.isAbsolute()) {
+            throw new org.fuin.porelo.app.FirstStart.Refused(
+                    org.fuin.porelo.app.FirstStart.Reason.NOT_A_CHECKOUT,
+                    "a checkout is named by its absolute path");
+        }
+        return checkout;
+    }
+
+    private static VarlinkException firstStartRefused(
+            final org.fuin.porelo.app.FirstStart.Refused refused) {
+        return new VarlinkException(
+                INTERFACE + ".FirstStartRefused",
+                Map.of("reason", refused.reason().name(), "detail", refused.detail()));
+    }
+
     /**
      * Registers this area's methods.
      *
@@ -690,6 +714,32 @@ final class TaskMethods {
 
         final org.fuin.porelo.app.CertificateWaits certificates =
                 new org.fuin.porelo.app.CertificateWaits();
+        server.method(
+                "FirstStart",
+                (parameters, replies) -> {
+                    try {
+                        replies.last(firstStart(context).look(checkout(parameters)).asMap());
+                    } catch (org.fuin.porelo.app.FirstStart.Refused ex) {
+                        throw firstStartRefused(ex);
+                    }
+                });
+
+        server.method(
+                "ConfirmFirstStart",
+                (parameters, replies) -> {
+                    try {
+                        replies.last(
+                                Map.of(
+                                        "project",
+                                        firstStart(context)
+                                                .confirm(
+                                                        checkout(parameters),
+                                                        text(parameters, "hash"))));
+                    } catch (org.fuin.porelo.app.FirstStart.Refused ex) {
+                        throw firstStartRefused(ex);
+                    }
+                });
+
         server.method(
                 "Certify",
                 (parameters, replies) -> replies.last(certified(certificates, parameters)));
