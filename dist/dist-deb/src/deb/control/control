@@ -14,7 +14,7 @@ Depends: podman (>= 5), nftables, dnsmasq-base, git, util-linux, libc6 (>= [[pac
 # Recommended, not required: they depend on porelo, so requiring them would be a cycle. apt installs
 # a recommendation by default, which is what a machine without the setup script needs - without the
 # filter nothing leaves a task.
-Recommends: porelo-message-sluice-filter
+Recommends: porelo-message-sluice-filter, porelo-ecosystem-maven
 Description: [[description]]
  Sandboxes an AI agent task in a hardened, rootless podman container: egress is
  default-deny, credentials stay on the host behind a broker, and the agent hands

@@ -104,6 +104,7 @@ Where SELinux is enforcing, a task container cannot reach porelo's sockets until
                                  leaves a task. -->
                             <recommends>
                                 <recommend>porelo-message-sluice-filter</recommend>
+                                <recommend>porelo-ecosystem-maven</recommend>
                             </recommends>
                             <!-- On an upgrade only, and only where the module is loaded: a loaded module stays as it was
                                  when its package is replaced, and the one before 1.1 let no sshd domain connect, so every
