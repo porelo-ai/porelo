@@ -46,13 +46,13 @@ class MirrorFileTest {
     private Path mirror(Path root) throws Exception {
         final Path source = Files.createDirectories(root.resolve("source"));
         git(source, "init", "-q", "-b", "trunk", ".");
-        Files.writeString(source.resolve("porelo.yml"), "image:\n  base_image: reviewed\n");
+        Files.writeString(source.resolve("porelo.yml"), "image:\n  from: reviewed\n");
         Files.writeString(source.resolve("image.sh"), "RUN true\n");
         Files.createSymbolicLink(source.resolve("link.sh"), Path.of("/etc/passwd"));
         git(source, "add", "-A");
         git(source, "commit", "-q", "-m", "reviewed");
         git(source, "checkout", "-q", "-b", "porelo/task");
-        Files.writeString(source.resolve("porelo.yml"), "image:\n  base_image: pushed-by-a-task\n");
+        Files.writeString(source.resolve("porelo.yml"), "image:\n  from: pushed-by-a-task\n");
         git(source, "commit", "-q", "-am", "a task's own");
         git(source, "checkout", "-q", "trunk");
         final Path mirror = root.resolve("mirror.git");
@@ -70,7 +70,7 @@ class MirrorFileTest {
                 .isEqualTo(new MirrorFile.Found("refs/heads/trunk"));
         assertThat(MirrorFile.read(runner, mirror, "porelo.yml"))
                 .as("reviewed work, not what a task pushed")
-                .contains("image:\n  base_image: reviewed\n");
+                .contains("image:\n  from: reviewed\n");
     }
 
     @Test

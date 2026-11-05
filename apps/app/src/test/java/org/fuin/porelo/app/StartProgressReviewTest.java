@@ -55,7 +55,7 @@ class StartProgressReviewTest {
                 file,
                 """
                 project: {name: p, security_class: guarded}
-                image: {base_image: 'ubuntu:24.04'}
+                image: {from: 'ubuntu:24.04'}
                 """
                         + (conversation
                                 ? """

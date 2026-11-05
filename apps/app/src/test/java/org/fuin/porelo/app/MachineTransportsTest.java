@@ -129,7 +129,7 @@ class MachineTransportsTest {
                 "project:\n  name: \"p\"\n  security_class: \""
                         + securityClass
                         + "\"\n"
-                        + "image:\n  base_image: \"ubuntu:24.04\"\n"
+                        + "image:\n  from: \"ubuntu:24.04\"\n"
                         + "mail:\n  transports:\n    room:\n      homeserver: \"https://project.example\"\n",
                 StandardCharsets.UTF_8);
         Files.writeString(
@@ -169,7 +169,7 @@ class MachineTransportsTest {
                 context,
                 "p",
                 "project:\n  name: \"p\"\n  security_class: \"guarded\"\n"
-                        + "image:\n  base_image: \"ubuntu:24.04\"\n"
+                        + "image:\n  from: \"ubuntu:24.04\"\n"
                         + "mail:\n  transports:\n    room: {homeserver: \"https://access.example\"}\n"
                         + "  peers:\n    people: {address: \"room:\", trust: \"external\"}\n",
                 row("bob", BOB),

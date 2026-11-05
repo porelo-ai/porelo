@@ -226,7 +226,7 @@ class UpstreamProbeTest {
                   name: "uc"
                   security_class: "%s"
                 image:
-                  base_image: "ubuntu:24.04"
+                  from: "ubuntu:24.04"
                 repositories:
                   backend:
                     upstream: "%s"

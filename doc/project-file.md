@@ -15,8 +15,11 @@ that is how an offline project comes to a machine.
 under `repositories`.** A machine reads it at each `task start` of a project its organization names, at a commit that start judged,
 never the working tree; Porelo never writes one. See [how it reaches a machine](#how-the-file-reaches-a-machine).
 
-**Only `project.name`, `project.security_class` and `image.base_image` are required.** Everything else
+**Only `project.name`, `project.security_class` and `image.from` are required.** Everything else
 has a default that suits most projects.
+
+**Every key is one Porelo knows, at the place it belongs.** A file holding anything else is refused whole, each
+fault named with its line, as [a key Porelo does not know](#a-key-porelo-does-not-know) says.
 
 **A project is not a repository.** It is a named unit of work over one or more repositories: its own,
 which holds this file, and any it lists under `repositories`. `porelo project list` shows them. A project that
@@ -96,35 +99,34 @@ repositories:
     #                  security. Its replacement, if any, is named in its README.
     maturity: "early-bird"
 
+  # A repository names no image, egress or limits: its image is in its own porelo.yml, and what a
+  # task may reach or consume is the project's alone.
   frontend:
     upstream: "git@github.com:you/frontend.git"
-
-    # Optional. ADDED to the project's egress, never replacing it. To make a repository reach
-    # less, move the set out of the project's block into the repositories that need it.
-    egress:
-      sets: [nodejs]
-      domains: ["packages.internal.example"]
-
-    # Optional. REPLACES the project's limits key by key. A key not written here keeps the
-    # project's value, not the default. 'none' opts out of a limit.
-    limits:
-      memory: "16g"
 
 image:
 
   # Required. What the task image is built from. Porelo adds curl, git, ssh, tmux and python3 with
   # apt, apk or dnf; a base without them must ship curl, git, ssh and tmux itself, and builds
   # without python3 if it has neither it nor a package manager.
-  base_image: "ubuntu:24.04"
+  from: "ubuntu:24.04"
 
-  # Optional. Extra Containerfile lines, run as root at build time. Keep it small: any change
-  # rebuilds the image.
-  snippet: |
+  # Optional. Variables set in the image, each an ENV line after the 'run' lines. A repository's
+  # porelo.yml may give one of them another value.
+  env:
+    JAVA_HOME: /opt/graalvm
+
+  # Optional. Extra Containerfile lines, run as root at build time: RUN, ARG and ENV only. Keep it
+  # small: any change rebuilds the image.
+  run: |
     RUN apt-get update && apt-get install -y --no-install-recommends jq \
         && rm -rf /var/lib/apt/lists/*
 
-  # Optional, instead of 'snippet': the same lines in a file of their own.
-  # snippet_file: "Containerfile.fragment"
+  # Optional, instead of 'run': the same lines in a file of their own.
+  # run_file: "Containerfile.fragment"
+
+# Optional. What the image build itself fetches from.
+build:
 
   # Optional. Where apt fetches from at build time. This is the default.
   # Use http: Ubuntu mirrors serve no TLS, and apt checks the signed Release file instead.
@@ -148,7 +150,7 @@ egress:
   host_services: ["forge.internal.example", "registry.internal.example"]
 
   # Only what a task reaches WHILE IT RUNS needs a set or a domain. The image is built on the host,
-  # outside the task's firewall, so packages a 'snippet' installs need none; the gate fetches and
+  # outside the task's firewall, so packages a 'run' installs need none; the gate fetches and
   # pushes on the host, so the task's own git needs none. A company's mirror is a domain, not a set.
   # What each set opens: os-packages-debian and -fedora the distributions' package mirrors;
   # git-hosting github.com, gitlab.com, bitbucket.org, codeberg.org; maven Maven Central; nodejs,
@@ -270,13 +272,13 @@ an explicit project value wins. `getconf` and `sysconf` still read the host's co
 
 Image builds use the project's memory limit and CPU quota, and pass `OMP_NUM_THREADS` to their `RUN` steps as a
 build argument, rounded down to at least 1, so `RUN nproc` sees the bound. The argument is declared after the packages
-layer and before the snippet and agent layers; it does not become an image environment variable.
+layer and before the `run` lines and agent layers; it does not become an image environment variable.
 `limits.cpus: none` leaves the build without these resource flags or the build argument;
 `limits.memory: none` removes the memory flag. Open-file limits stay the container runtime's.
 
 `limits.subagents` is how many subagents a task's agent may run at the same time inside the task: 0, the default, for
 none, and 1 or more for that many at once, not over the whole task. `porelo task start --subagents N` wins over the
-file, and a repository's `limits.subagents` over the project's. The number is fixed when the task is created and kept
+file. The number is fixed when the task is created and kept
 with it: a stopped task brought back, after a reboot too, hands its agent the same number again, takes `--subagents`
 with that number and refuses another with exit code 64. The agent's adapter turns it into the agent's own switch, and
 its definition says what it can enforce: a task asking for more than that, such as any subagent of an agent that can
@@ -293,9 +295,9 @@ token; a start whose key cannot be kept takes none and is refused with exit code
 ## Services on this host
 
 `egress.host_services` names services on the task's own host, such as its forge and registry. Each name uses the
-same lower-case host-name syntax as `egress.domains`; a name in both keys is refused when the file is read,
-including when one key belongs to the project and the other to a repository. A repository's host services add to
-the project's, as its domains do. `egress.refused` still wins for a service's name or a parent of it.
+same lower-case host-name syntax as `egress.domains`; a name in both keys is refused when the file is read. Like all
+of `egress`, they are the project's, for a task on any of its repositories. `egress.refused` still wins for a
+service's name or a parent of it.
 
 The task's resolver answers each declared name with the gate's address: `169.254.1.2` under pasta, or the address
 Porelo probes for the gate otherwise. It never asks upstream DNS for that name and never adds the address to the
@@ -310,46 +312,49 @@ by every task of a project that declares a host service: see [the accepted expos
 ## A repository's own image
 
 A repository says what it needs to be built in, in a file of its own: `porelo.yml` at its top, checked in. It holds
-`image:` and nothing else - `base_image`, `snippet` or `snippet_file`, and `env`:
+`image:` and nothing else - `from`, `run` or `run_file`, and `env`, as the project file's `image` does:
 
 ```yaml
 image:
-  base_image: "ubuntu:24.04@sha256:..."
-  snippet: |
+  from: "ubuntu:24.04@sha256:..."
+  run: |
     RUN apt-get update && apt-get install -y --no-install-recommends rpm
   env:
     JAVA_HOME: /opt/graalvm
 ```
 
-- **Only the image.** Egress, limits, `package_sources`, the class and every other rule stay the project's: a
+- **Only the image.** Egress, limits, `build.package_sources`, the class and every other rule stay the project's: a
   repository that could name them would widen what its own tasks may do. Any other key is refused by its name, at the
-  start, before an image is built. A variable Porelo sets in every task (`PATH`
+  start, before an image is built. `run` takes `RUN`, `ARG` and `ENV` lines only, here and in the project file: a
+  `FROM`, `COPY`, `ADD`, `USER` or `ENTRYPOINT` is refused at its line. A variable Porelo sets in every task (`PATH`
   the task account's local `bin` folder, then `/usr/local/bin:/usr/bin:/bin`, `HOME` `/home/agent`, `LANG` `C.UTF-8`, or any `PORELO_*` set
   per task) is refused too, naming the value and that the line must be removed.
-- **The image sees nothing of the repository:** the snippet runs in Porelo's own build directory, so a `COPY` or `ADD`
-  of a repository file finds nothing there. What a repository ships for its tasks is installed at run time, or
-  fetched by the snippet against a hash written into it.
+- **The image sees nothing of the repository:** the `run` lines run in Porelo's own build directory. What a
+  repository ships for its tasks is installed at run time, or fetched by a `run` line against a hash written into it.
 - **Read from reviewed work only:** the repository's mirror at its default branch, never a branch a task pushed
-  (`porelo/*`), and a `snippet_file` only as a plain file of the repository, never a link or a path that leaves it. On a
+  (`porelo/*`), and a `run_file` only as a plain file of the repository, never a link or a path that leaves it. On a
   start that fetches, the mirror's file is read again after the gate's fetch, and a refusal from the mirror waits for
   the fetched file to decide; a start that does not fetch (`--dry-run`, `--no-gate`) refuses on the mirror's file as of
   its last fetch and says so. When the mirror's `HEAD` names a default branch that does not exist, `task start` refuses
   after the fetch, naming the branch, the mirror's branches and the fix, rather than starting with the project's image;
   Each gate refresh updates the mirror's `HEAD` from the
   upstream's symbolic `HEAD` once the mirror holds that branch.
-- **The project file can say it as well**, under `repositories.<name>.image`, with the same keys.
+- **The project file names no image for a repository:** an entry under `repositories` holding `image` is refused,
+  naming the repository's own `porelo.yml` as the place for it.
 - **A local override** lies in `$XDG_CONFIG_HOME/porelo/projects/<project>/<repository>/.porelo.yml`, in the same format,
   never checked in.
-- **What wins, key by key:** the local override, then the project file's entry for the repository, then the
-  repository's `porelo.yml`, then the project's `image`. In the built-in project `default`, a task started from a
-  checkout reads `.porelo.yml` in that checkout, then `porelo.yml` there, then the default image; approved work lands on
-  `porelo/<task>`, never on the checked-out branch, so a task cannot change either file under the person. `base_image`
-  and the snippet are each taken whole from one of them; `env` per variable, so an override that sets one variable
-  changes only that one.
+- **What wins, key by key:** the local override, then the repository's `porelo.yml`, then the project's `image`. In
+  the built-in project `default`, a task started from a checkout reads `.porelo.yml` in that checkout, then
+  `porelo.yml` there, then the default image; approved work lands on `porelo/<task>`, never on the checked-out branch,
+  so a task cannot change either file under the person. `from` and the lines of `run` or `run_file` are each taken
+  whole from one of them; `env` per variable, so an override that sets one variable changes only that one, and the
+  project's `env` gives what no other source sets.
 - **The start and its dry run name each key's source** (`base image ... (from ...)`, `image lines from ...`,
   `image env NAME from ...`, and `snippet ... lines from ...`). An image a repository's own sources shape is built as
   `porelo/<project>_<repository>` in its own build directory, so two repositories' images never replace or block each
   other; one shaped by the project's `image` alone keeps `porelo/<project>`.
+- **A repository's entry in the project file names no egress or limits either:** what a task may reach or consume is
+  the project's alone, so a repository that needs other rules is another project.
 - **The review ranks a change to `porelo.yml` or `.porelo.yml` as dangerous:** `porelo.yml` chooses the image a task is
   built from, as root and outside the task's firewall (ranked wherever it lies, though only the top-level one is read),
   and `.porelo.yml` is a local override, never to be checked in.
@@ -404,18 +409,25 @@ project the organization named goes when the organization no longer names it, at
 
 ## A key Porelo does not know
 
-**A key that is clearly a mistake is refused.** That is a key under the wrong section, or one within
-two letters of a real key. The error says where it belongs:
+**Every key Porelo does not know is refused, and the file with it.** Ignored, a key would be no setting at all while
+the file looked applied. The refusal names every fault at once, each with the file, its line and the key. Where a key
+belongs elsewhere, it says where, and for a key within two letters of one it knows, the key meant:
 
-    project.yml: 'mail.upstream' is not a setting; it belongs under 'project:'
+    project.yml:3: 'project.securty_class' is not a setting; did you mean 'security_class'?
+    project.yml:7: 'mail.upstream' is not a setting; it belongs under 'project:'
+    project.yml:9: 'image.base_image' is not a setting; write 'from' instead
+    project.yml:14: 'repositories.backend.image' is not a setting; a repository's image is in its own porelo.yml, and the project's is 'image' at the top level
 
-**A key Porelo no longer reads is refused by name**, with what decides instead, so a file that carries it does not look
-as if it still did something: `unread_work_may_leave` is gone, and how closely a message is watched is set by
-`mail.rules` and a peer's `mode`.
+**A file written for a later Porelo is refused by an earlier one**, saying the key is not one this Porelo knows and
+that it may be older than the file: every person who starts a task of the project updates before their next start.
 
-**Any other unknown key is accepted with a warning** from `task start`, so a file written for a newer
-Porelo still runs on an older one. Porelo does not check the names under `credentials` and
-`repositories`, or anything under `mail.transports.<scheme>` (the transport checks that).
+**A file of the earlier format is refused the same way, and written anew.** Its image keys were renamed (`base_image`
+is `from`, `snippet` is `run`, `snippet_file` is `run_file`), `image.package_sources` moved to `build.package_sources`,
+and an entry under `repositories` holds no `image`, `egress` or `limits` any more; each such key is refused at its
+line with what to write instead.
+
+Porelo does not check the names under `credentials` and `repositories`, or what a transport takes under
+`mail.transports.<scheme>` (the transport checks that).
 
 ## Reaching a private repository
 

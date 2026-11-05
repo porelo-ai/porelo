@@ -21,7 +21,7 @@ class HostServicesTest {
                   security_class: %s
                 %s
                 image:
-                  base_image: ubuntu:24.04
+                  from: ubuntu:24.04
                 egress:
                   host_services: [forge.example, registry.example]
                 """
@@ -39,38 +39,17 @@ class HostServicesTest {
     }
 
     @Test
-    void addsARepositorysHostServicesWithoutLosingTheProjects() {
+    void aRepositoryTakesTheProjectsHostServices() {
         final Project project =
                 read(
                         """
                   host_services: [forge.example]
                 repositories:
-                  backend:
-                    egress:
-                      host_services: [forge.example, registry.example]
+                  backend: {}
                 """);
         assertThat(project.egressFor(project.repository("backend")).hostServices())
-                .as("repository grants add to the project's and drop duplicates")
-                .containsExactly("forge.example", "registry.example");
-    }
-
-    @Test
-    void refusesANameInBothKeysAcrossProjectAndRepositoryWhenRead() {
-        assertThatThrownBy(
-                        () ->
-                                read(
-                                        """
-                  host_services: [forge.example]
-                repositories:
-                  backend:
-                    egress:
-                      domains: [forge.example]
-                """))
-                .as("merging must not postpone a contradictory declaration until task start")
-                .isInstanceOf(ProjectException.class)
-                .hasMessageContaining("forge.example")
-                .hasMessageContaining("egress.domains")
-                .hasMessageContaining("egress.host_services");
+                .as("egress is the project's alone, so each repository's task has the project's")
+                .containsExactly("forge.example");
     }
 
     private static Project read(String egress) {
@@ -81,7 +60,7 @@ class HostServicesTest {
                   name: host-services
                   security_class: guarded
                 image:
-                  base_image: ubuntu:24.04
+                  from: ubuntu:24.04
                 egress:
                 """
                                 + egress),
@@ -129,19 +108,5 @@ class HostServicesTest {
                 .isInstanceOf(ProjectException.class)
                 .hasMessageContaining("egress.host_services")
                 .hasMessageContaining("must be a list");
-    }
-
-    @Test
-    void declaresHostServicesInTheSchema() {
-        assertThat(
-                        ProjectReader.unknownKeys(
-                                new StringReader(
-                                        """
-                egress:
-                  host_services: [forge.example]
-                """),
-                                "host-services.yml"))
-                .as("checking a valid declaration must recognize the key")
-                .isEmpty();
     }
 }

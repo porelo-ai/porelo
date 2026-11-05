@@ -92,6 +92,15 @@ final class Sections {
     }
 
     /**
+     * Returns every section with its keys.
+     *
+     * @return Section to its keys, both in the order they are written.
+     */
+    Map<String, List<String>> all() {
+        return java.util.Collections.unmodifiableMap(new LinkedHashMap<>(keys));
+    }
+
+    /**
      * Says what is wrong with a key a section does not hold.
      *
      * @param section The section it was found in.
@@ -126,9 +135,14 @@ final class Sections {
         }
         final String home = home(section, key);
         if (home == null) {
-            return "'"
-                    + where
-                    + "' is not a setting this Porelo knows; it may be older than the file";
+            // A key within two letters of one the section holds is a slip of the hand far more
+            // often than a key of a later Porelo, so it is named.
+            final String near = nearest(key, keys.getOrDefault(section, List.of()));
+            return near == null
+                    ? "'"
+                            + where
+                            + "' is not a setting this Porelo knows; it may be older than the file"
+                    : "'" + where + "' is not a setting; did you mean '" + near + "'?";
         }
         return "'"
                 + where
@@ -145,5 +159,37 @@ final class Sections {
             }
         }
         return null;
+    }
+
+    private static @Nullable String nearest(final String key, final List<String> known) {
+        String best = null;
+        int distance = 3;
+        for (final String candidate : known) {
+            final int each = distance(key, candidate);
+            if (each < distance) {
+                distance = each;
+                best = candidate;
+            }
+        }
+        return best;
+    }
+
+    private static int distance(final String a, final String b) {
+        final int[] previous = new int[b.length() + 1];
+        final int[] current = new int[b.length() + 1];
+        for (int j = 0; j <= b.length(); j++) {
+            previous[j] = j;
+        }
+        for (int i = 1; i <= a.length(); i++) {
+            current[0] = i;
+            for (int j = 1; j <= b.length(); j++) {
+                current[j] =
+                        Math.min(
+                                Math.min(current[j - 1], previous[j]) + 1,
+                                previous[j - 1] + (a.charAt(i - 1) == b.charAt(j - 1) ? 0 : 1));
+            }
+            System.arraycopy(current, 0, previous, 0, current.length);
+        }
+        return previous[b.length()];
     }
 }

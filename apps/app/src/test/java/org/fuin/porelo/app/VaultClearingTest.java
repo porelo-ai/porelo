@@ -117,7 +117,7 @@ class VaultClearingTest {
                 "project:\n  name: \""
                         + name
                         + "\"\n  security_class: \"guarded\"\n"
-                        + "image:\n  base_image: \"ubuntu:24.04\"\n"
+                        + "image:\n  from: \"ubuntu:24.04\"\n"
                         + extra,
                 StandardCharsets.UTF_8);
         Files.writeString(

@@ -23,7 +23,7 @@ Feature: A draft project file is checked against this machine before a person co
                     | timeout 60 porelo daemon connect | tr '\0' '\n' | head -1
             }
             draft() {
-                printf '%s\n' 'project:' '  name: "drafted"' '  security_class: "guarded"' 'image:' '  base_image: "ubuntu:24.04"' \
+                printf '%s\n' 'project:' '  name: "drafted"' '  security_class: "guarded"' 'image:' '  from: "ubuntu:24.04"' \
                     'mail:' '  transports:' "    $scheme:" "      tls_verify: $1"
             }
             draft maybe | check | grep -o "\"refused\":\[\"mail.transports.$scheme: tls_verify is on or off\"\]" \

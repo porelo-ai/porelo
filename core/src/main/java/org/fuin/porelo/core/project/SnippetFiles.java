@@ -6,7 +6,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 
 /**
- * Reads a {@code snippet_file} a file names, from the same place the naming file came from.
+ * Reads a {@code run_file} a file names, from the same place the naming file came from.
  *
  * <p>One interface because the place differs: a project file and a checkout's {@code porelo.yml}
  * sit in a directory, a repository's {@code porelo.yml} is read from its mirror's default branch.
@@ -40,18 +40,18 @@ public interface SnippetFiles {
             if (base == null || Path.of(named).isAbsolute()) {
                 throw new ProjectException(
                         origin
-                                + ": 'image.snippet_file' must name a file of the repository, not "
+                                + ": 'image.run_file' must name a file of the repository, not "
                                 + named);
             }
             final Path path = base.resolve(named).normalize();
             if (!Files.isRegularFile(path)) {
-                throw new ProjectException(origin + ": no image snippet at " + path);
+                throw new ProjectException(origin + ": no run file at " + path);
             }
             try {
                 if (!path.toRealPath().startsWith(base.toRealPath())) {
                     throw new ProjectException(
                             origin
-                                    + ": 'image.snippet_file' must name a file of the repository, not "
+                                    + ": 'image.run_file' must name a file of the repository, not "
                                     + named);
                 }
                 return Files.readString(path, StandardCharsets.UTF_8);

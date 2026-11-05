@@ -418,7 +418,7 @@ The command line and the daemon's logic are modules by area, `app-<area>`, submo
 - **Every page of `doc/` is in `mkdocs.yml`'s navigation exactly once, and a link out of `doc/` is absolute**, to the
   repository on the forge, since a relative one cannot work on the site; `check-doc-site` holds both, in the root's `validate`.
 - **One subject has one page**, so somebody adding a setting knows where it goes; an example that can be executed is
-  executed by a test, as `DocumentedProjectFileTest` parses the project file page's YAML with its reader.
+  executed by a test, as `FileExamplesTest` reads and writes the project file page's YAML with its model.
 - **The tests tagged `documents` run alone with `./mvnw -B -s settings.xml -Pdocuments test`**;
   `DocumentTestsTaggedTest` fails when a test reads a document without the tag.
 - **Skills used:** `graal`, `java-code-review`, `test-quality`, `security-audit`, `concurrency-review`, `clean-code`,

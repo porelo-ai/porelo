@@ -123,7 +123,7 @@ class MessageReleaseTest {
                 org.fuin.porelo.core.project.ProjectReader.read(
                         new java.io.StringReader(
                                 "project:\n  name: \"p\"\n  security_class: \"guarded\"\n"
-                                        + "image:\n  base_image: \"ubuntu:24.04\"\n"),
+                                        + "image:\n  from: \"ubuntu:24.04\"\n"),
                         "project.yml");
         final Mailbox mailbox =
                 new Mailbox(

@@ -17,7 +17,7 @@ class ProjectSubagentsTest {
               name: "acme"
               security_class: "guarded"
             image:
-              base_image: "ubuntu:24.04"
+              from: "ubuntu:24.04"
             """;
 
     private static Project read(String yaml) {
@@ -35,7 +35,7 @@ class ProjectSubagentsTest {
     }
 
     @Test
-    void aProjectsNumberIsItsTasksAndARepositorysReplacesItForThatRepository() {
+    void aProjectsNumberIsEveryRepositorysTasks() {
         final Project project =
                 read(
                         HEAD
@@ -43,12 +43,7 @@ class ProjectSubagentsTest {
                 limits:
                   subagents: 2
                 repositories:
-                  web:
-                    limits:
-                      subagents: 4
-                  docs:
-                    limits:
-                      memory: 2g
+                  web: {}
                 """);
 
         assertThat(project.limits().subagents()).as("the project's number").isEqualTo(2);
@@ -56,14 +51,7 @@ class ProjectSubagentsTest {
                         project.limitsFor(
                                         java.util.Objects.requireNonNull(project.repository("web")))
                                 .subagents())
-                .as("a repository's own number over the project's")
-                .isEqualTo(4);
-        assertThat(
-                        project.limitsFor(
-                                        java.util.Objects.requireNonNull(
-                                                project.repository("docs")))
-                                .subagents())
-                .as("a repository that says nothing keeps the project's, not the default")
+                .as("limits are the project's alone, so a repository's task has the project's")
                 .isEqualTo(2);
     }
 
@@ -74,16 +62,5 @@ class ProjectSubagentsTest {
                 .as("a bound nobody can read must not pass as none")
                 .isInstanceOf(ProjectException.class)
                 .hasMessageContaining("limits.subagents");
-        assertThatThrownBy(
-                        () ->
-                                read(
-                                        HEAD
-                                                + "repositories:\n  web:\n    limits:\n"
-                                                + "      subagents: "
-                                                + value
-                                                + "\n"))
-                .as("nor under a repository")
-                .isInstanceOf(ProjectException.class)
-                .hasMessageContaining("repositories.web.limits.subagents");
     }
 }

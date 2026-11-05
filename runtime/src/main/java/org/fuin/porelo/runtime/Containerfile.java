@@ -282,7 +282,7 @@ public final class Containerfile {
                                 "# instead of keeping the second in reserve, so a crawling mirror beside a fast one",
                                 "# costs every build. With both, apt-get update took 4m03s for 65 MB of indices and",
                                 "# the build hit Porelo's ten-minute cap. Somebody whose network prefers another",
-                                "# mirror names it with image.package_sources.",
+                                "# mirror names it with build.package_sources.",
                                 "#",
                                 "# http, not https: Ubuntu's mirrors serve no TLS, and apt takes its integrity from",
                                 "# the signed Release file rather than from the transport.",
@@ -300,7 +300,7 @@ public final class Containerfile {
                                         + "|' \"$f\"; \\",
                                 "        done; \\",
                                 "    elif " + refusal + "; then \\",
-                                "        echo 'this project names image.package_sources, and "
+                                "        echo 'this project names build.package_sources, and "
                                         + project.baseImage()
                                         + " has no apt to apply them to' >&2; exit 1; \\",
                                 "    fi",

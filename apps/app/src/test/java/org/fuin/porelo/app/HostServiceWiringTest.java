@@ -34,7 +34,7 @@ class HostServiceWiringTest {
                   name: local
                   security_class: guarded
                 image:
-                  base_image: ubuntu:24.04
+                  from: ubuntu:24.04
                 """
                                         + declaration),
                         "local.yml");
@@ -67,16 +67,14 @@ class HostServiceWiringTest {
     }
 
     @Test
-    void carriesProjectAndRepositoryHostServicesToBothPolicies() throws IOException {
+    void carriesTheProjectsHostServicesToBothPolicies() throws IOException {
         final Path state =
                 start(
                         """
                 egress:
-                  host_services: [forge.example]
+                  host_services: [forge.example, registry.example]
                 repositories:
                   backend:
-                    egress:
-                      host_services: [registry.example]
                 """,
                         "192.0.2.5");
         assertThat(Files.readString(state.resolve("dns.conf")))

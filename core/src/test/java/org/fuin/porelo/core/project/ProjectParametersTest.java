@@ -21,7 +21,7 @@ class ProjectParametersTest {
               name: "acme"
               security_class: "guarded"
             image:
-              base_image: "ubuntu:24.04"
+              from: "ubuntu:24.04"
             """;
 
     private static Project read(String parameters) {
@@ -172,10 +172,8 @@ class ProjectParametersTest {
             assertThatThrownBy(() -> read(broken)).as(broken).isInstanceOf(ProjectException.class);
         }
         // A key no declaration knows is reported, as everywhere in the file, never silently taken.
-        assertThat(
-                        ProjectReader.unknownKeys(
-                                new StringReader(HEAD + "parameters:\n  type:\n    colour: red\n"),
-                                "project.yml"))
-                .contains("parameters.type.colour");
+        assertThatThrownBy(() -> read(HEAD + "parameters:\n  type:\n    colour: red\n"))
+                .isInstanceOf(ProjectException.class)
+                .hasMessageContaining("parameters.type.colour");
     }
 }

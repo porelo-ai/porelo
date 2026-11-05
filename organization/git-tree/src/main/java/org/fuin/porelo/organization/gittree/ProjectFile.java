@@ -22,6 +22,10 @@ import org.fuin.porelo.core.project.Project;
 import org.fuin.porelo.core.project.ProjectException;
 import org.fuin.porelo.core.project.ProjectReader;
 import org.fuin.porelo.core.project.SnippetFiles;
+import org.fuin.porelo.core.project.file.ProjectFileReader;
+import org.fuin.porelo.core.project.file.ProjectFileWriter;
+import org.fuin.porelo.core.project.file.ProjectInfo;
+import org.fuin.porelo.core.project.file.RepositoryEntry;
 import org.fuin.porelo.organization.OrganizationQuestions.Refused;
 import org.fuin.porelo.organization.OrganizationQuestions.SigningKey;
 import org.fuin.porelo.organization.OrganizationWrites;
@@ -29,10 +33,6 @@ import org.fuin.porelo.vault.CardException;
 import org.fuin.porelo.vault.PersonCard;
 import org.fuin.porelo.vault.RegistryText;
 import org.jspecify.annotations.Nullable;
-import org.yaml.snakeyaml.DumperOptions;
-import org.yaml.snakeyaml.LoaderOptions;
-import org.yaml.snakeyaml.Yaml;
-import org.yaml.snakeyaml.constructor.SafeConstructor;
 
 /**
  * A project's {@code project.yml}, kept in its own repository: fetched, checked against the keys of
@@ -53,8 +53,6 @@ public final class ProjectFile {
     private static final String PATH = "project.yml";
 
     private static final String ADMIN = "admin";
-
-    private static final String REPOSITORIES = "repositories";
 
     /** What a signing adds, as only a commit that changes the file is judged. */
     private static final String MARK = "# signed anew by ";
@@ -278,11 +276,11 @@ public final class ProjectFile {
         return (path, origin) -> {
             final Path normal = Path.of(path).normalize();
             if (normal.isAbsolute() || normal.startsWith("..")) {
-                throw new ProjectException(origin + ": a snippet file leaves the repository");
+                throw new ProjectException(origin + ": a run file leaves the repository");
             }
             final Optional<String> object = clone.object(tip, normal.toString());
             if (object.isEmpty()) {
-                throw new ProjectException(origin + ": no such snippet file");
+                throw new ProjectException(origin + ": no such run file");
             }
             return clone.text(object.orElseThrow());
         };
@@ -528,17 +526,14 @@ public final class ProjectFile {
             final @Nullable String central,
             final @Nullable String review)
             throws IOException {
-        final Map<String, Object> row = new LinkedHashMap<>(Map.of("upstream", upstream));
+        final RepositoryEntry row = entry(upstream, central, review);
+        final List<String> asked = new ArrayList<>(List.of(name, upstream));
         if (central != null) {
-            row.put("central", central);
+            asked.add(central);
         }
         if (review != null) {
-            row.put("review", review);
+            asked.add(review);
         }
-        final List<String> asked = new ArrayList<>(List.of(name, upstream));
-        row.entrySet().stream()
-                .filter(each -> !"upstream".equals(each.getKey()))
-                .forEach(each -> asked.add(String.valueOf(each.getValue())));
         return change(
                 change,
                 address,
@@ -560,7 +555,8 @@ public final class ProjectFile {
      * @param address The project's own repository.
      * @param keys The project's signing keys.
      * @param name The repository's name.
-     * @param row Its upstream, egress and image, with optional central and review.
+     * @param row Its upstream, with optional central and review; a row names nothing else, since a
+     *     repository's image is its own file's and egress and limits are the project's.
      * @return The signed change.
      * @throws IOException When the change cannot be completed.
      */
@@ -571,45 +567,62 @@ public final class ProjectFile {
             final String name,
             final Map<String, Object> row)
             throws IOException {
-        final Map<String, Object> accepted = new LinkedHashMap<>();
-        for (final String key : List.of("upstream", "central", "review", "egress", "image")) {
-            if (row.containsKey(key)) accepted.put(key, row.get(key));
+        // Sorted, so map iteration order does not make a retry under the same id another change.
+        final Map<String, String> accepted = new java.util.TreeMap<>();
+        for (final Map.Entry<String, Object> each : row.entrySet()) {
+            if (!List.of("upstream", "central", "review").contains(each.getKey())
+                    || !(each.getValue() instanceof String value)) {
+                throw new Refused(
+                        Refused.USAGE,
+                        "a repository's row names its upstream, central and review only, not '"
+                                + each.getKey()
+                                + "'",
+                        null);
+            }
+            accepted.put(each.getKey(), value);
         }
+        final List<String> asked = new ArrayList<>(List.of(name));
+        accepted.forEach((field, value) -> asked.add(field + "=" + value));
+        final RepositoryEntry entry =
+                entry(accepted.get("upstream"), accepted.get("central"), accepted.get("review"));
         return change(
                 change,
                 address,
                 keys,
-                TreeRepository.asked(
-                        "Propose a repository", name, new Yaml().dump(ordered(accepted))),
+                TreeRepository.asked("Propose a repository", asked.toArray(String[]::new)),
                 repositories -> {
                     if (repositories.containsKey(name))
                         throw new Refused(Refused.EXISTS, "that repository is named", null);
-                    repositories.put(name, accepted);
+                    repositories.put(name, entry);
                     return repositories;
                 });
     }
 
-    /** Map iteration order must not make a retry under the same id another change. */
-    private static Object ordered(final Object value) {
-        if (value instanceof Map<?, ?> map) {
-            final Map<String, Object> sorted = new java.util.TreeMap<>();
-            for (final var entry : map.entrySet())
-                sorted.put(
-                        String.valueOf(entry.getKey()),
-                        ordered(
-                                java.util.Objects.requireNonNull(
-                                        entry.getValue(), "a proposal row holds no null values")));
-            return sorted;
-        }
-        if (value instanceof List<?> list)
-            return list.stream()
-                    .map(
-                            each ->
-                                    ordered(
-                                            java.util.Objects.requireNonNull(
-                                                    each, "a proposal list holds no null values")))
-                    .toList();
-        return value;
+    /** A row of the project file that names where a repository is, and nothing else. */
+    private static RepositoryEntry entry(
+            final @Nullable String upstream,
+            final @Nullable String central,
+            final @Nullable String review) {
+        return new RepositoryEntry(
+                upstream, central, review, null, List.of(), null, null, null, null);
+    }
+
+    /** The same row with what is named changed, and all else it says kept. */
+    private static RepositoryEntry changed(
+            final RepositoryEntry row,
+            final @Nullable String upstream,
+            final @Nullable String central,
+            final @Nullable String review) {
+        return new RepositoryEntry(
+                upstream == null ? row.upstream() : upstream,
+                central == null ? row.central() : central,
+                review == null ? row.review() : review,
+                row.description(),
+                row.issues(),
+                row.agent(),
+                row.nickname(),
+                row.maturity(),
+                row.branch());
     }
 
     /**
@@ -623,7 +636,6 @@ public final class ProjectFile {
      * @return What it made, or made before under this id.
      * @throws IOException When something unexpected happened; the change may have been made.
      */
-    @SuppressWarnings("unchecked")
     public OrganizationWrites.Written review(
             final OrganizationWrites.Change change,
             final String address,
@@ -631,30 +643,50 @@ public final class ProjectFile {
             final @Nullable String name,
             final String review)
             throws IOException {
+        final String subject =
+                TreeRepository.asked(
+                        "Say whether a merge needs a review", name == null ? "" : name, review);
+        if (name != null) {
+            return change(
+                    change,
+                    address,
+                    keys,
+                    subject,
+                    repositories -> {
+                        final RepositoryEntry row = repositories.get(name);
+                        if (row == null) {
+                            throw new Refused(Refused.NOT_FOUND, "no such repository", null);
+                        }
+                        repositories.put(name, changed(row, null, null, review));
+                        return repositories;
+                    });
+        }
         return changeOf(
                 change,
                 address,
                 keys,
-                TreeRepository.asked(
-                        "Say whether a merge needs a review", name == null ? "" : name, review),
+                subject,
                 file -> {
-                    if (name == null) {
-                        ((Map<String, Object>)
-                                        java.util.Objects.requireNonNull(file.get("project")))
-                                .put("review", review);
-                        return file;
-                    }
-                    final Map<String, Object> repositories =
-                            (Map<String, Object>) file.get(REPOSITORIES);
-                    if (repositories == null || !repositories.containsKey(name)) {
-                        throw new Refused(Refused.NOT_FOUND, "no such repository", null);
-                    }
-                    final Object held = repositories.get(name);
-                    final Map<String, Object> row =
-                            held == null ? new LinkedHashMap<>() : (Map<String, Object>) held;
-                    row.put("review", review);
-                    repositories.put(name, row);
-                    return file;
+                    final ProjectInfo info =
+                            java.util.Objects.requireNonNull(file.project(), "read: project");
+                    return new org.fuin.porelo.core.project.file.ProjectFile(
+                            new ProjectInfo(
+                                    info.name(),
+                                    info.description(),
+                                    info.securityClass(),
+                                    info.upstream(),
+                                    review,
+                                    info.nickname()),
+                            file.image(),
+                            file.build(),
+                            file.egress(),
+                            file.limits(),
+                            file.mail(),
+                            file.builds(),
+                            file.parameters(),
+                            file.branch(),
+                            file.credentials(),
+                            file.repositories());
                 });
     }
 
@@ -672,7 +704,6 @@ public final class ProjectFile {
      * @return What it made, or made before under this id.
      * @throws IOException When something unexpected happened; the change may have been made.
      */
-    @SuppressWarnings("unchecked")
     public OrganizationWrites.Written changeRow(
             final OrganizationWrites.Change change,
             final String address,
@@ -704,19 +735,16 @@ public final class ProjectFile {
                 keys,
                 TreeRepository.asked("Change a repository", asked.toArray(String[]::new)),
                 repositories -> {
-                    if (!repositories.containsKey(name)) {
+                    final RepositoryEntry held = repositories.get(name);
+                    if (held == null) {
                         throw new Refused(Refused.NOT_FOUND, "no such repository", null);
                     }
-                    final Object held = repositories.get(name);
-                    final Map<String, Object> row =
-                            held == null ? new LinkedHashMap<>() : (Map<String, Object>) held;
-                    if (named.entrySet().stream()
-                            .allMatch(each -> each.getValue().equals(row.get(each.getKey())))) {
+                    final RepositoryEntry row = changed(held, upstream, central, review);
+                    if (row.equals(held)) {
                         throw new Refused(Refused.EXISTS, "the row says that already", null);
                     }
-                    row.putAll(named);
-                    if (row.get("central") instanceof String next
-                            && row.get("upstream") instanceof String from
+                    if (row.central() instanceof String next
+                            && row.upstream() instanceof String from
                             && !org.fuin.porelo.core.project.ProjectReader.centralFits(
                                     next, from)) {
                         throw new Refused(
@@ -814,29 +842,31 @@ public final class ProjectFile {
         }
     }
 
-    @SuppressWarnings("unchecked")
     private OrganizationWrites.Written change(
             final OrganizationWrites.Change change,
             final String address,
             final List<SigningKey> keys,
             final String subject,
-            final UnaryOperator<Map<String, Object>> edit)
+            final UnaryOperator<Map<String, RepositoryEntry>> edit)
             throws IOException {
         return changeOf(
                 change,
                 address,
                 keys,
                 subject,
-                file -> {
-                    final Object held = file.get(REPOSITORIES);
-                    file.put(
-                            REPOSITORIES,
-                            edit.apply(
-                                    held == null
-                                            ? new LinkedHashMap<>()
-                                            : (Map<String, Object>) held));
-                    return file;
-                });
+                file ->
+                        new org.fuin.porelo.core.project.file.ProjectFile(
+                                file.project(),
+                                file.image(),
+                                file.build(),
+                                file.egress(),
+                                file.limits(),
+                                file.mail(),
+                                file.builds(),
+                                file.parameters(),
+                                file.branch(),
+                                file.credentials(),
+                                edit.apply(new LinkedHashMap<>(file.repositories()))));
     }
 
     private OrganizationWrites.Written changeOf(
@@ -844,7 +874,7 @@ public final class ProjectFile {
             final String address,
             final List<SigningKey> keys,
             final String subject,
-            final UnaryOperator<Map<String, Object>> edit)
+            final UnaryOperator<org.fuin.porelo.core.project.file.ProjectFile> edit)
             throws IOException {
         final String acting = change.acting().key();
         try (TreeRepository clone = TreeRepository.fetch(address, runner, access)) {
@@ -904,21 +934,27 @@ public final class ProjectFile {
                 : Optional.empty();
     }
 
-    /** The file is written anew from what it says, so a comment in it does not survive. */
-    @SuppressWarnings("unchecked")
-    private static String edited(final String text, final UnaryOperator<Map<String, Object>> edit) {
-        final Map<String, Object> file =
-                new Yaml(new SafeConstructor(new LoaderOptions())).load(text);
-        edit.apply(file);
-        final DumperOptions block = new DumperOptions();
-        block.setDefaultFlowStyle(DumperOptions.FlowStyle.BLOCK);
-        final String written = new Yaml(block).dump(file);
+    /**
+     * The file is read into its model, changed there and written anew, so a comment in it does not
+     * survive.
+     */
+    private static String edited(
+            final String text,
+            final UnaryOperator<org.fuin.porelo.core.project.file.ProjectFile> edit) {
+        final org.fuin.porelo.core.project.file.ProjectFile file;
         try {
-            // Only the file's shape: what it names is judged when it is read.
-            parsed(written, (path, origin) -> "");
-        } catch (RuntimeException ex) {
-            throw new Refused(Refused.USAGE, "that would make no project file", null);
+            // Only the file's shape: what a run_file holds is judged when it is read.
+            file = ProjectFileReader.read(new StringReader(text), PATH, null);
+        } catch (ProjectException ex) {
+            throw new Refused(
+                    Refused.USAGE, "the project file does not read: " + ex.getMessage(), null);
         }
-        return written;
+        final org.fuin.porelo.core.project.file.ProjectFile changed = edit.apply(file);
+        try {
+            return ProjectFileWriter.write(changed);
+        } catch (ProjectException ex) {
+            throw new Refused(
+                    Refused.USAGE, "that would make no project file: " + ex.getMessage(), null);
+        }
     }
 }

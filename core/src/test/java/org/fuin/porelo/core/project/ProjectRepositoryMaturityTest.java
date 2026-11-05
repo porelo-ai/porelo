@@ -17,7 +17,7 @@ class ProjectRepositoryMaturityTest {
               name: "p"
               security_class: "guarded"
             image:
-              base_image: "ubuntu:24.04"
+              from: "ubuntu:24.04"
             repositories:
               core:
             """;
@@ -34,9 +34,6 @@ class ProjectRepositoryMaturityTest {
         assertThat(ProjectReader.read(new StringReader(file(maturity)), "test").repository("core"))
                 .as("the file is read")
                 .isNotNull();
-        assertThat(ProjectReader.unknownKeys(new StringReader(file(maturity)), "test"))
-                .as("a known key is not reported as one that does nothing")
-                .isEmpty();
     }
 
     @Test

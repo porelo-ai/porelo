@@ -7,9 +7,14 @@ import java.util.List;
 import java.util.Map;
 import org.fuin.porelo.core.project.ProjectReader;
 import org.fuin.porelo.core.project.Repository;
+import org.fuin.porelo.core.project.file.Egress;
+import org.fuin.porelo.core.project.file.Image;
+import org.fuin.porelo.core.project.file.ProjectFile;
+import org.fuin.porelo.core.project.file.ProjectFileWriter;
+import org.fuin.porelo.core.project.file.ProjectInfo;
+import org.fuin.porelo.core.project.file.RepositoryEntry;
 import org.fuin.porelo.ecosystem.api.Detection;
 import org.fuin.porelo.ecosystem.api.Finding;
-import org.fuin.porelo.wire.Json;
 import org.jspecify.annotations.Nullable;
 
 /** Combines detected settings into a draft without touching the checkout. */
@@ -34,6 +39,7 @@ final class ProjectProposal {
     private List<String> hosts = List.of();
     private List<String> checkoutHosts = List.of();
     private boolean applied;
+    private String run = "";
 
     /**
      * A package or tool the last {@link #answer()} kept.
@@ -206,6 +212,19 @@ final class ProjectProposal {
         return List.copyOf(credentials.keySet());
     }
 
+    /**
+     * Returns what the draft puts in the project's own image and egress, which filing into an
+     * existing project cannot carry: Porelo changes no project file, so a person adds them there.
+     *
+     * @return One line per package installation and per host, empty when nothing was found.
+     */
+    List<String> byHand() {
+        final List<String> lines = new ArrayList<>();
+        run.lines().forEach(line -> lines.add("image.run: " + line));
+        hosts.forEach(host -> lines.add("egress.domains: " + host));
+        return List.copyOf(lines);
+    }
+
     Map<String, Object> row() {
         return Map.copyOf(row);
     }
@@ -218,7 +237,6 @@ final class ProjectProposal {
         final List<Placed> unread = new ArrayList<>();
         final List<String> ownHosts = new ArrayList<>();
         final StringBuilder packages = new StringBuilder();
-        final StringBuilder comments = new StringBuilder();
         for (var group : groups.entrySet()) {
             final var known =
                     group.getValue().stream()
@@ -254,30 +272,18 @@ final class ProjectProposal {
                                         .distinct()
                                         .collect(java.util.stream.Collectors.joining("; "))));
             }
-            final String sources =
-                    known.stream()
-                            .map(ProjectProposal::source)
-                            .collect(java.util.stream.Collectors.joining(", "));
             if (group.getKey().part() == Finding.Part.RULES && key.startsWith("host.")) {
                 domains.add(key.substring(5));
                 if (known.stream().allMatch(each -> "CHECKOUT".equals(each.get("origin")))) {
                     ownHosts.add(key.substring(5));
                 }
-                comments.append("      - ")
-                        .append(quote(key.substring(5)))
-                        .append(" # ")
-                        .append(sources)
-                        .append('\n');
             } else if (group.getKey().part() == Finding.Part.TOOLS
                     && key.startsWith("package.")
                     && key.substring(8).matches("[a-z0-9][a-z0-9+.-]*")
                     && value.matches("[a-z0-9][a-z0-9+.-]*|")) {
-                packages.append(
-                                "      RUN apt-get update && apt-get install -y --no-install-recommends ")
+                packages.append("RUN apt-get update && apt-get install -y --no-install-recommends ")
                         .append(value.isEmpty() ? key.substring(8) : value)
-                        .append(" && rm -rf /var/lib/apt/lists/* # ")
-                        .append(sources)
-                        .append('\n');
+                        .append(" && rm -rf /var/lib/apt/lists/*\n");
             } else {
                 notPlaced.addAll(known);
             }
@@ -287,50 +293,10 @@ final class ProjectProposal {
         hosts = List.copyOf(domains);
         checkoutHosts = List.copyOf(ownHosts);
         applied = !domains.isEmpty() || !packages.isEmpty();
-        if (!domains.isEmpty()) row.put("egress", Map.of("domains", domains));
-        if (!packages.isEmpty())
-            row.put(
-                    "image",
-                    Map.of(
-                            "base_image",
-                            "ubuntu:24.04",
-                            "snippet",
-                            packages.toString()
-                                    .lines()
-                                    .map(String::strip)
-                                    .collect(java.util.stream.Collectors.joining("\n", "", "\n"))));
-        final StringBuilder draft =
-                new StringBuilder("project:\n  name: ")
-                        .append(quote(project))
-                        .append(
-                                security()
-                                        + "\nimage:\n  base_image: ubuntu:24.04\nrepositories:\n  ")
-                        .append(quote(repository))
-                        .append(":");
-        if (row.isEmpty()) draft.append(" {}\n");
-        else draft.append('\n');
-        for (String field : List.of("upstream", "central", "review"))
-            if (row.containsKey(field))
-                draft.append("    ")
-                        .append(field)
-                        .append(": ")
-                        .append(quote(String.valueOf(row.get(field))))
-                        .append('\n');
-        if (!domains.isEmpty())
-            draft.append("    egress:\n      domains:\n")
-                    .append(comments.toString().replace("      - ", "        - "));
-        if (!packages.isEmpty())
-            draft.append("    image:\n      base_image: ubuntu:24.04\n      snippet: |\n")
-                    .append(packages.toString().indent(2));
-        for (var value : notPlaced)
-            draft.append("# ")
-                    .append(plain(String.valueOf(value.get("key"))))
-                    .append(" = ")
-                    .append(plain(String.valueOf(value.get("value"))))
-                    .append(" # ")
-                    .append(source(value))
-                    .append('\n');
-        final String text = draft.toString();
+        run = packages.toString();
+        // What was found and where each value was read is the answer's to say, beside the draft:
+        // the draft is written from its model, which holds no comment.
+        final String text = ProjectFileWriter.write(draft(domains, packages));
         ProjectReader.read(new StringReader(text), "project.yml draft");
         final Map<String, @Nullable Object> answer = new LinkedHashMap<>();
         answer.put("repository", repository);
@@ -345,34 +311,48 @@ final class ProjectProposal {
     }
 
     /**
-     * The security class the draft proposes. A host's forge takes a task's work only from an online
-     * project's gate, which needs the project's own address on the same forge beside it.
+     * The draft's model: the project, its one repository, and what was found for the image and for
+     * what a task may reach, which are the project's.
      */
-    private String security() {
+    private ProjectFile draft(List<String> domains, StringBuilder packages) {
+        // A host's forge takes a task's work only from an online project's gate, which needs the
+        // project's own address on the same forge beside it.
         final java.util.regex.Matcher forge =
                 upstream == null ? null : HOST_FORGE.matcher(upstream);
-        return forge == null || !forge.lookingAt()
-                ? "\n  security_class: guarded"
-                : "\n  security_class: online\n  upstream: "
-                        + quote(forge.group() + project + "/" + project + ".git");
+        final String own =
+                forge != null && forge.lookingAt()
+                        ? forge.group() + project + "/" + project + ".git"
+                        : null;
+        return new ProjectFile(
+                new ProjectInfo(project, null, own == null ? "guarded" : "online", own, null, null),
+                new Image(
+                        "ubuntu:24.04",
+                        Map.of(),
+                        packages.isEmpty() ? null : packages.toString(),
+                        null),
+                null,
+                domains.isEmpty() ? null : new Egress(List.of(), domains, List.of(), List.of()),
+                null,
+                null,
+                null,
+                Map.of(),
+                null,
+                Map.of(),
+                Map.of(
+                        repository,
+                        new RepositoryEntry(
+                                text(row.get("upstream")),
+                                text(row.get("central")),
+                                text(row.get("review")),
+                                null,
+                                List.of(),
+                                null,
+                                null,
+                                null,
+                                null)));
     }
 
-    private static String source(Map<String, Object> value) {
-        // A value from no file, such as a tool's built-in default, has no line to name.
-        final String where =
-                String.valueOf(value.get("file")).isEmpty()
-                        ? String.valueOf(value.get("note"))
-                        : value.get("file") + ":" + value.get("line");
-        return plain(where + " (" + value.get("origin") + ", " + value.get("plugin") + ")");
-    }
-
-    private static String plain(String text) {
-        // Unicode's own classes: a next-line character is a line break to YAML, and a comment that
-        // broke there would write the rest of its text into the file as settings.
-        return text.replaceAll("[\\p{Cc}\\p{Cf}\\p{Zl}\\p{Zp}]", " ");
-    }
-
-    private static String quote(String text) {
-        return Json.write(text);
+    private static @Nullable String text(@Nullable Object value) {
+        return value == null ? null : String.valueOf(value);
     }
 }

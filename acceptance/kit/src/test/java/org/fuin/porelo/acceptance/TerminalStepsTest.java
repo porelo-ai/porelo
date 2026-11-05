@@ -15,7 +15,7 @@ class TerminalStepsTest {
                 egress:
                   mode: deny
                 image: # The scenario chooses the base.
-                  base_image: "ubuntu:24.04@sha256:%s"
+                  from: "ubuntu:24.04@sha256:%s"
                 """
                         .formatted("a".repeat(64));
 
@@ -28,13 +28,13 @@ class TerminalStepsTest {
     void aScenarioWithAnIndentedSnippetKeepsTheDefaultBaseImage() {
         final String more =
                 """
-                  snippet: |
+                  run: |
                     image: this is snippet content
                 """;
 
         assertThat(TerminalSteps.projectImage(more))
                 .as("an indented snippet must remain inside the default image block")
-                .isEqualTo("image:\n  base_image: \"ubuntu:24.04\"\n" + more);
+                .isEqualTo("image:\n  from: \"ubuntu:24.04\"\n" + more);
     }
 
     @Test

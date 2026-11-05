@@ -17,7 +17,7 @@ class ProjectBranchSchemeTest {
               security_class: "online"
               upstream: "https://forge.example/p.git"
             image:
-              base_image: "ubuntu:24.04"
+              from: "ubuntu:24.04"
             """;
 
     private static Project read(final String more) {

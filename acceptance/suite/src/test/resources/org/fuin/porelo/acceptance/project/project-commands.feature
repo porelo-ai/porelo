@@ -16,7 +16,7 @@ Feature: The project commands
         Given a daemon of this scenario's own
         When a script runs:
             """
-            printf '%s\n' 'project:' '  name: "misspelled"' '  security_class: "guarded"' 'image:' '  base_image: "ubuntu:24.04"' \
+            printf '%s\n' 'project:' '  name: "misspelled"' '  security_class: "guarded"' 'image:' '  from: "ubuntu:24.04"' \
                 'egress:' '  sets: [mvn]' \
                 | python3 -c 'import json,sys; print(json.dumps({"method":"org.fuin.porelo.Tasks1.CheckProjectFile","parameters":{"text":sys.stdin.read()}}), end="\0")' \
                 | timeout 60 porelo daemon connect | tr '\0' '\n' | head -1 \

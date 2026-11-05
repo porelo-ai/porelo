@@ -497,19 +497,15 @@ class ProjectInventoryTest {
                   name: "uc"
                   security_class: "guarded"
                 image:
-                  base_image: "ubuntu:24.04"
+                  from: "ubuntu:24.04"
                 limits:
                   memory: "16g"
                   pids: 4096
                 egress:
                   sets: [maven]
+                  domains: ["pub.dev"]
                 repositories:
                   frontend:
-                    egress:
-                      sets: [flutter]
-                      domains: ["pub.dev"]
-                    limits:
-                      memory: "32g"
                 """);
         registry(dir, "uc", file);
 
@@ -520,24 +516,19 @@ class ProjectInventoryTest {
                         .findFirst()
                         .orElseThrow();
 
-        // One list with a source on each entry: a repository's grants are ADDED, so a screen
-        // showing both halves should not have to subtract one list from another.
+        // Egress and limits are the project's alone, so every repository shows the project's
+        // grants and limits, each saying where it came from.
         assertThat(frontend.egress())
                 .extracting(ProjectInventory.Grant::value, ProjectInventory.Grant::from)
                 .containsExactly(
                         org.assertj.core.api.Assertions.tuple("maven", "project"),
-                        org.assertj.core.api.Assertions.tuple("flutter", "repository"),
-                        org.assertj.core.api.Assertions.tuple("pub.dev", "repository"));
-
-        // A limit REPLACES key by key, so what matters is which key it replaced.
-        assertThat(frontend.limits().memory()).isEqualTo("32g");
-        assertThat(frontend.limits().memoryFrom()).isEqualTo("repository");
-        // And the keys it said nothing about are the project's - not the defaults. The project
-        // raised both away from 8g and 2048 so that a fallback would fail this.
+                        org.assertj.core.api.Assertions.tuple("pub.dev", "project"));
+        // The project raised both away from 8g and 2048 so that a fallback would fail this.
+        assertThat(frontend.limits().memory()).isEqualTo("16g");
+        assertThat(frontend.limits().memoryFrom()).isEqualTo("project");
         assertThat(frontend.limits().pids()).isEqualTo(4096);
         assertThat(frontend.limits().pidsFrom()).isEqualTo("project");
 
-        // The project's own repository adds nothing, and says so.
         final var own =
                 repositories.stream()
                         .filter(ProjectInventory.RepositorySummary::own)
@@ -562,7 +553,7 @@ class ProjectInventoryTest {
                   name: "uc"
                   security_class: "guarded"
                 image:
-                  base_image: "ubuntu:24.04"
+                  from: "ubuntu:24.04"
                 repositories:
                   backend:
                     agent: "helper"
@@ -619,7 +610,7 @@ class ProjectInventoryTest {
                   name: "e2e-follow"
                   security_class: "guarded"
                 image:
-                  base_image: "ubuntu:24.04"
+                  from: "ubuntu:24.04"
                 repositories:
                   backend:
                     upstream: "git@nowhere.invalid:acme/backend.git"
@@ -663,7 +654,7 @@ class ProjectInventoryTest {
                   security_class: "online"
                   upstream: "git@example.com:x/uc.git"
                 image:
-                  base_image: "ubuntu:24.04"
+                  from: "ubuntu:24.04"
                 """);
 
         assertThat(projectsOf(context))
@@ -690,7 +681,7 @@ class ProjectInventoryTest {
                   name: "uc"
                   security_class: "guarded"
                 image:
-                  base_image: "ubuntu:24.04"
+                  from: "ubuntu:24.04"
                 """;
         Files.writeString(local, file);
         registry(dir, "uc", local);

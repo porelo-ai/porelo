@@ -18,7 +18,7 @@ class ProjectReaderTest {
               upstream: "git@github.com:example/uc.git"
 
             image:
-              base_image: "ubuntu:24.04"
+              from: "ubuntu:24.04"
             """;
 
     private static Project read(String yaml) {
@@ -51,7 +51,7 @@ class ProjectReaderTest {
                   name: "uc"
                   security_class: "online"
                 image:
-                  base_image: "ubuntu:24.04"
+                  from: "ubuntu:24.04"
                 """))
                 .isInstanceOf(ProjectException.class)
                 .hasMessageContaining("is online, so it needs an upstream");
@@ -68,34 +68,29 @@ class ProjectReaderTest {
                   name: "uc"
                   security_class: "guarded"
                 image:
-                  base_image: "ubuntu:24.04"
+                  from: "ubuntu:24.04"
                 """)
                                 .upstream())
                 .isNull();
     }
 
     @Test
-    void ignoresSectionsItDoesNotUnderstandYet() {
+    void refusesSectionsItDoesNotKnowWithTheirLines() {
 
-        // A project file written for a later version must not stop an older binary from running.
-        final Project project =
-                read(
-                        MINIMAL
-                                + """
+        // A section this Porelo does not know is no setting at all, so the file is refused rather
+        // than read as if it applied.
+        assertThatThrownBy(
+                        () ->
+                                read(
+                                        MINIMAL
+                                                + """
                 git:
                   upstream_url: "https://example.com/x.git"
-
-                run:
-                  gpus: all
-                """);
-
-        assertThat(project.name()).isEqualTo("uc");
-        // Accepted, and said: a warning names each, so nobody believes it applied.
-        assertThat(
-                        ProjectReader.unknownKeys(
-                                new java.io.StringReader(MINIMAL + "git:\n  upstream_url: x\n"),
-                                "t"))
-                .containsExactly("git");
+                """))
+                .as("an unknown section is refused at its line")
+                .isInstanceOf(ProjectException.class)
+                .hasMessageContaining(":" + (MINIMAL.lines().count() + 1) + ":")
+                .hasMessageContaining("'git' is not a setting this Porelo knows");
     }
 
     @Test
@@ -108,7 +103,7 @@ class ProjectReaderTest {
                   name: "uc"
                   security_class: "offline"
                 image:
-                  base_image: "ubuntu:24.04"
+                  from: "ubuntu:24.04"
                 """);
 
         assertThat(project.description()).isEmpty();
@@ -119,7 +114,7 @@ class ProjectReaderTest {
 
         assertThatThrownBy(() -> read("project:\n  name: uc\n  security_class: offline\n"))
                 .isInstanceOf(ProjectException.class)
-                .hasMessageContaining("no 'image' section");
+                .hasMessageContaining("'image' is required");
     }
 
     @Test
@@ -132,7 +127,7 @@ class ProjectReaderTest {
                 project:
                   name: "uc"
                 image:
-                  base_image: "ubuntu:24.04"
+                  from: "ubuntu:24.04"
                 """))
                 .isInstanceOf(ProjectException.class)
                 .hasMessageContaining("project.security_class");
@@ -162,10 +157,9 @@ class ProjectReaderTest {
                         () ->
                                 read(
                                         MINIMAL.replace(
-                                                "image:\n  base_image",
-                                                "image:\n  base_image: \"a\"\n  base_image")))
+                                                "image:\n  from", "image:\n  from: \"a\"\n  from")))
                 .isInstanceOf(ProjectException.class)
-                .hasMessageContaining("Cannot parse");
+                .hasMessageContaining("'image.from' is written twice");
     }
 
     @Test
@@ -191,7 +185,7 @@ class ProjectReaderTest {
                   cpus: "1.5"
                   pids: 512
                 image:
-                  base_image: "ubuntu:24.04"
+                  from: "ubuntu:24.04"
                 """),
                         "test");
 
@@ -212,7 +206,7 @@ class ProjectReaderTest {
                 limits:
                   hand_in: "1g"
                 image:
-                  base_image: "ubuntu:24.04"
+                  from: "ubuntu:24.04"
                 """),
                         "test");
 
@@ -235,7 +229,7 @@ class ProjectReaderTest {
                 limits:
                   hand_in: "lots"
                 image:
-                  base_image: "ubuntu:24.04"
+                  from: "ubuntu:24.04"
                 """),
                                         "test"))
                 .isInstanceOf(ProjectException.class)
@@ -264,7 +258,7 @@ class ProjectReaderTest {
                   name: "demo"
                   security_class: "guarded"
                 image:
-                  base_image: "ubuntu:24.04"
+                  from: "ubuntu:24.04"
                 """),
                         "test");
 
@@ -281,7 +275,8 @@ class ProjectReaderTest {
                   name: "uc"
                   security_class: "guarded"
                 image:
-                  base_image: "ubuntu:24.04"
+                  from: "ubuntu:24.04"
+                build:
                   package_sources:
                     - "http://mirror.corp.example/ubuntu/"
                     - "http://archive.ubuntu.com/ubuntu/"
@@ -291,6 +286,38 @@ class ProjectReaderTest {
         assertThat(project.effectivePackageSources())
                 .containsExactly(
                         "http://mirror.corp.example/ubuntu/", "http://archive.ubuntu.com/ubuntu/");
+    }
+
+    @Test
+    void readsTheImagesFromRunAndEnv() {
+
+        // What a task's image is built from, as root: read wrongly, the image is not the one asked
+        // for and nothing says so.
+        final Project project =
+                read(
+                        """
+                project:
+                  name: "uc"
+                  security_class: "guarded"
+                image:
+                  from: "debian:13"
+                  env:
+                    JAVA_HOME: "/opt/java"
+                    TOOL_HOME: "/opt/tool"
+                  run: |
+                    RUN apt-get install -y make
+                """);
+
+        assertThat(project.baseImage()).as("from").isEqualTo("debian:13");
+        assertThat(project.imageSnippet()).as("run").isEqualTo("RUN apt-get install -y make\n");
+        assertThat(project.imageEnv())
+                .as("env, in the order written")
+                .containsExactly(
+                        java.util.Map.entry("JAVA_HOME", "/opt/java"),
+                        java.util.Map.entry("TOOL_HOME", "/opt/tool"));
+        assertThat(ImageSource.of(project).env())
+                .as("the project's variables are a source of the task's image")
+                .isEqualTo(project.imageEnv());
     }
 
     @Test
@@ -319,7 +346,8 @@ class ProjectReaderTest {
                   name: "uc"
                   security_class: "guarded"
                 image:
-                  base_image: "ubuntu:24.04"
+                  from: "ubuntu:24.04"
+                build:
                   package_sources: ["ftp://mirror.corp.example/ubuntu/"]
                 """))
                 .isInstanceOf(ProjectException.class)
@@ -333,7 +361,8 @@ class ProjectReaderTest {
                   name: "uc"
                   security_class: "guarded"
                 image:
-                  base_image: "ubuntu:24.04"
+                  from: "ubuntu:24.04"
+                build:
                   package_sources: []
                 """))
                 .isInstanceOf(ProjectException.class)
@@ -353,7 +382,7 @@ class ProjectReaderTest {
                   sets: [maven, nodejs]
                   domains: ["nexus.corp.example"]
                 image:
-                  base_image: "ubuntu:24.04"
+                  from: "ubuntu:24.04"
                 """);
 
         assertThat(project.egress().sets()).containsExactly("maven", "nodejs");
@@ -381,7 +410,7 @@ class ProjectReaderTest {
                 egress:
                   sets: [maven]
                 image:
-                  base_image: "ubuntu:24.04"
+                  from: "ubuntu:24.04"
                 """))
                 .isInstanceOf(ProjectException.class)
                 .hasMessageContaining("offline")
@@ -414,12 +443,12 @@ class ProjectReaderTest {
                     egress:
                       domains: ["%s"]
                     image:
-                      base_image: "ubuntu:24.04"
+                      from: "ubuntu:24.04"
                     """
                                                     .formatted(domain)))
                     .as("domain %s", domain)
                     .isInstanceOf(ProjectException.class)
-                    .hasMessageContaining("Invalid egress domain");
+                    .hasMessageContaining("in 'egress.domains', expected a host name");
         }
     }
 
@@ -436,7 +465,7 @@ class ProjectReaderTest {
                 egress:
                   sets: ["../../etc/passwd"]
                 image:
-                  base_image: "ubuntu:24.04"
+                  from: "ubuntu:24.04"
                 """))
                 .isInstanceOf(ProjectException.class)
                 .hasMessageContaining("Invalid egress set name");
@@ -457,7 +486,7 @@ class ProjectReaderTest {
                 egress:
                   sets: maven
                 image:
-                  base_image: "ubuntu:24.04"
+                  from: "ubuntu:24.04"
                 """))
                 .isInstanceOf(ProjectException.class)
                 .hasMessageContaining("must be a list");
@@ -475,7 +504,7 @@ class ProjectReaderTest {
                 limits:
                   memory: "none"
                 image:
-                  base_image: "ubuntu:24.04"
+                  from: "ubuntu:24.04"
                 """),
                         "test");
 
@@ -569,7 +598,7 @@ class ProjectReaderTest {
                   search: brave-search
                 """))
                 .isInstanceOf(ProjectException.class)
-                .hasMessageContaining("can declare no credentials");
+                .hasMessageContaining("can declare no 'credentials'");
     }
 
     @Test
@@ -596,7 +625,7 @@ class ProjectReaderTest {
         org.assertj.core.api.Assertions.assertThatThrownBy(
                         () -> read(MINIMAL.replace("ubuntu:24.04", "--privileged")))
                 .isInstanceOf(ProjectException.class)
-                .hasMessageContaining("base_image");
+                .hasMessageContaining("image.from");
     }
 
     @Test
@@ -628,18 +657,18 @@ class ProjectReaderTest {
             java.nio.file.Files.writeString(
                     file,
                     MINIMAL.replace(
-                            "base_image: \"ubuntu:24.04\"",
-                            "base_image: \"ubuntu:24.04\"\n  snippet_file: \"" + named + "\""));
+                            "from: \"ubuntu:24.04\"",
+                            "from: \"ubuntu:24.04\"\n  run_file: \"" + named + "\""));
             org.assertj.core.api.Assertions.assertThatThrownBy(() -> ProjectReader.read(file))
                     .as(named)
                     .isInstanceOf(ProjectException.class)
-                    .hasMessageContaining("snippet_file");
+                    .hasMessageContaining("run_file");
         }
         java.nio.file.Files.writeString(
                 file,
                 MINIMAL.replace(
-                        "base_image: \"ubuntu:24.04\"",
-                        "base_image: \"ubuntu:24.04\"\n  snippet_file: \"snippet.txt\""));
+                        "from: \"ubuntu:24.04\"",
+                        "from: \"ubuntu:24.04\"\n  run_file: \"snippet.txt\""));
         assertThat(ProjectReader.read(file).imageSnippet()).isEqualTo("RUN echo inside");
     }
 
@@ -653,7 +682,7 @@ class ProjectReaderTest {
                           upstream: "git@forge.example:demo/demo.git"
                         %s
                         image:
-                          base_image: "ubuntu:24.04"
+                          from: "ubuntu:24.04"
                         repositories:
                           first:
                             upstream: "git@forge.example:demo/first.git"

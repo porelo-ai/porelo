@@ -15,7 +15,7 @@ class ProjectMailTest {
               name: "p"
               security_class: "guarded"
             image:
-              base_image: "ubuntu:24.04"
+              from: "ubuntu:24.04"
             """;
 
     private Project read(final String yaml) {
@@ -206,7 +206,7 @@ class ProjectMailTest {
                         org.assertj.core.api.InstanceOfAssertFactories.map(
                                 Object.class, Object.class))
                 .containsEntry("homeserver", "https://matrix.example.org")
-                .containsEntry("tls_verify", true);
+                .containsEntry("tls_verify", "on");
     }
 
     @Test
@@ -235,12 +235,10 @@ class ProjectMailTest {
                                                 + "mail:\n  peers:\n    r: { address: \"matrix:\", trusted: vouched }\n"))
                 .hasMessageContaining(
                         "'mail.peers.r.trusted' is not a setting; did you mean 'trust'?");
-        // Unknown and near nothing: a later Porelo's, accepted and warned about.
-        assertThat(read(HEAD + "gate:\n  on: true\n").name()).isEqualTo("p");
-        assertThat(
-                        ProjectReader.unknownKeys(
-                                new StringReader(HEAD + "gate:\n  on: true\n"), "test"))
-                .containsExactly("gate");
+        // Unknown everywhere: refused, saying this Porelo may be older than the file.
+        assertThatThrownBy(() -> read(HEAD + "gate:\n  on: true\n"))
+                .hasMessageContaining("'gate' is not a setting this Porelo knows")
+                .hasMessageContaining("older than the file");
     }
 
     @Test
@@ -252,7 +250,7 @@ class ProjectMailTest {
                 credentials:
                   anything-at-all: somewhere
                 repositories:
-                  backend: { upstream: "git@example.org:b.git", limits: { memory: "4g" } }
+                  backend: { upstream: "git@example.org:b.git" }
                 mail:
                   transports:
                     matrix: { whatever_the_transport_takes: 1 }
@@ -274,7 +272,7 @@ class ProjectMailTest {
                   name: "talking"
                   security_class: "guarded"
                 image:
-                  base_image: "ubuntu:24.04"
+                  from: "ubuntu:24.04"
                 mail:
                   transports:
                     matrix: {}
@@ -289,7 +287,7 @@ class ProjectMailTest {
         assertThat(
                         read("""
                 project: { name: "p", security_class: "guarded" }
-                image: { base_image: "ubuntu:24.04" }
+                image: { from: "ubuntu:24.04" }
                 mail: { transports: { matrix: {} } }
                 """)
                                 .mail()
@@ -298,7 +296,7 @@ class ProjectMailTest {
         assertThat(
                         read("""
                 project: { name: "p", security_class: "guarded" }
-                image: { base_image: "ubuntu:24.04" }
+                image: { from: "ubuntu:24.04" }
                 mail: { outgoing_filter: reporting }
                 """)
                                 .mail()
@@ -309,7 +307,7 @@ class ProjectMailTest {
                                 read(
                                         """
                 project: { name: "p", security_class: "guarded" }
-                image: { base_image: "ubuntu:24.04" }
+                image: { from: "ubuntu:24.04" }
                 mail: { outgoing_filter: off }
                 """))
                 .hasMessageContaining("outgoing_filter")
@@ -327,7 +325,7 @@ class ProjectMailTest {
                                     read(
                                             """
                     project: { name: "p", security_class: "guarded" }
-                    image: { base_image: "ubuntu:24.04" }
+                    image: { from: "ubuntu:24.04" }
                     mail: { transports: { "%s": {} } }
                     """
                                                     .formatted(scheme)))

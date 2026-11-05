@@ -21,7 +21,7 @@ Feature: A repository says what its tasks are built in
             set -e
             source=~/imaged/.git/tooled-source
             rm -rf "$source" && git init -q -b main "$source"
-            printf '%s\n' 'image:' '  snippet: |' '    RUN echo from-the-repository > /etc/porelo-repository-image' \
+            printf '%s\n' 'image:' '  run: |' '    RUN echo from-the-repository > /etc/porelo-repository-image' \
                 '  env:' '    REPOSITORY_IMAGE: "said by the repository"' > "$source/porelo.yml"
             git -C "$source" -c user.name=T -c user.email=t@example.com add porelo.yml
             git -C "$source" -c user.name=T -c user.email=t@example.com commit -q -m image
@@ -50,7 +50,7 @@ Feature: A repository says what its tasks are built in
             set -e
             source=~/imaged/.git/widened-source
             rm -rf "$source" && git init -q -b main "$source"
-            printf '%s\n' 'image:' '  base_image: "ubuntu:24.04"' 'egress:' '  domains: ["example.com"]' > "$source/porelo.yml"
+            printf '%s\n' 'image:' '  from: "ubuntu:24.04"' 'egress:' '  domains: ["example.com"]' > "$source/porelo.yml"
             git -C "$source" -c user.name=T -c user.email=t@example.com add porelo.yml
             git -C "$source" -c user.name=T -c user.email=t@example.com commit -q -m widen
             printf '%s\n' 'repositories:' '  widened:' "    upstream: \"file://$source\"" >> ~/imaged/project.yml
@@ -72,7 +72,7 @@ Feature: A repository says what its tasks are built in
             set -e
             source=~/imaged/.git/tooled-source
             rm -rf "$source" && git init -q -b main "$source"
-            printf '%s\n' 'image:' '  snippet: |' '    RUN echo from-the-repository > /etc/porelo-repository-image' \
+            printf '%s\n' 'image:' '  run: |' '    RUN echo from-the-repository > /etc/porelo-repository-image' \
                 '  env:' '    REPOSITORY_IMAGE: "said by the repository"' '    KEPT: "the repository'"'"'s"' > "$source/porelo.yml"
             git -C "$source" -c user.name=T -c user.email=t@example.com add porelo.yml
             git -C "$source" -c user.name=T -c user.email=t@example.com commit -q -m image
@@ -104,7 +104,7 @@ Feature: A repository says what its tasks are built in
             trap 'porelo task remove porelo-default-fromco --force > /dev/null 2>&1; porelo project default remove "$repo" > /dev/null 2>&1; podman rmi "porelo/default_$repo" > /dev/null 2>&1; rm -rf "$base"' EXIT
             git init -q --bare --initial-branch=main "$base/$repo.git"
             git init -q --initial-branch=main "$base/seed"
-            printf '%s\n' 'image:' '  snippet: |' '    RUN echo from-the-checkout > /etc/porelo-checkout-image' \
+            printf '%s\n' 'image:' '  run: |' '    RUN echo from-the-checkout > /etc/porelo-checkout-image' \
                 '  env:' '    CHECKOUT_IMAGE: "checked in"' > "$base/seed/porelo.yml"
             git -C "$base/seed" add porelo.yml
             git -C "$base/seed" -c user.name=T -c user.email=t@example.org commit -q -m 'image'

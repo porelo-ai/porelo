@@ -86,7 +86,7 @@ final class FileBinder {
             return null;
         }
         return new ProjectInfo(
-                b.text(s.get("name"), "project.name"),
+                b.word(s.get("name"), "project.name"),
                 b.text(s.get("description"), "project.description"),
                 b.text(s.get("security_class"), "project.security_class"),
                 b.text(s.get("upstream"), "project.upstream"),

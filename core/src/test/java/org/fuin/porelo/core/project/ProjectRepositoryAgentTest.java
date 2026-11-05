@@ -17,7 +17,7 @@ class ProjectRepositoryAgentTest {
               name: "p"
               security_class: "guarded"
             image:
-              base_image: "ubuntu:24.04"
+              from: "ubuntu:24.04"
             """;
 
     private static Project read(final String repositories) {
@@ -53,21 +53,6 @@ class ProjectRepositoryAgentTest {
         assertThat(project.ownRepository().goesBy())
                 .as("the project's own repository goes by the project's name")
                 .isEqualTo("Agent p");
-    }
-
-    @Test
-    void bothKeysAreSettingsAndNoUnknownKey() {
-
-        // An unknown key is reported to the person as one that does nothing, so a file naming an
-        // agent would be told its agent is ignored.
-        assertThat(
-                        ProjectReader.unknownKeys(
-                                new StringReader(
-                                        HEAD
-                                                + "repositories:\n  core:\n    agent: \"worker\"\n"
-                                                + "    nickname: \"Ledger\"\n"),
-                                "test"))
-                .isEmpty();
     }
 
     @ParameterizedTest

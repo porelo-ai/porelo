@@ -13,10 +13,10 @@ import org.fuin.porelo.core.project.ProjectReader;
  *
  * <p><strong>Three answers, because they block different things</strong> (decided on 2026-09-30):
  * what Porelo refuses anywhere - YAML that does not parse, a key or value the schema refuses -
- * blocks the commit; what this machine's {@code follow} would refuse - an egress set it does not
- * have - means this machine would not take it; and what only this machine lacks - a destination, a
- * vault entry, a transport - or a key a later Porelo may know, warns: one project may run on
- * machines set up differently.
+ * blocks the commit, a key this Porelo does not know among it; what this machine's {@code follow}
+ * would refuse - an egress set it does not have - means this machine would not take it; and what
+ * only this machine lacks - a destination, a vault entry, a transport - warns: one project may run
+ * on machines set up differently.
  *
  * <p>A transport's section under {@code mail.transports} is asked of the transport, when it offers
  * a {@code settings} check: what it would refuse anywhere blocks the commit, and what it warns of
@@ -78,17 +78,6 @@ public final class ProjectFileCheck {
         if (DefaultProject.is(project.name())) {
             // Refused anywhere: every machine has a project of that name already.
             refused.add(RESERVED);
-        }
-        try {
-            for (final String unknown :
-                    ProjectReader.unknownKeys(new StringReader(text), "project.yml")) {
-                warnings.add(
-                        "'"
-                                + unknown
-                                + "' is not a setting this machine's Porelo knows; it has no effect here");
-            }
-        } catch (RuntimeException ex) {
-            // Read above already; nothing more to say about it.
         }
         for (final org.fuin.porelo.core.project.Repository repository : project.allRepositories()) {
             try {

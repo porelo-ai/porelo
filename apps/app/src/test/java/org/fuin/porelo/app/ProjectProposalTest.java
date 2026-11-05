@@ -4,7 +4,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import java.io.StringReader;
 import java.util.List;
-import java.util.Map;
 import org.fuin.porelo.core.project.ProjectReader;
 import org.fuin.porelo.ecosystem.api.Detection;
 import org.fuin.porelo.ecosystem.api.Finding;
@@ -78,7 +77,7 @@ class ProjectProposalTest {
     }
 
     @Test
-    void aToolWithoutAGenericRuleStaysACommentAndIsListedAsNotPlaced() {
+    void aToolWithoutAGenericRuleIsListedAsNotPlacedAndLeftOutOfTheDraft() {
         var proposal = new ProjectProposal("sample", null, null, null);
         proposal.add(
                 "first",
@@ -90,8 +89,8 @@ class ProjectProposalTest {
                 .as("a tool with no generic rule remains available to place")
                 .contains("runtime.version", "25", "settings.xml");
         assertThat(answer.get("draft").toString())
-                .as("a comment keeps the value and source")
-                .contains("# runtime.version = 25 # settings.xml:6");
+                .as("the draft holds only what it places")
+                .doesNotContain("runtime.version");
     }
 
     @Test
@@ -156,15 +155,15 @@ class ProjectProposalTest {
                         List.of(finding(Finding.Part.TOOLS, "package.jq", "", 9)), List.of()));
         var draft = proposal.answer().get("draft").toString();
         assertThat(draft)
-                .as("generic packages get a reviewable installation and source")
-                .contains("apt-get install", "jq", "settings.xml:9", "review: \"optional\"");
-        assertThat(
-                        ProjectReader.read(new StringReader(draft), "draft")
-                                .repositories()
-                                .getFirst()
-                                .image())
-                .as("the repository image is understood by the reader")
-                .isNotNull();
+                .as("generic packages get a reviewable installation")
+                .contains("apt-get install", "jq", "review: optional");
+        assertThat(proposal.tools())
+                .as("the answer says where each package was read")
+                .extracting(ProjectProposal.Placed::source)
+                .containsExactly("settings.xml");
+        assertThat(ProjectReader.read(new StringReader(draft), "draft").imageSnippet())
+                .as("the image's lines are the project's, understood by the reader")
+                .contains("apt-get install -y --no-install-recommends jq");
     }
 
     @Test
@@ -187,26 +186,26 @@ class ProjectProposalTest {
     }
 
     @Test
-    void aFiledSnippetHoldsItsLinesWithoutTheDraftsIndentation() {
+    void aDraftsImageLinesHoldNoIndentation() {
         final ProjectProposal proposal = new ProjectProposal("sample", null, null, null);
         proposal.add(
                 "maven",
                 new Detection(
                         List.of(finding(Finding.Part.TOOLS, "package.maven", "", 9)), List.of()));
-        proposal.answer();
+        final String draft = proposal.answer().get("draft").toString();
 
-        final Map<?, ?> image = (Map<?, ?>) proposal.row().get("image");
-        assertThat(String.valueOf(image.get("snippet"))).startsWith("RUN apt-get update");
+        assertThat(ProjectReader.read(new StringReader(draft), "draft").imageSnippet())
+                .startsWith("RUN apt-get update");
     }
 
     @Test
     void aDraftWithNoProjectNamedTakesItsNameFromItsRepository() {
-        assertThat(draftNamed("utils4j")).contains("name: \"utils4j-project\"");
-        assertThat(draftNamed("a.b")).contains("name: \"a-b-project\"");
-        assertThat(draftNamed("x".repeat(60))).contains("name: \"" + "x".repeat(55) + "-project\"");
+        assertThat(draftNamed("utils4j")).contains("name: utils4j-project");
+        assertThat(draftNamed("a.b")).contains("name: a-b-project");
+        assertThat(draftNamed("x".repeat(60))).contains("name: " + "x".repeat(55) + "-project");
         assertThat(draftNamed("x".repeat(54) + "-y"))
-                .contains("name: \"" + "x".repeat(54) + "-project\"");
-        assertThat(draftNamed("proposed")).contains("name: \"proposed-project\"");
+                .contains("name: " + "x".repeat(54) + "-project");
+        assertThat(draftNamed("proposed")).contains("name: proposed-project");
     }
 
     private static String draftNamed(final String repository) {
@@ -234,8 +233,29 @@ class ProjectProposalTest {
                                         "built into Maven")),
                         List.of()));
 
-        assertThat(proposal.answer().get("draft").toString())
-                .contains("built into Maven (MACHINE, maven)")
-                .doesNotContain(":0");
+        assertThat(proposal.answer().get("draft").toString()).doesNotContain(":0");
+        assertThat(proposal.notesForAPerson())
+                .containsExactly("maven: repo.maven.apache.org: built into Maven");
+    }
+
+    @Test
+    void whatFilingCannotCarryIsSaidForAPersonToAddByHand() {
+        var proposal = new ProjectProposal("sample", null, null, null);
+        proposal.add(
+                "only",
+                new Detection(
+                        List.of(
+                                finding(Finding.Part.RULES, "host.repo.example.org", "yes", 1),
+                                finding(Finding.Part.TOOLS, "package.jq", "1", 2)),
+                        List.of()));
+        proposal.answer();
+
+        assertThat(proposal.row().toString())
+                .as("the row names the repository only")
+                .doesNotContain("repo.example.org", "jq");
+        assertThat(proposal.byHand())
+                .as("nothing found for the project's image and egress is silently lost")
+                .anyMatch(line -> line.startsWith("image.run: ") && line.contains(" 1 "))
+                .contains("egress.domains: repo.example.org");
     }
 }

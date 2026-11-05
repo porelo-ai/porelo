@@ -26,6 +26,8 @@ import org.fuin.porelo.vault.PersonCard;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 /**
  * A project's own file. Harm guarded: a host and its people act on the repositories this names, so
@@ -44,7 +46,7 @@ class ProjectFileTest {
               upstream: "git@github.com:acme/demo.git"
 
             image:
-              base_image: "ubuntu:24.04"
+              from: "ubuntu:24.04"
 
             repositories:
               first:
@@ -477,16 +479,7 @@ class ProjectFileTest {
     @Test
     void aProposedRowIsOneSignedChangeThatAFreshReaderAccepts() throws Exception {
         final String base = git("rev-parse", "HEAD");
-        final Map<String, Object> proposed =
-                Map.of(
-                        "upstream",
-                        UPSTREAM,
-                        "review",
-                        "optional",
-                        "egress",
-                        Map.of("domains", List.of("repo.example.org")),
-                        "image",
-                        Map.of("base_image", "ubuntu:24.04", "snippet", "RUN true"));
+        final Map<String, Object> proposed = Map.of("upstream", UPSTREAM, "review", "optional");
         final Written written =
                 file().propose(
                                 new Change(new Acting("alice", key("alice")), base, "proposal"),
@@ -502,10 +495,6 @@ class ProjectFileTest {
         assertThat(repository.upstream())
                 .as("the proposed upstream survives filing")
                 .isEqualTo(UPSTREAM);
-        assertThat(repository.egress().domains())
-                .as("the detected domains survive filing")
-                .containsExactly("repo.example.org");
-        assertThat(repository.image()).as("the detected image survives filing").isNotNull();
         assertThat(repository.review())
                 .as("the requested review is on the row")
                 .isEqualTo("optional");
@@ -517,28 +506,40 @@ class ProjectFileTest {
                 .isEqualTo("project.yml");
     }
 
+    @ParameterizedTest
+    @ValueSource(strings = {"egress", "limits", "image"})
+    void aProposedRowNamingWhatIsTheProjectsOrItsOwnFilesIsRefused(final String key)
+            throws Exception {
+
+        // Filed, egress or limits on a row would widen one repository past the project's rules,
+        // and an image would beat the repository's own porelo.yml; the file refuses all three.
+        final String before = git("rev-parse", "HEAD");
+        refusedAs(
+                Refused.USAGE,
+                () ->
+                        file().propose(
+                                        change("alice", "row-" + key),
+                                        repo.toString(),
+                                        rows(),
+                                        "app",
+                                        Map.of("upstream", UPSTREAM, key, Map.of())));
+        assertThat(git("rev-parse", "HEAD"))
+                .as("a refused proposal changes no commit")
+                .isEqualTo(before);
+    }
+
     @Test
     void askingForTheSameProposalWithAnotherMapOrderAnswersTheSameCommit() throws Exception {
-        final Map<String, Object> image = new java.util.LinkedHashMap<>();
-        image.put("base_image", "ubuntu:24.04");
-        image.put("snippet", "RUN true");
+        final Map<String, Object> row = new java.util.LinkedHashMap<>();
+        row.put("upstream", UPSTREAM);
+        row.put("review", "optional");
         final Written first =
-                file().propose(
-                                change("alice", "same"),
-                                repo.toString(),
-                                rows(),
-                                "app",
-                                Map.of("upstream", UPSTREAM, "image", image));
+                file().propose(change("alice", "same"), repo.toString(), rows(), "app", row);
         final Map<String, Object> reordered = new java.util.LinkedHashMap<>();
-        reordered.put("snippet", "RUN true");
-        reordered.put("base_image", "ubuntu:24.04");
+        reordered.put("review", "optional");
+        reordered.put("upstream", UPSTREAM);
         final Written again =
-                file().propose(
-                                change("alice", "same"),
-                                repo.toString(),
-                                rows(),
-                                "app",
-                                Map.of("upstream", UPSTREAM, "image", reordered));
+                file().propose(change("alice", "same"), repo.toString(), rows(), "app", reordered);
         assertThat(again.revision())
                 .as("the id names the same proposal regardless of map order")
                 .isEqualTo(first.revision());
@@ -1084,8 +1085,8 @@ class ProjectFileTest {
         commit(
                 "project.yml",
                 TEXT.replace(
-                        "base_image: \"ubuntu:24.04\"",
-                        "base_image: \"ubuntu:24.04\"\n  snippet_file: \"gone.txt\""),
+                        "from: \"ubuntu:24.04\"",
+                        "from: \"ubuntu:24.04\"\n  run_file: \"gone.txt\""),
                 "alice");
         final String tip = git("rev-parse", "HEAD");
 

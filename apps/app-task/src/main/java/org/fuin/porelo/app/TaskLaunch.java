@@ -2528,17 +2528,8 @@ public final class TaskLaunch {
     }
 
     private Project project(PrintWriter out, PrintWriter err) {
-        final Project project = ProjectReader.read(request.projectFile());
-        // A key this Porelo does not know and that is no provable mistake - a later version's, most
-        // likely - is taken and said, so nobody believes it applied.
-        for (final String unknown : ProjectReader.unknownKeys(request.projectFile())) {
-            err.println(
-                    "warning   project.yml: '"
-                            + unknown
-                            + "' is not a setting this Porelo knows; it has no effect");
-        }
-        err.flush();
-        return project;
+        // A key this Porelo does not know is refused by the reader, with its line.
+        return ProjectReader.read(request.projectFile());
     }
 
     /**

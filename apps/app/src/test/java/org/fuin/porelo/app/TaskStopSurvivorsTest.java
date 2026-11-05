@@ -270,7 +270,7 @@ class TaskStopSurvivorsTest {
         project(dir);
         Files.writeString(
                 dir.resolve("project.yml"),
-                "project:\n  name: uc\n  security_class: guarded\nimage:\n  base_image: ubuntu:24.04\nmail:\n  transports:\n    room: {}\n  peers:\n    reviewer: { address: 'room:', trust: vouched }\n");
+                "project:\n  name: uc\n  security_class: guarded\nimage:\n  from: ubuntu:24.04\nmail:\n  transports:\n    room: {}\n  peers:\n    reviewer: { address: 'room:', trust: vouched }\n");
         assertThat(GateSupport.byName(context, "uc").mail().conversations())
                 .as("the fixture project declares the task's conversation")
                 .contains("room");

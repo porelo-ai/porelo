@@ -29,7 +29,7 @@ class RepositoriesTest {
               name: "acme"
               security_class: "guarded"
             image:
-              base_image: "ubuntu:24.04"
+              from: "ubuntu:24.04"
             """;
 
     @Test
@@ -52,39 +52,9 @@ class RepositoriesTest {
     }
 
     @Test
-    void aRepositorysImageInTheProjectFileIsReadAsItsOwnFileIs() {
+    void aRepositorysImageInTheProjectFileIsRefusedAndNamesItsOwnFile() {
 
-        final Project project =
-                read(
-                        HEAD
-                                + """
-                repositories:
-                  backend:
-                    image:
-                      base_image: "debian:13"
-                      env:
-                        JAVA_HOME: /opt/graalvm
-                  frontend: {}
-                """);
-
-        final java.util.Map<String, Repository> byName = new java.util.HashMap<>();
-        project.repositories().forEach(repository -> byName.put(repository.name(), repository));
-        assertThat(byName.get("backend").image())
-                .as("the backend's image")
-                .isNotNull()
-                .satisfies(
-                        image -> {
-                            assertThat(image.baseImage()).isEqualTo("debian:13");
-                            assertThat(image.env()).containsEntry("JAVA_HOME", "/opt/graalvm");
-                            assertThat(image.from()).contains("repositories.backend.image");
-                        });
-        assertThat(byName.get("frontend").image()).as("a repository that names none").isNull();
-    }
-
-    @Test
-    void aRepositorysImageMayNotCarryARuleOfTheProject() {
-
-        // Under image, egress would read as a rule of the image and widen what the task reaches.
+        // Read, it would beat the repository's own porelo.yml; ignored, it would look applied.
         assertThatThrownBy(
                         () ->
                                 read(
@@ -93,10 +63,18 @@ class RepositoriesTest {
                 repositories:
                   backend:
                     image:
-                      egress: {domains: ["example.com"]}
+                      from: "debian:13"
                 """))
                 .isInstanceOf(ProjectException.class)
-                .hasMessageContaining("'image.egress' cannot be set here");
+                .hasMessageContaining("'repositories.backend.image' is not a setting")
+                .hasMessageContaining("its own porelo.yml");
+    }
+
+    @Test
+    void aRepositoryReadFromTheProjectFileHasNoImageOfItsOwn() {
+        assertThat(read(HEAD + "repositories:\n  backend: {}\n").repository("backend").image())
+                .as("its image comes from its own porelo.yml alone")
+                .isNull();
     }
 
     @Test
@@ -135,7 +113,7 @@ class RepositoriesTest {
                   security_class: "guarded"
                   upstream: "git@example.com:acme/acme.git"
                 image:
-                  base_image: "ubuntu:24.04"
+                  from: "ubuntu:24.04"
                 """);
         assertThat(project.repository("acme").upstream())
                 .isEqualTo("git@example.com:acme/acme.git");
@@ -185,7 +163,7 @@ class RepositoriesTest {
                   security_class: "online"
                   upstream: "git@example.com:acme/acme.git"
                 image:
-                  base_image: "ubuntu:24.04"
+                  from: "ubuntu:24.04"
                 repositories:
                   backend:
                 """))
@@ -244,6 +222,6 @@ class RepositoriesTest {
                   - frontend
                 """))
                 .isInstanceOf(ProjectException.class)
-                .hasMessageContaining("mapping of name to repository");
+                .hasMessageContaining("'repositories' must be a mapping");
     }
 }

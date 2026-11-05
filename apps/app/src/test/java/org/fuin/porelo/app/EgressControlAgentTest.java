@@ -39,7 +39,7 @@ class EgressControlAgentTest {
         Files.writeString(
                 project,
                 "project:\n  name: \"uc\"\n  security_class: \"guarded\"\n"
-                        + "image:\n  base_image: \"ubuntu:24.04\"\n"
+                        + "image:\n  from: \"ubuntu:24.04\"\n"
                         + "repositories:\n  backend:\n    agent: \"worker\"\n");
         final EgressControl control = new EgressControl(context(dir));
 

@@ -106,7 +106,15 @@ public final class Preparation {
         // The agent a start on this repository would take, so the image carries what it runs.
         @Nullable String wantedAgent = agentName;
         if (repositoryName == null) {
-            project = declared;
+            // The project's own variables become lines, as a task's start puts them.
+            project =
+                    declared.imageEnv().isEmpty()
+                            ? declared
+                            : ImageChoice.merge(
+                                            java.util.List.of(
+                                                    org.fuin.porelo.core.project.ImageSource.of(
+                                                            declared)))
+                                    .applyTo(declared, declared.ownRepository());
             snippetFrom = org.fuin.porelo.core.project.ImageSource.of(declared).from();
         } else {
             final var repository =

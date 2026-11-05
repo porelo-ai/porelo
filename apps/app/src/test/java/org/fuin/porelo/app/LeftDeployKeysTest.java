@@ -59,7 +59,7 @@ class LeftDeployKeysTest {
                 new StringReader(
                         """
             project: { name: "%s", security_class: "guarded" }
-            image: { base_image: "ubuntu:24.04" }
+            image: { from: "ubuntu:24.04" }
             repositories:
               %s:
                 upstream: "%s"
@@ -178,7 +178,7 @@ class LeftDeployKeysTest {
         Files.createDirectories(file.getParent());
         Files.writeString(
                 file,
-                "project: { name: web, security_class: guarded }\nimage: { base_image: \"ubuntu:24.04\" }\nrepositories:\n  api:\n    upstream: "
+                "project: { name: web, security_class: guarded }\nimage: { from: \"ubuntu:24.04\" }\nrepositories:\n  api:\n    upstream: "
                         + upstream
                         + "\n");
         Files.createDirectories(context.paths().projects().projectRegistry());
@@ -213,7 +213,7 @@ class LeftDeployKeysTest {
         Files.createDirectories(file.getParent());
         Files.writeString(
                 file,
-                "project: { name: web, security_class: guarded }\nimage: { base_image: \"ubuntu:24.04\" }\nrepositories:\n  api:\n    upstream: "
+                "project: { name: web, security_class: guarded }\nimage: { from: \"ubuntu:24.04\" }\nrepositories:\n  api:\n    upstream: "
                         + upstream
                         + "\n");
         Files.createDirectories(context.paths().projects().projectRegistry());

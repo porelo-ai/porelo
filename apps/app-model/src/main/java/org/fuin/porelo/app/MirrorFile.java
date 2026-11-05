@@ -207,7 +207,7 @@ final class MirrorFile {
             if (named.startsWith("/") || java.util.Arrays.asList(named.split("/")).contains("..")) {
                 throw new ProjectException(
                         origin
-                                + ": 'image.snippet_file' must name a file of the repository, not "
+                                + ": 'image.run_file' must name a file of the repository, not "
                                 + named);
             }
             return read(runner, mirror, branch, named)

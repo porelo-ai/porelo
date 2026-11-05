@@ -96,7 +96,7 @@ project:
   name: "myproject"
   security_class: "guarded"
 image:
-  base_image: "ubuntu:24.04"
+  from: "ubuntu:24.04"
 egress:
   sets: [maven]
 ```

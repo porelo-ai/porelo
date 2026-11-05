@@ -23,7 +23,7 @@ Feature: A task that must not start, and what its refusal leaves behind
         Given a project called "unbuildable" of class "guarded" whose project file also says:
             """
             image:
-              base_image: "porelo-no-such-base-image:0"
+              from: "porelo-no-such-base-image:0"
             """
         When a script runs:
             """

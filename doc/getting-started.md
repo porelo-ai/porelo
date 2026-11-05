@@ -288,7 +288,7 @@ conversation between tasks. **You write `project.yml` and commit it**, in one of
   Nothing is committed to the team's repository, so this is how one developer uses Porelo alone. See
   [a project file beside the code](#a-project-file-beside-the-code).
 
-Porelo writes no project file anywhere. Only `name`, `security_class` and `base_image` are required:
+Porelo writes no project file anywhere. Only `name`, `security_class` and `from` are required:
 
 ```yaml
 project:
@@ -296,13 +296,13 @@ project:
   security_class: "guarded"
   # upstream: "git@github.com:you/myproject.git"   # where approve pushes; required by online
 image:
-  base_image: "ubuntu:24.04"
+  from: "ubuntu:24.04"
 egress:
   sets: [maven]      # only what a task reaches while it runs
 ```
 
 Every key is in [the project file](project-file.md). **A project needs only the hosts its tasks reach at run time.**
-The image is built on the host, outside the task's firewall, so what a `snippet` installs needs no set; the gate
+The image is built on the host, outside the task's firewall, so what a `run` line installs needs no set; the gate
 fetches and pushes on the host, so the task's own git needs none either. A company's mirror is a `domains:` entry,
 not a set.
 
@@ -340,7 +340,7 @@ project:
   name: "payments"
   security_class: "guarded"
 image:
-  base_image: "ubuntu:24.04"
+  from: "ubuntu:24.04"
 repositories:
   backend:
     upstream: "git@git.corp.example:team/backend.git"

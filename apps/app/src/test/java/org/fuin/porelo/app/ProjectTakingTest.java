@@ -39,7 +39,7 @@ class ProjectTakingTest {
               name: "demo"
               security_class: "guarded"
             image:
-              base_image: "ubuntu:24.04"
+              from: "ubuntu:24.04"
             """;
 
     /** What the organization files; git is sent to the test's own repository in its place. */
@@ -412,7 +412,7 @@ class ProjectTakingTest {
         assertThat(ProjectSource.resolve(context, "demo").file()).isNull();
     }
 
-    private static final String WITH_SNIPPET = FILE + "  snippet_file: \"Containerfile\"\n";
+    private static final String WITH_SNIPPET = FILE + "  run_file: \"Containerfile\"\n";
 
     private void snippet(final String signer, final String lines) throws IOException {
         Files.writeString(repository.resolve("Containerfile"), lines);

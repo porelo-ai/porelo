@@ -30,7 +30,7 @@ class FirstStartMethodsTest {
 
     private static final String FILE =
             "project:\n  name: strangers\n  security_class: guarded\n"
-                    + "image:\n  base_image: ubuntu:24.04\n"
+                    + "image:\n  from: ubuntu:24.04\n"
                     + "egress:\n  domains:\n    - \"nexus.evil.example\"\n";
 
     @TempDir Path dir;
@@ -235,8 +235,7 @@ class FirstStartMethodsTest {
         Files.writeString(
                 checkout.resolve("project.yml"),
                 FILE.replace(
-                        "base_image: ubuntu:24.04\n",
-                        "base_image: ubuntu:24.04\n  snippet_file: image.inc\n"));
+                        "from: ubuntu:24.04\n", "from: ubuntu:24.04\n  run_file: image.inc\n"));
         serving(
                 client ->
                         assertThat((String) firstStart(client).get("file"))

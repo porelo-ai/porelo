@@ -30,8 +30,8 @@ class RepositoryImageReaderTest {
                 read(
                         """
                         image:
-                          base_image: "ubuntu:24.04"
-                          snippet: |
+                          from: "ubuntu:24.04"
+                          run: |
                             RUN apt-get install -y rpm
                           env:
                             JAVA_HOME: /opt/graalvm
@@ -63,7 +63,7 @@ class RepositoryImageReaderTest {
 
         // A repository naming its own egress or limits would widen what its own tasks may reach.
         for (final String key : new String[] {"egress", "limits", "project", "repositories"}) {
-            assertThatThrownBy(() -> read("image:\n  base_image: a\n" + key + ": {}\n"))
+            assertThatThrownBy(() -> read("image:\n  from: a\n" + key + ": {}\n"))
                     .as(key)
                     .isInstanceOf(ProjectException.class)
                     .hasMessageContaining("'" + key + "'")
@@ -134,17 +134,13 @@ class RepositoryImageReaderTest {
 
         assertThat(
                         RepositoryImageReader.read(
-                                        "image:\n  snippet_file: image.sh\n",
-                                        file.toString(),
-                                        beside)
+                                        "image:\n  run_file: image.sh\n", file.toString(), beside)
                                 .snippet())
                 .isEqualTo("RUN true\n");
         assertThatThrownBy(
                         () ->
                                 RepositoryImageReader.read(
-                                        "image:\n  snippet_file: ../secret\n",
-                                        file.toString(),
-                                        beside))
+                                        "image:\n  run_file: ../secret\n", file.toString(), beside))
                 .isInstanceOf(ProjectException.class)
                 .hasMessageContaining("must name a file of the repository");
     }

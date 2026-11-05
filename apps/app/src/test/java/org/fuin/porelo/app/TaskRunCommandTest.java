@@ -31,7 +31,7 @@ class TaskRunCommandTest {
               name: "uc"
               security_class: "guarded"
             image:
-              base_image: "ubuntu:24.04"
+              from: "ubuntu:24.04"
             """;
 
     /** What the attached session exits with. A shell reports its last command's status. */
@@ -773,7 +773,7 @@ class TaskRunCommandTest {
               name: "strangers"
               security_class: "guarded"
             image:
-              base_image: "ubuntu:24.04"
+              from: "ubuntu:24.04"
             egress:
               domains:
                 - "approved.example"
@@ -1034,7 +1034,7 @@ class TaskRunCommandTest {
                   name: "off"
                   security_class: "offline"
                 image:
-                  base_image: "ubuntu:24.04"
+                  from: "ubuntu:24.04"
                 """);
 
         final int code =
@@ -2330,10 +2330,7 @@ class TaskRunCommandTest {
         previewAgent(context, "preview", "subagents: off\n");
         final String project =
                 projectFile(
-                        dir,
-                        MINIMAL
-                                + "limits:\n  subagents: 1\n"
-                                + "repositories:\n  backend:\n    limits:\n      subagents: 2\n");
+                        dir, MINIMAL + "limits:\n  subagents: 2\n" + "repositories:\n  backend:\n");
 
         final StartCheck.Result checked =
                 StartCheck.check(
@@ -2367,8 +2364,8 @@ class TaskRunCommandTest {
                 .isEqualTo(StartCheck.Outcome.SUBAGENTS_REFUSED);
         assertThat(checked.ready()).isFalse();
         assertThat(checked.detail())
-                .as("in the words Start refuses with, naming the repository's key")
-                .contains("repository backend's limits.subagents 2");
+                .as("in the words Start refuses with, naming the project's key")
+                .contains("limits.subagents 2");
         assertThat(err.toString()).contains("porelo: " + checked.detail());
     }
 
@@ -2382,10 +2379,7 @@ class TaskRunCommandTest {
         previewAgent(context, "preview", "subagents: off\n");
         final String project =
                 projectFile(
-                        dir,
-                        MINIMAL
-                                + "limits:\n  subagents: 1\n"
-                                + "repositories:\n  backend:\n    limits:\n      subagents: 0\n");
+                        dir, MINIMAL + "limits:\n  subagents: 1\n" + "repositories:\n  backend:\n");
 
         final StartCheck.Result checked =
                 StartCheck.check(
@@ -2530,8 +2524,8 @@ class TaskRunCommandTest {
                 projectFile(
                         dir,
                         MINIMAL
-                                + "repositories:\n  backend:\n    agent: preview\n"
-                                + "    limits:\n      subagents: 2\n");
+                                + "limits:\n  subagents: 2\n"
+                                + "repositories:\n  backend:\n    agent: preview\n");
 
         final StartCheck.Result checked =
                 StartCheck.check(
@@ -2997,7 +2991,7 @@ class TaskRunCommandTest {
     @Test
     void aStartRecoversWhenTheFetchedRepositoryImageIsValid(@TempDir Path dir) throws IOException {
         final String file =
-                changedRepositoryImage(dir, "egress: {}\n", "image:\n  snippet: RUN true\n");
+                changedRepositoryImage(dir, "egress: {}\n", "image:\n  run: RUN true\n");
         final int exit =
                 execute(
                         repositoryImageContext(dir),
@@ -3055,8 +3049,8 @@ class TaskRunCommandTest {
         final String file =
                 changedRepositoryImage(
                         dir,
-                        "image:\n  snippet: RUN true\n",
-                        "image:\n  snippet: RUN true\n  env: {FROM_UPSTREAM: yes}\n");
+                        "image:\n  run: RUN true\n",
+                        "image:\n  run: RUN true\n  env: {FROM_UPSTREAM: yes}\n");
         final int exit =
                 execute(
                         repositoryImageContext(dir),
@@ -3095,7 +3089,7 @@ class TaskRunCommandTest {
                   security_class: "%s"
                   upstream: "file://%s"
                 image:
-                  base_image: "ubuntu:24.04"
+                  from: "ubuntu:24.04"
                 """
                                 .formatted(securityClass, upstream));
         // A first task makes the gate, and a task called 'second' worked there before it was
@@ -3195,7 +3189,7 @@ class TaskRunCommandTest {
                   security_class: "online"
                   upstream: "file://%s"
                 image:
-                  base_image: "ubuntu:24.04"
+                  from: "ubuntu:24.04"
                 """
                                 .formatted(upstream)));
 
@@ -3237,7 +3231,7 @@ class TaskRunCommandTest {
                   security_class: "guarded"
                   upstream: "git@github.com:example/uc.git"
                 image:
-                  base_image: "ubuntu:24.04"
+                  from: "ubuntu:24.04"
                 """));
 
         assertThat(exit).as("the start said:%n%s%n%s", out, err).isZero();
@@ -3503,7 +3497,7 @@ class TaskRunCommandTest {
 
         assertThat(execute(context(dir, true), "task", "start", "-p", name, "--dry-run"))
                 .isEqualTo(2);
-        assertThat(err.toString()).contains("no 'image' section");
+        assertThat(err.toString()).contains("'image' is required");
     }
 
     @Test
@@ -4170,7 +4164,7 @@ class TaskRunCommandTest {
         Files.createDirectories(clone);
         Files.writeString(
                 clone.resolve("project.yml"),
-                MINIMAL.replace("base_image: \"ubuntu:24.04\"", "base_image: \"ubuntu:22.04\""));
+                MINIMAL.replace("from: \"ubuntu:24.04\"", "from: \"ubuntu:22.04\""));
 
         // The directory says 24.04; the verified clone says 22.04.
         execute(context, "task", "start", "-p", projectFile(dir, MINIMAL), "--dry-run");

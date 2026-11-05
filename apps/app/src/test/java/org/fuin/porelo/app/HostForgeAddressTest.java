@@ -32,7 +32,7 @@ class HostForgeAddressTest {
                           name: demo
                           security_class: guarded
                         image:
-                          base_image: ubuntu:24.04
+                          from: ubuntu:24.04
                         repositories:
                           first:
                             upstream: "git@central.example:acme/first.git"
@@ -107,7 +107,7 @@ class HostForgeAddressTest {
                                   name: demo
                                   security_class: guarded
                                 image:
-                                  base_image: ubuntu:24.04
+                                  from: ubuntu:24.04
                                 repositories:
                                   first:
                                     upstream: "git@central.example:acme/-x.git"

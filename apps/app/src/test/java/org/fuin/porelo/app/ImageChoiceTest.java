@@ -81,7 +81,7 @@ class ImageChoiceTest {
                           name: "acme"
                           security_class: "guarded"
                         image:
-                          base_image: "project-base"
+                          from: "project-base"
                         repositories:
                           backend: {}
                         """),
@@ -150,10 +150,10 @@ class ImageChoiceTest {
         final PoreloContext context =
                 new PoreloContext(runner, new PoreloPaths(xdg, dir.resolve("bin")), arguments -> 0);
         final Path checkout = Files.createDirectories(dir.resolve("work"));
-        Files.writeString(checkout.resolve(".porelo.yml"), "image:\n  base_image: \"local\"\n");
+        Files.writeString(checkout.resolve(".porelo.yml"), "image:\n  from: \"local\"\n");
         Files.writeString(
                 checkout.resolve("porelo.yml"),
-                "image:\n  base_image: \"checked-in\"\n  snippet: \"RUN from-the-checkout\"\n");
+                "image:\n  from: \"checked-in\"\n  run: \"RUN from-the-checkout\"\n");
         new DefaultProject(context).add(checkout.toString(), "work", checkout.toString());
         final Project project =
                 ProjectReader.read(
@@ -163,7 +163,7 @@ class ImageChoiceTest {
                                   name: "default"
                                   security_class: "guarded"
                                 image:
-                                  base_image: "default-base"
+                                  from: "default-base"
                                 repositories:
                                   work: {}
                                 """),
@@ -249,7 +249,7 @@ class ImageChoiceTest {
                   name: acme
                   security_class: guarded
                 image:
-                  base_image: project-base
+                  from: project-base
                 repositories:
                   backend:
                     upstream: https://user:example-secret@example.com/owner/backend.git
@@ -258,7 +258,7 @@ class ImageChoiceTest {
         final var repository = project.repositories().getFirst();
         final Path source = Files.createDirectories(dir.resolve("source"));
         git(source, "init", "-q", "-b", "main", ".");
-        Files.writeString(source.resolve("porelo.yml"), "image:\n  base_image: repository-base\n");
+        Files.writeString(source.resolve("porelo.yml"), "image:\n  from: repository-base\n");
         git(source, "add", "porelo.yml");
         git(source, "commit", "-q", "-m", "reviewed image");
         final Path mirror = GateSupport.mirror(context, project, repository);
@@ -295,8 +295,7 @@ class ImageChoiceTest {
         git(dir, "clone", "-q", "--bare", source.toString(), mirror.toString());
         final Path override = ImageChoice.override(context, project, repository);
         Files.createDirectories(override.getParent());
-        Files.writeString(
-                override, "image:\n  base_image: local-base\n  env: {LOCAL: local-value}\n");
+        Files.writeString(override, "image:\n  from: local-base\n  env: {LOCAL: local-value}\n");
 
         final ImageChoice.Preview preview = ImageChoice.preview(context, project, repository);
 
@@ -339,7 +338,7 @@ class ImageChoiceTest {
                       name: default
                       security_class: guarded
                     image:
-                      base_image: default-base
+                      from: default-base
                     repositories:
                       backend: {}
                     """),
@@ -360,8 +359,7 @@ class ImageChoiceTest {
     }
 
     @Test
-    void readsTheOverrideTheEntryTheMirrorAndTheProjectInThatOrder(@TempDir Path dir)
-            throws Exception {
+    void readsTheOverrideTheMirrorAndTheProjectInThatOrder(@TempDir Path dir) throws Exception {
 
         final XdgPaths xdg =
                 XdgPaths.of(
@@ -382,12 +380,11 @@ class ImageChoiceTest {
                                   name: "acme"
                                   security_class: "guarded"
                                 image:
-                                  base_image: "project-base"
+                                  from: "project-base"
+                                  env:
+                                    FROM_PROJECT: "yes"
                                 repositories:
                                   backend:
-                                    image:
-                                      env:
-                                        FROM_ENTRY: "yes"
                                 """),
                         "project.yml");
         final var backend = project.repositories().getFirst();
@@ -396,7 +393,7 @@ class ImageChoiceTest {
         git(source, "init", "-q", ".");
         Files.writeString(
                 source.resolve("porelo.yml"),
-                "image:\n  snippet: \"RUN from-file\"\n  env:\n    FROM_FILE: \"yes\"\n");
+                "image:\n  run: \"RUN from-file\"\n  env:\n    FROM_FILE: \"yes\"\n");
         git(source, "add", "-A");
         git(source, "commit", "-q", "-m", "reviewed");
         final Path mirror = GateSupport.mirror(context, project, backend);
@@ -408,7 +405,7 @@ class ImageChoiceTest {
                 .as("where the page tells a person to put it, not a path derived the same way")
                 .isEqualTo(dir.resolve("config/porelo/projects/acme/backend/.porelo.yml"));
         Files.createDirectories(override.getParent());
-        Files.writeString(override, "image:\n  base_image: \"local-base\"\n");
+        Files.writeString(override, "image:\n  from: \"local-base\"\n");
 
         final ImageChoice choice = ImageChoice.of(context, project, backend);
 
@@ -417,7 +414,7 @@ class ImageChoiceTest {
         assertThat(choice.snippet()).as("from the mirror").isEqualTo("RUN from-file");
         assertThat(choice.snippetFrom()).contains("porelo.yml at refs/heads/main of backend");
         assertThat(choice.env())
-                .containsEntry("FROM_ENTRY", "yes")
+                .containsEntry("FROM_PROJECT", "yes")
                 .containsEntry("FROM_FILE", "yes");
     }
 }

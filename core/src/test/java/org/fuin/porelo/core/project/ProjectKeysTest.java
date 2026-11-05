@@ -53,7 +53,7 @@ class ProjectKeysTest {
                 ProjectReader.read(
                         new StringReader(
                                 "project:\n  name: \"p\"\n  security_class:"
-                                        + " \"guarded\"\nimage:\n  base_image: \"ubuntu:24.04\"\n"),
+                                        + " \"guarded\"\nimage:\n  from: \"ubuntu:24.04\"\n"),
                         "project.yml");
 
         assertThat(key("limits", "cpus").defaultValue())
@@ -64,7 +64,7 @@ class ProjectKeysTest {
                 .isEqualTo(String.valueOf(Limits.defaults().pids()));
         assertThat(key("mail.peers.<peer>", "per_day").defaultValue())
                 .isEqualTo(String.valueOf(Mail.Peer.DEFAULT_PER_DAY));
-        assertThat(key("image", "package_sources").defaultValue())
+        assertThat(key("build", "package_sources").defaultValue())
                 .contains(Project.DEFAULT_PACKAGE_SOURCES.get(0));
     }
 
@@ -82,7 +82,7 @@ class ProjectKeysTest {
 
         assertThat(required)
                 .containsEntry("project", List.of("name", "security_class"))
-                .containsEntry("image", List.of("base_image"))
+                .containsEntry("image", List.of("from"))
                 .containsEntry("", List.of("project", "image"));
         assertThat(key("project", "security_class").values())
                 .containsExactly("offline", "guarded", "online");

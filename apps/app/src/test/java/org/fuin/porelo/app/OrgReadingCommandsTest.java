@@ -53,7 +53,7 @@ class OrgReadingCommandsTest {
               upstream: "git@github.com:example/mine.git"
 
             image:
-              base_image: "ubuntu:24.04"
+              from: "ubuntu:24.04"
             """;
 
     private static final String MATRIX =

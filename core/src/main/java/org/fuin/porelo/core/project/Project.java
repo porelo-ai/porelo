@@ -32,6 +32,8 @@ package org.fuin.porelo.core.project;
  *     repository that names no scheme of its own; {@code null} when the file has no {@code branch}
  *     block, which names it {@code porelo/<task>}.
  * @param review Whether a merge in its own repository needs another person's approval.
+ * @param imageEnv Variables the project's own image sets, in the order written; empty when it sets
+ *     none. A repository's own file may give each of them another value.
  */
 public record Project(
         String name,
@@ -51,7 +53,71 @@ public record Project(
         Parameters parameters,
         @org.jspecify.annotations.Nullable String nickname,
         @org.jspecify.annotations.Nullable BranchScheme branch,
-        String review) {
+        String review,
+        java.util.Map<String, String> imageEnv) {
+
+    /**
+     * Constructor for a project whose own image sets no variables.
+     *
+     * @param name Short name.
+     * @param description Human-readable description.
+     * @param securityClass Trust level.
+     * @param baseImage Base image.
+     * @param imageSnippet Extra build lines, or {@code null}.
+     * @param upstream Where approved work goes, or {@code null}.
+     * @param limits What a task may consume.
+     * @param egress What the project's own tooling may reach.
+     * @param packageSources Where apt fetches from, or {@code null} for the default.
+     * @param mail The peers its tasks may address.
+     * @param repositories The work repositories it names.
+     * @param credentials Vault entries every task holds, by the destination each is for.
+     * @param builds Where its builds are read, or {@code null}.
+     * @param imageVariant The repository whose own image this is, or {@code null}.
+     * @param parameters What a start may be given.
+     * @param nickname The one word its own repository's agent goes by, or {@code null}.
+     * @param branch How a task's branch at its forge is named, or {@code null}.
+     * @param review Whether a merge in its own repository needs approval.
+     */
+    public Project(
+            String name,
+            String description,
+            SecurityClass securityClass,
+            String baseImage,
+            @org.jspecify.annotations.Nullable String imageSnippet,
+            @org.jspecify.annotations.Nullable String upstream,
+            Limits limits,
+            Egress egress,
+            java.util.@org.jspecify.annotations.Nullable List<String> packageSources,
+            Mail mail,
+            java.util.List<Repository> repositories,
+            java.util.Map<String, String> credentials,
+            @org.jspecify.annotations.Nullable Builds builds,
+            @org.jspecify.annotations.Nullable String imageVariant,
+            Parameters parameters,
+            @org.jspecify.annotations.Nullable String nickname,
+            @org.jspecify.annotations.Nullable BranchScheme branch,
+            String review) {
+        this(
+                name,
+                description,
+                securityClass,
+                baseImage,
+                imageSnippet,
+                upstream,
+                limits,
+                egress,
+                packageSources,
+                mail,
+                repositories,
+                credentials,
+                builds,
+                imageVariant,
+                parameters,
+                nickname,
+                branch,
+                review,
+                java.util.Map.of());
+    }
 
     /**
      * Constructor for a project that says nothing of a review: one is required.
@@ -518,7 +584,7 @@ public record Project(
      * The halved volume is the proof of the mechanism: with two URIs apt fetched the indices from
      * both, and the slower one set the pace. A second source is insurance only if the first fails
      * outright; against one that is merely crawling it is a tax on every build. Somebody whose
-     * network prefers a different mirror says so with image.package_sources.
+     * network prefers a different mirror says so with build.package_sources.
      *
      * <p><strong>Latency is the wrong measure here, and choosing on it was a mistake once
      * already.</strong> These mirrors answer a small Release file in well under a second even when
@@ -666,7 +732,7 @@ public record Project(
      * <p>Apart from the default so that a base image with no apt can be refused for a project that
      * asked for something, and left alone for one that asked for nothing.
      *
-     * @return {@code true} when 'image.package_sources' was written.
+     * @return {@code true} when 'build.package_sources' was written.
      */
     public boolean declaresPackageSources() {
         return packageSources != null;
@@ -705,6 +771,11 @@ public record Project(
 
     public Project {
         parameters = parameters == null ? Parameters.none() : parameters;
+        imageEnv =
+                imageEnv == null
+                        ? java.util.Map.of()
+                        : java.util.Collections.unmodifiableMap(
+                                new java.util.LinkedHashMap<>(imageEnv));
         if (nickname != null && !nickname.matches(Repository.NICKNAME_PATTERN)) {
             throw new ProjectException(
                     "'project.nickname' is '"
@@ -800,7 +871,7 @@ public record Project(
             throw new ProjectException(
                     "Project '"
                             + name
-                            + "' declares 'image.package_sources'"
+                            + "' declares 'build.package_sources'"
                             + " with nothing in it. Remove the key to use the default.");
         }
         for (final String source :
@@ -917,7 +988,8 @@ public record Project(
                 parameters,
                 nickname,
                 branch,
-                review);
+                review,
+                imageEnv);
     }
 
     /**
@@ -1079,10 +1151,11 @@ public record Project(
      * image, and named apart when the image is the repository's own.
      *
      * @param base The image to build on.
-     * @param snippet The Containerfile lines, or {@code null}.
+     * @param snippet The Containerfile lines, the chosen variables among them, or {@code null}.
      * @param repository The repository whose own image it is, or {@code null} when it is the
      *     project's.
-     * @return The copy; everything but the image is this project's.
+     * @return The copy; everything but the image is this project's, and it sets no variable apart
+     *     from its lines.
      */
     public Project forImage(
             String base,

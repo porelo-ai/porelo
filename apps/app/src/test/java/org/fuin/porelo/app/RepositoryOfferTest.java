@@ -22,7 +22,7 @@ class RepositoryOfferTest {
                         new StringReader(
                                 """
                 project: { name: "default", security_class: "guarded" }
-                image: { base_image: "ubuntu:24.04" }
+                image: { from: "ubuntu:24.04" }
                 """),
                         "test");
 
@@ -40,7 +40,7 @@ class RepositoryOfferTest {
                         new StringReader(
                                 """
                 project: { name: "shop", security_class: "guarded" }
-                image: { base_image: "ubuntu:24.04" }
+                image: { from: "ubuntu:24.04" }
                 repositories:
                   api:
                     upstream: "git@forge.example.org:o/api.git"
@@ -59,7 +59,7 @@ class RepositoryOfferTest {
                         new StringReader(
                                 """
                 project: { name: "shop", security_class: "guarded" }
-                image: { base_image: "ubuntu:24.04" }
+                image: { from: "ubuntu:24.04" }
                 repositories:
                   api:
                     upstream: "git@forge.example.org:o/api.git"

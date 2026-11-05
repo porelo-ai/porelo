@@ -150,14 +150,7 @@ public class ProjectCreateRepositoryCommand extends OrgWriting {
         final String at =
                 state.getProjectRepository(project).orElseGet(() -> beside(organization, project));
         final String first =
-                review == null
-                        ? firstFile(project)
-                        : firstFile(project)
-                                .replace(
-                                        "  description: \"\"\n",
-                                        "  description: \"\"\n  review: \""
-                                                + ProjectRepositoryCommand.review(review)
-                                                + "\"\n");
+                firstFile(project, review == null ? null : ProjectRepositoryCommand.review(review));
         try {
             try {
                 opened.files().found(change, at, first);
@@ -190,10 +183,26 @@ public class ProjectCreateRepositoryCommand extends OrgWriting {
 
     /** A project starts with nothing but what its file must say; its admin fills it from there. */
     static String firstFile(final String project) {
-        return "project:\n  name: \""
-                + project
-                + "\"\n  description: \"\"\n  security_class: \"guarded\"\nimage:\n"
-                + "  base_image: \"ubuntu:24.04\"\n";
+        return firstFile(project, null);
+    }
+
+    /** As {@link #firstFile(String)}, saying whether a merge needs another person's approval. */
+    static String firstFile(final String project, final @Nullable String review) {
+        return org.fuin.porelo.core.project.file.ProjectFileWriter.write(
+                new org.fuin.porelo.core.project.file.ProjectFile(
+                        new org.fuin.porelo.core.project.file.ProjectInfo(
+                                project, "", "guarded", null, review, null),
+                        new org.fuin.porelo.core.project.file.Image(
+                                "ubuntu:24.04", Map.of(), null, null),
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        Map.of(),
+                        null,
+                        Map.of(),
+                        Map.of()));
     }
 
     /** A project's repository stands beside the organization's, reached the same way. */

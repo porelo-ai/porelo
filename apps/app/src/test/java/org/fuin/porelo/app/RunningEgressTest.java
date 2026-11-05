@@ -232,7 +232,7 @@ class RunningEgressTest {
                   name: "uc"
                   security_class: "guarded"
                 image:
-                  base_image: "ubuntu:24.04"
+                  from: "ubuntu:24.04"
                 """,
                 StandardCharsets.UTF_8);
         final Path entry = dir.resolve("data/porelo/projects/uc");

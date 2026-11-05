@@ -11,7 +11,7 @@ Feature: A task's image says what it was built with
         And the vault holds the value of "PORELO_ACCEPTANCE_FAKE_CREDENTIAL" as "anthropic" of kind "api-key"
         And a project called "imagesettings" of class "guarded" whose project file also says:
             """
-              snippet: |
+              run: |
                 ENV IMAGE_SETTINGS_CANARY=settings-canary-value
                 RUN apt-get update && apt-get install -y --no-install-recommends jq \
                     && rm -rf /var/lib/apt/lists/*

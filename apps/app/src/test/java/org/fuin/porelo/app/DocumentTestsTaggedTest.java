@@ -82,7 +82,7 @@ class DocumentTestsTaggedTest {
                         "ReachDocumentTest.java",
                         "CommandsDocumentedTest.java",
                         "MailboxGuideTest.java",
-                        "DocumentedProjectFileTest.java");
+                        "FileExamplesTest.java");
         assertThat(found)
                 .filteredOn(path -> !read(path).contains(TAG))
                 .as("tests that read a document without %s", TAG)

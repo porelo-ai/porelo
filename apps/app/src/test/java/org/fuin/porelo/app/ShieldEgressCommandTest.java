@@ -111,7 +111,7 @@ class ShieldEgressCommandTest {
                   name: "uc"
                   security_class: "%s"
                 image:
-                  base_image: "ubuntu:24.04"
+                  from: "ubuntu:24.04"
                 %s"""
                         .formatted(securityClass, egress),
                 StandardCharsets.UTF_8);

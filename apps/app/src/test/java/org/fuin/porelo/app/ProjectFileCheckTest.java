@@ -40,7 +40,7 @@ class ProjectFileCheckTest {
               name: "p"
               security_class: "guarded"
             image:
-              base_image: "ubuntu:24.04"
+              from: "ubuntu:24.04"
             """;
 
     @Test
@@ -57,17 +57,21 @@ class ProjectFileCheckTest {
                 .singleElement()
                 .asString()
                 .contains("belongs under 'project:'");
+        // A key a later Porelo may know is refused too, at its line: ignored, it would be no
+        // setting at all while the file looked applied.
+        assertThat(ProjectFileCheck.check(context(), HEAD + "gate:\n  on: true\n").refused())
+                .singleElement()
+                .asString()
+                .contains("project.yml:6:", "'gate' is not a setting this Porelo knows");
     }
 
     @Test
-    void whatOnlyThisMachineLacksWarnsAndAKeyALaterPoreloKnowsToo() {
+    void whatOnlyThisMachineLacksWarns() {
         final ProjectFileCheck.Result result =
                 ProjectFileCheck.check(
                         context(),
                         HEAD
                                 + """
-                gate:
-                  on: true
                 credentials:
                   search: nowhere
                 mail:
@@ -77,7 +81,6 @@ class ProjectFileCheckTest {
 
         assertThat(result.refused()).isEmpty();
         assertThat(result.warnings())
-                .anyMatch(each -> each.contains("'gate' is not a setting this machine's Porelo"))
                 .anyMatch(each -> each.contains("credential 'search' is for 'nowhere'"))
                 .anyMatch(each -> each.contains("no 'room' transport is installed"));
     }

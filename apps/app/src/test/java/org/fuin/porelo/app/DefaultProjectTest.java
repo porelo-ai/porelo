@@ -164,7 +164,7 @@ class DefaultProjectTest {
                         ProjectFileCheck.check(
                                         context,
                                         "project:\n  name: \"default\"\n  security_class: \"guarded\"\n"
-                                                + "image:\n  base_image: \"ubuntu:24.04\"\n")
+                                                + "image:\n  from: \"ubuntu:24.04\"\n")
                                 .refused())
                 .singleElement()
                 .asString()
@@ -616,7 +616,7 @@ class DefaultProjectTest {
                   name: "default"
                   security_class: "guarded"
                 image:
-                  base_image: "ubuntu:24.04"
+                  from: "ubuntu:24.04"
                 mail:
                   peers:
                     room:

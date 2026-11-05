@@ -114,7 +114,7 @@ class PruneTest {
         Files.writeString(
                 file,
                 "project:\n  name: \"kept\"\n  security_class: \"guarded\"\n"
-                        + "image:\n  base_image: \"ubuntu:24.04\"\n");
+                        + "image:\n  from: \"ubuntu:24.04\"\n");
         Files.createDirectories(context.paths().projects().projectRegistry());
         Files.writeString(
                 context.paths().projects().projectRegistry().resolve("kept"), file + "\n");
@@ -167,7 +167,7 @@ class PruneTest {
         Files.writeString(
                 file,
                 "project:\n  name: \"kept\"\n  security_class: \"guarded\"\n"
-                        + "image:\n  base_image: \"ubuntu:24.04\"\n");
+                        + "image:\n  from: \"ubuntu:24.04\"\n");
         Files.writeString(
                 context.paths().projects().projectRegistry().resolve("kept"), file + "\n");
 

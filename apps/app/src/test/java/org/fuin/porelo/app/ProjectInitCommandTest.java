@@ -109,7 +109,7 @@ class ProjectInitCommandTest {
                 .isZero();
         assertThat(out.toString())
                 .as("the printed draft keeps its YAML line breaks")
-                .startsWith("project:\n  name: \"sample-project\"\n");
+                .startsWith("project:\n  name: sample-project\n");
     }
 
     @Test
@@ -248,8 +248,8 @@ class ProjectInitCommandTest {
                                 .get("draft"));
 
         assertThat(draft)
-                .contains("upstream: \"http://127.0.0.1:3001/demo/sample.git\"")
-                .contains("central: \"git@example.org:acme/sample.git\"")
+                .contains("upstream: http://127.0.0.1:3001/demo/sample.git")
+                .contains("central: git@example.org:acme/sample.git")
                 .contains("security_class: online");
     }
 

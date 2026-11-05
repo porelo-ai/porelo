@@ -442,8 +442,8 @@ Your tooling goes in layer 3, either inline in `project.yml`:
 
 ```yaml
 image:
-  base_image: "ubuntu:24.04"
-  snippet: |
+  from: "ubuntu:24.04"
+  run: |
     RUN apt-get update && apt-get install -y --no-install-recommends ripgrep jq \
         && rm -rf /var/lib/apt/lists/*
 ```
@@ -452,11 +452,11 @@ or, for anything longer, in a file beside it:
 
 ```yaml
 image:
-  base_image: "ubuntu:24.04"
-  snippet_file: "tooling.dockerinclude"
+  from: "ubuntu:24.04"
+  run_file: "tooling.dockerinclude"
 ```
 
-Use one or the other; Porelo refuses both together.
+Use one or the other; Porelo refuses both together. Either holds `RUN`, `ARG` and `ENV` lines only.
 
 - **Your lines run as root**, before the image switches to the `agent` user, because installing packages is
   what they are almost always for.

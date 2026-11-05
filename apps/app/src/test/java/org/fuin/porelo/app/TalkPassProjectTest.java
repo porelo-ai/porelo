@@ -105,7 +105,7 @@ class TalkPassProjectTest {
                 home.resolve("project.yml"),
                 "project:\n  name: \""
                         + name
-                        + "\"\n  security_class: \"guarded\"\nimage:\n  base_image: \"ubuntu:24.04\"\n"
+                        + "\"\n  security_class: \"guarded\"\nimage:\n  from: \"ubuntu:24.04\"\n"
                         + more,
                 StandardCharsets.UTF_8);
         Files.createDirectories(context.paths().projects().projectRegistry());

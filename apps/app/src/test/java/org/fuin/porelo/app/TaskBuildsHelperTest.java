@@ -47,7 +47,7 @@ class TaskBuildsHelperTest {
                   security_class: "online"
                   upstream: "git@example.com:x/uc.git"
                 image:
-                  base_image: "ubuntu:24.04"
+                  from: "ubuntu:24.04"
                 builds:
                   forge: "github"
                   credential: "forge-token"

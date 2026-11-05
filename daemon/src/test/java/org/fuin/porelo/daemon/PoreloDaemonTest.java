@@ -114,7 +114,7 @@ class PoreloDaemonTest {
                   name: "uc"
                   security_class: "guarded"
                 image:
-                  base_image: "ubuntu:24.04"
+                  from: "ubuntu:24.04"
                 """);
         Files.createDirectories(dir.resolve("data/porelo/projects"));
         Files.writeString(
@@ -1149,7 +1149,7 @@ class PoreloDaemonTest {
                   name: "uc"
                   security_class: "guarded"
                 image:
-                  base_image: "ubuntu:24.04"
+                  from: "ubuntu:24.04"
                 """));
 
         serving(
@@ -1221,7 +1221,7 @@ class PoreloDaemonTest {
                   name: "uc"
                   security_class: "guarded"
                 image:
-                  base_image: "ubuntu:24.04"
+                  from: "ubuntu:24.04"
                 egress:
                   domains: [example.com, files.example.com, example.org]
                   refused: [example.com]
@@ -1269,7 +1269,7 @@ class PoreloDaemonTest {
                   name: "uc"
                   security_class: "guarded"
                 image:
-                  base_image: "ubuntu:24.04"
+                  from: "ubuntu:24.04"
                 """));
 
         serving(
@@ -2331,7 +2331,8 @@ class PoreloDaemonTest {
                         assertThat(schema.get("sections"))
                                 .asString()
                                 .contains("security_class")
-                                .contains("base_image");
+                                .contains("run_file")
+                                .doesNotContain("base_image");
                         // Each key described in Porelo's own words, for a form a person new to it
                         // can fill.
                         assertThat((List<?>) schema.get("keys"))
@@ -2936,7 +2937,7 @@ class PoreloDaemonTest {
                   name: "uc"
                   security_class: "guarded"
                 image:
-                  base_image: "ubuntu:24.04"
+                  from: "ubuntu:24.04"
                 repositories:
                   backend:
                     upstream: "git@forge.example.org:uc/backend.git"
@@ -3010,7 +3011,7 @@ class PoreloDaemonTest {
                   security_class: "guarded"
                   upstream: "%s"
                 image:
-                  base_image: "ubuntu:24.04"
+                  from: "ubuntu:24.04"
                 """
                                 .formatted(origin)));
         final Path upstreamRecords = Files.createDirectories(dir.resolve("data/porelo/upstream"));
@@ -4039,7 +4040,7 @@ class PoreloDaemonTest {
                   security_class: "guarded"
                   upstream: "git@project-host.example.org:uc/uc.git"
                 image:
-                  base_image: "ubuntu:24.04"
+                  from: "ubuntu:24.04"
                 """));
 
         serving(
@@ -4459,7 +4460,7 @@ class PoreloDaemonTest {
                           name: "demo"
                           security_class: "guarded"
                         image:
-                          base_image: "ubuntu:24.04"
+                          from: "ubuntu:24.04"
                         """);
         org.fuin.porelo.app.OrganizationProjects.of(machine)
                 .write(
@@ -4505,7 +4506,7 @@ class PoreloDaemonTest {
                           name: "uc"
                           security_class: "guarded"
                         image:
-                          base_image: "ubuntu:24.04"
+                          from: "ubuntu:24.04"
                         """);
 
         serving(
@@ -4537,7 +4538,7 @@ class PoreloDaemonTest {
                   name: "target"
                   security_class: "guarded"
                 image:
-                  base_image: "ubuntu:24.04"
+                  from: "ubuntu:24.04"
                 """);
 
         serving(

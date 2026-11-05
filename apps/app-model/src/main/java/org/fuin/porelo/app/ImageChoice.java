@@ -20,12 +20,11 @@ import org.jspecify.annotations.Nullable;
  * The image a task on one repository is built from, chosen key by key along a fixed order, with the
  * source of each key so a start can name it.
  *
- * <p>The order, first that sets a key wins: the person's local override, the project file's entry
- * for the repository, the repository's own {@code porelo.yml} at its reviewed default branch, and
- * the project's {@code image}. In the project {@code default}, a task started from a person's
- * checkout reads that checkout's {@code .porelo.yml}, then its {@code porelo.yml}, then the default
- * image. {@code base_image} and the snippet are each taken whole from one source; {@code env} per
- * variable.
+ * <p>The order, first that sets a key wins: the person's local override, the repository's own
+ * {@code porelo.yml} at its reviewed default branch, and the project's {@code image}. In the
+ * project {@code default}, a task started from a person's checkout reads that checkout's {@code
+ * .porelo.yml}, then its {@code porelo.yml}, then the default image. {@code from} and the lines of
+ * {@code run} or {@code run_file} are each taken whole from one source; {@code env} per variable.
  *
  * @param baseImage The image to build on.
  * @param baseFrom Where it came from.
@@ -165,9 +164,6 @@ public record ImageChoice(
                             override + " (local override)",
                             SnippetFiles.beside(override)));
         }
-        if (repository.image() != null) {
-            order.add(repository.image());
-        }
         ProjectException mirrorRefusal = null;
         try {
             final Path mirror = GateSupport.mirror(context, project, repository);
@@ -211,7 +207,7 @@ public record ImageChoice(
         final boolean projects =
                 baseFrom.equals(own)
                         && (snippetFrom == null || snippetFrom.equals(own))
-                        && env.isEmpty();
+                        && envFrom.values().stream().allMatch(own::equals);
         return project.forImage(baseImage, withEnv(), projects ? null : repository.name());
     }
 

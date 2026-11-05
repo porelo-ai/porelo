@@ -19,7 +19,7 @@ Feature: A task in a guarded project, from its image to what it hands back
         And the vault holds the value of "PORELO_ACCEPTANCE_FAKE_CREDENTIAL" as "anthropic" of kind "api-key"
         And a project called "guarded" of class "guarded" whose project file also says:
             """
-              snippet: |
+              run: |
                 RUN apt-get update && apt-get install -y --no-install-recommends jq \
                     && rm -rf /var/lib/apt/lists/*
             egress:

@@ -34,7 +34,7 @@ class ProjectChoiceTest {
                     "project:\n  name: \""
                             + name
                             + "\"\n  security_class: \"guarded\"\n"
-                            + "image:\n  base_image: \"ubuntu:24.04\"\n");
+                            + "image:\n  from: \"ubuntu:24.04\"\n");
             Files.writeString(registry.resolve(name), file + "\n");
         }
         final StringWriter said = new StringWriter();

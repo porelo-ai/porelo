@@ -228,21 +228,15 @@ public final class EgressControl {
     }
 
     /**
-     * Applies a change to one repository's declaration, or reports what it would do.
+     * Applies a change for a task on one repository, or reports what it would do.
      *
-     * <p><strong>Which block this writes into is the whole of the write-back.</strong> A connection
-     * a task made is a fact about the repository that task works on, and remembering it in the
-     * project's block would widen every other repository of that project for a reason none of them
-     * can see. The project's own repository has no block of its own - its egress <em>is</em> the
-     * project's - so {@code null} means that one.
-     *
-     * <p><strong>It can only ever add.</strong> A repository's grants are added to the project's,
-     * so creating a repository's block takes nothing away from it; that is why the additive rule
-     * was chosen over replacement, and this is the method that would otherwise have removed a grant
-     * while granting one.
+     * <p><strong>The change is the project's.</strong> What a task may reach is the project's
+     * alone, whichever of its repositories the task works on, so a grant is written into the
+     * project's {@code egress} block. A repository the project does not name is refused, so a
+     * mistyped name writes nothing.
      *
      * @param projectFile The project file.
-     * @param repository Which repository's block to edit, or {@code null} for the project's own.
+     * @param repository Which repository the task works on, or {@code null} for the project's own.
      * @param change What to change.
      * @param dryRun Whether to stop before writing.
      * @return What it does, or why it was refused.
@@ -268,8 +262,8 @@ public final class EgressControl {
             return Effect.refused(Outcome.REFUSED_BY_CLASS, DEFAULT_REFUSED);
         }
 
-        // The project's own repository is named after the project and has no block of its own, so
-        // it is the project's block - and a caller that passed the project's name means that.
+        // The project's own repository is named after the project; a caller that passed the
+        // project's name means that one.
         final String block =
                 repository == null || repository.isBlank() || repository.equals(project.name())
                         ? null
@@ -280,29 +274,16 @@ public final class EgressControl {
         } catch (ProjectException ex) {
             return Effect.refused(Outcome.UNREADABLE, CliErrors.reason(ex));
         }
-        // What that block says today, which is what the change is applied to. The project's lists
-        // for the project's block, the repository's own for a repository's - editing the project's
-        // and writing the result into a repository would copy every project-level grant into it.
-        final org.fuin.porelo.core.project.Egress declared =
-                block == null ? project.egress() : chosen.egress();
+        // What a task may reach is the project's alone, whichever repository it works on, so the
+        // change is applied to the project's block; the repository named only has to exist.
+        final org.fuin.porelo.core.project.Egress declared = project.egress();
 
         final EgressSetDirectory sets = context.paths().egress().egressSets();
-        final String updated;
-        try {
-            updated =
-                    EgressEdit.withEgress(
-                            original,
-                            block,
-                            edited(declared.sets(), change.addSets(), change.removeSets()),
-                            edited(
-                                    declared.domains(),
-                                    change.addDomains(),
-                                    change.removeDomains()));
-        } catch (IllegalArgumentException ex) {
-            // A repository the file does not name. Refused rather than written to the project's
-            // block, which is the one place this must not put it.
-            return Effect.refused(Outcome.UNREADABLE, CliErrors.reason(ex));
-        }
+        final String updated =
+                EgressEdit.withEgress(
+                        original,
+                        edited(declared.sets(), change.addSets(), change.removeSets()),
+                        edited(declared.domains(), change.addDomains(), change.removeDomains()));
 
         final Project after;
         final Map<String, String> before;

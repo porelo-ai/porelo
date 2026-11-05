@@ -87,7 +87,7 @@ class StartStepsTest {
                 projectFile,
                 """
                 project: {name: p, security_class: guarded}
-                image: {base_image: 'ubuntu:24.04'}
+                image: {from: 'ubuntu:24.04'}
                 mail:
                   transports: {room: {}}
                   peers: {reviewer: {address: 'room:', trust: vouched}}
@@ -182,7 +182,7 @@ class StartStepsTest {
                 projectFile,
                 """
                 project: {name: p, security_class: guarded}
-                image: {base_image: 'ubuntu:24.04'}
+                image: {from: 'ubuntu:24.04'}
                 """);
         final Path phase =
                 context.paths().tasks().containerState("porelo-p-work").resolve("start-step.json");

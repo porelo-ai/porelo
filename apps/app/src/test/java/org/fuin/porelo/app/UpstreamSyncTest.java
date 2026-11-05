@@ -43,7 +43,7 @@ class UpstreamSyncTest {
                   name: "demo"
                   security_class: "guarded"
                 image:
-                  base_image: "ubuntu:24.04"
+                  from: "ubuntu:24.04"
                 """);
         new ProjectRegistry(context(dir).paths().projects().projectRegistry())
                 .remember("demo", file);

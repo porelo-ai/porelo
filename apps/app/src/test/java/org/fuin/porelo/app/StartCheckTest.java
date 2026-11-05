@@ -60,7 +60,7 @@ class StartCheckTest {
         Files.writeString(
                 project,
                 "project:\n  name: \"uc\"\n  security_class: \"guarded\"\n"
-                        + "image:\n  base_image: \"ubuntu:24.04\"\n"
+                        + "image:\n  from: \"ubuntu:24.04\"\n"
                         + "parameters:\n  type:\n    values: [feature, bugfix]\n");
 
         final StartCheck.Result result =
@@ -92,7 +92,7 @@ class StartCheckTest {
         Files.writeString(
                 project,
                 "project:\n  name: \"uc\"\n  security_class: \"guarded\"\n"
-                        + "image:\n  base_image: \"ubuntu:24.04\"\n"
+                        + "image:\n  from: \"ubuntu:24.04\"\n"
                         + "egress:\n  host_services: [\"forge.internal.example\"]\n");
 
         final StartCheck.Result result =
@@ -124,7 +124,7 @@ class StartCheckTest {
         Files.writeString(
                 project,
                 "project:\n  name: \"uc\"\n  security_class: \"guarded\"\n"
-                        + "image:\n  base_image: \"ubuntu:24.04\"\n"
+                        + "image:\n  from: \"ubuntu:24.04\"\n"
                         + "parameters:\n  type:\n    values: [feature, bugfix, chore]\n"
                         + "branch:\n  template: \"{type}/porelo/{task}\"\n"
                         + "  pattern: \"^(feature|bugfix)/porelo/[a-z0-9-]+$\"\n");
@@ -173,7 +173,7 @@ class StartCheckTest {
         Files.writeString(
                 project,
                 "project:\n  name: \"uc\"\n  security_class: \"guarded\"\n"
-                        + "image:\n  base_image: \"ubuntu:24.04\"\n"
+                        + "image:\n  from: \"ubuntu:24.04\"\n"
                         + "parameters:\n  type:\n    values: [feature, bugfix, chore]\n"
                         + "branch:\n  template: \"{type}/porelo/{task}\"\n"
                         + "  pattern: \"^(feature|bugfix)/porelo/fix$\"\n");
@@ -227,7 +227,7 @@ class StartCheckTest {
         Files.writeString(
                 project,
                 "project:\n  name: \"uc\"\n  security_class: \"guarded\"\n"
-                        + "image:\n  base_image: \"ubuntu:24.04\"\n"
+                        + "image:\n  from: \"ubuntu:24.04\"\n"
                         + "repositories:\n  backend:\n    agent: \"helper\"\n");
 
         final StartCheck.Result result =
@@ -312,7 +312,7 @@ class StartCheckTest {
                   name: "uc"
                   security_class: "guarded"
                 image:
-                  base_image: "ubuntu:24.04"
+                  from: "ubuntu:24.04"
                 repositories:
                   backend:
                   frontend:
@@ -405,7 +405,7 @@ class StartCheckTest {
                   name: "solo"
                   security_class: "guarded"
                 image:
-                  base_image: "ubuntu:24.04"
+                  from: "ubuntu:24.04"
                 """);
 
         assertThat(StartCheck.withRepository(READY, file, "solo", true)).isEqualTo(READY);
@@ -450,7 +450,7 @@ class StartCheckTest {
                   name: "uc"
                   security_class: "guarded"
                 image:
-                  base_image: "ubuntu:24.04"
+                  from: "ubuntu:24.04"
                 credentials:
                   search: nowhere
                 """);
@@ -600,7 +600,7 @@ class StartCheckTest {
                   name: "uc"
                   security_class: "guarded"
                 image:
-                  base_image: "ubuntu:24.04"
+                  from: "ubuntu:24.04"
                 repositories:
                   backend:
                     upstream: "git@forge.example.org:uc/backend.git"

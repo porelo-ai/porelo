@@ -1,81 +1,17 @@
 package org.fuin.porelo.core.project;
 
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import org.jspecify.annotations.Nullable;
 
 /**
- * Which keys a project file may hold, and where.
+ * Every key a project file may hold, described for an editor a person new to Porelo can fill.
  *
- * <p><strong>What is certainly a mistake is refused</strong>: a key that belongs in another
- * section, or one spelt within two letters of a key that belongs here. Ignored, either is silently
- * no setting, and the file looks applied. <strong>Any other unknown key is accepted and warned
- * about</strong> (decided on 2026-09-30): a file written for a later Porelo must still run on this
- * one.
- *
- * <p>Two places are open by design: the names under {@code credentials} and {@code repositories}
- * are the project's own, and what is under {@code mail.transports.<scheme>} is the transport's,
- * handed to it as it is written - the transport refuses what it does not know.
+ * <p>Which keys there are is the file model's to say ({@link
+ * org.fuin.porelo.core.project.file.ProjectFileReader#sections()}), and a test holds the two to the
+ * same set. Two places are open by design: the names under {@code credentials} and {@code
+ * repositories} are the project's own, and what is under {@code mail.transports.<scheme>} is the
+ * transport's, handed to it as it is written - the transport refuses what it does not know.
  */
 final class ProjectSchema {
-
-    private static final Map<String, Set<String>> SECTIONS = new LinkedHashMap<>();
-
-    static {
-        SECTIONS.put(
-                "",
-                Set.of(
-                        "project",
-                        "image",
-                        "egress",
-                        "limits",
-                        "mail",
-                        "repositories",
-                        "credentials",
-                        "builds",
-                        "parameters",
-                        "branch"));
-        SECTIONS.put("branch", Set.of("template", "pattern"));
-        SECTIONS.put("builds", Set.of("forge", "credential", "api", "logs"));
-        SECTIONS.put(
-                "parameters.<parameter>",
-                Set.of("description", "values", "pattern", "default", "required", "env"));
-        SECTIONS.put(
-                "project",
-                Set.of("name", "description", "security_class", "upstream", "nickname", "review"));
-        SECTIONS.put("image", Set.of("base_image", "snippet", "snippet_file", "package_sources"));
-        SECTIONS.put("egress", Set.of("sets", "domains", "refused", "host_services"));
-        SECTIONS.put("limits", Set.of("memory", "pids", "cpus", "hand_in", "subagents"));
-        SECTIONS.put("mail", Set.of("peers", "transports", "outgoing_filter", Mail.RULES));
-        SECTIONS.put("mail.rules", Set.of("project", "room", "others"));
-        SECTIONS.put("mail.peers.<peer>", Set.of("address", "trust", "per_day", "mode"));
-        SECTIONS.put(
-                "repositories.<repository>",
-                Set.of(
-                        "upstream",
-                        "central",
-                        "review",
-                        "description",
-                        "egress",
-                        "limits",
-                        "issues",
-                        "image",
-                        "agent",
-                        "nickname",
-                        "branch",
-                        "maturity"));
-    }
-
-    /**
-     * Settings Porelo read once and reads no more, each with what decides instead: refused by name
-     * wherever they stand, since a file that carries one would look as if it still did something.
-     */
-    private static final Map<String, String> REMOVED =
-            Map.of(
-                    "unread_work_may_leave",
-                    "how closely a message is watched is set by 'mail.rules' and a peer's 'mode'.");
 
     /** The modes a message rule takes, in the order they are offered. */
     private static final List<String> MODES = List.of(Mail.PROMPT, Mail.ALLOW, Mail.DENY, Mail.OFF);
@@ -289,27 +225,37 @@ final class ProjectSchema {
                             false),
                     key(
                             "image",
-                            "base_image",
+                            "from",
                             "The image a task's container is built from; any with apt, apk or dnf.",
                             "string",
                             "",
                             true),
                     key(
                             "image",
-                            "snippet",
-                            "Extra Containerfile lines, run as root while the image is built.",
+                            "env",
+                            "Variables set in the image, each a name and its value; a repository's"
+                                    + " porelo.yml may give one another value.",
+                            "map",
+                            "",
+                            false),
+                    key(
+                            "image",
+                            "run",
+                            "Extra Containerfile lines, run as root while the image is built: RUN,"
+                                    + " ARG and ENV only.",
                             "string",
                             "",
                             false),
                     key(
                             "image",
-                            "snippet_file",
-                            "The same as snippet, in a file of the repository; not both.",
+                            "run_file",
+                            "The same as run, in a file of the repository; not both.",
                             "string",
                             "",
                             false),
+                    key("", "build", "What the image build itself fetches from.", "map", "", false),
                     key(
-                            "image",
+                            "build",
                             "package_sources",
                             "Where apt fetches from while the image is built.",
                             "list",
@@ -504,30 +450,6 @@ final class ProjectSchema {
                             false),
                     key(
                             "repositories.<repository>",
-                            "egress",
-                            "What a task on this repository may reach in addition to the"
-                                    + " project's: sets, domains, refused, host_services.",
-                            "map",
-                            "",
-                            false),
-                    key(
-                            "repositories.<repository>",
-                            "limits",
-                            "What a task on this repository may consume, replacing the"
-                                    + " project's key by key: memory, pids, cpus, subagents.",
-                            "map",
-                            "",
-                            false),
-                    key(
-                            "repositories.<repository>",
-                            "image",
-                            "What a task on this repository is built from, over the repository's own"
-                                    + " porelo.yml: base_image, snippet or snippet_file, env.",
-                            "map",
-                            "",
-                            false),
-                    key(
-                            "repositories.<repository>",
                             "issues",
                             "The issue prefixes this repository owns, each one or more"
                                     + " capital letters and named by no other repository; a task on it is told them.",
@@ -590,168 +512,18 @@ final class ProjectSchema {
     }
 
     /**
-     * Returns the keys each section may hold, for an editor built from what this Porelo knows.
+     * Returns a section as the keys here name it: a name the file chooses is {@code <repository>},
+     * {@code <peer>} or {@code <parameter>}, where the file model says {@code <name>}.
      *
-     * @return Section - {@code ""} for the top level, {@code mail.peers.<peer>} and {@code
-     *     repositories.<repository>} for the named ones - to its keys, sorted.
+     * @param section The section as the file model names it.
+     * @return It as the keys name it.
      */
-    static Map<String, List<String>> sections() {
-        final Map<String, List<String>> sections = new LinkedHashMap<>();
-        SECTIONS.forEach((section, keys) -> sections.put(section, keys.stream().sorted().toList()));
-        return sections;
-    }
-
-    /**
-     * Refuses a key the file may not hold where it is.
-     *
-     * @param root The whole document.
-     * @param origin Name used in error messages.
-     * @throws ProjectException Naming the first key that is not a setting, and where it belongs.
-     */
-    static List<String> check(Map<?, ?> root, String origin) {
-        final List<String> unknown = new java.util.ArrayList<>();
-        keys(root, "", "", origin, unknown);
-        for (final String section :
-                List.of(
-                        "project", "image", "egress", "limits", "mail", "builds", "branch",
-                        "access")) {
-            if (root.get(section) instanceof Map<?, ?> map) {
-                keys(map, section, section, origin, unknown);
-            }
-        }
-        if (root.get("mail") instanceof Map<?, ?> mail
-                && mail.get("peers") instanceof Map<?, ?> peers) {
-            peers.forEach(
-                    (name, peer) -> {
-                        if (peer instanceof Map<?, ?> map) {
-                            keys(map, "mail.peers.<peer>", "mail.peers." + name, origin, unknown);
-                        }
-                    });
-        }
-        if (root.get("parameters") instanceof Map<?, ?> parameters) {
-            parameters.forEach(
-                    (name, parameter) -> {
-                        if (parameter instanceof Map<?, ?> map) {
-                            keys(
-                                    map,
-                                    "parameters.<parameter>",
-                                    "parameters." + name,
-                                    origin,
-                                    unknown);
-                        }
-                    });
-        }
-        if (root.get("repositories") instanceof Map<?, ?> repositories) {
-            repositories.forEach(
-                    (name, repository) -> {
-                        if (repository instanceof Map<?, ?> map) {
-                            keys(
-                                    map,
-                                    "repositories.<repository>",
-                                    "repositories." + name,
-                                    origin,
-                                    unknown);
-                            for (final String inner : List.of("egress", "limits", "branch")) {
-                                if (map.get(inner) instanceof Map<?, ?> nested) {
-                                    keys(
-                                            nested,
-                                            inner,
-                                            "repositories." + name + "." + inner,
-                                            origin,
-                                            unknown);
-                                }
-                            }
-                        }
-                    });
-        }
-        return List.copyOf(unknown);
-    }
-
-    private static void keys(
-            Map<?, ?> map, String section, String path, String origin, List<String> unknown) {
-        final Set<String> known = java.util.Objects.requireNonNull(SECTIONS.get(section), section);
-        for (final Object key : map.keySet()) {
-            final String name = String.valueOf(key);
-            if (known.contains(name)) {
-                continue;
-            }
-            final String where = path.isEmpty() ? name : path + "." + name;
-            if (REMOVED.containsKey(name)) {
-                throw new ProjectException(
-                        origin
-                                + ": '"
-                                + where
-                                + "' is no longer a setting; "
-                                + REMOVED.get(name)
-                                + " Remove it.");
-            }
-            final String home = home(name, section);
-            final String near = home == null ? nearest(name, known) : null;
-            if (home == null && near == null) {
-                unknown.add(where);
-                continue;
-            }
-            throw new ProjectException(
-                    origin
-                            + ": '"
-                            + where
-                            + "' is not a setting"
-                            + (home != null
-                                    ? "; it belongs under '" + home + ":'"
-                                    : "; did you mean '" + near + "'?"));
-        }
-    }
-
-    /**
-     * Returns the section a key belongs in, when it is one of another section's.
-     *
-     * @param name The key.
-     * @param not The section it was found in.
-     * @return The section, or {@code null}.
-     */
-    private static @Nullable String home(String name, String not) {
-        for (final Map.Entry<String, Set<String>> section : SECTIONS.entrySet()) {
-            if (!section.getKey().equals(not) && section.getValue().contains(name)) {
-                return section.getKey().isEmpty()
-                        ? "the top level"
-                        : section.getKey()
-                                .replace(".<peer>", ".<name>")
-                                .replace(".<repository>", ".<name>")
-                                .replace(".<parameter>", ".<name>");
-            }
-        }
-        return null;
-    }
-
-    private static @Nullable String nearest(String name, Set<String> known) {
-        String best = null;
-        int distance = 3;
-        for (final String candidate : known) {
-            final int each = distance(name, candidate);
-            if (each < distance) {
-                distance = each;
-                best = candidate;
-            }
-        }
-        return best;
-    }
-
-    private static int distance(String a, String b) {
-        final int[] previous = new int[b.length() + 1];
-        final int[] current = new int[b.length() + 1];
-        for (int j = 0; j <= b.length(); j++) {
-            previous[j] = j;
-        }
-        for (int i = 1; i <= a.length(); i++) {
-            current[0] = i;
-            for (int j = 1; j <= b.length(); j++) {
-                current[j] =
-                        Math.min(
-                                Math.min(current[j - 1], previous[j]) + 1,
-                                previous[j - 1] + (a.charAt(i - 1) == b.charAt(j - 1) ? 0 : 1));
-            }
-            System.arraycopy(current, 0, previous, 0, current.length);
-        }
-        return previous[b.length()];
+    static String placeholder(String section) {
+        return switch (section) {
+            case "repositories.<name>" -> "repositories.<repository>";
+            case "mail.peers.<name>" -> "mail.peers.<peer>";
+            case "parameters.<name>" -> "parameters.<parameter>";
+            default -> section;
+        };
     }
 }

@@ -43,7 +43,7 @@ class ProjectReadinessTest {
                   name: "demo"
                   security_class: "guarded"
                 image:
-                  base_image: "%s"
+                  from: "%s"
                 """
                         .formatted(baseImage));
         return file;
@@ -133,7 +133,7 @@ class ProjectReadinessTest {
                   name: "demo"
                   security_class: "guarded"
                 image:
-                  base_image: "ubuntu:24.04"
+                  from: "ubuntu:24.04"
                 egress:
                   sets: ["maven"]
                 """);
@@ -157,8 +157,8 @@ class ProjectReadinessTest {
                   name: "demo"
                   security_class: "guarded"
                 image:
-                  base_image: "ubuntu:24.04"
-                  snippet: |
+                  from: "ubuntu:24.04"
+                  run: |
                     RUN apt-get install -y jq
                 """);
         final String before = recipeOf(file);

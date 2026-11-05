@@ -62,7 +62,7 @@ class TaskCertificatesTest {
                   name: p
                   security_class: guarded
                 image:
-                  base_image: ubuntu:24.04
+                  from: ubuntu:24.04
                 """),
                         "test");
         new TaskRunner(commands, paths()) {

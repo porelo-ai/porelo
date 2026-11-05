@@ -394,13 +394,13 @@ public class TerminalSteps {
 
     /**
      * Creates a small git project on the machine whose project file says more than its name, class
-     * and base image - the egress sets it declares, a snippet its image runs.
+     * and base image - the egress sets it declares, the lines its image runs.
      *
      * @param name The project's name and directory.
      * @param securityClass Its class: {@code offline}, {@code guarded} or {@code online}.
      * @param more Additional YAML for the project file. A root-level {@code image:} supplies the
-     *     image block; otherwise, YAML follows the default {@code base_image}, so an indented
-     *     {@code snippet} continues that block and an unindented {@code egress} starts its own.
+     *     image block; otherwise, YAML follows the default {@code from}, so an indented {@code run}
+     *     continues that block and an unindented {@code egress} starts its own.
      * @throws IOException If the machine cannot be reached.
      */
     @Given("a project called {string} of class {string} whose project file also says:")
@@ -495,7 +495,7 @@ public class TerminalSteps {
         if (more.lines().anyMatch(line -> line.startsWith("image:"))) {
             return more;
         }
-        return "image:\n  base_image: \"ubuntu:24.04\"\n" + (more.isBlank() ? "" : more);
+        return "image:\n  from: \"ubuntu:24.04\"\n" + (more.isBlank() ? "" : more);
     }
 
     /** Left inside a fixture's .git, never committed: what says a directory is one a run made. */

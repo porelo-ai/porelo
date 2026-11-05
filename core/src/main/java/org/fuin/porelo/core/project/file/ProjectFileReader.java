@@ -68,6 +68,36 @@ public final class ProjectFileReader {
         return file;
     }
 
+    /**
+     * Reads only the name a project file declares, before its signature is checked: nothing else of
+     * it is judged, and a refusal names no excerpt of it.
+     *
+     * @param reader The unverified file's content.
+     * @param origin The file, for messages.
+     * @return The declared name, or {@code null} when it names none.
+     * @throws ProjectException If it is not YAML.
+     */
+    public static @Nullable String name(final Reader reader, final String origin) {
+        final Node root = Binding.compose(reader, origin);
+        if (root == null) {
+            return null;
+        }
+        final ProjectInfo info =
+                FileBinder.project(new Binding(origin, Sections.PROJECT), root).project();
+        final String name = info == null ? null : info.name();
+        return name == null || name.isBlank() ? null : name;
+    }
+
+    /**
+     * Returns the keys each section of a project file holds.
+     *
+     * @return Section to its keys, both in the order they are written; {@code ""} is the top level,
+     *     and {@code <name>} stands for a name the file chooses.
+     */
+    public static java.util.Map<String, List<String>> sections() {
+        return Sections.PROJECT.all();
+    }
+
     static Node root(final Reader reader, final String origin) {
         final Node root = Binding.compose(reader, origin);
         if (root == null) {

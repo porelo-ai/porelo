@@ -30,7 +30,7 @@ class ProjectVerifyCommandTest {
               upstream: "git@forge.example:demo/demo.git"
               review: "optional"
             image:
-              base_image: "ubuntu:24.04"
+              from: "ubuntu:24.04"
             repositories:
               second:
                 upstream: "git@forge.example:demo/second.git"

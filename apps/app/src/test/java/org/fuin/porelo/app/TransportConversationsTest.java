@@ -297,7 +297,7 @@ class TransportConversationsTest {
         final Path file = dir.resolve("project.yml");
         Files.writeString(
                 file,
-                "project:\n  name: p\n  security_class: guarded\nimage:\n  base_image: ubuntu:24.04\n");
+                "project:\n  name: p\n  security_class: guarded\nimage:\n  from: ubuntu:24.04\n");
         final TalkReply joined = talk(context, "join", "p", "alice");
         for (final String[] arguments :
                 List.of(new String[] {"members", "p"}, new String[] {"remove", "p", "alice"})) {
@@ -395,7 +395,7 @@ class TransportConversationsTest {
         final String yaml =
                 "project:\n  name: p\n  security_class: "
                         + securityClass
-                        + "\nimage:\n  base_image: ubuntu:24.04\nmail:\n  transports:\n    room:\n      server: https://example.org\n";
+                        + "\nimage:\n  from: ubuntu:24.04\nmail:\n  transports:\n    room:\n      server: https://example.org\n";
         final Path file = dir.resolve("project.yml");
         Files.writeString(file, yaml);
         new ProjectRegistry(context.paths().projects().projectRegistry()).remember("p", file);
@@ -499,7 +499,7 @@ class TransportConversationsTest {
                 projectFile,
                 """
                 project: {name: p, security_class: guarded}
-                image: {base_image: 'ubuntu:24.04'}
+                image: {from: 'ubuntu:24.04'}
                 mail:
                   transports:
                     room: {server: 'https://example.org'}
@@ -635,7 +635,7 @@ class TransportConversationsTest {
                   name: "p"
                   security_class: "%s"
                 image:
-                  base_image: "ubuntu:24.04"
+                  from: "ubuntu:24.04"
                 mail:
                   transports:
                     room:

@@ -41,7 +41,7 @@ public record ImageSource(
         return new ImageSource(
                 project.baseImage(),
                 project.imageSnippet(),
-                Map.of(),
+                project.imageEnv(),
                 "the project's image (" + project.name() + ")");
     }
 }

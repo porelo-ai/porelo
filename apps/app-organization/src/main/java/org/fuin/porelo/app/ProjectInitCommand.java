@@ -142,6 +142,9 @@ public class ProjectInitCommand extends ProjectRepositoryCommand.Changing {
                             : "origin holds a user or token part; upstream was left out");
         if (project != null) {
             answer.put("project", project);
+            // The row names the repository only; the project's image and egress stay as the
+            // project's file says, so what was found for them is said rather than silently lost.
+            answer.put("by_hand", made.byHand());
             if (yes) answer.putAll(super.answer(machine));
             else {
                 final String login =
@@ -192,6 +195,7 @@ public class ProjectInitCommand extends ProjectRepositoryCommand.Changing {
                         "disagreements",
                         "unplaced",
                         "not_placed",
+                        "by_hand",
                         "credentials_needed",
                         "plugins",
                         "revision"))

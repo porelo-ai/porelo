@@ -75,8 +75,8 @@ Feature: Being inside a task, the way a person is
         Given a project called "cpu-bound" of class "offline" whose project file also says:
             """
             image:
-              base_image: "ubuntu:24.04"
-              snippet: |
+              from: "ubuntu:24.04"
+              run: |
                 RUN nproc > /build-nproc
             limits:
               cpus: 1

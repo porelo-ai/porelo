@@ -99,7 +99,7 @@ class BuildStatusCommandTest {
                   security_class: online
                   upstream: https://forge.example/acme/code.git
                 image:
-                  base_image: ubuntu:24.04
+                  from: ubuntu:24.04
                 """
                         + (builds
                                 ? """

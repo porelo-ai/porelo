@@ -176,7 +176,7 @@ class InterfaceDescriptionTest {
                   name: p
                   security_class: guarded
                 image:
-                  base_image: "ubuntu:24.04"
+                  from: "ubuntu:24.04"
                 mail:
                   peers:
                     reviewer: { address: "room:", trust: vouched }

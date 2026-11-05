@@ -368,40 +368,46 @@ public final class DefaultProject {
         }
     }
 
+    /**
+     * Writes the project's file from Porelo's own settings and the repositories added here. It is
+     * not to be edited: it is written anew whenever it is read, and a project with settings of its
+     * own is a project repository that this machine follows.
+     */
     private Path fileHeld() {
-        final StringBuilder text = new StringBuilder();
-        text.append(
-                        "# Written by Porelo from its own settings and the repositories added here. Not to be edited:\n")
-                .append(
-                        "# it is written anew whenever it is read. A project with settings of its own is a\n")
-                .append("# project repository that this machine follows.\n")
-                .append("project:\n")
-                .append("  name: \"")
-                .append(NAME)
-                .append("\"\n")
-                .append("  description: \"Work on a repository no project names\"\n")
-                .append("  security_class: \"guarded\"\n")
-                .append("image:\n")
-                .append("  base_image: \"")
-                .append(BASE_IMAGE)
-                .append("\"\n");
-        final List<Entry> entries = usableEntries();
-        if (!entries.isEmpty()) {
-            text.append("repositories:\n");
-            for (final Entry entry : entries) {
-                text.append("  ")
-                        .append(entry.name())
-                        .append(":\n")
-                        .append("    upstream: ")
-                        .append(Json.write(entry.upstream()))
-                        .append('\n');
-            }
+        final java.util.Map<String, org.fuin.porelo.core.project.file.RepositoryEntry>
+                repositories = new java.util.LinkedHashMap<>();
+        for (final Entry entry : usableEntries()) {
+            repositories.put(
+                    entry.name(),
+                    new org.fuin.porelo.core.project.file.RepositoryEntry(
+                            entry.upstream(), null, null, null, List.of(), null, null, null, null));
         }
+        final String text =
+                org.fuin.porelo.core.project.file.ProjectFileWriter.write(
+                        new org.fuin.porelo.core.project.file.ProjectFile(
+                                new org.fuin.porelo.core.project.file.ProjectInfo(
+                                        NAME,
+                                        "Work on a repository no project names",
+                                        "guarded",
+                                        null,
+                                        null,
+                                        null),
+                                new org.fuin.porelo.core.project.file.Image(
+                                        BASE_IMAGE, java.util.Map.of(), null, null),
+                                null,
+                                null,
+                                null,
+                                null,
+                                null,
+                                java.util.Map.of(),
+                                null,
+                                java.util.Map.of(),
+                                repositories));
         final Path file = record().resolveSibling("project.yml");
         try {
             Directories.create(file.getParent());
             final Path staged = Files.createTempFile(file.getParent(), ".project.yml.", ".new");
-            Files.writeString(staged, text.toString(), StandardCharsets.UTF_8);
+            Files.writeString(staged, text, StandardCharsets.UTF_8);
             Files.move(
                     staged,
                     file,

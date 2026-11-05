@@ -15,7 +15,7 @@ class ProjectIssuePrefixesTest {
               name: "p"
               security_class: "guarded"
             image:
-              base_image: "ubuntu:24.04"
+              from: "ubuntu:24.04"
             """;
 
     private static Project read(final String repositories) {
@@ -87,6 +87,6 @@ class ProjectIssuePrefixesTest {
                     issues: "B"
                 """))
                 .isInstanceOf(ProjectException.class)
-                .hasMessageContaining("'repositories.core.issues' is a list");
+                .hasMessageContaining("'repositories.core.issues' must be a list");
     }
 }

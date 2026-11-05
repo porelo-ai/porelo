@@ -15,7 +15,7 @@ class ProjectBuildsTest {
               security_class: "%s"
               upstream: "git@github.com:example/uc.git"
             image:
-              base_image: "ubuntu:24.04"
+              from: "ubuntu:24.04"
             """;
 
     private static Project read(final String securityClass, final String builds) {
@@ -72,7 +72,7 @@ class ProjectBuildsTest {
                                         "online",
                                         "builds:\n  forge: \"github\"\n  credential: \"x\"\n  logs: \"some\"\n"))
                 .isInstanceOf(ProjectException.class)
-                .hasMessageContaining("'failure' or 'all'");
+                .hasMessageContaining("'builds.logs' is one of failure, all");
     }
 
     @Test
@@ -91,7 +91,7 @@ class ProjectBuildsTest {
                 .as("project build watches must retain failed job logs")
                 .isInstanceOf(ProjectException.class)
                 .hasMessageContaining("'builds.logs'")
-                .hasMessageContaining("'failure' or 'all'");
+                .hasMessageContaining("'builds.logs' is one of failure, all");
     }
 
     @Test
@@ -188,17 +188,5 @@ class ProjectBuildsTest {
                   api: "%s"
                 """
                         .formatted(api));
-    }
-
-    @Test
-    void everyKeyOfTheSectionIsOneTheSchemaDeclares() {
-        assertThat(
-                        ProjectReader.unknownKeys(
-                                new StringReader(
-                                        ONLINE.formatted("online")
-                                                + "builds:\n  forge: \"github\"\n  credential: \"x\"\n  api: \"https://ghe.example/api/v3\"\n"
-                                                + "  logs: \"all\"\n"),
-                                "test.yml"))
-                .isEmpty();
     }
 }

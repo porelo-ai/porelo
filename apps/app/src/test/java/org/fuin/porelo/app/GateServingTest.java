@@ -19,7 +19,7 @@ class GateServingTest {
                   security_class: "%s"
                   upstream: "https://forge.example/uc.git"
                 image:
-                  base_image: "ubuntu:24.04"
+                  from: "ubuntu:24.04"
                 """
                                 .formatted(securityClass)),
                 "test");

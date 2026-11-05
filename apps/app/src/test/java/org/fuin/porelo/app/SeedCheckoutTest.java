@@ -36,11 +36,11 @@ class SeedCheckoutTest {
         final Path other =
                 repository(
                         Files.createDirectories(dir.resolve("other")),
-                        "project:\n  name: \"someone-else\"\n  security_class: \"guarded\"\nimage:\n  base_image: \"ubuntu:24.04\"\n");
+                        "project:\n  name: \"someone-else\"\n  security_class: \"guarded\"\nimage:\n  from: \"ubuntu:24.04\"\n");
         final Path own =
                 repository(
                         Files.createDirectories(dir.resolve("own")),
-                        "project:\n  name: \"uc\"\n  security_class: \"guarded\"\nimage:\n  base_image: \"ubuntu:24.04\"\n");
+                        "project:\n  name: \"uc\"\n  security_class: \"guarded\"\nimage:\n  from: \"ubuntu:24.04\"\n");
 
         assertThat(WorkspaceSetup.ownCheckout("uc", dotfiles)).isNull();
         assertThat(WorkspaceSetup.ownCheckout("uc", other)).isNull();
@@ -53,7 +53,7 @@ class SeedCheckoutTest {
         final Path own =
                 repository(
                         Files.createDirectories(dir.resolve("own")),
-                        "project:\n  name: \"uc\"\n  security_class: \"guarded\"\nimage:\n  base_image: \"ubuntu:24.04\"\n");
+                        "project:\n  name: \"uc\"\n  security_class: \"guarded\"\nimage:\n  from: \"ubuntu:24.04\"\n");
         final Path link = Files.createSymbolicLink(dir.resolve("link"), own);
 
         assertThat(

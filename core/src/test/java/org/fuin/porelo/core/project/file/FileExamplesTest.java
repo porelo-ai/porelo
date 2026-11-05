@@ -10,17 +10,17 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 /**
- * Reads every example of a copy of {@code doc/project-file.md} in the new format, until the page
- * itself moves to it, with the reader it documents, and writes it back: an example a person copies
- * must be a file Porelo takes, and one it writes the same way.
+ * Reads every example of {@code doc/project-file.md} with the reader it documents, and writes it
+ * back: an example a person copies must be a file Porelo takes, and one it writes the same way.
  */
+@Tag("documents")
 class FileExamplesTest {
 
-    private static final Path PAGE =
-            Path.of("src/test/resources/org/fuin/porelo/core/project/file/examples.md");
+    private static final Path PAGE = Path.of("..", "doc", "project-file.md");
 
     private static List<String> examples() throws IOException {
         final Matcher block =

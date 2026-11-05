@@ -49,9 +49,19 @@ class PreparationTest {
                   name: "demo"
                   security_class: "guarded"
                 image:
-                  base_image: "ubuntu:24.04"
+                  from: "ubuntu:24.04"
                 """);
         return file;
+    }
+
+    /** Writes the person's local override for the repository {@code backend}, and returns it. */
+    private Path override(Path dir, Path file, String image) throws Exception {
+        final var project = org.fuin.porelo.core.project.ProjectReader.read(file);
+        final Path override =
+                ImageChoice.override(context(dir), project, project.repository("backend"));
+        Files.createDirectories(override.getParent());
+        Files.writeString(override, image);
+        return override;
     }
 
     private Preparation.Result prepare(Path dir, Podman.Rebuild rebuild, boolean dryRun)
@@ -98,8 +108,8 @@ class PreparationTest {
                   name: "demo"
                   security_class: "offline"
                 image:
-                  base_image: "ubuntu:24.04"
-                  snippet: |
+                  from: "ubuntu:24.04"
+                  run: |
                     RUN apt-get install -y maven
                 """);
 
@@ -148,13 +158,11 @@ class PreparationTest {
                   name: "demo"
                   security_class: "guarded"
                 image:
-                  base_image: "ubuntu:24.04"
+                  from: "ubuntu:24.04"
                 repositories:
                   backend:
-                    image:
-                      snippet: |
-                        RUN apt-get install -y gradle
                 """);
+        override(dir, file, "image:\n  run: |\n    RUN apt-get install -y gradle\n");
 
         Preparation.prepare(
                 context(dir),
@@ -172,8 +180,7 @@ class PreparationTest {
         assertThat(settings.packages())
                 .extracting(ImageSettings.Sourced::value)
                 .containsExactly("gradle");
-        assertThat(settings.lines().getFirst().source())
-                .endsWith("project.yml (repositories.backend.image)");
+        assertThat(settings.lines().getFirst().source()).endsWith(".porelo.yml (local override)");
     }
 
     @Test
@@ -188,15 +195,13 @@ class PreparationTest {
                   name: "demo"
                   security_class: "guarded"
                 image:
-                  base_image: "ubuntu:24.04"
-                  snippet: |
+                  from: "ubuntu:24.04"
+                  run: |
                     RUN apt-get install -y maven
                 repositories:
                   backend:
-                    image:
-                      env:
-                        NPM_TOKEN: "the-value-itself"
                 """);
+        override(dir, file, "image:\n  env:\n    NPM_TOKEN: \"the-value-itself\"\n");
 
         Preparation.prepare(
                 context(dir),
@@ -213,7 +218,7 @@ class PreparationTest {
                 .as("the project's line, then the repository's")
                 .satisfiesExactly(
                         first -> assertThat(first).isEqualTo("project.yml"),
-                        second -> assertThat(second).endsWith("(repositories.backend.image)"));
+                        second -> assertThat(second).endsWith("(local override)"));
         assertThat(settings.lines().getLast().value())
                 .as("recorded by its name")
                 .isEqualTo("ENV NPM_TOKEN=" + ImageSettings.WITHHELD);
@@ -270,13 +275,11 @@ class PreparationTest {
                   name: "demo"
                   security_class: "guarded"
                 image:
-                  base_image: "ubuntu:24.04"
+                  from: "ubuntu:24.04"
                 repositories:
                   backend:
-                    image:
-                      env:
-                        FROM_ENTRY: "yes"
                 """);
+        override(dir, file, "image:\n  env:\n    FROM_OVERRIDE: \"yes\"\n");
 
         final Preparation.Result result =
                 Preparation.prepare(
@@ -292,17 +295,15 @@ class PreparationTest {
         assertThat(result.image()).as("the repository's image").isEqualTo("porelo/demo_backend");
         assertThat(out.toString())
                 .as("each key's source")
-                .contains("env        FROM_ENTRY from ")
-                .contains("project.yml (repositories.backend.image)");
+                .contains("env        FROM_OVERRIDE from ")
+                .contains(".porelo.yml (local override)");
     }
 
     @Test
-    void aPreparedSnippetNamesTheRepositoryEntryThatSuppliedIt(@TempDir Path dir) throws Exception {
+    void aPreparedSnippetNamesTheFileThatSuppliedIt(@TempDir Path dir) throws Exception {
         final Path file = projectFile(dir);
-        Files.writeString(
-                file,
-                Files.readString(file)
-                        + "repositories:\n  backend:\n    image:\n      snippet: RUN true\n");
+        Files.writeString(file, Files.readString(file) + "repositories:\n  backend:\n");
+        final Path override = override(dir, file, "image:\n  run: RUN true\n");
 
         final Preparation.Result result =
                 Preparation.prepare(
@@ -319,7 +320,7 @@ class PreparationTest {
                 .isEqualTo(Preparation.Outcome.PREVIEWED);
         assertThat(out.toString())
                 .as("the snippet must identify the source that will run as root")
-                .contains("snippet   1 lines from " + file + " (repositories.backend.image)");
+                .contains("snippet   1 lines from " + override + " (local override)");
     }
 
     @Test

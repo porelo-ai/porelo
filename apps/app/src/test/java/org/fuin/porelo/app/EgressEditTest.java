@@ -15,7 +15,7 @@ class EgressEditTest {
               name: "uc"
               security_class: "guarded"
             image:
-              base_image: "ubuntu:24.04"
+              from: "ubuntu:24.04"
 
             # What this project's own tooling may reach. Nothing else resolves.
             egress:
@@ -33,7 +33,7 @@ class EgressEditTest {
                 .contains("# Written by 'porelo task start'.")
                 .contains("# What this project's own tooling may reach.")
                 .contains("  name: \"uc\"")
-                .contains("  base_image: \"ubuntu:24.04\"");
+                .contains("  from: \"ubuntu:24.04\"");
         assertThat(edited.lines().filter(line -> line.startsWith("egress:")).count()).isEqualTo(1);
     }
 
@@ -70,7 +70,7 @@ class EgressEditTest {
                   name: "uc"
                   security_class: "guarded"
                 image:
-                  base_image: "ubuntu:24.04"
+                  from: "ubuntu:24.04"
                 """,
                         List.of("maven"),
                         List.of());
@@ -91,7 +91,7 @@ class EgressEditTest {
                 egress:
                   sets: [maven]
                 image:
-                  base_image: "ubuntu:24.04"
+                  from: "ubuntu:24.04"
                 """,
                         List.of(),
                         List.of());
@@ -99,7 +99,7 @@ class EgressEditTest {
         assertThat(edited)
                 .doesNotContain("egress")
                 .contains("  name: \"uc\"")
-                .contains("  base_image: \"ubuntu:24.04\"");
+                .contains("  from: \"ubuntu:24.04\"");
     }
 
     @Test

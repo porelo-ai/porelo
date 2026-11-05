@@ -684,7 +684,7 @@ class TransportLentTest {
         Files.writeString(
                 file,
                 "project:\n  name: p\n  security_class: guarded\n"
-                        + "image:\n  base_image: ubuntu:24.04\n"
+                        + "image:\n  from: ubuntu:24.04\n"
                         + "mail:\n  transports:\n    matrix:\n"
                         + "      homeserver: https://chat.example\n"
                         + "  peers:\n    people: {address: 'matrix:', trust: external}\n",
@@ -730,7 +730,7 @@ class TransportLentTest {
                           name: "p"
                           security_class: "guarded"
                         image:
-                          base_image: "ubuntu:24.04"
+                          from: "ubuntu:24.04"
                         mail:
                           transports:
                             matrix:
@@ -758,7 +758,7 @@ class TransportLentTest {
                           name: "p"
                           security_class: "guarded"
                         image:
-                          base_image: "ubuntu:24.04"
+                          from: "ubuntu:24.04"
                         mail:
                           transports:
                             matrix:

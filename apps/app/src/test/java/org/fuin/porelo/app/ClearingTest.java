@@ -48,7 +48,7 @@ class ClearingTest {
                 "project:\n  name: \""
                         + name
                         + "\"\n  security_class: \"guarded\"\n"
-                        + "image:\n  base_image: \"ubuntu:24.04\"\n",
+                        + "image:\n  from: \"ubuntu:24.04\"\n",
                 StandardCharsets.UTF_8);
         Files.writeString(
                 root.resolve("data/porelo/projects").resolve(name),

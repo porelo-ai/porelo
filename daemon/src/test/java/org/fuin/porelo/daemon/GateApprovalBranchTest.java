@@ -38,7 +38,7 @@ class GateApprovalBranchTest {
         Files.writeString(
                 file,
                 "project:\n  name: \"uc\"\n  security_class: \"guarded\"\n"
-                        + "image:\n  base_image: \"ubuntu:24.04\"\n"
+                        + "image:\n  from: \"ubuntu:24.04\"\n"
                         + branchBlock);
         Files.createDirectories(dir.resolve("data/porelo/projects"));
         Files.writeString(dir.resolve("data/porelo/projects/uc"), file + "\n");

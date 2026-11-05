@@ -25,7 +25,7 @@ USER root
 # instead of keeping the second in reserve, so a crawling mirror beside a fast one
 # costs every build. With both, apt-get update took 4m03s for 65 MB of indices and
 # the build hit Porelo's ten-minute cap. Somebody whose network prefers another
-# mirror names it with image.package_sources.
+# mirror names it with build.package_sources.
 #
 # http, not https: Ubuntu's mirrors serve no TLS, and apt takes its integrity from
 # the signed Release file rather than from the transport.
@@ -39,7 +39,7 @@ RUN set -eux; \
             sed -E -i 's|^URIs:.*[[:space:]]https?://[^/[:space:]]+(/[^/[:space:]]+)*/(ubuntu)/*([[:space:]].*)?$|URIs: http://azure.archive.ubuntu.com/ubuntu/|' "$f"; \
         done; \
     elif false; then \
-        echo 'this project names image.package_sources, and ubuntu:24.04 has no apt to apply them to' >&2; exit 1; \
+        echo 'this project names build.package_sources, and ubuntu:24.04 has no apt to apply them to' >&2; exit 1; \
     fi
 
 RUN set -eux; \
@@ -152,6 +152,6 @@ ENV PATH=/home/agent/.local/bin:/usr/local/bin:/usr/bin:/bin
 ENV LANG=C.UTF-8
 
 LABEL org.fuin.porelo.project="uc"
-LABEL org.fuin.porelo.recipe="06c8a81f76e5b121"
+LABEL org.fuin.porelo.recipe="35e48c899bf23c32"
 LABEL org.fuin.porelo.security-class="guarded"
 LABEL org.fuin.porelo.settings=""
