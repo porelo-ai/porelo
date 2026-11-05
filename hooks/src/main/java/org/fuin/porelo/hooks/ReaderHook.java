@@ -74,10 +74,10 @@ public class ReaderHook extends Hook {
                         .redirectErrorStream(false)
                         .redirectOutput(
                                 ProcessBuilder.Redirect.appendTo(
-                                        stateDirectory.resolve(EVENTS_FILE).toFile()))
+                                        ownerOnly(stateDirectory.resolve(EVENTS_FILE)).toFile()))
                         .redirectError(
                                 ProcessBuilder.Redirect.appendTo(
-                                        stateDirectory.resolve("reader.err").toFile()))
+                                        ownerOnly(stateDirectory.resolve("reader.err")).toFile()))
                         .start();
 
         // With its start time, as every helper's record is: poststop verifies both before it

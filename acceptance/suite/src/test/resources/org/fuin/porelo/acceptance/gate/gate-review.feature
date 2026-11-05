@@ -41,6 +41,26 @@ Feature: Work waiting at the gate, reviewed, backed up and restored
         And its output contains "opened"
         And its output contains "hooks     off in this copy"
         And its output contains "lines changed: 1"
+        # Whatever umask the person has: under 022 a checkout, a mirror and a registry were readable by anyone
+        # who could get to them. Open on purpose: what a task mounts, and an agent's tree staged for an image.
+        When a script runs:
+            """
+            umask 022
+            dir=$(mktemp -d)
+            porelo gate checkout reviewed --project gated --into "$dir/reviewed" >/dev/null
+            find "$dir/reviewed" -perm /077 ! -type l | sed 's/^/loose: /'
+            rm -rf "$dir"
+            data=$(porelo doctor | sed -n 's/^data  *//p')
+            state=$(porelo doctor | sed -n 's/^state  *//p')
+            test -n "$data" && test -n "$state" && echo "looked in both"
+            find "$data" "$state" \( -path "$state/mail/*/box" -o -path "$state/guides/*" \
+                -o \( -type d -path "$data/build/*/*" \) \) -prune -o \( -type f -o -type d \) -perm /077 -print \
+                | sed 's/^/loose: /'
+            porelo doctor | grep '^private files'
+            """
+        Then its output contains "looked in both"
+        And its output does not contain "loose: "
+        And its output contains "this account's alone"
         # A restore that wrote over the mirror would discard whatever was pushed since the backup.
         When a script runs:
             """

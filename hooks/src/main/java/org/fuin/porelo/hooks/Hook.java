@@ -112,6 +112,26 @@ public abstract class Hook {
     }
 
     /**
+     * Makes a file a child will write to, this account's alone. A hook is started by the container
+     * runtime, under whatever umask that has, and a redirect creates its file with it.
+     *
+     * @param file The file; one already there stays as it is.
+     * @return The file.
+     * @throws IOException If it cannot be made.
+     */
+    static Path ownerOnly(final Path file) throws IOException {
+        try {
+            Files.createFile(
+                    file,
+                    java.nio.file.attribute.PosixFilePermissions.asFileAttribute(
+                            java.nio.file.attribute.PosixFilePermissions.fromString("rw-------")));
+        } catch (final java.nio.file.FileAlreadyExistsException ex) {
+            return file;
+        }
+        return file;
+    }
+
+    /**
      * Appends one line to the hook log. Never throws: a hook that cannot write its log has still
      * done its job, and on the fail-closed path an exception here would stop a container for the
      * wrong reason.
@@ -124,11 +144,22 @@ public abstract class Hook {
         try {
             final Path file = Path.of(sidecar.stateDirectory()).resolve("hooks.log");
             Directories.create(file.getParent());
-            Files.writeString(
-                    file,
-                    Instant.now() + " " + name + " " + stage + " " + message + "\n",
-                    StandardOpenOption.CREATE,
-                    StandardOpenOption.APPEND);
+            // Started by the container runtime, so whatever umask that has; this says its own.
+            try (var channel =
+                    Files.newByteChannel(
+                            file,
+                            java.util.Set.of(
+                                    StandardOpenOption.CREATE,
+                                    StandardOpenOption.WRITE,
+                                    StandardOpenOption.APPEND),
+                            java.nio.file.attribute.PosixFilePermissions.asFileAttribute(
+                                    java.nio.file.attribute.PosixFilePermissions.fromString(
+                                            "rw-------")))) {
+                channel.write(
+                        java.nio.ByteBuffer.wrap(
+                                (Instant.now() + " " + name + " " + stage + " " + message + "\n")
+                                        .getBytes(java.nio.charset.StandardCharsets.UTF_8)));
+            }
         } catch (IOException | RuntimeException ex) {
             // Deliberately ignored, see above.
         }

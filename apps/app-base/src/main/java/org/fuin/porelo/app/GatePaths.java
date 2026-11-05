@@ -44,10 +44,17 @@ public record GatePaths(PoreloPaths paths) {
      * @return The directory to check out into.
      */
     public Path reviewCheckout(String project, String name) {
-        return paths.xdg()
-                .home()
-                .resolve("porelo")
-                .resolve("reviews")
-                .resolve(project + "-" + name);
+        return reviews(paths.xdg()).resolve(project + "-" + name);
+    }
+
+    /**
+     * Returns the directory review checkouts are in: in the home, so a person can open one in their
+     * own editor.
+     *
+     * @param xdg The account's directories.
+     * @return The directory, which need not exist.
+     */
+    public static Path reviews(final org.fuin.porelo.core.config.XdgPaths xdg) {
+        return xdg.home().resolve("porelo").resolve("reviews");
     }
 }

@@ -47,6 +47,33 @@ class GitGateTest {
         work = root.resolve("work");
     }
 
+    @Test
+    void aMirrorSeededFromALocalCloneSharesNoFileWithIt() throws Exception {
+        final Path clone = Files.createDirectories(root.resolve("persons-clone"));
+        git(clone, "init", "-q", "--initial-branch=main");
+        git(clone, "config", "user.email", "a@example.test");
+        git(clone, "config", "user.name", "a");
+        Files.writeString(clone.resolve("file"), "the person's");
+        git(clone, "add", "file");
+        git(clone, "commit", "-q", "-m", "one");
+
+        new GitGate(
+                        withGitConfig(Path.of("/dev/null")),
+                        root.resolve("seeded.git"),
+                        GateMode.GATEKEEPING,
+                        null,
+                        clone.toString())
+                .initialize();
+
+        try (var objects = Files.walk(clone.resolve(".git/objects"))) {
+            for (final Path object : objects.filter(Files::isRegularFile).toList()) {
+                assertThat((int) Files.getAttribute(object, "unix:nlink"))
+                        .as("%s has one name", object)
+                        .isEqualTo(1);
+            }
+        }
+    }
+
     private CommandResult git(Path directory, String... arguments) {
         final List<String> all = new ArrayList<>(List.of("git"));
         all.addAll(List.of(arguments));

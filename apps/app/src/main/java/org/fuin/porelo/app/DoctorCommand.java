@@ -24,6 +24,8 @@ import picocli.CommandLine.Spec;
         description = "Reports paths, the daemon's hardening and whether a task can run here.")
 public class DoctorCommand implements Callable<Integer>, PoreloFactory.ContextAware {
 
+    private static final String PRIVATE_FILES = "private files";
+
     /** Where the running processes are. */
     private static final java.nio.file.Path PROC = java.nio.file.Path.of("/proc");
 
@@ -298,6 +300,40 @@ public class DoctorCommand implements Callable<Integer>, PoreloFactory.ContextAw
                 : project.repositories().size()
                         + " repositor"
                         + (project.repositories().size() == 1 ? "y" : "ies");
+    }
+
+    /**
+     * Reports what anyone but this account can read of what Porelo left behind.
+     *
+     * <p>Asked of this command alone, as a walk of every mirror is no question for a daemon or a
+     * setup to ask each time. It degrades and does not make the machine not ready: one that ran
+     * under an older Porelo can still run tasks. The command's exit says it all the same.
+     *
+     * @param looseFiles Where to look.
+     * @return The probe.
+     */
+    static Probe privateFiles(final LooseFiles looseFiles) {
+        final String name = PRIVATE_FILES;
+        final java.util.List<java.nio.file.Path> loose;
+        try {
+            loose = looseFiles.found();
+        } catch (final java.io.IOException ex) {
+            return Probe.unknown(
+                    name, "cannot be looked through: " + ex.getMessage(), "porelo doctor again");
+        }
+        if (loose.isEmpty()) {
+            return Probe.ok(name, "this account's alone");
+        }
+        return Probe.degraded(
+                name,
+                loose.size()
+                        + " readable by others, at or below: "
+                        + String.join(
+                                ", ",
+                                LooseFiles.topmost(loose).stream()
+                                        .map(java.nio.file.Path::toString)
+                                        .toList()),
+                "porelo tighten");
     }
 
     private Probe leftovers() {
@@ -748,6 +784,7 @@ public class DoctorCommand implements Callable<Integer>, PoreloFactory.ContextAw
      */
     java.util.List<Probe> reported() {
         final java.util.List<Probe> all = new java.util.ArrayList<>(machine());
+        all.add(privateFiles(new LooseFiles(context.paths().xdg())));
         all.addAll(keepassxc());
         return java.util.List.copyOf(all);
     }
@@ -891,9 +928,21 @@ public class DoctorCommand implements Callable<Integer>, PoreloFactory.ContextAw
      * Returns the exit code for a report, the same for the text and the JSON.
      *
      * @param probes The findings.
-     * @return 69 when anything is missing, 1 when hardening covers one thread only, 0 otherwise.
+     * @return 69 when anything is missing, 1 when hardening covers one thread only or a file is
+     *     readable by others, 0 otherwise.
      */
     private static int exit(final java.util.List<Probe> probes) {
+        return exit(probes, ProcessHardening.appliesToWholeProcess());
+    }
+
+    /**
+     * Says the exit code.
+     *
+     * @param probes The findings.
+     * @param wholeProcess Whether hardening covers the whole process.
+     * @return The code.
+     */
+    static int exit(final java.util.List<Probe> probes, final boolean wholeProcess) {
         // Anything missing means a task will fail, or run without something it needs and say
         // nothing - hooks that never load a firewall being the worst of them. Degraded and unknown
         // do not fail the command: the machine works, and the report says how well.
@@ -902,7 +951,15 @@ public class DoctorCommand implements Callable<Integer>, PoreloFactory.ContextAw
         }
 
         // On a JVM this is a warning, in the shipped binary it must never appear.
-        return ProcessHardening.appliesToWholeProcess() ? 0 : 1;
+        // A machine that can run tasks, and whose files others can read: not "not ready", which the
+        // daemon says too, and not fine.
+        final boolean loose =
+                probes.stream()
+                        .anyMatch(
+                                probe ->
+                                        PRIVATE_FILES.equals(probe.name())
+                                                && probe.state() == Probe.State.DEGRADED);
+        return wholeProcess && !loose ? 0 : 1;
     }
 
     /**

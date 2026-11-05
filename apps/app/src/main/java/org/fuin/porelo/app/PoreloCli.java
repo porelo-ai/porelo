@@ -37,6 +37,7 @@ import picocli.CommandLine.Spec;
             DoctorCommand.class,
             EventsCommand.class,
             PruneCommand.class,
+            TightenCommand.class,
             PanicCommand.class,
             KeepCommand.class,
             DaemonCommand.class,
@@ -106,6 +107,14 @@ public class PoreloCli implements Callable<Integer> {
      * @param args Command line arguments.
      */
     public static void main(String[] args) {
+        // Before anything is written or started, and only here: a test calling the command line
+        // runs in a process it shares with others.
+        try {
+            org.fuin.porelo.core.hardening.OwnerOnlyFiles.fromNowOn();
+        } catch (final RuntimeException ex) {
+            System.err.println("porelo: " + ex.getMessage());
+            System.exit(70);
+        }
         quietLogging();
         HostForgeAddress.install();
         try {

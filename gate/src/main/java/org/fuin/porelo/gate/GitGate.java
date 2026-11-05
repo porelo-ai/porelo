@@ -161,8 +161,16 @@ public class GitGate {
             try (GitCredentials.Lease lease = lending.forUrl(seedUrl)) {
                 final List<String> all = new ArrayList<>(List.of("git"));
                 all.addAll(lease.arguments());
+                // Copies, not hard links of a local seed: its objects would be the person's own
+                // files under a second name, at their mode, whatever the umask says here.
                 all.addAll(
-                        List.of("clone", "--bare", "--end-of-options", seedUrl, mirror.toString()));
+                        List.of(
+                                "clone",
+                                "--bare",
+                                "--no-hardlinks",
+                                "--end-of-options",
+                                seedUrl,
+                                mirror.toString()));
                 runner.runOrFail(Command.of(all).withEnvironment(lease.environment()));
             } catch (CommandException ex) {
                 throw new GateException(

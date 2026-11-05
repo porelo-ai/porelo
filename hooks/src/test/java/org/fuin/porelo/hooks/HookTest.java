@@ -129,6 +129,30 @@ class HookTest {
     }
 
     @Test
+    void aFileAChildWritesToIsThisAccountsAloneAndOneThereStays(@TempDir Path dir)
+            throws IOException {
+        final Path file = Hook.ownerOnly(dir.resolve("child.log"));
+        assertThat(
+                        java.nio.file.attribute.PosixFilePermissions.toString(
+                                Files.getPosixFilePermissions(file)))
+                .isEqualTo("rw-------");
+
+        Files.writeString(file, "kept");
+        assertThat(Files.readString(Hook.ownerOnly(file))).isEqualTo("kept");
+    }
+
+    @Test
+    void itsLogIsThisAccountsAlone(@TempDir Path dir) throws IOException {
+
+        execute(new Succeeding(), state(sidecarFile(dir).toString()));
+
+        assertThat(
+                        java.nio.file.attribute.PosixFilePermissions.toString(
+                                Files.getPosixFilePermissions(dir.resolve("hooks.log"))))
+                .isEqualTo("rw-------");
+    }
+
+    @Test
     void writesWhyItRefusedTheContainer(@TempDir Path dir) throws IOException {
 
         // The runtime reports only an exit code, so a container refused by a hook would otherwise

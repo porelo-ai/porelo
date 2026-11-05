@@ -96,9 +96,11 @@ final class AgentStaging {
                     out.println("packaged  " + tree.target() + ", already staged");
                 } else if (tree.archive()) {
                     unpack(runner, source, staged);
+                    readableInTheImage(staged);
                     markStaged(source, staged);
                 } else {
                     copyTree(source, staged);
+                    readableInTheImage(staged);
                     markStaged(source, staged);
                 }
             } catch (java.io.IOException | RuntimeException ex) {
@@ -184,6 +186,39 @@ final class AgentStaging {
                                         target.toString())));
         if (!result.successful()) {
             throw new java.io.IOException("tar failed: " + result.standardError().strip());
+        }
+    }
+
+    /**
+     * Gives everyone what the owner has to read and enter a staged tree.
+     *
+     * <p>A {@code COPY} keeps the mode a file has here, and the task's agent is not the file's
+     * owner in the image: under an owner-only umask tar and these directories would make an image
+     * whose agent cannot read its own program. The tree is the agent's package and holds nothing of
+     * this account's; the directory around it does not let anyone else reach it.
+     *
+     * @param staged The tree.
+     * @throws IOException If a mode cannot be set.
+     */
+    static void readableInTheImage(java.nio.file.Path staged) throws java.io.IOException {
+        final java.util.List<java.nio.file.Path> all;
+        try (var walk = java.nio.file.Files.walk(staged)) {
+            all = walk.toList();
+        }
+        for (final java.nio.file.Path path : all) {
+            if (java.nio.file.Files.isSymbolicLink(path)) {
+                continue;
+            }
+            final var mode = java.nio.file.Files.getPosixFilePermissions(path);
+            if (mode.contains(java.nio.file.attribute.PosixFilePermission.OWNER_READ)) {
+                mode.add(java.nio.file.attribute.PosixFilePermission.GROUP_READ);
+                mode.add(java.nio.file.attribute.PosixFilePermission.OTHERS_READ);
+            }
+            if (mode.contains(java.nio.file.attribute.PosixFilePermission.OWNER_EXECUTE)) {
+                mode.add(java.nio.file.attribute.PosixFilePermission.GROUP_EXECUTE);
+                mode.add(java.nio.file.attribute.PosixFilePermission.OTHERS_EXECUTE);
+            }
+            java.nio.file.Files.setPosixFilePermissions(path, mode);
         }
     }
 

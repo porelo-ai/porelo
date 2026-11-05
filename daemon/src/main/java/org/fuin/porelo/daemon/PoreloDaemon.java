@@ -1168,6 +1168,15 @@ public final class PoreloDaemon {
     }
 
     public static void main(final String[] args) {
+        // Before anything is written or started: the mirrors and everything else this writes are
+        // this account's alone, whatever umask the service manager gave it.
+        try {
+            org.fuin.porelo.core.hardening.OwnerOnlyFiles.fromNowOn();
+        } catch (final RuntimeException ex) {
+            System.err.println("porelod: " + ex.getMessage());
+            System.err.flush();
+            System.exit(70);
+        }
         org.fuin.porelo.app.HostForgeAddress.install();
         final Integer answered = answer(args, System.out, System.err);
         if (answered != null) {

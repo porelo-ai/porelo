@@ -1,6 +1,6 @@
 # B50 — Whose Business The Files Porelo Leaves Behind Are
 
-**Status:** Implementing.
+**Status:** Review.
 **Size:** M - several modules (paths, gate, registry, doctor), a correction of existing machines, and acceptance runs
 under two umasks.
 
@@ -109,7 +109,29 @@ Steps, in order:
 7. A second acceptance account reads nothing under the first account's data directory, since the suite already
    runs several accounts on one machine.
 
-## Acceptance
+## As built
+
+Steps 2 to 4 are not what was built. Every program sets its umask to `077` first (`OwnerOnlyFiles`, in `porelo` and
+`porelod`), which reaches the two hundred writers and git's own files alike, working trees too, with no `--shared`. The
+hooks start under the container runtime's umask, so their log says its own mode.
+
+Step 5 is split. `Doctor diagnoses and never repairs` in `doc/decisions.md` stands, so `porelo doctor` names the paths
+and exits 1, and `porelo tighten` is the correction a person runs. The probe is in the command's own report and not in what
+a daemon or a setup asks: walking every mirror is no question for them, and it does not make a machine not ready.
+
+**To be checked, answered, measured on the test VM under `umask 077`, rootless podman:** `RUN` and a container run at
+`0022` whatever the umask; a `COPY` keeps the file's mode, so `0600` from the context is unreadable to a non-root agent in
+the image: a staged agent tree now widens itself (`AgentStaging.readableInTheImage`). A mount of a `0700` source is
+unreadable to the agent; a `0755` source inside a `0700` parent is read. All mounts already say their modes.
+
+What stays open under the state directory, and is neither named nor tightened: `mail/<task>/box` and `guides/<task>`;
+under the data directory an agent's tree in `build/<project>/`. The acceptance's "every file" is every file but these.
+The rest of what a task mounts is in the runtime directory, which is not walked.
+
+`porelo doctor` exits 1 for a loose path, not 69: the machine can run tasks, and the daemon says so too, so its state is
+`DEGRADED`. A playbook that treats any non-zero exit of `doctor` as a failure will stop on an older host until
+`porelo tighten` ran.
+
 
 - On a machine that has run a task, every directory and file Porelo created under its data
   directory is owner-only, asserted against a real run rather than against a constructor.

@@ -27,6 +27,12 @@
       {
         "returnType": "jint",
         "parameterTypes": []
+      },
+      {
+        "returnType": "jint",
+        "parameterTypes": [
+          "jint"
+        ]
       }
     ]
   }

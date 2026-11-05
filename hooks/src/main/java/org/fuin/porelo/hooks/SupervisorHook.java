@@ -70,7 +70,7 @@ public class SupervisorHook extends Hook {
         final Process resolver =
                 new ProcessBuilder(command)
                         .redirectErrorStream(true)
-                        .redirectOutput(state_.resolve(LOG_FILE).toFile())
+                        .redirectOutput(ownerOnly(state_.resolve(LOG_FILE)).toFile())
                         .start();
 
         // Deliberately not waited for: it has to outlive this hook. A child survives its parent,

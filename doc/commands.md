@@ -23,6 +23,7 @@ file are in [the project file](project-file.md).
 | [`setup`](#setup) | Makes this account ready: OCI hooks, daemon, vault. |
 | [`doctor`](#doctor) | Checks whether this machine can run a task. |
 | [`prune`](#prune) | Shows what nothing owns any more; removes it with `--yes`. |
+| [`tighten`](#tighten) | Makes what Porelo left behind readable by this account alone, and says what it changed. |
 | [`panic`](#panic) | Stops every task and helper, removing nothing. |
 | [`keep`](#keep) | Copies the usage records into a directory, or puts them back from one. |
 | [`daemon`](#daemon) | Reaches the daemon on this machine. |
@@ -829,6 +830,22 @@ whether it is the same version as this command: after an update it restarts itse
 when one did not (see [After an update](running.md#after-an-update)). The daemon answers the same
 checks, and a `ready` flag by the same rule, so a machine is never ready to one and not to the other.
 It runs external programs, so it takes a moment and is not something to poll.
+
+## tighten
+
+```
+porelo tighten
+```
+
+Every program of Porelo starts by making what it and its children create readable by this account alone, whatever the
+umask. A machine that ran under an older Porelo still has its mirrors, registry and review checkouts at the old modes:
+`porelo doctor` names them under `private files` and exits 1, though the machine can still run tasks, and this takes from each what anyone else had of it and says
+what changed. Exit 0 when nothing is left, 1 when a path could not be changed, which that path's line names.
+
+What a task reads through a mount (its mailbox's `box`, its guide) and an agent's tree staged for a build are open on
+purpose, inside directories of this account's alone. They are neither named nor changed: a running task would lose them.
+A file with a second name, as an object hard-linked from a person's own clone, gets an inode of its own first, so their
+clone keeps its mode. A review shared with someone is a copy a person makes.
 
 ## prune
 

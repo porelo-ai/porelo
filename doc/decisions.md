@@ -37,6 +37,7 @@ would change the answer.
 | Declaring a host service opens the host's loopback 443 | accepted: every task of a project naming a host service reaches whatever listens there; one port, by signed declaration, including offline | [entry](#declaring-a-host-service-opens-the-hosts-loopback-443) |
 | A weaker machine is reported, not refused | `DEGRADED` exits zero and starts tasks; only `MISSING` fails | [entry](#a-weaker-machine-is-reported-not-refused) |
 | Doctor diagnoses and never repairs | each check names the next action; nothing runs a fix as root | [entry](#doctor-diagnoses-and-never-repairs) |
+| Owner-only by one umask, not by each writer | every program sets `077` first; what another uid reads says its own mode | [entry](#owner-only-by-one-umask-not-by-each-writer) |
 | The daemon restarts itself after an update; the package does not | it sees its binary replaced and asks the account's systemd; tasks keep running | [entry](#the-daemon-restarts-itself-after-an-update-the-package-does-not) |
 | Porelo offers what it would tell a person to type | one `Offer` helper: the command's own code, the precondition checked again, a destructive step defaults to no, nothing asked without a terminal | [entry](#porelo-offers-what-it-would-tell-a-person-to-type) |
 | Account-wide settings live in one file | `$XDG_CONFIG_HOME/porelo/config.yml`; missing means every default, an unknown key refused by name | [entry](#account-wide-settings-live-in-one-file) |
@@ -340,6 +341,15 @@ Neither `porelo doctor` nor the daemon's `Doctor` offers to run a fix. Installin
 root on the node, which is exactly the power Porelo is built around not having. A repair over the daemon's socket
 could not reach the case most worth fixing anyway: a machine that is not ready usually has no daemon to ask. Every
 failed check names the next action instead, for a person to take.
+
+## Owner-only by one umask, not by each writer
+
+Every program of Porelo sets its umask to `077` first, so its files, git's and tar's are this account's alone. A mode at
+each of two hundred places that write is a list the next writer is missing from, and it would not reach what git writes
+in a working tree. **The cost:** what another uid must read says its own mode where it is written: a task's mounts, and
+an agent's tree staged for a build, since a `COPY` keeps the mode it finds. podman sets its own `0022` inside a build's
+`RUN` and a container, measured under `umask 077`. A file Porelo or a child writes elsewhere in a person's directories,
+with `--into` for one, is owner-only too; sharing is a copy a person makes.
 
 ## The daemon restarts itself after an update; the package does not
 

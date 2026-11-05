@@ -8,6 +8,7 @@ import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.attribute.PosixFilePermissions;
 import java.util.List;
 import org.fuin.porelo.agent.api.AgentException;
 import org.fuin.porelo.agent.api.PackagedTree;
@@ -35,6 +36,34 @@ class AgentStagingTest {
                                 Path.of("/home/alice/.local/share/porelo/agents/porelo-agent-a"),
                                 "a/tree.tar.gz"))
                 .isEqualTo(Path.of("/home/alice/.local/share/porelo/agents/a/tree.tar.gz"));
+    }
+
+    @Test
+    void aStagedTreeIsReadableInTheImageWhateverTheUmaskMadeIt() throws IOException {
+        final Path tree = Files.createDirectories(dir.resolve("tree/bin"));
+        final Path tool = Files.writeString(tree.resolve("tool"), "a tool");
+        final Path page = Files.writeString(dir.resolve("tree/page"), "a page");
+        final Path secret = dir.resolve("secret");
+        Files.writeString(secret, "kept");
+        Files.setPosixFilePermissions(secret, PosixFilePermissions.fromString("rw-------"));
+        Files.createSymbolicLink(dir.resolve("tree/link"), secret);
+        Files.setPosixFilePermissions(tool, PosixFilePermissions.fromString("rwx------"));
+        Files.setPosixFilePermissions(page, PosixFilePermissions.fromString("rw-------"));
+        Files.setPosixFilePermissions(tree, PosixFilePermissions.fromString("rwx------"));
+        Files.setPosixFilePermissions(
+                dir.resolve("tree"), PosixFilePermissions.fromString("rwx------"));
+
+        AgentStaging.readableInTheImage(dir.resolve("tree"));
+
+        assertThat(PosixFilePermissions.toString(Files.getPosixFilePermissions(tree)))
+                .isEqualTo("rwxr-xr-x");
+        assertThat(PosixFilePermissions.toString(Files.getPosixFilePermissions(tool)))
+                .isEqualTo("rwxr-xr-x");
+        assertThat(PosixFilePermissions.toString(Files.getPosixFilePermissions(page)))
+                .isEqualTo("rw-r--r--");
+        assertThat(PosixFilePermissions.toString(Files.getPosixFilePermissions(secret)))
+                .as("a link is not followed out of the tree")
+                .isEqualTo("rw-------");
     }
 
     @Test
