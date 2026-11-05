@@ -52,6 +52,11 @@ public class OrgCreateCommand extends OrgReading {
     @Override
     Map<String, @Nullable Object> answer(final PoreloContext machine) throws IOException {
         final String settable = OrgAccess.settable(address);
+        // Whoever owns the organization is asked with a token, read once as the forge is opened.
+        machine.openIfShut(
+                true,
+                false,
+                new java.io.PrintWriter(System.err, true, java.nio.charset.StandardCharsets.UTF_8));
         if (check) {
             if (id != null) {
                 throw new Refused(

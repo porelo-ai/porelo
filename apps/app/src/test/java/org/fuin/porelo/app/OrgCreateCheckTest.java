@@ -11,6 +11,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Stream;
+import org.fuin.porelo.organization.OrganizationQuestions.Refused;
 import org.fuin.porelo.organization.gittree.GitTreeStore;
 import org.fuin.porelo.organization.gittree.GitTreeWrites;
 import org.fuin.porelo.organization.gittree.HttpForgeDirectory;
@@ -108,6 +109,190 @@ class OrgCreateCheckTest {
     void tidyUp() throws Exception {
         registry.close();
         PoreloContext.forgetAsked();
+    }
+
+    /** One forge for the check and the founding, which reads the same local repository. */
+    private final class Forged extends StandIn
+            implements org.fuin.porelo.organization.IdentitySource {
+        private final Path bare;
+
+        Forged(final Path bare) {
+            this.bare = bare;
+        }
+
+        @Override
+        public GitTreeWrites.RepositoryState repository() throws IOException {
+            return GitTreeWrites.repositoryState(
+                    bare.toString(),
+                    new org.fuin.porelo.core.process.ProcessCommandRunner(),
+                    org.fuin.porelo.organization.gittree.FetchAccess.NONE);
+        }
+
+        @Override
+        public Optional<Keys> keys(final String login) {
+            final List<String> all = new ArrayList<>(authentication.orElse(List.of()));
+            all.addAll(signing.orElse(List.of()));
+            return Optional.of(new Keys(all, true));
+        }
+
+        @Override
+        public Optional<Boolean> owns(final String organisation, final String login) {
+            return owns;
+        }
+
+        OrgWriting.Session session(final PoreloContext machine) throws IOException {
+            final String socket = machine.environment().apply("SSH_AUTH_SOCK");
+            final org.fuin.porelo.vault.PersonCard card = OrgWriting.ownCard(machine);
+            final org.fuin.porelo.vault.AgentKey key =
+                    OrgWriting.served(socket, card.fingerprint());
+            final org.fuin.porelo.organization.gittree.CommitSigning signing =
+                    org.fuin.porelo.organization.gittree.CommitSigning.agent(socket);
+            return new OrgWriting.Session(
+                    new GitTreeWrites(
+                            machine.runner(),
+                            bare.toString(),
+                            "acme",
+                            org.fuin.porelo.organization.gittree.FetchAccess.NONE,
+                            this,
+                            signing),
+                    new org.fuin.porelo.organization.OrganizationWrites.Acting(
+                            card.login(), org.fuin.porelo.vault.PersonCard.keyLine(key)),
+                    key,
+                    null);
+        }
+    }
+
+    private Forged forged() throws Exception {
+        final Path bare = Files.createDirectory(dir.resolve("forged.git"));
+        new org.fuin.porelo.core.process.ProcessCommandRunner()
+                .runOrFail(
+                        org.fuin.porelo.core.process.Command.of(
+                                "git", "init", "-q", "--bare", "-b", "main", bare.toString()));
+        final Forged made = new Forged(bare);
+        forge = made;
+        return made;
+    }
+
+    private int found(final Forged at) {
+        return found(at, "one");
+    }
+
+    private int found(final Forged at, final String id) {
+        registry.out.getBuffer().setLength(0);
+        registry.err.getBuffer().setLength(0);
+        final CommandLine cli = PoreloCli.commandLine(registry.context());
+        cli.setOut(new PrintWriter(registry.out));
+        cli.setErr(new PrintWriter(registry.err));
+        ((OrgCreateCommand)
+                                cli.getSubcommands()
+                                        .get("org")
+                                        .getSubcommands()
+                                        .get("create")
+                                        .getCommand())
+                        .founder =
+                (machine, address) -> at.session(machine);
+        return cli.execute("org", "create", SSH, "--json", "--id", id);
+    }
+
+    private void checkSays(final String name, final String state) {
+        says(name, state, "");
+        assertThat(registry.answer().get("ready"))
+                .as("what it said: %s", registry.answer())
+                .isEqualTo(!"missing".equals(state));
+    }
+
+    @Test
+    void whenEveryNeedIsReadyTheFoundingSucceeds() throws Exception {
+        final Forged at = forged();
+
+        assertThat(check(SSH, "--json")).as("what it said: %s", registry.err).isZero();
+        assertThat(registry.answer().get("ready"))
+                .as("what it said: %s", registry.answer())
+                .isEqualTo(true);
+
+        assertThat(found(at)).as("what it said: %s %s", registry.out, registry.err).isZero();
+    }
+
+    @Test
+    void whenTheOwnerIsMissingTheFoundingRefuses() throws Exception {
+        final Forged at = forged();
+        owns = Optional.of(false);
+
+        checkSays("owner", "missing");
+
+        assertThat(found(at)).as("what it said: %s %s", registry.out, registry.err).isEqualTo(65);
+        assertThat(String.valueOf(registry.answer().get("words"))).contains("own");
+    }
+
+    @Test
+    void whenTheKeyIsNotListedTheFoundingRefuses() throws Exception {
+        final Forged at = forged();
+        authentication = Optional.of(List.of());
+
+        checkSays("key-listed", "missing");
+
+        assertThat(found(at)).as("what it said: %s %s", registry.out, registry.err).isEqualTo(65);
+        assertThat(String.valueOf(registry.answer().get("words"))).contains("does not list");
+    }
+
+    @Test
+    void whenTheRepositoryIsNotEmptyTheFoundingRefuses() throws Exception {
+        final Forged at = forged();
+        assertThat(found(at)).as("what it said: %s %s", registry.out, registry.err).isZero();
+        Files.deleteIfExists(registry.context().paths().xdg().config().resolve("organization.yml"));
+
+        checkSays("empty", "missing");
+
+        assertThat(found(at, "two"))
+                .as("what it said: %s %s", registry.out, registry.err)
+                .isNotZero();
+    }
+
+    @Test
+    void aCardNotSignedAsItMustBeRefusesTheFoundingToo() throws Exception {
+        final Forged at = forged();
+        final Path file = new IdentityStore(registry.context()).cardFile();
+        Files.writeString(
+                file,
+                Files.readString(file)
+                        .replace(
+                                "-----BEGIN SSH SIGNATURE-----",
+                                "# a line more\n-----BEGIN SSH SIGNATURE-----"));
+
+        checkSays("card", "missing");
+
+        assertThat(found(at)).as("what it said: %s %s", registry.out, registry.err).isEqualTo(65);
+    }
+
+    @Test
+    void aShutVaultIsOpenedBeforeTheFoundingReadsTheToken() throws Exception {
+        final char[] passphrase = "correct horse".toCharArray();
+        final PoreloContext shutVault =
+                registry.context().asking(prompt -> "correct horse".toCharArray());
+        shutVault
+                .vault()
+                .write(Map.of("a", org.fuin.porelo.vault.VaultEntry.of("one")), passphrase);
+        final List<Boolean> open = new ArrayList<>();
+        final CommandLine cli = PoreloCli.commandLine(shutVault);
+        cli.setOut(new PrintWriter(registry.out));
+        cli.setErr(new PrintWriter(registry.err));
+        ((OrgCreateCommand)
+                                cli.getSubcommands()
+                                        .get("org")
+                                        .getSubcommands()
+                                        .get("create")
+                                        .getCommand())
+                        .founder =
+                (machine, address) -> {
+                    open.add(machine.opener().isPresent());
+                    throw new Refused(Refused.CANNOT_SAY, "no further", null);
+                };
+
+        cli.execute("org", "create", SSH, "--json", "--id", "one");
+
+        assertThat(open)
+                .as("it reads the token as it opens the session, and nobody is asked after that")
+                .containsExactly(true);
     }
 
     private int check(final String... more) {
