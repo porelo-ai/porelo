@@ -97,7 +97,14 @@ public final class AgentLogin {
      *     showing what worked. Zero when nothing was stored.
      * @param detail Why it failed, or "".
      */
-    public record Result(Outcome outcome, String name, String type, int length, String detail) {}
+    public record Result(Outcome outcome, String name, String type, int length, String detail) {
+
+        /** Without the length, which is for the credential's owner and not for a line. */
+        @Override
+        public String toString() {
+            return "Result[" + outcome + ", " + name + ", " + type + "]";
+        }
+    }
 
     private AgentLogin() {
         throw new UnsupportedOperationException("Utility class");

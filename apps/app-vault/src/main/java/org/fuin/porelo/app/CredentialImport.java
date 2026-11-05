@@ -62,7 +62,14 @@ public final class CredentialImport {
      *     say.
      */
     public record Result(
-            Outcome outcome, String name, String type, int length, String source, String detail) {}
+            Outcome outcome, String name, String type, int length, String source, String detail) {
+
+        /** Without the length, which is for the credential's owner and not for a line. */
+        @Override
+        public String toString() {
+            return "Result[" + outcome + ", " + name + ", " + type + ", " + source + "]";
+        }
+    }
 
     private CredentialImport() {
         throw new UnsupportedOperationException("Utility class");

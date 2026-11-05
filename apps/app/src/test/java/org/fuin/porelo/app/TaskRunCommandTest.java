@@ -307,7 +307,7 @@ class TaskRunCommandTest {
     }
 
     @Test
-    void anOpenSshBelowTheFloorRefusesAStartBeforeAnythingIsMade(@TempDir Path dir)
+    void anOpenSshBelowTheFloorRefusesAStartBeforeAnImageOrAContainer(@TempDir Path dir)
             throws IOException {
         runner.answering("ssh -V", "", "OpenSSH_8.8p1 Ubuntu-1, OpenSSL 3.0.2\n");
         final PoreloContext context = context(dir, true);
@@ -319,6 +319,20 @@ class TaskRunCommandTest {
         assertThat(runner.lines())
                 .noneMatch(line -> line.contains("podman build") || line.contains("podman create"));
         assertThat(execCalls).isEmpty();
+    }
+
+    @Test
+    void anOpenSshBelowTheFloorStillGoesIntoARunningTask(@TempDir Path dir) throws IOException {
+        runner.answering("ssh -V", "", "OpenSSH_8.8p1 Ubuntu-1, OpenSSL 3.0.2\n");
+        final PoreloContext context = context(dir, true);
+        runner.answering("ps", RUNNING_SHELL);
+
+        assertThat(startAt(context, true, "-p", projectFile(dir, MINIMAL)))
+                .as("said: %s", err)
+                .isZero();
+
+        assertThat(err.toString()).doesNotContain("OpenSSH 8.9");
+        assertThat(execCalls).as("the session it went into").hasSize(1);
     }
 
     @Test

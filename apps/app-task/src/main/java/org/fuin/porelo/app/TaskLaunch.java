@@ -657,11 +657,6 @@ public final class TaskLaunch {
             // launch says what it would do; the listing's startAction says which case applies.
             return null;
         }
-        if (OpenSshFloor.ask(context.runner()) instanceof OpenSshFloor.TooOld) {
-            // Refused by the launch, as below: a stopped task needs 'ssh-keygen -Y' as a new one
-            // does.
-            return null;
-        }
         final org.fuin.porelo.runtime.HookInstaller.Registration hooks =
                 context.hooks().registration();
         if (hooks != org.fuin.porelo.runtime.HookInstaller.Registration.ACTIVE
@@ -690,6 +685,12 @@ public final class TaskLaunch {
                         .filter(found -> found.name().equals(container))
                         .findFirst();
         if (summary.isEmpty()) {
+            return null;
+        }
+        // Refused by the launch: a stopped task needs 'ssh-keygen -Y' as a new one does. A running
+        // one is only gone into, which needs no signature.
+        if (!summary.get().running()
+                && OpenSshFloor.ask(context.runner()) instanceof OpenSshFloor.TooOld) {
             return null;
         }
         // Repaired once it is known the task exists: left to the launch, hooks it repairs hid a
