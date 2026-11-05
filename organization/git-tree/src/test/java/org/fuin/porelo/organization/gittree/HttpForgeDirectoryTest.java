@@ -111,6 +111,16 @@ class HttpForgeDirectoryTest {
     }
 
     @Test
+    void aForgeOtherThanGithubHasNoSigningKeysAFoundingCounts() {
+        replies.put(
+                "/api/v1/users/mia/ssh_signing_keys", Reply.of(200, "[{\"key\":\"" + ONE + "\"}]"));
+
+        assertThat(new HttpForgeDirectory(base, null, client).foundingSigningKeys("mia"))
+                .as("keys() asks only GitHub for them, so listing one here would refuse there")
+                .contains(List.of());
+    }
+
+    @Test
     void aTokenTheForgeTakesSaysWhoseItIs() {
         replies.put("/api/v1/user", Reply.of(200, "{\"login\":\"mia\"}"));
 

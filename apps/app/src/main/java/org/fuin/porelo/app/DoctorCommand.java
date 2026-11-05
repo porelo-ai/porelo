@@ -737,11 +737,63 @@ public class DoctorCommand implements Callable<Integer>, PoreloFactory.ContextAw
      * @return The probes.
      */
     java.util.List<Probe> probes() {
+        return machine();
+    }
+
+    /**
+     * What this command reports: the machine, and what {@code --keepassxc} needs. Not asked of a
+     * daemon or a setup, which it says nothing to.
+     *
+     * @return The probes.
+     */
+    java.util.List<Probe> reported() {
         final java.util.List<Probe> all = new java.util.ArrayList<>(machine());
-        KeePassXcNeeds.read(context, "keepassxc-cli", KeePassXcNeeds::runs).stream()
-                .map(KeePassXcNeeds.Need::probe)
-                .forEach(all::add);
+        all.addAll(keepassxc());
         return java.util.List.copyOf(all);
+    }
+
+    private java.util.List<Probe> keepassxc() {
+        return within(
+                () ->
+                        KeePassXcNeeds.read(context, "keepassxc-cli", KeePassXcNeeds::runs).stream()
+                                .map(KeePassXcNeeds.Need::probe)
+                                .toList(),
+                java.time.Duration.ofSeconds(10));
+    }
+
+    /**
+     * Asks on a thread of its own, for a while only: an agent can hold a question for ever.
+     *
+     * @param question What to ask.
+     * @param limit How long it may take.
+     * @return Its answer, or a line that says none came.
+     */
+    static java.util.List<Probe> within(
+            final java.util.concurrent.Callable<java.util.List<Probe>> question,
+            final java.time.Duration limit) {
+        final java.util.concurrent.ExecutorService asking =
+                java.util.concurrent.Executors.newSingleThreadExecutor(
+                        task -> {
+                            final Thread thread = new Thread(task, "porelo-doctor-keepassxc");
+                            thread.setDaemon(true);
+                            return thread;
+                        });
+        try {
+            return asking.submit(question)
+                    .get(limit.toMillis(), java.util.concurrent.TimeUnit.MILLISECONDS);
+        } catch (java.util.concurrent.TimeoutException
+                | java.util.concurrent.ExecutionException ex) {
+            return java.util.List.of(
+                    Probe.unknown(
+                            "keepassxc",
+                            "KeePassXC or the agent did not answer within 10 seconds",
+                            "see that your ssh-agent is not waiting for you"));
+        } catch (InterruptedException ex) {
+            Thread.currentThread().interrupt();
+            return java.util.List.of();
+        } finally {
+            asking.shutdownNow();
+        }
     }
 
     private java.util.List<Probe> machine() {
@@ -803,7 +855,7 @@ public class DoctorCommand implements Callable<Integer>, PoreloFactory.ContextAw
         printShadowed(out);
 
         out.println();
-        final java.util.List<Probe> probes = probes();
+        final java.util.List<Probe> probes = reported();
         for (final Probe probe : probes) {
             out.printf(
                     "%s %s%s%n",
@@ -865,7 +917,7 @@ public class DoctorCommand implements Callable<Integer>, PoreloFactory.ContextAw
         final XdgPaths paths = context.paths().xdg();
         final java.util.Map<String, Object> report = new java.util.LinkedHashMap<>();
         report.put("version", PoreloVersion.version());
-        final java.util.List<Probe> probes = probes();
+        final java.util.List<Probe> probes = reported();
         report.put(
                 "findings",
                 probes.stream()

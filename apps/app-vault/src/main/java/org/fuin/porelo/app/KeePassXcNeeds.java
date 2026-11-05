@@ -7,8 +7,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
-import java.util.function.BooleanSupplier;
+import java.util.function.Function;
 import org.fuin.porelo.core.process.Command;
 import org.fuin.porelo.core.process.CommandException;
 import org.fuin.porelo.core.process.CommandResult;
@@ -27,6 +26,8 @@ final class KeePassXcNeeds {
     static final String AGENT = "ssh-agent";
 
     private static final String INSTALL = "install KeePassXC from the package keepassxc-full";
+
+    private static final String ABSENT = " is not installed";
 
     private static final String OWN_AGENT = ", or keep your key in an ssh-agent of your own";
 
@@ -57,11 +58,23 @@ final class KeePassXcNeeds {
          * @return The probe.
          */
         Probe probe() {
+            if (absent()) {
+                return Probe.ok(name, detail + ", which only --keepassxc needs");
+            }
             return switch (state) {
                 case READY -> Probe.ok(name, detail);
                 case MISSING -> Probe.degraded(name, detail, next);
                 case CANNOT_TELL -> Probe.unknown(name, detail, next);
             };
+        }
+
+        /**
+         * Tells whether this says KeePassXC is not installed at all.
+         *
+         * @return Whether it does.
+         */
+        boolean absent() {
+            return EXTENSION.equals(name) && state == State.MISSING && detail.endsWith(ABSENT);
         }
     }
 
@@ -73,52 +86,74 @@ final class KeePassXcNeeds {
      * @param context The machine.
      * @param program The {@code keepassxc-cli} to ask.
      * @param running Whether KeePassXC runs.
-     * @return The needs in the order a person meets them.
+     * @return The needs in the order a person meets them; without KeePassXC, only that it is not
+     *     there.
      */
     static List<Need> read(
-            final PoreloContext context, final String program, final BooleanSupplier running) {
+            final PoreloContext context,
+            final String program,
+            final Function<PoreloContext, State> running) {
         final List<Need> needs = new ArrayList<>();
         final Need extension = extension(context, program);
         needs.add(extension);
-        if (extension.state() != State.MISSING || !extension.detail().contains("not installed")) {
-            needs.add(settings(context));
-            needs.add(
-                    running.getAsBoolean()
-                            ? new Need("keepassxc-running", State.READY, "it runs", "")
-                            : new Need(
+        if (extension.absent()) {
+            return List.copyOf(needs);
+        }
+        needs.add(settings(context));
+        needs.add(
+                switch (running.apply(context)) {
+                    case READY -> new Need("keepassxc-running", State.READY, "it runs", "");
+                    case MISSING ->
+                            new Need(
                                     "keepassxc-running",
                                     State.MISSING,
                                     "KeePassXC is not running",
-                                    "start it" + OWN_AGENT));
-        }
+                                    "start it" + OWN_AGENT);
+                    case CANNOT_TELL ->
+                            new Need(
+                                    "keepassxc-running",
+                                    State.CANNOT_TELL,
+                                    "cannot tell whether KeePassXC runs",
+                                    "see that it does");
+                });
         needs.add(agent(context.environment().apply("SSH_AUTH_SOCK")));
         return List.copyOf(needs);
     }
 
     /**
-     * Tells whether a KeePassXC of this account runs, by its name alone: asking it would lock its
-     * databases.
+     * Tells whether a KeePassXC of this account runs, by its process's name alone. Its own answer
+     * would lock its databases, and it keeps other processes from reading where its program lies.
      *
-     * @return Whether one runs.
+     * @param context The machine.
+     * @return How it stands.
      */
-    static boolean runs() {
-        final Optional<String> me = ProcessHandle.current().info().user();
-        return ProcessHandle.allProcesses()
-                .map(ProcessHandle::info)
-                .filter(info -> info.user().equals(me))
-                .map(ProcessHandle.Info::command)
-                .flatMap(Optional::stream)
-                .anyMatch(KeePassXcNeeds::isKeePassXc);
+    static State runs(final PoreloContext context) {
+        final CommandResult listed;
+        try {
+            listed =
+                    context.runner()
+                            .run(
+                                    Command.of("ps", "-x", "-o", "comm=")
+                                            .withEnvironment(Map.of("LC_ALL", "C")));
+        } catch (CommandException ex) {
+            return State.CANNOT_TELL;
+        }
+        if (!listed.successful()) {
+            return State.CANNOT_TELL;
+        }
+        return listed.standardOutput().lines().anyMatch(KeePassXcNeeds::isKeePassXc)
+                ? State.READY
+                : State.MISSING;
     }
 
     /**
-     * Tells KeePassXC by the name of its program, under a wrapper's name too, from its tools.
+     * Tells KeePassXC by the name of its process, under a wrapper's name too, from its tools.
      *
-     * @param command The program.
+     * @param command The name, or the program.
      * @return Whether it is KeePassXC itself.
      */
     static boolean isKeePassXc(final String command) {
-        final String name = command.substring(command.lastIndexOf('/') + 1);
+        final String name = command.strip().substring(command.strip().lastIndexOf('/') + 1);
         return name.contains("keepassxc") && !name.contains("-cli") && !name.contains("-proxy");
     }
 
@@ -138,30 +173,30 @@ final class KeePassXcNeeds {
             return notInstalled(program);
         }
         final String words = said.standardOutput() + said.standardError();
-        final int enabled = words.indexOf("Enabled extensions:");
-        if (!said.successful() || enabled < 0) {
+        // KeePassXC's own language setting outranks the locale, and only the list's lines stay
+        // alike.
+        if (said.successful() && words.lines().anyMatch(KeePassXcNeeds::namesTheAgent)) {
+            return new Need(EXTENSION, State.READY, "it has its SSH agent extension", "");
+        }
+        if (!said.successful() || !words.contains("Enabled extensions:")) {
             return new Need(EXTENSION, State.CANNOT_TELL, tell, "look in KeePassXC's own About");
         }
-        final boolean listed =
-                words.substring(enabled)
-                        .lines()
-                        .skip(1)
-                        .takeWhile(line -> line.startsWith("- "))
-                        .anyMatch(line -> line.strip().equals("- SSH Agent"));
-        return listed
-                ? new Need(EXTENSION, State.READY, "it has its SSH agent extension", "")
-                : new Need(
-                        EXTENSION,
-                        State.MISSING,
-                        "this KeePassXC has no SSH agent extension",
-                        INSTALL + OWN_AGENT);
+        return new Need(
+                EXTENSION,
+                State.MISSING,
+                "this KeePassXC has no SSH agent extension",
+                INSTALL + OWN_AGENT);
+    }
+
+    private static boolean namesTheAgent(final String line) {
+        return line.startsWith("- ") && line.toUpperCase(java.util.Locale.ROOT).contains("SSH");
     }
 
     private static Need notInstalled(final String program) {
         return new Need(
                 EXTENSION,
                 State.MISSING,
-                AnswerText.printable(program) + " is not installed",
+                AnswerText.printable(program) + ABSENT,
                 INSTALL + OWN_AGENT);
     }
 

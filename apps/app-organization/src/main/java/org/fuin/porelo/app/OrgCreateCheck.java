@@ -39,6 +39,13 @@ final class OrgCreateCheck {
         GitTreeWrites.RepositoryState repository() throws IOException;
 
         /**
+         * Reports whether the vault that may hold the token is shut, so the token cannot be read.
+         *
+         * @return Whether it is.
+         */
+        boolean vaultShut();
+
+        /**
          * Reports whose the token is.
          *
          * @return The answer.
@@ -81,12 +88,26 @@ final class OrgCreateCheck {
     /** The forge at an address, by the same calls a founding makes. */
     static Forge real(final PoreloContext machine, final String address) {
         final ForgeAddress origin = ForgeAddress.of(address);
-        final HttpForgeDirectory directory =
-                new HttpForgeDirectory(
-                        origin.forge(),
-                        OrganizationAccess.forgeToken(machine, origin),
-                        OrganizationAccess.http(machine));
         return new Forge() {
+            private @Nullable HttpForgeDirectory asked;
+
+            /** Made once the repository was read: that opens a shut vault at a terminal. */
+            private HttpForgeDirectory directory() {
+                if (asked == null) {
+                    asked =
+                            new HttpForgeDirectory(
+                                    origin.forge(),
+                                    OrganizationAccess.forgeToken(machine, origin),
+                                    OrganizationAccess.http(machine));
+                }
+                return asked;
+            }
+
+            @Override
+            public boolean vaultShut() {
+                return machine.readableCredentials().isEmpty();
+            }
+
             @Override
             public GitTreeWrites.RepositoryState repository() throws IOException {
                 return GitTreeWrites.repositoryState(
@@ -98,22 +119,22 @@ final class OrgCreateCheck {
 
             @Override
             public HttpForgeDirectory.TokenAccount token() {
-                return directory.tokenAccount();
+                return directory().tokenAccount();
             }
 
             @Override
             public Optional<Boolean> owns(final String login) {
-                return directory.owns(origin.organization(), login);
+                return directory().owns(origin.organization(), login);
             }
 
             @Override
             public Optional<List<String>> authenticationKeys(final String login) {
-                return directory.authenticationKeys(login);
+                return directory().authenticationKeys(login);
             }
 
             @Override
             public Optional<List<String>> signingKeys(final String login) {
-                return directory.signingKeys(login);
+                return directory().foundingSigningKeys(login);
             }
         };
     }
@@ -147,11 +168,14 @@ final class OrgCreateCheck {
                                 "ask with --replace to put this one in its place")
                         : need("this-machine", READY, "it can follow this address", ""));
         final @Nullable PersonCard card = card(machine, needs);
-        token(machine, origin, forge, card, needs);
+        // Asked first, said in its place: reading it opens a shut vault, which the token needs.
+        final List<Map<String, String>> repository = new ArrayList<>();
+        repository(address, ssh, held != null, forge, repository);
+        token(origin, forge, card, needs);
         if (card != null) {
-            listed(card, ssh, origin, forge, needs);
+            listed(card, origin, forge, needs);
         }
-        repository(address, ssh, forge, needs);
+        needs.addAll(repository);
         needs.add(
                 need(
                         "push",
@@ -203,7 +227,14 @@ final class OrgCreateCheck {
                             "porelo identity create"));
             return null;
         }
-        needs.add(need("card", READY, "your card is here, for " + card.login(), ""));
+        needs.add(
+                card.signedAsItMustBe()
+                        ? need("card", READY, "your card is here, for " + card.login(), "")
+                        : need(
+                                "card",
+                                MISSING,
+                                "your card here is not signed as it must be",
+                                "see what porelo identity show says of it"));
         try {
             OrgWriting.served(machine.environment().apply("SSH_AUTH_SOCK"), card.fingerprint());
             needs.add(need("key", READY, "your agent serves " + card.fingerprint(), ""));
@@ -219,7 +250,6 @@ final class OrgCreateCheck {
     }
 
     private static void token(
-            final PoreloContext machine,
             final ForgeAddress origin,
             final Forge forge,
             final @Nullable PersonCard card,
@@ -232,12 +262,18 @@ final class OrgCreateCheck {
         switch (account.state()) {
             case NONE ->
                     needs.add(
-                            need(
-                                    "token",
-                                    MISSING,
-                                    "the forge must say that you own this organization, and that"
-                                            + " takes a token",
-                                    declare));
+                            forge.vaultShut()
+                                    ? need(
+                                            "token",
+                                            CANNOT_TELL,
+                                            "the vault is shut, so its token cannot be read",
+                                            "porelo vault unlock")
+                                    : need(
+                                            "token",
+                                            MISSING,
+                                            "the forge must say that you own this organization,"
+                                                    + " and that takes a token",
+                                            declare));
             case REFUSED ->
                     needs.add(need("token", MISSING, "the forge refused the token", declare));
             case NOT_REACHED ->
@@ -255,21 +291,21 @@ final class OrgCreateCheck {
                                     "the forge will not say whose this token is",
                                     "see that it is your account's"));
             case ACCEPTED -> {
-                final String login = String.valueOf(account.login());
-                if (card != null && !login.equalsIgnoreCase(card.login())) {
-                    needs.add(
-                            need(
-                                    "token",
-                                    MISSING,
-                                    "the token is "
-                                            + login.replaceAll("[\\p{Cc}\\p{Cf}]", "?")
-                                            + "'s, and your card is "
-                                            + card.login()
-                                            + "'s",
-                                    "use a token of " + card.login()));
-                    return;
-                }
-                needs.add(need("token", READY, "the forge takes it, as " + login + "'s", ""));
+                final String login =
+                        String.valueOf(account.login()).replaceAll("[\\p{Cc}\\p{Cf}]", "?");
+                // Another's token may still say who owns it, and that is what a founding asks.
+                needs.add(
+                        need(
+                                "token",
+                                READY,
+                                card == null || login.equalsIgnoreCase(card.login())
+                                        ? "the forge takes it, as " + login + "'s"
+                                        : "the forge takes it as "
+                                                + login
+                                                + "'s, not "
+                                                + card.login()
+                                                + "'s",
+                                ""));
             }
         }
         if (card != null) {
@@ -304,7 +340,6 @@ final class OrgCreateCheck {
 
     private static void listed(
             final PersonCard card,
-            final boolean ssh,
             final ForgeAddress origin,
             final Forge forge,
             final List<Map<String, String>> needs) {
@@ -320,16 +355,8 @@ final class OrgCreateCheck {
         final Optional<List<String>> signing = forge.signingKeys(card.login());
         final boolean signs =
                 signing.isPresent() && PersonCard.lists(signing.orElseThrow(), card.fingerprint());
-        if (signs && !ssh) {
+        if (signs) {
             needs.add(need("key-listed", READY, "the forge lists it to sign with", ""));
-        } else if (signs) {
-            needs.add(
-                    need(
-                            "key-listed",
-                            MISSING,
-                            "the forge lists it to sign with, and an ssh address also logs in"
-                                    + " with it",
-                            page + ", as an authentication key"));
         } else if (authentication.isEmpty() || signing.isEmpty()) {
             needs.add(
                     need(
@@ -345,6 +372,7 @@ final class OrgCreateCheck {
     private static void repository(
             final String address,
             final boolean ssh,
+            final boolean follows,
             final Forge forge,
             final List<Map<String, String>> needs)
             throws IOException {
@@ -394,7 +422,12 @@ final class OrgCreateCheck {
                                 "empty",
                                 MISSING,
                                 "the repository is not empty",
-                                "name an empty one, or follow it with porelo setup --organization"));
+                                ssh
+                                        ? "name an empty one, or follow this one with porelo setup"
+                                                + " --organization "
+                                                + address
+                                                + (follows ? " --replace" : "")
+                                        : "name an empty one"));
     }
 
     private static Map<String, String> need(

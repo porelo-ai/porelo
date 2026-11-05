@@ -163,7 +163,9 @@ class IdentityKeePassXcTest {
 
         org.assertj.core.api.Assertions.assertThat(
                         KeePassXcNeeds.read(
-                                registry.context(), keepass.program.toString(), () -> true))
+                                registry.context(),
+                                keepass.program.toString(),
+                                context -> KeePassXcNeeds.State.READY))
                 .as("no settings file in this account: a state of its own")
                 .filteredOn(need -> need.name().equals("keepassxc-settings"))
                 .extracting(KeePassXcNeeds.Need::state)
@@ -176,7 +178,10 @@ class IdentityKeePassXcTest {
         java.nio.file.Files.writeString(keepass.dir.resolve("debug-info"), "Enabled extensions:\n");
 
         final List<Probe> probes =
-                KeePassXcNeeds.read(registry.context(), keepass.program.toString(), () -> false)
+                KeePassXcNeeds.read(
+                                registry.context(),
+                                keepass.program.toString(),
+                                context -> KeePassXcNeeds.State.MISSING)
                         .stream()
                         .map(KeePassXcNeeds.Need::probe)
                         .toList();
@@ -188,6 +193,109 @@ class IdentityKeePassXcTest {
         org.assertj.core.api.Assertions.assertThat(DoctorCommand.ready(probes))
                 .as("a person with an agent of their own and no KeePassXC stays ready")
                 .isTrue();
+    }
+
+    @org.junit.jupiter.api.Test
+    void aLanguageOfItsOwnStillShowsTheExtension() throws Exception {
+        final KeePassXcStandIn keepass = standIn(KeePassXcStandIn.Mode.SERVES);
+        java.nio.file.Files.writeString(
+                keepass.dir.resolve("debug-info"),
+                "Aktivierte Erweiterungen:\n- Auto-Type\n- SSH-Agent\n");
+
+        org.assertj.core.api.Assertions.assertThat(
+                        KeePassXcNeeds.read(
+                                registry.context(),
+                                keepass.program.toString(),
+                                context -> KeePassXcNeeds.State.READY))
+                .as("KeePassXC's own language outranks the locale")
+                .filteredOn(need -> need.name().equals(KeePassXcNeeds.EXTENSION))
+                .extracting(KeePassXcNeeds.Need::state)
+                .containsExactly(KeePassXcNeeds.State.READY);
+    }
+
+    @org.junit.jupiter.api.Test
+    void aLanguageOfItsOwnWithoutTheExtensionCannotTellAndDoesNotRefuse() throws Exception {
+        final KeePassXcStandIn keepass = standIn(KeePassXcStandIn.Mode.SERVES);
+        java.nio.file.Files.writeString(
+                keepass.dir.resolve("debug-info"), "Aktivierte Erweiterungen:\n- Auto-Type\n");
+
+        org.assertj.core.api.Assertions.assertThat(
+                        KeePassXcNeeds.read(
+                                registry.context(),
+                                keepass.program.toString(),
+                                context -> KeePassXcNeeds.State.READY))
+                .as("a list in words it does not read says nothing it can refuse on")
+                .filteredOn(need -> need.name().equals(KeePassXcNeeds.EXTENSION))
+                .extracting(KeePassXcNeeds.Need::state)
+                .containsExactly(KeePassXcNeeds.State.CANNOT_TELL);
+    }
+
+    @org.junit.jupiter.api.Test
+    void aMachineWithoutKeePassXcSaysOnlyThatAndItIsNoFault() throws Exception {
+        standIn(KeePassXcStandIn.Mode.SERVES);
+
+        final List<KeePassXcNeeds.Need> needs =
+                KeePassXcNeeds.read(
+                        registry.context(),
+                        dir.resolve("nowhere").toString(),
+                        context -> KeePassXcNeeds.State.MISSING);
+
+        org.assertj.core.api.Assertions.assertThat(needs)
+                .as("a host or a person with an agent of their own has nothing to fix")
+                .hasSize(1)
+                .allMatch(need -> need.probe().state() == Probe.State.OK);
+    }
+
+    @org.junit.jupiter.api.Test
+    void whatIsRunningIsAskedOfTheMachineByItsProcessNames() {
+        org.assertj.core.api.Assertions.assertThat(
+                        KeePassXcNeeds.runs(listing(0, "systemd\nkeepassxc\n")))
+                .as("its name shows though it hides where its program lies")
+                .isEqualTo(KeePassXcNeeds.State.READY);
+        org.assertj.core.api.Assertions.assertThat(
+                        KeePassXcNeeds.runs(listing(0, "systemd\nkeepassxc-proxy\n")))
+                .as("a tool of it is not it")
+                .isEqualTo(KeePassXcNeeds.State.MISSING);
+        org.assertj.core.api.Assertions.assertThat(KeePassXcNeeds.runs(listing(1, "")))
+                .as("nothing was asked, so nothing is known")
+                .isEqualTo(KeePassXcNeeds.State.CANNOT_TELL);
+    }
+
+    @org.junit.jupiter.api.Test
+    void aDaemonAndASetupAskNothingOfKeePassXc() {
+        org.assertj.core.api.Assertions.assertThat(DoctorCommand.probesFor(listing(1, "")))
+                .as("a host has no agent to wait for, and porelod no account to look through")
+                .noneMatch(probe -> probe.name().startsWith("keepassxc"));
+    }
+
+    @org.junit.jupiter.api.Test
+    void anAgentThatHoldsTheQuestionDoesNotHoldDoctor() {
+        final java.util.concurrent.CountDownLatch never =
+                new java.util.concurrent.CountDownLatch(1);
+
+        final List<Probe> said =
+                org.junit.jupiter.api.Assertions.assertTimeoutPreemptively(
+                        Duration.ofSeconds(30),
+                        () ->
+                                DoctorCommand.within(
+                                        () -> {
+                                            never.await();
+                                            return List.of();
+                                        },
+                                        Duration.ofMillis(100)));
+
+        org.assertj.core.api.Assertions.assertThat(said)
+                .as("it says none came, and goes on")
+                .singleElement()
+                .matches(probe -> probe.state() == Probe.State.UNKNOWN, "cannot tell");
+    }
+
+    private PoreloContext listing(final int exit, final String names) {
+        return new PoreloContext(
+                command -> new org.fuin.porelo.core.process.CommandResult(command, exit, names, ""),
+                registry.paths,
+                args -> 0,
+                name -> null);
     }
 
     @org.junit.jupiter.api.Test
@@ -921,7 +1029,7 @@ class IdentityKeePassXcTest {
                         keepass.terminal,
                         KeePassXcKey.TYPING,
                         false,
-                        () -> true);
+                        context -> KeePassXcNeeds.State.READY);
 
         assertThat(create(missing, "--keepassxc", keepass.database.toString(), "--json"))
                 .isEqualTo(65);

@@ -110,6 +110,26 @@ class IdentityCreateCommandTest {
     }
 
     @Test
+    void a_key_it_cannot_use_says_no_plan() throws Exception {
+        registry.agent("bob");
+
+        assertThat(
+                        IdentityRun.identity(
+                                registry,
+                                "create",
+                                "--login",
+                                "alice",
+                                "--name",
+                                "Alice Doe",
+                                "--key",
+                                dir.resolve("nowhere.pub").toString()))
+                .as("no such file")
+                .isNotZero();
+
+        assertThat(registry.out.toString()).as("nothing is about to happen").isEmpty();
+    }
+
+    @Test
     void a_json_answer_has_no_plan_in_it() throws Exception {
         registry.agent("bob", "alice");
 

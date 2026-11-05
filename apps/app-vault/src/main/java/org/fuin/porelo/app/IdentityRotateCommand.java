@@ -110,6 +110,9 @@ public class IdentityRotateCommand implements Callable<Integer>, PoreloFactory.C
             }
             if (named == null) {
                 store.usable(machine);
+                // A key kept in KeePassXC is served only while it runs, which says more than no
+                // key.
+                store.ready(machine);
             }
             final String socket = change.socket();
             // Asked before a key is made, so a KeePassXC entry is never made for a rotation that

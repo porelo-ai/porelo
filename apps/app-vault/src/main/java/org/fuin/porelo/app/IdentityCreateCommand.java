@@ -198,6 +198,13 @@ public class IdentityCreateCommand implements Callable<Integer>, PoreloFactory.C
         if (organization != null) {
             change.refuseWhatReached(organization, login, id);
         }
+        // What can still be refused without a word to anyone is refused before the plan is said.
+        if (given == null) {
+            this.store.usable(machine);
+            this.store.ready(machine);
+        } else {
+            served(machine, fingerprint(given));
+        }
         plan();
         final KeePassXcKey.Made made = given == null ? made(machine) : null;
         final String fingerprint =

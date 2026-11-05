@@ -212,6 +212,17 @@ public final class HttpForgeDirectory implements IdentitySource {
                 true);
     }
 
+    /**
+     * Signing keys as a founding counts them: only GitHub's, since {@link #keys} asks no other
+     * forge for its signing keys.
+     *
+     * @param login The login.
+     * @return The keys, none on another forge, or empty when the forge did not say.
+     */
+    public Optional<List<String>> foundingSigningKeys(final String login) {
+        return api == null ? Optional.of(List.of()) : signingKeys(login);
+    }
+
     /** Authentication keys alone, as the forge's public page lists them. */
     public Optional<List<String>> authenticationKeys(final String login) {
         return keyList(get(forge + "/" + name(login, "login") + ".keys", null), false);

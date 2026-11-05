@@ -50,7 +50,7 @@ record KeePassXcKey(
         Path terminalOut,
         Duration typing,
         boolean judging,
-        java.util.function.BooleanSupplier running) {
+        java.util.function.Function<PoreloContext, KeePassXcNeeds.State> running) {
 
     /** The attachment KeePassXC's agent integration takes the key from. */
     static final String KEY_ATTACHMENT = "id_ed25519";
@@ -326,7 +326,7 @@ record KeePassXcKey(
     }
 
     /** Says what is missing before any password is asked; what cannot be told does not refuse. */
-    private void ready(final PoreloContext context) throws IdentityChange.Refused {
+    void ready(final PoreloContext context) throws IdentityChange.Refused {
         final List<KeePassXcNeeds.Need> missing =
                 KeePassXcNeeds.read(context, program, running).stream()
                         .filter(need -> need.state() == KeePassXcNeeds.State.MISSING)
@@ -339,12 +339,9 @@ record KeePassXcKey(
         for (final KeePassXcNeeds.Need need : missing) {
             words.append(need.detail()).append(": ").append(need.next()).append("; ");
         }
-        final boolean absent =
-                missing.getFirst().name().equals(KeePassXcNeeds.EXTENSION)
-                        && missing.getFirst().detail().contains("not installed");
         throw new IdentityChange.Refused(
                 65,
-                absent ? "key-store-missing" : "key-store-not-ready",
+                missing.getFirst().absent() ? "key-store-missing" : "key-store-not-ready",
                 words + "no password was asked and nothing changed; then ask again");
     }
 

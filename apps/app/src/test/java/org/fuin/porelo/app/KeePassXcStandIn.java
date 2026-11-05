@@ -209,7 +209,7 @@ final class KeePassXcStandIn {
                 terminal,
                 KeePassXcKey.TYPING,
                 false,
-                () -> running);
+                context -> running ? KeePassXcNeeds.State.READY : KeePassXcNeeds.State.MISSING);
     }
 
     /** As {@link #store}, a prompt waiting this long. */
@@ -222,7 +222,7 @@ final class KeePassXcStandIn {
                 terminal,
                 typing,
                 false,
-                () -> running);
+                context -> running ? KeePassXcNeeds.State.READY : KeePassXcNeeds.State.MISSING);
     }
 
     /** As {@link #store}, with its input and error output as given and looked at first. */
@@ -235,7 +235,7 @@ final class KeePassXcStandIn {
                 out,
                 KeePassXcKey.TYPING,
                 true,
-                () -> running);
+                context -> running ? KeePassXcNeeds.State.READY : KeePassXcNeeds.State.MISSING);
     }
 
     /** The entries the database holds outside its recycle bin. */

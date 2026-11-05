@@ -39,6 +39,8 @@ class OrgCreateCheckTest {
 
     private String aliceKey;
 
+    private boolean shut;
+
     private GitTreeWrites.RepositoryState state = GitTreeWrites.RepositoryState.EMPTY;
 
     private @Nullable IOException unreachable;
@@ -51,13 +53,20 @@ class OrgCreateCheckTest {
 
     private Optional<List<String>> signing = Optional.empty();
 
-    private final class StandIn implements OrgCreateCheck.Forge {
+    private OrgCreateCheck.@Nullable Forge forge;
+
+    private class StandIn implements OrgCreateCheck.Forge {
         @Override
         public GitTreeWrites.RepositoryState repository() throws IOException {
             if (unreachable != null) {
                 throw unreachable;
             }
             return state;
+        }
+
+        @Override
+        public boolean vaultShut() {
+            return shut;
         }
 
         @Override
@@ -110,7 +119,7 @@ class OrgCreateCheckTest {
         final OrgCreateCommand create =
                 (OrgCreateCommand)
                         cli.getSubcommands().get("org").getSubcommands().get("create").getCommand();
-        create.asker = (machine, address) -> new StandIn();
+        create.asker = (machine, address) -> forge == null ? new StandIn() : forge;
         final List<String> all = new ArrayList<>(List.of("org", "create", "--check"));
         all.addAll(List.of(more));
         return cli.execute(all.toArray(String[]::new));
@@ -214,11 +223,64 @@ class OrgCreateCheckTest {
     }
 
     @Test
-    void anotherPersonsTokenIsMissingNamingBoth() {
+    void anotherPersonsTokenIsSaidAndWhoOwnsItStillDecides() {
         token = new TokenAccount(TokenState.ACCEPTED, "bob");
 
-        says("token", "missing", "a token of alice");
+        says("token", "ready", "");
         assertThat(need("token").get("words")).asString().contains("bob").contains("alice");
+
+        owns = Optional.of(false);
+        says("owner", "missing", "make alice one");
+    }
+
+    @Test
+    void aShutVaultIsNotALackOfToken() {
+        token = new TokenAccount(TokenState.NONE, null);
+        shut = true;
+
+        says("token", "cannot-tell", "porelo vault unlock");
+    }
+
+    @Test
+    void theRepositoryIsAskedBeforeTheTokenAndSaidAfterIt() {
+        final List<String> asked = new ArrayList<>();
+        final OrgCreateCheck.Forge order =
+                new StandIn() {
+                    @Override
+                    public GitTreeWrites.RepositoryState repository() throws IOException {
+                        asked.add("repository");
+                        return super.repository();
+                    }
+
+                    @Override
+                    public HttpForgeDirectory.TokenAccount token() {
+                        asked.add("token");
+                        return super.token();
+                    }
+                };
+        forge = order;
+
+        assertThat(check(SSH, "--json")).as("what it said: %s", registry.err).isZero();
+
+        assertThat(asked)
+                .as("reading it opens a shut vault at a terminal, which the token needs")
+                .containsExactly("repository", "token");
+        assertThat(registry.answer().get("needs").toString().indexOf("name=token"))
+                .as("and a person still meets the token first")
+                .isLessThan(registry.answer().get("needs").toString().indexOf("name=repository"));
+    }
+
+    @Test
+    void aCardNotSignedAsItMustBeIsMissing() throws Exception {
+        final Path file = new IdentityStore(registry.context()).cardFile();
+        final String kept = Files.readString(file);
+        Files.writeString(
+                file,
+                kept.replace(
+                        "-----BEGIN SSH SIGNATURE-----",
+                        "# a line more\n-----BEGIN SSH SIGNATURE-----"));
+
+        says("card", "missing", "porelo identity show");
     }
 
     @Test
@@ -264,13 +326,13 @@ class OrgCreateCheckTest {
     }
 
     @Test
-    void aSigningKeyServesHttpsAndNotSsh() {
+    void aSigningKeyIsListedOnEitherAddressAndSaysSo() {
         authentication = Optional.of(List.of());
         signing = Optional.of(List.of(aliceKey));
 
-        says("key-listed", "missing", "authentication key");
-        says("key-listed", "ready", "", HTTPS);
+        says("key-listed", "ready", "");
         assertThat(need("key-listed").get("words")).asString().contains("to sign with");
+        says("key-listed", "ready", "", HTTPS);
     }
 
     @Test
@@ -308,6 +370,13 @@ class OrgCreateCheckTest {
         state = GitTreeWrites.RepositoryState.HOLDS;
 
         says("empty", "missing", "name an empty one");
+        assertThat(String.valueOf(need("empty").get("next")))
+                .as("the whole way on, for an address a machine can follow")
+                .contains("porelo setup --organization " + SSH);
+        says("empty", "missing", "name an empty one", HTTPS);
+        assertThat(String.valueOf(need("empty").get("next")))
+                .as("no machine follows an https address")
+                .doesNotContain("setup");
     }
 
     @Test

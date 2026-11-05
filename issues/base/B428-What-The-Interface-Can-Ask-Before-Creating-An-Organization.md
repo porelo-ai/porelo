@@ -1,6 +1,6 @@
 # B428 — What The Interface Can Ask Before Creating An Organization
 
-**Status:** Implementing.
+**Status:** Review.
 **Size:** L - many modules and a command an interface builds on, against a forge's real answers. Built in the order of its plan, each part on its own.
 
 **What must be true.** An interface can ask Porelo, changing nothing on the machine or the forge, whether an organization
@@ -75,8 +75,9 @@ The rights alone do not suffice:
 
 - **The token's account** must be the card's login and an active owner of the organization (`activeAdmin`), or the forge
   cannot say who founded it.
-- **The card's key** must be Ed25519 and listed for that login, as an authentication or a signing key; an ssh address
-  also needs the authentication listing.
+- **The card's key** must be Ed25519 and listed for that login, as an authentication key or, on GitHub, a signing key.
+  On an ssh address the login is another matter: another key of the agent may log in, and reading the repository proves
+  it.
 - **A key listed only as a signing key is confirmed by a call without a token**, `/users/<login>/ssh_signing_keys`, since
   the public `<login>.keys` page lists authentication keys alone. If the forge refuses it, as under a rate limit, the
   listing proves nothing and the founding stops with a message that points at the token. The answer must say which it

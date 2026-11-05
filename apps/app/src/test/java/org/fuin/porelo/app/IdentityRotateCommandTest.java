@@ -624,6 +624,20 @@ class IdentityRotateCommandTest {
 
     /** A rotation into KeePassXC signs with the new key once the agent serves it, and the old. */
     @Test
+    void keepassxc_not_running_says_so_and_not_that_the_old_key_is_not_served() throws Exception {
+        filed();
+        final KeePassXcStandIn keepass = keepass(KeePassXcStandIn.Mode.SERVES);
+        keepass.running = false;
+        // Its keys are served only while it runs.
+        registry.agent("bob");
+
+        assertThat(identity("rotate", "--keepassxc", keepass.database.toString(), "--json"))
+                .as("what it said: %s", registry.err)
+                .isEqualTo(65);
+        assertThat(registry.answer().get("reason")).isEqualTo("key-store-not-ready");
+    }
+
+    @Test
     void a_rotation_into_keepassxc_files_with_the_key_the_agent_serves_and_the_old_one()
             throws Exception {
         registry.agent("alice");
