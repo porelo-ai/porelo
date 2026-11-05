@@ -76,7 +76,9 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
-| <a id="b458"></a>[B458](B458-A-Refused-Push-Says-Which-Credential.md) | S | - | A push refused upstream says which credential it used, or that none is declared. |
+| <a id="b458"></a>[B458](B458-A-Refused-Push-Says-Which-Credential.md) | M | - | A push refused for its key leads a person through it: which key, their keys, try one, keep it. |
+| <a id="b460"></a>[B460](B460-A-Task-Starts-On-The-Branch-Of-Its-Checkout.md) | L | - | A task started from a checkout starts on its branch, and says so; `--from`, `base_branch`. |
+| <a id="b459"></a>[B459](B459-Every-Credential-Failure-Says-What-To-Do.md) | M | - | Every credential's failure says what happened and what to do now. |
 | <a id="b456"></a>[B456](B456-A-Plugin-Resolves-What-A-Project-Asks.md) | L | - | A plugin may look up what a project asks when a file is made; a person sees the fetched lines whole. |
 | <a id="b454"></a>[B454](B454-A-Scenarios-Setup-Says-When-It-Failed.md) | XS | - | The first-start scenario checks its setup and cleans up even after a red. |
 | <a id="b453"></a>[B453](B453-A-Draft-Replaces-A-Repositorys-Own-Image.md) | S | - | A draft does not silently replace the image a repository says it needs. |
