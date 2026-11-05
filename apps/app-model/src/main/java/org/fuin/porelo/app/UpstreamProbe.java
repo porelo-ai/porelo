@@ -60,7 +60,7 @@ public final class UpstreamProbe {
         /** Nothing answered: no route, no such name, a timeout. */
         UNREACHABLE,
 
-        /** Anything else; the detail carries git's own last line. */
+        /** Anything else; untrusted tool output is not safe to display. */
         UNREADABLE
     }
 
@@ -176,8 +176,10 @@ public final class UpstreamProbe {
         } catch (final RuntimeException ex) {
             return new Answer(
                     Cause.UNREADABLE,
-                    "the credential for " + url + " could not be lent: " + ex.getMessage(),
-                    "");
+                    "the upstream check for "
+                            + url
+                            + " could not finish. Check the credential declaration and its source before retrying.",
+                    "porelo credentials list");
         }
         if (asked.successful()) {
             return null;
@@ -260,10 +262,15 @@ public final class UpstreamProbe {
                 || lower.contains("operation too slow")) {
             return new Answer(
                     Cause.UNREACHABLE,
-                    host + " could not be reached from here: " + lastLine(said),
+                    host
+                            + " could not be reached from here. Check the host address, DNS and network connection before retrying; changing a credential cannot repair the connection.",
                     "");
         }
-        return new Answer(Cause.UNREADABLE, url + " could not be read: " + lastLine(said), "");
+        return new Answer(
+                Cause.UNREADABLE,
+                url
+                        + " could not be read. Check the repository address and ask its owner whether your account has access; no specific cause could be established.",
+                "porelo credentials list");
     }
 
     private static Answer refused(
@@ -312,9 +319,13 @@ public final class UpstreamProbe {
                         + which
                         + ", which is what is declared for "
                         + url
-                        + ". Add its public half to your account there, or store the key it does accept."
+                        + (overSsh
+                                ? ". Add its public half to your account there, or replace the key at its declared source."
+                                : ". The token or sign-in may be expired, revoked or missing access to this repository. Check its rights with the repository owner, or replace it at its declared source.")
                         + daemon,
-                CredentialDeclarations.storeCommandFor(used));
+                CredentialDeclarations.storeCommandFor(used).isEmpty()
+                        ? "porelo credentials list"
+                        : CredentialDeclarations.storeCommandFor(used));
     }
 
     /**
@@ -330,13 +341,5 @@ public final class UpstreamProbe {
             return !said.startsWith("file://");
         }
         return HostKeys.Address.ofUpstream(said) != null;
-    }
-
-    private static String lastLine(final String said) {
-        return said.lines()
-                .map(String::strip)
-                .filter(line -> !line.isEmpty())
-                .reduce((first, second) -> second)
-                .orElse("git said nothing");
     }
 }

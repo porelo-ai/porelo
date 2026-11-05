@@ -20,6 +20,103 @@ import org.junit.jupiter.api.io.TempDir;
  */
 class UpstreamProbeTest {
 
+    @Test
+    void aCleanupFailureDoesNotClaimTheRemoteWasNeverRead(@TempDir final Path dir) {
+        final UpstreamProbe.Answer answer =
+                UpstreamProbe.probe(
+                        context(dir),
+                        url ->
+                                new org.fuin.porelo.gate.GitCredentials.Lease() {
+                                    @Override
+                                    public java.util.Map<String, String> environment() {
+                                        return java.util.Map.of();
+                                    }
+
+                                    @Override
+                                    public java.util.List<String> arguments() {
+                                        return java.util.List.of();
+                                    }
+
+                                    @Override
+                                    public void close() {
+                                        throw new IllegalStateException("cleanup failed");
+                                    }
+                                },
+                        UPSTREAM);
+
+        assertThat(runner.only("ls-remote"))
+                .as("the read happened before cleanup failed")
+                .isNotNull();
+        assertThat(answer.detail())
+                .as("a cleanup failure says nothing about whether reading happened")
+                .doesNotContain("nothing was read", "could not be lent");
+    }
+
+    @Test
+    void aFailedLeaseCannotExposeACredentialInItsException(@TempDir final Path dir) {
+        final String privateValue = "credential-from-a-failed-helper";
+        final UpstreamProbe.Answer answer =
+                UpstreamProbe.probe(
+                        context(dir),
+                        url -> {
+                            throw new IllegalStateException(privateValue);
+                        },
+                        UPSTREAM);
+
+        assertThat(answer.asMap().toString())
+                .as("a helper's exception can contain the credential it was handed")
+                .doesNotContain(privateValue);
+        assertThat(answer.fix())
+                .as("the owner can inspect declarations without connecting")
+                .isEqualTo("porelo credentials list");
+        assertThat(runner.invocations()).as("no remote read follows a failed lease").isEmpty();
+    }
+
+    @Test
+    void unrecognizedToolOutputCannotExposeACredential(@TempDir final Path dir) {
+        for (final String said :
+                java.util.List.of(
+                        "fatal: private-value-from-git",
+                        "ssh: connection refused private-value-from-git")) {
+            final UpstreamProbe.Answer answer = UpstreamProbe.answer(context(dir), UPSTREAM, said);
+            assertThat(answer.asMap().toString())
+                    .as("untrusted tool output may echo a credential")
+                    .doesNotContain("private-value-from-git");
+            assertThat(answer.detail()).as("the owner gets a next action").contains("Check");
+        }
+    }
+
+    @Test
+    void aRefusedHttpsTokenDoesNotSendItsOwnerToInstallAPublicKey(@TempDir final Path dir)
+            throws Exception {
+        final PoreloContext context = context(dir);
+        final Path tokenFile = Files.createFile(dir.resolve("token"));
+        final String url = "https://forge.example.org/project/backend.git";
+        new CredentialDeclarations(context)
+                .declare(
+                        new org.fuin.porelo.core.credential.Credential(
+                                tokenFile.toString(),
+                                org.fuin.porelo.core.credential.Credential.Kind.TOKEN,
+                                url,
+                                null,
+                                "git",
+                                org.fuin.porelo.core.credential.Credential.Source.FILE));
+
+        final UpstreamProbe.Answer answer =
+                UpstreamProbe.answer(context, url, "fatal: Authentication failed");
+
+        assertThat(answer.cause())
+                .as("authentication failure is preserved")
+                .isEqualTo(UpstreamProbe.Cause.KEY_REFUSED);
+        assertThat(answer.detail())
+                .as("HTTPS needs rights or a replacement credential")
+                .contains("token", "access")
+                .doesNotContain("public half");
+        assertThat(answer.fix())
+                .as("the existing file is managed by its owner")
+                .isEqualTo("porelo credentials list");
+    }
+
     private static final String UPSTREAM = "ssh://git@forge.example.org:7999/project/backend.git";
 
     private final FakeCommandRunner runner = new FakeCommandRunner();
@@ -125,7 +222,6 @@ class UpstreamProbeTest {
         final UpstreamProbe.Answer other =
                 UpstreamProbe.answer(context, UPSTREAM, "fatal: something else\n");
         assertThat(other.cause()).isEqualTo(UpstreamProbe.Cause.UNREADABLE);
-        assertThat(other.detail()).endsWith("fatal: something else");
     }
 
     @Test
