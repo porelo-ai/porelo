@@ -1,7 +1,7 @@
 # B444 — The First Start Finds What A Repository Needs
 
-**Status:** Backlog.
-**Size:** - until the open questions are answered.
+**Status:** Implementing.
+**Size:** L - the start, the daemon and a question at a terminal.
 
 **What must be true.** `porelo task start` in a checkout with no `project.yml` runs the detection, says what it found and what
 that allows, asks a short yes or no, writes `project.yml` where the person stands, and starts from it. Porelo does not commit it.
@@ -47,7 +47,18 @@ A start reads no `project.yml` from the checkout today. `TaskRunCommand` takes a
 directory, or one this machine recorded. So both the question and starting from the file are new here, and they go before
 `ProjectTaking`. An approved file becomes a recorded project of this machine.
 
-## Open
+## The Daemon's Interface
 
-What the plugin's answer must hold for the question: what it found, with its source, and each host. The plugins' repository
-proposes it.
+For an interface on the person's own computer, which then starts as usual by the project's name:
+
+- `Tasks1.FirstStart(checkout: string) -> (outcome: string, found: []Finding, hosts: []string, file: string, project: string, hash: string)`.
+  `outcome` is one of `ASK_NEW` (nothing is configured and something was recognized), `ASK_UNKNOWN_FILE` (a `project.yml` this
+  machine has not approved), `KNOWN` (nothing to ask), `NOT_DEFAULT` (a repository of an organization's project), `NO_PLUGIN` or
+  `NOTHING_RECOGNIZED`. `file` is the text that would be or was written, and `hash` is what the answer names.
+- `Finding` is `(what: string, value: string, source: string)`: a package or tool, and the file it was read from.
+- `Tasks1.ConfirmFirstStart(checkout: string, hash: string) -> (project: string)` writes the file if it is new, keeps its hash and
+  records the project, and refuses a hash that no longer matches. A No has no call: nothing is kept.
+
+## What The Plugin Must Answer
+
+What it found with its source, and each host, as `Detection` holds them.
