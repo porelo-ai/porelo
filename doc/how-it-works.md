@@ -79,6 +79,9 @@ what went down, except a run nobody watches, which stays stopped until it is sta
 conversation it was having, not only the files; `porelo task remove` forgets it with everything else the
 task owns. See [commands](commands.md#task).
 
+The agents differ in what they do inside a task, and in how hard their limits hold: see
+[what each agent can and cannot do](agents.md).
+
 ## A project, and the project `default`
 
 A **project** is what tasks are started *for*. It is a repository with a `project.yml` in it, which
