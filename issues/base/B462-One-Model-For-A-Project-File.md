@@ -48,7 +48,7 @@ The operator's, 2026-11-05. Today one record serves both a file and the running 
 - `Map<String, RepositoryEntry> repositories`.
 
 **`RepositoryEntry`:** upstream, central, description, issues, agent, nickname, review, maturity, `BranchScheme`. **No image, egress or limits.** Egress
-is the project's alone, so a repository that needs other rules is another project. This settles [B461](README.md#b461)'s format.
+is the project's alone, so a repository that needs other rules is another project. This settles [B461](README.md#b461)'s format, and [B461](README.md#b461) is closed into this.
 
 **`RepositoryFile`**, for `porelo.yml` and the local `.porelo.yml`: `Image image` and nothing else.
 
@@ -72,6 +72,8 @@ is the project's alone, so a repository that needs other rules is another projec
   of their own. `ProjectFile` writes a proposal with `new Yaml().dump(...)` of a map.
 - **Text built by hand:** `ProjectProposal`'s draft, `DefaultProject`, and `EgressEdit`. `EgressEdit` replaces the `egress` block in the text and leaves
   every other byte, its comments included. That is the patch-only editing the operator calls C4.
+- **A generated `project.yml` writes `base_image` twice,** at the top and under the repository, both fixed in `ProjectProposal`: the operator's
+  finding from their test, first filed as [B461](README.md#b461). Worse, the entry under the repository beats that repository's own `porelo.yml`, by today's order.
 - **An unknown key elsewhere is accepted with a warning,** decided on 2026-09-30 (`doc/project-file.md`, "A key Porelo does not know"), so that a file
   for a later Porelo runs on an earlier one.
 
