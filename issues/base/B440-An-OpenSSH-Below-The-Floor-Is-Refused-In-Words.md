@@ -11,10 +11,10 @@ name the version found and the version needed, rather than failing later in a `s
 Porelo signs and verifies with `ssh-keygen -Y`, whose operations arrived over several OpenSSH releases, and nothing says
 which one it needs. A machine below that learns it from whatever call fails first.
 
-The floor given is 8.7. **One question is open:** OpenSSH's release notes add `-Y match-principals`, which
-`AllowedSigner` and `HostArrivals` call, in 8.9, and 8.9 also makes `-Y find-principals` check a plain key's validity in an
-allowed signers file. So 8.7 may be too low. This was read in the notes and the calls; no older OpenSSH was run. Settle it
-before building, with a run on 8.7 or 8.8 if 8.7 stays.
+The floor is 8.9. Porelo calls `ssh-keygen -Y match-principals` (`AllowedSigner`, `HostArrivals`), and
+[OpenSSH 8.9's release notes](https://www.openssh.org/txt/release-8.9) add that operation; 8.8's do not name it. 8.9 also
+makes `-Y find-principals` check a plain key's validity in an allowed signers file. This rests on the release notes and the
+calls; a run on an older OpenSSH is not needed.
 
 ## Versions
 
@@ -34,4 +34,4 @@ From Repology's table of distribution packages, read 2026-11-05:
 | AlmaLinux 9 | 9.9p1 |
 | AlmaLinux 8 | 8.0p1 |
 
-Every supported system holds 10.0 or newer, so the floor changes nothing for them.
+Every supported system holds 10.0 or newer, so the floor changes nothing for them. Ubuntu 22.04 stands exactly on it.

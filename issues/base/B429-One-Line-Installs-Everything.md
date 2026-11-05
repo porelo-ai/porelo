@@ -7,7 +7,7 @@
 Porelo and updates it the same way, on every published channel, and stays true: nothing meant only for a test can be
 installed by it, and the build says so when the line stops working.
 
-Fedora and RHEL are not part of this: their line, `sudo dnf install 'porelo*' keepassxc`, is [B442](B442-One-Line-Installs-Everything-On-Fedora-And-RHEL.md).
+Fedora and RHEL are not part of this: their line, `sudo dnf install 'porelo*' keepassxc`, is [B442](README.md#b442).
 
 ## Why
 
@@ -67,11 +67,13 @@ that speaks the reader's newer interface.
 ## Where it stands
 
 - **The check is built and in no workflow.** `ChannelLine` in `dist/package-check`, run with `exec:java@channel-line`. Seen red
-  from a desk against the real indexes on the pinned Ubuntu and Debian images: `releases` passes on both, and `snapshots` fails
-  on both by `porelo-adapter-github`, which conflicts with `porelo-build-github`. Whether `snapshots` also offers the stub apt
-  does not say, since it stops at the conflict.
-- **What is left needs a word.** Step 1 publishes to a new place in the public repository, and steps 2 and 3 remove from one;
-  all three are outward, so they wait for the operator's. Step 2 also needs a leased leg green against the new place.
+  from a desk against the real indexes on the pinned Ubuntu and Debian images: `releases` passes on both, and `snapshots` failed
+  on both by `porelo-adapter-github`, which conflicts with `porelo-build-github`.
+- **Step 3 is done for `snapshots`.** With the old reader gone from that index, the check on 2026-11-05 gives: `releases` passes on
+  both images, and `snapshots` fails on both only by `porelo-agent-stub`, so the stub is all that stands between that index
+  and the line. `releases` still holds the old reader, for after the first released adapter.
+- **What is left needs a word.** Step 1 publishes to a new place in the public repository, and step 2 removes from one;
+  both are outward, so they wait for the operator's. Whether the stub belongs in a package repository at all is open. Step 2 also needs a leased leg green against the new place.
 - **Not yet done, for after that:** the workflow step, the document, and the comment in `agents/stub/pom.xml`, which stays
   false until the stub leaves the upload.
 

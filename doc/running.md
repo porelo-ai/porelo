@@ -291,8 +291,9 @@ builds:
   result and its log's name, size and sha256 - and that outlives the task. `porelo task status TASK` shows the builds.
 - **The forge is read from the host**, by a build reader Porelo starts beside the task; its API host is not something
   the task can reach. Readers are packages of their own, installed beside Porelo from the same repositories - for
-  GitHub, `sudo apt install porelo-build-github` or `sudo dnf install porelo-build-github`, which puts it at
-  `/usr/libexec/porelo/builds/github`. Writing one is in [writing a build reader](build-readers.md).
+  GitHub, `sudo apt install porelo-adapter-github` or `sudo dnf install porelo-adapter-github`, which puts it at
+  `/usr/libexec/porelo/builds/github`. A machine that holds the old `porelo-build-github` takes it off first, with
+  `sudo apt purge porelo-build-github` or `sudo dnf remove porelo-build-github`. Writing one is in [writing a build reader](build-readers.md).
 
 ## Asking what a branch or a commit built
 
