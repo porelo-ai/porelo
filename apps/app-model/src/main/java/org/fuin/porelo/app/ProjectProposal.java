@@ -29,6 +29,20 @@ final class ProjectProposal {
     private final Map<Key, List<Map<String, Object>>> groups = new LinkedHashMap<>();
     private final List<Map<String, Object>> unplaced = new ArrayList<>();
     private final Map<String, Object> credentials = new LinkedHashMap<>();
+    private List<Placed> tools = List.of();
+    private List<Placed> unknowns = List.of();
+    private List<String> hosts = List.of();
+    private List<String> checkoutHosts = List.of();
+    private boolean applied;
+
+    /**
+     * A package or tool the last {@link #answer()} kept.
+     *
+     * @param what Its name, as the plugin keyed it.
+     * @param value What it read, or "" when the name says all.
+     * @param source The file it was read from.
+     */
+    record Placed(String what, String value, String source) {}
 
     ProjectProposal(
             String repository,
@@ -52,7 +66,7 @@ final class ProjectProposal {
         this.upstream = upstream;
         if (upstream != null) row.put("upstream", upstream);
         if (central != null) row.put("central", central);
-        if (review != null) row.put("review", ProjectRepositoryCommand.review(review));
+        if (review != null) row.put("review", review);
     }
 
     void add(String plugin, Detection detection) {
@@ -96,6 +110,61 @@ final class ProjectProposal {
                             plugin));
     }
 
+    /**
+     * Returns the packages and tools the last {@link #answer()} kept.
+     *
+     * @return They, each with the file it was read from.
+     */
+    List<Placed> tools() {
+        return tools;
+    }
+
+    /**
+     * Returns what the last {@link #answer()} saw is set and could not read without running
+     * something, which the draft holds only as a comment.
+     *
+     * @return Each with the plugin's note on why as its value, and the file it is set in.
+     */
+    List<Placed> unknowns() {
+        return unknowns;
+    }
+
+    /**
+     * Returns the hosts among {@link #hosts()} that the checkout alone names.
+     *
+     * @return They: no file of the person's or the machine's names them.
+     */
+    List<String> checkoutHosts() {
+        return checkoutHosts;
+    }
+
+    /**
+     * Returns the hosts the last {@link #answer()} opens.
+     *
+     * @return They, as the draft names them.
+     */
+    List<String> hosts() {
+        return hosts;
+    }
+
+    /**
+     * Says whether the last {@link #answer()}'s draft installs or opens anything.
+     *
+     * @return {@code false} when all it holds is a repository and comments.
+     */
+    boolean applies() {
+        return applied;
+    }
+
+    /**
+     * Returns the credentials the last detection named.
+     *
+     * @return Their ids.
+     */
+    List<String> credentialIds() {
+        return List.copyOf(credentials.keySet());
+    }
+
     Map<String, Object> row() {
         return Map.copyOf(row);
     }
@@ -104,6 +173,9 @@ final class ProjectProposal {
         final List<Map<String, Object>> disagreements = new ArrayList<>();
         final List<Map<String, Object>> notPlaced = new ArrayList<>();
         final List<String> domains = new ArrayList<>();
+        final List<Placed> found = new ArrayList<>();
+        final List<Placed> unread = new ArrayList<>();
+        final List<String> ownHosts = new ArrayList<>();
         final StringBuilder packages = new StringBuilder();
         final StringBuilder comments = new StringBuilder();
         for (var group : groups.entrySet()) {
@@ -116,17 +188,30 @@ final class ProjectProposal {
                 continue;
             }
             for (var value : group.getValue()) {
-                if (Boolean.TRUE.equals(value.get("unknown"))) notPlaced.add(value);
+                if (Boolean.TRUE.equals(value.get("unknown"))) {
+                    notPlaced.add(value);
+                    unread.add(
+                            new Placed(
+                                    group.getKey().key(),
+                                    String.valueOf(value.get("note")),
+                                    String.valueOf(value.get("file"))));
+                }
             }
             if (known.isEmpty()) continue;
             final String key = group.getKey().key();
             final String value = String.valueOf(known.getFirst().get("value"));
+            if (group.getKey().part() == Finding.Part.TOOLS) {
+                found.add(new Placed(key, value, String.valueOf(known.getFirst().get("file"))));
+            }
             final String sources =
                     known.stream()
                             .map(ProjectProposal::source)
                             .collect(java.util.stream.Collectors.joining(", "));
             if (group.getKey().part() == Finding.Part.RULES && key.startsWith("host.")) {
                 domains.add(key.substring(5));
+                if (known.stream().allMatch(each -> "CHECKOUT".equals(each.get("origin")))) {
+                    ownHosts.add(key.substring(5));
+                }
                 comments.append("      - ")
                         .append(quote(key.substring(5)))
                         .append(" # ")
@@ -146,6 +231,11 @@ final class ProjectProposal {
                 notPlaced.addAll(known);
             }
         }
+        tools = List.copyOf(found);
+        unknowns = List.copyOf(unread);
+        hosts = List.copyOf(domains);
+        checkoutHosts = List.copyOf(ownHosts);
+        applied = !domains.isEmpty() || !packages.isEmpty();
         if (!domains.isEmpty()) row.put("egress", Map.of("domains", domains));
         if (!packages.isEmpty())
             row.put(
@@ -229,7 +319,9 @@ final class ProjectProposal {
     }
 
     private static String plain(String text) {
-        return text.replaceAll("[\\p{Cntrl}\\p{Zl}\\p{Zp}]", " ");
+        // Unicode's own classes: a next-line character is a line break to YAML, and a comment that
+        // broke there would write the rest of its text into the file as settings.
+        return text.replaceAll("[\\p{Cc}\\p{Cf}\\p{Zl}\\p{Zp}]", " ");
     }
 
     private static String quote(String text) {

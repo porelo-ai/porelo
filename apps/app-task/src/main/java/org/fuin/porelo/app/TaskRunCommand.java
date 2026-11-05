@@ -266,6 +266,17 @@ public class TaskRunCommand implements Callable<Integer>, PoreloFactory.ContextA
     /** Whether a person is at a terminal; a test says so, since it has none. */
     java.util.function.BooleanSupplier terminal = Offer::atTerminal;
 
+    /**
+     * Where a start with no project named looks; a test has no directory of its own to stand in.
+     */
+    Path standing = Path.of(".");
+
+    /** Who asks a build-tool plugin what a repository needs. */
+    EcosystemDetector detector = EcosystemDetector.INSTALLED;
+
+    /** Who answers a first start's question. */
+    Offer.Asker firstStartAsker = Offer.Asker.terminal();
+
     private PoreloContext context = PoreloContext.real();
 
     /** The phantom-token environment, kept so the agent run gets the same one the container has. */
@@ -464,6 +475,19 @@ public class TaskRunCommand implements Callable<Integer>, PoreloFactory.ContextA
         return code;
     }
 
+    /** A person is asked only at a terminal, and never by a start that was told to ask nothing. */
+    private @Nullable Offer firstStartOffer(final PrintWriter err) {
+        return yes || noInput || dryRun || !terminal.getAsBoolean()
+                ? null
+                : new Offer(firstStartAsker, false, false, err);
+    }
+
+    private String firstStartUnasked() {
+        return dryRun
+                ? "A dry run writes nothing: start without --dry-run at a terminal to be asked."
+                : "Start once at a terminal without --yes or --no-input to be asked.";
+    }
+
     private Integer startOnce() {
 
         final PrintWriter out = spec.commandLine().getOut();
@@ -511,7 +535,13 @@ public class TaskRunCommand implements Callable<Integer>, PoreloFactory.ContextA
                                             + " - that of the task "
                                             + existing.name());
                 } else {
-                    final WorkOrigin.Choice choice = WorkOrigin.fromCheckout(context, Path.of("."));
+                    // Before anything is taken from a repository, a person says yes to it; an
+                    // organization's project and a start with nobody to ask go as they always did.
+                    final WorkOrigin.Choice first =
+                            new FirstStartAtTerminal(new FirstStart(context, detector), err)
+                                    .choose(standing, firstStartOffer(err), firstStartUnasked());
+                    final WorkOrigin.Choice choice =
+                            first != null ? first : WorkOrigin.fromCheckout(context, standing);
                     projectName = choice.project();
                     if (repository == null) {
                         repository = choice.repository();

@@ -7,10 +7,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import org.fuin.porelo.ecosystem.api.Detection;
 import org.fuin.porelo.ecosystem.api.EcosystemException;
 import org.fuin.porelo.ecosystem.api.EcosystemRefused;
-import org.fuin.porelo.ecosystem.api.InstalledEcosystem;
 import org.fuin.porelo.ecosystem.api.InstalledEcosystems;
 import org.fuin.porelo.organization.OrganizationQuestions.Refused;
 import org.fuin.porelo.organization.OrganizationWrites;
@@ -57,13 +55,7 @@ public class ProjectInitCommand extends ProjectRepositoryCommand.Changing {
     private @Nullable ProjectProposal proposal;
 
     /** Asks the installed plugin; tests can exercise refusals without a socket. */
-    @FunctionalInterface
-    interface Detector {
-        Detection detect(InstalledEcosystems.Description plugin, Path checkout, Path home)
-                throws IOException;
-    }
-
-    Detector detector = ProjectInitCommand::detect;
+    EcosystemDetector detector = EcosystemDetector.INSTALLED;
 
     ProjectSignCommand.Looks looks =
             (machine, address, place) ->
@@ -111,7 +103,13 @@ public class ProjectInitCommand extends ProjectRepositoryCommand.Changing {
         final String checkedOut = address.isEmpty() || unsafe ? null : address;
         final String upstream = upstreamOption != null ? upstreamOption : checkedOut;
         final String from = central == null && upstreamOption != null ? checkedOut : central;
-        final ProjectProposal made = new ProjectProposal(chosen, upstream, from, review, project);
+        final ProjectProposal made =
+                new ProjectProposal(
+                        chosen,
+                        upstream,
+                        from,
+                        review == null ? null : ProjectRepositoryCommand.review(review),
+                        project);
         proposal = made;
         final List<Map<String, Object>> plugins = new ArrayList<>();
         for (var description : InstalledEcosystems.all(machine.paths().ecosystemDirectories())) {
@@ -164,16 +162,6 @@ public class ProjectInitCommand extends ProjectRepositoryCommand.Changing {
             }
         }
         return answer;
-    }
-
-    private static Detection detect(
-            InstalledEcosystems.Description plugin, Path checkout, Path home) throws IOException {
-        final Path temporary = Files.createTempDirectory("porelo-detect-");
-        try (var installed = new InstalledEcosystem(plugin.executable(), temporary)) {
-            return installed.detect(checkout, home);
-        } finally {
-            Files.deleteIfExists(temporary);
-        }
     }
 
     private static Map<String, Object> plugin(String name, String state, String why) {

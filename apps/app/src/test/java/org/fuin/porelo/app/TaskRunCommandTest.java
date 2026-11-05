@@ -637,6 +637,136 @@ class TaskRunCommandTest {
         return cmd.execute(all.toArray(new String[0]));
     }
 
+    private boolean firstStartDetected;
+
+    private final List<String> firstStartAsked = new ArrayList<>();
+
+    /** Runs {@code task start} with no project named, standing in a checkout with a plugin. */
+    private int firstStartAt(
+            PoreloContext context, Path checkout, boolean terminal, String answer, String... args)
+            throws IOException {
+        runner.answering("--show-toplevel", checkout.toString());
+        runner.answering("get-url origin", "https://forge.example/acme/shop.git");
+        final Path plugin =
+                Files.createDirectories(context.paths().ecosystemDirectories().getFirst())
+                        .resolve("maven");
+        Files.writeString(
+                plugin, "#!/bin/sh\nprintf '{\"protocolVersion\":1,\"ecosystem\":\"maven\"}'\n");
+        plugin.toFile().setExecutable(true);
+        final CommandLine cmd = PoreloCli.commandLine(context);
+        cmd.setOut(new PrintWriter(out));
+        cmd.setErr(new PrintWriter(err));
+        final TaskRunCommand start =
+                (TaskRunCommand)
+                        cmd.getSubcommands().get("task").getSubcommands().get("start").getCommand();
+        start.terminal = () -> terminal;
+        start.standing = checkout;
+        start.firstStartAsker =
+                question -> {
+                    firstStartAsked.add(question);
+                    return answer;
+                };
+        start.detector =
+                (described, directory, home) -> {
+                    firstStartDetected = true;
+                    return new org.fuin.porelo.ecosystem.api.Detection(
+                            List.of(
+                                    new org.fuin.porelo.ecosystem.api.Finding(
+                                            org.fuin.porelo.ecosystem.api.Finding.Part.TOOLS,
+                                            "package.maven",
+                                            "",
+                                            "pom.xml",
+                                            1,
+                                            org.fuin.porelo.ecosystem.api.Finding.Origin.CHECKOUT,
+                                            false,
+                                            "")),
+                            List.of());
+                };
+        final List<String> all = new ArrayList<>(List.of("task", "start"));
+        all.addAll(List.of(args));
+        return cmd.execute(all.toArray(new String[0]));
+    }
+
+    @Test
+    void aYesAtTheFirstStartStartsFromTheFileItWrote(@TempDir Path dir) throws IOException {
+        final Path checkout = Files.createDirectories(dir.resolve("shop")).toRealPath();
+
+        firstStartAt(context(dir, true), checkout, true, "y", "--attach", "shell", "--detach");
+
+        assertThat(firstStartAsked).hasSize(1);
+        assertThat(checkout.resolve("project.yml")).exists();
+        assertThat(out.toString()).contains("project        'shop-project'");
+        assertThat(out.toString()).contains("task           shop");
+        assertThat(String.join("\n", runner.lines())).contains("porelo-shop-project-shop");
+    }
+
+    @Test
+    void aNoAtTheFirstStartGoesIntoDefaultAndKeepsNothing(@TempDir Path dir) throws IOException {
+        final Path checkout = Files.createDirectories(dir.resolve("shop")).toRealPath();
+
+        firstStartAt(context(dir, true), checkout, true, "n", "--attach", "shell", "--detach");
+
+        assertThat(firstStartAsked).hasSize(1);
+        assertThat(checkout.resolve("project.yml")).doesNotExist();
+        assertThat(out.toString()).contains("'default'");
+    }
+
+    @Test
+    void yesAsksNothingWritesNothingAndSaysWhatItFound(@TempDir Path dir) throws IOException {
+        final Path checkout = Files.createDirectories(dir.resolve("shop")).toRealPath();
+
+        firstStartAt(
+                context(dir, true), checkout, true, "y", "--yes", "--attach", "shell", "--detach");
+
+        assertThat(firstStartAsked).isEmpty();
+        assertThat(checkout.resolve("project.yml")).doesNotExist();
+        assertThat(err.toString()).contains("package.maven", "nothing written", "without --yes");
+        assertThat(out.toString()).contains("'default'");
+    }
+
+    @Test
+    void noTerminalAsksNothingAndWritesNothing(@TempDir Path dir) throws IOException {
+        final Path checkout = Files.createDirectories(dir.resolve("shop")).toRealPath();
+
+        firstStartAt(context(dir, true), checkout, false, "y", "--attach", "shell", "--detach");
+
+        assertThat(firstStartAsked).isEmpty();
+        assertThat(checkout.resolve("project.yml")).doesNotExist();
+        assertThat(err.toString()).contains("package.maven", "nothing written");
+    }
+
+    @Test
+    void aDryRunShowsWhatItFoundAndWritesNothing(@TempDir Path dir) throws IOException {
+        final Path checkout = Files.createDirectories(dir.resolve("shop")).toRealPath();
+
+        firstStartAt(context(dir, true), checkout, true, "y", "--dry-run");
+
+        assertThat(firstStartAsked).isEmpty();
+        assertThat(checkout.resolve("project.yml")).doesNotExist();
+        assertThat(err.toString()).contains("package.maven", "A dry run writes nothing");
+    }
+
+    @Test
+    void aProjectNamedAsksNoPlugin(@TempDir Path dir) throws IOException {
+        final Path checkout = Files.createDirectories(dir.resolve("shop")).toRealPath();
+
+        firstStartAt(context(dir, true), checkout, true, "y", "-p", "default", "--dry-run");
+
+        assertThat(firstStartDetected).isFalse();
+        assertThat(firstStartAsked).isEmpty();
+    }
+
+    @Test
+    void aStartOnAHostAsksNoPlugin(@TempDir Path dir) throws IOException {
+        final Path checkout = Files.createDirectories(dir.resolve("shop")).toRealPath();
+
+        firstStartAt(context(dir, true), checkout, true, "y", "--host", "h1", "--dry-run");
+
+        assertThat(firstStartDetected).isFalse();
+        assertThat(firstStartAsked).isEmpty();
+        assertThat(checkout.resolve("project.yml")).doesNotExist();
+    }
+
     private static final String RUNNING_SHELL =
             "porelo-uc-shell\tUp 4 minutes\t1700000000\t0\tuc\tguarded\tuc\t\n";
 

@@ -108,13 +108,29 @@ public final class WorkOrigin {
     }
 
     /**
-     * Returns the placed project and repository whose upstream is this one, or {@code null}.
+     * Returns the project and repository whose upstream is this one, or {@code null}: an
+     * organization's project first, then one this machine approved in a checkout, as long as its
+     * file is still what was approved.
      *
      * @param context This machine.
      * @param upstream A repository's address.
      * @return Where it belongs, or {@code null}.
      */
     public static @Nullable Choice placedNaming(
+            final PoreloContext context, final String upstream) {
+        final Choice placed = organizationNaming(context, upstream);
+        return placed != null ? placed : new ProjectApprovals(context).naming(upstream);
+    }
+
+    /**
+     * Returns the organization's project and repository whose upstream is this one, or {@code
+     * null}.
+     *
+     * @param context This machine.
+     * @param upstream A repository's address.
+     * @return Where it belongs, or {@code null}.
+     */
+    public static @Nullable Choice organizationNaming(
             final PoreloContext context, final String upstream) {
         final java.util.List<String> placed;
         try {

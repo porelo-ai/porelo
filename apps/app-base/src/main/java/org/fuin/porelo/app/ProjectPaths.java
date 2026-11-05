@@ -70,6 +70,11 @@ public record ProjectPaths(PoreloPaths paths) {
         return paths.xdg().data().resolve("projects");
     }
 
+    /** Where this machine keeps which project.yml in a checkout it approved, one file for each. */
+    public Path projectApprovals() {
+        return paths.xdg().data().resolve("project-approvals");
+    }
+
     public Path upstreamRecords() {
         return paths.xdg().data().resolve("upstream");
     }
