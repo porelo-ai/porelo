@@ -62,6 +62,17 @@ would be untrue. Its removal lines change with it.
 `doc/running.md` names `porelo-build-github` as the GitHub reader; it then names `porelo-adapter-github`, which needs a Porelo
 that speaks the reader's newer interface.
 
+## Where it stands
+
+- **The check is built and in no workflow.** `ChannelLine` in `dist/package-check`, run with `exec:java@channel-line`. Seen red
+  from a desk against the real indexes on the pinned Ubuntu and Debian images: `releases` passes on both, and `snapshots` fails
+  on both by `porelo-adapter-github`, which conflicts with `porelo-build-github`. Whether `snapshots` also offers the stub apt
+  does not say, since it stops at the conflict.
+- **What is left needs a word.** Step 1 publishes to a new place in the public repository, and steps 2 and 3 remove from one;
+  all three are outward, so they wait for the operator's. Step 2 also needs a leased leg green against the new place.
+- **Not yet done, for after that:** the workflow step, the document, and the comment in `agents/stub/pom.xml`, which stays
+  false until the stub leaves the upload.
+
 ## Order
 
 1. The stub's new place, agreed and in use by its reader.
