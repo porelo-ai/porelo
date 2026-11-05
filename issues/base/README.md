@@ -73,6 +73,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b449"></a>[B449](B449-A-Repositorys-Own-File-Reaches-The-Image-Unasked.md) | S | - | A repository's `porelo.yml` chooses no line of an image without a person's yes. |
 | <a id="b442"></a>[B442](B442-One-Line-Installs-Everything-On-Fedora-And-RHEL.md) | M | - | `sudo dnf install 'porelo*' keepassxc` installs all of Porelo on Fedora and RHEL, shown by a real run. |
 | <a id="b437"></a>[B437](B437-Reading-The-Organization-Costs-A-Whole-Fetch.md) | - | - | A question that only shows the organization or a project answers without waiting on a whole fetch of its repository, and a decision still fetches. |
 | <a id="b14"></a>[B14](B14-Talking-Between-Tasks.md) | XL | `porelo` [B86](README.md#b86) | Talking between tasks, built on one machine; splits into groups (M), trust confirmed once with fingerprints (M), two machines on one homeserver (L). |
