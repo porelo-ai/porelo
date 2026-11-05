@@ -1,6 +1,6 @@
 # B445 — The Test Agent Has A Place Of Its Own
 
-**Status:** Backlog.
+**Status:** Implementing.
 **Size:** S - one upload step with its cleaning, then one removal.
 
 **What must be true.** Every snapshot Build publishes the stub agent's binary by version, with its checksum, in a repository of
@@ -14,6 +14,11 @@ package indexes, so `apt install 'porelo*'` and `dnf` do not offer it.
 - It keeps the 20 newest versions, and the same step deletes the older ones: about 15 MB each, so about 300 MB. A reader moves
   its named version with its other pins.
 - `artifactory-smoke.yml` also checks the new repository.
+
+## Where It Stands
+
+Step 1 is done: the operator made the repository and set the grants, and the smoke test passed on it. Step 2 is in the workflow. The
+hand-over of steps 3 to 5 waits on the interface's scenario.
 
 ## Order
 

@@ -400,6 +400,24 @@ jobs:
                       for f in agents/stub/target/*.rpm; do art_put "$f" "porelo-dist-rpm/${CHANNEL}/"; done
                   fi
 
+                  # Its place of its own, by version and readable by anybody who runs a test: no package index is
+                  # involved. The 20 newest stay, and a reader moves its named version with its other pins.
+                  if [ "$CHANNEL" != releases ]; then
+                      STUB_VERSION="$(basename agents/stub/target/*.deb | sed -n 's/^porelo-agent-stub_\(.*\)_amd64\.deb$/\1/p')"
+                      [ -n "$STUB_VERSION" ] || { echo "::error::no version from the stub's package"; exit 1; }
+                      STUB_BIN=agents/stub/target/porelo-agent-stub
+                      sha256sum "$STUB_BIN" | sed 's| .*||' > porelo-agent-stub.sha256
+                      art_put "$STUB_BIN" "porelo-dist-test/porelo-agent-stub/$STUB_VERSION/"
+                      art_put porelo-agent-stub.sha256 "porelo-dist-test/porelo-agent-stub/$STUB_VERSION/"
+                      art_api GET "/api/storage/porelo-dist-test/porelo-agent-stub" \
+                          | jq -r '.children[] | select(.folder) | .uri' | sed 's|^/||' | sort -V | head -n -20 \
+                          | while read -r old; do
+                              art_api DELETE "/porelo-dist-test/porelo-agent-stub/$old" >/dev/null
+                              echo "  gone  $old"
+                          done
+                      rm -f porelo-agent-stub.sha256
+                  fi
+
                   # The bill beside the package, so it can be read without installing anything.
                   art_put target/porelo.cdx.json "porelo-dist-deb/pool/main/p/porelo/"
                   art_put target/porelo.cdx.json "porelo-dist-rpm/${CHANNEL}/"
