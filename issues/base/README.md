@@ -57,6 +57,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b50"></a>[B50](B50-Whose-Business-The-Files-Porelo-Leaves-Behind-Are.md) | M | - | Data and state directories and `~/porelo/reviews` owner-only at creation, mirrors with `--shared=0600`, and a doctor probe that corrects older machines. |
 | <a id="b429"></a>[B429](B429-One-Line-Installs-Everything.md) | L | - | `sudo apt install 'porelo*' keepassxc` installs all of Porelo on every channel and stays true: the test agent leaves the channels, and a check runs the line against the published index. |
 | <a id="b385"></a>[B385](B385-A-KeePassXC-Key-That-Is-Usable.md) | L | - | `--keepassxc` asks the master password once, a retry takes the key already made, no empty entry left, a clear refusal under `su` or a redirected stderr, aligned exit codes |
 | <a id="b154"></a>[B154](B154-A-Tamper-Evident-Event-Log-Per-Node.md) | L | - | One hash-chained event log per account, anchored in the user's journal, optionally copied off the machine, kept by `porelo clear`; written by approve, reject, clearance, hand-in, credentials and project changes.; part 1 built, the copy off the machine after it |
@@ -226,7 +227,6 @@ from its side, as *blocked by*.
 | <a id="b117"></a>[B117](B117-What-Clearing-Leaves-For-A-Person.md) | M | - | `clear` names every left deploy key the vault holds, readable project or not; unreviewed gate refs and unpushed task work are listed before removal. |
 | <a id="b51"></a>[B51](B51-The-Tests-That-Run-Nowhere.md) | M | - | The SELinux tests on the Fedora rented machine, skips that can never apply say where they run, and a report across legs. |
 | <a id="b55"></a>[B55](B55-The-Changelog-Entry-A-Change-Has-To-Bring.md) | L | - | A check that a change brings a changelog entry, proposed to logchange first, else a plugin of our own, bound in `porelo-parent` for every Maven repository and a step of its own in `porelo-frontend`, keeping the old script's three rules. |
-| <a id="b50"></a>[B50](B50-Whose-Business-The-Files-Porelo-Leaves-Behind-Are.md) | M | - | Data and state directories and `~/porelo/reviews` owner-only at creation, mirrors with `--shared=0600`, and a doctor probe that corrects older machines. |
 | <a id="b40"></a>[B40](B40-The-Domain-That-May-Bind-The-Socket.md) | L | - | Porelo's binaries, agent servers at `/usr/lib/<package>/<agent>` and build servers under `/usr/libexec/porelo` too, in their own SELinux domain, the only one that may create or bind `porelo_socket_t`. |
 | <a id="b48"></a>[B48](B48-The-Overview-That-Stays-Open.md) | M | - | `task list --watch` (machine-wide, `--project` on both forms) on the daemon's `Watch` stream through the shared listing code, a hint line for waiting clearance questions, ages redrawn locally, the terminal reset on Ctrl-C. |
 | <a id="b30"></a>[B30](B30-Credentials-The-Broker-Has-To-Fetch.md) | L | - | `client_credentials` end to end against a stand-in; then it rests until a service needs `private_key_jwt` or mTLS. |
