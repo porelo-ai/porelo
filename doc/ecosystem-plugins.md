@@ -42,6 +42,20 @@ removed after each call. With `--project`, the answer includes the project repos
 `--yes --base REVISION` files the repository row as one signed commit. Filing writes YAML anew, so
 comments do not survive and the answer retains the sources. No daemon operation is involved.
 
+## At a first start
+
+`porelo task start` with no project named, in a checkout on the `default` path with no `project.yml`, asks the same
+plugins and takes the same draft, with the project named `<repository>-project`, since a project named like its
+repository would read that repository as its own, where no task works. Nothing is written or opened until a person
+says yes at a terminal. The daemon's `FirstStart` and `ConfirmFirstStart` answer the same for an interface on the
+same computer.
+
+A plugin runs no code and is bounded by a time and a size, and its answer is still input from a stranger's repository:
+what it says goes through the project reader, and a person reads it before it counts. An unknown finding is said
+with its `note`, which should name why and where, such as the parent POM that is not in the local repository; the
+file is then written without it. A `host.<host>` that only the checkout names and no egress set holds is marked,
+and the question then defaults to no.
+
 ## Implementing the contract
 
 Build against `org.fuin.porelo:porelo-ecosystem-api` and `org.fuin.porelo:porelo-wire`, importing

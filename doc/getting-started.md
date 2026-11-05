@@ -196,6 +196,12 @@ In a checked-out repository with an `origin`:
 porelo task start
 ```
 
+If a plugin recognizes the repository, Porelo says what it found and each host it would open, and asks. At your
+yes it writes `project.yml` here, for you to commit and adapt, and starts from it. A later start finds that
+project by itself.
+Its work then comes from your `origin` and goes there, through the gate, as a project's does. At a no, or with
+`--yes`, nothing is kept and the start goes on as below.
+
 With no project named, the repository goes into `default`, the project every machine has. Its
 settings are Porelo's and cannot be changed: class `guarded`, base image `ubuntu:24.04` with curl, git, ssh,
 tmux and `python3` (no pip), and no egress beyond what the agent needs. The task is named after the repository (`myproject`, then

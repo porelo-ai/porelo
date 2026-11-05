@@ -21,6 +21,7 @@ The numbers here are checked against the code by a test.
 | A declared host | Reachable on ports 80 and 443 only | control |
 | The upstream | Never reached by a task, in any class: an online task's gate fetches from it and passes the task's own branch on, from the host; no port to it is open in a container | control |
 | An empty `egress` section | Deny, never a default that widens with a release | control |
+| A `project.yml` or a plugin's answer about a checkout | Opens nothing and chooses no package until a person says yes at a terminal to that text, kept by its hash, and asked again when it changes; an organization's project takes its signed file | control |
 | A reach for something undeclared | Blocked, and raises a clearance prompt: the closest thing on the machine to a hijack alarm | control |
 | The git gate | One address and one port on this machine, never "the machine" | control |
 | A declared `egress.host_services` name | Reaches the host's loopback on TCP 443 only, beside the gate's port, including offline; the gate's fallback address is used outside pasta | control |

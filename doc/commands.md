@@ -69,7 +69,9 @@ The remote executable defaults to `porelo`; use `--remote-porelo <path>` for an 
 `vault unlock` itself never resets a vault. See [credentials](credentials.md).
 
 **Start work.** In a checkout, `porelo task start` works in the project that names its repository,
-else in `default`, and names the task after the repository. In `default` the checkout is the source,
+else in `default`, and names the task after the repository. A first start in a checkout with no project asks
+the installed [plugins](ecosystem-plugins.md) what it needs, shows the packages and tools found and each host it
+would open, and at your yes writes `project.yml` where you stand, for you to commit, and starts from it. In `default` the checkout is the source,
 both ways: its committed history goes into the task, local commits included, and the approved work
 comes back into it; its remote is yours to pull from and push to, and Porelo never reaches it. A project
 that names the repository takes it from its remote and sends approved work there instead. Elsewhere, name both:
@@ -171,6 +173,16 @@ At a terminal a shut vault asks for its passphrase; a script must unlock it firs
 
 **`task start`**
 - `-p PROJECT`: without it, the project that names the checkout you stand in, else `default`.
+- With no project named, at a terminal, a checkout with no project is asked about: what the plugins found, each host
+  it would open, and anything they could not read, such as a JDK a parent POM sets that is not there yet, which a yes
+  leaves out. The answer defaults to yes, and to no when a host is named only by the checkout and is in no
+  [egress set](#shield). A No keeps nothing and asks again next time. `--yes`, `--no-input`, `--dry-run` or no terminal
+  say what was found, write nothing and go on in `default`. `-p` and `--host` ask no plugin. No plugin, or nothing
+  recognized, goes on in `default` and says so.
+- A `project.yml` in the checkout that this machine has not approved gets the same yes or no, showing what it says.
+  Its hash is kept on this machine and an edit asks again. It is a yes to that text, with no comparison to what a
+  plugin says. A name that is `default` or another local project's is refused, a link or a file that does not read
+  too, and the start goes on in `default`. In a repository of an organization's project such a file decides nothing.
 - `-r REPOSITORY`: which of the project's repositories to work on (see [names](#completion)).
 - Without a name, the task is named after its repository, or the next free name (`my-first-2`); a repository
   named `people` or `person` gives `work`, and a leading `porelo-` is left out (`porelo-pi` gives `pi`).

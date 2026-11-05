@@ -59,6 +59,22 @@ For an interface on the person's own computer, which then starts as usual by the
 - `Tasks1.ConfirmFirstStart(checkout: string, hash: string) -> (project: string)` writes the file if it is new, keeps its hash and
   records the project, and refuses a hash that no longer matches. A No has no call: nothing is kept.
 
+## As built
+
+- `FirstStart` in `app-task` answers one question for both the terminal (`FirstStartAtTerminal`) and the daemon.
+  `ProjectProposal` and the detection moved to `app-model` (`EcosystemDetector`); `ProjectApprovals` keeps the hashes
+  under the data directory, `project-approvals`, one file per approved path.
+- The reply of `FirstStart` gained `marked: []string`, the hosts only the checkout names, in no curated set, and a yes is
+  no default for them. `FirstStartRefused(reason, detail)` is the named refusal of both methods.
+- `WorkOrigin.placedNaming` finds an organization's project first, then an approved one whose file is unchanged. A
+  project this machine merely ran is not found by origin.
+- A checkout with no usable `origin` writes its path as the repository's upstream, as `default` does, and is found by
+  its file.
+- Not built: a start in an organization's repository does not name the `porelo project init ... --project ...` command
+  for what is missing, since it runs no detection there to know that.
+- A second checkout holding the same committed `project.yml` is refused at the question, as its name is the first
+  checkout's project. A second checkout with none finds the first's project by `origin`.
+
 ## What The Plugin Must Answer
 
 What it found with its source, and each host, as `Detection` holds them.
