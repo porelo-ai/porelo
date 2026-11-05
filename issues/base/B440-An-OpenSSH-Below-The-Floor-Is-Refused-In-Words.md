@@ -35,3 +35,20 @@ From Repology's table of distribution packages, read 2026-11-05:
 | AlmaLinux 8 | 8.0p1 |
 
 Every supported system holds 10.0 or newer, so the floor changes nothing for them. Ubuntu 22.04 stands exactly on it.
+
+## As built
+
+- **The floor and its reading are one class**, `OpenSshFloor` in `app-base`: it runs `ssh -V` through the context's runner and
+  reads standard error, as the three answers `Enough`, `TooOld` and `Unread`. `ssh-keygen` has no option that prints its
+  version, so `ssh` answers for it.
+- **Only digits read off the banner reach a line.** What `ssh` wrote is otherwise never repeated.
+- **`porelo doctor` has a line `openssh`**: the version when it is enough, `missing` below the floor (which makes doctor exit
+  69), `unknown` when it cannot be read or `ssh` does not run, which leaves the machine ready and says so.
+- **A start refuses in `TaskLaunch.launchSteps`, right after podman's floor and before the hooks**, exit 69, with nothing built
+  or created. That place is already where a machine it cannot run on is refused, and both the command line and the daemon reach
+  it. `TaskLaunch.startExisting`, which brings a stopped task back without passing there, hands such a machine on to the launch,
+  as it does for hooks that cannot be repaired. A dry run returns before the refusal, as it does before podman's. A version that
+  cannot be read prints nothing at a start.
+- **`task attach` and the other verbs on a task that already runs are not refused**: the floor is held where a task starts.
+- **The floor is stated in `doc/getting-started.md`**, which `OpenSshFloorTest` reads.
+- **Not run on an OpenSSH below 8.9**, as decided above: the tests fake the answer of `ssh -V`.

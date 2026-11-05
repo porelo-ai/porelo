@@ -645,6 +645,28 @@ public class DoctorCommand implements Callable<Integer>, PoreloFactory.ContextAw
     }
 
     /**
+     * Reports the OpenSSH version, and whether Porelo will run on it.
+     *
+     * <p>Below the floor a task start refuses, so this is missing; one that cannot be read refuses
+     * nothing, so this is unknown and says so.
+     *
+     * @return The version, with what is wrong with it when something is.
+     */
+    private Probe openSsh() {
+        final String name = OpenSshFloor.NAME;
+        return switch (OpenSshFloor.ask(context.runner())) {
+            case OpenSshFloor.Enough enough -> Probe.ok(name, enough.version());
+            case OpenSshFloor.TooOld old ->
+                    Probe.missing(
+                            name,
+                            old.refusal(),
+                            "install OpenSSH " + OpenSshFloor.MINIMUM + " or newer");
+            case OpenSshFloor.Unread unread ->
+                    Probe.unknown(name, unread.sentence(), "run 'ssh -V' to see what it says here");
+        };
+    }
+
+    /**
      * Returns what this machine has of everything a task depends on.
      *
      * <p>Exists so the daemon can answer the same question without building a command-line object
@@ -841,6 +863,7 @@ public class DoctorCommand implements Callable<Integer>, PoreloFactory.ContextAw
                 nftSetSupport(),
                 binary("nft", "nft", "a container comes up with no firewall ruleset"),
                 binary("git", "git", "the gate has no mirror to serve and no push can be reviewed"),
+                openSsh(),
                 transports(),
                 messageFilter(),
                 projects(),

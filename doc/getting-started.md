@@ -31,6 +31,11 @@ Fedora 43 and 44 ship podman 5.
 library and zlib their binaries need (glibc 2.34 today), and the build refuses a binary that
 needs more, or a floor above Debian 13's glibc 2.41, so a package that installs also starts.
 
+**OpenSSH 8.9 or newer is required.** Porelo signs and verifies with `ssh-keygen -Y`, and 8.9
+adds `match-principals`, which it calls. Below that, `porelo doctor` says so and a task refuses
+to start, naming the version found and the version needed. A version Porelo cannot read refuses
+nothing, and `porelo doctor` says it could not read it. Every system above ships 10.0 or newer.
+
 Porelo calls `podman`, `nft`, `dnsmasq`, `git` and `nsenter`. The packages declare them, so
 the package manager pulls them in.
 

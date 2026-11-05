@@ -657,6 +657,11 @@ public final class TaskLaunch {
             // launch says what it would do; the listing's startAction says which case applies.
             return null;
         }
+        if (OpenSshFloor.ask(context.runner()) instanceof OpenSshFloor.TooOld) {
+            // Refused by the launch, as below: a stopped task needs 'ssh-keygen -Y' as a new one
+            // does.
+            return null;
+        }
         final org.fuin.porelo.runtime.HookInstaller.Registration hooks =
                 context.hooks().registration();
         if (hooks != org.fuin.porelo.runtime.HookInstaller.Registration.ACTIVE
@@ -1482,6 +1487,16 @@ public final class TaskLaunch {
             // newer - podman is in universe, and a stable release does not change major versions -
             // so this is a real refusal, and the way out is a newer distribution.
             err.println("porelo: " + tooOld.get());
+            err.flush();
+            return 69;
+        }
+
+        // Beside podman's floor, before anything is made: otherwise this machine learns it from
+        // whichever 'ssh-keygen -Y' fails first. One that cannot be read refuses nothing, and
+        // doctor
+        // says so.
+        if (OpenSshFloor.ask(context.runner()) instanceof OpenSshFloor.TooOld old) {
+            err.println("porelo: " + old.refusal());
             err.flush();
             return 69;
         }

@@ -273,6 +273,63 @@ class TaskRunCommandTest {
     }
 
     @Test
+    void anOpenSshBelowTheFloorRefusesAStartBeforeAnythingIsMade(@TempDir Path dir)
+            throws IOException {
+        runner.answering("ssh -V", "", "OpenSSH_8.8p1 Ubuntu-1, OpenSSL 3.0.2\n");
+        final PoreloContext context = context(dir, true);
+
+        final int code = execute(context, "task", "start", "-p", projectFile(dir, MINIMAL));
+
+        assertThat(code).as(out + "\n" + err).isEqualTo(69);
+        assertThat(err.toString()).contains("OpenSSH 8.8p1").contains("OpenSSH 8.9 or newer");
+        assertThat(runner.lines())
+                .noneMatch(line -> line.contains("podman build") || line.contains("podman create"));
+        assertThat(execCalls).isEmpty();
+    }
+
+    @Test
+    void anOpenSshBelowTheFloorRefusesToBringAStoppedTaskBack(@TempDir Path dir)
+            throws IOException {
+        runner.answering("ssh -V", "", "OpenSSH_8.8p1 Ubuntu-1, OpenSSL 3.0.2\n");
+        final PoreloContext context = context(dir, true);
+        runner.answering("ps", RUNNING_SHELL.replace("Up 4 minutes", "Exited (0) 4 minutes ago"));
+
+        final int code =
+                execute(
+                        context,
+                        "task",
+                        "start",
+                        "shell",
+                        "-p",
+                        projectFile(dir, MINIMAL),
+                        "--detach");
+
+        assertThat(code).as(out + "\n" + err).isEqualTo(69);
+        assertThat(err.toString()).contains("OpenSSH 8.8p1").contains("OpenSSH 8.9 or newer");
+        assertThat(runner.lines()).noneMatch(line -> line.contains("podman start"));
+    }
+
+    @Test
+    void anOpenSshThatCannotBeReadRefusesNoStart(@TempDir Path dir) throws IOException {
+        runner.answering("ssh -V", "", "Sun_SSH_1.1.5\n");
+        final PoreloContext context = context(dir, true);
+
+        final int code =
+                execute(
+                        context,
+                        "task",
+                        "start",
+                        "-p",
+                        projectFile(dir, MINIMAL),
+                        "--attach",
+                        "shell");
+
+        assertThat(code).as(out + "\n" + err).isZero();
+        assertThat(runner.lines()).anyMatch(line -> line.equals("ssh -V"));
+        assertThat(runner.lines()).anyMatch(line -> line.contains("podman create"));
+    }
+
+    @Test
     void anEmptyVaultDoesNotInventAStoredKindForAnUnattendedStart(@TempDir Path dir)
             throws IOException {
         // Inventing a refused kind sends the operator to a different provider instead of signing
@@ -2426,9 +2483,10 @@ class TaskRunCommandTest {
 
         assertThat(code).isEqualTo(69);
         assertThat(err.toString()).contains("binaries that are not installed");
-        // Asking podman its version comes first and reads nothing else; what must not happen is a
-        // container existing without the hooks that give it a firewall.
-        assertThat(runner.lines()).allMatch(line -> line.startsWith("podman version"));
+        // Asking podman and ssh their versions comes first and reads nothing else; what must not
+        // happen is a container existing without the hooks that give it a firewall.
+        assertThat(runner.lines())
+                .allMatch(line -> line.startsWith("podman version") || line.equals("ssh -V"));
     }
 
     @Test

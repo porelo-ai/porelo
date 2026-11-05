@@ -1,0 +1,2 @@
+title: "Porelo needs OpenSSH 8.9 or newer: `porelo doctor` reports the version, and below it a task refuses to start, naming the version found and the version needed"
+type: added
