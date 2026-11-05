@@ -719,11 +719,15 @@ final class TaskMethods {
                 (parameters, replies) -> {
                     try {
                         final var answer = firstStart(context).look(checkout(parameters));
+                        // Discarded before the reply, so that a caller who has it finds nothing
+                        // left.
+                        final java.util.Map<String, Object> reply;
                         try {
-                            replies.last(answer.asMap());
+                            reply = answer.asMap();
                         } finally {
                             answer.discard();
                         }
+                        replies.last(reply);
                     } catch (org.fuin.porelo.app.FirstStart.Refused ex) {
                         throw firstStartRefused(ex);
                     }
