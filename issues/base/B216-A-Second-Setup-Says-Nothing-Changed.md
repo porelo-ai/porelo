@@ -43,6 +43,12 @@ Read in `dist/dist-setup/porelo-setup.sh` and `SetupScriptChannelTest`.
 **Decided:**
 - A second run upgrades nothing: it installs only what is missing, and says when an installed package is older than the repository offers.
 
+## As built
+
+The tests point a copy of the script at their own paths, by replacing the fixed paths in the copy, so root reads no variable
+that could move them. `--show` on the prepared test VM, with its real `dpkg` and `apt`, answered `{"changed":false,"parts":[]}`
+and showed no install. The real second run as root is not run: the VM's account has no `sudo`, so that is for a host.
+
 ## Acceptance
 
 - On a prepared machine, stubbed, the last line says nothing would change and no install is shown. Seen to fail

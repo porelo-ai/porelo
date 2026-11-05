@@ -48,7 +48,11 @@ sh porelo-setup-latest.sh [--user agents] [--distribution releases] [--with <pac
 
 It reads `/etc/os-release` and **refuses an operating system it does not know** instead of trying its best:
 a half-prepared machine is worse than an unprepared one, because the next step believes it. **Running it
-twice changes nothing the second time**, and says so, so a run abandoned halfway can simply run again.
+twice changes nothing the second time**, and says so, so a run abandoned halfway can simply run again. Its last line is
+`nothing changed` or `changed: <the parts>`, `would change` under `--show`. With `--json` the one object on standard output is
+`{"changed": false, "parts": []}`, and everything else goes to standard error. It installs what is missing and upgrades nothing:
+an installed package older than the repository offers is said, and stays until you run your package manager. The parts are
+`key`, `source`, `packages`, `porelo`, `filter`, `with`, `account`, `linger`, `subids`, `between-users` and `drop`.
 
 | Exit | Meaning |
 |---|---|

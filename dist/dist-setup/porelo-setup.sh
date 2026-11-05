@@ -16,7 +16,8 @@
 #                       Removes what an earlier version set up for messaging between the Unix users
 #                       of this machine. 'on' is retired with the spool transport that used it.
 #   --list              Print what this machine could install, install nothing, and stop
-#   --json              With --list: one JSON object on stdout, for a program rather than a person
+#   --json              One JSON object on stdout, for a program rather than a person: with --list what
+#                       could be installed, else {"changed", "parts"}, naming what this run changed
 #   --show              Print every command and run none of them
 #   --os-release <file> Read the system description from here instead of /etc/os-release
 #   --help              This text
@@ -33,7 +34,9 @@
 #   4  not running as root
 #   5  a check failed, and the machine is not usable as it stands
 #
-# Running it twice is safe and changes nothing the second time.
+# Running it twice is safe and changes nothing the second time, and says so as its last line. It
+# installs what is missing and upgrades nothing: an installed package older than the repository offers
+# is said, and stays.
 set -eu
 
 USER_NAME=agents
@@ -112,6 +115,65 @@ run() {
     printf '   $ %s\n' "$*"
     [ "$SHOW" = yes ] && return 0
     "$@"
+}
+
+# What this run changed, or would under --show, by the name of each part.
+PARTS=
+changed() {
+    case " $PARTS " in
+    *" $1 "*) ;;
+    *) PARTS="${PARTS:+$PARTS }$1" ;;
+    esac
+}
+
+is_installed() { # package
+    if [ "$FAMILY" = apt ]; then
+        case "$(dpkg-query -W -f='${db:Status-Abbrev}' "$1" 2>/dev/null || true)" in
+        ii*) return 0 ;;
+        *) return 1 ;;
+        esac
+    fi
+    rpm -q "$1" >/dev/null 2>&1
+}
+
+# Says an installed package older than the repository offers, and leaves it: this prepares a machine,
+# it does not update one.
+say_when_older() { # package
+    if [ "$FAMILY" = apt ]; then
+        have="$(dpkg-query -W -f='${Version}' "$1" 2>/dev/null || true)"
+        offered="$(LC_ALL=C apt-cache policy "$1" 2>/dev/null | sed -n 's/^ *Candidate: *//p')"
+        if [ -n "$have" ] && [ -n "$offered" ] && [ "$offered" != "(none)" ] &&
+            dpkg --compare-versions "$have" lt "$offered" 2>/dev/null; then
+            note "$1 $have is installed and the repository offers $offered; run your package manager to take it"
+        fi
+    else
+        answered=0
+        dnf -q check-update "$1" >/dev/null 2>&1 || answered=$?
+        if [ "$answered" = 100 ]; then
+            note "$1 $(rpm -q --qf '%{VERSION}-%{RELEASE}' "$1") is installed and the repository offers newer; run your package manager to take it"
+        fi
+    fi
+}
+
+# Installs those of the packages that are missing, under the part's name.
+ensure() { # part package...
+    part="$1"
+    shift
+    missing=
+    for package in "$@"; do
+        if is_installed "$package"; then
+            say_when_older "$package"
+        else
+            missing="$missing $package"
+        fi
+    done
+    if [ -n "$missing" ]; then
+        # shellcheck disable=SC2086
+        run $INSTALL$missing
+        changed "$part"
+    else
+        note "$* already there"
+    fi
 }
 
 # ---------------------------------------------------------------- what this machine is
@@ -205,14 +267,14 @@ fi
 say "the packages Porelo shells out to"
 if [ "$FAMILY" = apt ]; then
     export DEBIAN_FRONTEND=noninteractive
+    INSTALL="apt-get install -y -qq"
     run apt-get update -qq
     # uidmap, slirp4netns, passt, fuse-overlayfs and crun are what rootless podman needs and what
     # a minimal image leaves out. podman itself and the rest come with the porelo package.
-    run apt-get install -y -qq ca-certificates curl gnupg uidmap slirp4netns passt \
-        fuse-overlayfs crun
+    ensure packages ca-certificates curl gnupg uidmap slirp4netns passt fuse-overlayfs crun
 else
-    run dnf install -y -q ca-certificates curl gnupg2 shadow-utils slirp4netns passt \
-        fuse-overlayfs crun
+    INSTALL="dnf install -y -q"
+    ensure packages ca-certificates curl gnupg2 shadow-utils slirp4netns passt fuse-overlayfs crun
 fi
 
 # ---------------------------------------------------------------- where Porelo comes from
@@ -223,6 +285,7 @@ if [ "$FAMILY" = apt ]; then
     if [ -f /usr/share/keyrings/porelo.gpg ]; then
         note "/usr/share/keyrings/porelo.gpg is already there"
     elif [ "$SHOW" = yes ]; then
+        changed key
         printf '   $ %s\n' "curl -fsSL $BASE/api/security/keypair/porelo-packages/public -o <temporary file>"
         printf '   $ %s\n' "gpg --show-keys --with-colons <temporary file>   # must be $KEY_FINGERPRINT"
         printf '   $ %s\n' "gpg --dearmor -o /usr/share/keyrings/porelo.gpg < <temporary file>"
@@ -243,6 +306,7 @@ if [ "$FAMILY" = apt ]; then
         # fails with a verification error that never mentions the format.
         gpg --homedir "$KEY_HOME" --dearmor -o /usr/share/keyrings/porelo.gpg <"$KEY_FILE"
         rm -rf "$KEY_FILE" "$KEY_HOME"
+        changed key
         note "wrote /usr/share/keyrings/porelo.gpg, key $KEY_FINGERPRINT"
     fi
     SOURCE_LINE="deb [signed-by=/usr/share/keyrings/porelo.gpg] $BASE/porelo-dist-deb $DISTRIBUTION main"
@@ -250,13 +314,14 @@ if [ "$FAMILY" = apt ]; then
         [ "$(cat /etc/apt/sources.list.d/porelo.list)" = "$SOURCE_LINE" ]; then
         note "/etc/apt/sources.list.d/porelo.list already says this"
     elif [ "$SHOW" = yes ]; then
+        changed source
         printf '   $ %s\n' "echo '$SOURCE_LINE' > /etc/apt/sources.list.d/porelo.list"
     else
+        changed source
         echo "$SOURCE_LINE" >/etc/apt/sources.list.d/porelo.list
         note "wrote /etc/apt/sources.list.d/porelo.list"
     fi
     run apt-get update -qq
-    INSTALL="apt-get install -y -qq"
     HAVE="apt-cache show"
     OFFERS="apt-cache policy porelo | grep -q porelo-dist-deb"
 else
@@ -269,13 +334,14 @@ gpgcheck=0"
     if [ -f "$REPO" ] && [ "$(cat "$REPO")" = "$REPO_BODY" ]; then
         note "$REPO already says this"
     elif [ "$SHOW" = yes ]; then
+        changed source
         printf '   $ %s\n' "write $REPO for $BASE/porelo-dist-rpm/$DISTRIBUTION"
     else
+        changed source
         printf '%s\n' "$REPO_BODY" >"$REPO"
         note "wrote $REPO"
     fi
     run dnf makecache -q
-    INSTALL="dnf install -y -q"
     HAVE="dnf list --available"
     OFFERS="dnf repoquery --repo=porelo --qf %{name} porelo | grep -q porelo"
 fi
@@ -399,16 +465,14 @@ say "Porelo"
 # have - a local build, say - and it would make running this twice do work the second time.
 # Re-fetching a snapshot whose version string did not change is 'apt install --reinstall porelo',
 # and that belongs in an operator's hands, not here.
-# shellcheck disable=SC2086
-run $INSTALL porelo
+ensure porelo porelo
 
 # Always: the filter, because without it nothing leaves a task. Which transport carries messages is
 # the machine's choice ('--with'), and a project messages only through one it configures.
 say "the message filter"
 MESSAGING=no
-if $HAVE porelo-message-sluice-filter >/dev/null 2>&1; then
-    # shellcheck disable=SC2086
-    run $INSTALL porelo-message-sluice-filter
+if is_installed porelo-message-sluice-filter || $HAVE porelo-message-sluice-filter >/dev/null 2>&1; then
+    ensure filter porelo-message-sluice-filter
     MESSAGING=yes
 else
     note "not published yet - this machine can run tasks but not exchange messages"
@@ -417,7 +481,7 @@ fi
 if [ -n "$WITH" ]; then
     say "what you asked for"
     # shellcheck disable=SC2086
-    run $INSTALL $WITH
+    ensure with $WITH
 fi
 
 # ---------------------------------------------------------------- the account tasks run as
@@ -427,6 +491,7 @@ if id -u "$USER_NAME" >/dev/null 2>&1; then
     note "$USER_NAME exists"
 else
     run useradd -m -s /bin/bash "$USER_NAME"
+    changed account
 fi
 
 # Without linger, systemd stops everything the user owns when their last session ends - including
@@ -435,6 +500,7 @@ if [ "$(loginctl show-user "$USER_NAME" --property=Linger 2>/dev/null)" = "Linge
     note "linger is already enabled, so a task survives the session ending"
 else
     run loginctl enable-linger "$USER_NAME"
+    changed linger
 fi
 
 # Rootless podman cannot map a container's users without these. useradd usually allocates them,
@@ -442,9 +508,11 @@ fi
 if grep -q "^$USER_NAME:" /etc/subuid 2>/dev/null && grep -q "^$USER_NAME:" /etc/subgid 2>/dev/null; then
     note "subuid and subgid ranges are already allocated"
 elif [ "$SHOW" = yes ]; then
+    changed subids
     printf '   $ %s\n' "usermod --add-subuids 100000-165535 --add-subgids 100000-165535 $USER_NAME"
 else
     run usermod --add-subuids 100000-165535 --add-subgids 100000-165535 "$USER_NAME"
+    changed subids
 fi
 
 # ---------------------------------------------------------------- messaging between users
@@ -488,6 +556,7 @@ elif [ "$BETWEEN" = off ]; then
     say "messaging between the users of this machine"
     if [ -d "$SPOOL" ]; then
         run rm -rf "$SPOOL"
+        changed between-users
         note "taken back - every send between users is refused again"
     else
         note "was not allowed here"
@@ -505,13 +574,16 @@ if [ -d "$SPOOL/drop" ]; then
         note "$USER_NAME is already in '$GROUP'"
     else
         run usermod -a -G "$GROUP" "$USER_NAME"
+        changed drop
     fi
     if [ -d "$SPOOL/drop/$USER_NAME/new" ]; then
         note "$SPOOL/drop/$USER_NAME is already there"
     elif [ "$SHOW" = yes ]; then
+        changed drop
         printf '   $ %s\n' "install -d -m 1730 -o $USER_NAME -g $GROUP $SPOOL/drop/$USER_NAME/{tmp,new} with a default ACL"
     else
         drop_for "$USER_NAME"
+        changed drop
         note "wrote $SPOOL/drop/$USER_NAME"
     fi
 fi
@@ -563,4 +635,27 @@ else
    This machine can run tasks. It cannot exchange messages between tasks: the message
    filter is not installed, and Porelo sends nothing without one.
 MESSAGING_OFF
+fi
+
+# The last word, so a person and a playbook need read nothing above it. A package list refreshed is no
+# change: it says nothing of what this machine runs.
+if [ "$SHOW" = yes ]; then
+    NOTHING="nothing would change"
+    SOME="would change: "
+else
+    NOTHING="nothing changed"
+    SOME="changed: "
+fi
+printf '\n'
+if [ -z "$PARTS" ]; then
+    echo "$NOTHING"
+else
+    echo "$SOME$PARTS"
+fi
+if [ "$JSON" = yes ]; then
+    if [ -z "$PARTS" ]; then
+        printf '{"changed":false,"parts":[]}\n' >&3
+    else
+        printf '{"changed":true,"parts":["%s"]}\n' "$(printf '%s' "$PARTS" | sed 's/ /","/g')" >&3
+    fi
 fi
