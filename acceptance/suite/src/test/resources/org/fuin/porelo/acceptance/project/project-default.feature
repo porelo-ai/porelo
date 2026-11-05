@@ -114,7 +114,7 @@ Feature: Work starts without a project, in the project every machine has
         And its output contains "in the task (agent socket, key): 0 0"
         And its output contains "listed as pending: 1"
         And its output contains "listed with nothing named: 1"
-        And its output contains "undeclared approve exit 1"
+        And its output contains "undeclared approve exit 70"
         And its output contains "the push was not attempted"
         And its output contains "trial exit 0"
         And its output contains "branch after trial 1"
