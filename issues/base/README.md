@@ -76,6 +76,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b461"></a>[B461](B461-A-Generated-Project-File-Says-Each-Thing-Once.md) | S | - | A generated `project.yml` says `base_image` once, and a reader can tell which place holds; the format is the operator's. |
 | <a id="b458"></a>[B458](B458-A-Refused-Push-Says-Which-Credential.md) | M | - | A push refused for its key leads a person through it: which key, their keys, try one, keep it. |
 | <a id="b460"></a>[B460](B460-A-Task-Starts-On-The-Branch-Of-Its-Checkout.md) | L | - | A task started from a checkout starts on its branch, and says so; `--from`, `base_branch`. |
 | <a id="b459"></a>[B459](B459-Every-Credential-Failure-Says-What-To-Do.md) | M | - | Every credential's failure says what happened and what to do now. |
