@@ -1,10 +1,15 @@
 package org.fuin.porelo.app;
 
 import java.io.IOException;
+import java.io.StringReader;
+import java.io.StringWriter;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.TreeMap;
@@ -19,9 +24,18 @@ import org.fuin.porelo.organization.gittree.HttpForgeDirectory;
 import org.fuin.porelo.vault.CardException;
 import org.fuin.porelo.vault.PersonCard;
 import org.jspecify.annotations.Nullable;
+import org.yaml.snakeyaml.DumperOptions;
 import org.yaml.snakeyaml.LoaderOptions;
 import org.yaml.snakeyaml.Yaml;
+import org.yaml.snakeyaml.comments.CommentType;
 import org.yaml.snakeyaml.constructor.SafeConstructor;
+import org.yaml.snakeyaml.events.CommentEvent;
+import org.yaml.snakeyaml.events.Event;
+import org.yaml.snakeyaml.nodes.MappingNode;
+import org.yaml.snakeyaml.nodes.Node;
+import org.yaml.snakeyaml.nodes.NodeTuple;
+import org.yaml.snakeyaml.nodes.ScalarNode;
+import org.yaml.snakeyaml.nodes.Tag;
 
 /** How a command of the organization reaches it: this machine's settings, and the first read. */
 final class OrgAccess {
@@ -203,15 +217,15 @@ final class OrgAccess {
      */
     static void settle(final PoreloContext context, final String address) throws IOException {
         final Path file = context.paths().xdg().config().resolve("organization.yml");
-        final org.yaml.snakeyaml.DumperOptions block = new org.yaml.snakeyaml.DumperOptions();
-        block.setDefaultFlowStyle(org.yaml.snakeyaml.DumperOptions.FlowStyle.BLOCK);
-        final Map<String, Object> settings = new java.util.LinkedHashMap<>();
-        settings.put("adapter", ADAPTER);
-        settings.put("settings", Map.of("repository", address));
+        final String original =
+                Files.exists(file, LinkOption.NOFOLLOW_LINKS)
+                        ? Files.readString(file, StandardCharsets.UTF_8)
+                        : "";
+        final String written = settled(original, address);
         Files.createDirectories(file.getParent());
         final Path temporary = Files.createTempFile(file.getParent(), "organization", ".yml");
         try {
-            Files.writeString(temporary, new Yaml(block).dump(settings), StandardCharsets.UTF_8);
+            Files.writeString(temporary, written, StandardCharsets.UTF_8);
             Files.move(
                     temporary,
                     file,
@@ -220,6 +234,113 @@ final class OrgAccess {
         } finally {
             Files.deleteIfExists(temporary);
         }
+    }
+
+    private static String settled(final String original, final String address) {
+        final String written;
+        try {
+            final Node composed = TolerantComposer.compose(original);
+            final MappingNode root;
+            if (composed == null || Tag.COMMENT.equals(composed.getTag())) {
+                root = mapping();
+                if (composed != null) {
+                    root.setBlockComments(composed.getBlockComments());
+                }
+            } else {
+                root = mapping(composed);
+            }
+            put(root, "adapter", scalar(ADAPTER));
+            final Node settings = value(root, "settings");
+            final MappingNode own =
+                    settings == null
+                            ? mapping()
+                            : new MappingNode(
+                                    Tag.MAP,
+                                    new ArrayList<>(mapping(settings).getValue()),
+                                    ((MappingNode) settings).getFlowStyle());
+            put(own, "repository", scalar(address));
+            put(root, "settings", own);
+            final DumperOptions options = new DumperOptions();
+            options.setProcessComments(true);
+            options.setDefaultFlowStyle(DumperOptions.FlowStyle.BLOCK);
+            final StringWriter output = new StringWriter();
+            new Yaml(options).serialize(root, output);
+            written = output.toString();
+        } catch (RuntimeException ex) {
+            // Parser messages quote the person's file, which may hold private text.
+            throw new Refused(
+                    Refused.USAGE,
+                    "organization.yml cannot be updated: correct its YAML mappings first",
+                    null);
+        }
+        if (!comments(original).equals(comments(written))) {
+            throw new Refused(
+                    Refused.USAGE,
+                    "organization.yml cannot be updated without losing comments: expand commented YAML aliases first",
+                    null);
+        }
+        return written;
+    }
+
+    private static List<String> comments(final String text) {
+        final LoaderOptions options = new LoaderOptions();
+        options.setProcessComments(true);
+        final List<String> comments = new ArrayList<>();
+        for (final Event event : new Yaml(options).parse(new StringReader(text))) {
+            if (event instanceof CommentEvent comment
+                    && comment.getCommentType() != CommentType.BLANK_LINE) {
+                comments.add(comment.getValue());
+            }
+        }
+        return comments;
+    }
+
+    private static MappingNode mapping() {
+        return new MappingNode(Tag.MAP, new ArrayList<>(), DumperOptions.FlowStyle.BLOCK);
+    }
+
+    private static MappingNode mapping(final Node node) {
+        if (!(node instanceof MappingNode mapping) || !Tag.MAP.equals(node.getTag())) {
+            throw new IllegalArgumentException("Expected a mapping");
+        }
+        final var keys = new HashSet<String>();
+        for (final NodeTuple tuple : mapping.getValue()) {
+            if (!(tuple.getKeyNode() instanceof ScalarNode key)
+                    || !Tag.STR.equals(key.getTag())
+                    || !keys.add(key.getValue())) {
+                throw new IllegalArgumentException("Expected distinct string keys");
+            }
+        }
+        return mapping;
+    }
+
+    private static @Nullable Node value(final MappingNode mapping, final String name) {
+        for (final NodeTuple tuple : mapping.getValue()) {
+            if (((ScalarNode) tuple.getKeyNode()).getValue().equals(name)) {
+                return tuple.getValueNode();
+            }
+        }
+        return null;
+    }
+
+    private static ScalarNode scalar(final String value) {
+        return new ScalarNode(Tag.STR, value, null, null, DumperOptions.ScalarStyle.PLAIN);
+    }
+
+    private static void put(final MappingNode mapping, final String name, final Node replacement) {
+        final List<NodeTuple> entries = mapping.getValue();
+        for (int index = 0; index < entries.size(); index++) {
+            final NodeTuple tuple = entries.get(index);
+            if (((ScalarNode) tuple.getKeyNode()).getValue().equals(name)) {
+                final Node previous = tuple.getValueNode();
+                replacement.setBlockComments(previous.getBlockComments());
+                replacement.setInLineComments(previous.getInLineComments());
+                replacement.setEndComments(previous.getEndComments());
+                entries.set(index, new NodeTuple(tuple.getKeyNode(), replacement));
+                return;
+            }
+        }
+        entries.add(new NodeTuple(scalar(name), replacement));
     }
 
     /**

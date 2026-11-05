@@ -1,0 +1,11 @@
+image:
+  base: ubuntu:24.04
+  setup: |
+    apt-get update
+    apt-get install -y openjdk-17-jdk-headless maven
+
+  # Packages come from the default Ubuntu mirror.
+
+  # Behind a company proxy, set it here:
+  # proxy: http://proxy.example.com:3128
+  mirror: http://archive.ubuntu.com/ubuntu/

@@ -22,6 +22,7 @@ from its side, as *blocked by*.
 |---|---|---|---|
 | <a id="b454"></a>[B454](B454-A-Scenarios-Setup-Says-When-It-Failed.md) | XS | - | The first-start scenario checks its setup and cleans up even after a red. |
 | <a id="b451"></a>[B451](B451-An-Ecosystem-Adapter-Is-Not-A-Plugin.md) | S | - | Documentation and human output say "ecosystem adapter"; JSON stays compatible. Focused tests pass; full units stop at sandbox socket ownership checks. |
+| <a id="b463"></a>[B463](B463-A-File-Written-Back-Keeps-Its-Comments.md) | S | - | Organization settings keep comments and unrelated keys through the node tree; lossy writes are refused; unit regressions pass, full suite awaits valid directory ownership. |
 | <a id="b457"></a>[B457](B457-A-File-Not-Taken-Is-A-Warning.md) | XS | - | A start going on without a `project.yml` that was not taken warns in color. |
 | <a id="b452"></a>[B452](B452-A-Value-With-No-File-Prints-No-Line.md) | XS | - | A value with no file prints no `:0` in a draft. |
 | <a id="b455"></a>[B455](B455-A-First-Start-Says-What-A-Plugin-Could-Not-Place.md) | S | - | A first start's question shows what a plugin could not place and its notes. |
@@ -80,7 +81,6 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
-| <a id="b463"></a>[B463](B463-A-File-Written-Back-Keeps-Its-Comments.md) | S | - | A YAML file Porelo writes back changed keeps its comments, through SnakeYAML's node tree. |
 | <a id="b460"></a>[B460](B460-A-Task-Starts-On-The-Branch-Of-Its-Checkout.md) | L | - | A task started from a checkout starts on its branch, and says so; `--from`, `base_branch`. |
 | <a id="b456"></a>[B456](B456-A-Plugin-Resolves-What-A-Project-Asks.md) | L | - | A plugin may look up what a project asks when a file is made; a person sees the fetched lines whole. |
 | <a id="b453"></a>[B453](B453-A-Draft-Replaces-A-Repositorys-Own-Image.md) | S | - | A draft does not silently replace the image a repository says it needs. |
