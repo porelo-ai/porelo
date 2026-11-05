@@ -136,7 +136,9 @@ public final class TokenPurchase implements TokenSource {
             }
             if (!Grants.secure(url)) {
                 throw new IllegalArgumentException(
-                        "the token URL must be https, or http on loopback, not '" + url + "'");
+                        "the token URL must be https, or http on loopback, not '"
+                                + Grants.shown(url)
+                                + "'");
             }
             return new Client(
                     url, id, secret, settings.getOrDefault("scopes", ""), settings.get("audience"));

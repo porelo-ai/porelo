@@ -51,4 +51,20 @@ class VaultCredentialAtATerminalTest {
 
         assertThat(out.toString()).contains("password=the-secret");
     }
+
+    @Test
+    void onlyAPipeASocketOrAFileGetsTheAnswer() throws Exception {
+        final Path file = Files.writeString(dir.resolve("answer"), "");
+
+        assertThat(VaultCredentialCommand.mayAnswer("pipe:[1234]")).isTrue();
+        assertThat(VaultCredentialCommand.mayAnswer("socket:[1234]")).isTrue();
+        assertThat(VaultCredentialCommand.mayAnswer(file.toString())).isTrue();
+        assertThat(VaultCredentialCommand.mayAnswer("/dev/null")).isTrue();
+
+        assertThat(VaultCredentialCommand.mayAnswer("/dev/pts/3")).isFalse();
+        assertThat(VaultCredentialCommand.mayAnswer("/dev/tty1")).isFalse();
+        assertThat(VaultCredentialCommand.mayAnswer("/dev/hvc0")).isFalse();
+        assertThat(VaultCredentialCommand.mayAnswer("/dev/console")).isFalse();
+        assertThat(VaultCredentialCommand.mayAnswer(null)).as("nothing says where").isFalse();
+    }
 }

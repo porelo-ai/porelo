@@ -129,6 +129,28 @@ class CodeGrantTest {
     }
 
     @Test
+    void aCallbacksErrorIsRepeatedOnlyWhenItIsACodeOAuthDefines() throws Exception {
+        final int port = freePort();
+        final CodeGrant grant = grant(port);
+        final CodeGrant.Started started = grant.start(Duration.ofSeconds(10));
+        final var pool = Executors.newSingleThreadExecutor();
+        try {
+            final Future<DeviceGrant.Outcome> waiting = pool.submit(() -> grant.await(started));
+
+            answer(port, "error=the-client-secret&state=" + query(started.link()).get("state"));
+
+            org.assertj.core.api.Assertions.assertThatThrownBy(
+                            () -> waiting.get(10, java.util.concurrent.TimeUnit.SECONDS))
+                    .hasRootCauseInstanceOf(TokenPurchase.Refused.class)
+                    .hasMessageNotContaining("the-client-secret")
+                    .hasMessageContaining("does not define");
+        } finally {
+            grant.stop();
+            pool.shutdownNow();
+        }
+    }
+
+    @Test
     void theAnswerComingBackIsExchangedWithTheVerifierForTheGrant() throws Exception {
         final int port = freePort();
         final CodeGrant grant = grant(port);

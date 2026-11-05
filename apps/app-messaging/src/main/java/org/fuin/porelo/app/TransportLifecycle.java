@@ -148,6 +148,9 @@ final class TransportLifecycle {
 
     private final TransportDirectory transports;
 
+    /** From this length a value is withheld inside a word too. */
+    private static final int WHOLE_ANYWHERE = 8;
+
     private java.util.function.Consumer<String> saying =
             line -> {
                 if (Offer.atTerminal()) {
@@ -1238,26 +1241,36 @@ final class TransportLifecycle {
     }
 
     /**
-     * Takes every value a transport was handed out of what it said. Whatever its length, as one
-     * short password is as much a secret as a long one, and line by line, as a key of many lines
-     * comes back a line at a time.
+     * Takes every value a transport was handed out of what it said, line by line, as a key of many
+     * lines comes back a line at a time, and in one pass, so a value is not looked for inside the
+     * mark that replaced another.
+     *
+     * <p>A short value only where it stands alone: one short password is as much a secret as a long
+     * one, and a value of one letter must not take that letter out of every word of the refusal.
      *
      * @param text What it said.
      * @param secrets What it was handed.
      * @return The text without them.
      */
     static String withheld(final String text, final Map<String, String> secrets) {
-        String safe = text;
-        for (final String part :
+        final String values =
                 secrets.values().stream()
                         .flatMap(String::lines)
                         .map(String::strip)
                         .filter(part -> !part.isEmpty())
+                        .distinct()
                         .sorted(java.util.Comparator.comparingInt(String::length).reversed())
-                        .toList()) {
-            safe = safe.replace(part, "[withheld]");
-        }
-        return safe;
+                        .map(
+                                part ->
+                                        part.length() >= WHOLE_ANYWHERE
+                                                ? java.util.regex.Pattern.quote(part)
+                                                : "(?<![\\p{L}\\p{N}])"
+                                                        + java.util.regex.Pattern.quote(part)
+                                                        + "(?![\\p{L}\\p{N}])")
+                        .collect(java.util.stream.Collectors.joining("|"));
+        return values.isEmpty()
+                ? text
+                : java.util.regex.Pattern.compile(values).matcher(text).replaceAll("[withheld]");
     }
 
     private void keep(String scheme, String scope, Map<?, ?> secrets) throws Refused {

@@ -177,7 +177,7 @@ class StartProgressReviewTest {
         assertThat(cause)
                 .as("transport causes must redact every supplied secret before cleaning or cutting")
                 .isEqualTo(
-                        "https://example.test/?a=[withheld]&b=[withheld]&c=[withheld]&public=public7");
+                        "https://example.test/?a=[withheld]&b=[withheld]&c=[withheld]&public=[withheld]");
         assertThat(cause)
                 .as("no supplied credential may remain in a step cause")
                 .doesNotContain(secrets.get("SHORT"), secrets.get("LONG"), secrets.get("OTHER"));

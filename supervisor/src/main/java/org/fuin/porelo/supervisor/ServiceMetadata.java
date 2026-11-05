@@ -64,7 +64,9 @@ public final class ServiceMetadata {
             throws TokenPurchase.Refused {
         if (!Grants.secure(resource)) {
             throw new TokenPurchase.Refused(
-                    "the resource URL must be https, or http on loopback, not '" + resource + "'");
+                    "the resource URL must be https, or http on loopback, not '"
+                            + Grants.shown(resource)
+                            + "'");
         }
         final Map<?, ?> described = resourceDocument(http, resource);
         if (!(described.get("authorization_servers") instanceof List<?> servers)
@@ -170,7 +172,7 @@ public final class ServiceMetadata {
                     "the service's "
                             + what
                             + " is not https, nor http on loopback, so it is not used: '"
-                            + url
+                            + Grants.shown(url)
                             + "'");
         }
         return url;

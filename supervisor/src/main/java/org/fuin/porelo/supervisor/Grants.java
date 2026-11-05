@@ -98,7 +98,7 @@ public final class Grants {
         if (revocation != null && !secure(revocation)) {
             throw new IllegalArgumentException(
                     "the revocation URL must be https, or http on loopback, not '"
-                            + revocation
+                            + shown(revocation)
                             + "'");
         }
         return revocation;
@@ -117,7 +117,12 @@ public final class Grants {
      */
     public static boolean secure(String url) {
         if (url.startsWith("https://")) {
-            return true;
+            try {
+                URI.create(url);
+                return true;
+            } catch (IllegalArgumentException ex) {
+                return false;
+            }
         }
         if (!url.startsWith("http://")) {
             return false;
@@ -156,7 +161,7 @@ public final class Grants {
             }
             if (each instanceof javax.net.ssl.SSLException) {
                 return "its certificate or TLS was refused ("
-                        + String.valueOf(each.getMessage())
+                        + each.getClass().getSimpleName()
                         + ")";
             }
         }
@@ -165,8 +170,8 @@ public final class Grants {
                 return "the connection was refused";
             }
         }
-        final String said = failure.getMessage();
-        return said == null || said.isBlank() ? failure.getClass().getSimpleName() : said;
+        // By its kind and not its words: a parser's words quote what the service sent.
+        return failure.getClass().getSimpleName();
     }
 
     /**
@@ -248,14 +253,37 @@ public final class Grants {
         }
     }
 
-    /** The codes OAuth defines for registering a client and revoking a token (RFC 7591, 7009). */
+    /**
+     * Returns an address as a line may say it: a query, a fragment or a user's name and password in
+     * it may carry a secret, and the rest says all a person needs.
+     *
+     * @param url The address, read or not.
+     * @return It without those.
+     */
+    static String shown(final String url) {
+        final String whole = url.split("[?#]", 2)[0];
+        final int scheme = whole.indexOf("://");
+        final int at = whole.indexOf('@', scheme < 0 ? 0 : scheme);
+        final int path = whole.indexOf('/', scheme < 0 ? 0 : scheme + 3);
+        return scheme >= 0 && at >= 0 && (path < 0 || at < path)
+                ? whole.substring(0, scheme + 3) + whole.substring(at + 1)
+                : whole;
+    }
+
+    /**
+     * The codes OAuth defines for a callback, registering a client, revoking a token and a bearer
+     * token (RFC 6749, 7591, 7009, 6750).
+     */
     private static final java.util.Set<String> OTHER_ERRORS =
             java.util.Set.of(
                     "invalid_redirect_uri",
                     "invalid_client_metadata",
                     "invalid_software_statement",
                     "unapproved_software_statement",
-                    "unsupported_token_type");
+                    "unsupported_token_type",
+                    "unsupported_response_type",
+                    "invalid_token",
+                    "insufficient_scope");
 
     /**
      * Returns the error code an answer names, never its body whole, since an error answer may echo

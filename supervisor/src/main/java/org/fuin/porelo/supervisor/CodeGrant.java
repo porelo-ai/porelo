@@ -267,7 +267,7 @@ public final class CodeGrant {
                     "the service at "
                             + Grants.host(client.authorizationUrl())
                             + " answered '"
-                            + error
+                            + Grants.named(error)
                             + "' instead of a code");
         }
         final Map<String, String> form = new LinkedHashMap<>();

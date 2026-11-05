@@ -181,17 +181,31 @@ public class VaultCredentialCommand implements Callable<Integer>, PoreloFactory.
         return held.value();
     }
 
+    /**
+     * Tells whether a secret may go where standard output goes: git's pipe, a socket, a file a
+     * person chose, or nowhere. Anything else is taken for a screen, as a list of terminals is
+     * missing the next kind of one, and so is not knowing where it goes.
+     *
+     * @param to Where it goes, as {@code /proc} says, or {@code null}.
+     * @return Whether it may.
+     */
+    static boolean mayAnswer(final @org.jspecify.annotations.Nullable String to) {
+        return to != null
+                && (to.startsWith("pipe:")
+                        || to.startsWith("socket:")
+                        || "/dev/null".equals(to)
+                        || java.nio.file.Files.isRegularFile(
+                                java.nio.file.Path.of(to),
+                                java.nio.file.LinkOption.NOFOLLOW_LINKS));
+    }
+
     private static boolean outputIsATerminal() {
         try {
-            final String to =
+            return !mayAnswer(
                     java.nio.file.Files.readSymbolicLink(java.nio.file.Path.of("/proc/self/fd/1"))
-                            .toString();
-            return to.startsWith("/dev/pts/")
-                    || to.startsWith("/dev/tty")
-                    || "/dev/console".equals(to);
+                            .toString());
         } catch (final IOException | RuntimeException ex) {
-            // Nothing says it is one, and git is who this is for.
-            return false;
+            return true;
         }
     }
 }

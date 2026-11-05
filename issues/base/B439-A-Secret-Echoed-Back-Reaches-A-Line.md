@@ -31,7 +31,11 @@ owner-only socket, on purpose.
 
 ## As built
 
-The four that print today are closed: only a code OAuth defines is repeated; a failing passphrase command is said by its exit
-code, and a person runs it to see the rest; a transport's every value is withheld whatever its length, line by line, in both
-its failure and its streamed lines; `porelo vault credential` answers no terminal, exit 2, read from where standard output
-really goes, as `Console.isTerminal` asks about standard input too. The records and the question of length stay as found.
+The ones that print today are closed. Only a code OAuth defines is repeated, from a callback too; a failure of the request is
+said by its kind, as a parser's words quote what the service sent; an address is shown without its query, fragment or user;
+a failing passphrase command is said by its exit code, and a person runs it to see the rest. A transport's every value is
+withheld in both its failure and its streamed lines, in one pass; under eight characters only where it stands alone, so a value
+of one letter leaves words readable, which leaves one echoed inside a longer word. `porelo vault credential` answers only a
+pipe, a socket, a file or `/dev/null`, read from where standard output really goes, exit 2 otherwise, including where `/proc`
+cannot say. **What it costs:** a TLS failure says its kind and no longer the JDK's words, and gpg's reason for a failed
+passphrase command is seen by running it. The records and the question of length stay as found.

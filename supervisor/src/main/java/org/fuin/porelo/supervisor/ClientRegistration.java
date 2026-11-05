@@ -115,7 +115,7 @@ public final class ClientRegistration {
         if (!Grants.secure(registrationUrl)) {
             throw new TokenPurchase.Refused(
                     "the registration endpoint must be https, or http on loopback, not '"
-                            + registrationUrl
+                            + Grants.shown(registrationUrl)
                             + "'");
         }
         final HttpResponse<String> answer =

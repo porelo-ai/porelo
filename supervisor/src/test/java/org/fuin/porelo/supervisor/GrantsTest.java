@@ -73,7 +73,7 @@ class GrantsTest {
     @Test
     void aFailureWithNoMessageIsNamedByItsKind() {
         assertThat(Grants.cause(new IOException())).isEqualTo("IOException");
-        assertThat(Grants.cause(new IOException("said"))).isEqualTo("said");
+        assertThat(Grants.cause(new IOException("said"))).isEqualTo("IOException");
     }
 
     @Test
@@ -87,5 +87,52 @@ class GrantsTest {
                 .isEqualTo("an error code OAuth does not define");
         assertThat(Grants.error("{\"error\":7}")).isEqualTo("an error code OAuth does not define");
         assertThat(Grants.error("not json")).isEqualTo("no error named");
+    }
+
+    @Test
+    void aBearerTokensErrorIsACodeToo() {
+        assertThat(Grants.error("{\"error\":\"invalid_token\"}")).isEqualTo("invalid_token");
+        assertThat(Grants.error("{\"error\":\"insufficient_scope\"}"))
+                .isEqualTo("insufficient_scope");
+        assertThat(Grants.named("unsupported_response_type"))
+                .isEqualTo("unsupported_response_type");
+    }
+
+    @Test
+    void whatAFailureSaidIsNotRepeated() {
+        assertThat(
+                        Grants.cause(
+                                new java.io.IOException(
+                                        "Invalid status line: \"the-client-secret\"")))
+                .doesNotContain("the-client-secret")
+                .isEqualTo("IOException");
+        assertThat(
+                        Grants.cause(
+                                new java.io.IOException(
+                                        new javax.net.ssl.SSLException("the-client-secret"))))
+                .doesNotContain("the-client-secret")
+                .contains("TLS");
+    }
+
+    @Test
+    void anAddressIsShownWithoutWhatItCarries() {
+        assertThat(Grants.shown("http://a.example/x?token=secret#part"))
+                .isEqualTo("http://a.example/x");
+        assertThat(Grants.shown("http://me:secret@a.example/x")).isEqualTo("http://a.example/x");
+        assertThat(Grants.shown("not an address")).isEqualTo("not an address");
+
+        org.assertj.core.api.Assertions.assertThatThrownBy(
+                        () ->
+                                Grants.revocationUrl(
+                                        Map.of(
+                                                "revocation_url",
+                                                "http://a.example/x?token=secret")))
+                .hasMessageNotContaining("secret")
+                .hasMessageContaining("http://a.example/x");
+    }
+
+    @Test
+    void anAddressThatCannotBeReadIsNotSecure() {
+        assertThat(Grants.secure("https://a.example/x?token=se cret")).isFalse();
     }
 }
