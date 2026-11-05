@@ -1,7 +1,7 @@
 # B462 — One Model For A Project File
 
 **Status:** Backlog, first in line.
-**Size:** XL - six parts, sized below.
+**Size:** about 1000 minutes, part by part below; no function changes. No question is open.
 
 **What must be true.** A project file and a repository's file are each read and written through one typed model and nothing else. The operator,
 2026-11-05: a project file read and written outside one model is a serious fault. It goes ahead of other work.
@@ -16,6 +16,13 @@
    - Every draft the generator makes passes the reader, and so does every example in `doc/project-file.md`.
    - The operator's file, with `image` at two places, is a test that must be refused.
 5. **The running task is never written:** one resolved object built from the files, below.
+6. **Porelo never changes an existing project file,** by the operator's word. It writes only new files: a first start's draft and `project init`.
+   Where it changes a file today, it shows the finished entry instead and the person writes it; Porelo then reads their change like any other file.
+   That is a host allowed from a running task (`EgressControl`, `EgressEdit`, the daemon's `SetEgress`) and `porelo project repository
+   add/change/remove` (`ProjectRepositoryCommand`, and `ProjectFile`'s `add`, `propose`, `changeRow` and `remove` in `organization/git-tree`).
+   `EgressEdit` goes, and with it the constraint C4: with no edits, there are no comments to keep.
+7. **An unknown key is refused,** saying this Porelo does not know it and may be older than the file. A file names no least version, by the
+   operator's word.
 
 **No backward compatibility,** by the operator's word: a file that does not fit the model is refused with what is wrong, and thrown away. No
 migration, no release reading old keys, no `migrate` command. The refusal says where each key belongs, so a person can write the file anew. New
@@ -85,13 +92,25 @@ are set, as they decide how much each user changes.
 
 ## What Changes, And What It Costs
 
-- **Refusing every unknown key** means a file written for a later Porelo stops an earlier one. That matters for a project's repository: once one
-  member's newer Porelo writes a new key, every member must update before their next start. The refusal says the key is unknown to this version and
-  that a later one may know it. Whether a file should name the least version it needs is the operator's.
+- **Refusing every unknown key** means a file written for a later Porelo stops an earlier one. Once one member's newer Porelo has a new key in a
+  project's file, every member must update before their next start.
 - **The source comments of a draft** (where a value came from, what a plugin said) leave the text the generator builds. They go to the start's output,
-  as `notes` already do ([B455](README.md#b455)). Whether SnakeYAML can write them as comments from the model is not shown.
-- **C4, editing that keeps comments, is not there today through SnakeYAML:** see below. Keeping it would take another way, or the operator lets it go.
-- **The window's schema** (`ProjectFileSchema`) is then read from the model, not from `ProjectSchema`'s lists.
+  as `notes` already do ([B455](README.md#b455)).
+- **The window's schema** (`ProjectFileSchema`) is then read from the model, not from `ProjectSchema`'s lists. Where the window today changes a file, it
+  shows the finished entry, which Agent Frontend takes on.
+
+## Files Put Right By Hand
+
+No migration code. Once the reader stands, an agent writes these anew, by hand, in the new format:
+
+- **`project.yml`:** `porelo-project/project.yml` and `porelo-test-project/project.yml` in our repositories; the operator's own, two
+  today in their configuration folder. The operator says which of theirs to keep.
+- **`porelo.yml`, now `RepositoryFile` with `from` and `run`:** in `porelo`, `porelo-adapters`, `porelo-agy`, `porelo-ai.github.io`, `porelo-buildtools`,
+  `porelo-claude-code`, `porelo-codex`, `porelo-frontend`, `porelo-host`, `porelo-intellij`, `porelo-message-matrix`, `porelo-message-sluice`,
+  `porelo-omp`, `porelo-parent` and `porelo-pi`, each by its owner.
+- **The examples** in `doc/project-file.md` and the other docs, as part of the docs.
+
+Test files that hold a project file change with the code that reads them.
 
 ## The Measurement So Far
 
@@ -114,16 +133,24 @@ slice of the rebuild in `porelo`. What ran, four native builds of `porelo` in a 
 
 ## Parts
 
-Sizes are a reading of the code, not a count of it:
+In minutes, from the work itself. New code is mostly today's rules moved, not new rules.
 
-- **The file models, their binding and their check, M-L:**
-  - `ProjectFile`, `RepositoryEntry`, `RepositoryFile` and the shared types;
-  - `ProjectSchema` folded into them;
-  - the round-trip tests and the native test.
-- **Writing, M:** SnakeYAML from a model; `ProjectProposal` and `DefaultProject` on it.
-- **`RepositoryFile` in use, S-M:** for `porelo.yml` and `.porelo.yml`, with `ProjectFile` in `organization/git-tree` reading and writing through the
-  models.
-- **The resolved task, and `Project`'s users moved onto it, L-XL:** the largest and least known part. It is sized again once the resolved object's methods
-  are set.
-- **Edits, `EgressEdit`, S-M:** as C4 is decided.
-- **The docs and the window's schema, S-M.**
+| Part | Kind | What | Minutes |
+|---|---|---|---|
+| File models | new | About 15 records: `ProjectFile`, `ProjectInfo`, `RepositoryEntry`, `RepositoryFile`, `Image`, `BuildSources`, `Egress`, `Limits`, `Mail` and its two inner types, `Builds`, `Parameters` with `Parameter`, `BranchScheme`, credentials | 40 |
+| Binding | new, ported | One binder per type from the node tree, with the line of a fault; `ProjectReader`'s 1149 lines are its source | 90 |
+| One check | new, ported | About 130 refusals today in `ProjectReader` (57), `Project` (15), `RepositoryImageReader` (10), `Limits`, `Mail`, `Parameter`, `Parameters`, `Egress`, `Repository`, `BranchScheme`, `Builds`; plus `run` taking only `RUN`, `ARG` and `ENV` | 80 |
+| Writer | new | SnakeYAML from a model; `ProjectProposal` and `DefaultProject` build a model, not text | 60 |
+| Tests | new | The round trip of each type; each docs example; each generated draft; one native test refusing an invalid file | 90 |
+| Resolved task | new | Built from the three files: one image source taken whole, `egressFor`, `ImageChoice.merge` in it | 60 |
+| `Project`'s users | mechanical | 87 main files, 374 mentions of the type: a renamed type. 762 call sites, about 450 of them `name()`, `upstream()` and `securityClass()`, which keep their names. About 60 move, the image's and egress's, to the resolved object | 65 |
+| Their tests | mechanical | 37 files, the same | 40 |
+| No edits | deleted, replaced | `EgressEdit` and its two tests go, 1 file and 332 test lines; `EgressControl`, `SetEgress`, `ProjectRepositoryCommand` and `ProjectFile`'s four writes show the finished entry instead | 75 |
+| Deleted | deleted | `ProjectSchema`'s lists, read from the model; `Limits.Declared`; the hand-built text | 30 |
+| Docs and schema | text | `doc/project-file.md` and others; the window's schema from the model | 45 |
+| Files by hand | text | The project files and 15 `porelo.yml` above | 30 |
+| Run and reading | check | Unit tests of the reactor, the native test, one reading and its fixes | 90 |
+| **Total** | | | **about 1000** |
+
+**More than replacing:** the binding and the check port today's rules into one place; that is where the time is, about 170 minutes. The users of
+`Project` are a rename and some 60 moved calls.

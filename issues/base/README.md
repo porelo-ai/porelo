@@ -20,7 +20,6 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
-| <a id="b445"></a>[B445](B445-The-Test-Agent-Has-A-Place-Of-Its-Own.md) | S | - | The stub agent's binary is published by version in a repository of its own, and leaves the package indexes. |
 | <a id="b457"></a>[B457](B457-A-File-Not-Taken-Is-A-Warning.md) | XS | - | A start going on without a `project.yml` that was not taken warns in color. |
 | <a id="b452"></a>[B452](B452-A-Value-With-No-File-Prints-No-Line.md) | XS | - | A value with no file prints no `:0` in a draft. |
 | <a id="b455"></a>[B455](B455-A-First-Start-Says-What-A-Plugin-Could-Not-Place.md) | S | - | A first start's question shows what a plugin could not place and its notes. |
@@ -277,6 +276,7 @@ from its side, as *blocked by*.
 
 | # | Title | What was built |
 |---|---|---|
+| <a id="b445"></a>B445 | The Test Agent Has A Place Of Its Own | Every snapshot Build publishes the stub agent's binary by version with its checksum in `porelo-dist-test`, read anonymously by the interface's scenario; the packages left the indexes, and the 202 old files were deleted on the operator's word, both indexes then naming none. Not yet seen run: the cleaning beyond the newest 20 versions |
 | <a id="b390"></a>B390 | The Organization's API Apart From Its Git Reading | Porelo asks for its organization through `organization/api`, which says nothing of Git, with the store's reading behind it in an adapter, and nothing a person, host or interface sees changed |
 | <a id="b391"></a>B391 | The Cut To The New Organization | `identity` files through the store's writes on `organization/git-tree`, the adapter alone commits and signs, and every command, daemon method and adapter of the old registry is gone |
 | <a id="b392"></a>B392 | Checks Every Organization Adapter Passes | `organization/contract` holds what any store must guarantee as checks an adapter runs against itself, the Git adapter passes them, and a broken stand-in for each requirement fails |
