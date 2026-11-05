@@ -67,6 +67,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b437"></a>[B437](B437-Reading-The-Organization-Costs-A-Whole-Fetch.md) | - | - | A question that only shows the organization or a project answers without waiting on a whole fetch of its repository, and a decision still fetches. |
 | <a id="b14"></a>[B14](B14-Talking-Between-Tasks.md) | XL | `porelo` [B86](README.md#b86) | Talking between tasks, built on one machine; splits into groups (M), trust confirmed once with fingerprints (M), two machines on one homeserver (L). |
 | <a id="b193"></a>[B193](B193-A-Dependency-Cache-Shared-Across-Tasks.md) | XL | - | Downloaded dependencies cached once for a project's tasks and handed in read-only; what a task installs stays its own; analyzed: filled only from reviewed work, mounted `:ro,z`, read through `maven.repo.local.tail`, filled by `dependency:go-offline` on request and when the default branch moved, Maven first |
 | <a id="b207"></a>[B207](B207-An-Image-Built-Within-The-Projects-Egress.md) | L | - | An image's build reaches only the project's egress and its trusted package sources, run in a guard container behind the task's own firewall (measured to hold), so a snippet - a project's or a repository's `porelo.yml` - cannot fetch from anywhere while the image is made.; plan written, two questions for the operator |
@@ -137,7 +138,6 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
-| <a id="b437"></a>[B437](B437-Reading-The-Organization-Costs-A-Whole-Fetch.md) | - | - | A question that only shows the organization or a project answers without waiting on a whole fetch of its repository, and a decision still fetches. |
 | <a id="b435"></a>[B435](B435-One-Line-Installs-Everything-On-Fedora-And-RHEL.md) | - | - | `dnf install 'porelo*'` installs all of Porelo on Fedora and RHEL, and the build says so when it stops working. |
 | <a id="b436"></a>[B436](B436-A-Published-Bom-Test-Runs-From-A-Clean-Tree.md) | - | - | `PublishedBomTest` needs a generated file, so a targeted test run in a clean tree fails. |
 | <a id="b427"></a>[B427](B427-Org-Create-Says-Why.md) | - | - | A failed `org create` says git's own reason and tells a refused push from an unreachable forge, with nothing the forge said passed on. |

@@ -1,6 +1,6 @@
 # B437 — Reading The Organization Costs A Whole Fetch
 
-**Status:** Idea.
+**Status:** Backlog.
 
 **What must be true.** A question that shows the organization or a project to a person answers without waiting on a whole
 fetch of the organization's repository, and a decision that rests on the organization still fetches.
@@ -26,3 +26,9 @@ an operator's account holds one, and it reads with their agent and vault.
   to check against, so no security check may rest on it, and it must say how old it is. A flag for a page that only shows,
   or a fetch only when `ls-remote` shows a new tip: the second still costs the handshake.
 - Whether a person's `project show` should take a project at all, or only read what is placed.
+
+## Decided
+
+After the next test. A read of the organization answers from the kept state first and refreshes after. No security check rests
+on the kept state: a start's and a host's checks go on reading fresh. The window marks a stale value until the refresh arrives,
+such as a role just withdrawn.
