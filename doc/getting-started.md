@@ -79,9 +79,12 @@ baseurl=https://fuinorg.jfrog.io/artifactory/porelo-dist-rpm/releases
 enabled=1
 gpgcheck=0
 EOF
-sudo dnf install porelo porelo-agent-claude
+sudo dnf install porelo porelo-agent-claude porelo-message-sluice-filter
 ```
 
+- **Name what is only recommended.** The repository's index drops what a package recommends, so on
+  Fedora and RHEL `dnf` does not bring along what `apt` brings by itself. The Maven plugin,
+  `porelo-ecosystem-maven`, is in the snapshots repository only, for now.
 - **`gpgcheck=0` is deliberate, and temporary.** The repository metadata is signed; the RPMs
   are not yet, so `dnf` would refuse them. Once they are, this becomes `gpgcheck=1` with a
   `gpgkey=` line.
@@ -465,7 +468,7 @@ baseurl=https://fuinorg.jfrog.io/artifactory/porelo-dist-rpm/snapshots
 enabled=1
 gpgcheck=0
 EOF
-sudo dnf install porelo porelo-agent-claude
+sudo dnf install porelo porelo-agent-claude porelo-ecosystem-maven porelo-message-sluice-filter
 ```
 
 - **The same file as for releases, with the snapshot source added**, so it replaces the file from

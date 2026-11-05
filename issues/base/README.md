@@ -73,6 +73,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b450"></a>[B450](B450-The-RPM-Index-Loses-What-A-Package-Recommends.md) | M | - | A default `dnf install` brings what the package recommends, which the RPM index loses today. |
 | <a id="b449"></a>[B449](B449-A-Repositorys-Own-File-Reaches-The-Image-Unasked.md) | S | - | A repository's `porelo.yml` chooses no line of an image without a person's yes. |
 | <a id="b442"></a>[B442](B442-One-Line-Installs-Everything-On-Fedora-And-RHEL.md) | M | - | `sudo dnf install 'porelo*' keepassxc` installs all of Porelo on Fedora and RHEL, shown by a real run. |
 | <a id="b437"></a>[B437](B437-Reading-The-Organization-Costs-A-Whole-Fetch.md) | - | - | A question that only shows the organization or a project answers without waiting on a whole fetch of its repository, and a decision still fetches. |
