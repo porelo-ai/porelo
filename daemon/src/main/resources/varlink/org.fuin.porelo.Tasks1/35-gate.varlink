@@ -36,6 +36,10 @@ type ReviewFile (
   # Lines added and removed; -1 for a binary file.
   added: int,
   removed: int,
+  # Counts over the same range, with git's --ignore-space-at-eol; -1 for binary files.
+  # Absent from older daemons. This also ignores trailing spaces, not only CRLF changes.
+  addedIgnoringLineEndings: ?int,
+  removedIgnoringLineEndings: ?int,
   # DANGEROUS, ORDINARY, GENERATED or REFORMATTING - the order to read them in.
   rank: string,
   # Why it has that rank, in words; "" for an ORDINARY file.
@@ -84,7 +88,10 @@ method Review(
   # Ref name, from PendingPush.name.
   name: string,
   # What to diff against. Default: the upstream's default branch.
-  against: ?string
+  against: ?string,
+  # Ignore whitespace at line endings in the diff (git --ignore-space-at-eol). Default: false.
+  # Counts, file ranking and log are unchanged by this switch.
+  ignoreLineEndings: ?bool
 ) -> (
   # Unified diff, in the order of files: the dangerous first, reformatting and generated files last.
   diff: string,

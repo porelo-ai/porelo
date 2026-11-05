@@ -766,6 +766,19 @@ public class GitGate {
      * @return The ranked files and the patch.
      */
     public ReviewRanking.Review rankedReview(String name, @Nullable String against) {
+        return rankedReview(name, against, false);
+    }
+
+    /**
+     * Returns a ranked review with raw and end-of-line-whitespace-ignoring counts.
+     *
+     * @param name Incoming ref name, without the namespace prefix.
+     * @param against Ref to compare against, or {@code null} for the ref's own last commit.
+     * @param ignoreLineEndings Whether the patch ignores whitespace at line endings.
+     * @return The ranked files and the patch, over the same range as {@link #review}.
+     */
+    public ReviewRanking.Review rankedReview(
+            String name, @Nullable String against, boolean ignoreLineEndings) {
         requirePending(name);
         final boolean compare = against != null && !against.isBlank() && resolves(against);
         final List<String> verb =
@@ -778,6 +791,10 @@ public class GitGate {
         // and the quoted name matched no dangerous place - a workflow ranked ordinary.
         final Map<String, int[]> counts =
                 numstat(gitIn(join(verb, List.of("--numstat", "-z"), refs)).standardOutput());
+        final Map<String, int[]> countsIgnoringLineEndings =
+                numstat(
+                        gitIn(join(verb, List.of("--numstat", "-z", "--ignore-space-at-eol"), refs))
+                                .standardOutput());
         final Set<String> beyondWhitespace =
                 numstat(
                                 gitIn(
@@ -807,6 +824,8 @@ public class GitGate {
             final String path = raw[at + 1];
             final String status = fields[4];
             final int[] count = counts.getOrDefault(path, new int[] {0, 0});
+            final int[] ignoringLineEndings =
+                    countsIgnoringLineEndings.getOrDefault(path, new int[] {0, 0});
             // Whitespace alone: something changed, and nothing is left of it once whitespace is
             // ignored.
             final boolean whitespaceOnly =
@@ -824,6 +843,8 @@ public class GitGate {
                             fields[1],
                             count[0],
                             count[1],
+                            ignoringLineEndings[0],
+                            ignoringLineEndings[1],
                             whitespaceOnly,
                             head));
         }
@@ -836,8 +857,11 @@ public class GitGate {
             throw new GateException("could not order the review: " + ex.getMessage(), ex);
         }
         try {
-            final String patch =
-                    gitIn(join(verb, List.of("--patch", "-O" + order), refs)).standardOutput();
+            final List<String> options =
+                    ignoreLineEndings
+                            ? List.of("--patch", "-O" + order, "--ignore-space-at-eol")
+                            : List.of("--patch", "-O" + order);
+            final String patch = gitIn(join(verb, options, refs)).standardOutput();
             return new ReviewRanking.Review(files, patch);
         } finally {
             try {

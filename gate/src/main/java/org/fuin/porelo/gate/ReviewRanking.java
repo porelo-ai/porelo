@@ -47,11 +47,22 @@ public final class ReviewRanking {
      * @param status {@code A}, {@code M}, {@code D} or {@code T}, as git reports it.
      * @param added Lines added, or -1 for a binary file.
      * @param removed Lines removed, or -1 for a binary file.
+     * @param addedIgnoringLineEndings Lines added ignoring end-of-line whitespace, or -1 for
+     *     binary.
+     * @param removedIgnoringLineEndings Lines removed ignoring end-of-line whitespace, or -1 for
+     *     binary.
      * @param rank What reading it is worth.
      * @param reason Why it has that rank, in words; empty for an ordinary file.
      */
     public record File(
-            String path, String status, int added, int removed, Rank rank, String reason) {}
+            String path,
+            String status,
+            int added,
+            int removed,
+            int addedIgnoringLineEndings,
+            int removedIgnoringLineEndings,
+            Rank rank,
+            String reason) {}
 
     /**
      * A push as a person should review it.
@@ -70,6 +81,10 @@ public final class ReviewRanking {
      * @param newMode Its mode after, {@code 000000} when it is gone.
      * @param added Lines added, or -1 for a binary file.
      * @param removed Lines removed, or -1 for a binary file.
+     * @param addedIgnoringLineEndings Lines added ignoring end-of-line whitespace, or -1 for
+     *     binary.
+     * @param removedIgnoringLineEndings Lines removed ignoring end-of-line whitespace, or -1 for
+     *     binary.
      * @param whitespaceOnly Whether its change is whitespace alone.
      * @param head The start of its new content, or {@code null} when it is gone or was not read.
      */
@@ -80,6 +95,8 @@ public final class ReviewRanking {
             String newMode,
             int added,
             int removed,
+            int addedIgnoringLineEndings,
+            int removedIgnoringLineEndings,
             boolean whitespaceOnly,
             @Nullable String head) {}
 
@@ -285,6 +302,8 @@ public final class ReviewRanking {
                             change.status(),
                             change.added(),
                             change.removed(),
+                            change.addedIgnoringLineEndings(),
+                            change.removedIgnoringLineEndings(),
                             rank,
                             reason));
         }

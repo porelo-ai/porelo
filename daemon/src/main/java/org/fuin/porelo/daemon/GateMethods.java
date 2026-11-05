@@ -125,7 +125,7 @@ final class GateMethods {
                                     ? "HEAD"
                                     : text(parameters, "against");
                     final org.fuin.porelo.gate.ReviewRanking.Review review =
-                            gate.rankedReview(name, against);
+                            gate.rankedReview(name, against, flag(parameters, "ignoreLineEndings"));
                     final Map<String, Object> reply = new LinkedHashMap<>();
                     reply.put("diff", review.patch());
                     reply.put("log", gate.log(name, against));
@@ -140,6 +140,12 @@ final class GateMethods {
                                                 row.put("status", file.status());
                                                 row.put("added", file.added());
                                                 row.put("removed", file.removed());
+                                                row.put(
+                                                        "addedIgnoringLineEndings",
+                                                        file.addedIgnoringLineEndings());
+                                                row.put(
+                                                        "removedIgnoringLineEndings",
+                                                        file.removedIgnoringLineEndings());
                                                 row.put("rank", file.rank().name());
                                                 row.put("reason", file.reason());
                                                 return row;

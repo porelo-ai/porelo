@@ -20,6 +20,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b464"></a>[B464](B464-A-Review-Counts-Lines-Without-Their-Endings.md) | M | - | Backend counts and the optional patch switch are built; 84 focused tests pass. Full units stop at sandbox socket ownership checks; the window remains separate. |
 | <a id="b454"></a>[B454](B454-A-Scenarios-Setup-Says-When-It-Failed.md) | XS | - | The first-start scenario checks its setup and cleans up even after a red. |
 | <a id="b451"></a>[B451](B451-An-Ecosystem-Adapter-Is-Not-A-Plugin.md) | S | - | Documentation and human output say "ecosystem adapter"; JSON stays compatible. Focused tests pass; full units stop at sandbox socket ownership checks. |
 | <a id="b463"></a>[B463](B463-A-File-Written-Back-Keeps-Its-Comments.md) | S | - | Organization settings keep comments and unrelated keys through the node tree; lossy writes are refused; unit regressions pass, full suite awaits valid directory ownership. |

@@ -88,15 +88,26 @@ class ReviewTextTest {
                                         "M",
                                         1,
                                         0,
+                                        1,
+                                        0,
                                         ReviewRanking.Rank.DANGEROUS,
                                         "a CI definition: it runs with the CI's credentials"),
                                 new ReviewRanking.File(
-                                        "App.java", "M", 3, 1, ReviewRanking.Rank.ORDINARY, ""),
+                                        "App.java",
+                                        "M",
+                                        3,
+                                        1,
+                                        3,
+                                        1,
+                                        ReviewRanking.Rank.ORDINARY,
+                                        ""),
                                 new ReviewRanking.File(
                                         "Big.java",
                                         "M",
                                         400,
                                         400,
+                                        0,
+                                        0,
                                         ReviewRanking.Rank.REFORMATTING,
                                         "whitespace only")));
 
@@ -115,7 +126,14 @@ class ReviewTextTest {
                         ReviewText.Instruction.GONE,
                         List.of(
                                 new ReviewRanking.File(
-                                        "App.java", "M", 3, 1, ReviewRanking.Rank.ORDINARY, "")));
+                                        "App.java",
+                                        "M",
+                                        3,
+                                        1,
+                                        3,
+                                        1,
+                                        ReviewRanking.Rank.ORDINARY,
+                                        "")));
         assertThat(without).contains("Nothing dangerous by kind");
     }
 }

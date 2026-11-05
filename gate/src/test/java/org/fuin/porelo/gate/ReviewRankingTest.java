@@ -9,7 +9,7 @@ import org.junit.jupiter.api.Test;
 class ReviewRankingTest {
 
     private static ReviewRanking.Change modified(String path) {
-        return new ReviewRanking.Change(path, "M", "100644", "100644", 1, 1, false, "text");
+        return new ReviewRanking.Change(path, "M", "100644", "100644", 1, 1, 1, 1, false, "text");
     }
 
     @Test
@@ -43,7 +43,16 @@ class ReviewRankingTest {
         assertThat(
                         ReviewRanking.danger(
                                 new ReviewRanking.Change(
-                                        "tools/run", "M", "100644", "100755", 0, 0, false, "x")))
+                                        "tools/run",
+                                        "M",
+                                        "100644",
+                                        "100755",
+                                        0,
+                                        0,
+                                        0,
+                                        0,
+                                        false,
+                                        "x")))
                 .isEqualTo("made executable");
         assertThat(
                         ReviewRanking.danger(
@@ -52,6 +61,8 @@ class ReviewRankingTest {
                                         "A",
                                         "000000",
                                         "120000",
+                                        1,
+                                        0,
                                         1,
                                         0,
                                         false,
@@ -72,6 +83,8 @@ class ReviewRankingTest {
                                         "100644",
                                         3,
                                         3,
+                                        3,
+                                        3,
                                         true,
                                         "# DO NOT EDIT")));
 
@@ -84,12 +97,15 @@ class ReviewRankingTest {
                 ReviewRanking.rank(
                         List.of(
                                 new ReviewRanking.Change(
-                                        "a.txt", "M", "100644", "100644", 400, 400, true, "x"),
+                                        "a.txt", "M", "100644", "100644", 400, 400, 400, 400, true,
+                                        "x"),
                                 new ReviewRanking.Change(
                                         "b.js",
                                         "M",
                                         "100644",
                                         "100644",
+                                        1,
+                                        0,
                                         1,
                                         0,
                                         false,
@@ -120,6 +136,8 @@ class ReviewRankingTest {
                                                             "100644",
                                                             9,
                                                             0,
+                                                            9,
+                                                            0,
                                                             false,
                                                             head)))
                                     .getFirst()
@@ -137,6 +155,8 @@ class ReviewRankingTest {
                                 new ReviewRanking.File(
                                         "odd[1]*.txt",
                                         "M",
+                                        1,
+                                        1,
                                         1,
                                         1,
                                         ReviewRanking.Rank.ORDINARY,

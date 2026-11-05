@@ -3649,6 +3649,150 @@ class PoreloDaemonTest {
     }
 
     @Test
+    void aReviewCanIgnoreLineEndingsWithoutHidingRealEdits(@TempDir Path dir) throws Exception {
+
+        // Guards the client contract and keeps real edits visible when line endings swamp a review.
+        final PoreloContext context = context(dir);
+        final org.fuin.porelo.core.process.ProcessCommandRunner git =
+                new org.fuin.porelo.core.process.ProcessCommandRunner();
+        final java.util.function.BiConsumer<Path, String[]> in =
+                (where, arguments) -> {
+                    final java.util.List<String> all =
+                            new java.util.ArrayList<>(
+                                    java.util.List.of(
+                                            "git",
+                                            "-C",
+                                            where.toString(),
+                                            "-c",
+                                            "user.email=t@example.com",
+                                            "-c",
+                                            "user.name=T",
+                                            "-c",
+                                            "core.autocrlf=false"));
+                    all.addAll(java.util.List.of(arguments));
+                    git.runOrFail(
+                            new org.fuin.porelo.core.process.Command(
+                                    all,
+                                    null,
+                                    Map.of(
+                                            "GIT_CONFIG_GLOBAL",
+                                            "/dev/null",
+                                            "GIT_CONFIG_NOSYSTEM",
+                                            "1"),
+                                    null));
+                };
+        final Path checkout = Files.createDirectories(dir.resolve("app"));
+        in.accept(checkout, new String[] {"init", "-q", "-b", "main"});
+        Files.writeString(checkout.resolve("mixed.txt"), "one\r\ntwo\r\nthree\r\n");
+        Files.writeString(checkout.resolve("pure.txt"), "unchanged\r\n");
+        Files.writeString(checkout.resolve("ordinary.txt"), "before\n");
+        Files.write(checkout.resolve("binary.dat"), new byte[] {0, 1});
+        in.accept(checkout, new String[] {"add", "."});
+        in.accept(checkout, new String[] {"commit", "-q", "-m", "start"});
+        new org.fuin.porelo.app.DefaultProject(context)
+                .add(checkout.toString(), "app", checkout.toString(), "");
+        final org.fuin.porelo.core.project.Project project =
+                org.fuin.porelo.app.GateSupport.byName(context, "default");
+        final org.fuin.porelo.gate.GitGate gate =
+                org.fuin.porelo.app.GateSupport.gate(
+                        context, project, project.repository("app"), null, null);
+        gate.initialize();
+        final Path work = dir.resolve("work");
+        in.accept(dir, new String[] {"clone", "-q", gate.mirror().toString(), work.toString()});
+        Files.writeString(work.resolve("mixed.txt"), "one\ntwo changed\nthree\n");
+        Files.writeString(work.resolve("pure.txt"), "unchanged\n");
+        in.accept(work, new String[] {"add", "."});
+        in.accept(work, new String[] {"commit", "-q", "-m", "line endings and a real edit"});
+        Files.writeString(work.resolve("ordinary.txt"), "after\n");
+        Files.write(work.resolve("binary.dat"), new byte[] {0, 2});
+        in.accept(work, new String[] {"add", "."});
+        in.accept(work, new String[] {"commit", "-q", "-m", "change"});
+        in.accept(
+                work,
+                new String[] {
+                    "push", "-q", gate.mirror().toString(), "HEAD:refs/porelo/incoming/t"
+                });
+
+        servingContext(
+                context,
+                dir,
+                socket -> {
+                    try (VarlinkClient client = new VarlinkClient(socket)) {
+                        final Map<String, Object> parameters =
+                                new java.util.LinkedHashMap<>(
+                                        Map.of(
+                                                "project",
+                                                "default",
+                                                "repository",
+                                                "app",
+                                                "name",
+                                                "t"));
+                        final Map<String, Object> raw =
+                                client.call(PoreloDaemon.INTERFACE + ".Review", parameters);
+                        parameters.put("ignoreLineEndings", false);
+                        assertThat(client.call(PoreloDaemon.INTERFACE + ".Review", parameters))
+                                .as("false preserves the default review")
+                                .isEqualTo(raw);
+                        parameters.put("ignoreLineEndings", true);
+                        final Map<String, Object> ignored =
+                                client.call(PoreloDaemon.INTERFACE + ".Review", parameters);
+                        final var softly = new org.assertj.core.api.SoftAssertions();
+                        softly.assertThat(String.valueOf(raw.get("diff")))
+                                .as("the default patch includes line ending changes")
+                                .contains("-unchanged\r", "+unchanged\n");
+                        softly.assertThat(String.valueOf(ignored.get("diff")))
+                                .as("the switch removes only end-of-line whitespace noise")
+                                .doesNotContain("diff --git a/pure.txt", "-one\r", "+one\n")
+                                .contains("-two\r", "+two changed\n", "-before\n", "+after\n");
+                        softly.assertThat(ignored.get("files"))
+                                .as("switch preserves counts and ranking")
+                                .isEqualTo(raw.get("files"));
+                        softly.assertThat(ignored.get("log"))
+                                .as("switch preserves the log")
+                                .isEqualTo(raw.get("log"));
+                        softly.assertThat(
+                                        ((List<?>) raw.get("files"))
+                                                .stream()
+                                                        .map(
+                                                                value ->
+                                                                        String.valueOf(
+                                                                                ((Map<?, ?>) value)
+                                                                                        .get(
+                                                                                                "path")))
+                                                        .toList())
+                                .as("all changed files remain available to the reviewer")
+                                .containsExactlyInAnyOrder(
+                                        "mixed.txt", "pure.txt", "ordinary.txt", "binary.dat");
+                        for (final Object value : (List<?>) raw.get("files")) {
+                            final Map<?, ?> row = (Map<?, ?>) value;
+                            final String path = String.valueOf(row.get("path"));
+                            final int count =
+                                    path.equals("binary.dat")
+                                            ? -1
+                                            : path.equals("pure.txt") ? 0 : 1;
+                            softly.assertThat(row.get("addedIgnoringLineEndings"))
+                                    .as("%s normalized additions", path)
+                                    .isEqualTo((double) count);
+                            softly.assertThat(row.get("removedIgnoringLineEndings"))
+                                    .as("%s normalized removals", path)
+                                    .isEqualTo((double) count);
+                            final int rawCount =
+                                    path.equals("mixed.txt")
+                                            ? 3
+                                            : path.equals("binary.dat") ? -1 : 1;
+                            softly.assertThat(row.get("added"))
+                                    .as("%s raw additions", path)
+                                    .isEqualTo((double) rawCount);
+                            softly.assertThat(row.get("removed"))
+                                    .as("%s raw removals", path)
+                                    .isEqualTo((double) rawCount);
+                        }
+                        softly.assertAll();
+                    }
+                });
+    }
+
+    @Test
     void approvingOntoABranchThatHoldsEarlierWorkIsRefusedByName(@TempDir Path dir)
             throws Exception {
 

@@ -214,6 +214,61 @@ class GitGateTest {
     }
 
     @Test
+    void lineEndingNoiseDoesNotHideRealChangesInTheReview() throws IOException {
+        // Guards the review contract: filtering noise must leave every real edit available.
+        final GitGate gate = gate(GateMode.GATEKEEPING, null);
+        git(root, "init", "-b", "main", work.toString());
+        makeCommit("mixed.txt", "one\r\ntwo\r\nthree\r\n");
+        makeCommit("pure.txt", "unchanged\r\n");
+        makeCommit("ordinary.txt", "before\n");
+        Files.write(work.resolve("binary.dat"), new byte[] {0, 1});
+        git(work, "add", ".");
+        git(work, "commit", "-m", "binary");
+        git(work, "push", mirror.toString(), "HEAD:refs/heads/main");
+        Files.writeString(work.resolve("mixed.txt"), "one\ntwo changed\nthree\n");
+        Files.writeString(work.resolve("pure.txt"), "unchanged\n");
+        git(work, "add", ".");
+        git(work, "commit", "-m", "line endings and a real edit");
+        Files.writeString(work.resolve("ordinary.txt"), "after\n");
+        Files.write(work.resolve("binary.dat"), new byte[] {0, 2});
+        git(work, "add", ".");
+        git(work, "commit", "-m", "ordinary and binary");
+        git(work, "push", mirror.toString(), "HEAD:" + GitGate.INCOMING + "review");
+
+        final ReviewRanking.Review raw = gate.rankedReview("review", "main");
+        final ReviewRanking.Review ignored = gate.rankedReview("review", "main", true);
+        final var softly = new org.assertj.core.api.SoftAssertions();
+        softly.assertThat(gate.rankedReview("review", "main", false))
+                .as("false preserves the default review")
+                .isEqualTo(raw);
+        softly.assertThat(raw.files())
+                .extracting(ReviewRanking.File::path)
+                .as("all changed files are available")
+                .containsExactlyInAnyOrder("mixed.txt", "pure.txt", "ordinary.txt", "binary.dat");
+        softly.assertThat(raw.patch())
+                .as("raw patch retains line ending changes")
+                .contains("-unchanged\r", "+unchanged\n");
+        softly.assertThat(ignored.patch())
+                .as("filtered patch retains real changes")
+                .doesNotContain("diff --git a/pure.txt", "-one\r", "+one\n")
+                .contains("-two\r", "+two changed\n", "-before\n", "+after\n");
+        softly.assertThat(ignored.files())
+                .as("switch preserves file measurements and ranking")
+                .isEqualTo(raw.files());
+        for (final ReviewRanking.File file : raw.files()) {
+            final int expected =
+                    file.path().equals("binary.dat") ? -1 : file.path().equals("pure.txt") ? 0 : 1;
+            softly.assertThat(file)
+                    .as("%s normalized counts", file.path())
+                    .extracting(
+                            ReviewRanking.File::addedIgnoringLineEndings,
+                            ReviewRanking.File::removedIgnoringLineEndings)
+                    .containsExactly(expected, expected);
+        }
+        softly.assertAll();
+    }
+
+    @Test
     void aTaskMayPushToItsOwnRefAndToNothingElseInTheMirror() throws IOException {
 
         // Measured on 2026-09-29: a plain push landed in the mirror's refs/heads, which is the
