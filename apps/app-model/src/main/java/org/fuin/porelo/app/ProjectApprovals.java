@@ -7,7 +7,6 @@ import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
-import java.util.ArrayList;
 import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
@@ -21,27 +20,20 @@ import org.fuin.porelo.wire.Json;
 import org.jspecify.annotations.Nullable;
 
 /**
- * Which {@code project.yml} in a checkout this machine approved, by its path and its hash.
+ * Which of this machine's projects a person approved from a checkout.
  *
- * <p><strong>A person's yes, and no judgement of the file.</strong> A repository's file says what a
- * task may reach, and nobody signed it: it counts only while it is byte for byte what a person
- * answered yes to on this machine. An edit, a pull or a checkout of another branch asks again.
+ * <p><strong>What was approved is the copy, not a record of it.</strong> A checkout's files change
+ * under whoever reads them, so a start reads this machine's own copy, in the project's place under
+ * the configuration directory, and a checkout's files only decide whether to ask again. What is
+ * kept here is only that the copy is a person's yes and for which upstream: the same file from the
+ * same upstream is the same project, and a stranger's repository takes over nothing.
  *
- * <p>One file per approval, as a registry two processes write is.
+ * <p>One file per project, as a registry two processes write is.
  */
 public final class ProjectApprovals {
 
-    /** The most a file may hold to be read at a start: a repository's size is not to be trusted. */
-    static final long MOST_BYTES = 1024L * 1024L;
-
-    /**
-     * One approval.
-     *
-     * @param project The project the file named.
-     * @param file Its absolute path.
-     * @param hash The hash of the bytes approved.
-     */
-    public record Approval(String project, Path file, String hash) {}
+    /** The most one file may hold to be read at a start: a repository's size proves nothing. */
+    static final int MOST_BYTES = 1024 * 1024;
 
     private final Path directory;
 
@@ -58,113 +50,91 @@ public final class ProjectApprovals {
     }
 
     /**
-     * Returns the hash an approval names.
+     * Returns the hash a yes names: every file under a directory, each with its relative name, so a
+     * change in a file the project names asks again.
      *
-     * @param bytes A file's bytes.
+     * @param place The directory, holding a project's file and what it names.
      * @return Their SHA-256, in hex.
+     * @throws IOException When it cannot be read.
      */
-    public static String hash(final byte[] bytes) {
+    public static String hash(final Path place) throws IOException {
+        final MessageDigest digest;
         try {
-            return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(bytes));
+            digest = MessageDigest.getInstance("SHA-256");
         } catch (NoSuchAlgorithmException ex) {
             throw new IllegalStateException("every Java has SHA-256", ex);
         }
+        final List<Path> files;
+        try (Stream<Path> walk = Files.walk(place)) {
+            files = walk.filter(Files::isRegularFile).sorted().toList();
+        }
+        for (final Path file : files) {
+            final byte[] name = place.relativize(file).toString().getBytes(StandardCharsets.UTF_8);
+            final byte[] bytes = Files.readAllBytes(file);
+            digest.update((name.length + ":").getBytes(StandardCharsets.UTF_8));
+            digest.update(name);
+            digest.update((":" + bytes.length + ":").getBytes(StandardCharsets.UTF_8));
+            digest.update(bytes);
+        }
+        return HexFormat.of().formatHex(digest.digest());
     }
 
     /**
-     * Keeps a person's yes.
+     * Keeps that a person said yes to a project for a repository.
      *
-     * @param project The project the file names.
-     * @param file Its absolute path.
-     * @param hash The hash they answered to.
+     * @param project The project.
+     * @param upstream The checkout's origin, or its own path when it has no usable one.
      * @throws IOException When it cannot be kept; the yes then did not happen.
      */
-    public void approve(final String project, final Path file, final String hash)
-            throws IOException {
+    public void approve(final String project, final String upstream) throws IOException {
         Directories.create(directory);
-        final String name = entry(file);
-        final Path temporary = Files.createTempFile(directory, name, ".new");
+        final Path temporary = Files.createTempFile(directory, project, ".new");
         Files.writeString(
                 temporary,
-                Json.write(Map.of("project", project, "file", file.toString(), "hash", hash)),
+                Json.write(Map.of("project", project, "upstream", upstream)),
                 StandardCharsets.UTF_8);
         Files.move(
                 temporary,
-                directory.resolve(name),
+                directory.resolve(project),
                 StandardCopyOption.REPLACE_EXISTING,
                 StandardCopyOption.ATOMIC_MOVE);
     }
 
     /**
-     * Returns what was approved at a path.
+     * Tells whether a project was approved for this repository. Same file, same project takes this
+     * and the hash; a repository of another upstream takes over nothing.
      *
-     * @param file The file's absolute path.
-     * @return The approval, or {@code null} for none.
+     * @param project The project.
+     * @param upstream The checkout's origin, or its own path when it has no usable one.
+     * @return {@code true} when a person approved it for that upstream; a file of that name a
+     *     person wrote in its place, or a stranger's, gets {@code false}.
      */
-    public @Nullable Approval at(final Path file) {
-        return read(directory.resolve(entry(file)));
+    public boolean approvedFor(final String project, final String upstream) {
+        final String kept = upstream(project);
+        return kept != null && RepositoryAddress.same(kept, upstream);
     }
 
     /**
-     * Returns every approval this machine holds.
-     *
-     * @return They, in no meaningful order; empty when there are none.
-     */
-    public List<Approval> all() {
-        if (!Files.isDirectory(directory)) {
-            return List.of();
-        }
-        final List<Approval> all = new ArrayList<>();
-        try (Stream<Path> entries = Files.list(directory)) {
-            entries.filter(entry -> !entry.getFileName().toString().endsWith(".new"))
-                    .sorted()
-                    .forEach(
-                            entry -> {
-                                final Approval read = read(entry);
-                                if (read != null) {
-                                    all.add(read);
-                                }
-                            });
-        } catch (IOException ex) {
-            // No record read is no project found: the start goes on as it does without one.
-            return List.of();
-        }
-        return List.copyOf(all);
-    }
-
-    /**
-     * Tells whether a project's file is still what was approved and still what its name finds.
-     *
-     * @param approval The approval.
-     * @return {@code true} when a start may take it without asking.
-     */
-    public boolean holds(final Approval approval) {
-        final byte[] bytes = bytes(approval.file());
-        return bytes != null
-                && hash(bytes).equals(approval.hash())
-                && approval.file()
-                        .equals(ProjectSource.resolve(context, approval.project()).file());
-    }
-
-    /**
-     * Returns the approved project whose repository has this upstream, its file unchanged.
+     * Returns the approved project whose repository has this upstream.
      *
      * @param upstream A repository's address.
      * @return The project and repository, or {@code null}.
      */
     public WorkOrigin.@Nullable Choice naming(final String upstream) {
-        for (final Approval approval : all()) {
-            if (!holds(approval)) {
+        for (final String project : projects()) {
+            final Path copy = copy(project);
+            if (!approvedFor(project, upstream)
+                    || !copy.equals(ProjectSource.resolve(context, project).file())) {
                 continue;
             }
-            final Repository named = repository(approval.file(), upstream);
+            final Repository named = repository(copy, upstream);
             if (named != null) {
                 return new WorkOrigin.Choice(
-                        approval.project(),
+                        project,
                         named.name(),
                         "'"
-                                + approval.project()
-                                + "', the project.yml this machine approved, names this"
+                                + project
+                                + "', the project this machine approved, names this"
                                 + " repository as '"
                                 + named.name()
                                 + "'");
@@ -173,25 +143,43 @@ public final class ProjectApprovals {
         return null;
     }
 
-    /**
-     * Returns an approval whose file names this upstream and has changed since.
-     *
-     * @param upstream A repository's address.
-     * @return The approval, or {@code null}.
-     */
-    public @Nullable Approval changedNaming(final String upstream) {
-        for (final Approval approval : all()) {
-            final byte[] bytes = bytes(approval.file());
-            if (bytes != null
-                    && !hash(bytes).equals(approval.hash())
-                    && repository(approval.file(), upstream) != null) {
-                return approval;
-            }
+    private Path copy(final String project) {
+        return context.paths().projects().defaultProjectFile(project);
+    }
+
+    private List<String> projects() {
+        if (!Files.isDirectory(directory)) {
+            return List.of();
         }
-        return null;
+        try (Stream<Path> entries = Files.list(directory)) {
+            return entries.map(entry -> entry.getFileName().toString())
+                    .filter(name -> name.matches(Project.NAME_PATTERN))
+                    .sorted()
+                    .toList();
+        } catch (IOException ex) {
+            // No record read is no project found: the start goes on as it does without one.
+            return List.of();
+        }
+    }
+
+    private @Nullable String upstream(final String project) {
+        final Path entry = directory.resolve(project);
+        try {
+            return Files.isRegularFile(entry)
+                            && Json.parse(Files.readString(entry, StandardCharsets.UTF_8))
+                                    instanceof Map<?, ?> map
+                            && map.get("upstream") instanceof String upstream
+                    ? upstream
+                    : null;
+        } catch (IOException | RuntimeException ex) {
+            return null;
+        }
     }
 
     private static @Nullable Repository repository(final Path file, final String upstream) {
+        if (!Files.isRegularFile(file)) {
+            return null;
+        }
         final Project project;
         try {
             project = ProjectReader.read(file);
@@ -204,39 +192,5 @@ public final class ProjectApprovals {
             }
         }
         return null;
-    }
-
-    /** A link, a directory or a very large file is no file a person approved. */
-    static byte @Nullable [] bytes(final Path file) {
-        try {
-            if (Files.isSymbolicLink(file)
-                    || !Files.isRegularFile(file)
-                    || Files.size(file) > MOST_BYTES) {
-                return null;
-            }
-            return Files.readAllBytes(file);
-        } catch (IOException ex) {
-            return null;
-        }
-    }
-
-    private static String entry(final Path file) {
-        return hash(file.toString().getBytes(StandardCharsets.UTF_8));
-    }
-
-    private static @Nullable Approval read(final Path entry) {
-        try {
-            if (!Files.isRegularFile(entry)
-                    || !(Json.parse(Files.readString(entry, StandardCharsets.UTF_8))
-                            instanceof Map<?, ?> map)
-                    || !(map.get("project") instanceof String project)
-                    || !(map.get("file") instanceof String file)
-                    || !(map.get("hash") instanceof String hash)) {
-                return null;
-            }
-            return new Approval(project, Path.of(file), hash);
-        } catch (IOException | RuntimeException ex) {
-            return null;
-        }
     }
 }

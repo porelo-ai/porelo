@@ -141,13 +141,16 @@ public final class FirstStart {
      * @param found What was found; printable.
      * @param hosts Each host it opens; printable.
      * @param marked The hosts only the checkout names, in no curated set.
-     * @param file The text that would be or was written.
+     * @param file The text that would be written; for a file already there, every line of it and of
+     *     each file it names, made printable.
      * @param project The project's name, or "".
      * @param hash What the answer names, or "".
      * @param repository The repository in the project this checkout is, or "".
      * @param target The file's path, or {@code null} when there is none to approve.
      * @param refusal Why a yes cannot be taken, or {@code null}.
      * @param notes What else a person should read, such as a plugin that failed; printable.
+     * @param staged This machine's copy of what is asked about, or {@code null}.
+     * @param upstream The checkout's origin, or its own path when it has no usable one; or "".
      */
     public record Answer(
             Outcome outcome,
@@ -160,7 +163,9 @@ public final class FirstStart {
             String repository,
             @Nullable Path target,
             @Nullable Refused refusal,
-            List<String> notes) {
+            List<String> notes,
+            @Nullable StagedProject staged,
+            String upstream) {
 
         private static Answer plain(
                 final Outcome outcome,
@@ -178,7 +183,16 @@ public final class FirstStart {
                     repository,
                     null,
                     null,
-                    List.copyOf(notes));
+                    List.copyOf(notes),
+                    null,
+                    "");
+        }
+
+        /** Ends the question; a yes has already moved the copy away. */
+        public void discard() {
+            if (staged != null) {
+                staged.discard();
+            }
         }
 
         /**
@@ -217,7 +231,8 @@ public final class FirstStart {
     }
 
     /**
-     * Looks at a checkout, changing nothing.
+     * Looks at a checkout, changing nothing there; a question holds a staged copy of what it asks
+     * about, which {@link Answer#discard()} or {@link #take(Answer)} ends.
      *
      * @param directory Where the person stands.
      * @return What to do.
@@ -250,15 +265,10 @@ public final class FirstStart {
             }
         }
         if (!origin.isEmpty()) {
-            final ProjectApprovals approvals = new ProjectApprovals(context);
-            final WorkOrigin.Choice recorded = approvals.naming(origin);
+            final WorkOrigin.Choice recorded = new ProjectApprovals(context).naming(origin);
             if (recorded != null) {
                 return Answer.plain(
                         Outcome.KNOWN, recorded.project(), recorded.repository(), List.of());
-            }
-            final ProjectApprovals.Approval changed = approvals.changedNaming(origin);
-            if (changed != null) {
-                return ofFile(changed.file(), origin, top);
             }
         }
         return detected(here, top, origin);
@@ -274,48 +284,56 @@ public final class FirstStart {
      */
     public String confirm(final Path directory, final String hash) throws Refused {
         final Answer answer = look(directory);
-        if (answer.outcome() == Outcome.KNOWN && answer.target() != null) {
-            if (answer.hash().equals(hash)) {
-                return answer.project();
+        try {
+            if (answer.outcome() == Outcome.KNOWN && answer.target() != null) {
+                if (answer.hash().equals(hash)) {
+                    return answer.project();
+                }
+                throw new Refused(Reason.MOVED_ON, "the file is not what that hash named");
             }
-            throw new Refused(Reason.MOVED_ON, "the file is not what that hash named");
+            if (answer.outcome() != Outcome.ASK_NEW
+                    && answer.outcome() != Outcome.ASK_UNKNOWN_FILE) {
+                throw new Refused(Reason.NOTHING_ASKED, "there is nothing to say yes to here");
+            }
+            if (!answer.hash().equals(hash)) {
+                throw new Refused(Reason.MOVED_ON, "the file is not what that hash named");
+            }
+            return take(answer);
+        } finally {
+            answer.discard();
         }
-        if (answer.outcome() != Outcome.ASK_NEW && answer.outcome() != Outcome.ASK_UNKNOWN_FILE) {
-            throw new Refused(Reason.NOTHING_ASKED, "there is nothing to say yes to here");
-        }
-        if (!answer.hash().equals(hash)) {
-            throw new Refused(Reason.MOVED_ON, "the file is not what that hash named");
-        }
-        return take(answer);
     }
 
     /**
-     * Takes a yes to what a look answered: writes a new file, keeps the hash, records the project.
+     * Takes a yes to what a look answered: its copy becomes the project, whatever the checkout now
+     * holds, and a new file goes into the checkout for the person to commit.
      *
      * @param answer What the person read.
      * @return The project.
-     * @throws Refused When it cannot be taken, or the file moved on since.
+     * @throws Refused When it cannot be taken: the name is checked again, as another yes may have
+     *     taken it while this question waited.
      */
     public String take(final Answer answer) throws Refused {
         if (answer.refusal() != null) {
             throw answer.refusal();
         }
         final Path file = Objects.requireNonNull(answer.target(), "a question names its file");
+        final StagedProject staged =
+                Objects.requireNonNull(answer.staged(), "a question holds its copy");
+        final Refused now = nameRefusal(answer.project(), answer.upstream());
+        if (now != null) {
+            throw now;
+        }
+        final Path copy = context.paths().projects().defaultProjectFile(answer.project());
         try {
             if (answer.outcome() == Outcome.ASK_NEW) {
                 write(file, answer.file());
-            } else {
-                final byte[] now = ProjectApprovals.bytes(file);
-                if (now == null || !ProjectApprovals.hash(now).equals(answer.hash())) {
-                    throw new Refused(Reason.MOVED_ON, "the file changed since it was read");
-                }
             }
-            new ProjectApprovals(context).approve(answer.project(), file, answer.hash());
+            staged.install(Objects.requireNonNull(copy.getParent(), "a place has a parent"));
+            new ProjectApprovals(context).approve(answer.project(), answer.upstream());
         } catch (IOException ex) {
             throw new Refused(Reason.NOT_WRITTEN, "cannot keep it: " + printable(ex.toString()));
         }
-        new ProjectRegistry(context.paths().projects().projectRegistry())
-                .remember(answer.project(), file);
         return answer.project();
     }
 
@@ -348,39 +366,40 @@ public final class FirstStart {
                 remote.successful() ? remote.standardOutput().strip() : "");
     }
 
+    private Path projects() {
+        return context.paths().xdg().config().resolve("projects");
+    }
+
     private Answer ofFile(final Path file, final String origin, final Path top) {
-        final byte[] bytes = ProjectApprovals.bytes(file);
-        if (bytes == null) {
-            return refused(
-                    file,
-                    "",
-                    "",
-                    new Refused(
-                            Reason.FILE_UNREADABLE,
-                            file + " is a link, is no file, or is too large to be read"));
-        }
-        final String text = new String(bytes, StandardCharsets.UTF_8);
-        final String hash = ProjectApprovals.hash(bytes);
-        final Project project;
+        final StagedProject staged;
         try {
-            project = ProjectReader.read(file);
-        } catch (ProjectException ex) {
+            staged = StagedProject.read(projects(), file);
+        } catch (StagedProject.Unreadable ex) {
+            return refused(
+                    file, new Refused(Reason.FILE_UNREADABLE, String.valueOf(ex.getMessage())));
+        } catch (IOException ex) {
             return refused(
                     file,
-                    text,
-                    hash,
                     new Refused(
-                            Reason.FILE_UNREADABLE,
-                            "it does not read as a project file: "
-                                    + printable(String.valueOf(ex.getMessage()))));
+                            Reason.NOT_WRITTEN, "cannot stage it: " + printable(ex.toString())));
         }
+        final String hash;
+        final String text;
+        try {
+            hash = staged.hash();
+            text = staged.text();
+        } catch (IOException ex) {
+            staged.discard();
+            return refused(
+                    file,
+                    new Refused(
+                            Reason.NOT_WRITTEN, "cannot stage it: " + printable(ex.toString())));
+        }
+        final Project project = staged.project();
         final String repository = repositoryOf(project, origin, top);
-        final ProjectApprovals approvals = new ProjectApprovals(context);
-        final ProjectApprovals.Approval approval = approvals.at(file);
-        if (approval != null
-                && approval.hash().equals(hash)
-                && approval.project().equals(project.name())
-                && approvals.holds(approval)) {
+        final String upstream = upstream(origin, top);
+        if (holdsTheCopy(project.name(), hash, upstream)) {
+            staged.discard();
             return new Answer(
                     Outcome.KNOWN,
                     List.of(),
@@ -392,7 +411,9 @@ public final class FirstStart {
                     repository,
                     file,
                     null,
-                    List.of());
+                    List.of(),
+                    null,
+                    upstream);
         }
         final Set<String> hosts = new LinkedHashSet<>(project.egress().domains());
         for (final Repository each : project.allRepositories()) {
@@ -410,24 +431,53 @@ public final class FirstStart {
                 hash,
                 repository,
                 file,
-                nameRefusal(project.name(), file),
-                List.of());
+                nameRefusal(project.name(), upstream),
+                List.of(),
+                staged,
+                upstream);
     }
 
-    private Answer refused(
-            final Path file, final String text, final String hash, final Refused refusal) {
+    /** What a checkout is known by: a usable origin, else its own path, as a `default` entry. */
+    private static String upstream(final String origin, final Path top) {
+        return !origin.isEmpty() && !origin.contains("?") && !origin.contains("#")
+                ? origin
+                : top.toString();
+    }
+
+    /**
+     * Same file, same project: the name finds this machine's copy, holding just what was hashed,
+     * and approved for this upstream.
+     */
+    private boolean holdsTheCopy(final String name, final String hash, final String upstream) {
+        final Path copy = context.paths().projects().defaultProjectFile(name);
+        if (!copy.equals(ProjectSource.resolve(context, name).file())
+                || !new ProjectApprovals(context).approvedFor(name, upstream)) {
+            return false;
+        }
+        try {
+            return ProjectApprovals.hash(
+                            Objects.requireNonNull(copy.getParent(), "a place has a parent"))
+                    .equals(hash);
+        } catch (IOException ex) {
+            return false;
+        }
+    }
+
+    private Answer refused(final Path file, final Refused refusal) {
         return new Answer(
                 Outcome.ASK_UNKNOWN_FILE,
                 List.of(),
                 List.of(),
                 List.of(),
-                text,
                 "",
-                hash,
+                "",
+                "",
                 "",
                 file,
                 refusal,
-                List.of());
+                List.of(),
+                null,
+                "");
     }
 
     private static String repositoryOf(final Project project, final String origin, final Path top) {
@@ -440,7 +490,9 @@ public final class FirstStart {
         return "";
     }
 
-    /** Everything a stranger's file can set that a person is answering yes to. */
+    /**
+     * What matters most in a stranger's file, ahead of its whole text, which the person also reads.
+     */
     private static List<Found> foundIn(final Project project) {
         final List<Found> found = new ArrayList<>();
         found.add(found("security class", project.securityClass().name().toLowerCase(Locale.ROOT)));
@@ -510,15 +562,13 @@ public final class FirstStart {
         if (usable.isEmpty()) {
             return Answer.plain(Outcome.NO_PLUGIN, "", "", notes);
         }
-        final boolean plain = !origin.isEmpty() && !origin.contains("?") && !origin.contains("#");
-        final String repository = RepositoryAddress.nameOf(plain ? origin : top.toString());
+        final String upstream = upstream(origin, top);
+        final String repository = RepositoryAddress.nameOf(upstream);
         final String name = projectName(repository);
         final ProjectProposal proposal;
         try {
             // A repository with no origin is reached where a task in 'default' reaches it.
-            proposal =
-                    new ProjectProposal(
-                            repository, plain ? origin : top.toString(), null, null, name);
+            proposal = new ProjectProposal(repository, upstream, null, null, name);
         } catch (IllegalArgumentException ex) {
             return Answer.plain(
                     Outcome.NOTHING_RECOGNIZED,
@@ -578,8 +628,22 @@ public final class FirstStart {
             notes.add(
                     printable(
                             "a task in it takes this repository from "
-                                    + (plain ? origin : top.toString())
+                                    + upstream
                                     + ", and approved work goes back there"));
+            if (ProjectReader.read(new java.io.StringReader(text), "project.yml draft")
+                            .securityClass()
+                    == org.fuin.porelo.core.project.SecurityClass.ONLINE) {
+                found.add(found("security class", "online"));
+            }
+            final StagedProject staged;
+            final String hash;
+            try {
+                staged = StagedProject.of(projects(), text);
+                hash = staged.hash();
+            } catch (IOException ex) {
+                notes.add(printable("cannot stage a project file: " + ex));
+                return Answer.plain(Outcome.NOTHING_RECOGNIZED, "", "", notes);
+            }
             return new Answer(
                     Outcome.ASK_NEW,
                     List.copyOf(found),
@@ -587,11 +651,13 @@ public final class FirstStart {
                     outsideCuratedSets(onlyHere),
                     text,
                     name,
-                    ProjectApprovals.hash(text.getBytes(StandardCharsets.UTF_8)),
+                    hash,
                     repository,
                     here.resolve(FILE_NAME),
-                    nameRefusal(name, here.resolve(FILE_NAME)),
-                    List.copyOf(notes));
+                    nameRefusal(name, upstream),
+                    List.copyOf(notes),
+                    staged,
+                    upstream);
         } catch (ProjectException | IllegalArgumentException ex) {
             // Its words may repeat what it was told: a plugin's answer is a stranger's input.
             notes.add("a plugin's answer makes no project file, so none is proposed");
@@ -616,21 +682,29 @@ public final class FirstStart {
                 .toList();
     }
 
-    /** So a repository cannot take over a project this machine has. */
-    private @Nullable Refused nameRefusal(final String name, final Path file) {
+    /**
+     * So a repository cannot take over a project this machine has: a name is free, or its copy was
+     * approved for this upstream, whose yes may replace it.
+     */
+    private @Nullable Refused nameRefusal(final String name, final String upstream) {
         if (DefaultProject.is(name)) {
             return new Refused(Reason.NAME_TAKEN, "a project may not be called '" + name + "'");
         }
-        if (ProjectSource.names(context).contains(name)
-                && !file.equals(ProjectSource.resolve(context, name).file())) {
-            return new Refused(
-                    Reason.NAME_TAKEN,
-                    "this machine already has a project '"
-                            + name
-                            + "'; give this one another name in its "
-                            + FILE_NAME);
+        if (!ProjectSource.names(context).contains(name)) {
+            return null;
         }
-        return null;
+        final Path copy = context.paths().projects().defaultProjectFile(name);
+        if (copy.equals(ProjectSource.resolve(context, name).file())
+                && new ProjectApprovals(context).approvedFor(name, upstream)) {
+            return null;
+        }
+        return new Refused(
+                Reason.NAME_TAKEN,
+                "this machine already has a project '"
+                        + name
+                        + "' of another repository or other content; give this one another name in"
+                        + " its "
+                        + FILE_NAME);
     }
 
     private static String printable(final String text) {

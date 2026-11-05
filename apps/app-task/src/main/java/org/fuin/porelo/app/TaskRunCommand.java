@@ -541,7 +541,7 @@ public class TaskRunCommand implements Callable<Integer>, PoreloFactory.ContextA
                             new FirstStartAtTerminal(new FirstStart(context, detector), err)
                                     .choose(standing, firstStartOffer(err), firstStartUnasked());
                     final WorkOrigin.Choice choice =
-                            first != null ? first : WorkOrigin.fromCheckout(context, standing);
+                            first != null ? first : WorkOrigin.withoutApproved(context, standing);
                     projectName = choice.project();
                     if (repository == null) {
                         repository = choice.repository();

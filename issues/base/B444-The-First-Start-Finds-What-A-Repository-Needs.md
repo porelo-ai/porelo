@@ -62,18 +62,34 @@ For an interface on the person's own computer, which then starts as usual by the
 ## As built
 
 - `FirstStart` in `app-task` answers one question for both the terminal (`FirstStartAtTerminal`) and the daemon.
-  `ProjectProposal` and the detection moved to `app-model` (`EcosystemDetector`); `ProjectApprovals` keeps the hashes
-  under the data directory, `project-approvals`, one file per approved path.
+  `ProjectProposal` and the detection moved to `app-model` (`EcosystemDetector`).
+- **This machine's copy is what starts.** At the question, `StagedProject` reads the checkout's `project.yml` and each file it
+  names once, into `$XDG_CONFIG_HOME/porelo/projects/.staging-*`; only that is parsed, shown and hashed. The hash covers
+  each file with its relative name. A named file outside the file's directory, a link on the way to a file, or one over
+  1 MiB is refused. A yes moves the copy to `projects/NAME/`, which `ProjectSource` answers as `RECORDED`, and the
+  checkout's path is not registered, so `-p NAME` and the daemon's `Start` read the copy. A new file also goes into the
+  checkout, and is not what starts. A stopped process can leave a `.staging-*` behind: owner-only, and no project reads it.
+- **Same file, same project.** `ProjectApprovals` keeps each project's upstream: the checkout's origin, or its own path when
+  it has no usable one. A checkout whose upstream and hash match uses the project with no question: a second clone, or a
+  git worktree. A changed file from that upstream asks again, and a yes replaces the copy. Another upstream, or a name
+  that is another local project's, is `NAME_TAKEN` and goes on in `default`, saying so. The name is checked again at the yes.
+  A second checkout with no usable origin is therefore not the same project.
+- `WorkOrigin.placedNaming` finds an organization's project first, then an approved one whose upstream this is. A project
+  this machine merely ran is not found by origin. After a No, `WorkOrigin.withoutApproved` goes to `default` and not to the
+  copy the person just did not agree to.
+- A question on a file already there prints the summary, then the whole file and each named file, made printable. The
+  reply's `file` carries the same text, under `--- <name> ---` lines. A file Porelo generates holds no `mail`, `builds` or
+  `credentials`, and an online class, which only a host's own forge as origin gives, is listed.
 - The reply of `FirstStart` gained `marked: []string`, the hosts only the checkout names, in no curated set, and a yes is
   no default for them. `FirstStartRefused(reason, detail)` is the named refusal of both methods.
-- `WorkOrigin.placedNaming` finds an organization's project first, then an approved one whose file is unchanged. A
-  project this machine merely ran is not found by origin.
-- A checkout with no usable `origin` writes its path as the repository's upstream, as `default` does, and is found by
-  its file.
+- A checkout with no usable `origin` writes its path as the repository's upstream, as `default` does, and is found by its
+  file.
 - Not built: a start in an organization's repository does not name the `porelo project init ... --project ...` command
   for what is missing, since it runs no detection there to know that.
-- A second checkout holding the same committed `project.yml` is refused at the question, as its name is the first
-  checkout's project. A second checkout with none finds the first's project by `origin`.
+- Known limit: a parent directory swapped for a link while the question waits can redirect a read. That needs a process
+  of the same account, as the socket race in [security](../../doc/security.md) does, so it is left.
+- Known limit: `porelo project remove` leaves the approval's record. It names no project a start would find, but if that
+  name is later written by hand, a yes from the recorded upstream may replace that file.
 
 ## What The Plugin Must Answer
 

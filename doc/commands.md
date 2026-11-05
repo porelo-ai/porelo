@@ -179,10 +179,18 @@ At a terminal a shut vault asks for its passphrase; a script must unlock it firs
   [egress set](#shield). A No keeps nothing and asks again next time. `--yes`, `--no-input`, `--dry-run` or no terminal
   say what was found, write nothing and go on in `default`. `-p` and `--host` ask no plugin. No plugin, or nothing
   recognized, goes on in `default` and says so.
-- A `project.yml` in the checkout that this machine has not approved gets the same yes or no, showing what it says.
-  Its hash is kept on this machine and an edit asks again. It is a yes to that text, with no comparison to what a
-  plugin says. A name that is `default` or another local project's is refused, a link or a file that does not read
-  too, and the start goes on in `default`. In a repository of an organization's project such a file decides nothing.
+- A `project.yml` in the checkout that this machine has not approved gets the same yes or no, showing a summary and
+  then the whole file and each file it names. It is a yes to that text, with no comparison to what a plugin says.
+- A yes keeps this machine's own copy of the file and what it names, under `$XDG_CONFIG_HOME/porelo/projects/NAME/`, and
+  every start, `-p NAME` too, reads that copy, whatever the checkout now holds. A new file also goes into the checkout,
+  for you to commit.
+- **Same file, same project:** a checkout with the same upstream and the same hash, the file and each file it names, uses
+  that project with no question: a second clone, or a git worktree. A checkout with no usable `origin` has its own
+  path as upstream, so a second such checkout is not the same project. A changed file from the same upstream asks
+  again, and a yes replaces the copy; a no, `--yes` or no terminal go on in `default`. Another upstream, or a name that is
+  `default` or another local project's, is refused and goes on in `default`, saying so, as does a link, a named file
+  outside the checkout, a file over 1 MiB or one that does not read. In a repository of an organization's project such
+  a file decides nothing.
 - `-r REPOSITORY`: which of the project's repositories to work on (see [names](#completion)).
 - Without a name, the task is named after its repository, or the next free name (`my-first-2`); a repository
   named `people` or `person` gives `work`, and a leading `porelo-` is left out (`porelo-pi` gives `pi`).

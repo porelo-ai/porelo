@@ -40,7 +40,7 @@ final class FirstStartAtTerminal {
             // Outside a checkout the start says so itself.
             return null;
         }
-        answer.notes().forEach(note -> say(note));
+        answer.notes().forEach(this::say);
         try {
             return switch (answer.outcome()) {
                 case KNOWN ->
@@ -49,7 +49,7 @@ final class FirstStartAtTerminal {
                                 answer.repository(),
                                 "'"
                                         + answer.project()
-                                        + "', from the project.yml this machine approved");
+                                        + "', this machine's copy of the project.yml it approved");
                 case NOT_DEFAULT -> null;
                 case NO_PLUGIN -> {
                     say(
@@ -76,6 +76,8 @@ final class FirstStartAtTerminal {
                             + DefaultProject.NAME
                             + "'");
             return null;
+        } finally {
+            answer.discard();
         }
     }
 
@@ -121,6 +123,11 @@ final class FirstStartAtTerminal {
         }
         if (answer.refusal() != null) {
             throw answer.refusal();
+        }
+        if (!isNew) {
+            // A summary is a choice of what matters, and a person is answering for all of it.
+            say("the file in full, with each file it names:");
+            answer.file().lines().forEach(line -> say("  | " + line));
         }
         if (offer == null) {
             say(

@@ -1229,15 +1229,17 @@ type Finding (
 # not approved), KNOWN (nothing to ask), NOT_DEFAULT (a repository of an organization's project),
 # NO_PLUGIN or NOTHING_RECOGNIZED. A repository decides nothing by itself: found, hosts and marked are for
 # a person to read before a yes, and 'marked' names the hosts only the checkout names, in no curated set,
-# for which a yes is not the default. file is the text that would be or was written, and hash is what the
-# answer names. An interface then starts as usual, by the project's name.
+# for which a yes is not the default. file is the text that would be written; for a project.yml already
+# there, every line of it and of each file it names, under a line '--- <name> ---', made printable. hash is
+# what the answer names: the file and each file it names, with their names. An interface then starts as usual, by the project's name.
 method FirstStart(checkout: string) -> (outcome: string, found: []Finding, hosts: []string, marked: []string, file: string, project: string, hash: string)
 
-# A person's yes to the text a hash names: writes the file if it is new, keeps the hash and records the
-# project. A No has no call, and nothing is kept.
+# A person's yes to the text a hash names: writes the file into the checkout if it is new, and makes this
+# machine's copy the project, which a start by the project's name reads whatever the checkout then holds. A
+# No has no call, and nothing is kept.
 method ConfirmFirstStart(checkout: string, hash: string) -> (project: string)
 
-# A first start's yes cannot be taken. reason is NOT_A_CHECKOUT, NAME_TAKEN (the name is 'default' or
-# another local project's), NO_NAME, FILE_UNREADABLE, MOVED_ON (the text is no longer what the hash named),
+# A first start's yes cannot be taken. reason is NOT_A_CHECKOUT, NAME_TAKEN (the name is 'default', another
+# local project's, or a project approved for another upstream), NO_NAME, FILE_UNREADABLE, MOVED_ON (the text is no longer what the hash named),
 # NOTHING_ASKED or NOT_WRITTEN; detail says it in words.
 error FirstStartRefused(reason: string, detail: string)

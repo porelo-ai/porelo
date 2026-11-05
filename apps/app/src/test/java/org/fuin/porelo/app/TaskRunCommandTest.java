@@ -767,6 +767,54 @@ class TaskRunCommandTest {
         assertThat(checkout.resolve("project.yml")).doesNotExist();
     }
 
+    private static final String APPROVED =
+            """
+            project:
+              name: "strangers"
+              security_class: "guarded"
+            image:
+              base_image: "ubuntu:24.04"
+            egress:
+              domains:
+                - "approved.example"
+            repositories:
+              shop:
+                upstream: "https://forge.example/acme/shop.git"
+            """;
+
+    @Test
+    void namingAnApprovedProjectReadsTheCopyNotTheCheckout(@TempDir Path dir) throws IOException {
+        final Path checkout = Files.createDirectories(dir.resolve("shop")).toRealPath();
+        final Path file = Files.writeString(checkout.resolve("project.yml"), APPROVED);
+        final PoreloContext context = context(dir, true);
+        firstStartAt(context, checkout, true, "y", "--attach", "shell", "--detach");
+        Files.writeString(file, APPROVED.replace("\"guarded\"", "\"offline\""));
+        out.getBuffer().setLength(0);
+        err.getBuffer().setLength(0);
+
+        firstStartAt(context, checkout, true, "n", "-p", "strangers", "--dry-run", "-r", "shop");
+
+        assertThat(out.toString()).contains("security class guarded");
+        assertThat(out.toString()).doesNotContain("offline");
+    }
+
+    @Test
+    void aNoToAChangedFileStartsInDefaultAndNotInTheCopy(@TempDir Path dir) throws IOException {
+        final Path checkout = Files.createDirectories(dir.resolve("shop")).toRealPath();
+        final Path file = Files.writeString(checkout.resolve("project.yml"), APPROVED);
+        final PoreloContext context = context(dir, true);
+        firstStartAt(context, checkout, true, "y", "--attach", "shell", "--detach");
+        Files.writeString(file, APPROVED.replace("approved.example", "edited.example"));
+        out.getBuffer().setLength(0);
+        firstStartAsked.clear();
+
+        firstStartAt(context, checkout, true, "n", "--attach", "shell", "--detach");
+
+        assertThat(firstStartAsked).hasSize(1);
+        assertThat(out.toString()).contains("project        ").contains("'default'");
+        assertThat(out.toString()).doesNotContain("'strangers'");
+    }
+
     private static final String RUNNING_SHELL =
             "porelo-uc-shell\tUp 4 minutes\t1700000000\t0\tuc\tguarded\tuc\t\n";
 

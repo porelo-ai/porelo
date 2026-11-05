@@ -44,6 +44,24 @@ public final class WorkOrigin {
      *     origin}, or the repository cannot be added to {@code default}.
      */
     public static Choice fromCheckout(final PoreloContext context, final Path directory) {
+        return fromCheckout(context, directory, true);
+    }
+
+    /**
+     * Decides from a checkout whose file a person did not approve: an organization's project or
+     * {@code default}, and no approved project, whose copy that person just did not agree to.
+     *
+     * @param context This machine.
+     * @param directory Where the person stands.
+     * @return The project and repository.
+     * @throws ProjectException As {@link #fromCheckout(PoreloContext, Path)}.
+     */
+    public static Choice withoutApproved(final PoreloContext context, final Path directory) {
+        return fromCheckout(context, directory, false);
+    }
+
+    private static Choice fromCheckout(
+            final PoreloContext context, final Path directory, final boolean approved) {
         final Path top = LocalRepository.topLevel(context.runner(), directory);
         if (top == null) {
             throw new ProjectException(
@@ -72,7 +90,12 @@ public final class WorkOrigin {
                                 + " leaves out of everything it keeps or shows";
         // A placed project's settings are what somebody wrote and signed for this repository: its
         // work comes from its remote and goes there, and this checkout is no part of it.
-        final Choice placed = origin.isEmpty() ? null : placedNaming(context, origin);
+        final Choice placed =
+                origin.isEmpty()
+                        ? null
+                        : approved
+                                ? placedNaming(context, origin)
+                                : organizationNaming(context, origin);
         if (placed != null) {
             return new Choice(
                     placed.project(),

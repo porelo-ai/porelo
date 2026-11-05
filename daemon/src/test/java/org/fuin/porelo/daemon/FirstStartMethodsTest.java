@@ -211,6 +211,32 @@ class FirstStartMethodsTest {
     }
 
     @Test
+    void theFileAStartByNameReadsIsTheCopyWhateverTheCheckoutNowHolds() throws Exception {
+        final Path file = Files.writeString(checkout.resolve("project.yml"), FILE);
+        serving(client -> confirm(client, (String) firstStart(client).get("hash")));
+        Files.writeString(file, FILE.replace("nexus.evil", "edited.evil"));
+
+        final Path started = PoreloDaemon.projectFile(Map.of("project", "strangers"), context);
+
+        assertThat(started).isEqualTo(context.paths().projects().defaultProjectFile("strangers"));
+        assertThat(Files.readString(started)).isEqualTo(FILE);
+    }
+
+    @Test
+    void theRepliesFileHoldsTheNamedFiles() throws Exception {
+        Files.writeString(checkout.resolve("image.inc"), "RUN echo named\n");
+        Files.writeString(
+                checkout.resolve("project.yml"),
+                FILE.replace(
+                        "base_image: ubuntu:24.04\n",
+                        "base_image: ubuntu:24.04\n  snippet_file: image.inc\n"));
+        serving(
+                client ->
+                        assertThat((String) firstStart(client).get("file"))
+                                .contains("image.inc", "RUN echo named"));
+    }
+
+    @Test
     void noPluginIsAnOutcome() throws Exception {
         serving(client -> assertThat(firstStart(client).get("outcome")).isEqualTo("NO_PLUGIN"));
     }
