@@ -1,6 +1,6 @@
 # B443 — What A Task's Image Was Built With
 
-**Status:** Implementing.
+**Status:** Review.
 **Size:** M - a record at build, a field over the daemon, and `project show` for Default.
 
 **What must be true.** The daemon answers for a task which settings its image was built with: base image, packages and tools,
@@ -32,3 +32,13 @@ the settings come from by that call.
 ## Plan
 
 After the next test. The window's button is its own issue in its repository.
+
+## As Built
+
+An image built before this, from a base that itself carries the label, answers with that base's claim: nothing covered it.
+A secret written into a snippet any other way than an `ENV` line or a URL's userinfo is not caught and is shown as written
+(`ARG`, a token on a `RUN` line). The drift once after an upgrade (a new last line, one more cached layer, a new id) is
+known and harmless: nothing is rebuilt by it. Moving identical configuration between files changes the id the same way, and
+is equally harmless. The cap counts lines and packages only: an absurdly long base image name or source is not cut, and is
+refused at read above 1 MiB. A base image carrying a false label is shown by unit tests and by podman in a throwaway root,
+not by a real start.

@@ -1,6 +1,6 @@
 # B440 — An OpenSSH Below The Floor Is Refused In Words
 
-**Status:** Implementing.
+**Status:** Review.
 **Size:** S - one probe, one refusal, one page.
 
 **What must be true.** The documents state the lowest OpenSSH Porelo works with, and below it Porelo refuses in words that
