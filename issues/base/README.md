@@ -159,6 +159,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b483"></a>[B483](B483-A-Waiting-Host-Approval-Outlives-Its-Tasks-Removal.md) | S | - | Work waiting at a host's gate can still be approved as its task after the task is removed, or the removal says it cannot and how else; the forge token's lifetime is decided first. |
 | <a id="b476"></a>[B476](B476-Porelos-Own-Commits-Carry-The-Accounts-Noreply-Address.md) | S | - | Porelo's own commits carry the account's GitHub noreply address from the forge's account answer, so GitHub shows them Verified; a forge without one keeps the .invalid address. Low priority. |
 | <a id="b475"></a>[B475](B475-A-Refused-Push-Names-What-The-Forge-Answered.md) | S | - | A push Porelo makes that the forge refuses says the forge's own words, secrets withheld, as a refusal rather than "cannot be reached, may have been made". |
 | <a id="b465"></a>[B465](B465-An-Older-Project-File-Is-Refused-By-Ancestry-Not-By-Date.md) | S | - | A machine remembers the project file's commit it accepted and refuses a later one that does not descend from it, so a file signed in the same second as a newer one cannot come back. |
