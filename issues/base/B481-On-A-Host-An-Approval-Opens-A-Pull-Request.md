@@ -19,6 +19,9 @@ hands the gate) is filed in porelo-host.
 - On a host each person's tasks push as their own forge account, a developer of the project, and each task start is
   handed a token of it for that task alone, kept outside the container (porelo-host's documentation).
 - Nothing in porelo opens a pull request on a forge.
+- Approve never forwards over a branch whose head the new commit does not grow from (`GitGate.refuseEarlierWork`):
+  a task that amended its work after an approval was offered `porelo/<task>-2`, and a second pull request, on the
+  rehearsal (2026-11-06).
 
 ## Plan
 
@@ -26,10 +29,15 @@ hands the gate) is filed in porelo-host.
   starting branch; `--branch` still names another.
 - After the push, open the pull request through the forge's API with the task's token, titled with the push's subject
   and naming the task; an open one for the same branch is reused, not doubled.
+- A task's own branch is the task's: when its head is the commit this gate forwarded there last for the same task,
+  approve replaces it with a lease on that commit, and the open pull request follows. Any other head still refuses
+  and offers the next free branch.
 - The answer names the pull request's address; `Approve` over varlink answers it too.
 - The token never reaches a command line, a log or an answer.
 - **Red tests:** against a stub forge, approve on a host pushes to `porelo/<task>` and opens one pull request with the
-  task token; a second approve of the same task reuses it; a refused call says why and leaves the push waiting.
+  task token; a second approve of the same task reuses it; an amended push after an approval replaces the task's branch and
+  keeps the one pull request; a head the gate did not forward still refuses; a refused call says why and leaves the
+  push waiting.
 
 ## Open questions
 
