@@ -56,7 +56,8 @@ the answer's `notes` says so; a `run.<name>` or `env.<NAME>` the draft cannot ho
 
 `porelo task start` with no project named, in a checkout on the `default` path with no `project.yml`, asks the same
 adapters and takes the same draft, with the project named `<repository>-project`, since a project named like its
-repository would read that repository as its own, where no task works. Nothing an adapter found is written or opened until a person
+repository would read that repository as its own, where no task works. A repository name over 32 characters is cut
+back to a whole word, so a task beside the project still has 16 characters of the container name's 64. Nothing an adapter found is written or opened until a person
 says yes at a terminal; the file then goes into the checkout, and this machine's copy of it is what starts. The daemon's `FirstStart` and `ConfirmFirstStart` answer the same for an interface on the
 same computer.
 

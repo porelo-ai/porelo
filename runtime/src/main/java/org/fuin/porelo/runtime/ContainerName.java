@@ -135,9 +135,60 @@ public final class ContainerName {
                             + " container name may have "
                             + MAX_LENGTH
                             + " so that its sockets fit a unix"
-                            + " socket path");
+                            + " socket path"
+                            + wayOut(project, task));
         }
         return java.util.Optional.empty();
+    }
+
+    /**
+     * What a person whose names are too long does instead: a shorter task, or a shorter project.
+     */
+    private static String wayOut(String project, String task) {
+        final int room = taskRoom(project);
+        if (room <= 0) {
+            return ": the project's name leaves no room for any task, so give it a shorter name in"
+                    + " project.yml";
+        }
+        final String shorter = shortened(task, room);
+        final String example =
+                !shorter.isEmpty() && refusal(project, shorter).isEmpty()
+                        ? ", as in 'porelo task start " + shorter + "'"
+                        : "";
+        return ": give a task name of at most " + room + " characters" + example;
+    }
+
+    /**
+     * Returns how many characters a task name may have beside a project.
+     *
+     * @param project The project's name.
+     * @return The room, zero or less when no task fits.
+     */
+    public static int taskRoom(String project) {
+        return MAX_LENGTH - PREFIX.length() - project.length() - 1;
+    }
+
+    /**
+     * Returns a name cut to a length, back to its last whole word where it has one, never ending in
+     * a hyphen.
+     *
+     * @param name A name of letters, digits and hyphens.
+     * @param room The most characters it may have.
+     * @return The name, cut; empty when there is no room.
+     */
+    public static String shortened(String name, int room) {
+        if (room <= 0) {
+            return "";
+        }
+        String cut = name;
+        if (name.length() > room) {
+            cut = name.substring(0, room);
+            final int word = cut.lastIndexOf('-');
+            if (name.charAt(room) != '-' && word > 0) {
+                cut = cut.substring(0, word);
+            }
+        }
+        return cut.replaceAll("-+$", "");
     }
 
     /**

@@ -175,6 +175,56 @@ class ContainerNameTest {
     }
 
     @Test
+    void aTooLongTaskNameIsRefusedWithAShorterOneThatFits() {
+
+        // A person told only the count retries blind; a name that fits ends the retries.
+        final String project = "example-shop-api-templates-project";
+        final String task = "example-shop-api-templates";
+        final String refusal = ContainerName.refusal(project, task).orElseThrow();
+
+        assertThat(refusal)
+                .as("the room left beside this project")
+                .contains("at most 22 characters")
+                .as("a start that works, cut at a word")
+                .contains("'porelo task start example-shop-api'");
+        assertThat(ContainerName.refusal(project, "example-shop-api"))
+                .as("the suggested name is one the same check takes")
+                .isEmpty();
+    }
+
+    @Test
+    void aProjectThatLeavesNoRoomForATaskSaysSoInsteadOfSuggestingOne() {
+
+        // 'porelo-' + 56 + '-' is 64 before any task: no task name can help.
+        final String refusal = ContainerName.refusal("p".repeat(56), "a").orElseThrow();
+
+        assertThat(refusal)
+                .as("the project's name is what must change")
+                .contains("project.yml")
+                .doesNotContain("porelo task start");
+    }
+
+    @Test
+    void aNameIsShortenedAtAWordWhereItCanAndNeverEndsInAHyphen() {
+        assertThat(ContainerName.shortened("example-shop-api-templates", 22))
+                .as("cut back to the last whole word")
+                .isEqualTo("example-shop-api");
+        assertThat(ContainerName.shortened("example-shop-api", 16))
+                .as("a name that fits stays")
+                .isEqualTo("example-shop-api");
+        assertThat(ContainerName.shortened("example-shop-api", 13))
+                .as("the hyphen right at the cut is dropped")
+                .isEqualTo("example-shop");
+        assertThat(ContainerName.shortened("x".repeat(40), 10))
+                .as("a name with no word to cut at is cut where it must")
+                .isEqualTo("x".repeat(10));
+        assertThat(ContainerName.shortened("example-shop-api", 12))
+                .as("a cut right before a hyphen keeps the whole word")
+                .isEqualTo("example-shop");
+        assertThat(ContainerName.shortened("abc", 0)).as("no room").isEmpty();
+    }
+
+    @Test
     void takesAContainerNameGivenAsATaskAsTheTaskItNames() {
 
         // Reported on the VM: 'start porelo-utils4j-shell' for a stopped task created a second one,

@@ -202,10 +202,41 @@ class ProjectProposalTest {
     void aDraftWithNoProjectNamedTakesItsNameFromItsRepository() {
         assertThat(draftNamed("utils4j")).contains("name: utils4j-project");
         assertThat(draftNamed("a.b")).contains("name: a-b-project");
-        assertThat(draftNamed("x".repeat(60))).contains("name: " + "x".repeat(55) + "-project");
-        assertThat(draftNamed("x".repeat(54) + "-y"))
-                .contains("name: " + "x".repeat(54) + "-project");
+        assertThat(draftNamed("x".repeat(60))).contains("name: " + "x".repeat(32) + "-project");
+        assertThat(draftNamed("x".repeat(31) + "-y"))
+                .contains("name: " + "x".repeat(31) + "-project");
         assertThat(draftNamed("proposed")).contains("name: proposed-project");
+    }
+
+    @Test
+    void aProposedProjectLeavesATaskNamedAfterItsRepositoryRoomToStart() {
+
+        // A start with no name took 'porelo-<repository>-project-<repository>', 68 characters for a
+        // 26-character repository, and refused its own choice.
+        final String repository = "example-shop-api-templates";
+        final String project = ProjectProposal.projectName(repository);
+
+        assertThat(org.fuin.porelo.runtime.ContainerName.refusal(project, "a".repeat(16)))
+                .as("a project proposed for any repository leaves a task 16 characters")
+                .isEmpty();
+        assertThat(
+                        org.fuin.porelo.runtime.ContainerName.refusal(
+                                ProjectProposal.projectName("x".repeat(80)), "a".repeat(16)))
+                .as("even for the longest repository name")
+                .isEmpty();
+    }
+
+    @Test
+    void aProposedProjectIsNeverNamedLikeItsRepository() {
+
+        // Cut back to a word, '<25 characters>-project' became the repository's own name again,
+        // which a project file refuses.
+        final String repository = "example-shop-api-template-project";
+
+        assertThat(ProjectProposal.projectName(repository))
+                .as("the project's name and its repository's differ")
+                .isNotEqualTo(repository);
+        assertThat(draftNamed(repository)).as("the draft reads as a project").contains("name: ");
     }
 
     private static String draftNamed(final String repository) {

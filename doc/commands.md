@@ -200,7 +200,8 @@ At a terminal a shut vault asks for its passphrase; a script must unlock it firs
   A reapproval keeps what you put beside the copy, such as `projects/NAME/<repository>/.porelo.yml`.
 - `-r REPOSITORY`: which of the project's repositories to work on (see [names](#completion)).
 - Without a name, the task is named after its repository, or the next free name (`my-first-2`); a repository
-  named `people` or `person` gives `work`, and a leading `porelo-` is left out (`porelo-pi` gives `pi`).
+  named `people` or `person` gives `work`, and a leading `porelo-` is left out (`porelo-pi` gives `pi`). A name too
+  long for the container name's 64 characters is cut back to its last whole word that fits.
 - By default you get the agent's session. `--attach shell` gives a shell, `-P`/`--prompt` runs the
   agent unattended, `--detach` hands over nothing, `--now` returns before the image is built.
 - `--rm` removes the container when you leave. By default it is kept. A start that fails leaves nothing running

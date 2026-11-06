@@ -23,6 +23,9 @@ import org.jspecify.annotations.Nullable;
 final class ProjectProposal {
     private record Key(Finding.Part part, String key) {}
 
+    /** The most of a repository's name a proposed project's name takes. */
+    private static final int PROPOSED_REPOSITORY_PART = 32;
+
     /** The image lines a plugin gives, joined in the order of the names. */
     private static final String RUN = "run.";
 
@@ -86,9 +89,15 @@ final class ProjectProposal {
      * @return The project's name.
      */
     static String projectName(final String repository) {
+        // At most 40 characters, so a task named after the repository still has 16 beside it.
         final String word = repository.replace('.', '-');
-        final String cut = word.length() > 55 ? word.substring(0, 55) : word;
-        return cut.replaceAll("-+$", "") + "-project";
+        final String atWord =
+                org.fuin.porelo.runtime.ContainerName.shortened(word, PROPOSED_REPOSITORY_PART)
+                        + "-project";
+        // A cut back to a word can drop the repository's own '-project' and so take its name.
+        return atWord.equals(word)
+                ? word.substring(0, PROPOSED_REPOSITORY_PART).replaceAll("-+$", "") + "-project"
+                : atWord;
     }
 
     ProjectProposal(

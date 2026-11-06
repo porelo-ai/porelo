@@ -1,5 +1,7 @@
 package org.fuin.porelo.app;
 
+import org.fuin.porelo.runtime.ContainerName;
+
 /**
  * Names a task nobody named: after its repository.
  *
@@ -26,18 +28,35 @@ public final class TaskNames {
             final PoreloContext context, final String project, final String repository) {
         // A leading '.' or '_' (GitHub's '.github') is neither a container name nor a peer name.
         // Nor is a leading 'porelo-', which begins a container's name, a task's.
-        String base = repository.replaceFirst("^[._]+", "").replaceFirst("^(porelo-)+", "");
+        String base =
+                repository
+                        .replaceFirst("^[._]+", "")
+                        .replaceFirst("^(porelo-)+", "")
+                        .replace('.', '-');
         // A repository named like the room's people or a person names no task.
-        if (base.isEmpty() || org.fuin.porelo.runtime.ContainerName.reserved(base)) {
+        if (base.isEmpty() || ContainerName.reserved(base)) {
             base = "work";
         }
         final java.util.Set<String> taken = new java.util.HashSet<>();
         new TaskInventory(context).tasks().forEach(task -> taken.add(task.name()));
-        final String prefix = "porelo-" + project + "-";
-        String chosen = base;
+        final String prefix = ContainerName.PREFIX + project + "-";
+        String chosen = fitted(project, base, "");
         for (int at = 2; taken.contains(prefix + chosen); at++) {
-            chosen = base + "-" + at;
+            chosen = fitted(project, base, "-" + at);
         }
         return chosen;
+    }
+
+    /**
+     * Returns the base cut so that it and its number fit beside the project, or {@code work} with
+     * the number where the cut is a name the start would refuse.
+     */
+    private static String fitted(final String project, final String base, final String number) {
+        final String cut =
+                ContainerName.shortened(base, ContainerName.taskRoom(project) - number.length());
+        final String named = cut + number;
+        return cut.isEmpty() || ContainerName.refusal(project, named).isPresent()
+                ? "work" + number
+                : named;
     }
 }

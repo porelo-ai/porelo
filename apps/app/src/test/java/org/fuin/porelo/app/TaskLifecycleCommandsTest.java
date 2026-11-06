@@ -259,6 +259,87 @@ class TaskLifecycleCommandsTest {
     }
 
     @Test
+    void anUnnamedTaskOnALongRepositoryNameGetsANameItsContainerCanHave(@TempDir Path dir) {
+
+        // The project proposed for a 26-character repository and the repository's own name made a
+        // 68-character container name, which the start then refused.
+        final PoreloContext context = context(dir);
+        final String project = "example-shop-api-templates-project";
+        runner.answering("ps", "");
+
+        final String first =
+                TaskNames.fromRepository(context, project, "example-shop-api-templates");
+
+        assertThat(first).as("cut at a word to the room left").isEqualTo("example-shop-api");
+        assertThat(org.fuin.porelo.runtime.ContainerName.refusal(project, first))
+                .as("the start takes the name it chose")
+                .isEmpty();
+
+        runner.answering(
+                "ps",
+                "porelo-"
+                        + project
+                        + "-example-shop-api\tUp 4 minutes\t1700000000\t0\t"
+                        + project
+                        + "\tguarded\texample-shop-api-templates\t\n");
+        final String second =
+                TaskNames.fromRepository(context, project, "example-shop-api-templates");
+
+        assertThat(second)
+                .as("the second's number counts inside the room")
+                .isEqualTo("example-shop-api-2");
+        assertThat(org.fuin.porelo.runtime.ContainerName.refusal(project, second))
+                .as("the second fits as well")
+                .isEmpty();
+    }
+
+    @Test
+    void anUnnamedTaskNeverGetsANameTheStartWouldRefuse(@TempDir Path dir) {
+
+        // Each of these was the name a start chose and then refused as no task's.
+        final PoreloContext context = context(dir);
+        runner.answering("ps", "");
+        final String dated = "2026-annualcompliancebericht-project";
+
+        assertThat(TaskNames.fromRepository(context, dated, "2026-annualcompliancebericht"))
+                .as("a cut to digits only would read as a login container")
+                .isEqualTo("work");
+        assertThat(TaskNames.fromRepository(context, "default", "a.b"))
+                .as("a dot is in a repository's name, never a task's")
+                .isEqualTo("a-b");
+
+        runner.answering(
+                "ps",
+                "porelo-default-porelo\tUp 4 minutes\t1700000000\t0\tdefault\tguarded\tporelo\t\n");
+        assertThat(TaskNames.fromRepository(context, "default", "porelo"))
+                .as("a second task would begin like a container")
+                .isEqualTo("work-2");
+    }
+
+    @Test
+    void aSecondUnnamedTaskCutsItsBaseFurtherForItsNumber(@TempDir Path dir) {
+
+        // 22 characters beside this project: the first takes 21, and '-2' needs two of them.
+        final PoreloContext context = context(dir);
+        final String project = "example-shop-api-templates-project";
+        runner.answering(
+                "ps",
+                "porelo-"
+                        + project
+                        + "-example-shop-api-1234\tUp 4 minutes\t1700000000\t0\t"
+                        + project
+                        + "\tguarded\texample-shop-api-1234-templates\t\n");
+
+        final String second =
+                TaskNames.fromRepository(context, project, "example-shop-api-1234-templates");
+
+        assertThat(second).as("cut back a word to make room").isEqualTo("example-shop-api-2");
+        assertThat(org.fuin.porelo.runtime.ContainerName.refusal(project, second))
+                .as("the start takes it")
+                .isEmpty();
+    }
+
+    @Test
     void outsideACheckoutAStoppedTaskIsStartedByEitherOfItsNamesWithoutItsProject(
             @TempDir Path dir) {
 

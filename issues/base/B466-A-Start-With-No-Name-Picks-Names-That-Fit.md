@@ -1,6 +1,6 @@
 # B466 — A Start With No Name Picks Names That Fit
 
-**Status:** Implementing.
+**Status:** Review.
 **Size:** S - two naming methods and one refusal in `app-model` and `runtime`, with their unit tests; no contract.
 
 **What must be true.** `porelo task start` with no name never picks a project and task name whose container name is longer
@@ -19,7 +19,7 @@ Porelo chose both names itself and they break its own limit. An explicit short t
 
 Read in the code: `ProjectProposal.projectName` caps the proposed project name alone at 63 characters, while
 `ContainerName` checks `porelo-<project>-<task>` against 64, so a repository name of about 25 characters or more cannot get
-a task by default. Not yet reproduced in a test.
+a task by default.
 
 ## Plan
 
@@ -33,6 +33,9 @@ share 56.
   base to it, at a word boundary where it can, dropping trailing hyphens; the `-2`, `-3` of a second unnamed task is counted
   inside the room, so the base is cut further for it. A base cut to nothing becomes `work`, as an empty one does today. The
   line `task ... - named after its repository` already shows the chosen name.
+- **A cut is never a name the start refuses.** A cut that is digits only, reserved, or begins `porelo-` becomes `work`, a dot
+  in the repository's name becomes a hyphen, and a proposed project cut back to a word never takes the repository's own
+  name.
 - **The refusal names what fits.** The length refusal in `ContainerName.refusal` gains the room left and a name that fits:
   `... a container name may have 64 so that its sockets fit a unix socket path: give a task name of at most 22 characters,
   as in 'porelo task start example-shop-api'`. Where the project leaves no room for even one character (a hand-written
