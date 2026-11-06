@@ -93,6 +93,8 @@ public interface OrganizationQuestions {
 
         private final @Nullable String revision;
 
+        private final @Nullable String entry;
+
         /**
          * Makes the refusal.
          *
@@ -101,9 +103,26 @@ public interface OrganizationQuestions {
          * @param revision Where the store is, when that is what matters, or {@code null}.
          */
         public Refused(final String reason, final String words, final @Nullable String revision) {
+            this(reason, words, revision, null);
+        }
+
+        /**
+         * Makes a refusal that holds the entry a person writes instead.
+         *
+         * @param reason Why, one of this class's reasons.
+         * @param words What to say to a person, which quotes nothing a file held.
+         * @param revision Where the store is, when that is what matters, or {@code null}.
+         * @param entry The YAML a person writes into the file, or {@code null} when there is none.
+         */
+        public Refused(
+                final String reason,
+                final String words,
+                final @Nullable String revision,
+                final @Nullable String entry) {
             super(words);
             this.reason = reason;
             this.revision = revision;
+            this.entry = entry;
         }
 
         /**
@@ -122,6 +141,15 @@ public interface OrganizationQuestions {
          */
         public @Nullable String revision() {
             return revision;
+        }
+
+        /**
+         * Returns the YAML a person writes into the file instead, for a program.
+         *
+         * @return The entry, or {@code null}.
+         */
+        public @Nullable String entry() {
+            return entry;
         }
     }
 

@@ -661,7 +661,8 @@ keeps only its domain.
 command fetches and walks what is new first. One that cannot reach the store answers the last state it trusted, with
 `"stale": true` and exit 0, or `cannot-say` (69) when it has none. No security check rests on a stale state. `--json` answers one
 object in `snake_case`, with `revision`; a refusal is one line `{"reason", "words", "revision"}` and `words` on standard error too,
-exits 64 `usage`, 65 `not-allowed` or `refused-state`, 66 `not-found`, 69 `cannot-say`, 70 `failed` and 78 `no-organization`.
+and a `by-hand` refusal adds `entry`, the YAML a person writes into the file, when there is one. It
+exits 64 `usage`, 65 `not-allowed`, `refused-state` or `by-hand`, 66 `not-found`, 69 `cannot-say`, 70 `failed` and 78 `no-organization`.
 
 Once `organization-admins.yml` exists, the roles below apply. Before it exists, owners do the Organization Admin's work;
 project and machine admins keep their earlier rights to name admins. An owner who is not listed does none of the Organization

@@ -812,6 +812,10 @@ class OrgWritingCommandsTest {
         assertThat(out.toString())
                 .contains("by-hand")
                 .contains("keep the others:\\nrepositories:\\n  app:\\n    review: optional");
+        // A program reads the entry on its own, never cut out of the words.
+        final Map<?, ?> answer = answer();
+        assertThat(answer.get("reason")).isEqualTo("by-hand");
+        assertThat(answer.get("entry")).isEqualTo("repositories:\n  app:\n    review: optional\n");
     }
 
     @Test

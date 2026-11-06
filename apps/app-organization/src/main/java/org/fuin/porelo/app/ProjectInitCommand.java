@@ -134,7 +134,8 @@ public class ProjectInitCommand extends OrgReading {
                 throw new Refused(
                         Refused.BY_HAND,
                         ProjectRepositoryCommand.words(project, "add this entry:\n" + entry),
-                        null);
+                        null,
+                        entry);
         }
         return answer;
     }

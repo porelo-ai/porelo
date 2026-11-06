@@ -59,6 +59,7 @@ final class OrgOutput {
                 refused.reason(),
                 String.valueOf(refused.getMessage()),
                 refused.revision(),
+                refused.entry(),
                 EXITS.getOrDefault(refused.reason(), FAILED));
     }
 
@@ -72,7 +73,7 @@ final class OrgOutput {
      */
     static void failed(final CommandSpec spec, final boolean json, final String words) {
         if (json) {
-            print(spec, "failed", words, null);
+            print(spec, "failed", words, null, null);
         }
     }
 
@@ -82,9 +83,10 @@ final class OrgOutput {
             final String reason,
             final String words,
             final @Nullable String revision,
+            final @Nullable String entry,
             final int exit) {
         if (json) {
-            print(spec, reason, words, revision);
+            print(spec, reason, words, revision, entry);
         }
         // An entry to write keeps its lines, each made printable on its own.
         spec.commandLine()
@@ -102,11 +104,16 @@ final class OrgOutput {
             final CommandSpec spec,
             final String reason,
             final String words,
-            final @Nullable String revision) {
+            final @Nullable String revision,
+            final @Nullable String entry) {
         final Map<String, @Nullable Object> answer = new LinkedHashMap<>();
         answer.put("reason", reason);
         answer.put("words", words);
         answer.put("revision", revision);
+        // The YAML a person writes, apart from the words, so a program never cuts it out of them.
+        if (entry != null) {
+            answer.put("entry", entry);
+        }
         answer(spec, answer);
     }
 

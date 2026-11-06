@@ -92,7 +92,13 @@ public class ProjectRepositoryCommand {
 
         @Override
         final Map<String, @Nullable Object> answer(final PoreloContext machine) {
-            throw new Refused(Refused.BY_HAND, words(project(), what()), null);
+            final String what = what();
+            final int lines = what.indexOf('\n');
+            throw new Refused(
+                    Refused.BY_HAND,
+                    words(project(), what),
+                    null,
+                    lines < 0 ? null : what.substring(lines + 1));
         }
 
         @Override
