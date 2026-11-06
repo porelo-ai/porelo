@@ -92,6 +92,7 @@ public class PoreloCli implements Callable<Integer> {
                 .addSubcommand(ProjectAddressCommand.class)
                 .addSubcommand(ProjectRepositoryCommand.class)
                 .addSubcommand(ProjectSignCommand.class)
+                .addSubcommand(ProjectSignRepositoryFileCommand.class)
                 .addSubcommand(ProjectInitCommand.class)
                 .addSubcommand(ProjectVerifyCommand.class)
                 .addSubcommand(ProjectReviewCommand.class)

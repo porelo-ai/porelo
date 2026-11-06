@@ -1,6 +1,6 @@
 # [B477](README.md#b477) — An Admin Signs A Repository's porelo.yml Anew
 
-**Status:** Accepted, on the operator's word (2026-11-06). Not started before [B470](README.md#b470) is done.
+**Status:** Review. Accepted on the operator's word (2026-11-06).
 **Size:** S - one verb on the pattern of `porelo project sign`, for a repository's `porelo.yml`; its tests. Estimate 45
 minutes.
 
@@ -27,3 +27,19 @@ porelo.yml`, and pushes it to the address the project files for that repository.
   `repositories`, the project's keys from the organization's state, `--json` as `project sign` answers.
 - Red tests: a developer's key signs it and a start then takes the file; a key of nobody in the project is refused
   `not-allowed` before any push; a moved tip is `moved-on`; a retry with the same `--id` finds its commit.
+
+## Done
+
+- `porelo project sign-repository-file PROJECT REPOSITORY [--yes --base REVISION] [--id ID] [--json]`
+  (`ProjectSignRepositoryFileCommand`): without `--yes` it shows the file at the repository's default branch, its
+  newest change and its signer; with `--yes --base` it makes the empty signed commit with `Porelo-Signs-Anew:
+  porelo.yml` and pushes it to the `upstream` the project's judged file names. `--id` finds a retry's commit.
+- `ProjectFile.sign` takes the file and the signer rule: `project.yml` a project admin, `porelo.yml` a project admin
+  or developer, each valid today. `TreeRepository.fetchDefault` reads the repository's own default branch.
+- The operator's decision (operator, 2026-11-06): a signature anew by a project admin or developer takes on the
+  file as it stands, unsigned changes before it included, also after a machine took the file once
+  (`RepositoryFileJudge`); one by anybody else changes nothing. Before, nothing could take the file again.
+- Tests: a developer signs and a start then takes the file's settings; a key of nobody in the project is refused before
+  any push; a moved tip is `moved-on`; a retry with the same `--id` finds its commit. With developers left out of the
+  signer rule, three of them fail. The judge's: a signature anew by an allowed key takes on an earlier unsigned change
+  after a take, one by a stranger does not.

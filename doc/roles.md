@@ -48,6 +48,10 @@ and only a machine reading that repository judges it: the newest commit that cha
 admin who is one now and is not locked, within their card's days. Another signature there, or none, leaves the file refused until an
 admin signs it anew with `porelo project sign`. See [how the file reaches a machine](project-file.md#how-the-file-reaches-a-machine).
 
+A repository's `porelo.yml` may be signed anew by a project admin or developer with
+`porelo project sign-repository-file PROJECT REPOSITORY`. The acting key must be valid today among the project's
+keys taken on this machine. Without `--yes` the command shows the file; signing needs `--yes --base REVISION`.
+
 ## On a machine
 
 A machine takes the organization at each follow, against a pin of keys it holds. A commit on its files must be signed for that pin, by

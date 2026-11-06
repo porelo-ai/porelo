@@ -21,6 +21,7 @@ from its side, as *blocked by*.
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
 | <a id="b482"></a>[B482](B482-Gate-Review-Shows-The-Commit-Approve-Wants.md) | XS | - | `gate review` shows the waiting commit in full, the id `gate approve --commit` takes; prefixes stay refused. | - |
+| <a id="b477"></a>[B477](B477-An-Admin-Signs-A-Repositorys-Porelo-Yml-Anew.md) | S | - | `porelo project sign-repository-file`: an admin or developer signs a repository's porelo.yml anew with an empty signed commit, on the pattern of `project sign`. |
 | <a id="b470"></a>[B470](B470-A-Repository-Of-Its-Own-Stays-In-Default-And-Says-What-It-Needs.md) | L | - | A checkout with no project of an organization stays in `default`; its `porelo.yml` says what its task needs, added to the project file's defaults key by key, allowed once on this machine or signed in an organization; detection writes `porelo.yml`, not `project.yml`. | - |
 | <a id="b480"></a>[B480](B480-A-Gate-View-Never-Clones-A-Missing-Mirror.md) | S | - | Asking what waits at a gate only reads: no mirror, nothing pending and no clone from the upstream; review, approve and reject refuse there | - |
 | <a id="b473"></a>[B473](B473-A-Detached-Attach-Leaves-The-Terminal-As-It-Was.md) | S | - | However an attach ends, the CLI restores the terminal's settings and resets the modes tmux turns on: no mouse reports typed at the prompt, typing works | - |
@@ -139,7 +140,6 @@ from its side, as *blocked by*.
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
 | <a id="b481"></a>[B481](B481-On-A-Host-An-Approval-Opens-A-Pull-Request.md) | M | - | On a host, approve forwards to `porelo/<task>` and opens the pull request to `main` as the task's own forge account, so the person approves someone else's. |
-| <a id="b477"></a>[B477](B477-An-Admin-Signs-A-Repositorys-Porelo-Yml-Anew.md) | S | [B470](#b470) | `porelo project sign-repository-file`: an admin or developer signs a repository's porelo.yml anew with an empty signed commit, on the pattern of `project sign`. |
 | <a id="b478"></a>[B478](B478-A-Hosts-Organization-Token-Is-Handed-Over-Without-Leaving-Porelo.md) | S | [B470](#b470) | One command pipes the token declared for an organization's forge to a host's org refresh on standard input, over SSH pinned to its card's key; the value never leaves Porelo. |
 | <a id="b479"></a>[B479](B479-A-Host-Carries-Single-Repositories-Of-A-Project.md) | M | - | A host's file names single repositories of a project beside whole ones; `org host carry/uncarry --repository`; one repository on one host; a read key named or removed when one is taken off. |
 | <a id="b396"></a>[B396](B396-Mutation-Testing-With-PIT.md) | - | - | A `pit` profile run by hand, not in CI and with no threshold, and a report sorting survivors into real gaps and harmless ones. |

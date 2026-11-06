@@ -1,0 +1,2 @@
+title: "`porelo project sign-repository-file` shows a repository's porelo.yml and lets a project admin or developer sign it anew at the revision read, with safe retries under the same ID"
+type: added

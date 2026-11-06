@@ -74,6 +74,8 @@ final class TreeRepository implements AutoCloseable {
 
     private final CommandRunner runner;
 
+    private String branch = BRANCH;
+
     private TreeRepository(final Path scratch, final CommandRunner runner) {
         this(scratch, scratch.resolve("organization.git"), runner);
     }
@@ -114,6 +116,44 @@ final class TreeRepository implements AutoCloseable {
         final TreeRepository clone =
                 new TreeRepository(Files.createTempDirectory("porelo-organization-"), runner);
         try {
+            clone.fill(address, access);
+            return clone;
+        } catch (IOException | RuntimeException ex) {
+            clone.close();
+            throw ex;
+        }
+    }
+
+    /** Fetches the repository's declared default branch, rather than the organization's main. */
+    static TreeRepository fetchDefault(
+            final String address, final CommandRunner runner, final FetchAccess access)
+            throws IOException {
+        final TreeRepository clone =
+                new TreeRepository(Files.createTempDirectory("porelo-organization-"), runner);
+        try {
+            try (FetchAccess.Lease lease = access.lend(address)) {
+                final List<String> arguments = new ArrayList<>(lease.arguments());
+                arguments.addAll(List.of("ls-remote", "--symref", "--", address, "HEAD"));
+                final CommandResult head =
+                        clone.git(lease.environment(), arguments.toArray(String[]::new));
+                final String ref =
+                        head.standardOutput()
+                                .lines()
+                                .filter(
+                                        line ->
+                                                line.startsWith("ref: refs/heads/")
+                                                        && line.endsWith("\tHEAD"))
+                                .map(line -> line.substring(5, line.length() - 5))
+                                .findFirst()
+                                .orElse("");
+                if (!head.successful()
+                        || ref.isEmpty()
+                        || !clone.git("check-ref-format", ref).successful()) {
+                    throw new GitTreeStore.Unreachable(
+                            "the repository cannot name its default branch");
+                }
+                clone.branch = ref;
+            }
             clone.fill(address, access);
             return clone;
         } catch (IOException | RuntimeException ex) {
@@ -198,7 +238,7 @@ final class TreeRepository implements AutoCloseable {
                             "--update-shallow",
                             "--",
                             address,
-                            BRANCH + ":" + BRANCH));
+                            branch + ":" + branch));
             final CommandResult fetched =
                     git(lease.environment(), arguments.toArray(String[]::new));
             if (!fetched.successful() && NO_BRANCH.matcher(fetched.standardError()).find()) {
@@ -240,7 +280,7 @@ final class TreeRepository implements AutoCloseable {
      *     not on the line.
      */
     List<Map.Entry<String, String>> line(final @Nullable String revision) {
-        return line(BRANCH, revision, null);
+        return line(branch, revision, null);
     }
 
     /**
@@ -483,7 +523,7 @@ final class TreeRepository implements AutoCloseable {
                                 "--format=%H %(trailers:key="
                                         + CHANGE_ID
                                         + ",valueonly,separator=%x00)",
-                                BRANCH)
+                                branch)
                         .lines()
                         .toList()) {
             final String[] fields = row.split(" ", 2);
@@ -509,7 +549,7 @@ final class TreeRepository implements AutoCloseable {
      * @return The commits whose trailer names it.
      */
     java.util.Set<String> signingAnew(final String path) {
-        return signingAnew(BRANCH, path);
+        return signingAnew(branch, path);
     }
 
     /**
@@ -667,9 +707,9 @@ final class TreeRepository implements AutoCloseable {
         }
         final String commit = written(made).strip();
         if (parent.isEmpty()) {
-            written(git("update-ref", BRANCH, commit));
+            written(git("update-ref", branch, commit));
         } else {
-            written(git("update-ref", BRANCH, commit, parent));
+            written(git("update-ref", branch, commit, parent));
         }
         return commit;
     }
@@ -686,7 +726,7 @@ final class TreeRepository implements AutoCloseable {
         try (FetchAccess.Lease lease = access.lend(address)) {
             final List<String> arguments = new ArrayList<>(lease.arguments());
             arguments.addAll(
-                    List.of("push", "-q", "--no-verify", "--", address, BRANCH + ":" + BRANCH));
+                    List.of("push", "-q", "--no-verify", "--", address, branch + ":" + branch));
             return git(lease.environment(), arguments.toArray(String[]::new)).successful();
         }
     }
@@ -697,7 +737,7 @@ final class TreeRepository implements AutoCloseable {
      * @return The commit.
      */
     String tip() {
-        return tip(BRANCH);
+        return tip(branch);
     }
 
     /**

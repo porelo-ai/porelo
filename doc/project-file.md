@@ -353,7 +353,12 @@ image:
   every commit that changed it since the last one this machine took is signed by a project admin or a developer whose
   key holds on the commit's day; before any was taken, its newest change is judged. A commit signed by anyone else,
   or by no one, refuses the start, naming the file and the commit; so does a history rewritten under the change taken
-  last. Nothing on the machine allows it: a person who may sign it signs the file anew with a commit of their own.
+  last. A project admin or developer reads it with `porelo project sign-repository-file PROJECT REPOSITORY`, then
+  signs the revision read with `--yes --base REVISION`; `--id ID` makes a retry safe. This pushes an empty signed
+  commit with `Porelo-Signs-Anew: porelo.yml` to the `upstream` in the project's judged file, on the repository's
+  default branch. The signature anew takes on the file as it stands, unsigned changes before it included; one by
+  anybody else changes nothing. It does not repair a rewritten history. Nothing on the machine allows a refused
+  change.
   Signed, it adds to the project's file as a repository's file does in `default` (see below), image and settings
   alike, and nothing is asked on the machine. A start settles the settings from the mirror before it fetches; when
   the fetch brings other ones, it says so, and the next start takes them. In a project written by hand on this

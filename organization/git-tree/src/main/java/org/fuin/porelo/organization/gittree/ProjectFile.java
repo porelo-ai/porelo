@@ -13,6 +13,7 @@ import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import org.fuin.porelo.core.process.CommandException;
 import org.fuin.porelo.core.process.CommandRunner;
 import org.fuin.porelo.core.project.Project;
@@ -46,6 +47,10 @@ public final class ProjectFile {
     private static final String PATH = "project.yml";
 
     private static final String ADMIN = "admin";
+
+    private static final String REPOSITORY_PATH = "porelo.yml";
+
+    private static final Set<String> REPOSITORY_ROLES = Set.of(ADMIN, "developer");
 
     /** What a signing adds, as only a commit that changes the file is judged. */
 
@@ -90,6 +95,9 @@ public final class ProjectFile {
             @Nullable String revision,
             @Nullable String text,
             @Nullable String blocked) {}
+
+    /** A repository file and the newest change whose signature takes responsibility for it. */
+    public record RepositoryLook(Look look, @Nullable String change) {}
 
     private final CommandRunner runner;
 
@@ -299,11 +307,19 @@ public final class ProjectFile {
     /** A key whose card was withdrawn signs nothing that is still believed, whatever it claims. */
     private static boolean anAdminsKey(
             final String key, final List<SigningKey> keys, final String dated) {
+        return aKeyOf(key, keys, dated, Set.of(ADMIN));
+    }
+
+    private static boolean aKeyOf(
+            final String key,
+            final List<SigningKey> keys,
+            final String dated,
+            final Set<String> roles) {
         final LocalDate day = OffsetDateTime.parse(dated).toLocalDate();
         return keys.stream()
                 .anyMatch(
                         row ->
-                                ADMIN.equals(row.role())
+                                roles.contains(row.role())
                                         && row.key().equals(key)
                                         && row.revokedSince() == null
                                         && !day.isBefore(row.validFrom())
@@ -351,9 +367,42 @@ public final class ProjectFile {
             final List<SigningKey> keys,
             final String project)
             throws IOException {
+        return sign(change, address, keys, project, PATH, Set.of(ADMIN));
+    }
+
+    /**
+     * Signs a repository's {@code porelo.yml} anew on its default branch, with the key of a project
+     * admin or developer valid today. The file's bytes stay as they were.
+     *
+     * @param change Who acts, against the revision read, under which id.
+     * @param address The repository's upstream address.
+     * @param keys The project's signing keys taken from the organization.
+     * @return What it made, or made before under this id.
+     * @throws IOException When the repository cannot be read or the change cannot be made.
+     * @throws Refused When the key may not sign, the tip moved, or the file is absent.
+     */
+    public OrganizationWrites.Written signRepositoryFile(
+            final OrganizationWrites.Change change,
+            final String address,
+            final List<SigningKey> keys)
+            throws IOException {
+        return sign(change, address, keys, REPOSITORY_PATH, REPOSITORY_PATH, REPOSITORY_ROLES);
+    }
+
+    private OrganizationWrites.Written sign(
+            final OrganizationWrites.Change change,
+            final String address,
+            final List<SigningKey> keys,
+            final String project,
+            final String path,
+            final Set<String> roles)
+            throws IOException {
         final String acting = change.acting().key();
-        final String subject = TreeRepository.asked("Sign the file anew", project);
-        try (TreeRepository clone = TreeRepository.fetch(address, runner, access)) {
+        final String subject =
+                TreeRepository.asked(
+                        PATH.equals(path) ? "Sign the file anew" : "Sign the repository file anew",
+                        project);
+        try (TreeRepository clone = fetch(address, path)) {
             final Optional<String> made = own(clone, change);
             if (made.isPresent()) {
                 if (!clone.subject(made.orElseThrow()).equals(subject)) {
@@ -363,17 +412,18 @@ public final class ProjectFile {
                 return new OrganizationWrites.Written(made.orElseThrow(), change.id(), true);
             }
             final String tip = clone.tip();
-            if (!anAdminsKey(acting, keys, OffsetDateTime.now().toString())) {
+            if (!aKeyOf(acting, keys, OffsetDateTime.now().toString(), roles)) {
                 throw new Refused(
                         Refused.NOT_ALLOWED,
-                        "the key that acts is no key of this project's admin",
+                        "the key that acts is no key of this project's "
+                                + (PATH.equals(path) ? "admin" : "admin or developer"),
                         tip);
             }
             if (change.base() != null && !change.base().equals(tip)) {
                 throw new Refused(Refused.MOVED_ON, "the project repository moved on", tip);
             }
             // Reading here says nothing of a machine that accepted a newer one, so it signs too.
-            signable(clone, tip, project);
+            signable(clone, tip, project, path);
             // An empty commit: the file stays byte for byte, and the trailer makes this
             // signature the one its newest change is judged by.
             final String commit =
@@ -385,15 +435,69 @@ public final class ProjectFile {
                             signing,
                             acting,
                             change.acting().login(),
-                            PATH);
+                            path);
             if (!clone.push(address, access)) {
                 throw new GitTreeStore.Unreachable(
                         "the project repository did not take the change");
             }
-            remember(address, OffsetDateTime.parse(clone.dated(commit)).toInstant());
+            if (PATH.equals(path)) {
+                remember(address, OffsetDateTime.parse(clone.dated(commit)).toInstant());
+            }
             return new OrganizationWrites.Written(commit, change.id(), false);
         } catch (CardException ex) {
             throw new IOException(ex.getMessage(), ex);
+        }
+    }
+
+    /**
+     * Shows the repository's file and its newest change without needing a signing agent.
+     *
+     * @param address The repository's upstream address.
+     * @param keys The project's signing keys.
+     * @return The text and signature at the default branch, or {@code cannot-say} if unreachable.
+     * @throws IOException When a signature cannot be checked.
+     */
+    public RepositoryLook lookRepositoryFile(final String address, final List<SigningKey> keys)
+            throws IOException {
+        try (TreeRepository clone = fetch(address, REPOSITORY_PATH)) {
+            final String tip = clone.tip();
+            final String text = clone.object(tip, REPOSITORY_PATH).map(clone::text).orElse(null);
+            final String change = newestChange(clone, REPOSITORY_PATH).orElse(null);
+            Read read;
+            try {
+                final String signer = change == null ? null : clone.signer(change);
+                read =
+                        change != null
+                                        && signer != null
+                                        && aKeyOf(
+                                                signer, keys, clone.dated(change), REPOSITORY_ROLES)
+                                ? new Read(READ, tip, null, null, signer)
+                                : refused(
+                                        "the newest change has no project admin's or developer's signature",
+                                        signer);
+            } catch (CardException ex) {
+                read = refused(String.valueOf(ex.getMessage()));
+            }
+            final String blocked = text == null ? "the repository holds no porelo.yml" : null;
+            return new RepositoryLook(new Look(read, tip, text, blocked), change);
+        } catch (GitTreeStore.Unreachable | CommandException ex) {
+            return new RepositoryLook(
+                    new Look(new Read(CANNOT_SAY, null, null, null), null, null, null), null);
+        }
+    }
+
+    private TreeRepository fetch(final String address, final String path) throws IOException {
+        return PATH.equals(path)
+                ? TreeRepository.fetch(address, runner, access)
+                : TreeRepository.fetchDefault(address, runner, access);
+    }
+
+    private static void signable(
+            final TreeRepository clone, final String tip, final String project, final String path) {
+        if (PATH.equals(path)) {
+            signable(clone, tip, project);
+        } else if (clone.object(tip, path).isEmpty()) {
+            throw new Refused(Refused.REFUSED_STATE, "the repository holds no " + path, tip);
         }
     }
 
