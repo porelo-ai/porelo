@@ -165,6 +165,9 @@ class GitGateTest {
         }
 
         assertThat(gate.log("task-1", null)).contains("add agent.txt");
+        // In full, as 'gate approve --commit' takes it: seven characters are refused there.
+        assertThat(gate.log("task-1", null))
+                .startsWith(git(work, "rev-parse", "HEAD").standardOutput().strip() + " ");
     }
 
     @Test

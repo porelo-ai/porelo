@@ -1,0 +1,2 @@
+title: "gate review lists each waiting commit by its full id, the one gate approve --commit takes"
+type: fixed

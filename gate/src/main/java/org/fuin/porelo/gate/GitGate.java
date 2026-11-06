@@ -918,7 +918,9 @@ public class GitGate {
                 against == null || against.isBlank() || !resolves(against)
                         ? INCOMING + name
                         : against + ".." + INCOMING + name;
-        return gitIn("log", "--oneline", range).standardOutput();
+        // Each commit in full: it is what 'gate approve --commit' takes, and seven characters are
+        // not, since another commit an agent makes can be made to share them.
+        return gitIn("log", "--format=%H %s", range).standardOutput();
     }
 
     /**
@@ -1219,7 +1221,8 @@ public class GitGate {
             // In full: the seven characters a listing shows can be met by another commit the agent
             // grinds out.
             throw new GateException(
-                    "name the reviewed commit in full, as 'gate review' shows it: '"
+                    "name the reviewed commit in full, as 'gate review' and 'gate pending' show it:"
+                            + " '"
                             + reviewed.strip()
                             + "' is not a full commit id");
         }
