@@ -1,6 +1,6 @@
 # B306 — Porelo's Build Runs On The Local Forge
 
-**Status:** Idea.
+**Status:** Accepted.
 **Size:** M, proposed - the workflows' conditions and the deploy step here; what only a forge shows is measured on one.
 
 **What must be true.** porelo's workflows run green on the host's Forgejo and on the central forge on the same commit,

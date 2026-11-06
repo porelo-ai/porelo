@@ -131,6 +131,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b306"></a>[B306](B306-Porelos-Build-Runs-On-The-Local-Forge.md) | M | - | porelo's workflows run green on the host's Forgejo and the central forge on one commit: the legs only on the central forge for now, no provider named, deploy and uploads switched by variables on both forges |
 | <a id="b396"></a>[B396](B396-Mutation-Testing-With-PIT.md) | - | - | A `pit` profile run by hand, not in CI and with no threshold, and a report sorting survivors into real gaps and harmless ones. |
 | <a id="b358"></a>[B358](B358-A-Task-Reviews-A-Pull-Request-On-The-Central-Forge.md) | - | [B172](README.md#b172) | A reviewer task also takes any existing pull request on the central forge by its URL, in a project or without one; read and commented with the person's own account, comments only, each released |
 | <a id="b355"></a>[B355](B355-No-Switch-That-Turns-Every-Check-Off.md) | S | - | No `--insecure` that turns every check off; instead an `unsigned`/`unverified` mark in `task list`, the interface and the gate's verdicts, for what already runs so |
@@ -193,7 +194,6 @@ from its side, as *blocked by*.
 | <a id="b309"></a>[B309](B309-A-Machine-Sets-Its-Own-Transport-Settings.md) | - | - | A machine sets for itself what a transport lists - for Matrix its homeserver, room, CA and registration token - over the signed project file's, so one project file serves machines on different servers; split from [B304](#b304) |
 | <a id="b307"></a>[B307](B307-Not-Waiting-Is-Read-Once-The-Screen-Settles.md) | - | - | The kit's "not waiting" step lets the screen settle after a key before it judges, and fails only on waiting read again after not waiting, as "waiting" already waits |
 | <a id="b305"></a>[B305](B305-Porelos-Agent-Works-In-A-Porelo-Task.md) | - | - | porelo's agent works in a Porelo task on the move's host as `Agent Core`, pushes to its Forgejo and talks in the room, with a way back to this machine; `porelo-parent` has no move of its own |
-| <a id="b306"></a>[B306](B306-Porelos-Build-Runs-On-The-Local-Forge.md) | M | - | porelo's workflows run green on the host's Forgejo and the central forge on one commit: the legs only on the central forge for now, no provider named, deploy and uploads switched by variables on both forges |
 | <a id="b301"></a>[B301](B301-An-Unattended-Task-For-An-Issue-Takes-Its-Phase-From-It.md) | - | - | An unattended task is started for one issue, and its phase follows from that issue, so the person names the issue and nothing else |
 | <a id="b299"></a>[B299](B299-A-Projects-Declared-Parameters-Reach-An-Interface.md) | - | - | `Projects` carries the parameters `project.yml` declares - name, description, required, values or pattern, default - so an interface asks for them before `Start` |
 | <a id="b295"></a>[B295](B295-A-Task-Without-A-Gate-Knows-Its-Host.md) | - | - | A task without a gate refuses declared host services in one sentence, not a `NullPointerException`, and its watcher still knows the host's address it never asks about |
