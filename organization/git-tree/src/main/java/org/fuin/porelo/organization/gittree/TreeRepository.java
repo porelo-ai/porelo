@@ -240,14 +240,41 @@ final class TreeRepository implements AutoCloseable {
      *     not on the line.
      */
     List<Map.Entry<String, String>> line(final @Nullable String revision) {
+        return line(BRANCH, revision, null);
+    }
+
+    /**
+     * Returns the first-parent line of the given branch after a commit, oldest first.
+     *
+     * @param branch Where the line ends, a branch or its resolved tip.
+     * @param since The commit whose history is excluded, or {@code null} for the whole line.
+     * @return Each commit and its first parent, "" for the founding one.
+     * @throws CardException When the history is shallow and so proves nothing.
+     */
+    List<Map.Entry<String, String>> lineAfter(final String branch, final @Nullable String since) {
+        return line(branch, null, since);
+    }
+
+    private List<Map.Entry<String, String>> line(
+            final String branch, final @Nullable String revision, final @Nullable String since) {
         if (!require("rev-parse", "--is-shallow-repository").strip().equals("false")) {
             throw new CardException("a shallow organization cannot prove its history");
         }
+        final List<String> arguments =
+                new ArrayList<>(
+                        List.of(
+                                "rev-list",
+                                "--parents",
+                                "--first-parent",
+                                "--reverse",
+                                "--end-of-options",
+                                branch));
+        if (since != null) {
+            arguments.add("^" + since);
+        }
+        arguments.add("--");
         final List<Map.Entry<String, String>> line = new ArrayList<>();
-        for (final String entry :
-                require("rev-list", "--parents", "--first-parent", "--reverse", BRANCH)
-                        .lines()
-                        .toList()) {
+        for (final String entry : require(arguments.toArray(String[]::new)).lines().toList()) {
             final String[] ancestry = entry.split(" ");
             line.add(Map.entry(ancestry[0], ancestry.length > 1 ? ancestry[1] : ""));
             if (ancestry[0].equals(revision)) {
@@ -482,6 +509,17 @@ final class TreeRepository implements AutoCloseable {
      * @return The commits whose trailer names it.
      */
     java.util.Set<String> signingAnew(final String path) {
+        return signingAnew(BRANCH, path);
+    }
+
+    /**
+     * Returns the commits on the given branch's first-parent line that sign a file anew.
+     *
+     * @param branch The branch or its resolved tip.
+     * @param path The file.
+     * @return The commits whose trailer names it; their signatures are still to be judged.
+     */
+    java.util.Set<String> signingAnew(final String branch, final String path) {
         // Each value framed by a NUL, which no trailer holds: a ',' in git's format ends the option
         // and leaves no separator, so two values ran together and a comma of a value's own split
         // it.
@@ -493,7 +531,9 @@ final class TreeRepository implements AutoCloseable {
                                 "--format=%H %(trailers:key="
                                         + SIGNS_ANEW
                                         + ",valueonly,separator=%x00)",
-                                BRANCH)
+                                "--end-of-options",
+                                branch,
+                                "--")
                         .lines()
                         .toList()) {
             final String[] fields = row.split(" ", 2);
@@ -657,7 +697,30 @@ final class TreeRepository implements AutoCloseable {
      * @return The commit.
      */
     String tip() {
-        return require("rev-parse", "--verify", BRANCH).strip();
+        return tip(BRANCH);
+    }
+
+    /**
+     * Returns the given branch's tip.
+     *
+     * @param branch The branch.
+     * @return The commit.
+     */
+    String tip(final String branch) {
+        return require("rev-parse", "--verify", "--end-of-options", branch).strip();
+    }
+
+    /**
+     * Whether a commit's history contains another commit, through any parent, including itself.
+     *
+     * @param commit The tip whose history is read.
+     * @param ancestor The commit to find, which may no longer be held in the repository.
+     * @return Whether it is an ancestor.
+     */
+    boolean hasAncestor(final String commit, final String ancestor) {
+        return require("rev-list", "--end-of-options", commit, "--")
+                .lines()
+                .anyMatch(ancestor::equals);
     }
 
     private static String written(final CommandResult result) {
