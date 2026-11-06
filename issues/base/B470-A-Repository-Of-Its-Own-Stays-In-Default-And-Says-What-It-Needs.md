@@ -1,6 +1,6 @@
 # B470 — A Repository Of Its Own Stays In Default And Says What It Needs
 
-**Status:** Implementing.
+**Status:** Review.
 **Size:** L - the repository file's form and the merge in `core`, the image rule and the sources in `app-model`, the
 allowance and two daemon calls, the judging of `porelo.yml` in an organization's project, the first start's draft;
 built in four steps, each safe on its own. Estimate 180 minutes for the whole, from today's actuals against
