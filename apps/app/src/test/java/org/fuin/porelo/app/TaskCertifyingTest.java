@@ -6,8 +6,8 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Clock;
 import java.util.List;
-import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.api.io.TempDir;
 
 /** Tests for {@link TaskCertifying}: certified when the starter's agent holds a certifier's key. */
@@ -15,21 +15,16 @@ class TaskCertifyingTest {
 
     @TempDir Path dir;
 
+    @RegisterExtension final TestSshAgent agents = new TestSshAgent();
+
     @Test
     void aStartIsCertifiedOnlyWhenTheAgentHoldsACertifiersKeyOrThePersonsMachineCertifies()
             throws Exception {
         final String person = keygen("person");
         final String other = keygen("other");
         final Path socket = dir.resolve("agent.sock");
-        final Process agent =
-                new ProcessBuilder("ssh-agent", "-D", "-a", socket.toString())
-                        .redirectErrorStream(true)
-                        .redirectOutput(ProcessBuilder.Redirect.DISCARD)
-                        .start();
+        agents.start(socket);
         try {
-            for (int i = 0; i < 100 && !Files.exists(socket); i++) {
-                Thread.sleep(20);
-            }
             final ProcessBuilder add =
                     new ProcessBuilder("ssh-add", "-q", dir.resolve("person").toString());
             add.environment().put("SSH_AUTH_SOCK", socket.toString());
@@ -142,8 +137,7 @@ class TaskCertifyingTest {
                                                             + person
                                                             + "\n"));
         } finally {
-            agent.destroy();
-            agent.waitFor(5, TimeUnit.SECONDS);
+            agents.close();
         }
     }
 
@@ -182,15 +176,8 @@ class TaskCertifyingTest {
     }
 
     /** An agent holding the person's key, for a test to sign through. */
-    private Process agentHolding(final Path socket) throws Exception {
-        final Process agent =
-                new ProcessBuilder("ssh-agent", "-D", "-a", socket.toString())
-                        .redirectErrorStream(true)
-                        .redirectOutput(ProcessBuilder.Redirect.DISCARD)
-                        .start();
-        for (int i = 0; i < 100 && !Files.exists(socket); i++) {
-            Thread.sleep(20);
-        }
+    private void agentHolding(final Path socket) throws Exception {
+        agents.start(socket);
         final ProcessBuilder add =
                 new ProcessBuilder("ssh-add", "-q", dir.resolve("person").toString());
         add.environment().put("SSH_AUTH_SOCK", socket.toString());
@@ -200,7 +187,6 @@ class TaskCertifyingTest {
                                 .start()
                                 .waitFor())
                 .isZero();
-        return agent;
     }
 
     /** A person's computer answering a start: it signs what it is told, or something else. */
@@ -249,7 +235,7 @@ class TaskCertifyingTest {
     void aStartIsCertifiedByThePersonsComputerThroughItsWait() throws Exception {
         final String person = keygen("person");
         final Path socket = dir.resolve("waited.sock");
-        final Process agent = agentHolding(socket);
+        agentHolding(socket);
         try {
             final CertificateWaits waits = new CertificateWaits();
 
@@ -269,8 +255,7 @@ class TaskCertifyingTest {
             assertThat(issued.certificate().signer()).isEqualTo(person);
             assertThat(issued.principal()).isEqualTo("task:demo:fix");
         } finally {
-            agent.destroy();
-            agent.waitFor(5, TimeUnit.SECONDS);
+            agents.close();
         }
     }
 
@@ -278,7 +263,7 @@ class TaskCertifyingTest {
     void aCertificateForAnotherTaskIsRefusedThroughItsWaitToo() throws Exception {
         final String person = keygen("person");
         final Path socket = dir.resolve("waited.sock");
-        final Process agent = agentHolding(socket);
+        agentHolding(socket);
         try {
             final CertificateWaits waits = new CertificateWaits();
 
@@ -301,8 +286,7 @@ class TaskCertifyingTest {
                     .isInstanceOf(TaskCertification.Refused.class)
                     .hasMessageContaining("must name exactly task:demo:fix");
         } finally {
-            agent.destroy();
-            agent.waitFor(5, TimeUnit.SECONDS);
+            agents.close();
         }
     }
 }

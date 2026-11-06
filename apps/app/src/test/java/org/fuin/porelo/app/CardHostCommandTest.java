@@ -20,6 +20,7 @@ import org.fuin.porelo.vault.SigningKey;
 import org.fuin.porelo.wire.Json;
 import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.api.io.TempDir;
 import picocli.CommandLine;
 
@@ -40,6 +41,8 @@ class CardHostCommandTest {
     private final String hostKey = PersonCard.keyLine(SigningKey.generate("host"));
 
     @TempDir Path dir;
+
+    @RegisterExtension final TestSshAgent agents = new TestSshAgent();
 
     /** What {@code SSH_AUTH_SOCK} says to the command, or {@code null} for no agent at all. */
     private @Nullable String agentSocket;
@@ -136,16 +139,9 @@ class CardHostCommandTest {
     }
 
     /** Runs a real {@code ssh-agent} holding the given keys, which are then deleted from disk. */
-    private Process agent(final Path... keys) throws Exception {
+    private void agent(final Path... keys) throws Exception {
         final Path socket = dir.resolve("agent.sock");
-        final Process agent =
-                new ProcessBuilder("ssh-agent", "-D", "-a", socket.toString())
-                        .redirectErrorStream(true)
-                        .redirectOutput(ProcessBuilder.Redirect.DISCARD)
-                        .start();
-        for (int i = 0; i < 100 && !Files.exists(socket); i++) {
-            Thread.sleep(20);
-        }
+        agents.start(socket);
         for (final Path key : keys) {
             final ProcessBuilder add = new ProcessBuilder("ssh-add", "-q", key.toString());
             add.environment().put("SSH_AUTH_SOCK", socket.toString());
@@ -159,7 +155,6 @@ class CardHostCommandTest {
             Files.delete(key);
         }
         agentSocket = socket.toString();
-        return agent;
     }
 
     @Test
@@ -448,7 +443,7 @@ class CardHostCommandTest {
         final Path hostKeyFile = file("host.pub", hostKey + "\n");
         assertThat(card(makeHost("walk-9", key, hostKeyFile).toArray(String[]::new))).isZero();
         final String fromFile = out.toString();
-        final Process agent = agent(key);
+        agent(key);
         try {
             assertThat(
                             card(
@@ -471,7 +466,7 @@ class CardHostCommandTest {
                     .as(err.toString())
                     .isZero();
         } finally {
-            agent.destroy();
+            agents.close();
         }
     }
 
@@ -481,7 +476,7 @@ class CardHostCommandTest {
         final Path other = keygen("other", "");
         final Path key = keygen("admin", "");
         final Path hostKeyFile = file("host.pub", hostKey + "\n");
-        final Process agent = agent(other);
+        agent(other);
         try {
             assertThat(
                             card(
@@ -492,7 +487,7 @@ class CardHostCommandTest {
                     .contains("the ssh agent does not hold the key " + pinOf(key));
             assertThat(out.toString()).isEmpty();
         } finally {
-            agent.destroy();
+            agents.close();
         }
     }
 

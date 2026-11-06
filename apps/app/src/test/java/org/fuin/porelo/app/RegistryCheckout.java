@@ -40,7 +40,7 @@ final class RegistryCheckout implements AutoCloseable {
     final StringWriter out = new StringWriter();
     final StringWriter err = new StringWriter();
     final PoreloPaths paths;
-    private @Nullable Process agent;
+    private final TestSshAgent agents = new TestSshAgent();
 
     private @Nullable Path socket;
 
@@ -196,16 +196,10 @@ final class RegistryCheckout implements AutoCloseable {
     /** Starts a real ssh-agent holding these logins' keys. */
     void agent(String... logins) throws Exception {
         final Path where = dir.resolve("agent.sock");
+        agents.close();
         // An agent stopped before leaves its socket behind.
         Files.deleteIfExists(where);
-        agent =
-                new ProcessBuilder("ssh-agent", "-D", "-a", where.toString())
-                        .redirectErrorStream(true)
-                        .redirectOutput(ProcessBuilder.Redirect.DISCARD)
-                        .start();
-        for (int tries = 0; tries < 100 && !Files.exists(where); tries++) {
-            Thread.sleep(50);
-        }
+        agents.start(where);
         socket = where;
         for (String login : logins) {
             runner.runOrFail(
@@ -252,10 +246,7 @@ final class RegistryCheckout implements AutoCloseable {
     }
 
     @Override
-    public void close() throws InterruptedException {
-        if (agent != null) {
-            agent.destroy();
-            agent.waitFor();
-        }
+    public void close() {
+        agents.close();
     }
 }

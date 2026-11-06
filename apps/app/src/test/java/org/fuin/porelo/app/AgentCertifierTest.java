@@ -7,14 +7,16 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Clock;
 import java.util.List;
-import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.api.io.TempDir;
 
 /** Tests for {@link AgentCertifier}: a task's key certified through the person's own agent. */
 class AgentCertifierTest {
 
     @TempDir Path dir;
+
+    @RegisterExtension final TestSshAgent agents = new TestSshAgent();
 
     @Test
     void anOpensshOlderThanNineOneCertifiesInUtc() throws Exception {
@@ -78,15 +80,8 @@ class AgentCertifierTest {
                 dir.resolve("person").toString());
         final String person = keyOnly(Files.readString(dir.resolve("person.pub")));
         final Path socket = dir.resolve("agent.sock");
-        final Process agent =
-                new ProcessBuilder("ssh-agent", "-D", "-a", socket.toString())
-                        .redirectErrorStream(true)
-                        .redirectOutput(ProcessBuilder.Redirect.DISCARD)
-                        .start();
+        agents.start(socket);
         try {
-            for (int i = 0; i < 100 && !Files.exists(socket); i++) {
-                Thread.sleep(20);
-            }
             final ProcessBuilder add =
                     new ProcessBuilder("ssh-add", "-q", dir.resolve("person").toString());
             add.environment().put("SSH_AUTH_SOCK", socket.toString());
@@ -123,8 +118,7 @@ class AgentCertifierTest {
                     .isInstanceOf(TaskCertification.Refused.class)
                     .hasMessageContaining("agent");
         } finally {
-            agent.destroy();
-            agent.waitFor(5, TimeUnit.SECONDS);
+            agents.close();
         }
     }
 

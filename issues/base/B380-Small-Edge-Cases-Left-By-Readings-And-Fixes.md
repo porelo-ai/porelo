@@ -41,3 +41,6 @@ key wrongly or loses data. Each one placed is split out with its own size.
 - Low, for the tests only: `DirectoriesTest` and the tests of the directories made show a fault only under a umask
   that leaves the group's write, such as 002; `SocketPeerTest` cannot show a peer of another account, which takes a
   second uid.
+- Done, for the tests only: tests in `apps/app` left their `ssh-agent -D` processes running after a failure or
+  an interrupt; 43 were found on the host, the oldest 21 hours old. One shared helper now stops each test's
+  agents and their descendants in `afterEach` or `close`, with a JVM shutdown hook as the last resort.

@@ -8,12 +8,11 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
 import java.util.List;
-import java.util.concurrent.TimeUnit;
 import org.fuin.porelo.vault.SshCertificate;
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
+import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.api.io.TempDir;
 
 /**
@@ -26,7 +25,7 @@ class RemoteStartTest {
 
     @TempDir Path dir;
 
-    private Process agent;
+    @RegisterExtension final TestSshAgent agents = new TestSshAgent();
 
     private Path socket;
 
@@ -37,14 +36,7 @@ class RemoteStartTest {
         person = keygen("person");
         keygen("task");
         socket = dir.resolve("agent.sock");
-        agent =
-                new ProcessBuilder("ssh-agent", "-D", "-a", socket.toString())
-                        .redirectErrorStream(true)
-                        .redirectOutput(ProcessBuilder.Redirect.DISCARD)
-                        .start();
-        for (int i = 0; i < 100 && !Files.exists(socket); i++) {
-            Thread.sleep(20);
-        }
+        agents.start(socket);
         final ProcessBuilder add =
                 new ProcessBuilder("ssh-add", "-q", dir.resolve("person").toString());
         add.environment().put("SSH_AUTH_SOCK", socket.toString());
@@ -54,12 +46,6 @@ class RemoteStartTest {
                                 .start()
                                 .waitFor())
                 .isZero();
-    }
-
-    @AfterEach
-    void stopAgent() throws Exception {
-        agent.destroy();
-        agent.waitFor(5, TimeUnit.SECONDS);
     }
 
     @Test
