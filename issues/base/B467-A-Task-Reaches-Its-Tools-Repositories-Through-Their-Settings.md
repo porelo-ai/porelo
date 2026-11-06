@@ -1,6 +1,6 @@
 # B467 — A Task Reaches Its Tool's Repositories Through Their Settings
 
-**Status:** Implementing; blocked by [B468](README.md#b468) for the adapter's own settings.
+**Status:** Backlog; folds into [B470](README.md#b470).
 **Size:** M - a section of the project file with its schema and document, the call at both start paths, the draft of a
 first start, and their tests; no change to Porelo's own daemon contract.
 
