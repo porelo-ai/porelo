@@ -243,26 +243,26 @@ public final class ProjectFileCheck {
         final String label = name == null ? "" : name;
         final String upstream = blankless(info.upstream());
         if (upstream != null) {
-            refuseAsOption(upstream, "project.upstream");
+            refuseAsOption(upstream, "project.central");
         }
         if (securityClass == SecurityClass.OFFLINE && upstream != null) {
             // An offline project never connects: its repository comes in as a file.
             fault(
-                    "project.upstream",
+                    "project.central",
                     "Project '"
                             + label
-                            + "' is offline, so it names no upstream: nothing connects out for"
-                            + " it, not even the host. Remove 'project.upstream' and bring the"
+                            + "' is offline, so it names no central address: nothing connects out"
+                            + " for it, not even the host. Remove 'project.central' and bring the"
                             + " repository in as a file with 'porelo gate restore', or start from a"
                             + " checkout of it on this machine.");
         }
         if (securityClass == SecurityClass.ONLINE && upstream == null) {
             // The agent's remote is the upstream itself, so without one the class means nothing.
             fault(
-                    "project.upstream",
+                    "project.central",
                     "Project '"
                             + label
-                            + "' is online, so it needs an upstream in 'project.upstream'");
+                            + "' is online, so it needs its central address in 'project.central'");
         }
         review(info.review(), "project.review");
         nickname(info.nickname(), "project.nickname");
@@ -915,41 +915,35 @@ public final class ProjectFileCheck {
                             + " repository instead.");
         }
         final String upstream = blankless(entry.upstream());
-        if (upstream != null) {
-            refuseAsOption(upstream, path + ".upstream");
+        if (upstream != null && blankless(entry.central()) == null) {
+            refuseAsOption(upstream, path + ".central");
         }
         if (securityClass == SecurityClass.OFFLINE && upstream != null) {
             fault(
-                    path + ".upstream",
+                    path + ".central",
                     "Project '"
                             + label
                             + "' is offline, so its repository '"
                             + name
-                            + "' names no upstream either. Remove '"
+                            + "' names no central address either. Remove '"
                             + path
-                            + ".upstream' and bring it in as a file with 'porelo gate restore'.");
+                            + ".central' and bring it in as a file with 'porelo gate restore'.");
         }
         if (securityClass == SecurityClass.ONLINE && upstream == null) {
             // Online means the agent's own remote is the upstream.
             fault(
-                    path + ".upstream",
+                    path + ".central",
                     "Project '"
                             + label
                             + "' is online, so its repository '"
                             + name
-                            + "' needs an upstream in '"
+                            + "' needs its central address in '"
                             + path
-                            + ".upstream'");
+                            + ".central'");
         }
         final String central = blankless(entry.central());
         if (central != null) {
             refuseAsOption(central, path + ".central");
-            // The host's forge names a repository after its central one, so the two must agree.
-            if (upstream != null && !lastName(upstream).equals(lastName(central))) {
-                fault(
-                        path + ".central",
-                        "'" + path + ".central' must end in the repository 'upstream' ends in");
-            }
         }
         review(entry.review(), path + ".review");
         if (entry.agent() != null && !entry.agent().matches(AGENT)) {
@@ -989,11 +983,6 @@ public final class ProjectFileCheck {
         if (entry.branch() != null) {
             branch(entry.branch(), path + ".branch");
         }
-    }
-
-    private static String lastName(final String address) {
-        final String bare = address.replaceFirst("/+$", "").replaceFirst("\\.git$", "");
-        return bare.substring(Math.max(bare.lastIndexOf('/'), bare.lastIndexOf(':')) + 1);
     }
 
     private void review(final @Nullable String review, final String path) {

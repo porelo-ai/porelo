@@ -814,7 +814,7 @@ class OrgWritingCommandsTest {
         assertThat(err.toString())
                 .contains("Porelo changes no project file")
                 .contains("project 'demo'")
-                .contains("add this entry:\nrepositories:\n  app:\n    upstream: " + ADDRESS + "\n")
+                .contains("add this entry:\nrepositories:\n  app:\n    central: " + ADDRESS + "\n")
                 .doesNotContain("?");
     }
 

@@ -9,8 +9,10 @@ import org.jspecify.annotations.Nullable;
  * <p>It names no image, egress or limits: the image is the repository's own file's, and what a task
  * may reach or consume is the project's alone.
  *
- * @param upstream Where approved work goes ({@code upstream}).
- * @param central Where a host takes the repository from ({@code central}).
+ * @param upstream Where approved work goes: its {@code central}, or in a file not yet renamed its
+ *     {@code upstream}.
+ * @param central The repository at its central forge ({@code central}), where a host takes it from;
+ *     an {@code upstream} not yet renamed names none, so that a host places it as before.
  * @param review {@code required} or {@code optional} ({@code review}).
  * @param description For people ({@code description}).
  * @param issues The issue prefixes it owns ({@code issues}), empty when it names none.

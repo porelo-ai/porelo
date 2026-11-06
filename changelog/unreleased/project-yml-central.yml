@@ -1,0 +1,2 @@
+title: "`project.yml` names each repository's central forge as `central:`; `upstream:` is still read and `project verify` answers it under `renames`"
+type: changed

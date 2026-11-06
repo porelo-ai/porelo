@@ -150,15 +150,36 @@ class ProjectVerifyCommandTest {
                 .containsExactly("second", "first", "local");
         final Map<?, ?> second = (Map<?, ?>) repositories.get("second");
         assertThat(second.get("review")).isEqualTo("optional");
-        assertThat(second.get("upstream")).isEqualTo("git@forge.example:demo/second.git");
+        assertThat(second.get("upstream"))
+                .as("a file not yet renamed keeps where its work goes")
+                .isEqualTo("git@forge.example:demo/second.git");
         assertThat(second.get("central")).isEqualTo("git@github.com:acme/second.git");
         final Map<?, ?> first = (Map<?, ?>) repositories.get("first");
         assertThat(first.get("review")).as("left out").isEqualTo("required");
         assertThat(first.containsKey("central")).as("named, and null").isTrue();
-        assertThat(first.get("central")).isNull();
+        assertThat(first.get("central")).as("an old 'upstream' names no central").isNull();
         final Map<?, ?> local = (Map<?, ?>) repositories.get("local");
         assertThat(local.containsKey("upstream")).isTrue();
         assertThat(local.get("upstream")).isNull();
+        assertThat(answer.get("renames"))
+                .as("each key under its old name, said and not refused")
+                .isEqualTo(
+                        List.of(
+                                "project.upstream",
+                                "repositories.second.upstream",
+                                "repositories.first.upstream"));
+    }
+
+    @Test
+    void aFileThatSaysCentralHasNothingToRename() throws Exception {
+        commit(
+                FILE.replace("upstream:", "central:")
+                        .replace("    central: \"git@forge.example:demo/second.git\"\n", ""),
+                "alice");
+
+        assertThat(verify()).as(() -> out + " " + err).isZero();
+
+        assertThat(answer().get("renames")).isEqualTo(List.of());
     }
 
     @Test

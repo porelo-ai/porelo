@@ -63,13 +63,39 @@ public final class ProjectFile {
      * @param why Why it is refused, or {@code null}.
      * @param signer The key the newest change is signed by, or {@code null} when it has none that
      *     verifies.
+     * @param renames The file's keys still under an old name, read alike; none unless read.
      */
     public record Read(
             String state,
             @Nullable String revision,
             @Nullable Project project,
             @Nullable String why,
-            @Nullable String signer) {
+            @Nullable String signer,
+            List<String> renames) {
+
+        /**
+         * Constructor.
+         *
+         * @param state What the read found.
+         * @param revision The tip read.
+         * @param project The file.
+         * @param why Why it is refused.
+         * @param signer The key of the newest change.
+         * @param renames The keys under an old name.
+         */
+        public Read {
+            renames = renames == null ? List.of() : List.copyOf(renames);
+        }
+
+        /** What a read found, with nothing to rename. */
+        public Read(
+                final String state,
+                final @Nullable String revision,
+                final @Nullable Project project,
+                final @Nullable String why,
+                final @Nullable String signer) {
+            this(state, revision, project, why, signer, List.of());
+        }
 
         /** What a read found, with no signer to name. */
         public Read(
@@ -208,8 +234,16 @@ public final class ProjectFile {
                                 + wayOut(clone, tip),
                         signer);
             }
-            final Project project = parsed(clone.text(blob.orElseThrow()), inClone(clone, tip));
-            final Read read = new Read(READ, tip, project, null, signer);
+            final String text = clone.text(blob.orElseThrow());
+            final Project project = parsed(text, inClone(clone, tip));
+            final Read read =
+                    new Read(
+                            READ,
+                            tip,
+                            project,
+                            null,
+                            signer,
+                            org.fuin.porelo.core.project.file.OldNames.of(text));
             if (guard != null) {
                 guard.remember(address, dated);
             }

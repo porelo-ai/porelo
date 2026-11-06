@@ -36,7 +36,7 @@ class ProjectFileFaultsTest {
             project:
               name: shop
               security_class: online
-              upstream: git@github.com:you/shop.git
+              central: git@github.com:you/shop.git
             image:
               from: ubuntu:24.04
             """;
@@ -172,9 +172,9 @@ class ProjectFileFaultsTest {
                 refused(
                         BASE.replace(
                                 "  security_class: guarded\n",
-                                "  security_class: guarded\n  upstream: \"--upload-pack=touch /tmp/x\"\n"),
+                                "  security_class: guarded\n  central: \"--upload-pack=touch /tmp/x\"\n"),
                         4,
-                        "project.upstream",
+                        "project.central",
                         "as an option or a command"),
                 refused(
                         BASE.replace("from: ubuntu:24.04", "from: \"-v /:/host ubuntu\""),
@@ -209,28 +209,28 @@ class ProjectFileFaultsTest {
                         "builds.api",
                         "must be an https:// address"),
                 refused(
-                        ONLINE.replace("  upstream: git@github.com:you/shop.git\n", ""),
+                        ONLINE.replace("  central: git@github.com:you/shop.git\n", ""),
                         1,
-                        "project.upstream",
-                        "is online, so it needs an upstream"),
+                        "project.central",
+                        "is online, so it needs its central address"),
                 refused(
                         ONLINE + "repositories:\n  web: {}\n",
                         8,
-                        "repositories.web.upstream",
-                        "needs an upstream"),
+                        "repositories.web.central",
+                        "needs its central address"),
                 refused(
                         OFFLINE.replace(
                                 "  security_class: offline\n",
-                                "  security_class: offline\n  upstream: git@github.com:you/shop.git\n"),
+                                "  security_class: offline\n  central: git@github.com:you/shop.git\n"),
                         4,
-                        "project.upstream",
-                        "is offline, so it names no upstream"),
+                        "project.central",
+                        "is offline, so it names no central address"),
                 refused(
                         OFFLINE
-                                + "repositories:\n  web:\n    upstream: git@github.com:you/web.git\n",
+                                + "repositories:\n  web:\n    central: git@github.com:you/web.git\n",
                         8,
-                        "repositories.web.upstream",
-                        "names no upstream either"),
+                        "repositories.web.central",
+                        "names no central address either"),
                 refused(
                         OFFLINE + "egress:\n  sets: [maven]\n",
                         6,
@@ -242,13 +242,6 @@ class ProjectFileFaultsTest {
                         "credentials",
                         "can declare no 'credentials'"),
                 // Repositories.
-                refused(
-                        BASE
-                                + "repositories:\n  web:\n    upstream: git@github.com:you/web.git\n"
-                                + "    central: git@github.com:acme/other.git\n",
-                        9,
-                        "repositories.web.central",
-                        "must end in the repository 'upstream' ends in"),
                 refused(
                         BASE
                                 + "repositories:\n  web:\n    issues: [B]\n  api:\n    issues: [P, B]\n",
@@ -292,10 +285,9 @@ class ProjectFileFaultsTest {
                         "repositories.web.maturity",
                         "is one of crazy-chicken, early-bird, stable, deprecated"),
                 refused(
-                        BASE
-                                + "repositories:\n  web:\n    upstream: \"ext::sh -c touch% /tmp/x\"\n",
+                        BASE + "repositories:\n  web:\n    central: \"ext::sh -c touch% /tmp/x\"\n",
                         8,
-                        "repositories.web.upstream",
+                        "repositories.web.central",
                         "as an option or a command"),
                 refused(
                         BASE + "repositories:\n  web:\n    branch:\n      template: \"{task}\"\n",

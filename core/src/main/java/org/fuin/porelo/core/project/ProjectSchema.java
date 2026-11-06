@@ -208,9 +208,16 @@ final class ProjectSchema {
                             true),
                     key(
                             "project",
+                            "central",
+                            "The project's own repository at its central forge, where approved"
+                                    + " work on it goes; required for online.",
+                            "string",
+                            "",
+                            false),
+                    key(
+                            "project",
                             "upstream",
-                            "Where approved work on the project's own repository goes; required for"
-                                    + " online.",
+                            "The old name of 'central', read alike; rename it to 'central'.",
                             "string",
                             "",
                             false),
@@ -436,16 +443,17 @@ final class ProjectSchema {
                     key(
                             "repositories.<repository>",
                             "central",
-                            "Where a host takes the repository from; without one, it is not"
-                                    + " taken. Ends in the repository 'upstream' ends in.",
+                            "The repository at its central forge: where approved work on it goes,"
+                                    + " and where a host takes it from. Without one, work stays on"
+                                    + " this machine.",
                             "string",
                             "",
                             false),
                     key(
                             "repositories.<repository>",
                             "upstream",
-                            "Where approved work on this repository goes; without one,"
-                                    + " it stays on this machine.",
+                            "The old name of 'central', read alike for where approved work"
+                                    + " goes; rename it to 'central'.",
                             "string",
                             "",
                             false),

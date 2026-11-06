@@ -70,7 +70,14 @@ final class Sections {
                         "base_branch"));
         keys.put(
                 "project",
-                List.of("name", "description", "security_class", "upstream", "review", "nickname"));
+                List.of(
+                        "name",
+                        "description",
+                        "security_class",
+                        "central",
+                        "upstream",
+                        "review",
+                        "nickname"));
         keys.put(
                 "repositories.<name>",
                 List.of(

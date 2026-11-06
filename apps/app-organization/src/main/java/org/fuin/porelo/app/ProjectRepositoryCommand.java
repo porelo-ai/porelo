@@ -169,7 +169,15 @@ public class ProjectRepositoryCommand {
         repositories.put(
                 name,
                 new RepositoryEntry(
-                        upstream, central, review, null, List.of(), null, null, null, null));
+                        central != null ? central : upstream,
+                        central != null ? central : upstream,
+                        review,
+                        null,
+                        List.of(),
+                        null,
+                        null,
+                        null,
+                        null));
         return ProjectFileWriter.entry(
                 new ProjectFile(
                         null,

@@ -138,7 +138,7 @@ class ProjectInitCommandTest {
                 .contains("\"project\":\"demo\"")
                 .contains(
                         "\"entry\":\"repositories:\\n  sample:\\n"
-                                + "    upstream: https://example.org/sample.git\\n\"");
+                                + "    central: https://example.org/sample.git\\n\"");
         assertThat(snapshot(directory))
                 .as("neither checkout nor account files change")
                 .isEqualTo(before);
@@ -165,7 +165,7 @@ class ProjectInitCommandTest {
         assertThat(err.toString())
                 .contains("Porelo changes no project file")
                 .contains(
-                        "add this entry:\nrepositories:\n  sample:\n    upstream: https://example.org/sample.git\n");
+                        "add this entry:\nrepositories:\n  sample:\n    central: https://example.org/sample.git\n");
     }
 
     @Test
@@ -299,8 +299,9 @@ class ProjectInitCommandTest {
                                 .get("draft"));
 
         assertThat(draft)
-                .contains("upstream: http://127.0.0.1:3001/demo/sample.git")
-                .contains("central: git@example.org:acme/sample.git")
+                .as("the row names its central forge; the host derives its own address from it")
+                .contains("  sample:\n    central: git@example.org:acme/sample.git\n")
+                .doesNotContain("demo/sample.git")
                 .contains("security_class: online");
     }
 

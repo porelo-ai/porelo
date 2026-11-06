@@ -38,17 +38,18 @@ project:
   description: "The thing that talks to the payment provider"
 
   # Required: offline, guarded or online. See security.md.
-  #   offline  no network beyond this host; external egress and upstream are refused,
+  #   offline  no network beyond this host; external egress and 'central' are refused,
   #            and host_services is allowed.
-  #   guarded  reaches what egress names, pushes to a gate, holds no upstream credential.
-  #   online   pushes to a gate that passes its own branch on at once; needs 'upstream'.
+  #   guarded  reaches what egress names, pushes to a gate, holds no credential for 'central'.
+  #   online   pushes to a gate that passes its own branch on at once; needs 'central'.
   security_class: "guarded"
 
-  # The immediate Git destination for the project's OWN repository: the host's forge or a
-  # central or company forge. Required for online, refused for offline, and never seen by
-  # the agent: in guarded the gate forwards what a person approved, and in online it
-  # forwards the task's own branch at once.
-  upstream: "git@github.com:you/myproject.git"
+  # The project's OWN repository at its central forge, a public or a company one; never a
+  # host's address, which a host derives itself. Required for online, refused for offline, and
+  # never seen by the agent: in guarded the gate forwards what a person approved, and in online
+  # it forwards the task's own branch at once. Its old name 'upstream' is read alike;
+  # 'porelo project verify' says to rename it.
+  central: "git@github.com:you/myproject.git"
 
   # Optional. Whether a merge in the project's own repository on the host's forge needs another
   # person's approval: required, the default, or optional, where the author merges their own.
@@ -68,11 +69,10 @@ repositories:
   # Names use lower-case letters, digits and hyphens, with single dots between letters or digits;
   # they start and end with a letter or digit and have at most 63 characters.
   backend:
-    # Optional. Without an upstream, the work stays on this machine.
-    upstream: "git@github.com:you/backend.git"
-    # Optional. Where a host takes this repository from, when 'upstream' names the host's forge.
-    # Without it a host takes nothing. It ends in the repository 'upstream' ends in.
-    central: "git@github.com:acme/backend.git"
+    # Optional. The repository at its central forge: where approved work goes, and where a host
+    # that carries it takes it from. Without one, the work stays on this machine. A file not yet
+    # renamed keeps working as before: its 'upstream' is where work goes, and names no central.
+    central: "git@github.com:you/backend.git"
     # Optional. As the project's own 'review' above, for this repository.
     review: "required"
     description: "The thing that talks to the payment provider"
@@ -103,7 +103,7 @@ repositories:
   # A repository names no image, egress or limits: its image is in its own porelo.yml, and what a
   # task may reach or consume is the project's alone.
   frontend:
-    upstream: "git@github.com:you/frontend.git"
+    central: "git@github.com:you/frontend.git"
 
 image:
 
@@ -356,7 +356,7 @@ image:
   or by no one, refuses the start, naming the file and the commit; so does a history rewritten under the change taken
   last. A project admin or developer reads it with `porelo project sign-repository-file PROJECT REPOSITORY`, then
   signs the revision read with `--yes --base REVISION`; `--id ID` makes a retry safe. This pushes an empty signed
-  commit with `Porelo-Signs-Anew: porelo.yml` to the `upstream` in the project's judged file, on the repository's
+  commit with `Porelo-Signs-Anew: porelo.yml` to the `central` address in the project's judged file, on the repository's
   default branch. The signature anew takes on the file as it stands, unsigned changes before it included; one by
   anybody else changes nothing. It does not repair a rewritten history. Nothing on the machine allows a refused
   change.

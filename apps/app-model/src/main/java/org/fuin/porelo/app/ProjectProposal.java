@@ -311,8 +311,8 @@ final class ProjectProposal {
                         Map.of(
                                 repository,
                                 new RepositoryEntry(
-                                        text(row.get("upstream")),
-                                        text(row.get("central")),
+                                        central(row),
+                                        central(row),
                                         text(row.get("review")),
                                         null,
                                         List.of(),
@@ -320,6 +320,12 @@ final class ProjectProposal {
                                         null,
                                         null,
                                         null))));
+    }
+
+    /** A row Porelo writes names one address, its central forge: 'upstream' when no other. */
+    private static @Nullable String central(final Map<String, ?> row) {
+        final String central = text(row.get("central"));
+        return central != null ? central : text(row.get("upstream"));
     }
 
     Map<String, @Nullable Object> answer() {
@@ -502,8 +508,8 @@ final class ProjectProposal {
                 Map.of(
                         repository,
                         new RepositoryEntry(
-                                text(row.get("upstream")),
-                                text(row.get("central")),
+                                central(row),
+                                central(row),
                                 text(row.get("review")),
                                 null,
                                 List.of(),

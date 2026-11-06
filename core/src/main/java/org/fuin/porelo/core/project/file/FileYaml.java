@@ -56,7 +56,7 @@ final class FileYaml {
             put(project, "name", info.name());
             put(project, "description", info.description());
             put(project, "security_class", info.securityClass());
-            put(project, "upstream", info.upstream());
+            put(project, "central", info.upstream());
             put(project, "review", info.review());
             put(project, "nickname", info.nickname());
             top.put("project", project);
@@ -123,7 +123,13 @@ final class FileYaml {
 
     private static Map<String, Object> repository(final RepositoryEntry entry) {
         final Map<String, Object> repository = new LinkedHashMap<>();
-        put(repository, "upstream", entry.upstream());
+        // A row names its central. An 'upstream' read from a file not yet renamed keeps its old
+        // name
+        // where it says something 'central' does not, as written as 'central' it would be placed
+        // anew on a host.
+        if (entry.upstream() != null && !entry.upstream().equals(entry.central())) {
+            put(repository, "upstream", entry.upstream());
+        }
         put(repository, "central", entry.central());
         put(repository, "review", entry.review());
         put(repository, "description", entry.description());

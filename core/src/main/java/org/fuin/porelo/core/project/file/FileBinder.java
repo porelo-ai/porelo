@@ -90,9 +90,18 @@ final class FileBinder {
                 b.word(s.get("name"), "project.name"),
                 b.text(s.get("description"), "project.description"),
                 b.text(s.get("security_class"), "project.security_class"),
-                b.text(s.get("upstream"), "project.upstream"),
+                // 'central' names the address; 'upstream' is its old name, read alike until
+                // renamed.
+                named(
+                        b.text(s.get("central"), "project.central"),
+                        b.text(s.get("upstream"), "project.upstream")),
                 b.text(s.get("review"), "project.review"),
                 b.word(s.get("nickname"), "project.nickname"));
+    }
+
+    private static @Nullable String named(
+            final @Nullable String central, final @Nullable String upstream) {
+        return central != null ? central : upstream;
     }
 
     private static @Nullable RepositoryEntry repository(
@@ -102,9 +111,14 @@ final class FileBinder {
             return null;
         }
         final List<String> issues = b.list(s.get("issues"), path + ".issues");
+        final String central = b.text(s.get("central"), path + ".central");
+        final String upstream = b.text(s.get("upstream"), path + ".upstream");
+        // A row naming 'central' alone sends work there. A file not yet renamed keeps what it said:
+        // its 'upstream' is where work goes, and never a central one, so a host places it as
+        // before.
         return new RepositoryEntry(
-                b.text(s.get("upstream"), path + ".upstream"),
-                b.text(s.get("central"), path + ".central"),
+                upstream != null ? upstream : central,
+                central,
                 b.text(s.get("review"), path + ".review"),
                 b.text(s.get("description"), path + ".description"),
                 issues == null ? List.of() : issues,

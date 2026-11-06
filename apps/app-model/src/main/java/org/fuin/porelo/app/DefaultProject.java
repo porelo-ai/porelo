@@ -380,7 +380,15 @@ public final class DefaultProject {
             repositories.put(
                     entry.name(),
                     new org.fuin.porelo.core.project.file.RepositoryEntry(
-                            entry.upstream(), null, null, null, List.of(), null, null, null, null));
+                            entry.upstream(),
+                            entry.upstream(),
+                            null,
+                            null,
+                            List.of(),
+                            null,
+                            null,
+                            null,
+                            null));
         }
         final String text =
                 org.fuin.porelo.core.project.file.ProjectFileWriter.write(

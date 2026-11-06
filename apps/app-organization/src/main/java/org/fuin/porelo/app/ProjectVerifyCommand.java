@@ -96,12 +96,17 @@ public class ProjectVerifyCommand extends OrgReading {
         answer.put("revision", read.revision());
         answer.put("project_review", project.review());
         answer.put("repositories", repositories);
+        // A key under its old name is read alike, and said, so that its admin renames it.
+        answer.put("renames", read.renames());
         return answer;
     }
 
     @Override
     void text(final Map<String, @Nullable Object> answer) {
         line("Project: " + answer.get("project") + " at " + answer.get("revision"));
+        if (answer.get("renames") instanceof List<?> renames) {
+            renames.forEach(each -> line("Rename " + each + " to central."));
+        }
     }
 
     private static boolean holdsSecret(final @Nullable String address) {

@@ -21,6 +21,7 @@ from its side, as *blocked by*.
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
 | <a id="b478"></a>[B478](B478-A-Hosts-Organization-Token-Is-Handed-Over-Without-Leaving-Porelo.md) | S | - | One command pipes the token declared for an organization's forge to a host's org refresh on standard input, over SSH pinned to its card's key; the value never leaves Porelo. |
+| <a id="b485"></a>[B485](B485-Project-Yml-Names-Central-Not-Upstream.md) | S | - | `project.yml` names `central:`; `upstream:` is read alike and `project verify` answers it as a rename, refusing nothing; Porelo writes only `central:`. |
 | <a id="b479"></a>[B479](B479-A-Host-Carries-Single-Repositories-Of-A-Project.md) | M | - | A host's file names single repositories of a project beside whole ones; `org host carry/uncarry --repository`; one repository on one host; a read key named or removed when one is taken off. |
 | <a id="b482"></a>[B482](B482-Gate-Review-Shows-The-Commit-Approve-Wants.md) | XS | - | `gate review` shows the waiting commit in full, the id `gate approve --commit` takes; prefixes stay refused. | - |
 | <a id="b477"></a>[B477](B477-An-Admin-Signs-A-Repositorys-Porelo-Yml-Anew.md) | S | - | `porelo project sign-repository-file`: an admin or developer signs a repository's porelo.yml anew with an empty signed commit, on the pattern of `project sign`. |

@@ -287,7 +287,7 @@ shows the commits and up to the first 120 diff lines, asks, and brings the work 
 as branch `porelo/myproject`, never touching your checked-out branch or any remote. `--yes` skips
 the question. Merge or cherry-pick `porelo/myproject` when you are ready.
 
-For a `guarded` project whose repository names a remote `upstream:` in `project.yml`, use
+For a `guarded` project whose repository names a remote `central:` in `project.yml`, use
 `porelo gate approve -p <project> [-r <repo>] <task>`: it pushes the approved work to that `upstream`
 (or `--upstream <url>`), onto `--branch` (the recorded starting branch by default, `main` for older tasks;
 on the host's forge, `porelo/<task>`; with a [`branch` block](project-file.md#branch), the task's recorded
@@ -306,7 +306,7 @@ You need one for settings of your own: more hosts to reach, another security cla
 conversation between tasks. **You write `project.yml` and commit it**, in one of two places:
 
 - **In the code's repository**, at its root, when the team keeps it there.
-- **In a repository of your own**, which names the code repositories under `repositories:` with their `upstream:`.
+- **In a repository of your own**, which names the code repositories under `repositories:` with their `central:`.
   Nothing is committed to the team's repository, so this is how one developer uses Porelo alone. See
   [a project file beside the code](#a-project-file-beside-the-code).
 
@@ -316,7 +316,7 @@ Porelo writes no project file anywhere. Only `name`, `security_class` and `from`
 project:
   name: "myproject"
   security_class: "guarded"
-  # upstream: "git@github.com:you/myproject.git"   # where approve pushes; required by online
+  # central: "git@github.com:you/myproject.git"   # where approve pushes; required by online
 image:
   from: "ubuntu:24.04"
 egress:
@@ -365,7 +365,7 @@ image:
   from: "ubuntu:24.04"
 repositories:
   backend:
-    upstream: "git@git.corp.example:team/backend.git"
+    central: "git@git.corp.example:team/backend.git"
 egress:
   domains: ["nexus.corp.example"]
 ```
@@ -399,7 +399,7 @@ git -C ~/myproject merge porelo/myproject
 
 Approving onto the branch you have checked out there fails: git does not let a push move
 the branch under your working copy. The work stays pending until one approve succeeds.
-`upstream: "/home/you/myproject"` in `project.yml` saves naming it each time.
+`central: "/home/you/myproject"` in `project.yml` saves naming it each time.
 
 ## When something is blocked
 

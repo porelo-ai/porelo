@@ -54,7 +54,7 @@ class ProjectReaderTest {
                   from: "ubuntu:24.04"
                 """))
                 .isInstanceOf(ProjectException.class)
-                .hasMessageContaining("is online, so it needs an upstream");
+                .hasMessageContaining("is online, so it needs its central address");
     }
 
     @Test
@@ -542,7 +542,7 @@ class ProjectReaderTest {
                                                 "security_class: \"online\"",
                                                 "security_class: \"offline\"")))
                 .isInstanceOf(ProjectException.class)
-                .hasMessageContaining("is offline, so it names no upstream")
+                .hasMessageContaining("is offline, so it names no central address")
                 .hasMessageContaining("porelo gate restore");
     }
 
@@ -564,7 +564,7 @@ class ProjectReaderTest {
                 """))
                 .isInstanceOf(ProjectException.class)
                 .hasMessageContaining("backend")
-                .hasMessageContaining("names no upstream");
+                .hasMessageContaining("names no central address");
     }
 
     @Test
@@ -620,7 +620,7 @@ class ProjectReaderTest {
                                                     upstream.replace("\n", "\\n"))))
                     .as(upstream)
                     .isInstanceOf(ProjectException.class)
-                    .hasMessageContaining("upstream");
+                    .hasMessageContaining("central");
         }
         org.assertj.core.api.Assertions.assertThatThrownBy(
                         () -> read(MINIMAL.replace("ubuntu:24.04", "--privileged")))
@@ -698,7 +698,9 @@ class ProjectReaderTest {
 
         assertThat(read.review()).isEqualTo("required");
         assertThat(read.repositories().getFirst().review()).isEqualTo("required");
-        assertThat(read.repositories().getFirst().central()).isNull();
+        assertThat(read.repositories().getFirst().central())
+                .as("its old name 'upstream' names no central, so a host places it as before")
+                .isNull();
     }
 
     @Test
@@ -726,9 +728,37 @@ class ProjectReaderTest {
     }
 
     @Test
-    void aCentralSourceEndingInAnotherRepositoryIsRefused() {
-        assertThatThrownBy(() -> reviewed("", "    central: \"git@github.com:acme/other.git\""))
-                .isInstanceOf(ProjectException.class)
-                .hasMessageContaining("repositories.first.central");
+    void aRowNamingCentralAloneSendsWorkThere() {
+        final Project read =
+                ProjectReader.read(
+                        new java.io.StringReader(
+                                """
+                                project:
+                                  name: "demo"
+                                  security_class: "guarded"
+                                image:
+                                  from: "ubuntu:24.04"
+                                repositories:
+                                  first:
+                                    central: "git@github.com:acme/first.git"
+                                """),
+                        "test");
+
+        assertThat(read.repositories().getFirst().central())
+                .isEqualTo("git@github.com:acme/first.git");
+        assertThat(read.repositories().getFirst().upstream())
+                .as("work goes to the one address the row names")
+                .isEqualTo("git@github.com:acme/first.git");
+    }
+
+    @Test
+    void aRowNotYetRenamedKeepsWhereItsWorkWent() {
+        final Project read = reviewed("", "    central: \"git@github.com:acme/first.git\"");
+
+        assertThat(read.repositories().getFirst().upstream())
+                .as("the old 'upstream' is still where work goes")
+                .isEqualTo("git@forge.example:demo/first.git");
+        assertThat(read.repositories().getFirst().central())
+                .isEqualTo("git@github.com:acme/first.git");
     }
 }
