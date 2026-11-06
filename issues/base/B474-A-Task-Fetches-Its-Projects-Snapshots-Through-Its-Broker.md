@@ -1,6 +1,6 @@
 # B474 — A Task Fetches Its Project's Snapshots Through Its Broker
 
-**Status:** Analyzed.
+**Status:** Backlog (Estimated, M, 180 minutes, on the operator's word, 2026-11-06).
 **Size:** M - a package route in the task's broker, the task's own forge token read for it, the start ordered for it,
 and the settings through `porelo.yml` and Configure; their tests. Estimate 180 minutes, once
 [B470](README.md#b470) and [B467](README.md#b467) have landed.
