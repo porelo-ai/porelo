@@ -1,0 +1,2 @@
+title: "In an organization's project, a start takes a repository's porelo.yml only when every change to it since the last one taken is signed by a project admin or developer; otherwise it refuses, naming the file and the commit (CanStart answers SETTINGS_UNSIGNED)"
+type: added

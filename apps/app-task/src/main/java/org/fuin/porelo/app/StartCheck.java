@@ -168,7 +168,15 @@ public final class StartCheck {
          * this machine has not allowed exactly that. {@code settingsToAllow} lists it, {@code
          * settingsHash} names it for AllowSettings; Start refuses the same case.
          */
-        SETTINGS_NOT_ALLOWED
+        SETTINGS_NOT_ALLOWED,
+
+        /**
+         * In an organization's project, a commit that changed the repository's {@code porelo.yml}
+         * is not signed by a project admin or a developer valid on its day, or the history was
+         * rewritten under the change this machine took last. {@code file} and {@code commit} name
+         * it; nothing here can allow it.
+         */
+        SETTINGS_UNSIGNED
     }
 
     /**
@@ -188,6 +196,10 @@ public final class StartCheck {
      * @param settingsToAllow What a repository's own files ask of this machine, as a wire carries
      *     it; empty unless {@link Outcome#SETTINGS_NOT_ALLOWED}.
      * @param settingsHash The hash a yes to them names, or "".
+     * @param file With {@link Outcome#SETTINGS_UNSIGNED}, the file relative to the repository, else
+     *     "".
+     * @param commit With {@link Outcome#SETTINGS_UNSIGNED}, the commit that changed it unsigned,
+     *     else "".
      */
     public record Result(
             Outcome outcome,
@@ -201,7 +213,55 @@ public final class StartCheck {
             java.util.List<String> signedIn,
             java.util.List<String> importCommand,
             java.util.List<Map<String, Object>> settingsToAllow,
-            String settingsHash) {
+            String settingsHash,
+            String file,
+            String commit) {
+
+        /**
+         * Constructor for an answer that names no repository file.
+         *
+         * @param outcome Why work could not start, or {@link Outcome#READY}.
+         * @param agent The agent, or "".
+         * @param provider The provider, or "".
+         * @param credential The vault key, or "".
+         * @param detail Prose for a person.
+         * @param host The host it is about, or "".
+         * @param agentSource Where the agent was named, or "".
+         * @param agentFoundIn Where the agent's sign-in was found, or "".
+         * @param signedIn The agents found signed in.
+         * @param importCommand What to run to copy what the agent holds into the vault, or empty.
+         * @param settingsToAllow What a repository's own files ask of this machine.
+         * @param settingsHash The hash a yes to them names, or "".
+         */
+        public Result(
+                Outcome outcome,
+                String agent,
+                String provider,
+                String credential,
+                String detail,
+                String host,
+                String agentSource,
+                String agentFoundIn,
+                java.util.List<String> signedIn,
+                java.util.List<String> importCommand,
+                java.util.List<Map<String, Object>> settingsToAllow,
+                String settingsHash) {
+            this(
+                    outcome,
+                    agent,
+                    provider,
+                    credential,
+                    detail,
+                    host,
+                    agentSource,
+                    agentFoundIn,
+                    signedIn,
+                    importCommand,
+                    settingsToAllow,
+                    settingsHash,
+                    "",
+                    "");
+        }
 
         /**
          * Constructor for an answer that asks nothing about a repository's own settings.
@@ -373,6 +433,8 @@ public final class StartCheck {
             map.put("importCommand", importCommand);
             map.put("settingsToAllow", settingsToAllow);
             map.put("settingsHash", settingsHash);
+            map.put("file", file);
+            map.put("commit", commit);
             return map;
         }
     }
@@ -1267,8 +1329,11 @@ public final class StartCheck {
                     repository == null || repository.isBlank()
                             ? null
                             : project.repository(repository);
-            if (!DefaultProject.is(project.name()) || chosen == null) {
+            if (chosen == null) {
                 return rest;
+            }
+            if (!DefaultProject.is(project.name())) {
+                return signed(context, rest, project, chosen);
             }
             found = RepositoryOwnSettings.of(context, projectFile, chosen);
         } catch (RuntimeException ex) {
@@ -1295,6 +1360,45 @@ public final class StartCheck {
                 rest.importCommand(),
                 RepositoryOwnSettings.Found.asMaps(toAllow),
                 found.hash());
+    }
+
+    /**
+     * The answer for an organization's project: refused as Start refuses it when a change to the
+     * repository's {@code porelo.yml} may not be taken. A mirror not made yet is Start's to fetch.
+     */
+    private static Result signed(
+            final PoreloContext context,
+            final Result rest,
+            final org.fuin.porelo.core.project.Project project,
+            final org.fuin.porelo.core.project.Repository repository) {
+        try {
+            final java.nio.file.Path mirror = GateSupport.mirror(context, project, repository);
+            if (MirrorFile.defaultBranch(context.runner(), mirror)
+                    instanceof MirrorFile.Found found) {
+                RepositorySettingsSignature.check(
+                        context, project.name(), repository.name(), mirror, found.ref());
+            }
+            return rest;
+        } catch (RepositorySettingsSignature.Unsigned ex) {
+            return new Result(
+                    Outcome.SETTINGS_UNSIGNED,
+                    rest.agent(),
+                    rest.provider(),
+                    rest.credential(),
+                    String.valueOf(ex.getMessage()),
+                    rest.host(),
+                    rest.agentSource(),
+                    rest.agentFoundIn(),
+                    rest.signedIn(),
+                    rest.importCommand(),
+                    java.util.List.of(),
+                    "",
+                    ex.file(),
+                    ex.commit());
+        } catch (RuntimeException ex) {
+            // A mirror that cannot be read yet is Start's to fetch and report.
+            return rest;
+        }
     }
 
     /**

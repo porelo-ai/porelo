@@ -348,6 +348,11 @@ image:
   refused at its line. A variable Porelo sets in every task (`PATH`
   the task account's local `bin` folder, then `/usr/local/bin:/usr/bin:/bin`, `HOME` `/home/agent`, `LANG` `C.UTF-8`, or any `PORELO_*` set
   per task) is refused too, naming the value and that the line must be removed.
+- **Signed, in an organization's project.** A start takes `porelo.yml` at the mirror's default branch only when
+  every commit that changed it since the last one this machine took is signed by a project admin or a developer whose
+  key holds on the commit's day; before any was taken, its newest change is judged. A commit signed by anyone else,
+  or by no one, refuses the start, naming the file and the commit; so does a history rewritten under the change taken
+  last. Nothing on the machine allows it: a person who may sign it signs the file anew with a commit of their own.
 - **The image sees nothing of the repository:** the `run` lines run in Porelo's own build directory. What a
   repository ships for its tasks is installed at run time, or fetched by a `run` line against a hash written into it.
 - **Read from reviewed work only:** the repository's mirror at its default branch, never a branch a task pushed

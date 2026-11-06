@@ -15,15 +15,19 @@ import org.jspecify.annotations.Nullable;
  * Judges repository settings by every change since this machine last took them, or only their
  * newest change on a first read. A signature names responsibility without reading the file's text.
  */
-final class RepositoryFileJudge {
+public final class RepositoryFileJudge {
 
-    static final String TAKEN = "taken";
+    /** A verdict's state. */
+    public static final String TAKEN = "taken";
 
-    static final String UNSIGNED = "unsigned";
+    /** A verdict's state. */
+    public static final String UNSIGNED = "unsigned";
 
-    static final String ABSENT = "absent";
+    /** A verdict's state. */
+    public static final String ABSENT = "absent";
 
-    static final String REWRITTEN = "rewritten";
+    /** A verdict's state. */
+    public static final String REWRITTEN = "rewritten";
 
     /**
      * What the signatures and history prove.
@@ -33,9 +37,36 @@ final class RepositoryFileJudge {
      * @param signer The refused signer's fingerprint, or "" when there is no verified signature or
      *     no refusal of a signature.
      */
-    record Verdict(String state, @Nullable String commit, String signer) {}
+    public record Verdict(String state, @Nullable String commit, String signer) {}
 
     private RepositoryFileJudge() {}
+
+    /**
+     * Judges a file in a repository on this machine, read where it stands; closing leaves it.
+     *
+     * @param gitDirectory The repository's git directory, a mirror.
+     * @param runner How git runs.
+     * @param branch Its default branch.
+     * @param path The file at the repository's top.
+     * @param lastTaken The last change this machine took, or {@code null} for its first read.
+     * @param keys The project's signing keys.
+     * @return What may be taken, or the first refusal.
+     * @throws IOException When the history cannot be read or judged.
+     */
+    public static Verdict judgeStanding(
+            final java.nio.file.Path gitDirectory,
+            final org.fuin.porelo.core.process.CommandRunner runner,
+            final String branch,
+            final String path,
+            final @Nullable String lastTaken,
+            final List<SigningKey> keys)
+            throws IOException {
+        try (TreeRepository repository = TreeRepository.standing(gitDirectory, runner)) {
+            return judge(repository, branch, path, lastTaken, keys);
+        } catch (CardException ex) {
+            throw new IOException(ex.getMessage(), ex);
+        }
+    }
 
     /**
      * Judges a file on the given branch without fetching or reading its content.

@@ -819,8 +819,8 @@ type StartOutcome (
   SETTINGS_NOT_ALLOWED,
   # In an organization's project, a commit that changed the repository's porelo.yml is not signed by
   # a project admin or a developer with access to that repository. 'file' and 'commit' name it,
-  # 'detail' says it in words. Nothing here can allow it: a person signs with their own commit. Built
-  # with the signature check of a repository's file: until then never answered.
+  # 'detail' says it in words; a history rewritten under the change this machine took last is refused
+  # the same way, with 'commit' "". Nothing here can allow it: a person signs with their own commit.
   SETTINGS_UNSIGNED
 )
 

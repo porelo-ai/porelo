@@ -255,6 +255,9 @@ public record ImageChoice(
                 throw new ProjectException(refusal);
             }
             if (branch instanceof MirrorFile.Found found) {
+                // Judged before it is read: an organization's file counts only when signed.
+                RepositorySettingsSignature.check(
+                        context, project.name(), repository.name(), mirror, found.ref());
                 final String origin = FILE + " at " + found.ref() + " of " + repository.name();
                 MirrorFile.read(context.runner(), mirror, FILE)
                         .ifPresent(
@@ -268,6 +271,9 @@ public record ImageChoice(
                                                                 mirror,
                                                                 found.ref()))));
             }
+        } catch (RepositorySettingsSignature.Unsigned ex) {
+            // No fetch repairs a change nobody who may sign it signed: refused as it stands.
+            throw ex;
         } catch (ProjectException ex) {
             // A fetch can repair only the mirror's file, never a local source.
             mirrorRefusal = ex;
