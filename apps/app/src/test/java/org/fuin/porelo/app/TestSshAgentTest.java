@@ -108,7 +108,10 @@ class TestSshAgentTest {
             final Path dir = Path.of(args[0]);
             final TestSshAgent agents = new TestSshAgent();
             final Process agent = agents.start(dir.resolve("agent.sock"));
-            Files.writeString(dir.resolve("pid"), Long.toString(agent.pid()));
+            // Moved in whole, so the test never reads the file before its number is in it.
+            final Path written =
+                    Files.writeString(dir.resolve("pid.tmp"), Long.toString(agent.pid()));
+            Files.move(written, dir.resolve("pid"), java.nio.file.StandardCopyOption.ATOMIC_MOVE);
             System.in.read();
         }
     }
