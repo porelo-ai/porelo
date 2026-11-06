@@ -18,6 +18,11 @@ block to paste, see
 container's network namespace, OCI hooks, user namespaces and the kernel keyring. On macOS or
 Windows all of that would sit on the far side of a virtual machine.
 
+**On Windows, Porelo runs in a WSL distribution**, which is such a virtual machine: install Ubuntu 26.04 or Debian 13
+(`wsl --install -d <distribution>`), since `wsl --install` alone gives Ubuntu 24.04, whose podman is too old (see
+below). Everything on this page then happens in that distribution, and [the window](#the-window) runs on Windows
+and reaches Porelo there.
+
 **Rootless podman must work as your own user.** `podman info` must succeed without `sudo`.
 
 **Podman 5 or newer is required.** Podman 4 has no `pasta`, which maps your machine's
@@ -88,6 +93,18 @@ sudo dnf install porelo porelo-agent-claude
 - **`gpgcheck=0` is deliberate, and temporary.** The repository metadata is signed; the RPMs
   are not yet, so `dnf` would refuse them. Once they are, this becomes `gpgcheck=1` with a
   `gpgkey=` line.
+
+### The window
+
+The window, a graphical view of your tasks and machines, is optional. On Linux it comes from the repositories above:
+
+```
+sudo apt install porelo-frontend      # Debian and Ubuntu
+sudo dnf install porelo-frontend      # Fedora and RHEL
+```
+
+On Windows it is a ZIP to unpack or an MSIX to install, for a Porelo in a WSL distribution. Both, and how to check
+them before running them, are in [the window's chapter](https://porelo-ai.github.io/frontend/#windows).
 
 **From a local build**, see [building](build.md). It produces Porelo and no agent; the Claude
 Code agent is built in [porelo-claude-code](https://github.com/porelo-ai/porelo-claude-code).

@@ -1,6 +1,6 @@
 # B471 — The Installation Guide Leads To The Window
 
-**Status:** Analyzed.
+**Status:** Review.
 **Size:** S - one section in `README.md` and one in `doc/getting-started.md`, and a line under *Before you start*; no
 code. Estimate 30 minutes.
 
@@ -24,6 +24,12 @@ The operator's test on a Windows computer with Porelo in WSL Ubuntu (2026-11-06)
 
 Cause: the guide was written before the window had packages; the downloads went into the window's own chapter, and no
 change since added a way there.
+
+## Built
+
+On 2026-11-06, as planned: `README.md` has a paragraph *The window* after the first commands, and
+`doc/getting-started.md` a line under *Before you start* naming Ubuntu 26.04 or Debian 13 for WSL and a subsection
+*The window* under *1. Install*; both link the window's chapter at its `#windows` anchor.
 
 ## Plan
 

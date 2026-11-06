@@ -128,6 +128,12 @@ Already signed in to Claude Code on this machine? `porelo vault import claude` c
 goes in with `porelo vault put anthropic --type api-key`. A project with settings of its own comes from your organization at each
 start, or from a `project.yml` you write: see [the project file](doc/project-file.md).
 
+**The window**, a graphical view of your tasks, is optional. On Linux it comes from the same repositories:
+`sudo apt install porelo-frontend` or `sudo dnf install porelo-frontend`. On Windows, Porelo runs in a WSL
+distribution (Ubuntu 26.04 or Debian 13; `wsl --install` alone gives Ubuntu 24.04, whose podman is too old), and the
+window runs on Windows, as a ZIP or an MSIX: see [the window's chapter](https://porelo-ai.github.io/frontend/#windows)
+for both and how to check them.
+
 [Getting started](doc/getting-started.md) explains each step and what goes wrong without it.
 
 ## Documentation
