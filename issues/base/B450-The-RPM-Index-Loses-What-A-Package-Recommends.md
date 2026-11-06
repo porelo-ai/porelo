@@ -1,7 +1,7 @@
 # B450 — The RPM Index Loses What A Package Recommends
 
-**Status:** Backlog; waits on a reading of the RPM repository's settings in Artifactory, which an agent cannot make.
-**Size:** M if the build must write the index; the settings-only alternative is not yet verified.
+**Status:** Review.
+**Size:** XS - the setting was turned on in Artifactory; what was left were the `dnf` lines in `doc/getting-started.md`.
 
 **What must be true.** A default `dnf install porelo` brings what the package recommends, as `apt` does.
 
@@ -73,3 +73,12 @@ containers of Fedora:
 - `--setopt=install_weak_deps=False` leaves them out.
 - After the plugin is removed, an upgrade to a newer Porelo does not bring it back.
 - `dnf repoquery --recommends porelo` names both, which it does not today.
+
+## Done
+
+Once the RPM repository's setting was turned on in Artifactory, the snapshots index holds what `porelo`
+`0.5.1~snapshot.419` recommends; `.414` and `.415`, uploaded before, carry none. Seen in a clean Fedora 44 container against
+the published repositories: `dnf repoquery --recommends porelo` names `porelo-ecosystem-maven` and
+`porelo-message-sluice-filter`, a default `dnf install porelo` brings both, and `--setopt=install_weak_deps=False` leaves them
+out. The release's `porelo` recommends `porelo-message-sluice-filter`. Both `dnf` lines in `doc/getting-started.md` now name
+`porelo porelo-agent-claude` alone. Not run: an upgrade after the adapter was removed.
