@@ -39,8 +39,6 @@ from its side, as *blocked by*.
 | <a id="b433"></a>[B433](B433-A-Start-Over-The-Daemon-Asks-For-Its-Certificate.md) | M | - | The daemon's `Start` asks for the certificate, so an interface can start a task on a host with the agent at the person's computer. |
 | <a id="b434"></a>[B434](B434-A-Refused-Start-Says-What-Helps-There.md) | S | - | A start a host refuses for want of a certificate names `task start --host` at the person's own computer, not `ssh-add`. |
 | <a id="b432"></a>[B432](B432-The-Daemon-Lists-A-Project-The-Host-Carries.md) | M | - | The daemon's `Projects` names a project the host carries before its first start, as `project list` does. |
-| <a id="b402"></a>[B402](B402-A-Clients-Prepare-Reads-The-Organization-As-The-Command-Line-Does.md) | S | - | A client's `Prepare` of an organization's project reads it as `porelo task prepare` does, not only what the last start placed |
-| <a id="b409"></a>[B409](B409-A-Project-With-No-Address-Goes-On-No-Host.md) | S | - | `org host carry` refuses a project with no valid address, at once and with its reason, and the window says the same |
 | <a id="b388"></a>[B388](B388-A-Registry-Owner-Check-With-An-App-Token.md) | S | - | The registry's owner check takes a GitHub App installation token declared in a variable, never kept in the vault |
 | <a id="b389"></a>[B389](B389-A-Stopped-Test-Walks-Core-Findings.md) | S | - | Directories without group write, no Unsafe warning, and setup on a host vault said in words |
 | <a id="b329"></a>[B329](B329-A-Forced-Removal-Kills-What-Outlives-Its-Stop.md) | S | - | `task remove --force` kills a helper or descendant that outlives SIGTERM, counts a zombie as stopped, and reports only what lives after SIGKILL |
@@ -50,14 +48,9 @@ from its side, as *blocked by*.
 | <a id="b393"></a>[B393](B393-A-Task-Of-The-Default-Project-Never-Joins-A-Room.md) | S | - | A task of the project `default` never joins a room, whatever the machine or host has; a repository name that could write a `mail` section into its file is refused. |
 | <a id="b395"></a>[B395](B395-A-Transport-Borrows-The-Token-Its-Lifecycle-Needs.md) | S | - | A transport says in `describe` which secret of the person's a lifecycle verb needs, and Porelo lends it from the vault for that verb alone. |
 | <a id="b417"></a>[B417](B417-An-Admin-Signs-A-Projects-File-Anew.md) | M | - | For 0.6, a defect: removing, locking or demoting the admin who last signed a project's file stops every new start. `project sign` lets a current admin read and sign it, and the interface offers it |
-| <a id="b336"></a>[B336](B336-A-Repository-Says-Whether-A-Merge-Needs-A-Review.md) | S | - | `project.review` and `repositories.<name>.review` are `required` (the default) or `optional`, any other value refused, and answered to the host by `verify --json` |
 | <a id="b220"></a>[B220](B220-Build-Tool-Plugins-Found-At-Run-Time.md) | M | - | Build-tool plugins as native executables of their own over `Ecosystem1` (`detect`, `configure`), found at run time; the contract, discovery and a stub. | 0 |
 | <a id="b221"></a>[B221](B221-A-Project-Proposed-From-A-Checkout.md) | L | `porelo` [B220](README.md#b220) | `porelo project init <checkout>`: the plugins' answers merged into a tools draft and a `project.yml` draft, each value with its source, disagreements named, no credential copied. | 0 |
-| <a id="b419"></a>[B419](B419-A-Card-Renewed-With-Its-Key.md) | S | - | `identity renew`: a new term for the same key, also past the card's end, and `identity show` saying how long it has left. |
-| <a id="b420"></a>[B420](B420-A-Card-Proposed-From-What-Is-Found.md) | S | - | `identity propose`: login, name, email and key found with their sources, so a person only signs. |
-| <a id="b421"></a>[B421](B421-A-Hosts-Keys-Shown-Before-They-Are-Trusted.md) | XS | - | `credentials trust-host --json` answers a host's keys and records nothing, so a window can ask. |
 | <a id="b214"></a>[B214](B214-A-Vault-Entry-Put-Again-Unchanged.md) | M | - | `vault put` given the value an entry already holds says `unchanged` and exits 0, so a second play reports nothing changed |
-| <a id="b418"></a>[B418](B418-Four-Roles-And-A-Pin-That-Follows-The-Organization-Admins.md) | L | - | Owner, Organization Admin, Machine Admin and Project Admin, each answering for the one below, and a pin that follows the Organization Admins, by the operator's word: a Machine Admin replaced takes effect at the next follow, and one stolen key of that role reaches every server. |
 | <a id="b398"></a>[B398](B398-A-Test-That-Cannot-Reach-The-Persons-Vault.md) | - | - | A test that builds a command the wrong way falls to the real context, and so to the person's vault |
 | <a id="b426"></a>[B426](B426-A-Persons-Projects-Listed-From-The-Hosts-File.md) | S | - | `porelo project list` on a host names what the host's file for this person names, also before a first start |
 | <a id="b148"></a>[B148](B148-Token-Counting-Per-Task.md) | L | - | The broker reads four answer formats, streamed or not, into a per-task `usage/<task>.jsonl` kept after removal: agent, provider, models, five counts (`null` when not reported), tools, how it ended, a reported cost; asks for the streamed Chat Completions count; sums in `task status` and `Usage`. |
@@ -270,6 +263,13 @@ from its side, as *blocked by*.
 
 | # | Title | What was built |
 |---|---|---|
+| <a id="b421"></a>B421 | A Host's Keys Shown Before They Are Trusted | `credentials trust-host --json` answers a host's keys and records nothing, so a window can ask |
+| <a id="b420"></a>B420 | A Card Proposed From What Is Found | `identity propose` finds login, name, email and key with their sources, so a person only signs |
+| <a id="b419"></a>B419 | A Card Renewed With Its Key | `identity renew` gives the same key a new term, also past the card's end, and `identity show` says how long it has left |
+| <a id="b418"></a>B418 | Four Roles And A Pin That Follows The Organization Admins | Owner, Organization Admin, Machine Admin and Project Admin, each answering for the one below, and a host's pin that follows the Organization Admins while root stays with the Machine Admins |
+| <a id="b409"></a>B409 | A Project With No Address Goes On No Host | `org host carry` refuses a project with no valid address, at once and with its reason, and the window says the same |
+| <a id="b402"></a>B402 | A Client's Prepare Reads The Organization As The Command Line Does | A client's `Prepare` of an organization's project reads it as `porelo task prepare` does, not only what the last start placed |
+| <a id="b336"></a>B336 | A Repository Says Whether A Merge Needs A Review | `project.review` and `repositories.<name>.review` are `required` by default or `optional`, any other value refused, and answered to the host by `verify --json` |
 | <a id="b464"></a>B464 | A Review Counts Lines Without Their Endings | A review's counts and its gate count lines without their endings, the daemon's contract says so, and an optional switch hands the patch along, with a wire test |
 | <a id="b463"></a>B463 | A File Written Back Keeps Its Comments | An organization file written back keeps its comments and the keys it does not change, through the node tree; a write that would lose them is refused |
 | <a id="b462"></a>B462 | One Model For A Project File | A project file is read and checked through one typed model: the image is `from`, `run`, `run_file` and `env`, a repository entry has none, one image source is taken whole, and Porelo never changes an existing file but shows the entry to write |
