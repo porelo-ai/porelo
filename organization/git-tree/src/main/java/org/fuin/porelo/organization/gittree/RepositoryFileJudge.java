@@ -96,18 +96,64 @@ public final class RepositoryFileJudge {
         }
         final List<Map.Entry<String, String>> line = repository.lineAfter(tip, lastTaken);
         final Set<String> signedAnew = repository.signingAnew(tip, path);
-        Verdict verdict = new Verdict(lastTaken == null ? ABSENT : TAKEN, lastTaken, "");
-        for (final Map.Entry<String, String> step : lastTaken == null ? line.reversed() : line) {
-            final String commit = step.getKey();
-            if (signedAnew.contains(commit)
-                    || repository.changed(commit, step.getValue()).contains(path)) {
-                verdict = signed(repository, commit, keys);
-                if (lastTaken == null || UNSIGNED.equals(verdict.state())) {
+        if (lastTaken == null) {
+            for (final Map.Entry<String, String> step : line.reversed()) {
+                if (touches(repository, step, path, signedAnew)) {
+                    return signed(repository, step.getKey(), keys);
+                }
+            }
+            return new Verdict(ABSENT, null, "");
+        }
+        Verdict verdict = new Verdict(TAKEN, lastTaken, "");
+        for (int each = 0; each < line.size(); each++) {
+            final Map.Entry<String, String> step = line.get(each);
+            if (!touches(repository, step, path, signedAnew)) {
+                continue;
+            }
+            verdict = signed(repository, step.getKey(), keys);
+            if (UNSIGNED.equals(verdict.state())) {
+                // A person who may sign takes on the file as it stands with a signature anew: the
+                // changes before it, unsigned ones among them, are what they read and vouched for.
+                // Without this, one unsigned change after a take refused the file for good.
+                final int vouched = vouchedAfter(repository, line, each, signedAnew, keys);
+                if (vouched < 0) {
                     return verdict;
                 }
+                each = vouched;
+                verdict = new Verdict(TAKEN, line.get(vouched).getKey(), "");
             }
         }
         return verdict;
+    }
+
+    private static boolean touches(
+            final TreeRepository repository,
+            final Map.Entry<String, String> step,
+            final String path,
+            final Set<String> signedAnew) {
+        return signedAnew.contains(step.getKey())
+                || repository.changed(step.getKey(), step.getValue()).contains(path);
+    }
+
+    /**
+     * The index of the first signature anew after {@code from} that a person who may sign made, or
+     * {@code -1} when none did.
+     */
+    private static int vouchedAfter(
+            final TreeRepository repository,
+            final List<Map.Entry<String, String>> line,
+            final int from,
+            final Set<String> signedAnew,
+            final List<SigningKey> keys)
+            throws IOException {
+        for (int later = from + 1; later < line.size(); later++) {
+            final String commit = line.get(later).getKey();
+            if (signedAnew.contains(commit)
+                    && TAKEN.equals(signed(repository, commit, keys).state())) {
+                return later;
+            }
+        }
+        return -1;
     }
 
     private static Verdict signed(

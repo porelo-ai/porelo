@@ -385,10 +385,23 @@ class RepositoryFileJudgeTest {
     }
 
     @Test
-    void signingAnewCannotHideAnEarlierUnsignedChangeAfterLastTaken() throws Exception {
+    void aSignatureAnewByAPersonWhoMaySignTakesOnAnEarlierUnsignedChangeAfterLastTaken()
+            throws Exception {
+        // The signer read the file as it stands and vouches for it; refusing for good left a
+        // machine that took the file once with no way to take it again.
+        final String taken = change(PATH, "settings: taken\n", "alice");
+        change(PATH, "settings: unapproved\n", null);
+        final String anew = commit("alice", SIGNS_ANEW);
+
+        assertThat(judge(taken))
+                .isEqualTo(new RepositoryFileJudge.Verdict(RepositoryFileJudge.TAKEN, anew, ""));
+    }
+
+    @Test
+    void aSignatureAnewByAStrangerLeavesAnEarlierUnsignedChangeRefused() throws Exception {
         final String taken = change(PATH, "settings: taken\n", "alice");
         final String refused = change(PATH, "settings: unapproved\n", null);
-        commit("alice", SIGNS_ANEW);
+        commit("mallory", SIGNS_ANEW);
 
         unsigned(judge(taken), refused, null);
     }

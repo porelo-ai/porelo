@@ -93,6 +93,47 @@ class RepositorySettingsSignatureTest {
     }
 
     @Test
+    void anUnsignedChangeAfterATakeIsTakenOnceAPersonWhoMaySignSignsTheFileAnew() throws Exception {
+        final PoreloContext context = context();
+        final Path key = key();
+        final String[] line =
+                Files.readString(key.resolveSibling(key.getFileName() + ".pub")).strip().split(" ");
+        place(context, line[0] + " " + line[1]);
+        mirror(context, "uc", "web", "egress:\n  domains: []\n", key);
+        check(context);
+        final Path work = dir.resolve("work-web");
+        final Path mirror = GateSupport.mirror(context, "uc", "web");
+
+        Files.writeString(
+                work.resolve("porelo.yml"), "egress:\n  domains:\n    - \"repo.example.org\"\n");
+        git(work, "commit", "-q", "-am", "Unsigned");
+        git(work, "push", "-q", mirror.toString(), "HEAD:main");
+        assertThatThrownBy(() -> check(context))
+                .as("an unsigned change after the take")
+                .isInstanceOf(RepositorySettingsSignature.Unsigned.class);
+
+        git(
+                work,
+                "-c",
+                "gpg.format=ssh",
+                "-c",
+                "user.signingkey=" + key,
+                "commit",
+                "-q",
+                "-S",
+                "--allow-empty",
+                "-m",
+                "Sign porelo.yml anew",
+                "-m",
+                "Porelo-Signs-Anew: porelo.yml");
+        git(work, "push", "-q", mirror.toString(), "HEAD:main");
+
+        assertThatNoException()
+                .as("the signature anew takes on the file as it stands")
+                .isThrownBy(() -> check(context));
+    }
+
+    @Test
     void anUnsignedFileGivesNoSettingsToAnOrganizationsProject() throws Exception {
         final PoreloContext context = context();
         place(context);
