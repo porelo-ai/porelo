@@ -211,6 +211,9 @@ public final class FirstStart {
             map.put("hosts", hosts);
             map.put("marked", marked);
             map.put("file", file);
+            // The file a yes writes or approves; "porelo.yml" with the first start writing a
+            // repository's own file.
+            map.put("fileName", FILE_NAME);
             map.put("project", project);
             map.put("hash", hash);
             map.put("notes", notes);

@@ -12,8 +12,9 @@ type EgressSet (
 # A host a task may reach, and who granted it.
 type EgressHost (
   host: string,
-  # "agent <name>", "provider <name>", "set <name>", "project" or "upstream". The first grant
-  # wins, so a host in both a set and an agent's list is reported as the agent's.
+  # "agent <name>", "provider <name>", "set <name>", "project", "upstream", or, with a repository's own settings's
+  # step (2), "porelo.yml of <repository>" and "the local override". The first grant wins, so a host
+  # in both a set and an agent's list is reported as the agent's.
   origin: string
 )
 
@@ -115,7 +116,10 @@ method Egress(
   hosts: []EgressHost,
   # Hosts an agent declares it asks for and is deliberately not given. Distinguishable from a
   # host nobody added, which is the distinction the firewall itself cannot make.
-  refused: []string
+  refused: []string,
+  # What the repository's porelo.yml or the local override took away from the project's egress. Empty
+  # until the allowance of a repository's settings.
+  removed: []RemovedSetting
 )
 
 # Says what a change to what a project may reach would do, and the egress section a person writes

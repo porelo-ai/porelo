@@ -365,7 +365,8 @@ class FirstStartMethodsTest {
                 .contains(
                         "method FirstStart(checkout: string, proxy: ?[string]string) ->"
                                 + " (outcome: string, found: []Finding,"
-                                + " hosts: []string, marked: []string, file: string, project: string,"
+                                + " hosts: []string, marked: []string, file: string, fileName: string,"
+                                + " project: string,"
                                 + " hash: string, notes: []string, refusal: string)",
                         "method ConfirmFirstStart(checkout: string, hash: string, proxy:"
                                 + " ?[string]string) ->"

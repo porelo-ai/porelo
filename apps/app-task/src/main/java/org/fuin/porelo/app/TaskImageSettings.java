@@ -49,6 +49,9 @@ public final class TaskImageSettings {
         answer.put(
                 "securityClass", setting(settings.securityClass(), settings.securityClassSource()));
         answer.put("recorded", built);
+        // What a repository's own file took away, recorded from the allowance of a repository's
+        // settings on.
+        answer.put("removed", List.of());
         return answer;
     }
 
@@ -63,6 +66,7 @@ public final class TaskImageSettings {
         answer.put("agentVersion", "");
         answer.put("securityClass", setting("", ""));
         answer.put("recorded", "");
+        answer.put("removed", List.of());
         return answer;
     }
 

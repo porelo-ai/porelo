@@ -1,0 +1,2 @@
+title: "The daemon's contract describes a repository's own settings: CanStart's SETTINGS_NOT_ALLOWED and SETTINGS_UNSIGNED with the settings to allow, their hash, file and commit, AllowSettings, FirstStart's fileName, and what a repository's file removed from the image and the egress; answered with empty values until the logic behind them is built"
+type: added

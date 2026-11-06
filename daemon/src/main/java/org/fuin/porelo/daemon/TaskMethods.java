@@ -648,31 +648,33 @@ final class TaskMethods {
                                             .file();
                     if (!project.isEmpty() && named == null) {
                         replies.last(
-                                Map.of(
-                                        "ready",
-                                        false,
-                                        "outcome",
-                                        "NO_PROJECT_FILE",
-                                        "agent",
-                                        "",
-                                        "provider",
-                                        "",
-                                        "credential",
-                                        "",
-                                        "host",
-                                        "",
-                                        "hostKeys",
-                                        java.util.List.of(),
-                                        "detail",
-                                        refused != null
-                                                ? refused
-                                                : "no project '"
-                                                        + project
-                                                        + "' here. This machine has: "
-                                                        + String.join(
-                                                                ", ",
-                                                                org.fuin.porelo.app.ProjectSource
-                                                                        .names(context))));
+                                withoutSettings(
+                                        Map.of(
+                                                "ready",
+                                                false,
+                                                "outcome",
+                                                "NO_PROJECT_FILE",
+                                                "agent",
+                                                "",
+                                                "provider",
+                                                "",
+                                                "credential",
+                                                "",
+                                                "host",
+                                                "",
+                                                "hostKeys",
+                                                java.util.List.of(),
+                                                "detail",
+                                                refused != null
+                                                        ? refused
+                                                        : "no project '"
+                                                                + project
+                                                                + "' here. This machine has: "
+                                                                + String.join(
+                                                                        ", ",
+                                                                        org.fuin.porelo.app
+                                                                                .ProjectSource
+                                                                                .names(context)))));
                         return;
                     }
                     final Map<String, Object> answer =
@@ -709,8 +711,22 @@ final class TaskMethods {
                                             .map(org.fuin.porelo.app.HostKeys.Offered::asMap)
                                             .toList()
                                     : java.util.List.of());
+                    // A repository's own settings: the fields stand before the logic,
+                    // which comes with the allowance and the signature check and answers here.
+                    answer.putIfAbsent("settingsToAllow", java.util.List.of());
+                    answer.putIfAbsent("settingsHash", "");
+                    answer.putIfAbsent("file", "");
+                    answer.putIfAbsent("commit", "");
                     replies.last(answer);
                 });
+
+        server.method(
+                "AllowSettings",
+                (parameters, replies) ->
+                        // Nothing is asked to be allowed before the allowance of a repository's
+                        // settings, so no hash
+                        // names what was shown; CanStart then shows what there is.
+                        replies.last(Map.of("outcome", "CHANGED")));
 
         final org.fuin.porelo.app.CertificateWaits certificates =
                 new org.fuin.porelo.app.CertificateWaits();
@@ -1132,5 +1148,17 @@ final class TaskMethods {
             throw new VarlinkException(INTERFACE + ".Failed", Map.of("message", ex.getMessage()));
         }
         return Map.of();
+    }
+
+    /**
+     * An answer that asks nothing about a repository's own settings, in the fields that carry them.
+     */
+    private static Map<String, Object> withoutSettings(final Map<String, Object> answer) {
+        final Map<String, Object> all = new LinkedHashMap<>(answer);
+        all.put("settingsToAllow", java.util.List.of());
+        all.put("settingsHash", "");
+        all.put("file", "");
+        all.put("commit", "");
+        return all;
     }
 }

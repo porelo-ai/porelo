@@ -247,6 +247,35 @@ class InterfaceDescriptionTest {
     }
 
     @Test
+    void theRepositorysSettingsAreAnsweredInTheFieldsTheContractDeclares(@TempDir Path dir)
+            throws Exception {
+
+        // A repository's own settings, served before its logic so a window can build against it.
+        final PoreloContext context = context(dir);
+        try (VarlinkServer server = PoreloDaemon.serving(context, dir.resolve("porelod.sock"))) {
+            Thread.ofVirtual().start(server);
+            try (VarlinkClient client = new VarlinkClient(server.socketPath())) {
+                final var canStart = client.call(PoreloDaemon.INTERFACE + ".CanStart", Map.of());
+                assertThat(canStart)
+                        .containsEntry("settingsToAllow", List.of())
+                        .containsEntry("settingsHash", "")
+                        .containsEntry("file", "")
+                        .containsEntry("commit", "");
+                final var allow =
+                        client.call(
+                                PoreloDaemon.INTERFACE + ".AllowSettings",
+                                Map.of("repository", "shop", "hash", "0".repeat(64)));
+                assertThat(allow)
+                        .as("nothing is ever to be allowed before step (2)")
+                        .containsEntry("outcome", "CHANGED");
+            }
+        }
+        assertThat(PoreloDaemon.description())
+                .contains("SETTINGS_NOT_ALLOWED", "SETTINGS_UNSIGNED", "fileName: string")
+                .contains("removed: []RemovedSetting");
+    }
+
+    @Test
     void taskActivityCarriesTheFieldsTheContractDeclares(@TempDir Path dir) throws Exception {
         // Clients need both measurements to show quiet and ended runs without guessing.
         final PoreloContext context = context(dir);
