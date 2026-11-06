@@ -75,3 +75,47 @@ Feature: The first start finds what a repository needs
         And its output contains "a worktree: 1"
         And its output contains "another origin: already has a project 'shop-project'"
         And its output contains "a changed file: nothing written and nothing opened"
+
+    @first-start-answers
+    Scenario: a plugin's fetched lines are shown whole before the question, and a dry run fetches nothing
+        Given a script runs:
+            """
+            set -eu
+            base=~/first-start-resolve
+            rm -rf "$base"
+            mkdir -p "$base"
+            git init -q --initial-branch=main "$base/tool"
+            git -C "$base/tool" remote add origin https://forge.example/acme/tool.git
+            cat > "${XDG_DATA_HOME:-$HOME/.local/share}/porelo/ecosystems/answers.json" <<'JSON'
+            {"detect":{"findings":[
+              {"part":"TOOLS","key":"java.version","value":"25","file":"pom.xml","line":1,"origin":"CHECKOUT","unknown":false,"note":""}
+            ],"unplaced":[]},
+             "resolve":{"findings":[
+              {"part":"TOOLS","key":"run.java","value":"RUN echo fetched-by-the-stub","file":"pom.xml","line":1,"origin":"CHECKOUT","unknown":false,"note":""},
+              {"part":"TOOLS","key":"env.STUB_HOME","value":"/opt/stub","file":"pom.xml","line":1,"origin":"CHECKOUT","unknown":false,"note":""}
+            ]}}
+            JSON
+            """
+        Then it exits zero
+        When a script runs:
+            """
+            cd ~/first-start-resolve/tool
+            porelo task start probe --agent stub --dry-run 2>&1 | grep -c 'fetched-by-the-stub' | sed 's/^/fetched at a dry run: /'
+            """
+        Then its output contains "fetched at a dry run: 0"
+        Given a terminal on the machine
+        When I run "cd ~/first-start-resolve/tool && porelo task start probe --agent stub --detach --clearance deny"
+        Then the terminal shows "image line RUN echo fetched-by-the-stub (pom.xml)"
+        And the terminal shows "image env STUB_HOME=/opt/stub"
+        # Nothing here builds a container or names a host of its own, so a yes is the default.
+        And the terminal shows "[Y/n]"
+        When I type "n"
+        Then the terminal shows "nothing kept"
+        When a script runs:
+            """
+            cd ~/first-start-resolve/tool
+            test -e project.yml && echo 'a file was written' || echo 'no file after a no'
+            porelo task remove porelo-default-probe --force > /dev/null 2>&1 || true
+            rm -rf ~/first-start-resolve
+            """
+        Then its output contains "no file after a no"

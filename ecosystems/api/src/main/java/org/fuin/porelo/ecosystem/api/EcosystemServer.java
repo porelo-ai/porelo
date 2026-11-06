@@ -48,6 +48,27 @@ public class EcosystemServer implements AutoCloseable {
                 });
 
         server.method(
+                "Resolve",
+                (parameters, replies) -> {
+                    final Path directory = path(parameters, "directory");
+                    final Path home = path(parameters, "home");
+                    final List<Finding> findings = findings(parameters);
+                    final List<Finding> resolved =
+                            answering(() -> ecosystem.resolve(directory, home, findings))
+                                    .orElseThrow(
+                                            // The answer of a plugin built before Resolve: it
+                                            // cannot say, which is never "nothing found".
+                                            () ->
+                                                    new VarlinkException(
+                                                            "org.varlink.service.MethodNotFound",
+                                                            Map.of(
+                                                                    "method",
+                                                                    EcosystemProtocol.RESOLVE)));
+                    replies.last(
+                            Map.of("findings", resolved.stream().map(Finding::asMap).toList()));
+                });
+
+        server.method(
                 "Configure",
                 (parameters, replies) -> {
                     final List<Repository> repositories = repositories(parameters);
@@ -123,6 +144,14 @@ public class EcosystemServer implements AutoCloseable {
         } catch (IllegalArgumentException ex) {
             // InvalidPathException is one too: a name no path can hold.
             throw invalid(name);
+        }
+    }
+
+    private static List<Finding> findings(final Map<String, Object> parameters) {
+        try {
+            return Wire.list(parameters, "findings", Finding::of);
+        } catch (IllegalArgumentException ex) {
+            throw invalid("findings");
         }
     }
 

@@ -714,11 +714,18 @@ final class TaskMethods {
 
         final org.fuin.porelo.app.CertificateWaits certificates =
                 new org.fuin.porelo.app.CertificateWaits();
+        // One for every call: the yes meets the lookup its question made.
+        final org.fuin.porelo.app.FirstStart firstStart = firstStart(context);
         server.method(
                 "FirstStart",
                 (parameters, replies) -> {
                     try {
-                        final var answer = firstStart(context).look(checkout(parameters));
+                        // The caller's proxy settings, never this daemon's own environment.
+                        final var answer =
+                                firstStart.look(
+                                        checkout(parameters),
+                                        org.fuin.porelo.app.EcosystemLookup.proxies(
+                                                parameters.get("proxy")));
                         // Discarded before the reply, so that a caller who has it finds nothing
                         // left.
                         final java.util.Map<String, Object> reply;
@@ -740,10 +747,11 @@ final class TaskMethods {
                         replies.last(
                                 Map.of(
                                         "project",
-                                        firstStart(context)
-                                                .confirm(
-                                                        checkout(parameters),
-                                                        text(parameters, "hash"))));
+                                        firstStart.confirm(
+                                                checkout(parameters),
+                                                text(parameters, "hash"),
+                                                org.fuin.porelo.app.EcosystemLookup.proxies(
+                                                        parameters.get("proxy")))));
                     } catch (org.fuin.porelo.app.FirstStart.Refused ex) {
                         throw firstStartRefused(ex);
                     }

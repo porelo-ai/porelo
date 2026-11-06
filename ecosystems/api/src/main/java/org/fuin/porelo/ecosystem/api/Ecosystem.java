@@ -2,6 +2,7 @@ package org.fuin.porelo.ecosystem.api;
 
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Optional;
 
 /**
  * What a build-tool plugin implements: one build tool, asked about one directory or one task's
@@ -9,8 +10,8 @@ import java.util.List;
  *
  * <p>A plugin in its own repository implements this, and its main method hands it to {@link
  * EcosystemMain#run}; Porelo finds the executable, starts it normally, and asks it over {@link
- * EcosystemProtocol#INTERFACE}. It opens no connection, never runs the project's code and holds no
- * credential.
+ * EcosystemProtocol#INTERFACE}. It opens a connection in {@link #resolve} alone, never runs the
+ * project's code and holds no credential.
  */
 public interface Ecosystem {
 
@@ -32,6 +33,29 @@ public interface Ecosystem {
      *     cannot be read.
      */
     Detection detect(Path directory, Path home);
+
+    /**
+     * Looks up the exact versions of what its own {@link #detect} read, when a project file is
+     * made: the one method that may open a connection. The process asked is started with the
+     * person's proxy settings ({@link EcosystemProtocol#PROXY_VARIABLES}) and nothing else, keeps
+     * each request within {@link EcosystemProtocol#RESOLVE_REQUEST_SECONDS} and the whole within
+     * {@link EcosystemProtocol#RESOLVE_CALL_SECONDS}. A proxy setting never goes into the answer.
+     *
+     * <p>Two kinds of key are placed by their prefix: {@code run.<name>}, image lines ({@code RUN},
+     * {@code ARG} and {@code ENV} only), joined in the order of the names, and {@code env.<NAME>},
+     * a variable's value for the image.
+     *
+     * @param directory The directory {@link #detect} read.
+     * @param home The home it read.
+     * @param findings What {@link #detect} answered for them.
+     * @return The findings that replace those whole, or empty when this plugin cannot say, which
+     *     its {@code Detect} findings then stand for. Empty unless a plugin overrides it.
+     * @throws EcosystemRefused When it cannot answer.
+     */
+    default Optional<List<Finding>> resolve(
+            final Path directory, final Path home, final List<Finding> findings) {
+        return Optional.empty();
+    }
 
     /**
      * Returns the files the tool's settings need so that it reaches these repositories, writing

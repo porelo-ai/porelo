@@ -10,6 +10,7 @@ import java.nio.file.Path;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -55,6 +56,8 @@ public final class InstalledEcosystem implements AutoCloseable {
 
     private final String ecosystem;
 
+    private final Map<String, String> environment;
+
     private Running running;
 
     /** The plugin's process and the connection to it. */
@@ -88,7 +91,36 @@ public final class InstalledEcosystem implements AutoCloseable {
      *     another ecosystem.
      */
     public InstalledEcosystem(final Path executable, final Path directory) {
+        this(executable, directory, Map.of());
+    }
+
+    /**
+     * Starts a plugin for {@link #resolve} alone: with the person's proxy settings, the one thing
+     * of the caller's environment it may have, since the vendors are reached through them.
+     *
+     * @param executable The plugin.
+     * @param directory A directory of the caller's, as for {@link #InstalledEcosystem(Path, Path)}.
+     * @param proxies The caller's values; only {@link EcosystemProtocol#PROXY_VARIABLES} are taken,
+     *     a blank one is left out.
+     * @return The started plugin.
+     * @throws EcosystemException As {@link #InstalledEcosystem(Path, Path)}.
+     */
+    public static InstalledEcosystem forResolve(
+            final Path executable, final Path directory, final Map<String, String> proxies) {
+        final Map<String, String> taken = new LinkedHashMap<>();
+        for (final String name : EcosystemProtocol.PROXY_VARIABLES) {
+            final String value = proxies.get(name);
+            if (value != null && !value.isBlank()) {
+                taken.put(name, value);
+            }
+        }
+        return new InstalledEcosystem(executable, directory, taken);
+    }
+
+    private InstalledEcosystem(
+            final Path executable, final Path directory, final Map<String, String> environment) {
         this.executable = executable;
+        this.environment = Map.copyOf(environment);
         this.ecosystem = String.valueOf(executable.getFileName());
         try {
             this.own = Files.createTempDirectory(directory, "ecosystem-");
@@ -181,6 +213,50 @@ public final class InstalledEcosystem implements AutoCloseable {
     }
 
     /**
+     * Asks the plugin to look up what its own {@link #detect} read, within {@link
+     * EcosystemProtocol#RESOLVE_CALL_SECONDS}.
+     *
+     * @param directory The directory it read.
+     * @param home The home it read.
+     * @param findings What its {@link #detect} answered, and no other plugin's.
+     * @return The findings that replace those, or empty when the plugin cannot say.
+     * @throws EcosystemRefused When it refuses.
+     * @throws EcosystemException When it failed, took longer, or answered something that is not
+     *     findings.
+     */
+    public Optional<List<Finding>> resolve(
+            final Path directory, final Path home, final List<Finding> findings) {
+        return resolve(directory, home, findings, EcosystemProtocol.RESOLVE_CALL_SECONDS);
+    }
+
+    /** As {@link #resolve(Path, Path, List)}, within a bound a test can wait out. */
+    Optional<List<Finding>> resolve(
+            final Path directory,
+            final Path home,
+            final List<Finding> findings,
+            final long seconds) {
+        final Map<String, Object> parameters = new LinkedHashMap<>();
+        parameters.put("directory", directory.toString());
+        parameters.put("home", home.toString());
+        parameters.put("findings", findings.stream().map(Finding::asMap).toList());
+        final Map<String, Object> answer;
+        try {
+            answer = ask(EcosystemProtocol.RESOLVE, parameters, seconds);
+        } catch (VarlinkException ex) {
+            if (METHOD_NOT_FOUND.equals(ex.getErrorName())) {
+                return Optional.empty();
+            }
+            throw heard(ex);
+        }
+        try {
+            return Optional.of(Wire.list(answer, "findings", Finding::of));
+        } catch (IllegalArgumentException ex) {
+            throw fault(
+                    executable + " answered something that is not findings: " + ex.getMessage());
+        }
+    }
+
+    /**
      * Asks which files the tool's settings need so that it reaches these repositories.
      *
      * @param repositories The repositories a task declares.
@@ -213,7 +289,7 @@ public final class InstalledEcosystem implements AutoCloseable {
      */
     public Answer optional(final String method, final Map<String, Object> parameters) {
         try {
-            return new Answer.Answered(ask(method, parameters));
+            return new Answer.Answered(ask(method, parameters, CALL_SECONDS));
         } catch (VarlinkException ex) {
             if (METHOD_NOT_FOUND.equals(ex.getErrorName())) {
                 return new Answer.CannotSay(method);
@@ -255,8 +331,9 @@ public final class InstalledEcosystem implements AutoCloseable {
             final ProcessBuilder builder =
                     new ProcessBuilder(command(executable, socket)).redirectErrorStream(true);
             // Nothing of Porelo's, whose environment may hold a secret. A native executable needs
-            // none of it, a non-ASCII path included.
+            // none of it, a non-ASCII path included. A plugin for Resolve gets the proxy settings.
             builder.environment().clear();
+            builder.environment().putAll(environment);
             process = builder.start();
         } catch (IOException ex) {
             throw new EcosystemException("Cannot start " + executable + ": " + ex.getMessage(), ex);
@@ -329,21 +406,21 @@ public final class InstalledEcosystem implements AutoCloseable {
 
     private Map<String, Object> call(final String method, final Map<String, Object> parameters) {
         try {
-            return ask(method, parameters);
+            return ask(method, parameters, CALL_SECONDS);
         } catch (VarlinkException ex) {
             throw heard(ex);
         }
     }
 
-    private Map<String, Object> ask(final String method, final Map<String, Object> parameters) {
+    private Map<String, Object> ask(
+            final String method, final Map<String, Object> parameters, final long seconds) {
         if (!running.process().isAlive()) {
             closeQuietly(running.client());
             running = start();
         }
         final Running asked = running;
         try {
-            return bounded(
-                    asked.process(), () -> asked.client().call(method, parameters), CALL_SECONDS);
+            return bounded(asked.process(), () -> asked.client().call(method, parameters), seconds);
         } catch (VarlinkException ex) {
             if (ex.getErrorName() == null) {
                 // The connection failed, not the question. The process is ended and waited for

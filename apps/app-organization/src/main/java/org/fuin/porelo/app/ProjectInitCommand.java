@@ -94,15 +94,29 @@ public class ProjectInitCommand extends OrgReading {
                         review == null ? null : ProjectRepositoryCommand.review(review),
                         project);
         final List<Map<String, Object>> plugins = new ArrayList<>();
+        final List<String> notes = new ArrayList<>();
+        // A draft is made: each plugin looks up what it read, through this person's proxy.
+        final Map<String, String> proxies = EcosystemLookup.proxies(machine.environment());
+        final java.nio.file.Path home = machine.paths().xdg().home();
         for (var description : InstalledEcosystems.all(machine.paths().ecosystemDirectories())) {
             if (description.refusal() != null) {
                 plugins.add(plugin(description.name(), "refused", description.refusal()));
                 continue;
             }
             try {
-                made.add(
-                        description.name(),
-                        detector.detect(description, checkout, machine.paths().xdg().home()));
+                final org.fuin.porelo.ecosystem.api.Detection detected =
+                        detector.detect(description, checkout, home);
+                // A yes is refused, as it would change a file that exists: nothing is made, so
+                // nothing is looked up, and the proxy goes nowhere.
+                final EcosystemLookup.Looked looked =
+                        yes
+                                ? new EcosystemLookup.Looked(detected, null)
+                                : EcosystemLookup.resolve(
+                                        detector, description, checkout, home, detected, proxies);
+                if (looked.note() != null) {
+                    notes.add(looked.note());
+                }
+                made.add(description.name(), looked.detection());
                 plugins.add(plugin(description.name(), "recognized", ""));
             } catch (EcosystemRefused ex) {
                 plugins.add(plugin(description.name(), ex.reason().wire(), ex.detail()));
@@ -116,6 +130,7 @@ public class ProjectInitCommand extends OrgReading {
         }
         final Map<String, @Nullable Object> answer = made.answer();
         answer.put("plugins", plugins);
+        answer.put("notes", notes);
         if (unsafe)
             answer.put(
                     "upstream_refusal",
@@ -155,6 +170,8 @@ public class ProjectInitCommand extends OrgReading {
                         "not_placed",
                         "by_hand",
                         "credentials_needed",
+                        "refused",
+                        "notes",
                         "plugins"))
             if (answer.containsKey(field))
                 line(

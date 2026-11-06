@@ -2,6 +2,7 @@ package org.fuin.porelo.app;
 
 import java.io.PrintWriter;
 import java.nio.file.Path;
+import java.util.Map;
 import org.jspecify.annotations.Nullable;
 
 /** What {@code porelo task start} says and asks of a {@link FirstStart}. */
@@ -47,9 +48,27 @@ final class FirstStartAtTerminal {
      */
     WorkOrigin.@Nullable Choice choose(
             final Path directory, final @Nullable Offer offer, final String unasked) {
+        return choose(directory, offer, unasked, Map.of());
+    }
+
+    /**
+     * Looks at the checkout as {@link #choose(Path, Offer, String)} does; with a person to answer,
+     * the plugins look up what they read before the question, through these proxy settings.
+     *
+     * @param directory Where the person stands.
+     * @param offer Who answers, or {@code null} for nobody, which looks nothing up.
+     * @param unasked What to do to be asked, for a start nobody is asked in.
+     * @param proxies The person's proxy settings, which only a plugin's process gets.
+     * @return Where the start goes, or {@code null} for as today.
+     */
+    WorkOrigin.@Nullable Choice choose(
+            final Path directory,
+            final @Nullable Offer offer,
+            final String unasked,
+            final Map<String, String> proxies) {
         final FirstStart.Answer answer;
         try {
-            answer = firstStart.look(directory);
+            answer = firstStart.look(directory, offer == null ? null : proxies);
         } catch (FirstStart.Refused ex) {
             // Outside a checkout the start says so itself.
             return null;

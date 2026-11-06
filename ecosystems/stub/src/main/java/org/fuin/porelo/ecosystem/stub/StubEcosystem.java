@@ -6,11 +6,13 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import org.fuin.porelo.ecosystem.api.Detection;
 import org.fuin.porelo.ecosystem.api.Ecosystem;
 import org.fuin.porelo.ecosystem.api.EcosystemMain;
 import org.fuin.porelo.ecosystem.api.EcosystemRefused;
 import org.fuin.porelo.ecosystem.api.File;
+import org.fuin.porelo.ecosystem.api.Finding;
 import org.fuin.porelo.ecosystem.api.Repository;
 import org.fuin.porelo.wire.Json;
 import org.fuin.porelo.wire.JsonException;
@@ -27,12 +29,15 @@ import org.jspecify.annotations.Nullable;
  * {"detect": {"findings": [{"part": "TOOLS", "key": "java.version", "value": "25", "file": "pom.xml", "line": 14,
  *                           "origin": "CHECKOUT", "unknown": false, "note": ""}],
  *             "unplaced": []},
+ *  "resolve": {"findings": [{"part": "TOOLS", "key": "run.java", "value": "RUN …", "file": "pom.xml", "line": 14,
+ *                            "origin": "CHECKOUT", "unknown": false, "note": ""}]},
  *  "configure": {"files": [{"path": ".stub/settings", "content": "…", "ownerOnly": false}]},
  *  "refuse": {"reason": "UNREADABLE", "detail": "…"}}
  * </pre>
  *
- * Without {@code detect} it recognizes nothing, and without {@code configure} it writes no file. A
- * {@code refuse} refuses every call. A file it cannot read or understand is {@code Unreadable}.
+ * Without {@code detect} it recognizes nothing, without {@code resolve} it cannot say, and without
+ * {@code configure} it writes no file. It opens no connection, {@code resolve} included. A {@code
+ * refuse} refuses every call. A file it cannot read or understand is {@code Unreadable}.
  */
 public final class StubEcosystem implements Ecosystem {
 
@@ -97,6 +102,24 @@ public final class StubEcosystem implements Ecosystem {
         }
         try {
             return Detection.of(detect);
+        } catch (IllegalArgumentException ex) {
+            throw unreadable(ex.getMessage());
+        }
+    }
+
+    @Override
+    public Optional<List<Finding>> resolve(
+            final Path directory, final Path home, final List<Finding> findings) {
+        if (!(read().get("resolve") instanceof Map<?, ?> resolve)) {
+            return Optional.empty();
+        }
+        final Object listed = resolve.get("findings");
+        if (listed == null) {
+            throw unreadable("resolve holds no findings");
+        }
+        try {
+            return Optional.of(
+                    Detection.of(Map.of("findings", listed, "unplaced", List.of())).findings());
         } catch (IllegalArgumentException ex) {
             throw unreadable(ex.getMessage());
         }

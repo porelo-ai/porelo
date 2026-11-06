@@ -1,7 +1,9 @@
 package org.fuin.porelo.ecosystem.api;
 
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 /**
  * A plugin the tests start as an executable: fixed answers, so a test sees what crossed the socket.
@@ -9,7 +11,9 @@ import java.util.List;
  * <p>A directory named {@code other} is not recognized, one named {@code locked} cannot be read,
  * one named {@code gone} ends the plugin's process before it answers. Any other is answered with
  * one finding per part, naming the directory and the home it was given. {@code configure} answers
- * one file per repository, holding its name and URL.
+ * one file per repository, holding its name and URL. {@code resolve} answers a {@code run.<key>}
+ * for each finding it is given, holding its key and value, and an {@code env.FAKE_DIRECTORY} naming
+ * the directory; for a directory named {@code slow} it answers only after half a minute.
  */
 public final class FakeEcosystem implements Ecosystem {
 
@@ -62,6 +66,42 @@ public final class FakeEcosystem implements Ecosystem {
                                 false,
                                 home.toString())),
                 List.of(new Unplaced("pom.xml", 40, "a profile activated by a property")));
+    }
+
+    @Override
+    public Optional<List<Finding>> resolve(
+            final Path directory, final Path home, final List<Finding> findings) {
+        if ("slow".equals(String.valueOf(directory.getFileName()))) {
+            try {
+                Thread.sleep(30_000);
+            } catch (InterruptedException ex) {
+                Thread.currentThread().interrupt();
+            }
+        }
+        final List<Finding> resolved = new ArrayList<>();
+        for (final Finding each : findings) {
+            resolved.add(
+                    new Finding(
+                            Finding.Part.TOOLS,
+                            "run." + each.key(),
+                            "RUN echo " + each.key() + " " + each.value(),
+                            each.file(),
+                            each.line(),
+                            each.origin(),
+                            false,
+                            ""));
+        }
+        resolved.add(
+                new Finding(
+                        Finding.Part.TOOLS,
+                        "env.FAKE_DIRECTORY",
+                        directory.toString(),
+                        "",
+                        0,
+                        Finding.Origin.MACHINE,
+                        false,
+                        ""));
+        return Optional.of(resolved);
     }
 
     @Override

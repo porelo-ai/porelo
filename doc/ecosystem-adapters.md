@@ -1,13 +1,16 @@
 # Writing an ecosystem adapter
 
-An ecosystem adapter recognizes one tool's settings and returns the settings files that tool needs in a task.
+An ecosystem adapter recognizes one tool's settings, may look up the exact versions of what they ask when a project
+file is made, and returns the settings files that tool needs in a task.
 It is a native executable installed separately from Porelo. Porelo discovers it at run time through the
 [ecosystem API](https://github.com/porelo-ai/porelo/tree/main/ecosystems/api).
 
-An adapter runs normally on the developer's machine as the developer's account. It must open no connection,
-never run the project's code, and write nothing itself. These are obligations of the adapter contract;
-Porelo does not enforce them with a network namespace or a sandbox. Install only adapters you trust with
-the files that account can read. The adapter process starts with an empty environment.
+An adapter runs normally on the developer's machine as the developer's account. It opens a connection in
+`Resolve` alone, which Porelo asks only when a project file is made, and in nothing else: `Describe`, `Detect`
+and `Configure` open none. It never runs the project's code and writes nothing itself. These are obligations of
+the adapter contract; Porelo does not enforce them with a network namespace or a sandbox. Install only adapters
+you trust with the files that account can read. The adapter process starts with an empty environment; the one
+started for `Resolve` gets the person's proxy settings and nothing else.
 
 ## Installing an adapter
 
@@ -36,13 +39,18 @@ and unplaced item; these field names remain stable for existing readers.
 The proposal groups findings by part and key. Matching values retain every source; disagreements stay
 out of the draft. Unknown findings, unplaced material, and tools without a generic rule remain in the
 answer. `host.<host>` rules become egress domains and `package.<name>` tools become image installation
-lines. Other tools stay as comments for a person to place. `credential.<id>` names a credential needed
-in the vault, never its value. The draft is checked by the project reader before it is printed.
+lines. `run.<name>` gives image lines and `env.<NAME>` a variable of the image, as `Resolve` below says. Other
+tools stay as comments for a person to place. `credential.<id>` names a credential needed in the vault, never
+its value. The draft is checked by the project reader before it is printed.
 
 Detection saves no proposal and writes no checkout file. Adapter communication uses temporary sockets,
 removed after each call. With `--project`, the answer includes the project repository's revision;
 `--yes --base REVISION` files the repository row as one signed commit. Filing writes YAML anew, so
 comments do not survive and the answer retains the sources. No daemon operation is involved.
+
+`project init` has each adapter look up what it read (`Resolve`) before the draft is made, through the proxy
+settings of the shell it runs in. An adapter that cannot say, fails or takes too long leaves what it detected, and
+the answer's `notes` says so; a `run.<name>` or `env.<NAME>` the draft cannot hold is listed in `refused`.
 
 ## At a first start
 
@@ -62,6 +70,15 @@ what it says goes through the project reader, and a person reads it before it co
 with its `note`, which should name why and where, such as the parent POM that is not in the local repository; the
 file is then written without it. A `host.<host>` that only the checkout names and no egress set holds is marked,
 and the question then defaults to no.
+
+Where the file would be made, each adapter looks up what it read before the question: at a terminal, through the
+proxy settings of the shell, and through `FirstStart` with those the interface sends in its `proxy` field, since
+the daemon holds no shell's. A start with a file, a start with `--no-input`, `--yes` or `--dry-run`, and a start
+with nobody at a terminal look nothing up. The lines an adapter fetched run as root of the image's build, so the
+question shows each of them whole, as `image line`, and each variable as `image env`, for a new file too; they are
+part of the file a yes names. A lookup that failed is said among `notes`. A yes meets the lookup its question
+made, so what is written is what the person read; a yes after that lookup is no longer kept looks up anew, and a
+changed answer is then a changed file.
 
 ## Implementing the contract
 
@@ -91,6 +108,27 @@ If a value cannot be read without running code, set `unknown` to true and leave 
 credential by its id only, never by its value. Report material that cannot be placed as `unplaced`, with
 its file, line, and note. Do not execute a build file to learn what it would do.
 
+`Resolve(directory, home, findings)` looks up, once, the exact versions of what `Detect` read: the newest stable
+release a project asks, its download URL and its digest. Porelo calls it only when a project file is made, never
+for a start with a file, and gives it this adapter's own `Detect` findings for the directory and home, and no other
+adapter's. It returns `findings`, which replace those whole. Two kinds of key are placed by their prefix alone:
+
+- `run.<name>`: Containerfile lines for the project's `image.run`, joined in the order of the names after the
+  package lines. Only `RUN`, `ARG` and `ENV` are allowed, by the same rule the project file is held to; a key whose
+  lines break it is left out whole, and the question says so.
+- `env.<NAME>`: a variable's value for the project's `image.env`. A name Porelo sets in every task is refused,
+  `PATH` and `PORELO_*` among them, so a tool's commands are linked into `/usr/local/bin` instead.
+
+Two adapters giving one such key two values disagree, and neither is written. The process asked is started for
+`Resolve` alone, with `HTTP_PROXY`, `HTTPS_PROXY`, `NO_PROXY` and their lower-case forms where the person has them
+set, and no other variable. A proxy's address can hold a credential: an answer that repeats one is not used, and a
+proxy setting never appears in a finding, a note, a log line or an answer. An adapter keeps each request within
+5 seconds (`EcosystemProtocol.RESOLVE_REQUEST_SECONDS`), and Porelo waits 20 seconds for the whole call
+(`RESOLVE_CALL_SECONDS`); both are first figures, not yet measured. A value it cannot look up in that time is
+unknown. An adapter that cannot say answers `MethodNotFound`, which `Ecosystem.resolve`'s default does; on that,
+on a refusal, a failure or a timeout, what `Detect` found stands, with a note naming what was asked and never the
+adapter's own words.
+
 `Configure(repositories)` receives each declared repository's name and URL inside the task. It returns
 `files`, each with a `path`, `content`, and `ownerOnly`. A path is relative to the task user's home, with
 no empty segment, `.` or `..`, quote, backslash, or control character. Porelo places these files; the adapter
@@ -105,7 +143,8 @@ is an empty detection.
 
 The [stub](https://github.com/porelo-ai/porelo/tree/main/ecosystems/stub) answers from `answers.json` beside
 its executable, read again on every call. Its `detect` member holds `findings` and `unplaced`; its
-`configure` member holds `files`. A `refuse` member holds a `reason` and `detail`. The acceptance installer
+`resolve` member holds `findings`, and without it the stub cannot say; its `configure` member holds `files`. It
+opens no connection. A `refuse` member holds a `reason` and `detail`. The acceptance installer
 places this executable in the account's ecosystem directory under `stub-ecosystem`.
 
 An adapter's tests should exercise its server through `InstalledEcosystem`, check findings' files and lines,

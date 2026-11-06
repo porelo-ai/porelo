@@ -29,10 +29,11 @@ class EcosystemServerTest {
                         .map(match -> EcosystemProtocol.INTERFACE + "." + match.group(1))
                         .collect(Collectors.toSet());
         assertThat(declared)
-                .as("the published contract declares its three operations")
+                .as("the published contract declares its four operations")
                 .containsExactlyInAnyOrder(
                         EcosystemProtocol.DESCRIBE,
                         EcosystemProtocol.DETECT,
+                        EcosystemProtocol.RESOLVE,
                         EcosystemProtocol.CONFIGURE);
         try (EcosystemServer server =
                 new EcosystemServer(new FakeEcosystem(), directory.resolve("p.sock"))) {

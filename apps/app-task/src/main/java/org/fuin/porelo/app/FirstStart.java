@@ -19,6 +19,7 @@ import org.fuin.porelo.core.project.Project;
 import org.fuin.porelo.core.project.ProjectException;
 import org.fuin.porelo.core.project.ProjectReader;
 import org.fuin.porelo.core.project.Repository;
+import org.fuin.porelo.ecosystem.api.Detection;
 import org.fuin.porelo.ecosystem.api.EcosystemException;
 import org.fuin.porelo.ecosystem.api.EcosystemRefused;
 import org.fuin.porelo.ecosystem.api.InstalledEcosystems;
@@ -220,9 +221,41 @@ public final class FirstStart {
 
     private static final String FILE_NAME = "project.yml";
 
+    /** How many lookups a question keeps, for a daemon that is asked by many. */
+    private static final int KEPT = 32;
+
+    /** How long a kept lookup answers a yes: a question is answered within it. */
+    private static final long KEPT_NANOS = java.util.concurrent.TimeUnit.HOURS.toNanos(1);
+
     private final PoreloContext context;
 
     private final EcosystemDetector detector;
+
+    /** What one plugin's Detect answered for one checkout, which a lookup is kept by. */
+    private record Asked(
+            String plugin,
+            Path checkout,
+            Path home,
+            Detection detected,
+            Map<String, String> proxies) {}
+
+    /** A lookup and when it was made. */
+    private record Kept(EcosystemLookup.Looked looked, long at) {}
+
+    /**
+     * The lookups of the questions this asked, so that the yes, which looks again, meets the text
+     * the person read: a plugin asked twice may answer a newer version.
+     */
+    private final Map<Asked, Kept> kept =
+            java.util.Collections.synchronizedMap(
+                    new LinkedHashMap<>(16, 0.75f, true) {
+                        private static final long serialVersionUID = 1L;
+
+                        @Override
+                        protected boolean removeEldestEntry(final Map.Entry<Asked, Kept> eldest) {
+                            return size() > KEPT;
+                        }
+                    });
 
     /**
      * Constructor.
@@ -244,6 +277,22 @@ public final class FirstStart {
      * @throws Refused When it is in no checkout.
      */
     public Answer look(final Path directory) throws Refused {
+        return look(directory, null);
+    }
+
+    /**
+     * Looks at a checkout as {@link #look(Path)} does and, where a file would be made, has each
+     * plugin look up what it read, which a person then answers: the one time a plugin may open a
+     * connection. A start with a file asks none.
+     *
+     * @param directory Where the person stands.
+     * @param proxies The asking person's proxy settings, which only the plugin's process gets; or
+     *     {@code null} for a question nobody answers, which looks nothing up.
+     * @return What to do.
+     * @throws Refused When it is in no checkout.
+     */
+    public Answer look(final Path directory, final @Nullable Map<String, String> proxies)
+            throws Refused {
         final Path here;
         try {
             here = directory.toRealPath();
@@ -277,7 +326,7 @@ public final class FirstStart {
                         Outcome.KNOWN, recorded.project(), recorded.repository(), List.of());
             }
         }
-        return detected(here, top, origin);
+        return detected(here, top, origin, proxies);
     }
 
     /**
@@ -289,7 +338,24 @@ public final class FirstStart {
      * @throws Refused When it cannot be taken.
      */
     public String confirm(final Path directory, final String hash) throws Refused {
-        final Answer answer = look(directory);
+        return confirm(directory, hash, null);
+    }
+
+    /**
+     * Takes a yes the daemon was given by hash, to a question that looked up what the plugins read:
+     * the lookup the question made answers it, and one no longer kept is made anew.
+     *
+     * @param directory Where the person stands.
+     * @param hash What they answered to.
+     * @param proxies The asking person's proxy settings, or {@code null} for a question that looked
+     *     nothing up.
+     * @return The project.
+     * @throws Refused When it cannot be taken.
+     */
+    public String confirm(
+            final Path directory, final String hash, final @Nullable Map<String, String> proxies)
+            throws Refused {
+        final Answer answer = look(directory, proxies);
         try {
             if (answer.outcome() == Outcome.KNOWN && answer.target() != null) {
                 if (answer.hash().equals(hash)) {
@@ -343,6 +409,11 @@ public final class FirstStart {
         }
         if (refused.isPresent()) {
             throw refused.get();
+        }
+        // The question is answered: what it looked up is not kept for another.
+        final @Nullable Path checkout = file.getParent();
+        synchronized (kept) {
+            kept.keySet().removeIf(each -> each.checkout().equals(checkout));
         }
         return answer.project();
     }
@@ -567,7 +638,33 @@ public final class FirstStart {
         return new Found(printable(what), printable(value), FILE_NAME, false, "");
     }
 
-    private Answer detected(final Path here, final Path top, final String origin) {
+    /**
+     * Has a plugin look up what its Detect read, or answers with what this question already looked
+     * up for the same Detect answer.
+     */
+    private EcosystemLookup.Looked lookedUp(
+            final InstalledEcosystems.Description plugin,
+            final Path here,
+            final Path home,
+            final Detection detected,
+            final Map<String, String> proxies) {
+        // A lookup made through one proxy is never handed to a caller asking through another.
+        final Asked asked = new Asked(plugin.name(), here, home, detected, Map.copyOf(proxies));
+        final Kept before = kept.get(asked);
+        if (before != null && System.nanoTime() - before.at() < KEPT_NANOS) {
+            return before.looked();
+        }
+        final EcosystemLookup.Looked looked =
+                EcosystemLookup.resolve(detector, plugin, here, home, detected, proxies);
+        kept.put(asked, new Kept(looked, System.nanoTime()));
+        return looked;
+    }
+
+    private Answer detected(
+            final Path here,
+            final Path top,
+            final String origin,
+            final @Nullable Map<String, String> proxies) {
         final List<String> notes = new ArrayList<>();
         final List<InstalledEcosystems.Description> plugins;
         try {
@@ -608,8 +705,17 @@ public final class FirstStart {
         try {
             for (final InstalledEcosystems.Description each : usable) {
                 try {
-                    proposal.add(
-                            each.name(), detector.detect(each, here, context.paths().xdg().home()));
+                    final Path home = context.paths().xdg().home();
+                    Detection detection = detector.detect(each, here, home);
+                    if (proxies != null) {
+                        final EcosystemLookup.Looked looked =
+                                lookedUp(each, here, home, detection, proxies);
+                        if (looked.note() != null) {
+                            notes.add(printable(looked.note()));
+                        }
+                        detection = looked.detection();
+                    }
+                    proposal.add(each.name(), detection);
                 } catch (EcosystemRefused ex) {
                     if (ex.reason() != EcosystemRefused.Reason.NOT_RECOGNIZED) {
                         notes.add(printable(each.name() + " could not read: " + ex.detail()));
@@ -621,6 +727,7 @@ public final class FirstStart {
             // Before the draft is made: one that cannot be made still says these.
             proposal.notesForAPerson().forEach(each -> notes.add(printable(each)));
             final String text = String.valueOf(proposal.answer().get("draft"));
+            proposal.refusals().forEach(each -> notes.add(printable(each)));
             proposal.tools()
                     .forEach(
                             one ->
@@ -631,6 +738,17 @@ public final class FirstStart {
                                                     printable(one.source()),
                                                     false,
                                                     printable(one.note()))));
+            // They run as root of the build: shown whole, never summed up.
+            proposal.imageLines()
+                    .forEach(
+                            one ->
+                                    found.add(
+                                            new Found(
+                                                    printable(one.what()),
+                                                    printable(one.value()),
+                                                    printable(one.source()),
+                                                    false,
+                                                    "")));
             proposal.unknowns()
                     .forEach(
                             one ->

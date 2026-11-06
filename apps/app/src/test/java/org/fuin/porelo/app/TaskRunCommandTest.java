@@ -649,6 +649,70 @@ class TaskRunCommandTest {
 
     private final List<String> firstStartAsked = new ArrayList<>();
 
+    /** The proxy settings each lookup a first start made was given. */
+    private final List<java.util.Map<String, String>> firstStartLookedUp = new ArrayList<>();
+
+    private static final String PROXY = "http://someone:not-a-real-one@proxy.example:3128";
+
+    @Test
+    void aFirstStartAtATerminalLooksUpThroughTheShellsProxyAndNeverSaysIt(@TempDir Path dir)
+            throws IOException {
+        final Path checkout = Files.createDirectories(dir.resolve("shop")).toRealPath();
+        final PoreloContext context =
+                context(
+                        dir,
+                        true,
+                        name ->
+                                switch (name) {
+                                    case "HTTPS_PROXY", "no_proxy" -> PROXY;
+                                    case "PORELO_OTHER" -> "kept-out";
+                                    default -> null;
+                                });
+
+        firstStartAt(context, checkout, true, "n", "--attach", "shell", "--detach");
+
+        assertThat(firstStartLookedUp)
+                .as("one lookup, with the proxy settings of the shell and nothing else")
+                .containsExactly(java.util.Map.of("HTTPS_PROXY", PROXY, "no_proxy", PROXY));
+        assertThat(err.toString())
+                .as("the fetched line is shown whole before the question")
+                .contains("RUN echo fetched-maven");
+        assertThat(out.toString() + err.toString())
+                .as("a proxy's address may hold a credential")
+                .doesNotContain("not-a-real-one");
+    }
+
+    @Test
+    void aDryRunAndAStartWithNoInputLookNothingUp(@TempDir Path dir) throws IOException {
+        final Path checkout = Files.createDirectories(dir.resolve("shop")).toRealPath();
+
+        firstStartAt(context(dir, true), checkout, true, "y", "--dry-run");
+        firstStartAt(
+                context(dir, true),
+                checkout,
+                true,
+                "y",
+                "--no-input",
+                "--attach",
+                "shell",
+                "--detach");
+
+        assertThat(firstStartDetected).as("both still say what was found").isTrue();
+        assertThat(firstStartLookedUp).as("a dry run promises nothing opened").isEmpty();
+        assertThat(err.toString()).doesNotContain("fetched-maven");
+    }
+
+    @Test
+    void aStartWithAFileLooksNothingUp(@TempDir Path dir) throws IOException {
+        final Path checkout = Files.createDirectories(dir.resolve("shop")).toRealPath();
+        Files.writeString(checkout.resolve("project.yml"), APPROVED);
+
+        firstStartAt(context(dir, true), checkout, true, "n", "--attach", "shell", "--detach");
+
+        assertThat(firstStartAsked).as("the file is asked about").hasSize(1);
+        assertThat(firstStartLookedUp).isEmpty();
+    }
+
     /** Runs {@code task start} with no project named, standing in a checkout with a plugin. */
     private int firstStartAt(
             PoreloContext context, Path checkout, boolean terminal, String answer, String... args)
@@ -675,20 +739,51 @@ class TaskRunCommandTest {
                     return answer;
                 };
         start.detector =
-                (described, directory, home) -> {
-                    firstStartDetected = true;
-                    return new org.fuin.porelo.ecosystem.api.Detection(
-                            List.of(
-                                    new org.fuin.porelo.ecosystem.api.Finding(
-                                            org.fuin.porelo.ecosystem.api.Finding.Part.TOOLS,
-                                            "package.maven",
-                                            "",
-                                            "pom.xml",
-                                            1,
-                                            org.fuin.porelo.ecosystem.api.Finding.Origin.CHECKOUT,
-                                            false,
-                                            "")),
-                            List.of());
+                new EcosystemDetector() {
+                    @Override
+                    public org.fuin.porelo.ecosystem.api.Detection detect(
+                            final org.fuin.porelo.ecosystem.api.InstalledEcosystems.Description
+                                    described,
+                            final Path directory,
+                            final Path home) {
+                        firstStartDetected = true;
+                        return new org.fuin.porelo.ecosystem.api.Detection(
+                                List.of(
+                                        new org.fuin.porelo.ecosystem.api.Finding(
+                                                org.fuin.porelo.ecosystem.api.Finding.Part.TOOLS,
+                                                "package.maven",
+                                                "",
+                                                "pom.xml",
+                                                1,
+                                                org.fuin.porelo.ecosystem.api.Finding.Origin
+                                                        .CHECKOUT,
+                                                false,
+                                                "")),
+                                List.of());
+                    }
+
+                    @Override
+                    public java.util.Optional<List<org.fuin.porelo.ecosystem.api.Finding>> resolve(
+                            final org.fuin.porelo.ecosystem.api.InstalledEcosystems.Description
+                                    described,
+                            final Path directory,
+                            final Path home,
+                            final List<org.fuin.porelo.ecosystem.api.Finding> detected,
+                            final java.util.Map<String, String> proxies) {
+                        firstStartLookedUp.add(proxies);
+                        return java.util.Optional.of(
+                                List.of(
+                                        new org.fuin.porelo.ecosystem.api.Finding(
+                                                org.fuin.porelo.ecosystem.api.Finding.Part.TOOLS,
+                                                "run.maven",
+                                                "RUN echo fetched-maven",
+                                                "pom.xml",
+                                                1,
+                                                org.fuin.porelo.ecosystem.api.Finding.Origin
+                                                        .CHECKOUT,
+                                                false,
+                                                "")));
+                    }
                 };
         final List<String> all = new ArrayList<>(List.of("task", "start"));
         all.addAll(List.of(args));

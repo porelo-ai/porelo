@@ -19,6 +19,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import org.fuin.porelo.ecosystem.api.InstalledEcosystem.Answer;
 import org.fuin.porelo.wire.varlink.VarlinkException;
 import org.fuin.porelo.wire.varlink.VarlinkServer;
@@ -233,6 +234,150 @@ class InstalledEcosystemTest {
             assertThatThrownBy(() -> plugin.configure(List.of()))
                     .isInstanceOf(EcosystemException.class)
                     .hasMessageContaining("../outside");
+        }
+    }
+
+    @Test
+    void aResolveIsGivenThePluginsOwnFindingsAndItsAnswerIsFindings() throws IOException {
+        final Finding asked =
+                new Finding(
+                        Finding.Part.TOOLS,
+                        "java.version",
+                        "25",
+                        "pom.xml",
+                        14,
+                        Finding.Origin.CHECKOUT,
+                        false,
+                        "");
+        try (InstalledEcosystem plugin = InstalledEcosystem.forResolve(fake(), run(), Map.of())) {
+
+            assertThat(plugin.resolve(Path.of("/work/project"), HOME, List.of(asked)))
+                    .as("what it was given and where crossed the socket, and its answer came back")
+                    .contains(
+                            List.of(
+                                    new Finding(
+                                            Finding.Part.TOOLS,
+                                            "run.java.version",
+                                            "RUN echo java.version 25",
+                                            "pom.xml",
+                                            14,
+                                            Finding.Origin.CHECKOUT,
+                                            false,
+                                            ""),
+                                    new Finding(
+                                            Finding.Part.TOOLS,
+                                            "env.FAKE_DIRECTORY",
+                                            "/work/project",
+                                            "",
+                                            0,
+                                            Finding.Origin.MACHINE,
+                                            false,
+                                            "")));
+        }
+    }
+
+    @Test
+    void aPluginWithoutResolveCannotSayWhichIsNeverNothingFound() throws IOException {
+        try (InstalledEcosystem plugin =
+                InstalledEcosystem.forResolve(named("fake", DescribeOnly.class), run(), Map.of())) {
+            assertThat(plugin.resolve(Path.of("/work/project"), HOME, List.of()))
+                    .as("a plugin built before Resolve answers MethodNotFound")
+                    .isEqualTo(Optional.empty());
+        }
+        try (InstalledEcosystem plugin =
+                InstalledEcosystem.forResolve(
+                        withoutAShell("fake", ReportsEnvironment.class), run(), Map.of())) {
+            assertThat(plugin.resolve(Path.of("/work/project"), HOME, List.of()))
+                    .as("a plugin that keeps the interface's default cannot say either")
+                    .isEqualTo(Optional.empty());
+        }
+    }
+
+    @Test
+    void aResolveLongerThanItsBoundIsAFailureNotAnAnswer() throws IOException {
+        try (InstalledEcosystem plugin = InstalledEcosystem.forResolve(fake(), run(), Map.of())) {
+            final long started = System.nanoTime();
+
+            assertThatThrownBy(() -> plugin.resolve(Path.of("/work/slow"), HOME, List.of(), 1))
+                    .isInstanceOf(EcosystemException.class)
+                    .hasMessageContaining("did not answer within 1 seconds");
+            assertThat(Duration.ofNanos(System.nanoTime() - started))
+                    .as("the bound holds, not the plugin's half minute")
+                    .isLessThan(Duration.ofSeconds(15));
+        }
+    }
+
+    @Test
+    void aPluginStartedForResolveHasTheProxySettingsAndNothingElse() throws Exception {
+        final Map<String, String> given = new java.util.HashMap<>();
+        given.put("HTTPS_PROXY", ReportsProxy.VALUE);
+        given.put("no_proxy", ReportsProxy.VALUE);
+        given.put("NO_PROXY", " ");
+        given.put("MADE_UP_SECRET", ReportsProxy.VALUE);
+        try (InstalledEcosystem plugin =
+                InstalledEcosystem.forResolve(
+                        withoutAShell("fake", ReportsProxy.class), run(), given)) {
+
+            // Names and a comparison only: a red run must not print a value.
+            assertThat(plugin.resolve(Path.of("/work"), HOME, List.of()).orElseThrow())
+                    .extracting(Finding::key, Finding::value)
+                    .as("each proxy setting given, as given, and no other variable, a blank none")
+                    .containsExactlyInAnyOrder(
+                            org.assertj.core.groups.Tuple.tuple("env.HTTPS_PROXY", "as given"),
+                            org.assertj.core.groups.Tuple.tuple("env.no_proxy", "as given"));
+        }
+    }
+
+    /** A plugin whose Resolve says which variables it has, and whether each is the one given. */
+    public static final class ReportsProxy implements Ecosystem {
+
+        /** What each test's proxy setting holds. */
+        static final String VALUE = "http://someone:not-a-real-one@proxy.example:3128";
+
+        /**
+         * Runs it.
+         *
+         * @param arguments The script it was started through, then as every plugin takes them.
+         */
+        public static void main(final String[] arguments) {
+            EcosystemMain.run(
+                    new ReportsProxy(), Arrays.copyOfRange(arguments, 1, arguments.length));
+        }
+
+        @Override
+        public String ecosystem() {
+            return "fake";
+        }
+
+        @Override
+        public Detection detect(final Path directory, final Path home) {
+            return new Detection(List.of(), List.of());
+        }
+
+        @Override
+        public Optional<List<Finding>> resolve(
+                final Path directory, final Path home, final List<Finding> findings) {
+            return Optional.of(
+                    System.getenv().entrySet().stream()
+                            .map(
+                                    each ->
+                                            new Finding(
+                                                    Finding.Part.TOOLS,
+                                                    "env." + each.getKey(),
+                                                    VALUE.equals(each.getValue())
+                                                            ? "as given"
+                                                            : "another value",
+                                                    "",
+                                                    0,
+                                                    Finding.Origin.MACHINE,
+                                                    false,
+                                                    ""))
+                            .toList());
+        }
+
+        @Override
+        public List<File> configure(final List<Repository> repositories) {
+            return List.of();
         }
     }
 

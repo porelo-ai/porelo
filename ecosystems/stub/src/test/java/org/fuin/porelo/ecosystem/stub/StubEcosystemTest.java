@@ -68,6 +68,32 @@ class StubEcosystemTest {
     }
 
     @Test
+    void resolvesAsItsFileSaysAndWithoutAResolveCannotSay() throws IOException {
+        final StubEcosystem stub = new StubEcosystem(answers(ANSWERS));
+        assertThat(stub.resolve(directory, directory, List.of(FINDING)))
+                .as("a scenario without a resolve keeps what detect found")
+                .isEmpty();
+
+        answers(
+                """
+                {"resolve": {"findings": [{"part": "TOOLS", "key": "run.java", "value": "RUN true",
+                  "file": "pom.xml", "line": 14, "origin": "CHECKOUT", "unknown": false, "note": ""}]}}
+                """);
+        assertThat(stub.resolve(directory, directory, List.of(FINDING)).orElseThrow())
+                .as("the answer as the file holds it")
+                .containsExactly(
+                        new Finding(
+                                Finding.Part.TOOLS,
+                                "run.java",
+                                "RUN true",
+                                "pom.xml",
+                                14,
+                                Finding.Origin.CHECKOUT,
+                                false,
+                                ""));
+    }
+
+    @Test
     void aFileWithoutADetectIsADirectoryItDoesNotRecognize() throws IOException {
         final StubEcosystem stub = new StubEcosystem(answers("{}"));
 

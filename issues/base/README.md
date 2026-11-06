@@ -20,6 +20,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b456"></a>[B456](B456-A-Plugin-Resolves-What-A-Project-Asks.md) | L | - | `Resolve` in `Ecosystem1`, asked when a file is made: `run.<name>` and `env.<NAME>` placed in the draft, the fetched lines shown whole, proxy settings for that process alone; unit tests pass, the scenario awaits the VM. |
 | <a id="b464"></a>[B464](B464-A-Review-Counts-Lines-Without-Their-Endings.md) | M | - | Backend counts and the optional patch switch are built; 84 focused tests pass. Full units stop at sandbox socket ownership checks; the window remains separate. |
 | <a id="b454"></a>[B454](B454-A-Scenarios-Setup-Says-When-It-Failed.md) | XS | - | The first-start scenario checks its setup and cleans up even after a red. |
 | <a id="b451"></a>[B451](B451-An-Ecosystem-Adapter-Is-Not-A-Plugin.md) | S | - | Documentation and human output say "ecosystem adapter"; JSON stays compatible. Focused tests pass; full units stop at sandbox socket ownership checks. |
@@ -83,7 +84,6 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
-| <a id="b456"></a>[B456](B456-A-Plugin-Resolves-What-A-Project-Asks.md) | L | - | A plugin may look up what a project asks when a file is made; a person sees the fetched lines whole. |
 | <a id="b453"></a>[B453](B453-A-Draft-Replaces-A-Repositorys-Own-Image.md) | S | - | A draft does not silently replace the image a repository says it needs. |
 | <a id="b450"></a>[B450](B450-The-RPM-Index-Loses-What-A-Package-Recommends.md) | M | Artifactory's settings read | A default `dnf install` brings what the package recommends, which the RPM index loses today. |
 | <a id="b449"></a>[B449](B449-A-Repositorys-Own-File-Reaches-The-Image-Unasked.md) | S | - | A repository's `porelo.yml` chooses no line of an image without a person's yes. |

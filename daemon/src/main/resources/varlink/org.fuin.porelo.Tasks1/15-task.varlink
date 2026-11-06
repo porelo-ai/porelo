@@ -1242,14 +1242,20 @@ type Finding (
 # what the answer names: the file and each file it names, with their names. An interface then starts as usual, by the project's name.
 # refusal says why a project.yml here cannot be taken, for a person to read as a warning, and "" otherwise: the outcome is then
 # ASK_UNKNOWN_FILE with no file and no hash, and the start goes on in 'default' without it.
-# notes are for a person to read above the question, for any outcome: an adapter that failed or was refused, and what an
-# adapter read and could place nowhere. A note is not part of what a hash names.
-method FirstStart(checkout: string) -> (outcome: string, found: []Finding, hosts: []string, marked: []string, file: string, project: string, hash: string, notes: []string, refusal: string)
+# notes are for a person to read above the question, for any outcome: an adapter that failed or was refused, what an
+# adapter read and could place nowhere, and a lookup that failed. A note is not part of what a hash names.
+# Where a file would be made, each adapter first looks up what it read (Resolve), the one time an adapter opens a
+# connection: the lines it fetched are in found, each 'image line' whole, and in the file and its hash. proxy holds the
+# caller's HTTP_PROXY, HTTPS_PROXY, NO_PROXY and their lower-case forms, as its environment has them; only these names are
+# read, and only an adapter's process gets them. They never appear in an answer, a note or a log. Without proxy, an
+# adapter looks up with none.
+method FirstStart(checkout: string, proxy: ?[string]string) -> (outcome: string, found: []Finding, hosts: []string, marked: []string, file: string, project: string, hash: string, notes: []string, refusal: string)
 
 # A person's yes to the text a hash names: writes the file into the checkout if it is new, and makes this
 # machine's copy the project, which a start by the project's name reads whatever the checkout then holds. A
-# No has no call, and nothing is kept.
-method ConfirmFirstStart(checkout: string, hash: string) -> (project: string)
+# No has no call, and nothing is kept. The lookup FirstStart made answers the yes; one no longer kept is made
+# anew, through proxy as FirstStart takes it, and a text that changed with it is MOVED_ON.
+method ConfirmFirstStart(checkout: string, hash: string, proxy: ?[string]string) -> (project: string)
 
 # A first start's yes cannot be taken. reason is NOT_A_CHECKOUT, NAME_TAKEN (the name is 'default', another
 # local project's, or a project approved for another host, port or path), NO_NAME, FILE_UNREADABLE, MOVED_ON (the text is no longer what the hash named),

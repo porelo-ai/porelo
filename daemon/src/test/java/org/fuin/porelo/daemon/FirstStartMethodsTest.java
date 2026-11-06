@@ -86,10 +86,42 @@ class FirstStartMethodsTest {
         }
 
         @Override
+        public java.util.Optional<List<Finding>> resolve(
+                final Path directory, final Path home, final List<Finding> findings) {
+            try {
+                // Counted where the test reads it: a lookup made twice may answer twice.
+                Files.writeString(
+                        home.resolve("lookups"),
+                        "one\n",
+                        java.nio.file.StandardOpenOption.CREATE,
+                        java.nio.file.StandardOpenOption.APPEND);
+            } catch (java.io.IOException ex) {
+                throw new IllegalStateException(ex);
+            }
+            final List<Finding> resolved = new java.util.ArrayList<>(findings);
+            resolved.add(
+                    new Finding(
+                            Finding.Part.TOOLS,
+                            "run.java",
+                            PROXY.equals(System.getenv("HTTPS_PROXY"))
+                                    ? "RUN true # looked up through the proxy sent"
+                                    : "RUN true # looked up without a proxy",
+                            "pom.xml",
+                            1,
+                            Finding.Origin.CHECKOUT,
+                            false,
+                            ""));
+            return java.util.Optional.of(resolved);
+        }
+
+        @Override
         public List<File> configure(final List<Repository> repositories) {
             return List.of();
         }
     }
+
+    /** What a test's proxy setting holds: a credential in its address, as a proxy may have. */
+    static final String PROXY = "http://someone:not-a-real-one@proxy.example:3128";
 
     @BeforeEach
     void machine() throws Exception {
@@ -164,18 +196,26 @@ class FirstStartMethodsTest {
                                     each -> String.valueOf(each).contains("a container is built"));
                     assertThat(asked.get("hosts")).isEqualTo(List.of("nexus.evil.example"));
                     assertThat(asked.get("marked")).isEqualTo(List.of("nexus.evil.example"));
-                    assertThat(asked.get("found"))
-                            .isEqualTo(
-                                    List.of(
-                                            Map.of(
-                                                    "what",
-                                                    "package.maven",
-                                                    "value",
-                                                    "",
-                                                    "source",
-                                                    "pom.xml",
-                                                    "note",
-                                                    "read from the pom")));
+                    assertThat((List<Object>) asked.get("found"))
+                            .containsExactly(
+                                    Map.of(
+                                            "what",
+                                            "package.maven",
+                                            "value",
+                                            "",
+                                            "source",
+                                            "pom.xml",
+                                            "note",
+                                            "read from the pom"),
+                                    Map.of(
+                                            "what",
+                                            "image line",
+                                            "value",
+                                            "RUN true # looked up without a proxy",
+                                            "source",
+                                            "pom.xml",
+                                            "note",
+                                            ""));
                     assertThat(checkout.resolve("project.yml"))
                             .as("a look writes nothing")
                             .doesNotExist();
@@ -187,6 +227,46 @@ class FirstStartMethodsTest {
                             .isEqualTo(asked.get("file"));
                     assertThat(firstStart(client).get("outcome")).isEqualTo("KNOWN");
                 });
+    }
+
+    @Test
+    void theProxySentReachesThePluginAloneAndTheYesMeetsTheQuestionsLookup() throws Exception {
+        plugin();
+        serving(
+                client -> {
+                    final Map<String, Object> proxy = Map.of("HTTPS_PROXY", PROXY);
+                    final var asked =
+                            client.call(
+                                    PoreloDaemon.INTERFACE + ".FirstStart",
+                                    Map.of("checkout", checkout.toString(), "proxy", proxy));
+                    assertThat(asked.get("found"))
+                            .as("the fetched line is shown whole, looked up through the proxy")
+                            .asString()
+                            .contains("RUN true # looked up through the proxy sent");
+                    assertThat(asked.get("file"))
+                            .asString()
+                            .contains("RUN true # looked up through the proxy sent");
+                    assertThat(asked.toString())
+                            .as("a proxy's address may hold a credential")
+                            .doesNotContain("not-a-real-one");
+
+                    client.call(
+                            PoreloDaemon.INTERFACE + ".ConfirmFirstStart",
+                            Map.of(
+                                    "checkout",
+                                    checkout.toString(),
+                                    "hash",
+                                    asked.get("hash"),
+                                    "proxy",
+                                    proxy));
+                });
+
+        assertThat(Files.readAllLines(context.paths().xdg().home().resolve("lookups")))
+                .as("the yes took the lookup its question made")
+                .hasSize(1);
+        assertThat(Files.readString(checkout.resolve("project.yml")))
+                .contains("looked up through the proxy sent")
+                .doesNotContain("not-a-real-one");
     }
 
     @Test
@@ -283,10 +363,12 @@ class FirstStartMethodsTest {
     void theContractDescribesBothMethods() {
         assertThat(PoreloDaemon.description())
                 .contains(
-                        "method FirstStart(checkout: string) -> (outcome: string, found: []Finding,"
+                        "method FirstStart(checkout: string, proxy: ?[string]string) ->"
+                                + " (outcome: string, found: []Finding,"
                                 + " hosts: []string, marked: []string, file: string, project: string,"
                                 + " hash: string, notes: []string, refusal: string)",
-                        "method ConfirmFirstStart(checkout: string, hash: string) ->"
+                        "method ConfirmFirstStart(checkout: string, hash: string, proxy:"
+                                + " ?[string]string) ->"
                                 + " (project: string)",
                         "type Finding (",
                         "error FirstStartRefused(reason: string, detail: string)");

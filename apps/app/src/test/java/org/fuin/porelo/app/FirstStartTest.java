@@ -1442,4 +1442,268 @@ class FirstStartTest {
                 .contains("project of this one repository")
                 .contains("rename that repository");
     }
+
+    private static final String PROXY = "http://someone:not-a-real-one@proxy.example:3128";
+
+    private static final String FETCHED =
+            "RUN set -eu; mkdir -p /opt/java; curl -fsSL -o /tmp/java.tgz"
+                    + " 'https://example.org/temurin/25.0.5/jdk_x64_linux_hotspot_25.0.5_11.tar.gz';"
+                    + " echo '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+                    + "  /tmp/java.tgz' | sha256sum -c -; tar xzf /tmp/java.tgz -C /opt/java"
+                    + " --strip-components=1; rm /tmp/java.tgz; ln -s /opt/java/bin/* /usr/local/bin/";
+
+    /** What each lookup was given: the plugin, the findings and the proxy settings. */
+    private final List<Object> lookedUp = new ArrayList<>();
+
+    /** What the next lookup answers, or throws. */
+    private java.util.function.Supplier<java.util.Optional<List<Finding>>> lookup =
+            () ->
+                    java.util.Optional.of(
+                            List.of(
+                                    tool("run.java", FETCHED, "pom.xml"),
+                                    tool("env.JAVA_HOME", "/opt/java", "pom.xml")));
+
+    /** Each plugin answers a finding of its own name, and looks up through {@link #lookup}. */
+    private EcosystemDetector lookingUp() {
+        return new EcosystemDetector() {
+            @Override
+            public Detection detect(
+                    final org.fuin.porelo.ecosystem.api.InstalledEcosystems.Description plugin,
+                    final Path directory,
+                    final Path home) {
+                detected++;
+                return new Detection(
+                        List.of(
+                                tool("package.maven", "", "pom.xml"),
+                                tool("java.version." + plugin.name(), "25", "pom.xml")),
+                        List.of());
+            }
+
+            @Override
+            public java.util.Optional<List<Finding>> resolve(
+                    final org.fuin.porelo.ecosystem.api.InstalledEcosystems.Description plugin,
+                    final Path directory,
+                    final Path home,
+                    final List<Finding> findings,
+                    final java.util.Map<String, String> proxies) {
+                lookedUp.add(List.of(plugin.name(), findings, proxies));
+                return lookup.get();
+            }
+        };
+    }
+
+    private void plugin(final String name) throws Exception {
+        final Path plugin =
+                Files.createDirectories(context.paths().ecosystemDirectories().getFirst())
+                        .resolve(name);
+        Files.writeString(
+                plugin,
+                "#!/bin/sh\nprintf '{\"protocolVersion\":1,\"ecosystem\":\"" + name + "\"}'\n");
+        Files.setPosixFilePermissions(plugin, PosixFilePermissions.fromString("rwx------"));
+    }
+
+    @Test
+    void aLookupReplacesThatPluginsFindingsWholeAndTheQuestionShowsItsLinesWhole()
+            throws Exception {
+        plugin();
+        detector = lookingUp();
+
+        final FirstStart.Answer plain = firstStart().look(checkout);
+        final String withoutLookup = plain.hash();
+        plain.discard();
+        final FirstStart.Answer answer =
+                firstStart().look(checkout, java.util.Map.of("HTTPS_PROXY", PROXY));
+        try {
+            assertThat(lookedUp)
+                    .as("the plugin is given its own Detect answer and the proxy settings")
+                    .containsExactly(
+                            List.of(
+                                    "maven",
+                                    List.of(
+                                            tool("package.maven", "", "pom.xml"),
+                                            tool("java.version.maven", "25", "pom.xml")),
+                                    java.util.Map.of("HTTPS_PROXY", PROXY)));
+            assertThat(answer.found())
+                    .extracting(FirstStart.Found::what, FirstStart.Found::value)
+                    .as("its answer replaces what Detect found, and every fetched line is whole")
+                    .containsExactly(
+                            org.assertj.core.groups.Tuple.tuple("image line", FETCHED),
+                            org.assertj.core.groups.Tuple.tuple(
+                                    "image env", "JAVA_HOME=/opt/java"));
+            assertThat(answer.file()).contains(FETCHED, "JAVA_HOME");
+            assertThat(answer.hash())
+                    .as("the fetched lines are part of what a yes names")
+                    .isNotEqualTo(withoutLookup);
+        } finally {
+            answer.discard();
+        }
+    }
+
+    @Test
+    void theQuestionAtATerminalShowsEveryFetchedLineWhole() throws Exception {
+        plugin();
+        detector = lookingUp();
+
+        assertThat(atTerminal("n")).isNull();
+
+        assertThat(said.toString())
+                .as("they run as root of the build, so a person reads them before a yes")
+                .contains("found    image line " + FETCHED + " (pom.xml)")
+                .contains("found    image env JAVA_HOME=/opt/java");
+    }
+
+    @Test
+    void eachPluginIsGivenItsOwnDetectAnswerAndNoOthers() throws Exception {
+        plugin("maven");
+        plugin("npm");
+        detector = lookingUp();
+        lookup = java.util.Optional::empty;
+
+        firstStart().look(checkout, java.util.Map.of()).discard();
+
+        assertThat(lookedUp)
+                .extracting(each -> (Object) ((List<?>) each).subList(0, 2))
+                .containsExactlyInAnyOrder(
+                        List.of(
+                                "maven",
+                                List.of(
+                                        tool("package.maven", "", "pom.xml"),
+                                        tool("java.version.maven", "25", "pom.xml"))),
+                        List.of(
+                                "npm",
+                                List.of(
+                                        tool("package.maven", "", "pom.xml"),
+                                        tool("java.version.npm", "25", "pom.xml"))));
+    }
+
+    @Test
+    void aPluginThatCannotSayOrFailsLeavesWhatDetectFoundAndANote() throws Exception {
+        plugin();
+        detector = lookingUp();
+
+        for (final java.util.function.Supplier<java.util.Optional<List<Finding>>> answered :
+                List.<java.util.function.Supplier<java.util.Optional<List<Finding>>>>of(
+                        java.util.Optional::empty,
+                        () -> {
+                            throw new org.fuin.porelo.ecosystem.api.EcosystemException(
+                                    "maven did not answer within 20 seconds " + PROXY);
+                        })) {
+            lookup = answered;
+            final FirstStart.Answer answer =
+                    firstStart().look(checkout, java.util.Map.of("HTTPS_PROXY", PROXY));
+            try {
+                assertThat(answer.outcome()).isEqualTo(FirstStart.Outcome.ASK_NEW);
+                assertThat(answer.found())
+                        .extracting(FirstStart.Found::what)
+                        .as("what Detect found stands, so the question still has a yes")
+                        .contains("package.maven", "java.version.maven");
+                assertThat(answer.notes())
+                        .as("the note names what was asked")
+                        .anyMatch(
+                                each ->
+                                        each.startsWith(
+                                                "maven could not look up package.maven,"
+                                                        + " java.version.maven 25: "));
+                assertThat(answer.asMap().toString())
+                        .as("never the plugin's words, which may repeat its proxy")
+                        .doesNotContain("not-a-real-one");
+            } finally {
+                answer.discard();
+            }
+        }
+    }
+
+    @Test
+    void aReplyThatDoesNotParseSaysNothingOfIt() throws Exception {
+        plugin();
+        detector = lookingUp();
+        // A parser's message may quote the reply, and the reply may repeat the proxy.
+        lookup =
+                () -> {
+                    throw new IllegalArgumentException("duplicate key " + PROXY);
+                };
+
+        final FirstStart.Answer answer =
+                firstStart().look(checkout, java.util.Map.of("http_proxy", PROXY));
+        try {
+            assertThat(answer.asMap().toString()).doesNotContain("not-a-real-one");
+            assertThat(answer.notes()).anyMatch(each -> each.contains("it failed or took longer"));
+        } finally {
+            answer.discard();
+        }
+    }
+
+    @Test
+    void aLookupThroughOneProxyIsNotHandedToACallerOfAnother() throws Exception {
+        plugin();
+        detector = lookingUp();
+        final FirstStart asking = firstStart();
+        asking.look(checkout, java.util.Map.of("http_proxy", PROXY)).discard();
+        final int before = lookedUp.size();
+        asking.look(checkout, java.util.Map.of()).discard();
+
+        assertThat(lookedUp).as("another proxy is another lookup").hasSize(before + 1);
+    }
+
+    @Test
+    void anAnswerRepeatingAProxySettingIsNotUsed() throws Exception {
+        plugin();
+        detector = lookingUp();
+        lookup =
+                () ->
+                        java.util.Optional.of(
+                                List.of(tool("run.java", "RUN curl -x " + PROXY, "pom.xml")));
+
+        final FirstStart.Answer answer =
+                firstStart().look(checkout, java.util.Map.of("http_proxy", PROXY));
+        try {
+            assertThat(answer.asMap().toString())
+                    .as("a proxy's address may hold a credential")
+                    .doesNotContain("not-a-real-one");
+            assertThat(answer.file()).doesNotContain("not-a-real-one");
+            assertThat(answer.notes())
+                    .anyMatch(each -> each.contains("its answer holds a proxy setting"));
+        } finally {
+            answer.discard();
+        }
+    }
+
+    @Test
+    void theYesMeetsTheLookupItsQuestionMadeAndAMissLooksUpAnew() throws Exception {
+        plugin();
+        detector = lookingUp();
+        final FirstStart asking = firstStart();
+        final FirstStart.Answer asked = asking.look(checkout, java.util.Map.of());
+        asked.discard();
+        // A plugin asked again may answer a newer version than the person read.
+        lookup =
+                () -> java.util.Optional.of(List.of(tool("run.java", "RUN echo newer", "pom.xml")));
+
+        assertThatThrownBy(() -> firstStart().confirm(checkout, asked.hash(), java.util.Map.of()))
+                .as("another question's yes looks up anew, and meets another text")
+                .isInstanceOfSatisfying(
+                        FirstStart.Refused.class,
+                        refused ->
+                                assertThat(refused.reason()).isEqualTo(FirstStart.Reason.MOVED_ON));
+        assertThat(lookedUp).hasSize(2);
+
+        assertThat(asking.confirm(checkout, asked.hash(), java.util.Map.of()))
+                .isEqualTo("shop-project");
+        assertThat(lookedUp).as("the yes took the question's own lookup").hasSize(2);
+        assertThat(Files.readString(checkout.resolve("project.yml")))
+                .as("what the person read is what is written")
+                .contains(FETCHED)
+                .doesNotContain("newer");
+    }
+
+    @Test
+    void nobodyToAskLooksNothingUp() throws Exception {
+        plugin();
+        detector = lookingUp();
+
+        unattended();
+
+        assertThat(detected).isPositive();
+        assertThat(lookedUp).isEmpty();
+    }
 }

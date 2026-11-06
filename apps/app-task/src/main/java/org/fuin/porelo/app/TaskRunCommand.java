@@ -546,7 +546,11 @@ public class TaskRunCommand implements Callable<Integer>, PoreloFactory.ContextA
                     // organization's project and a start with nobody to ask go as they always did.
                     final WorkOrigin.Choice first =
                             new FirstStartAtTerminal(new FirstStart(context, detector), err)
-                                    .choose(standing, firstStartOffer(err), firstStartUnasked());
+                                    .choose(
+                                            standing,
+                                            firstStartOffer(err),
+                                            firstStartUnasked(),
+                                            EcosystemLookup.proxies(context.environment()));
                     final WorkOrigin.Choice choice =
                             first != null ? first : WorkOrigin.withoutApproved(context, standing);
                     projectName = choice.project();

@@ -21,7 +21,7 @@ class ContractTest {
     }
 
     @Test
-    void declaresTheThreeMethodsTheProtocolNames() throws IOException {
+    void declaresTheFourMethodsTheProtocolNames() throws IOException {
         assertThat(
                         Pattern.compile("(?m)^method (\\w+)\\(")
                                 .matcher(idl())
@@ -30,6 +30,7 @@ class ContractTest {
                 .containsExactlyInAnyOrder(
                         EcosystemProtocol.DESCRIBE,
                         EcosystemProtocol.DETECT,
+                        EcosystemProtocol.RESOLVE,
                         EcosystemProtocol.CONFIGURE);
     }
 
@@ -52,6 +53,9 @@ class ContractTest {
                 .contains(
                         "method Detect(directory: string, home: string)"
                                 + " -> (findings: []Finding, unplaced: []Unplaced)")
+                .contains(
+                        "method Resolve(directory: string, home: string, findings: []Finding)"
+                                + " -> (findings: []Finding)")
                 .contains("type Repository (name: string, url: string)")
                 .contains("type File (path: string, content: string, ownerOnly: bool)")
                 .contains("method Configure(repositories: []Repository) -> (files: []File)")
@@ -66,6 +70,24 @@ class ContractTest {
                 .contains("names joined by single slashes")
                 .contains("none blank, \".\" or \"..\"")
                 .contains("no quote, backslash or control character");
+    }
+
+    @Test
+    void statesTheBoundsAndTheProxyVariablesOfAResolve() throws IOException {
+        assertThat(idl().replaceAll("\\s*\\n# ", " "))
+                .as("a plugin keeps the request bound, and only Resolve opens a connection")
+                .contains("within " + EcosystemProtocol.RESOLVE_REQUEST_SECONDS + " seconds")
+                .contains(EcosystemProtocol.RESOLVE_CALL_SECONDS + " seconds for the whole answer")
+                .contains("HTTP_PROXY, HTTPS_PROXY, NO_PROXY and their lower-case forms")
+                .contains("opens a connection in Resolve alone");
+        assertThat(EcosystemProtocol.PROXY_VARIABLES)
+                .containsExactly(
+                        "HTTP_PROXY",
+                        "HTTPS_PROXY",
+                        "NO_PROXY",
+                        "http_proxy",
+                        "https_proxy",
+                        "no_proxy");
     }
 
     @Test

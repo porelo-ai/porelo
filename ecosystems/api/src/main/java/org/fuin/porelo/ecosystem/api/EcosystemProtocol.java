@@ -1,5 +1,7 @@
 package org.fuin.porelo.ecosystem.api;
 
+import java.util.List;
+
 /**
  * The contract between Porelo and a build-tool plugin.
  *
@@ -23,7 +25,7 @@ public final class EcosystemProtocol {
      *
      * <p>Raised with every addition, so that a plugin says how much of the contract it knows.
      */
-    public static final int VERSION = 1;
+    public static final int VERSION = 2;
 
     /**
      * The lowest version this Porelo needs.
@@ -41,6 +43,34 @@ public final class EcosystemProtocol {
 
     /** Returns the settings files a plugin's tool needs in a task. */
     public static final String CONFIGURE = INTERFACE + ".Configure";
+
+    /**
+     * Looks up what a plugin's own {@code Detect} read: the one method that may open a connection,
+     * asked only when a project file is made.
+     */
+    public static final String RESOLVE = INTERFACE + ".Resolve";
+
+    /**
+     * How long one request of a plugin's {@code Resolve} may take, which the plugin keeps itself.
+     * An unmeasured first figure.
+     */
+    public static final long RESOLVE_REQUEST_SECONDS = 5;
+
+    /** How long Porelo waits for a whole {@code Resolve}. An unmeasured first figure. */
+    public static final long RESOLVE_CALL_SECONDS = 20;
+
+    /**
+     * The variables a plugin is started with for {@code Resolve}, and for nothing else, where the
+     * person has them set: a proxy is how a machine reaches the vendors at all.
+     */
+    public static final List<String> PROXY_VARIABLES =
+            List.of(
+                    "HTTP_PROXY",
+                    "HTTPS_PROXY",
+                    "NO_PROXY",
+                    "http_proxy",
+                    "https_proxy",
+                    "no_proxy");
 
     private EcosystemProtocol() {
         throw new UnsupportedOperationException("Constants");

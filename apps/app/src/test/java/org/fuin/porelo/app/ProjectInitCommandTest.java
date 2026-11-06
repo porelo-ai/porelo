@@ -25,13 +25,14 @@ class ProjectInitCommandTest {
     @TempDir Path directory;
     boolean localDetection;
     final ProcessCommandRunner runner = new ProcessCommandRunner();
+    java.util.function.UnaryOperator<String> environment = key -> null;
 
     PoreloContext context() {
         return new PoreloContext(
                 runner,
                 new PoreloPaths(XdgPaths.of(key -> null, directory), directory.resolve("bin")),
                 args -> 0,
-                key -> null);
+                environment);
     }
 
     Path checkout(String origin) throws Exception {
@@ -195,6 +196,61 @@ class ProjectInitCommandTest {
         assertThat(((Map<?, ?>) findings.getFirst()).get("plugin"))
                 .as("existing readers still attribute a finding to its source adapter")
                 .isEqualTo("healthy");
+    }
+
+    /** What a test's proxy setting holds: a credential in its address, as a proxy may have. */
+    static final String PROXY = "http://someone:not-a-real-one@proxy.example:3128";
+
+    @Test
+    void initLooksUpThroughThePersonsProxyAndNeverSaysIt() throws Exception {
+        environment = key -> key.equals("HTTPS_PROXY") ? PROXY : null;
+        install("resolving");
+
+        final var answer = answer(checkout("https://example.org/sample.git"));
+
+        assertThat(answer.get("draft").toString())
+                .as("the plugin's own process looked up through the person's proxy")
+                .contains("RUN true # looked up through the proxy given");
+        assertThat(Json.write(answer))
+                .as("a proxy's address may hold a credential")
+                .doesNotContain("not-a-real-one");
+    }
+
+    @Test
+    void aRefusedYesLooksNothingUp() throws Exception {
+        environment = key -> key.equals("HTTPS_PROXY") ? PROXY : null;
+        install("resolving");
+        final Path checkout = checkout("https://example.org/sample.git");
+        final var line = PoreloCli.commandLine(context());
+        line.setOut(new PrintWriter(new StringWriter()));
+        line.setErr(new PrintWriter(new StringWriter()));
+
+        assertThat(
+                        line.execute(
+                                "project",
+                                "init",
+                                checkout.toString(),
+                                "--project",
+                                "demo",
+                                "--yes"))
+                .isEqualTo(65);
+        assertThat(context().paths().xdg().home().resolve("looked-up"))
+                .as("nothing is made, so nothing is looked up through the proxy")
+                .doesNotExist();
+    }
+
+    @Test
+    void aPluginThatCannotSayLeavesWhatItFoundAndANote() throws Exception {
+        install("healthy");
+
+        final var answer = answer(checkout("https://example.org/sample.git"));
+
+        assertThat(answer.get("draft").toString()).contains("repo.example.org");
+        assertThat((List<Object>) answer.get("notes"))
+                .as("a plugin built before the lookup cannot say, which is never nothing found")
+                .containsExactly(
+                        "healthy could not look up what it read: it cannot say; what it read"
+                                + " stands");
     }
 
     @Test
@@ -392,6 +448,32 @@ class ProjectInitCommandTest {
                                     false,
                                     "")),
                     List.of());
+        }
+
+        @Override
+        public java.util.Optional<List<Finding>> resolve(
+                Path checkout, Path home, List<Finding> findings) {
+            if (!name.equals("resolving")) return java.util.Optional.empty();
+            try {
+                // Seen by a test that no lookup was made.
+                Files.writeString(home.resolve("looked-up"), "");
+            } catch (java.io.IOException ex) {
+                throw new IllegalStateException(ex);
+            }
+            final List<Finding> resolved = new java.util.ArrayList<>(findings);
+            resolved.add(
+                    new Finding(
+                            Finding.Part.TOOLS,
+                            "run.proxy",
+                            PROXY.equals(System.getenv("HTTPS_PROXY"))
+                                    ? "RUN true # looked up through the proxy given"
+                                    : "RUN true # looked up without it",
+                            "settings.xml",
+                            1,
+                            Finding.Origin.CHECKOUT,
+                            false,
+                            ""));
+            return java.util.Optional.of(resolved);
         }
 
         @Override

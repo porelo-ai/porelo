@@ -5,6 +5,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.TreeMap;
 import org.fuin.porelo.core.project.ProjectReader;
 import org.fuin.porelo.core.project.Repository;
 import org.fuin.porelo.core.project.file.Egress;
@@ -13,6 +14,7 @@ import org.fuin.porelo.core.project.file.ProjectFile;
 import org.fuin.porelo.core.project.file.ProjectFileWriter;
 import org.fuin.porelo.core.project.file.ProjectInfo;
 import org.fuin.porelo.core.project.file.RepositoryEntry;
+import org.fuin.porelo.core.project.file.RepositoryFile;
 import org.fuin.porelo.ecosystem.api.Detection;
 import org.fuin.porelo.ecosystem.api.Finding;
 import org.jspecify.annotations.Nullable;
@@ -20,6 +22,28 @@ import org.jspecify.annotations.Nullable;
 /** Combines detected settings into a draft without touching the checkout. */
 final class ProjectProposal {
     private record Key(Finding.Part part, String key) {}
+
+    /** The image lines a plugin gives, joined in the order of the names. */
+    private static final String RUN = "run.";
+
+    /** A variable a plugin sets in the image. */
+    private static final String ENV = "env.";
+
+    private static final String BASE = "ubuntu:24.04";
+
+    private static final java.util.regex.Pattern RUN_NAME =
+            java.util.regex.Pattern.compile("[a-z0-9][a-z0-9._-]*");
+
+    /** What a line may not hold beside its text: line breaks and tabs only. */
+    private static final java.util.regex.Pattern HIDDEN =
+            java.util.regex.Pattern.compile("[\\p{Cc}\\p{Cf}\\p{Zl}\\p{Zp}&&[^\\n\\t]]");
+
+    /**
+     * What fetched image lines may not hold: a tab too, as the question shows it as another
+     * character and a person would say yes to a line other than the one that runs.
+     */
+    private static final java.util.regex.Pattern HIDDEN_IN_RUN =
+            java.util.regex.Pattern.compile("[\\p{Cc}\\p{Cf}\\p{Zl}\\p{Zp}&&[^\\n]]");
 
     private final String repository;
     private final String project;
@@ -38,6 +62,9 @@ final class ProjectProposal {
     private List<Placed> unknowns = List.of();
     private List<String> hosts = List.of();
     private List<String> checkoutHosts = List.of();
+    private List<Placed> imageLines = List.of();
+    private List<String> refusals = List.of();
+    private Map<String, String> env = Map.of();
     private boolean applied;
     private String run = "";
 
@@ -112,8 +139,11 @@ final class ProjectProposal {
             value.put("note", finding.note());
             value.put("plugin", plugin);
             values.add(value);
+            // Placed by the prefix alone, so two plugins disagreeing in the part still disagree.
+            final boolean image = finding.key().startsWith(RUN) || finding.key().startsWith(ENV);
             groups.computeIfAbsent(
-                            new Key(finding.part(), finding.key()), unused -> new ArrayList<>())
+                            new Key(image ? Finding.Part.TOOLS : finding.part(), finding.key()),
+                            unused -> new ArrayList<>())
                     .add(value);
         }
         for (var each : detection.unplaced())
@@ -177,6 +207,26 @@ final class ProjectProposal {
     }
 
     /**
+     * Returns the image's lines and variables a plugin gave, which the last {@link #answer()} put
+     * into the draft: they run as root of the build, so a person reads them whole.
+     *
+     * @return One for each line of {@code image.run} and each variable of {@code image.env} a
+     *     plugin gave, with the file it was found for.
+     */
+    List<Placed> imageLines() {
+        return imageLines;
+    }
+
+    /**
+     * Returns what the last {@link #answer()} left out of the image, and why.
+     *
+     * @return One line for each, with its plugin.
+     */
+    List<String> refusals() {
+        return refusals;
+    }
+
+    /**
      * Returns the hosts among {@link #hosts()} that the checkout alone names.
      *
      * @return They: no file of the person's or the machine's names them.
@@ -221,6 +271,7 @@ final class ProjectProposal {
     List<String> byHand() {
         final List<String> lines = new ArrayList<>();
         run.lines().forEach(line -> lines.add("image.run: " + line));
+        env.forEach((name, value) -> lines.add("image.env: " + name + ": " + value));
         hosts.forEach(host -> lines.add("egress.domains: " + host));
         return List.copyOf(lines);
     }
@@ -270,6 +321,8 @@ final class ProjectProposal {
         final List<Placed> unread = new ArrayList<>();
         final List<String> ownHosts = new ArrayList<>();
         final StringBuilder packages = new StringBuilder();
+        final Map<String, Map<String, Object>> runs = new TreeMap<>();
+        final Map<String, Map<String, Object>> variables = new TreeMap<>();
         for (var group : groups.entrySet()) {
             final var known =
                     group.getValue().stream()
@@ -293,6 +346,14 @@ final class ProjectProposal {
             if (known.isEmpty()) continue;
             final String key = group.getKey().key();
             final String value = String.valueOf(known.getFirst().get("value"));
+            if (key.startsWith(RUN)) {
+                runs.put(key.substring(RUN.length()), known.getFirst());
+                continue;
+            }
+            if (key.startsWith(ENV)) {
+                variables.put(key.substring(ENV.length()), known.getFirst());
+                continue;
+            }
             if (group.getKey().part() == Finding.Part.TOOLS) {
                 found.add(
                         new Placed(
@@ -321,11 +382,64 @@ final class ProjectProposal {
                 notPlaced.addAll(known);
             }
         }
+        final List<String> refused = new ArrayList<>();
+        final List<Placed> lines = new ArrayList<>();
+        final StringBuilder fetched = new StringBuilder();
+        runs.forEach(
+                (name, value) -> {
+                    final String text = String.valueOf(value.get("value"));
+                    final String why =
+                            !RUN_NAME.matcher(name).matches()
+                                    ? "'" + name + "' is no name for image lines"
+                                    // A person reads them whole: nothing in them may hide.
+                                    : HIDDEN_IN_RUN.matcher(text).find()
+                                            ? "it holds a control character or a tab"
+                                            : imageFault(new Image(BASE, Map.of(), text, null));
+                    if (why != null) {
+                        refused.add(
+                                value.get("plugin") + ": " + RUN + name + " is left out: " + why);
+                        return;
+                    }
+                    text.lines()
+                            .forEach(
+                                    line ->
+                                            lines.add(
+                                                    new Placed(
+                                                            "image line",
+                                                            line,
+                                                            String.valueOf(value.get("file")),
+                                                            "")));
+                    fetched.append(text.endsWith("\n") ? text : text + "\n");
+                });
+        final Map<String, String> placedEnv = new java.util.LinkedHashMap<>();
+        variables.forEach(
+                (name, value) -> {
+                    final String text = String.valueOf(value.get("value"));
+                    // The model's own rule refuses a name Porelo sets in every task, PATH among
+                    // them, and a value no ENV line can hold.
+                    final String why = imageFault(new Image(BASE, Map.of(name, text), null, null));
+                    if (why != null) {
+                        refused.add(
+                                value.get("plugin") + ": " + ENV + name + " is left out: " + why);
+                        return;
+                    }
+                    placedEnv.put(name, text);
+                    lines.add(
+                            new Placed(
+                                    "image env",
+                                    name + "=" + text,
+                                    String.valueOf(value.get("file")),
+                                    ""));
+                });
         tools = List.copyOf(found);
         unknowns = List.copyOf(unread);
         hosts = List.copyOf(domains);
         checkoutHosts = List.copyOf(ownHosts);
-        applied = !domains.isEmpty() || !packages.isEmpty();
+        imageLines = List.copyOf(lines);
+        refusals = List.copyOf(refused);
+        env = java.util.Collections.unmodifiableMap(placedEnv);
+        packages.append(fetched);
+        applied = !domains.isEmpty() || !packages.isEmpty() || !placedEnv.isEmpty();
         run = packages.toString();
         // What was found and where each value was read is the answer's to say, beside the draft:
         // the draft is written from its model, which holds no comment.
@@ -340,7 +454,16 @@ final class ProjectProposal {
         answer.put("unplaced", List.copyOf(unplaced));
         answer.put("not_placed", notPlaced);
         answer.put("credentials_needed", List.copyOf(credentials.values()));
+        answer.put("refused", refusals);
         return answer;
+    }
+
+    /** What the model refuses of an image, or {@code null}: the one rule a file is held to. */
+    private static @Nullable String imageFault(final Image image) {
+        final var faults =
+                org.fuin.porelo.core.project.file.ProjectFileCheck.check(
+                        new RepositoryFile(image), null);
+        return faults.isEmpty() ? null : faults.getFirst().message();
     }
 
     /**
@@ -358,11 +481,7 @@ final class ProjectProposal {
                         : null;
         return new ProjectFile(
                 new ProjectInfo(project, null, own == null ? "guarded" : "online", own, null, null),
-                new Image(
-                        "ubuntu:24.04",
-                        Map.of(),
-                        packages.isEmpty() ? null : packages.toString(),
-                        null),
+                new Image(BASE, env, packages.isEmpty() ? null : packages.toString(), null),
                 null,
                 domains.isEmpty() ? null : new Egress(List.of(), domains, List.of(), List.of()),
                 null,
