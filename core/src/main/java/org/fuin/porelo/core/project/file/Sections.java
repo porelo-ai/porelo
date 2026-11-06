@@ -21,8 +21,14 @@ final class Sections {
     /** The project file's sections. */
     static final Sections PROJECT = new Sections(false);
 
-    /** A repository's file's sections. */
+    /** A repository's file's sections, where it may set its image alone. */
     static final Sections REPOSITORY = new Sections(true);
+
+    /**
+     * A repository's file's sections where it may add settings to the project: the project's, less
+     * the list of repositories. Only the image is bound from it; the rest is judged merged.
+     */
+    static final Sections REPOSITORY_SETTINGS = new Sections(PROJECT);
 
     /** Keys of the image a file written before this model used, each with the one it became. */
     private static final Map<String, String> RENAMED =
@@ -30,6 +36,15 @@ final class Sections {
 
     private final Map<String, List<String>> keys = new LinkedHashMap<>();
     private final boolean repositoryFile;
+
+    private Sections(final Sections project) {
+        this.repositoryFile = false;
+        keys.putAll(project.keys);
+        keys.put(
+                TOP,
+                project.keys(TOP).stream().filter(key -> !"repositories".equals(key)).toList());
+        keys.remove("repositories.<name>");
+    }
 
     private Sections(final boolean repositoryFile) {
         this.repositoryFile = repositoryFile;

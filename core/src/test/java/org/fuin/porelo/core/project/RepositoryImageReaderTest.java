@@ -149,4 +149,66 @@ class RepositoryImageReaderTest {
                 .isInstanceOf(ProjectException.class)
                 .hasMessageContaining("must name a file of the repository");
     }
+
+    @Test
+    void besideSettingsReadsTheImageAndLeavesTheRestToTheMerge() {
+        final ImageSource source =
+                RepositoryImageReader.readBesideSettings(
+                        """
+                        image:
+                          run: "RUN true"
+                        egress:
+                          domains:
+                            - "build.example.org"
+                        limits:
+                          memory: "8g"
+                        """,
+                        "porelo.yml",
+                        NONE);
+
+        assertThat(source.snippet()).isEqualTo("RUN true");
+        assertThat(source.baseImage()).as("the project's base stands").isNull();
+    }
+
+    @Test
+    void besideSettingsAFileWithoutAnImageAddsNoneToIt() {
+        final ImageSource source =
+                RepositoryImageReader.readBesideSettings(
+                        "limits:\n  memory: \"8g\"\n", "porelo.yml", NONE);
+
+        assertThat(source.baseImage()).isNull();
+        assertThat(source.snippet()).isNull();
+        assertThat(source.env()).isEmpty();
+    }
+
+    @Test
+    void besideSettingsStillRefusesWhatNoProjectFileHolds() {
+        assertThatThrownBy(
+                        () ->
+                                RepositoryImageReader.readBesideSettings(
+                                        "repositories:\n  other: {}\n", "porelo.yml", NONE))
+                .isInstanceOf(ProjectException.class)
+                .hasMessageContaining("repositories");
+        assertThatThrownBy(
+                        () ->
+                                RepositoryImageReader.readBesideSettings(
+                                        "egres:\n  domains: []\n", "porelo.yml", NONE))
+                .isInstanceOf(ProjectException.class)
+                .hasMessageContaining("egres");
+    }
+
+    @Test
+    void outsideTheDefaultProjectAFileStillSetsItsImageAlone() {
+        assertThatThrownBy(
+                        () ->
+                                read(
+                                        """
+                                        image:
+                                          run: "RUN true"
+                                        limits:
+                                          memory: "8g"
+                                        """))
+                .isInstanceOf(ProjectException.class)
+                .hasMessageContaining("only image may be set here");
+    }
 }

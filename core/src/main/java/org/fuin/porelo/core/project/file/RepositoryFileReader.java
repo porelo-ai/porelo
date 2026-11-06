@@ -43,11 +43,37 @@ public final class RepositoryFileReader {
      */
     public static RepositoryFile read(
             final Reader reader, final String origin, final @Nullable SnippetFiles snippets) {
-        final Binding binding = new Binding(origin, Sections.REPOSITORY);
+        return read(reader, origin, snippets, Sections.REPOSITORY);
+    }
+
+    /**
+     * Reads a repository's file that may add settings beside its image, as one in the default
+     * project does: only its image is read here, the rest is judged where it is merged.
+     *
+     * @param reader The file's content.
+     * @param origin The file, for messages.
+     * @param snippets Where a {@code run_file} is read from to be checked, or {@code null} to check
+     *     only how it is named.
+     * @return The model, its image checked.
+     * @throws ProjectFileException If a key is no project file's or the image is wrong.
+     * @throws ProjectException If it is not YAML.
+     */
+    public static RepositoryFile readBesideSettings(
+            final Reader reader, final String origin, final @Nullable SnippetFiles snippets) {
+        return read(reader, origin, snippets, Sections.REPOSITORY_SETTINGS);
+    }
+
+    private static RepositoryFile read(
+            final Reader reader,
+            final String origin,
+            final @Nullable SnippetFiles snippets,
+            final Sections sections) {
+        final Binding binding = new Binding(origin, sections);
         final RepositoryFile file =
                 FileBinder.repository(binding, ProjectFileReader.root(reader, origin));
         ProjectFileReader.refuse(binding);
-        ProjectFileCheck.check(file, snippets).forEach(binding::fault);
+        ProjectFileCheck.check(file, snippets, sections == Sections.REPOSITORY)
+                .forEach(binding::fault);
         ProjectFileReader.refuse(binding);
         return file;
     }

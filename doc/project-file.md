@@ -337,9 +337,11 @@ image:
     JAVA_HOME: /opt/graalvm
 ```
 
-- **Only the image.** Egress, limits, `build.package_sources`, the class and every other rule stay the project's: a
-  repository that could name them would widen what its own tasks may do. Any other key is refused by its name, at the
-  start, before an image is built. `run` takes `RUN`, `ARG` and `ENV` lines only, here and in the project file: a
+- **Only the image, in an organization's project.** Egress, limits, `build.package_sources`, the class and every other
+  rule stay the project's there: a repository that could name them would widen what its own tasks may do, and nobody
+  on the machine is asked. Any other key is refused by its name, at the start, before an image is built. In the
+  built-in project `default` a repository may say more, as [its own settings](#a-repositorys-own-settings-in-default)
+  says. `run` takes `RUN`, `ARG` and `ENV` lines only, here and in the project file: a
   `FROM`, `COPY`, `ADD`, `USER` or `ENTRYPOINT` is refused at its line. The one exception is
   `COPY --from=<image>@sha256:<digest>`, with the digest required: it copies from an image pinned before the line
   is written, never from the repository. A `COPY` from anything else, an image by its tag or a stage among them, is
@@ -365,8 +367,8 @@ image:
   `env` variables join theirs, the later value winning for one name. In the built-in project `default`, a task started
   from a checkout reads `porelo.yml` there, then `.porelo.yml`, on the default image; approved work lands on
   `porelo/<task>`, never on the checked-out branch, so a task cannot change either file under the person. Removing
-  what the project set, with `null` or a quoted `"!entry"`, follows with the repository's other settings; a file that
-  tries it is refused by its key today.
+  what the project set in the image, with `null` or a quoted `"!entry"`, is not built yet; a file that tries it is
+  refused by its key.
 - **The start and its dry run name each key's source** (`base image ... (from ...)`, `image lines from ...`,
   `image env NAME from ...`, and `snippet ... lines from ...`). An image a repository's own sources shape is built as
   `porelo/<project>_<repository>` in its own build directory, so two repositories' images never replace or block each
@@ -376,6 +378,38 @@ image:
 - **The review ranks a change to `porelo.yml` or `.porelo.yml` as dangerous:** `porelo.yml` chooses the image a task is
   built from, as root and outside the task's firewall (ranked wherever it lies, though only the top-level one is read),
   and `.porelo.yml` is a local override, never to be checked in.
+
+## A repository's own settings in default
+
+In the built-in project `default`, a repository's `porelo.yml`, and the person's `.porelo.yml` beside it in the
+checkout, may hold the project file's form, less `project.name` and `repositories`, which make a project the one it
+is. Each adds to the project's file, the checked-in file first, then the person's:
+
+```yaml
+egress:
+  domains:
+    - "build.example.org"     # added after the project's own
+    - "!nexus.corp.example"   # the project's entry taken away; the quotes are required
+limits:
+  memory: "16g"               # a value set here wins over the project's
+build:
+  package_sources: ~          # null takes the project's key away
+```
+
+- **Mappings merge key by key; a list takes the project's entries, then the file's; a single value the file sets
+  wins.** `null` removes a key, a quoted `"!entry"` removes that entry from a list, and `"!*"` every entry the
+  earlier files gave it. An unquoted `!` is refused at its line, naming the quotes, and so is a removal that matches
+  nothing, a key written twice, an alias, or `null` in a list. What the files make is judged as a project file is,
+  so a value refused there is refused here too.
+- **What they ask is allowed once per machine.** A setting outside the image that differs from the project's is
+  shown, and a start runs under it only once a person on this machine allowed it: `porelo task start` asks in a
+  terminal (`[y/N]`, never taken by `--yes`), refuses without one, naming each setting (`+` new, `~` changed, `-`
+  removed), and the daemon's `CanStart` answers `SETTINGS_NOT_ALLOWED` with the same list and a hash that
+  `AllowSettings` takes. A later change asks only for what is new, changed or removed since; a file that asks for
+  less, or changes only its image, asks nothing. What was allowed is kept in
+  `$XDG_STATE_HOME/porelo/default/allowed/<repository>.json`.
+- **The start and its dry run name each setting's source** (`setting  + egress.domains[build.example.org] = ...
+  (from porelo.yml of shop)`); a dry run shows what a start would ask and allows nothing.
 
 ## How the file reaches a machine
 

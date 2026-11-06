@@ -722,11 +722,21 @@ final class TaskMethods {
 
         server.method(
                 "AllowSettings",
-                (parameters, replies) ->
-                        // Nothing is asked to be allowed before the allowance of a repository's
-                        // settings, so no hash
-                        // names what was shown; CanStart then shows what there is.
-                        replies.last(Map.of("outcome", "CHANGED")));
+                (parameters, replies) -> {
+                    // Allowed only as shown: a file changed since CanStart asks again.
+                    final String repository = String.valueOf(parameters.get("repository"));
+                    final String hash = String.valueOf(parameters.get("hash"));
+                    boolean allowed;
+                    try {
+                        allowed =
+                                org.fuin.porelo.app.RepositoryOwnSettings.allowIfUnchanged(
+                                        context, repository, hash);
+                    } catch (RuntimeException ex) {
+                        // A file that no longer reads allows nothing; CanStart says why.
+                        allowed = false;
+                    }
+                    replies.last(Map.of("outcome", allowed ? "ALLOWED" : "CHANGED"));
+                });
 
         final org.fuin.porelo.app.CertificateWaits certificates =
                 new org.fuin.porelo.app.CertificateWaits();

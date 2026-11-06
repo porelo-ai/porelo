@@ -153,6 +153,44 @@ public final class ProjectReader {
     }
 
     /**
+     * A project with the files of a repository added to it.
+     *
+     * @param project The project a task runs under.
+     * @param asked What the added files set otherwise than the project, outside the image.
+     * @param sources Each value's path to the file that set it.
+     */
+    public record WithRepository(
+            Project project,
+            List<org.fuin.porelo.core.project.file.RepositorySettings.Asked> asked,
+            java.util.Map<String, String> sources) {}
+
+    /**
+     * Reads a project file on this machine and adds the files of a repository to it, each as {@link
+     * org.fuin.porelo.core.project.file.RepositorySettings} merges them.
+     *
+     * @param reader Source of the project's YAML.
+     * @param origin Name used in error messages.
+     * @param snippets Where a {@code run_file} is read from.
+     * @param layers The files that add to it, earliest first.
+     * @return The project, and what the files ask of the machine.
+     * @throws ProjectException If what they make does not describe a usable project.
+     */
+    public static WithRepository read(
+            final Reader reader,
+            final String origin,
+            final SnippetFiles snippets,
+            final List<org.fuin.porelo.core.project.file.RepositorySettings.Layer> layers) {
+        final org.fuin.porelo.core.project.file.RepositorySettings.Read read =
+                org.fuin.porelo.core.project.file.RepositorySettings.read(
+                        reader, origin, snippets, layers);
+        // A file on this machine, as read(Path) reads it: placed where this machine reaches it.
+        return new WithRepository(
+                placement.apply(project(read.file(), snippets, origin)),
+                read.asked(),
+                read.sources());
+    }
+
+    /**
      * Resolves a checked project file into the project a task runs under.
      *
      * @param file The file, checked.

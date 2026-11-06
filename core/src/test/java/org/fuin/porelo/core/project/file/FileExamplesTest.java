@@ -48,8 +48,11 @@ class FileExamplesTest {
                 .hasSize(1);
         assertThat(examples.stream().filter(yaml -> !isProjectFile(yaml)))
                 .as("porelo.yml examples in " + PAGE)
-                .hasSize(1);
+                .hasSize(2);
         for (final String yaml : examples) {
+            if (addsSettings(yaml)) {
+                continue;
+            }
             if (isProjectFile(yaml)) {
                 final ProjectFile file =
                         ProjectFileReader.read(new StringReader(yaml), "project-file.md", null);
@@ -66,6 +69,39 @@ class FileExamplesTest {
                         .isEqualTo(file);
             }
         }
+    }
+
+    @Test
+    void theDocumentedSettingsAddToTheDocumentedProjectAsThePageSays() throws IOException {
+        final List<String> examples = examples();
+        final String settings =
+                examples.stream().filter(FileExamplesTest::addsSettings).findFirst().orElseThrow();
+        final String project =
+                examples.stream().filter(FileExamplesTest::isProjectFile).findFirst().orElseThrow();
+
+        final RepositorySettings.Read read =
+                RepositorySettings.read(
+                        new StringReader(project),
+                        "project-file.md",
+                        null,
+                        List.of(new RepositorySettings.Layer("porelo.yml of shop", settings)));
+
+        assertThat(read.file().egress().domains()).containsExactly("build.example.org");
+        assertThat(read.file().limits().memory()).isEqualTo("16g");
+        assertThat(read.file().build()).isNotNull();
+        assertThat(read.file().build().packageSources()).isNull();
+        assertThat(read.asked())
+                .extracting(RepositorySettings.Asked::key)
+                .containsExactly(
+                        "egress.domains[build.example.org]",
+                        "limits.memory",
+                        "build.package_sources[http://azure.archive.ubuntu.com/ubuntu/]",
+                        "egress.domains[nexus.corp.example]");
+    }
+
+    /** The example of a repository's own settings: no image, settings the project file holds. */
+    private static boolean addsSettings(final String yaml) {
+        return !isProjectFile(yaml) && yaml.lines().noneMatch(line -> line.equals("image:"));
     }
 
     @Test

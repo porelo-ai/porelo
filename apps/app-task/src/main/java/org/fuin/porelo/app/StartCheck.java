@@ -160,7 +160,15 @@ public final class StartCheck {
          * definition says it can enforce. {@code detail} names the agent and where the number came
          * from, in the words Start refuses with.
          */
-        SUBAGENTS_REFUSED
+        SUBAGENTS_REFUSED,
+
+        /**
+         * In the default project, the repository's own {@code porelo.yml} or the person's {@code
+         * .porelo.yml} beside it sets something other than the project does, outside the image, and
+         * this machine has not allowed exactly that. {@code settingsToAllow} lists it, {@code
+         * settingsHash} names it for AllowSettings; Start refuses the same case.
+         */
+        SETTINGS_NOT_ALLOWED
     }
 
     /**
@@ -177,6 +185,9 @@ public final class StartCheck {
      * @param agentFoundIn Where the agent's sign-in was found, or "".
      * @param signedIn The agents found signed in; empty when none was asked.
      * @param importCommand What to run to copy what the agent holds into the vault, or empty.
+     * @param settingsToAllow What a repository's own files ask of this machine, as a wire carries
+     *     it; empty unless {@link Outcome#SETTINGS_NOT_ALLOWED}.
+     * @param settingsHash The hash a yes to them names, or "".
      */
     public record Result(
             Outcome outcome,
@@ -188,7 +199,49 @@ public final class StartCheck {
             String agentSource,
             String agentFoundIn,
             java.util.List<String> signedIn,
-            java.util.List<String> importCommand) {
+            java.util.List<String> importCommand,
+            java.util.List<Map<String, Object>> settingsToAllow,
+            String settingsHash) {
+
+        /**
+         * Constructor for an answer that asks nothing about a repository's own settings.
+         *
+         * @param outcome Why work could not start, or {@link Outcome#READY}.
+         * @param agent The agent, or "".
+         * @param provider The provider, or "".
+         * @param credential The vault key, or "".
+         * @param detail Prose for a person.
+         * @param host The host it is about, or "".
+         * @param agentSource Where the agent was named, or "".
+         * @param agentFoundIn Where the agent's sign-in was found, or "".
+         * @param signedIn The agents found signed in.
+         * @param importCommand What to run to copy what the agent holds into the vault, or empty.
+         */
+        public Result(
+                Outcome outcome,
+                String agent,
+                String provider,
+                String credential,
+                String detail,
+                String host,
+                String agentSource,
+                String agentFoundIn,
+                java.util.List<String> signedIn,
+                java.util.List<String> importCommand) {
+            this(
+                    outcome,
+                    agent,
+                    provider,
+                    credential,
+                    detail,
+                    host,
+                    agentSource,
+                    agentFoundIn,
+                    signedIn,
+                    importCommand,
+                    java.util.List.of(),
+                    "");
+        }
 
         /**
          * Constructor for an answer that says nothing of how its agent was chosen.
@@ -238,7 +291,9 @@ public final class StartCheck {
                     choice.agent() == null ? "" : choice.source().wire(),
                     found == null || found.path() == null ? "" : found.path(),
                     choice.signedIn(),
-                    importCommand);
+                    importCommand,
+                    settingsToAllow,
+                    settingsHash);
         }
 
         /**
@@ -263,7 +318,9 @@ public final class StartCheck {
                     agentSource,
                     agentFoundIn,
                     signedIn,
-                    java.util.List.copyOf(whole));
+                    java.util.List.copyOf(whole),
+                    settingsToAllow,
+                    settingsHash);
         }
 
         /**
@@ -314,6 +371,8 @@ public final class StartCheck {
             map.put("agentFoundIn", agentFoundIn);
             map.put("signedIn", signedIn);
             map.put("importCommand", importCommand);
+            map.put("settingsToAllow", settingsToAllow);
+            map.put("settingsHash", settingsHash);
             return map;
         }
     }
@@ -547,11 +606,15 @@ public final class StartCheck {
                                 branch)
                         : valued;
         final Result chosen =
-                withRepository(
-                        withCredentials(context, rest, projectFile, credentials),
+                withSettings(
+                        context,
+                        withRepository(
+                                withCredentials(context, rest, projectFile, credentials),
+                                projectFile,
+                                repository,
+                                needsRepository),
                         projectFile,
-                        repository,
-                        needsRepository);
+                        repository);
         return needsRepository
                 ? withUpstream(
                         context,
@@ -1175,6 +1238,63 @@ public final class StartCheck {
                             + OwnRepository.worksIn(project));
         }
         return rest;
+    }
+
+    /**
+     * Returns the answer once a repository's own files in the default project are read: refused
+     * when they ask for what this machine has not allowed, as Start refuses it. Only a ready answer
+     * is asked about; a file that does not read is Start's to report.
+     *
+     * @param context This machine.
+     * @param rest What everything else answered.
+     * @param projectFile The project file, or {@code null}.
+     * @param repository Which repository the task is for, or {@code null}.
+     * @return The answer.
+     */
+    static Result withSettings(
+            final PoreloContext context,
+            final Result rest,
+            final @Nullable Path projectFile,
+            final @Nullable String repository) {
+        if (rest.outcome() != Outcome.READY || projectFile == null) {
+            return rest;
+        }
+        final RepositoryOwnSettings.Found found;
+        try {
+            final org.fuin.porelo.core.project.Project project =
+                    org.fuin.porelo.core.project.ProjectReader.read(projectFile);
+            final org.fuin.porelo.core.project.Repository chosen =
+                    repository == null || repository.isBlank()
+                            ? null
+                            : project.repository(repository);
+            if (!DefaultProject.is(project.name()) || chosen == null) {
+                return rest;
+            }
+            found = RepositoryOwnSettings.of(context, projectFile, chosen);
+        } catch (RuntimeException ex) {
+            return rest;
+        }
+        if (found == null) {
+            return rest;
+        }
+        final java.util.List<org.fuin.porelo.core.project.file.RepositorySettings.Asked> toAllow =
+                found.toAllow(context, java.util.Objects.requireNonNull(repository));
+        if (toAllow.isEmpty()) {
+            return rest;
+        }
+        return new Result(
+                Outcome.SETTINGS_NOT_ALLOWED,
+                rest.agent(),
+                rest.provider(),
+                rest.credential(),
+                RepositorySettingsText.notAllowed(repository, toAllow),
+                rest.host(),
+                rest.agentSource(),
+                rest.agentFoundIn(),
+                rest.signedIn(),
+                rest.importCommand(),
+                RepositoryOwnSettings.Found.asMaps(toAllow),
+                found.hash());
     }
 
     /**

@@ -134,8 +134,26 @@ public final class ProjectFileCheck {
      */
     public static List<Fault> check(
             final RepositoryFile file, final @Nullable SnippetFiles snippets) {
+        return check(file, snippets, true);
+    }
+
+    /**
+     * Checks a repository's file.
+     *
+     * @param file The file.
+     * @param snippets Where a {@code run_file} is read from, or {@code null}.
+     * @param imageRequired Whether the file is there for its image alone, and so must name one.
+     * @return Every fault, in order.
+     */
+    static List<Fault> check(
+            final RepositoryFile file,
+            final @Nullable SnippetFiles snippets,
+            final boolean imageRequired) {
         final ProjectFileCheck check = new ProjectFileCheck(snippets);
         if (file.image() == null) {
+            if (!imageRequired) {
+                return List.of();
+            }
             check.fault("image", "'image' is required");
         } else {
             // It adds to the project's image, so the base may stay the project's.

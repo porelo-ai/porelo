@@ -636,6 +636,75 @@ public final class TaskLaunch {
      * @param project The project read from the request's file.
      * @param out Where the note is written.
      */
+    /**
+     * Returns the project with a repository's own files in 'default' added, each setting they ask
+     * for shown with its source; asked once when this machine has not allowed it.
+     *
+     * @return The project to start under, or {@code null} when what is asked was not allowed, which
+     *     is said.
+     * @throws ProjectException If a file cannot be read, says what only the project may, or makes
+     *     no valid project.
+     */
+    private @org.jspecify.annotations.Nullable Project withOwnSettings(
+            final Project project,
+            final java.nio.file.Path projectFile,
+            final org.fuin.porelo.core.project.Repository repository,
+            final PrintWriter out,
+            final PrintWriter err) {
+        if (!DefaultProject.is(project.name())) {
+            return project;
+        }
+        final RepositoryOwnSettings.Found own =
+                RepositoryOwnSettings.of(context, projectFile, repository);
+        if (own == null) {
+            return project;
+        }
+        for (final var each : own.asked()) {
+            out.println(
+                    "setting        "
+                            + RepositorySettingsText.line(each)
+                            + (each.removed()
+                                    ? ""
+                                    : "  (from "
+                                            + own.sources().getOrDefault(each.key(), "?")
+                                            + ")"));
+        }
+        out.flush();
+        final java.util.List<org.fuin.porelo.core.project.file.RepositorySettings.Asked> toAllow =
+                own.toAllow(context, repository.name());
+        if (toAllow.isEmpty()) {
+            return own.project();
+        }
+        if (request.dryRun()) {
+            out.println(
+                    "settings       "
+                            + toAllow.size()
+                            + " not allowed on this machine yet; a start asks first");
+            return own.project();
+        }
+        final String refused = RepositorySettingsText.notAllowed(repository.name(), toAllow);
+        if (offer == Offer.NOBODY
+                || !offer.confirm(
+                        "the porelo.yml of "
+                                + repository.name()
+                                + " asks for what this machine has not allowed: "
+                                + String.join(
+                                        "; ",
+                                        toAllow.stream()
+                                                .map(RepositorySettingsText::line)
+                                                .toList()),
+                        "Allow it for " + repository.name() + " on this machine?",
+                        "",
+                        true)) {
+            steps.refusal(refused);
+            err.println("porelo: " + refused);
+            return null;
+        }
+        new RepositoryAllowance(context).allow(repository.name(), own.asked());
+        out.println("settings       allowed for " + repository.name() + " on this machine");
+        return own.project();
+    }
+
     private void adopt(Project project, PrintWriter out) {
         final String task =
                 org.fuin.porelo.runtime.ContainerName.taskFrom(project.name(), request.task());
@@ -1392,6 +1461,22 @@ public final class TaskLaunch {
         // image
         // is built as root outside the task's firewall, so which file said what is not a detail.
         final boolean gated = !request.noGate() && !request.dryRun();
+        // A repository's own files in 'default' add to the project, the image aside: what they ask
+        // of this machine is allowed once, as CanStart answers, before anything is built.
+        final Project settled;
+        try {
+            settled = withOwnSettings(project, projectFile, repository, out, err);
+        } catch (ProjectException ex) {
+            err.println("porelo: " + ex.getMessage());
+            err.println("porelo: nothing was created");
+            err.flush();
+            return 64;
+        }
+        if (settled == null) {
+            err.println("porelo: nothing was created");
+            err.flush();
+            return 64;
+        }
         ImageChoice image;
         final ProjectException previewRefusal;
         final Project asDeclared = project;
@@ -1413,7 +1498,7 @@ public final class TaskLaunch {
             err.flush();
             return 64;
         }
-        project = image.applyTo(project, repository);
+        project = image.applyTo(settled, repository);
         out.println("base image     " + project.baseImage() + "  (from " + image.baseFrom() + ")");
         if (image.snippetFrom() != null) {
             out.println("image lines    from " + image.snippetFrom());
@@ -1939,7 +2024,7 @@ public final class TaskLaunch {
                     return 64;
                 }
                 if (previewRefusal != null || !fetched.equals(image)) {
-                    project = fetched.applyTo(asDeclared, repository);
+                    project = fetched.applyTo(settled, repository);
                     out.println(
                             "base image     "
                                     + project.baseImage()

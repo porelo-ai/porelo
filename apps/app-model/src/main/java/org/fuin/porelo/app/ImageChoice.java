@@ -168,8 +168,9 @@ public record ImageChoice(
                 for (final String name : List.of("." + FILE, FILE)) {
                     final Path file = Path.of(checkout).resolve(name);
                     if (Files.isRegularFile(file)) {
+                        // Settings beside the image are read, merged and allowed elsewhere.
                         order.add(
-                                RepositoryImageReader.read(
+                                RepositoryImageReader.readBesideSettings(
                                         text(file), file.toString(), SnippetFiles.beside(file)));
                     }
                 }

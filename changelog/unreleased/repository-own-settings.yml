@@ -1,0 +1,2 @@
+title: "In the built-in project 'default', a repository's porelo.yml and the person's .porelo.yml beside it may add the project file's settings, less its name and repositories: mappings merge key by key, lists take the project's entries then the file's, null and a quoted \"!entry\" remove. What they set otherwise than the project is shown with its source and allowed once per machine; a start asks in a terminal and refuses without one, CanStart answers SETTINGS_NOT_ALLOWED, and AllowSettings allows it. A later change asks only for what changed"
+type: added

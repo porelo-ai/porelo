@@ -228,8 +228,9 @@ class OrganizationYamlTest {
             valid++;
         }
         assertThat(valid)
-                .as("the page's complete project and repository image examples")
-                .isEqualTo(2);
+                .as(
+                        "the page's complete project, repository image and repository settings examples")
+                .isEqualTo(3);
     }
 
     private static void roundTrip(String text) {

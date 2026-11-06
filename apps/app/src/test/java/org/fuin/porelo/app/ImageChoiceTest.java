@@ -340,7 +340,9 @@ class ImageChoiceTest {
             file = checkout.resolve(source);
         }
         Files.createDirectories(file.getParent());
-        Files.writeString(file, "limits: {}\n");
+        // In 'default' a file may add limits; a list of repositories is the project's alone.
+        final String refused = source.equals("override") ? "limits" : "repositories";
+        Files.writeString(file, refused + ": {}\n");
 
         assertThatThrownBy(
                         () ->
@@ -349,7 +351,7 @@ class ImageChoiceTest {
                 .as("a refused local source must be thrown before the mirror is read")
                 .isInstanceOf(org.fuin.porelo.core.project.ProjectException.class)
                 .hasMessageContaining(file.toString())
-                .hasMessageContaining("limits");
+                .hasMessageContaining(refused);
     }
 
     @Test
