@@ -429,6 +429,18 @@ class ContainerfileTest {
     }
 
     @Test
+    void twoTerminalsKeepOneWindowSizeUnlessAPersonChoosesOtherwise() {
+
+        final Project project = new Project("uc", "", SecurityClass.GUARDED, "ubuntu:24.04", null);
+        final String rendered = Containerfile.render(project);
+
+        assertThat(rendered).contains("set -g window-size smallest");
+        assertThat(rendered.indexOf("set -g window-size smallest"))
+                .as("the account's file may choose a different window size")
+                .isLessThan(rendered.indexOf("source-file -q " + Containerfile.ACCOUNT_TMUX_CONF));
+    }
+
+    @Test
     void aPersonsOwnSettingsComeAfterPorelosAndWhatPoreloDependsOnAfterThem() {
 
         // A person's file may change any key, the mouse or the colours, and nothing Porelo states

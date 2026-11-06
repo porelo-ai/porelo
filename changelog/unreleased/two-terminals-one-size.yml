@@ -1,0 +1,2 @@
+title: "A task attached from two terminals of different sizes keeps the smaller one's size while both are there (tmux's window-size smallest, before a person's own tmux file), instead of the size changing hands on every keystroke and the agent's screen being drawn again into the history each time"
+type: fixed

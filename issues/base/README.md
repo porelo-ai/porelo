@@ -20,6 +20,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b472"></a>[B472](B472-Two-Terminals-On-One-Task-Keep-One-Size.md) | S | - | `window-size smallest` in the image's `tmux.conf`: two terminals on one task keep one size, the agent is not redrawn on every switch, its history holds no copies | Whether the window follows the smaller size |
 | <a id="b471"></a>[B471](B471-The-Installation-Guide-Leads-To-The-Window.md) | S | - | `README.md` and `doc/getting-started.md` name the window: `porelo-frontend` from the same repositories, and on Windows the ZIP or MSIX in the window's chapter, with Porelo in a WSL distribution of a supported system | - |
 | <a id="b306"></a>[B306](B306-Porelos-Build-Runs-On-The-Local-Forge.md) | M | - | porelo's workflows run green on the host's Forgejo and the central forge on one commit: the legs only on the central forge for now, no provider named, deploy and uploads switched by variables on both forges |
 | <a id="b469"></a>[B469](B469-A-Second-Start-Asks-Before-Making-Another-Task.md) | S | - | A start with no name in a repository that has a task asks to attach (A) or make a new one (N), instead of making another numbered task each time. |
@@ -65,7 +66,6 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
-| <a id="b472"></a>[B472](B472-Two-Terminals-On-One-Task-Keep-One-Size.md) | S | - | `window-size smallest` in the image's `tmux.conf`: two terminals on one task keep one size, the agent is not redrawn on every switch, its history holds no copies | Whether the window follows the smaller size |
 | <a id="b473"></a>[B473](B473-A-Detached-Attach-Leaves-The-Terminal-As-It-Was.md) | S | - | However an attach ends, the CLI restores the terminal's settings and resets the modes tmux turns on: no mouse reports typed at the prompt, typing works | - |
 | <a id="b470"></a>[B470](B470-A-Repository-Of-Its-Own-Stays-In-Default-And-Says-What-It-Needs.md) | L | - | A checkout with no project of an organization stays in `default`; its `porelo.yml` says what its task needs, added to the project file's defaults key by key, allowed once on this machine or signed in an organization; detection writes `porelo.yml`, not `project.yml`. |
 | <a id="b459"></a>[B459](B459-Every-Credential-Failure-Says-What-To-Do.md) | L | - | Credential failure inventory, upstream advice, agent readiness and source-aware unlock/storage actions; push/provider paths, frontend agreement, window controls and live remedies still pending. |

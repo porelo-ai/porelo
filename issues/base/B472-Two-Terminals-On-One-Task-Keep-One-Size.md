@@ -1,6 +1,6 @@
 # B472 — Two Terminals On One Task Keep One Size
 
-**Status:** Implementing.
+**Status:** Review.
 **Size:** S - one tmux option in the image's `tmux.conf`, its test, and a check with two clients on the VM. Estimate 45
 minutes.
 
@@ -29,6 +29,13 @@ and is not Porelo's: a person who resizes a single terminal still gets one redra
 Claude Code outside a task.
 
 Inferred from tmux's documented default and Claude Code's drawing, not yet measured on the VM.
+
+## Built
+
+On 2026-11-06 by a Codex task, reviewed line by line: `set -g window-size smallest` in the image's `tmux.conf` before
+the person's own file, its reason in the comment above the list; `ContainerfileTest` asserts the line and its place
+(red before), and the golden `Containerfile.uc` carries the line and the new recipe hash. Not yet measured with two
+clients on the VM.
 
 ## Plan
 
