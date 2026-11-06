@@ -49,9 +49,13 @@ public final class TaskImageSettings {
         answer.put(
                 "securityClass", setting(settings.securityClass(), settings.securityClassSource()));
         answer.put("recorded", built);
-        // What a repository's own file took away, recorded from the allowance of a repository's
-        // settings on.
-        answer.put("removed", List.of());
+        // What a repository's own files in 'default' took out of the image, as recorded on it.
+        answer.put(
+                "removed",
+                settings.removed().stream()
+                        .<Map<String, Object>>map(
+                                each -> Map.of("key", each.value(), "by", each.source()))
+                        .toList());
         return answer;
     }
 

@@ -49,7 +49,14 @@ final class ImageRecording {
     static ImageSettings of(
             final Project project, final ImageChoice choice, final @Nullable InstalledAgent agent) {
         return settings(
-                project, named(project, choice.baseFrom()), lineSources(project, choice), agent);
+                        project,
+                        named(project, choice.baseFrom()),
+                        lineSources(project, choice),
+                        agent)
+                .withRemoved(
+                        choice.removed().stream()
+                                .map(each -> new ImageSettings.Sourced(each.key(), each.by()))
+                                .toList());
     }
 
     /** The snippet's lines, then one ENV line per variable, as the choice builds them. */

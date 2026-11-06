@@ -34,6 +34,8 @@ import org.jspecify.annotations.Nullable;
  * @param lineFrom Where each of the lines came from, one entry per line.
  * @param env The variables, in the order their sources wrote them.
  * @param envFrom Where each variable came from.
+ * @param removed What a repository's own files in {@code default} took out of the image, each with
+ *     the file that did.
  */
 public record ImageChoice(
         String baseImage,
@@ -42,7 +44,8 @@ public record ImageChoice(
         @Nullable String snippetFrom,
         List<String> lineFrom,
         Map<String, String> env,
-        Map<String, String> envFrom) {
+        Map<String, String> envFrom,
+        List<org.fuin.porelo.core.project.file.RepositorySettings.Removal> removed) {
 
     /** The name of a repository's own file, and of a local override. */
     static final String FILE = "porelo.yml";
@@ -57,11 +60,35 @@ public record ImageChoice(
      * @param lineFrom Where each line came from.
      * @param env The variables.
      * @param envFrom Where each came from.
+     * @param removed What a repository's own files took out.
      */
     public ImageChoice {
         lineFrom = List.copyOf(lineFrom);
         env = java.util.Collections.unmodifiableMap(new LinkedHashMap<>(env));
         envFrom = java.util.Collections.unmodifiableMap(new LinkedHashMap<>(envFrom));
+        removed = List.copyOf(removed);
+    }
+
+    /**
+     * Constructor, for an image nothing was taken out of.
+     *
+     * @param baseImage The image to build on.
+     * @param baseFrom Where it came from.
+     * @param snippet The lines, or {@code null}.
+     * @param snippetFrom Where they came from, or {@code null}.
+     * @param lineFrom Where each line came from.
+     * @param env The variables.
+     * @param envFrom Where each came from.
+     */
+    public ImageChoice(
+            final String baseImage,
+            final String baseFrom,
+            final @Nullable String snippet,
+            final @Nullable String snippetFrom,
+            final List<String> lineFrom,
+            final Map<String, String> env,
+            final Map<String, String> envFrom) {
+        this(baseImage, baseFrom, snippet, snippetFrom, lineFrom, env, envFrom, List.of());
     }
 
     /**
@@ -71,6 +98,39 @@ public record ImageChoice(
      * @param order The sources, the one that wins first; the last is the project's own image.
      * @return The choice.
      */
+    /**
+     * Keeps only the variables the files' merge keeps: a null in a repository's file takes a
+     * variable out, as everywhere else in it, where reading that file alone gives it an empty
+     * value.
+     */
+    private static ImageChoice withoutUnset(
+            final ImageChoice merged,
+            final PoreloContext context,
+            final Project project,
+            final Repository repository) {
+        final RepositoryOwnSettings.Found own =
+                RepositoryOwnSettings.of(context, new DefaultProject(context).file(), repository);
+        final Map<String, String> kept =
+                own == null ? project.imageEnv() : own.project().imageEnv();
+        final Map<String, String> env = new LinkedHashMap<>(merged.env());
+        final Map<String, String> envFrom = new LinkedHashMap<>(merged.envFrom());
+        env.keySet().retainAll(kept.keySet());
+        envFrom.keySet().retainAll(kept.keySet());
+        return new ImageChoice(
+                merged.baseImage(),
+                merged.baseFrom(),
+                merged.snippet(),
+                merged.snippetFrom(),
+                merged.lineFrom(),
+                env,
+                envFrom,
+                own == null
+                        ? List.of()
+                        : own.removed().stream()
+                                .filter(each -> each.key().startsWith("image."))
+                                .toList());
+    }
+
     static ImageChoice merge(List<ImageSource> order) {
         if (order.isEmpty()) {
             throw new ProjectException("No source names a base image");
@@ -176,7 +236,7 @@ public record ImageChoice(
                 }
             }
             order.add(ImageSource.of(project));
-            return new Preview(merge(order), null);
+            return new Preview(withoutUnset(merge(order), context, project, repository), null);
         }
         final Path override = override(context, project, repository);
         if (Files.isRegularFile(override)) {

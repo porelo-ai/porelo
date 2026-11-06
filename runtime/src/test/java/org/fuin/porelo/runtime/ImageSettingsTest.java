@@ -45,6 +45,20 @@ class ImageSettingsTest {
     }
 
     @Test
+    void whatARepositorysFileTookOutReadsBackAndAnImageWithoutStaysAsItWas() {
+        final ImageSettings plain = of("RUN true");
+        final ImageSettings taken =
+                plain.withRemoved(
+                        List.of(new ImageSettings.Sourced("image.env.DROP", "the local override")));
+
+        assertThat(ImageSettings.parse(taken.json())).contains(taken);
+        assertThat(plain.json())
+                .as("a label without removals is written as before, so its image keeps its id")
+                .doesNotContain("removed");
+        assertThat(ImageSettings.parse(plain.json()).orElseThrow().removed()).isEmpty();
+    }
+
+    @Test
     void whatIsRecordedReadsBackWhole() {
         final ImageSettings written =
                 of("RUN apt-get install -y \"maven\"\nRUN echo \"$B \\\"c\\\"\"\nRUN echo ü");

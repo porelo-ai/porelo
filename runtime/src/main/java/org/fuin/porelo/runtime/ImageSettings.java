@@ -28,6 +28,8 @@ import org.jspecify.annotations.Nullable;
  * @param agentVersion That agent's version, or "" when its definition names none.
  * @param securityClass The security class of the project it was built for.
  * @param securityClassSource Where that class was set.
+ * @param removed What a repository's own files took out of the image, each key with the file that
+ *     did; written to the label only when there is any, so an image without stays as it was.
  */
 public record ImageSettings(
         String baseImage,
@@ -38,7 +40,8 @@ public record ImageSettings(
         String agent,
         String agentVersion,
         String securityClass,
-        String securityClassSource) {
+        String securityClassSource,
+        List<Sourced> removed) {
 
     /**
      * One thing recorded, with where it came from.
@@ -125,11 +128,69 @@ public record ImageSettings(
      * @param agentVersion Its version, or "".
      * @param securityClass The security class.
      * @param securityClassSource Where that class was set.
+     * @param removed What a repository's own files took out, each key with the file that did.
      */
     public ImageSettings {
         packages = List.copyOf(packages);
         lines = List.copyOf(lines);
         tools = List.copyOf(tools);
+        removed = List.copyOf(removed);
+    }
+
+    /**
+     * Constructor, for an image nothing was taken out of.
+     *
+     * @param baseImage The image it was built on.
+     * @param baseImageSource Where that was chosen.
+     * @param packages What the install commands name.
+     * @param lines The project's own build lines.
+     * @param tools What Porelo asks for in every image.
+     * @param agent The agent, or "".
+     * @param agentVersion Its version, or "".
+     * @param securityClass The security class.
+     * @param securityClassSource Where that class was set.
+     */
+    public ImageSettings(
+            final String baseImage,
+            final String baseImageSource,
+            final List<Sourced> packages,
+            final List<Sourced> lines,
+            final List<String> tools,
+            final String agent,
+            final String agentVersion,
+            final String securityClass,
+            final String securityClassSource) {
+        this(
+                baseImage,
+                baseImageSource,
+                packages,
+                lines,
+                tools,
+                agent,
+                agentVersion,
+                securityClass,
+                securityClassSource,
+                List.of());
+    }
+
+    /**
+     * Returns the same record with what a repository's own files took out.
+     *
+     * @param taken Each key with the file that took it out.
+     * @return The record with them.
+     */
+    public ImageSettings withRemoved(final List<Sourced> taken) {
+        return new ImageSettings(
+                baseImage,
+                baseImageSource,
+                packages,
+                lines,
+                tools,
+                agent,
+                agentVersion,
+                securityClass,
+                securityClassSource,
+                taken);
     }
 
     /**
@@ -415,7 +476,8 @@ public record ImageSettings(
                 agent,
                 agentVersion,
                 securityClass,
-                securityClassSource);
+                securityClassSource,
+                removed);
     }
 
     private int renderedBytes() {
@@ -439,6 +501,9 @@ public record ImageSettings(
         label.put("agentVersion", agentVersion);
         label.put("securityClass", securityClass);
         label.put("securityClassSource", securityClassSource);
+        if (!removed.isEmpty()) {
+            label.put("removed", maps(removed));
+        }
         return Json.write(label);
     }
 
@@ -488,6 +553,8 @@ public record ImageSettings(
         final String agentVersion = text(label, "agentVersion");
         final String securityClass = text(label, "securityClass");
         final String securityClassSource = text(label, "securityClassSource");
+        final List<Sourced> removed =
+                label.containsKey("removed") ? sourced(label, "removed") : List.of();
         if (baseImage == null
                 || baseImageSource == null
                 || packages == null
@@ -496,7 +563,8 @@ public record ImageSettings(
                 || agent == null
                 || agentVersion == null
                 || securityClass == null
-                || securityClassSource == null) {
+                || securityClassSource == null
+                || removed == null) {
             return Optional.empty();
         }
         return Optional.of(
@@ -509,7 +577,8 @@ public record ImageSettings(
                         agent,
                         agentVersion,
                         securityClass,
-                        securityClassSource));
+                        securityClassSource,
+                        removed));
     }
 
     private static @Nullable String text(final Map<?, ?> label, final String name) {

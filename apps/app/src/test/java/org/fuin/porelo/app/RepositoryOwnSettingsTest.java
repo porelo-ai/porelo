@@ -159,6 +159,28 @@ class RepositoryOwnSettingsTest {
                 .doesNotContainKey("build.example.org");
     }
 
+    @Test
+    void aNullTakesAVariableOutOfTheImageAndTheFileThatDidIsNamed() throws Exception {
+        final PoreloContext context = context();
+        final Path projectFile =
+                shop(
+                        context,
+                        "image:\n  from: \"ubuntu:24.04\"\n  env:\n    KEEP: \"1\"\n"
+                                + "    DROP: \"2\"\n    NEVER: null\n");
+        Files.writeString(checkout().resolve(".porelo.yml"), "image:\n  env:\n    DROP: null\n");
+        final org.fuin.porelo.core.project.Project project = ProjectReader.read(projectFile);
+
+        assertThat(ImageChoice.preview(context, project, project.repository("shop")).choice().env())
+                .as("a null is no empty value: what it names is not set at all")
+                .containsExactly(Map.entry("KEEP", "1"));
+        assertThat(
+                        RepositoryOwnSettings.of(context, projectFile, project.repository("shop"))
+                                .removed())
+                .containsExactly(
+                        new org.fuin.porelo.core.project.file.RepositorySettings.Removal(
+                                "image.env.DROP", RepositoryOwnSettings.OVERRIDE));
+    }
+
     private Path shop(final PoreloContext context, final String porelo) throws Exception {
         Files.createDirectories(checkout());
         Files.writeString(checkout().resolve("porelo.yml"), porelo);
