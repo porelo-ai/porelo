@@ -1,6 +1,6 @@
 # B481 — On A Host An Approval Opens A Pull Request
 
-**Status:** Accepted, on the operator's word (2026-11-06). Not started before the rehearsal's first pass is done.
+**Status:** Review. Accepted on the operator's word (2026-11-06).
 **Size:** M - a branch target for approve on a host, a pull-request call to the host's forge, the task token's use;
 their tests. Estimate 120 minutes.
 
@@ -42,3 +42,26 @@ hands the gate) is filed in porelo-host.
 ## Open questions
 
 - Whether the scopes the task token holds let it open a pull request, measured by porelo-host before this starts.
+
+## Done
+
+- On the host's own forge, `gate approve` without `--branch` and without a `branch` block forwards to `porelo/<task>`
+  (`ApprovalBranch`), and then opens or reuses the task's pull request to the repository's default branch with the
+  task's forge token (`HostPullRequests`): no proxy, no redirect, bounded answers, the token in no message. The
+  command prints `pull request <url>`; the daemon's Approve answers it as `pullRequest`.
+- The gate records each forward by task and destination under `refs/porelo/forwarded/`, hidden from every task's Git
+  endpoint. On the host's forge an amended approval replaces the task's branch only while its head is that recorded
+  commit, with `--force-with-lease` on it; any other head still refuses with the next free branch. Off a host an
+  amended approval always refuses, since the branch there may be one others build on.
+- A refused pull request call says the push happened and why the forge refused; the approval stays pending for a
+  retry, which reuses the push.
+- Tests: `GateHostApprovalTest` (a local forge: open, reuse, amend, a foreign head, a refusal without the token,
+  an explicit branch, a pull request to another base) and `GateForwardedTest` (amendment, lease race, ownership by
+  task, branch and upstream, hidden records, off a host). With reuse broken two host tests fail; with the host
+  condition removed the off-host test fails.
+
+## Still open
+
+- Approval uses the task's forge token as it is now. Removing a task retires its forge identity and forgets its
+  token even while its work still waits at the gate, so a host approval has to come before the removal. Keeping that
+  identity usable after removal, and a rescued ref's approval, need a decision on the token's lifetime of their own.

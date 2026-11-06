@@ -1,6 +1,7 @@
 package org.fuin.porelo.app;
 
 import java.io.PrintWriter;
+import java.nio.file.Path;
 import java.util.concurrent.Callable;
 import org.fuin.porelo.core.project.Project;
 import org.fuin.porelo.gate.GateException;
@@ -46,7 +47,7 @@ public class GateApproveCommand implements Callable<Integer>, PoreloFactory.Cont
             names = "--branch",
             paramLabel = "<name>",
             description =
-                    "Upstream branch. Default: the starting branch (main for older tasks); with a branch block, the task's own"
+                    "Upstream branch. Default: porelo/<task> on a host's forge, otherwise the starting branch (main for older tasks); with a branch block, the task's own"
                             + " branch, and a named one must match its branch.pattern.")
     private @Nullable String branch;
 
@@ -88,6 +89,10 @@ public class GateApproveCommand implements Callable<Integer>, PoreloFactory.Cont
         this.context = context;
     }
 
+    Path forgeConf() {
+        return HostForgeLending.FORGE_CONF;
+    }
+
     @Override
     public Integer call() {
 
@@ -107,7 +112,8 @@ public class GateApproveCommand implements Callable<Integer>, PoreloFactory.Cont
                             project,
                             GateSupport.repository(context, project, repository, name),
                             name,
-                            branch);
+                            branch,
+                            forgeConf());
             onto = chosen == null ? "main" : chosen;
         } catch (RuntimeException ex) {
             err.println("porelo: " + ex.getMessage());
@@ -151,10 +157,12 @@ public class GateApproveCommand implements Callable<Integer>, PoreloFactory.Cont
                             project,
                             GateSupport.repository(context, project, repository, name),
                             upstream,
-                            null);
+                            null,
+                            forgeConf());
             GateSupport.held(gate);
+            final String pullRequest;
             if (signed) {
-                GateSupport.approveSigned(gate, name, onto, commit);
+                pullRequest = GateSupport.approveSigned(gate, name, onto, commit);
                 out.println("merged    " + name + " onto " + onto + ", signed, and forwarded");
                 EventLog.record(
                         context,
@@ -163,7 +171,7 @@ public class GateApproveCommand implements Callable<Integer>, PoreloFactory.Cont
                         name,
                         "signed and forwarded onto " + onto + reviewed());
             } else {
-                gate.approve(name, onto, commit);
+                pullRequest = gate.approve(name, onto, commit);
                 out.println("forwarded " + name + " to " + onto);
                 EventLog.record(
                         context,
@@ -171,6 +179,9 @@ public class GateApproveCommand implements Callable<Integer>, PoreloFactory.Cont
                         projectName,
                         name,
                         "forwarded onto " + onto + reviewed());
+            }
+            if (pullRequest != null) {
+                out.println("pull request " + pullRequest);
             }
             out.flush();
             exit = 0;
@@ -258,7 +269,8 @@ public class GateApproveCommand implements Callable<Integer>, PoreloFactory.Cont
                             project,
                             GateSupport.repository(context, project, repository, name),
                             upstream,
-                            null);
+                            null,
+                            forgeConf());
             return gate.nextFreeBranch(taken);
         } catch (RuntimeException ex) {
             return taken + "-2";

@@ -369,6 +369,7 @@ public class GitHttpServer implements AutoCloseable {
         final byte[] refs =
                 git.run(
                         hidingOthers(
+                                ref,
                                 service.substring("git-".length()),
                                 "--stateless-rpc",
                                 "--advertise-refs",
@@ -410,7 +411,7 @@ public class GitHttpServer implements AutoCloseable {
                 exchange.sendResponseHeaders(200, 0);
                 try (OutputStream out = exchange.getResponseBody()) {
                     git.stream(
-                            hidingOthers("upload-pack", "--stateless-rpc", mirror.toString()),
+                            hidingOthers(ref, "upload-pack", "--stateless-rpc", mirror.toString()),
                             body,
                             out);
                 }
@@ -463,7 +464,7 @@ public class GitHttpServer implements AutoCloseable {
             // can replace it.
             final ByteArrayOutputStream response = new ByteArrayOutputStream();
             git.stream(
-                    hidingOthers("receive-pack", "--stateless-rpc", mirror.toString()),
+                    hidingOthers(ref, "receive-pack", "--stateless-rpc", mirror.toString()),
                     body,
                     response);
 
@@ -712,9 +713,11 @@ public class GitHttpServer implements AutoCloseable {
      * asked for by name.
      *
      * @param arguments The command after {@code git}.
+     * @param ref The task's incoming ref, or {@code null} for an unscoped endpoint.
      * @return The command, with the configuration in front.
      */
-    private List<String> hidingOthers(String... arguments) {
+    static List<String> hidingOthers(
+            @org.jspecify.annotations.Nullable String ref, String... arguments) {
         final List<String> command = new java.util.ArrayList<>();
         if (ref != null) {
             // git matches at a ref's component boundary, so the task's own ref and its rescue are
@@ -728,6 +731,8 @@ public class GitHttpServer implements AutoCloseable {
                             "-c",
                             "transfer.hideRefs=!" + ref + GitGate.RESCUED));
         }
+        // An ownership record would otherwise expose work kept out of another task's starting view.
+        command.addAll(List.of("-c", "transfer.hideRefs=" + GitGate.FORWARDED));
         command.addAll(List.of(arguments));
         return command;
     }

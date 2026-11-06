@@ -22,6 +22,20 @@ class GateApprovalBranchTest {
 
     @TempDir Path dir;
 
+    // Clients need an additive field they can read without requiring every upstream to be a host.
+    @Test
+    void theApprovalContractCanReturnAPullRequestWithoutRequiringOne() {
+        final String description = PoreloDaemon.description();
+        final String approval =
+                description.substring(
+                        description.indexOf("method Approve("),
+                        description.indexOf("method PendingBundle("));
+
+        assertThat(approval)
+                .as("the URL extends the Approve reply without breaking old clients")
+                .contains("forwarded: string", "branch: string", "pullRequest: ?string");
+    }
+
     private PoreloContext context(final String branchBlock) throws Exception {
         final XdgPaths xdg =
                 XdgPaths.of(

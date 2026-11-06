@@ -25,10 +25,11 @@ public final class GateSupport {
      * @param gate The gate.
      * @param name The pending push.
      * @param branch The upstream branch.
+     * @return The pull request's address, or {@code null} without a forge review.
      */
-    public static void approveSigned(
+    public static @Nullable String approveSigned(
             org.fuin.porelo.gate.GitGate gate, String name, String branch) {
-        approveSigned(gate, name, branch, null);
+        return approveSigned(gate, name, branch, null);
     }
 
     /**
@@ -40,8 +41,9 @@ public final class GateSupport {
      * @param branch The upstream branch.
      * @param reviewed The commit the person reviewed, or {@code null} for whatever the ref holds
      *     now.
+     * @return The pull request's address, or {@code null} without a forge review.
      */
-    public static void approveSigned(
+    public static @Nullable String approveSigned(
             org.fuin.porelo.gate.GitGate gate,
             String name,
             String branch,
@@ -55,7 +57,7 @@ public final class GateSupport {
         }
         try {
             // A directory of its own inside the scratch one: git init wants to make it.
-            gate.approveSigned(name, branch, scratch.resolve("merge"), reviewed);
+            return gate.approveSigned(name, branch, scratch.resolve("merge"), reviewed);
         } finally {
             try (java.util.stream.Stream<java.nio.file.Path> walk =
                     java.nio.file.Files.walk(scratch)) {
@@ -181,9 +183,30 @@ public final class GateSupport {
             Repository repository,
             @Nullable String upstream,
             @Nullable String seed) {
+        return gate(context, project, repository, upstream, seed, HostForgeLending.FORGE_CONF);
+    }
+
+    /**
+     * Builds a gate using the host's given forge configuration.
+     *
+     * @param context The machine.
+     * @param project The project.
+     * @param repository The repository.
+     * @param upstream The explicit upstream, or {@code null}.
+     * @param seed The seed, or {@code null}.
+     * @param forgeConf Where the host names its forge.
+     * @return The gate, opening pull requests only on that forge.
+     */
+    public static GitGate gate(
+            PoreloContext context,
+            Project project,
+            Repository repository,
+            @Nullable String upstream,
+            @Nullable String seed,
+            Path forgeConf) {
         if (upstream != null) {
             final String offHost =
-                    new HostForgeAddress().refusal(project, repository.name(), upstream);
+                    new HostForgeAddress(forgeConf).refusal(project, repository.name(), upstream);
             if (offHost != null) {
                 throw new org.fuin.porelo.core.project.ProjectException(offHost);
             }
@@ -196,14 +219,31 @@ public final class GateSupport {
         // may end up forwarding through it. A repository that needs no credential - a local path, a
         // public URL - takes nothing out of the vault, so this costs nothing where it is not
         // needed.
-        return new GitGate(
-                        new ProcessCommandRunner(),
-                        mirror(context, project, repository),
-                        GateMode.of(project.securityClass()),
-                        forwardTo,
-                        forwardTo != null ? forwardTo : seed)
-                .using(credentials(context, project.name(), repository.name()))
-                .taskBranches(project.branchScheme(repository.name()));
+        final GitGate gate =
+                new GitGate(
+                                new ProcessCommandRunner(),
+                                mirror(context, project, repository),
+                                GateMode.of(project.securityClass()),
+                                forwardTo,
+                                forwardTo != null ? forwardTo : seed)
+                        .using(
+                                new HostForgeLending(
+                                        context,
+                                        new VaultGitCredentials(
+                                                context, project.name() + "-" + repository.name()),
+                                        forgeConf))
+                        .taskBranches(project.branchScheme(repository.name()));
+        if (forwardTo != null && HostForgeLending.onTheForge(forwardTo, forgeConf)) {
+            gate.pullRequests(
+                    new HostPullRequests(
+                            forwardTo,
+                            task ->
+                                    new TaskSecrets(context)
+                                            .forgeToken(
+                                                    org.fuin.porelo.runtime.ContainerName.of(
+                                                            project, task))));
+        }
+        return gate;
     }
 
     /**

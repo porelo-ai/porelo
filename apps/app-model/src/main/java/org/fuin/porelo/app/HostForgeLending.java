@@ -96,6 +96,10 @@ final class HostForgeLending implements GitCredentials {
     }
 
     private boolean onTheForge(final String url) {
+        return onTheForge(url, forgeConf);
+    }
+
+    static boolean onTheForge(final String url, final Path forgeConf) {
         final String port = HostForgeAddress.port(forgeConf);
         return port != null
                 && Pattern.matches("http://127\\.0\\.0\\.1:" + port + "/[^\\s@?#]*", url.strip());

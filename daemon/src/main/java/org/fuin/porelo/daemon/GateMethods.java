@@ -189,16 +189,21 @@ final class GateMethods {
                                 INTERFACE + ".BranchRequired",
                                 Map.of("name", text(parameters, "name")));
                     }
+                    final String pullRequest;
                     try {
                         if (flag(parameters, "signed")) {
-                            org.fuin.porelo.app.GateSupport.approveSigned(
-                                    gate,
-                                    text(parameters, "name"),
-                                    branch,
-                                    empty(parameters, "commit"));
+                            pullRequest =
+                                    org.fuin.porelo.app.GateSupport.approveSigned(
+                                            gate,
+                                            text(parameters, "name"),
+                                            branch,
+                                            empty(parameters, "commit"));
                         } else {
-                            gate.approve(
-                                    text(parameters, "name"), branch, empty(parameters, "commit"));
+                            pullRequest =
+                                    gate.approve(
+                                            text(parameters, "name"),
+                                            branch,
+                                            empty(parameters, "commit"));
                         }
                     } catch (org.fuin.porelo.app.PushRefused ex) {
                         throw new VarlinkException(INTERFACE + ".PushRefused", ex.details());
@@ -234,7 +239,11 @@ final class GateMethods {
                                             ? ""
                                             : ", reviewed at " + empty(parameters, "commit"))
                                     + ", through the daemon");
-                    replies.last(Map.of("forwarded", text(parameters, "name"), "branch", branch));
+                    final Map<String, Object> reply = new java.util.LinkedHashMap<>();
+                    reply.put("forwarded", text(parameters, "name"));
+                    reply.put("branch", branch);
+                    if (pullRequest != null) reply.put("pullRequest", pullRequest);
+                    replies.last(reply);
                 });
 
         // For work merged elsewhere: the interface takes it as a bundle, a person merges and signs

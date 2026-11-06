@@ -106,15 +106,18 @@ method Review(
 
 # Forwards a pending push upstream. The only call in this interface that sends anything
 # anywhere, and it makes the caller name the branch rather than inferring one - except in a project
-# with a branch block, where the task's own branch, as its start recorded it, is what the forge's
-# rules cover.
+# with a branch block, where the task's own recorded branch is used, or on the host's own forge,
+# where porelo/<task> is the default. On that forge approval opens or reuses a pull request with
+# the task's token, targeting the repository's default branch. If the API refuses, Failed says
+# the push happened and why the forge refused; the approval stays pending for a retry.
 method Approve(
   project: string,
   upstream: ?string,
   # Which repository of the project. Default: the project's own.
   repository: ?string,
   name: string,
-  # Branch to push to. Required in a project without a branch block (BranchRequired otherwise). In a
+  # Branch to push to. On the host's forge, omitted means porelo/<task> without a branch block.
+  # Elsewhere required in a project without a branch block (BranchRequired otherwise). In a
   # project with one, empty means the task's own branch (Task.forgeBranch), and a named one must match its
   # branch.pattern, or the answer is BranchRefused.
   branch: ?string,
@@ -127,9 +130,16 @@ method Approve(
   signed: ?bool,
   # The commit the person reviewed, as Pending answers it. Refused as MovedSinceReview when the push has moved since,
   # so what goes is what was read; the task's gate stays up during a review. Empty: whatever it holds now.
-  # Refused as BranchExists when 'branch' holds work the commit did not grow from.
+  # Refused as BranchExists when 'branch' holds work the commit did not grow from, unless its head
+  # is, on the host's forge, the last commit this gate forwarded for this task; that head is then
+  # replaced with a lease.
   commit: ?string
-) -> (forwarded: string, branch: string)
+) -> (
+  forwarded: string,
+  branch: string,
+  # Address of the new or reused pull request on the host's forge; absent elsewhere.
+  pullRequest: ?string
+)
 
 # Pending work as a git bundle, for a person who merges it on their own computer - signed with their own key -
 # and pushes it: what is on the pending ref and not on 'branch' in the mirror (the whole history when the mirror

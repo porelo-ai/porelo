@@ -272,7 +272,8 @@ A forge commonly allows branches only under its own paths, one per kind of work,
   tasks of one repository never share a branch.
 - **A `guarded` task's approval goes to it**: `porelo gate approve` with no branch approves onto the task's own branch,
   and a branch a person names must match `pattern`, so work reaches only branches the forge's rules cover. A project
-  without the block approves as before, onto `main` unless another branch is named.
+  without the block approves onto its recorded starting branch (`main` for older tasks), or `porelo/<task>` on the
+  host's own forge; an explicit branch still wins. Host approval opens or reuses a pull request to the default branch.
 - **The pattern also keeps those branches from every task**: the gate drops every branch it matches from the mirror
   an agent fetches from, as it drops `porelo/*` without one, so no task sees another task's work at the forge. A
   template without a pattern is refused for that reason.

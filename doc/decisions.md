@@ -60,7 +60,7 @@ would change the answer.
 | A new dependency with a finding waits for a person | the approve asks for each, bound to the reviewed commit, and without a terminal is refused; Maven Central and npm first | [entry](#a-new-dependency-with-a-finding-waits-for-a-person) |
 | An approve lands as a merge carrying provenance; a fast-forward is a project's choice | models, agent and provider from the broker, never the agent; a fast-forward gives up the provenance (not yet built) | [entry](#an-approve-lands-as-a-merge-carrying-provenance-a-fast-forward-is-a-projects-choice) |
 | The owner approves alone unless a project asks for a second person | four eyes is a project setting; the approve then needs another signer's signature | [entry](#the-owner-approves-alone-unless-a-project-asks-for-a-second-person) |
-| Work is reviewed on the machine, never on an upstream branch | in `guarded`, waiting work is read on the machine (`gate review`, `gate checkout`); `porelo approve` brings a checkout's task back to its checkout, `porelo gate approve` forwards a followed repository's work to its `upstream`; review on a forge's pull request is `online`'s | [entry](#work-is-reviewed-on-the-machine-never-on-an-upstream-branch) |
+| Work is reviewed on the machine, never on an upstream branch | in `guarded`, waiting work is read on the machine (`gate review`, `gate checkout`); `porelo approve` brings a checkout's task back to its checkout, `porelo gate approve` forwards approved work and opens a pull request on the host's forge; `online` sends work to the forge before review | [entry](#work-is-reviewed-on-the-machine-never-on-an-upstream-branch) |
 | No editor is attached to a task's container | no editor vendor's hosts declared, no editor server copied in; `gate checkout` is the way to look at the work | [entry](#no-editor-is-attached-to-a-tasks-container) |
 | The pre-push guard catches an accident, not the owner of the machine | four ways round it and a spoofable author are accepted; `--no-verify` is the named way past | [entry](#the-pre-push-guard-catches-an-accident-not-the-owner-of-the-machine) |
 | A clearance question waits 60 seconds, and an expired one can still be answered | the silence refuses and is recorded; `Decide` answers it later; `shield watch --timeout` waits longer | [entry](#a-clearance-question-waits-60-seconds-and-an-expired-one-can-still-be-answered) |
@@ -1417,9 +1417,11 @@ reach, which would bring a relay without a terminal of its own to the operator a
 
 In a `guarded` project, waiting work is read with `gate review` and `gate checkout` on the machine. For a task started
 from a local checkout in `default`, approved work goes back to that checkout as `porelo/<task>` (`porelo approve`),
-while `porelo gate approve` pushes approved work of a repository to its `upstream` branch. Porelo gets no
-write access to an `upstream` for a review branch, and no `guarded` setting opts into one: a branch there would carry
-unreviewed work past the gate. A team that wants review on a forge's pull request uses [`online`](security.md#online),
+while `porelo gate approve` pushes approved work of a repository to its `upstream` branch. On the host's own forge,
+the default is `porelo/<task>`, and approval opens or reuses a pull request to the default branch as the task's account.
+The person reads the work at the gate before it leaves, then reviews and merges the pull request on the forge.
+No `guarded` setting sends unreviewed work to a branch on the upstream. A team that wants work to reach the forge
+before review uses [`online`](security.md#online),
 against a private company forge or
 [the host's own forge](https://github.com/porelo-ai/porelo-host/blob/main/doc/local-forge.md).
 

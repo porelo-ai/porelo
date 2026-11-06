@@ -1,5 +1,6 @@
 package org.fuin.porelo.app;
 
+import java.nio.file.Path;
 import org.fuin.porelo.core.project.BranchScheme;
 import org.fuin.porelo.core.project.Project;
 import org.fuin.porelo.core.project.ProjectException;
@@ -13,7 +14,7 @@ import org.jspecify.annotations.Nullable;
  * <p>In a project with a {@code branch} block, the task's own branch, as its start recorded it,
  * unless a person names another, and a named one only when the forge's pattern accepts it: so work
  * reaches only branches the forge's rules cover. Without a scheme, new tasks approve onto their
- * recorded starting branch.
+ * recorded starting branch, or {@code porelo/<task>} on the host's own forge.
  */
 public final class ApprovalBranch {
 
@@ -97,6 +98,27 @@ public final class ApprovalBranch {
             final Repository repository,
             final String task,
             final @Nullable String named) {
+        return of(context, project, repository, task, named, HostForgeLending.FORGE_CONF);
+    }
+
+    /**
+     * Returns the approval branch using the given host configuration.
+     *
+     * @param context The machine.
+     * @param project The project.
+     * @param repository The repository.
+     * @param task The pending task.
+     * @param named The explicit branch, or {@code null}.
+     * @param forgeConf Where this host names its forge.
+     * @return The branch, or {@code null} when the caller must choose one.
+     */
+    public static @Nullable String of(
+            final PoreloContext context,
+            final Project project,
+            final Repository repository,
+            final String task,
+            final @Nullable String named,
+            final Path forgeConf) {
         final BranchScheme scheme = project.branchScheme(repository.name());
         final boolean declared = declared(project, repository);
         if (named != null && !named.isEmpty()) {
@@ -106,6 +128,10 @@ public final class ApprovalBranch {
             return named;
         }
         if (!declared) {
+            final String upstream = repository.upstream();
+            if (upstream != null && HostForgeLending.onTheForge(upstream, forgeConf)) {
+                return "porelo/" + task;
+            }
             final TaskBase pending =
                     TaskBase.waiting(GateSupport.mirror(context, project, repository), task);
             final TaskBase base =

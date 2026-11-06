@@ -100,6 +100,40 @@ class ApprovalBranchTest {
                 .isEqualTo("develop");
     }
 
+    // On the host, a direct approval to the starting branch would bypass the forge's review.
+    @Test
+    void aHostUsesTheTasksBranchOnlyForItsOwnForgeAndAnExplicitBranchStillWins() throws Exception {
+        final PoreloContext context = context();
+        final Project project =
+                project(
+                        """
+                repositories:
+                  repo:
+                    upstream: "http://127.0.0.1:3001/acme/repo.git"
+                """);
+        final var repository = project.repository("repo");
+        final Path state =
+                Files.createDirectories(
+                        context.paths()
+                                .tasks()
+                                .containerState(
+                                        org.fuin.porelo.runtime.ContainerName.of(project, "fix")));
+        new TaskBase("develop", "FROM").writeTo(state);
+        final Path conf = dir.resolve("forge.conf");
+        Files.writeString(conf, "git_port=3001\n");
+
+        assertThat(ApprovalBranch.of(context, project, repository, "fix", null, conf))
+                .as("the host's own forge takes a task branch for review")
+                .isEqualTo("porelo/fix");
+        assertThat(ApprovalBranch.of(context, project, repository, "fix", "release", conf))
+                .as("an explicit branch wins")
+                .isEqualTo("release");
+        Files.writeString(conf, "git_port=3002\n");
+        assertThat(ApprovalBranch.of(context, project, repository, "fix", null, conf))
+                .as("another loopback port is not the host's forge")
+                .isEqualTo("develop");
+    }
+
     @Test
     void inAProjectWithABlockAnApprovalWithoutABranchGoesToTheTasksOwn() throws Exception {
         final PoreloContext context = context();

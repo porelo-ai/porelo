@@ -33,6 +33,9 @@ public class GitGate {
     /** Namespace every agent push lands in. */
     public static final String INCOMING = "refs/porelo/incoming/";
 
+    /** Private ownership records, hidden from every task's Git endpoint. */
+    public static final String FORWARDED = "refs/porelo/forwarded/";
+
     /**
      * After a task's own ref: where what it never handed back is rescued to when the task is
      * removed - beside its reviewed work, never in it.
@@ -53,6 +56,34 @@ public class GitGate {
 
     /** Where a credential for a remote comes from. Nothing, until a caller that has one says so. */
     private GitCredentials lending = GitCredentials.NONE;
+
+    private @Nullable PullRequests pullRequests;
+
+    /** Opens or reuses the review of a successfully pushed branch. */
+    @FunctionalInterface
+    public interface PullRequests {
+
+        /**
+         * Returns the review's address, refusing if the forge cannot open it.
+         *
+         * @param task The task whose reviewed work was pushed.
+         * @param branch The pushed branch.
+         * @param subject The pushed commit's subject.
+         * @return The pull request's address.
+         */
+        String open(String task, String branch, String subject);
+    }
+
+    /**
+     * Requires a forge review before a pushed approval leaves the pending queue.
+     *
+     * @param reviews The forge's pull requests.
+     * @return This gate.
+     */
+    public GitGate pullRequests(PullRequests reviews) {
+        pullRequests = reviews;
+        return this;
+    }
 
     /**
      * Constructor for a gate whose mirror is seeded from the upstream it forwards to.
@@ -996,10 +1027,11 @@ public class GitGate {
      *
      * @param name Incoming ref name, without the namespace prefix.
      * @param branch Upstream branch to push to.
+     * @return The pull request's address, or {@code null} without a forge review.
      * @throws GateException If the mode forbids forwarding, or no upstream is configured.
      */
-    public void approve(String name, String branch) {
-        approve(name, branch, null);
+    public @Nullable String approve(String name, String branch) {
+        return approve(name, branch, null);
     }
 
     /**
@@ -1015,10 +1047,11 @@ public class GitGate {
      * @param branch Upstream branch to push to.
      * @param reviewed The commit the person reviewed, or {@code null} for whatever the ref holds
      *     now.
+     * @return The pull request's address, or {@code null} without a forge review.
      * @throws GateException If the mode forbids forwarding, no upstream is configured, or the ref
      *     moved since the review.
      */
-    public void approve(
+    public @Nullable String approve(
             String name, String branch, @org.jspecify.annotations.Nullable String reviewed) {
         if (!mode.canForward()) {
             throw new GateException(
@@ -1034,15 +1067,48 @@ public class GitGate {
         // could not be forwarded to a private upstream unless the account happened to have a key of
         // its own lying about, which is exactly the arrangement the vault exists to replace.
         try (GitCredentials.Lease lease = lending.forPush(upstreamUrl)) {
-            refuseEarlierWork(lease, upstreamUrl, branch, commit);
-            gitWith(
-                    lease,
-                    "push",
-                    "--end-of-options",
-                    upstreamUrl,
-                    commit + ":refs/heads/" + branch);
+            final String owned = refuseEarlierWork(lease, upstreamUrl, branch, commit, name);
+            final List<String> push = new ArrayList<>(List.of("push"));
+            if (owned != null) {
+                // A changed head after the check belongs to another writer, even on this task's
+                // branch.
+                push.add("--force-with-lease=refs/heads/" + branch + ":" + owned);
+            }
+            push.addAll(List.of("--end-of-options", upstreamUrl, commit + ":refs/heads/" + branch));
+            gitWith(lease, push.toArray(String[]::new));
         }
-        removeIfStill(name, commit);
+        return completeApproval(name, branch, commit, commit);
+    }
+
+    private @Nullable String completeApproval(
+            String name, String branch, String reviewed, String pushed) {
+        // A refused API call still leaves a push to recognize on the next approval.
+        gitIn("update-ref", forwardedRef(name, branch), pushed);
+        final PullRequests reviews = pullRequests;
+        final String url =
+                reviews == null
+                        ? null
+                        : reviews.open(
+                                name,
+                                branch,
+                                gitIn("show", "-s", "--format=%s", pushed)
+                                        .standardOutput()
+                                        .strip());
+        removeIfStill(name, reviewed);
+        return url;
+    }
+
+    private String forwardedRef(String task, String branch) {
+        // The same commit on another branch or upstream grants no permission to replace it there.
+        final String destination =
+                gitWithInput(
+                                GitCredentials.Lease.EMPTY,
+                                upstreamUrl + "\n" + branch,
+                                "hash-object",
+                                "--stdin")
+                        .standardOutput()
+                        .strip();
+        return FORWARDED + task + "/" + destination;
     }
 
     /**
@@ -1078,26 +1144,41 @@ public class GitGate {
     /**
      * Refuses by name a branch that holds work the reviewed commit did not grow from, before git
      * refuses it as a non-fast-forward in its own words. A branch that is not there, or that the
-     * work grew from, passes.
+     * work grew from, passes. The task may replace this gate's own last forward with a lease.
      *
      * @param lease The upstream's credential.
      * @param upstream The upstream.
      * @param branch The branch to push to.
      * @param commit The reviewed commit.
+     * @param task The task whose last forward may be replaced.
+     * @return The head to lease for this task's last forward, or {@code null} for a plain push.
      * @throws GateException.BranchExists When it holds earlier work.
      */
-    private void refuseEarlierWork(
-            GitCredentials.Lease lease, String upstream, String branch, String commit) {
+    private @Nullable String refuseEarlierWork(
+            GitCredentials.Lease lease,
+            String upstream,
+            String branch,
+            String commit,
+            String task) {
         final String listed =
                 gitWith(lease, "ls-remote", "--end-of-options", upstream, "refs/heads/" + branch)
                         .standardOutput()
                         .strip();
         if (listed.isEmpty()) {
-            return;
+            return null;
         }
         final String at = listed.split("\\s+")[0];
+        final String forwarded = forwardedRef(task, branch);
+        // Only where the branch is the task's own and a pull request carries it to the shared one:
+        // elsewhere the branch may be main, and an amended approval forced over it would rewrite
+        // history others already took.
+        if (pullRequests != null
+                && resolves(forwarded)
+                && at.equals(gitIn("rev-parse", "--verify", forwarded).standardOutput().strip())) {
+            return at;
+        }
         if (at.equals(commit)) {
-            return;
+            return null;
         }
         gitWith(lease, "fetch", "--quiet", "--end-of-options", upstream, "refs/heads/" + branch);
         final CommandResult grewFrom =
@@ -1113,6 +1194,7 @@ public class GitGate {
         if (!grewFrom.successful()) {
             throw new GateException.BranchExists(branch, at);
         }
+        return null;
     }
 
     /**
@@ -1258,11 +1340,12 @@ public class GitGate {
      * @param name Incoming ref name, without the namespace prefix.
      * @param branch Upstream branch to merge onto and push to.
      * @param scratch An empty directory to merge in; removed afterwards by the caller.
+     * @return The pull request's address, or {@code null} without a forge review.
      * @throws GateException If the mode forbids forwarding, no upstream is configured, the merge
      *     cannot be made or signed, or the push is refused.
      */
-    public void approveSigned(String name, String branch, Path scratch) {
-        approveSigned(name, branch, scratch, null);
+    public @Nullable String approveSigned(String name, String branch, Path scratch) {
+        return approveSigned(name, branch, scratch, null);
     }
 
     /**
@@ -1276,8 +1359,9 @@ public class GitGate {
      *     now.
      * @throws GateException As {@link #approveSigned(String, String, Path)}, and when the ref moved
      *     since the review.
+     * @return The pull request's address, or {@code null} without a forge review.
      */
-    public void approveSigned(
+    public @Nullable String approveSigned(
             String name,
             String branch,
             Path scratch,
@@ -1301,7 +1385,17 @@ public class GitGate {
             throw new GateException("Cannot make " + noHooks, ex);
         }
         gitAt(target, "config", "core.hooksPath", noHooks.toString());
+        final String pushed;
         try (GitCredentials.Lease lease = lending.forPush(upstreamUrl)) {
+            final String listed =
+                    gitWith(
+                                    lease,
+                                    "ls-remote",
+                                    "--end-of-options",
+                                    upstreamUrl,
+                                    "refs/heads/" + branch)
+                            .standardOutput()
+                            .strip();
             gitAtWith(
                     lease,
                     target,
@@ -1309,7 +1403,7 @@ public class GitGate {
                     "--quiet",
                     "--end-of-options",
                     upstreamUrl,
-                    "refs/heads/" + branch);
+                    listed.isEmpty() ? "HEAD" : "refs/heads/" + branch);
             gitAt(target, "checkout", "--quiet", "-B", branch, "FETCH_HEAD");
             gitAt(target, "fetch", "--quiet", mirror.toString(), INCOMING + name);
             if (!commit.equals(gitAt(target, "rev-parse", "FETCH_HEAD").standardOutput().strip())) {
@@ -1364,8 +1458,10 @@ public class GitGate {
                     "--end-of-options",
                     upstreamUrl,
                     "HEAD:refs/heads/" + branch);
+            pushed = gitAt(target, "rev-parse", "HEAD").standardOutput().strip();
+            gitIn("fetch", "--quiet", "--end-of-options", target, "HEAD");
         }
-        removeIfStill(name, commit);
+        return completeApproval(name, branch, commit, pushed);
     }
 
     private CommandResult gitAtWith(

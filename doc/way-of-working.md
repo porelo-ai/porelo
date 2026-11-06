@@ -48,8 +48,10 @@ the repository's `upstream` on GitHub or a company forge.
 2. Start a task: `porelo task start --project <project> --repository <repository>`. The agent builds and tests in its
    container and pushes to the gate.
 3. Read the work: `porelo gate review -p <project> -r <repository> <task>`.
-4. Forward it, or drop it: `porelo gate approve -p <project> -r <repository> <task>` pushes it onto `main`, or the
-   branch `--branch` names; `porelo gate reject` drops it and tells the task.
+4. Forward it, or drop it: `porelo gate approve -p <project> -r <repository> <task>` pushes it onto the recorded
+   starting branch, or the branch `--branch` names. On the host's forge its default is `porelo/<task>`, and it
+   opens or reuses a pull request as the task's account, printing the URL for review and merge in the forge.
+   A project's branch block takes precedence over that default. `porelo gate reject` drops the push and tells the task.
 
 - **The person decides** whether the code goes to the forge. The gate's approval is a review of the code.
 - **The first independent build** runs on the forge after the approval, if the repository's workflow builds that push.

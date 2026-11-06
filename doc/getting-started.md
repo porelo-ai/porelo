@@ -289,8 +289,12 @@ the question. Merge or cherry-pick `porelo/myproject` when you are ready.
 
 For a `guarded` project whose repository names a remote `upstream:` in `project.yml`, use
 `porelo gate approve -p <project> [-r <repo>] <task>`: it pushes the approved work to that `upstream`
-(or `--upstream <url>`), onto `--branch` (`main` by default; in a project with a
-[`branch` block](project-file.md#branch), the task's own branch). With no `upstream` it refuses: "No
+(or `--upstream <url>`), onto `--branch` (the recorded starting branch by default, `main` for older tasks;
+on the host's forge, `porelo/<task>`; with a [`branch` block](project-file.md#branch), the task's recorded
+branch). On the host's forge it opens or reuses a pull request to the repository's default branch as
+the task's forge account and prints its URL for the person who reviews and merges it. An amended
+approval there replaces only this gate's last push for that task, with a lease. A failed pull request call
+leaves the push on the forge and the approval pending for a retry, and exits non-zero. With no `upstream` it refuses: "No
 upstream is configured for this project". Both approve commands refuse in an `offline` project.
 
 The next task starting from that repository is brought up to the upstream first, so approved
