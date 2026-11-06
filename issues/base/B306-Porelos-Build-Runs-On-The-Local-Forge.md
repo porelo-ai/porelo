@@ -1,7 +1,8 @@
 # B306 — Porelo's Build Runs On The Local Forge
 
-**Status:** Accepted.
-**Size:** M, proposed - the workflows' conditions and the deploy step here; what only a forge shows is measured on one.
+**Status:** Analyzed.
+**Size:** M - the deploy job's condition and profile, its package steps guarded, `settings.xml`'s registry and their
+tests here; what only a forge shows is measured on one. Estimate 150 minutes, the shared registry design given.
 
 **What must be true.** porelo's workflows run green on the host's Forgejo and on the central forge on the same commit,
 with no edit between them, with the values of porelo-host's
@@ -27,6 +28,37 @@ with no edit between them, with the values of porelo-host's
   copied from Sonatype, so a change made in a task can be built against before it reaches GitHub.
 - **What holds on the central forge:** the published binary is the one the Ubuntu leg tested, fetched back with a
   manifest.
+
+## Analysis
+
+Read in the code on 2026-11-06, by a Codex reading checked line by line; it replaces the reading of 2026-11-04 below
+where they differ.
+
+- **Built since:** `build.yml` guards the cancel step, `proven` and `legs` by `github.server_url` (`:106`, `:118`,
+  `:154-157`), and `sweep.yml:15`, `artifactory-smoke.yml:15` and `delete-runs.yml:21` already read
+  `vars.PORELO_PUBLISH != 'false'`. These stay.
+- **Still in the way - Publish:** the deploy job needs `legs`, or a proof with `native` (`build.yml:257-262`), so on a
+  forge without legs it is skipped. It needs a third way in: `vars.PORELO_PUBLISH == 'false'` with a passed Build, on
+  main or a tag only (`:263-264`).
+- **Still in the way - the package steps:** the signing key import (`:310-329`), the artifact download, the manifest
+  check, the package build, check and upload (`:334-358`, `:375-466`) assume the legs' binaries. Guarded by
+  `PORELO_PUBLISH != 'false'` as a whole, not only the upload: the package checker refuses a missing package
+  (`dist/package-check/.../Main.java:135-138`), and stays strict.
+- **Still in the way - the profile:** *Deploy the jars* names `-Pcentral-sonatype-release` (`:371`); `settings.xml`
+  reads neither `PORELO_DEPLOY_PROFILE` nor `MAVEN_SNAPSHOTS_URL` (`:9-79`). The profile comes from the variable,
+  refused when empty, with the registry's credentials; whether the parent POM provides the forge's deploy profile is
+  checked against the published parent before building. The dry run at `:88-95` keeps the Central profile: it checks
+  Central's deploy, not this one.
+- **Not in the way:** the six publishing modules (`agents/api`, `acceptance/kit`, `wire`, `builds/api`, `ecosystems/api`,
+  `bom`) already opt in; the set stays as it is.
+- **Red tests**, beside `core/.../WorkflowLimitsTest.java`: a main push with a passed Build and skipped legs deploys the
+  jars and runs no package step; a failed Build, a task branch or a manual run deploys nothing; Central's main and tags
+  still need the legs or the proof; an empty profile fails before any deploy.
+- **Measured only on a forge:** the expression and skip semantics, the runner's `JAVA_HOME_25_X64`
+  (`.github/actions/pinned-jdk/action.yml:47-51`), the registry's authorization, and both forges green on one commit.
+- **Open:** the newest-snapshot rule and the private-coordinate filter in `settings.xml` belong to the shared registry
+  design this issue waits for; the manifest proves names arrived (`Leg.java:698-708`), not their content, and is not
+  called a provenance proof.
 
 ## Plan
 
