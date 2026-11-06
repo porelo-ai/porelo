@@ -81,7 +81,7 @@ public class GateRejectCommand implements Callable<Integer>, PoreloFactory.Conte
                             GateSupport.repository(context, project, repository, name),
                             upstream,
                             null);
-            gate.initialize();
+            GateSupport.held(gate);
             final String said =
                     reason
                             ? new String(

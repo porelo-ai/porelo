@@ -107,7 +107,12 @@ public class GatePendingCommand implements Callable<Integer>, PoreloFactory.Cont
                             GateSupport.repository(project, repository),
                             upstream,
                             null);
-            gate.initialize();
+            if (!GateSupport.holds(gate)) {
+                // Only a task's start makes a mirror; looking never clones one from the upstream.
+                out.println("nothing pending: this machine holds no mirror at " + gate.mirror());
+                out.flush();
+                return 0;
+            }
 
             final String seededFrom = gate.seededFrom();
 

@@ -245,6 +245,31 @@ public final class GateSupport {
     }
 
     /**
+     * Whether this machine holds a gate's mirror. Only a task's start makes one; a call that only
+     * reads or forwards what waits there never clones it from the upstream.
+     *
+     * @param gate The gate.
+     * @return Whether its mirror is there.
+     */
+    public static boolean holds(GitGate gate) {
+        return java.nio.file.Files.isDirectory(gate.mirror().resolve("objects"));
+    }
+
+    /**
+     * Refuses a call about what waits at a gate whose mirror this machine does not hold.
+     *
+     * @param gate The gate.
+     * @throws org.fuin.porelo.gate.GateException When the mirror is not there.
+     */
+    public static void held(GitGate gate) {
+        if (!holds(gate)) {
+            throw new org.fuin.porelo.gate.GateException(
+                    "nothing waits at this gate: this machine holds no mirror of the repository;"
+                            + " a task's start makes it");
+        }
+    }
+
+    /**
      * Returns the pushes waiting at a repository's gate that the upstream already has, as the last
      * measurement of the upstream found them: work somebody pushed there by hand, past the gate.
      *

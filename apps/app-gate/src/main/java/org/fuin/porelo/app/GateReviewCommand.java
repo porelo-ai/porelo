@@ -73,7 +73,7 @@ public class GateReviewCommand implements Callable<Integer>, PoreloFactory.Conte
                             GateSupport.repository(context, project, repository, name),
                             upstream,
                             null);
-            gate.initialize();
+            GateSupport.held(gate);
             // What matters before what is merely large: the instruction, the files dangerous by
             // kind, and the patch in that same order, reformatting and generated files last.
             final String base =

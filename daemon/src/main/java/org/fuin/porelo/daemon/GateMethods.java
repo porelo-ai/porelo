@@ -73,7 +73,21 @@ final class GateMethods {
         server.method(
                 "Pending",
                 (parameters, replies) -> {
-                    final GitGate gate = gate(parameters, context);
+                    final GitGate gate = opened(parameters, context);
+                    if (!GateSupport.holds(gate)) {
+                        // No mirror, so nothing waits; the mode and path are what a start makes.
+                        replies.last(
+                                Map.of(
+                                        "mirror",
+                                        gate.mirror().toString(),
+                                        "mode",
+                                        gate.mode().name().toLowerCase(),
+                                        "seededFrom",
+                                        "",
+                                        "pending",
+                                        List.of()));
+                        return;
+                    }
                     final java.time.Instant now = java.time.Instant.now();
                     final java.util.Set<String> upstreamHas =
                             PoreloDaemon.alreadyUpstream(parameters, context);

@@ -152,7 +152,7 @@ public class GateApproveCommand implements Callable<Integer>, PoreloFactory.Cont
                             GateSupport.repository(context, project, repository, name),
                             upstream,
                             null);
-            gate.initialize();
+            GateSupport.held(gate);
             if (signed) {
                 GateSupport.approveSigned(gate, name, onto, commit);
                 out.println("merged    " + name + " onto " + onto + ", signed, and forwarded");

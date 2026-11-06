@@ -3046,6 +3046,8 @@ class PoreloDaemonTest {
                                                                 PoreloDaemon.INTERFACE + ".Pending",
                                                                 Map.of("project", PROJECT))
                                                         .get("mirror")));
+                        // A task's start makes the mirror; a view only reads it.
+                        git(dir, "init", "-q", "--bare", "-b", "main", mirror.toString());
                         final Path work = dir.resolve("work");
                         git(dir, "init", "-q", "-b", "main", work.toString());
                         git(
@@ -4177,6 +4179,50 @@ class PoreloDaemonTest {
                                 .isNotZero();
                         assertThat(String.join("\n", (List<String>) reply.get("output")))
                                 .doesNotContain("is no task Porelo made");
+                    }
+                });
+    }
+
+    @Test
+    void aGateViewOfARepositoryWithNoMirrorAnswersNothingWaitingAndClonesNothing(@TempDir Path dir)
+            throws Exception {
+
+        // A view only reads: asked for every repository of a project, it cloned each one this
+        // machine had no mirror of from its upstream, which on a host is out of reach by design.
+        record(
+                dir,
+                Files.writeString(
+                        dir.resolve("project.yml"),
+                        """
+                project:
+                  name: "uc"
+                  security_class: "guarded"
+                  upstream: "%s"
+                image:
+                  from: "ubuntu:24.04"
+                """
+                                .formatted(dir.resolve("out-of-reach.git"))));
+
+        serving(
+                dir,
+                socket -> {
+                    try (VarlinkClient client = new VarlinkClient(socket)) {
+                        final Map<String, Object> reply =
+                                client.call(
+                                        PoreloDaemon.INTERFACE + ".Pending",
+                                        Map.of("project", PROJECT));
+
+                        assertThat((List<?>) reply.get("pending")).isEmpty();
+                        assertThat(Path.of(String.valueOf(reply.get("mirror"))))
+                                .as("no mirror is made by looking")
+                                .doesNotExist();
+                        assertThatThrownBy(
+                                        () ->
+                                                client.call(
+                                                        PoreloDaemon.INTERFACE + ".Review",
+                                                        Map.of("project", PROJECT, "name", "x")))
+                                .isInstanceOf(VarlinkException.class)
+                                .hasMessageContaining("no mirror");
                     }
                 });
     }

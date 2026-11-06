@@ -307,6 +307,15 @@ public final class PoreloDaemon {
     }
 
     static GitGate gate(Map<String, Object> parameters, PoreloContext context) {
+        // Only a task's start makes a mirror. A call here only reads or forwards: cloning from the
+        // upstream reached out where a host must not, once per repository a view asked about.
+        final GitGate gate = opened(parameters, context);
+        GateSupport.held(gate);
+        return gate;
+    }
+
+    /** Builds the gate a call names, making nothing: its mirror may not be there. */
+    static GitGate opened(Map<String, Object> parameters, PoreloContext context) {
         final Project project = GateSupport.project(projectFile(parameters, context));
         final String upstream = address(parameters, "upstream");
         final GitGate gate =
@@ -316,7 +325,6 @@ public final class PoreloDaemon {
                         GateSupport.repository(project, text(parameters, "repository")),
                         upstream.isEmpty() ? null : upstream,
                         null);
-        gate.initialize();
         return gate;
     }
 
