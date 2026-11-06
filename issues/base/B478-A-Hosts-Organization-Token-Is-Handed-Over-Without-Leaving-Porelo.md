@@ -1,7 +1,7 @@
 # [B478](README.md#b478) — A Host's Organization Token Is Handed Over Without Leaving Porelo
 
-**Status:** Accepted, on the operator's word (2026-11-06), porelo's part of the window's request that a host get its organization token from it. Not started before
-[B470](README.md#b470) is done.
+**Status:** Review. Accepted on the operator's word (2026-11-06), porelo's part of the window's request that a host get
+its organization token from it.
 **Size:** S - one verb that pipes a declared vault entry over the host card's pinned SSH; its tests. Estimate 60
 minutes.
 
@@ -34,3 +34,19 @@ the window starts, not a log line, not an answer.
 ## Open questions
 
 - The exact remote command line and its exit codes, from porelo-host's `porelo-host-person org refresh`.
+
+## Done
+
+- `porelo org host refresh HOST [--json]` (`OrgHostRefreshCommand`): the host's accepted card first, then the token as
+  `OrganizationAccess.forgeToken` finds it, then `porelo-host-person org refresh` over ssh as root, the account a host
+  admin's key opens on a host, pinned to the card's key alone (`PinnedHostSsh`, now shared with `host unlock`). The token
+  goes on that command's standard input and nowhere else.
+- Refused before any ssh: a name no host has (64), the vault shut (77), no organization (78), no such host (66), no
+  card (65), no key on it (69), no token (69, naming the `credentials declare` to make). The host's exits 64, 65, 69
+  and 73 are passed on; ssh's 255 is 69; anything else, or an answer that does not read, is 70 and claims nothing.
+- `--json` answers `handedOver` and the host's own answer where it holds no trace of the token.
+- Tests (`OrgHostRefreshCommandTest`): the token reaches the remote command's standard input and no argument,
+  environment or output; another host key refuses before it is read; each missing piece refuses before ssh; the host's
+  exits; no echo of the token in the host's output, its diagnostics or an exception. With the token kept off standard
+  input, the first fails.
+

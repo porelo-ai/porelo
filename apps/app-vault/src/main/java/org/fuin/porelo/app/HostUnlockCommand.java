@@ -2,9 +2,7 @@ package org.fuin.porelo.app;
 
 import java.io.IOException;
 import java.io.PrintWriter;
-import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.attribute.PosixFilePermissions;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.Arrays;
@@ -160,7 +158,7 @@ public class HostUnlockCommand implements Callable<Integer>, PoreloFactory.Conte
                 continue;
             }
             if (target.fingerprint().equals(fingerprint(blob))) {
-                return target.host() + " ssh-ed25519 " + fields[2] + "\n";
+                return "ssh-ed25519 " + fields[2];
             }
         }
         throw new VaultException(
@@ -199,17 +197,11 @@ public class HostUnlockCommand implements Callable<Integer>, PoreloFactory.Conte
 
     private int send(Target target, String known, AgentKey signingKey, @Nullable AgentKey previous)
             throws IOException {
-        final Path pinned =
-                Files.createTempFile(
-                        "porelo-host-",
-                        ".known-hosts",
-                        PosixFilePermissions.asFileAttribute(
-                                PosixFilePermissions.fromString("rw-------")));
         byte[] share = null;
         byte[] old = null;
         byte[] input = null;
-        try {
-            Files.writeString(pinned, known);
+        try (final PinnedHostSsh pinned =
+                PinnedHostSsh.open(target.host(), 22, target.login(), known)) {
             share = HostVaultShare.derive(signingKey, target.fingerprint(), target.login());
             if (previous == null) input = share;
             else {
@@ -218,46 +210,16 @@ public class HostUnlockCommand implements Callable<Integer>, PoreloFactory.Conte
                 System.arraycopy(old, 0, input, 0, 32);
                 System.arraycopy(share, 0, input, 32, 32);
             }
-            final java.util.ArrayList<String> connection =
-                    new java.util.ArrayList<>(
-                            List.of(
-                                    "ssh",
-                                    "-T",
-                                    "-o",
-                                    "ForwardAgent=no",
-                                    "-o",
-                                    "ClearAllForwardings=yes",
-                                    "-o",
-                                    "StrictHostKeyChecking=yes",
-                                    "-o",
-                                    "UserKnownHostsFile=" + pinned,
-                                    "-o",
-                                    "GlobalKnownHostsFile=/dev/null",
-                                    "-o",
-                                    "UpdateHostKeys=no",
-                                    "-o",
-                                    "ControlPath=none",
-                                    "-o",
-                                    "ControlMaster=no",
-                                    "-o",
-                                    "KnownHostsCommand=none",
-                                    "-o",
-                                    "VerifyHostKeyDNS=no",
-                                    "-o",
-                                    "HostKeyAlgorithms=ssh-ed25519",
-                                    "-o",
-                                    "BatchMode=yes",
-                                    target.login() + "@" + target.host()));
             var result =
                     remote(
-                            connection,
+                            pinned,
                             input,
                             previous == null ? "unlock" : "rekey",
                             "--share-stdin",
                             "--json");
             var status = RemoteVault.answer(result);
             if (previous == null && status == RemoteVault.ABSENT) {
-                result = remote(connection, share, "init", "--share-stdin", "--json");
+                result = remote(pinned, share, "init", "--share-stdin", "--json");
                 status = RemoteVault.answer(result, RemoteVault.OPEN);
             } else if (previous == null && status == RemoteVault.OTHER_KEY) {
                 final String consent =
@@ -273,9 +235,9 @@ public class HostUnlockCommand implements Callable<Integer>, PoreloFactory.Conte
                     spec.commandLine().getErr().flush();
                     return report(status, result.standardError());
                 }
-                result = remote(connection, null, "clear", "--yes", "--force", "--json");
+                result = remote(pinned, null, "clear", "--yes", "--force", "--json");
                 RemoteVault.answer(result, RemoteVault.CLEARED);
-                result = remote(connection, share, "init", "--share-stdin", "--json");
+                result = remote(pinned, share, "init", "--share-stdin", "--json");
                 status = RemoteVault.answer(result, RemoteVault.OPEN);
                 if (status == RemoteVault.OPEN) {
                     final PrintWriter notice =
@@ -292,7 +254,6 @@ public class HostUnlockCommand implements Callable<Integer>, PoreloFactory.Conte
             }
             if (old != null) Arrays.fill(old, (byte) 0);
             if (input != null) Arrays.fill(input, (byte) 0);
-            Files.deleteIfExists(pinned);
         }
     }
 
@@ -382,15 +343,11 @@ public class HostUnlockCommand implements Callable<Integer>, PoreloFactory.Conte
     }
 
     private org.fuin.porelo.core.process.CommandResult remote(
-            List<String> connection, byte @Nullable [] share, String... arguments) {
-        final var command = new java.util.ArrayList<>(connection);
+            PinnedHostSsh connection, byte @Nullable [] share, String... arguments) {
+        final var command = new java.util.ArrayList<String>();
         command.add(remotePorelo);
         command.add("vault");
         command.addAll(List.of(arguments));
-        return context.runner()
-                .run(
-                        share == null
-                                ? Command.of(command)
-                                : Command.of(command).withBinaryInput(share));
+        return context.runner().run(connection.command(command, share, context.environment()));
     }
 }

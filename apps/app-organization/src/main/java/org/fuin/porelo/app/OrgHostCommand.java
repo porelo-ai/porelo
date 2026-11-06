@@ -27,7 +27,8 @@ import picocli.CommandLine.Parameters;
             OrgHostCommand.Change.class,
             OrgHostCommand.Admin.class,
             OrgHostCommand.Carry.class,
-            OrgHostCommand.Uncarry.class
+            OrgHostCommand.Uncarry.class,
+            OrgHostRefreshCommand.class
         })
 public class OrgHostCommand {
 

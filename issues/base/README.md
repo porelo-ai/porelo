@@ -20,6 +20,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b478"></a>[B478](B478-A-Hosts-Organization-Token-Is-Handed-Over-Without-Leaving-Porelo.md) | S | - | One command pipes the token declared for an organization's forge to a host's org refresh on standard input, over SSH pinned to its card's key; the value never leaves Porelo. |
 | <a id="b479"></a>[B479](B479-A-Host-Carries-Single-Repositories-Of-A-Project.md) | M | - | A host's file names single repositories of a project beside whole ones; `org host carry/uncarry --repository`; one repository on one host; a read key named or removed when one is taken off. |
 | <a id="b482"></a>[B482](B482-Gate-Review-Shows-The-Commit-Approve-Wants.md) | XS | - | `gate review` shows the waiting commit in full, the id `gate approve --commit` takes; prefixes stay refused. | - |
 | <a id="b477"></a>[B477](B477-An-Admin-Signs-A-Repositorys-Porelo-Yml-Anew.md) | S | - | `porelo project sign-repository-file`: an admin or developer signs a repository's porelo.yml anew with an empty signed commit, on the pattern of `project sign`. |
@@ -141,7 +142,6 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
-| <a id="b478"></a>[B478](B478-A-Hosts-Organization-Token-Is-Handed-Over-Without-Leaving-Porelo.md) | S | [B470](#b470) | One command pipes the token declared for an organization's forge to a host's org refresh on standard input, over SSH pinned to its card's key; the value never leaves Porelo. |
 | <a id="b396"></a>[B396](B396-Mutation-Testing-With-PIT.md) | - | - | A `pit` profile run by hand, not in CI and with no threshold, and a report sorting survivors into real gaps and harmless ones. |
 | <a id="b358"></a>[B358](B358-A-Task-Reviews-A-Pull-Request-On-The-Central-Forge.md) | - | [B172](README.md#b172) | A reviewer task also takes any existing pull request on the central forge by its URL, in a project or without one; read and commented with the person's own account, comments only, each released |
 | <a id="b355"></a>[B355](B355-No-Switch-That-Turns-Every-Check-Off.md) | S | - | No `--insecure` that turns every check off; instead an `unsigned`/`unverified` mark in `task list`, the interface and the gate's verdicts, for what already runs so |
