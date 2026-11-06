@@ -79,6 +79,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b482"></a>[B482](B482-Gate-Review-Shows-The-Commit-Approve-Wants.md) | XS | - | `gate review` shows the waiting commit in full, the id `gate approve --commit` takes; prefixes stay refused. |
 | <a id="b474"></a>[B474](B474-A-Task-Fetches-Its-Projects-Snapshots-Through-Its-Broker.md) | M | [B470](#b470), [B467](#b467) | A package route in the task's broker: GET/HEAD below its own organization's maven path, refused before upstream otherwise; Maven's answers there alone; the task's host token read narrowly and made before the broker; settings through porelo.yml and Configure | Whether removal ends the token at once; the shared snapshot rule |
 | <a id="b467"></a>[B467](B467-A-Task-Reaches-Its-Tools-Repositories-Through-Their-Settings.md) | M | [B468](#b468) | A project declares its build tool's repositories in `project.yml`, and a task start calls the ecosystem adapter's `Configure` and places the settings files it returns. |
 | <a id="b449"></a>[B449](B449-A-Repositorys-Own-File-Reaches-The-Image-Unasked.md) | S | - | A repository's `porelo.yml` chooses no line of an image without a person's yes. |
