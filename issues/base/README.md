@@ -63,6 +63,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b470"></a>[B470](B470-A-Repository-Of-Its-Own-Stays-In-Default-And-Says-What-It-Needs.md) | L | - | A checkout with no project of an organization stays in `default`; its `porelo.yml` says what its task needs, added to the project file's defaults key by key, allowed once on this machine or signed in an organization; detection writes `porelo.yml`, not `project.yml`. |
 | <a id="b459"></a>[B459](B459-Every-Credential-Failure-Says-What-To-Do.md) | L | - | Credential failure inventory, upstream advice, agent readiness and source-aware unlock/storage actions; push/provider paths, frontend agreement, window controls and live remedies still pending. |
 | <a id="b458"></a>[B458](B458-A-Refused-Push-Says-Which-Credential.md) | M | - | Backend built: selected SSH identities, public key inventory, trial and named refusal; focused guards pass, complete unit verification blocked, window remains. |
 | <a id="b429"></a>[B429](B429-One-Line-Installs-Everything.md) | L | - | `sudo apt install 'porelo*' keepassxc` installs all of Porelo on every channel and stays true: the test agent leaves the channels, and a check runs the line against the published index. |
@@ -147,7 +148,6 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
-| <a id="b470"></a>[B470](B470-A-Repository-Of-Its-Own-Stays-In-Default-And-Says-What-It-Needs.md) | - | - | A checkout with no project of an organization stays in `default`; its `porelo.yml` says what its task needs, added to the project file's defaults key by key, allowed once on this machine or signed in an organization; detection writes `porelo.yml`, not `project.yml`. |
 | <a id="b465"></a>[B465](B465-An-Older-Project-File-Is-Refused-By-Ancestry-Not-By-Date.md) | S | - | A machine remembers the project file's commit it accepted and refuses a later one that does not descend from it, so a file signed in the same second as a newer one cannot come back. |
 | <a id="b447"></a>[B447](B447-What-Core-Takes-On-A-Persons-Computer.md) | L | - | A measured overhead of Core in Linux, in WSL, in a VM on a Mac and on a central host, in one table, and the Mac's day with an arm64 build. |
 | <a id="b448"></a>[B448](B448-A-Test-Fails-In-A-Deep-Checkout.md) | XS | - | One unit test fails in a deep checkout, by a socket path too long. |
