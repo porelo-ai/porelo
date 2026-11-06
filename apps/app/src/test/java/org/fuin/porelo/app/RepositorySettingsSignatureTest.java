@@ -73,6 +73,79 @@ class RepositorySettingsSignatureTest {
         assertThat(answer.asMap()).containsEntry("commit", commit);
     }
 
+    @Test
+    void aSignedFileAddsItsHostsToAnOrganizationsProjectAndNamesItself() throws Exception {
+        final PoreloContext context = context();
+        final Path key = key();
+        // The organization's state keeps a key as type and body, without its comment.
+        final String[] line =
+                Files.readString(key.resolveSibling(key.getFileName() + ".pub")).strip().split(" ");
+        place(context, line[0] + " " + line[1]);
+        mirror(context, "uc", "web", "egress:\n  domains:\n    - \"repo.example.org\"\n", key);
+
+        final RepositoryOwnSettings.Found found = organization(context);
+
+        assertThat(found).isNotNull();
+        assertThat(found.project().egress().domains()).contains("repo.example.org");
+        assertThat(found.sources().values())
+                .as("the setting names the file and the branch it came from")
+                .anyMatch(source -> source.startsWith("porelo.yml at refs/heads/main of web"));
+    }
+
+    @Test
+    void anUnsignedFileGivesNoSettingsToAnOrganizationsProject() throws Exception {
+        final PoreloContext context = context();
+        place(context);
+        mirror(context, "uc", "web", "egress:\n  domains:\n    - \"repo.example.org\"\n");
+
+        assertThatThrownBy(() -> organization(context))
+                .isInstanceOf(RepositorySettingsSignature.Unsigned.class);
+    }
+
+    @Test
+    void aLocalProjectsRepositoryFileGivesItsImageAloneAsBefore() throws Exception {
+        final PoreloContext context = context();
+        mirror(context, "uc", "web", "egress:\n  domains:\n    - \"repo.example.org\"\n");
+
+        assertThat(organization(context)).isNull();
+    }
+
+    private RepositoryOwnSettings.@org.jspecify.annotations.Nullable Found organization(
+            final PoreloContext context) throws IOException {
+        final Path projectFile = dir.resolve("project.yml");
+        Files.writeString(
+                projectFile,
+                "project:\n  name: \"uc\"\n  security_class: \"guarded\"\n"
+                        + "image:\n  from: \"ubuntu:24.04\"\n"
+                        + "repositories:\n  web: {}\n");
+        return RepositoryOwnSettings.ofOrganization(
+                context,
+                projectFile,
+                "uc",
+                org.fuin.porelo.core.project.ProjectReader.read(projectFile).repository("web"));
+    }
+
+    /** A key of its own, made for this test alone. */
+    private Path key() throws Exception {
+        final Path key = dir.resolve("developer");
+        final Process process =
+                new ProcessBuilder(
+                                "ssh-keygen",
+                                "-q",
+                                "-t",
+                                "ed25519",
+                                "-N",
+                                "",
+                                "-C",
+                                "developer",
+                                "-f",
+                                key.toString())
+                        .redirectErrorStream(true)
+                        .start();
+        assertThat(process.waitFor()).isZero();
+        return key;
+    }
+
     private void check(final PoreloContext context) {
         final Path mirror = GateSupport.mirror(context, "uc", "web");
         RepositorySettingsSignature.check(context, "uc", "web", mirror, "refs/heads/main");
@@ -80,6 +153,11 @@ class RepositorySettingsSignatureTest {
 
     /** Takes the project as a follow would, with one admin's key that signed nothing here. */
     private static void place(final PoreloContext context) throws IOException {
+        place(context, KEY);
+    }
+
+    /** Takes the project as a follow would, with one developer holding the key given. */
+    private static void place(final PoreloContext context, final String key) throws IOException {
         OrganizationProjects.of(context)
                 .write(
                         new OrganizationProjects.Placed(
@@ -90,10 +168,10 @@ class RepositorySettingsSignatureTest {
                                 List.of(
                                         new OrganizationProjects.Key(
                                                 "admin-person",
-                                                "admin",
-                                                KEY,
+                                                "developer",
+                                                key,
                                                 LocalDate.of(2026, 1, 1),
-                                                LocalDate.of(2027, 1, 1),
+                                                LocalDate.of(2099, 1, 1),
                                                 null)),
                                 null,
                                 null,
@@ -107,12 +185,37 @@ class RepositorySettingsSignatureTest {
             final String repository,
             final String porelo)
             throws Exception {
+        return mirror(context, project, repository, porelo, null);
+    }
+
+    /** As above, the commit signed with the key given, when one is. */
+    private String mirror(
+            final PoreloContext context,
+            final String project,
+            final String repository,
+            final String porelo,
+            final @org.jspecify.annotations.Nullable Path key)
+            throws Exception {
         final Path work = dir.resolve("work-" + repository);
         Files.createDirectories(work);
         git(work, "init", "-q", "-b", "main");
         Files.writeString(work.resolve("porelo.yml"), porelo, StandardCharsets.UTF_8);
         git(work, "add", "porelo.yml");
-        git(work, "commit", "-q", "-m", "Settings");
+        if (key == null) {
+            git(work, "commit", "-q", "-m", "Settings");
+        } else {
+            git(
+                    work,
+                    "-c",
+                    "gpg.format=ssh",
+                    "-c",
+                    "user.signingkey=" + key,
+                    "commit",
+                    "-q",
+                    "-S",
+                    "-m",
+                    "Settings");
+        }
         final String commit = git(work, "rev-parse", "HEAD").strip();
         final Path mirror = GateSupport.mirror(context, project, repository);
         Files.createDirectories(mirror.getParent());

@@ -133,6 +133,71 @@ public final class RepositoryOwnSettings {
     }
 
     /**
+     * Reads what a repository's {@code porelo.yml} adds to an organization's project, as its
+     * mirror's default branch holds it. Nothing asks this machine: every change to it is signed by
+     * a project admin or a developer, or it is refused.
+     *
+     * @param context This machine.
+     * @param projectFile The project's file.
+     * @param project The project's name.
+     * @param repository The repository the task works on.
+     * @return What it makes, or {@code null} when the project was not taken from an organization,
+     *     the mirror holds no default branch yet, or the file is not there.
+     * @throws RepositorySettingsSignature.Unsigned When a change to it may not be taken.
+     * @throws ProjectException If it says what only the project may, or makes no valid project.
+     */
+    public static @Nullable Found ofOrganization(
+            final PoreloContext context,
+            final Path projectFile,
+            final String project,
+            final Repository repository) {
+        if (!fromOrganization(context, project)) {
+            // A local project's repository gives its image alone, as before: nobody signs it.
+            return null;
+        }
+        final Path mirror = GateSupport.mirror(context, project, repository.name());
+        if (!(MirrorFile.defaultBranch(context.runner(), mirror)
+                instanceof MirrorFile.Found found)) {
+            // No mirror yet, or none a start would take: the fetch makes it, and the next start
+            // reads it.
+            return null;
+        }
+        RepositorySettingsSignature.check(context, project, repository.name(), mirror, found.ref());
+        final String text =
+                MirrorFile.read(context.runner(), mirror, ImageChoice.FILE).orElse(null);
+        if (text == null) {
+            return null;
+        }
+        final ProjectReader.WithRepository read =
+                ProjectReader.read(
+                        new StringReader(text(projectFile)),
+                        projectFile.toString(),
+                        SnippetFiles.beside(projectFile),
+                        List.of(
+                                new RepositorySettings.Layer(
+                                        ImageChoice.FILE
+                                                + " at "
+                                                + found.ref()
+                                                + " of "
+                                                + repository.name(),
+                                        text)));
+        return new Found(
+                read.project(),
+                read.asked(),
+                RepositoryAllowance.hash(read.asked()),
+                read.sources(),
+                read.removed());
+    }
+
+    private static boolean fromOrganization(final PoreloContext context, final String project) {
+        try {
+            return OrganizationProjects.of(context).find(project) != null;
+        } catch (IOException ex) {
+            throw new ProjectException("Cannot read what this machine took of " + project, ex);
+        }
+    }
+
+    /**
      * Allows what a repository's own files ask for now, when it is what a person was shown.
      *
      * @param context This machine.

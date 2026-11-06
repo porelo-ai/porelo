@@ -230,8 +230,8 @@ public final class EgressControl {
     }
 
     /**
-     * Returns what a repository's own files in the default project took away from what a task may
-     * reach, each with the file that did.
+     * Returns what a repository's own files took away from what a task may reach, each with the
+     * file that did.
      *
      * @param projectFile The project file.
      * @param repository Which repository, or {@code null} for the project's own.
@@ -252,18 +252,21 @@ public final class EgressControl {
     }
 
     /**
-     * What a repository's own files add in the default project, for a view: a file that does not
-     * read shows the project as it is, and the start says why.
+     * What a repository's own files add, in the default project or, signed, in an organization's,
+     * for a view: a file that does not read shows the project as it is, and the start says why.
      */
     private RepositoryOwnSettings.@Nullable Found own(
             final Path projectFile,
             final Project project,
             final org.fuin.porelo.core.project.@Nullable Repository chosen) {
-        if (!DefaultProject.is(project.name()) || chosen == null) {
+        if (chosen == null) {
             return null;
         }
         try {
-            return RepositoryOwnSettings.of(context, projectFile, chosen);
+            return DefaultProject.is(project.name())
+                    ? RepositoryOwnSettings.of(context, projectFile, chosen)
+                    : RepositoryOwnSettings.ofOrganization(
+                            context, projectFile, project.name(), chosen);
         } catch (ProjectException ex) {
             return null;
         }

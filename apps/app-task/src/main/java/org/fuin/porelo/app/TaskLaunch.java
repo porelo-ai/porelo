@@ -637,6 +637,48 @@ public final class TaskLaunch {
      * @param out Where the note is written.
      */
     /**
+     * Says when the fetch brought other settings than this start took: egress and the rest were
+     * settled before it, so the next start takes them. The image is read after it.
+     */
+    private void settingsMovedOn(
+            final java.nio.file.Path projectFile,
+            final String project,
+            final org.fuin.porelo.core.project.Repository repository,
+            final PrintWriter out) {
+        final RepositoryOwnSettings.Found now =
+                RepositoryOwnSettings.ofOrganization(context, projectFile, project, repository);
+        final String hash = now == null ? "" : now.hash();
+        if (!hash.equals(ownSettingsHash)) {
+            out.println(
+                    "settings       "
+                            + ImageChoice.FILE
+                            + " of "
+                            + repository.name()
+                            + " changed with the fetch; this task runs under what it held"
+                            + " before, the next start takes the new settings");
+            out.flush();
+        }
+    }
+
+    /** Says each setting a repository's own file gives, with the file that gave it. */
+    private static void said(final RepositoryOwnSettings.Found own, final PrintWriter out) {
+        for (final var each : own.asked()) {
+            out.println(
+                    "setting        "
+                            + RepositorySettingsText.line(each)
+                            + (each.removed()
+                                    ? ""
+                                    : "  (from "
+                                            + own.sources().getOrDefault(each.key(), "?")
+                                            + ")"));
+        }
+        out.flush();
+    }
+
+    /** The hash of what an organization's repository file gave this start before the fetch. */
+    private String ownSettingsHash = "";
+
+    /**
      * Returns the project with a repository's own files in 'default' added, each setting they ask
      * for shown with its source; asked once when this machine has not allowed it.
      *
@@ -652,24 +694,23 @@ public final class TaskLaunch {
             final PrintWriter out,
             final PrintWriter err) {
         if (!DefaultProject.is(project.name())) {
-            return project;
+            // Signed by a project admin or developer, or refused: nothing is asked here.
+            final RepositoryOwnSettings.Found signed =
+                    RepositoryOwnSettings.ofOrganization(
+                            context, projectFile, project.name(), repository);
+            ownSettingsHash = signed == null ? "" : signed.hash();
+            if (signed == null) {
+                return project;
+            }
+            said(signed, out);
+            return signed.project();
         }
         final RepositoryOwnSettings.Found own =
                 RepositoryOwnSettings.of(context, projectFile, repository);
         if (own == null) {
             return project;
         }
-        for (final var each : own.asked()) {
-            out.println(
-                    "setting        "
-                            + RepositorySettingsText.line(each)
-                            + (each.removed()
-                                    ? ""
-                                    : "  (from "
-                                            + own.sources().getOrDefault(each.key(), "?")
-                                            + ")"));
-        }
-        out.flush();
+        said(own, out);
         final java.util.List<org.fuin.porelo.core.project.file.RepositorySettings.Asked> toAllow =
                 own.toAllow(context, repository.name());
         if (toAllow.isEmpty()) {
@@ -2022,6 +2063,9 @@ public final class TaskLaunch {
                     err.println("porelo: nothing was created");
                     err.flush();
                     return 64;
+                }
+                if (!DefaultProject.is(project.name())) {
+                    settingsMovedOn(projectFile, project.name(), repository, out);
                 }
                 if (previewRefusal != null || !fetched.equals(image)) {
                     project = fetched.applyTo(settled, repository);

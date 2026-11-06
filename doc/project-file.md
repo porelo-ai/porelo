@@ -354,6 +354,10 @@ image:
   key holds on the commit's day; before any was taken, its newest change is judged. A commit signed by anyone else,
   or by no one, refuses the start, naming the file and the commit; so does a history rewritten under the change taken
   last. Nothing on the machine allows it: a person who may sign it signs the file anew with a commit of their own.
+  Signed, it adds to the project's file as a repository's file does in `default` (see below), image and settings
+  alike, and nothing is asked on the machine. A start settles the settings from the mirror before it fetches; when
+  the fetch brings other ones, it says so, and the next start takes them. In a project written by hand on this
+  machine, a repository's `porelo.yml` gives its image only.
 - **The image sees nothing of the repository:** the `run` lines run in Porelo's own build directory. What a
   repository ships for its tasks is installed at run time, or fetched by a `run` line against a hash written into it.
 - **Read from reviewed work only:** the repository's mirror at its default branch, never a branch a task pushed
