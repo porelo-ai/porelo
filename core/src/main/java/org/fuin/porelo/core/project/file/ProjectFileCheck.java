@@ -88,6 +88,13 @@ public final class ProjectFileCheck {
     /** The instructions {@code run} may hold: what runs in the image, nothing that shapes it. */
     private static final Set<String> RUN_INSTRUCTIONS = Set.of("RUN", "ARG", "ENV");
 
+    /**
+     * The one {@code COPY} {@code run} takes: from an image pinned by its digest, never from the
+     * repository, so what it copies is fixed before the line is written.
+     */
+    private static final Pattern PINNED_FROM =
+            Pattern.compile("--from=[a-z0-9][a-z0-9._/:-]*@sha256:[0-9a-f]{64}");
+
     /** The most of a value a message shows. */
     private static final int SHOWN = 80;
 
@@ -318,7 +325,7 @@ public final class ProjectFileCheck {
     /**
      * Refuses every instruction but {@code RUN}, {@code ARG} and {@code ENV}: a {@code FROM},
      * {@code COPY}, {@code USER} or {@code ENTRYPOINT} would change what the image is rather than
-     * what is in it.
+     * what is in it. The one {@code COPY} taken is from an image pinned by its digest.
      */
     private void instructions(final String run, final String path) {
         final List<String> lines = run.lines().toList();
@@ -338,7 +345,18 @@ public final class ProjectFileCheck {
             }
             if (!continued) {
                 final String instruction = stripped.split("\\s+", 2)[0].toUpperCase(Locale.ROOT);
-                if (!RUN_INSTRUCTIONS.contains(instruction)) {
+                if ("COPY".equals(instruction)) {
+                    if (!pinnedCopy(lines, index)) {
+                        fault(
+                                path,
+                                "'"
+                                        + path
+                                        + "' line "
+                                        + (index + 1)
+                                        + ": COPY is not allowed but as one COPY"
+                                        + " --from=<image>@sha256:<digest>");
+                    }
+                } else if (!RUN_INSTRUCTIONS.contains(instruction)) {
                     fault(
                             path,
                             "'"
@@ -356,6 +374,32 @@ public final class ProjectFileCheck {
             }
             continued = stripped.endsWith("\\");
         }
+    }
+
+    /**
+     * Tells whether the {@code COPY} starting at a line, with the lines it continues on, copies
+     * from one image pinned by its digest and from nothing else.
+     */
+    private static boolean pinnedCopy(final List<String> lines, final int start) {
+        final StringBuilder whole = new StringBuilder();
+        for (int index = start; index < lines.size(); index++) {
+            final String stripped = lines.get(index).strip();
+            if (!stripped.endsWith("\\")) {
+                whole.append(stripped);
+                break;
+            }
+            whole.append(stripped, 0, stripped.length() - 1).append(' ');
+        }
+        final String copy = whole.toString();
+        if (copy.contains("<<")) {
+            // A here-document is text of the line, not of the pinned image.
+            return false;
+        }
+        final List<String> from =
+                List.of(copy.split("\\s+")).stream()
+                        .filter(word -> word.toLowerCase(Locale.ROOT).startsWith("--from"))
+                        .toList();
+        return from.size() == 1 && PINNED_FROM.matcher(from.get(0)).matches();
     }
 
     private void build(final BuildSources build, final String label) {

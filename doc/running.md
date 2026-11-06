@@ -456,7 +456,8 @@ image:
   run_file: "tooling.dockerinclude"
 ```
 
-Use one or the other; Porelo refuses both together. Either holds `RUN`, `ARG` and `ENV` lines only.
+Use one or the other; Porelo refuses both together. Either holds `RUN`, `ARG` and `ENV` lines only, and
+`COPY --from=<image>@sha256:<digest>` from an image pinned by its digest.
 
 - **Your lines run as root**, before the image switches to the `agent` user, because installing packages is
   what they are almost always for.

@@ -6,6 +6,7 @@ import static org.assertj.core.api.Assertions.catchThrowableOfType;
 
 import java.io.StringReader;
 import java.util.List;
+import java.util.Locale;
 import java.util.stream.Stream;
 import org.fuin.porelo.core.project.ProjectException;
 import org.fuin.porelo.core.project.SnippetFiles;
@@ -554,6 +555,71 @@ class ProjectFileFaultsTest {
                                                         + ": "
                                                         + instruction
                                                         + " is not allowed"));
+    }
+
+    private static final String DIGEST = "sha256:" + "0123456789abcdef".repeat(4);
+
+    @Test
+    void runTakesACopyFromAnImagePinnedByItsDigest() {
+
+        // It copies from an image fixed before the line is written, never from the repository.
+        final String yaml =
+                BASE
+                        + "  run: |\n"
+                        + ("COPY --from=ghcr.io/matrix-construct/tuwunel@"
+                                        + DIGEST
+                                        + " /usr/bin/tuwunel /usr/local/bin/tuwunel\n"
+                                        + "copy --chmod=0755 \\\n"
+                                        + "    --from=registry.example:5000/tools/jq:1.7@"
+                                        + DIGEST
+                                        + " \\\n"
+                                        + "    /usr/bin/jq /usr/local/bin/jq\n")
+                                .indent(4);
+
+        assertThat(
+                        ProjectFileReader.read(new StringReader(yaml), "project.yml", null)
+                                .image()
+                                .run())
+                .as("the run lines taken from:\n" + yaml)
+                .contains("COPY --from=ghcr.io/matrix-construct/tuwunel@" + DIGEST)
+                .contains("/usr/bin/jq /usr/local/bin/jq");
+    }
+
+    static Stream<Arguments> copiesRunRefuses() {
+        return Stream.of(
+                Arguments.of("no image", "COPY . /src"),
+                Arguments.of("an image by its tag", "COPY --from=alpine:3.20 /bin/busybox /x"),
+                Arguments.of("a stage", "COPY --from=builder /out /x"),
+                Arguments.of("a short digest", "COPY --from=alpine@sha256:0123abcd /x /x"),
+                Arguments.of(
+                        "a digest in capitals",
+                        "COPY --from=alpine@" + DIGEST.toUpperCase(Locale.ROOT) + " /x /x"),
+                Arguments.of("a variable", "COPY --from=${IMAGE} /x /x"),
+                Arguments.of(
+                        "two images", "COPY --from=alpine@" + DIGEST + " --from=builder /x /x"),
+                Arguments.of(
+                        "a here-document",
+                        "COPY --from=alpine@" + DIGEST + " <<EOF /x\nanything\nEOF"),
+                Arguments.of(
+                        "the image on a line it does not continue to",
+                        "COPY /x /x\nRUN echo --from=alpine@" + DIGEST));
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("copiesRunRefuses")
+    void runRefusesACopyFromAnythingButOnePinnedImage(final String what, final String run) {
+
+        final String yaml = BASE + "  run: |\n" + run.indent(4);
+
+        assertThat(faults(yaml))
+                .as("the faults of " + what + ":\n" + yaml)
+                .anySatisfy(
+                        fault ->
+                                assertThat(fault)
+                                        .startsWith("project.yml:6: ")
+                                        .contains(
+                                                "'image.run' line 1: COPY is not allowed but as"
+                                                        + " one COPY --from=<image>@sha256:<digest>"));
     }
 
     @Test

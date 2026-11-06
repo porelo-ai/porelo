@@ -425,4 +425,25 @@ class ProjectProposalTest {
                 .startsWith("maven: run.java is left out: ")
                 .contains("only RUN, ARG and ENV");
     }
+
+    @Test
+    void aRunLineCopyingFromAPinnedImageIsTaken() {
+        final String copy =
+                "COPY --from=ghcr.io/example/tool@sha256:"
+                        + "0123456789abcdef".repeat(4)
+                        + " /usr/bin/tool /usr/local/bin/tool\n";
+        var proposal = new ProjectProposal("sample", null, null, null);
+        proposal.add(
+                "maven",
+                new Detection(
+                        List.of(
+                                finding(Finding.Part.TOOLS, "run.java", JAVA + copy, 1),
+                                finding(Finding.Part.TOOLS, "run.maven", MAVEN, 2)),
+                        List.of()));
+
+        assertThat(image(proposal.answer().get("draft").toString()).run())
+                .as("the pinned copy kept with the key's other lines")
+                .isEqualTo(JAVA + copy + MAVEN);
+        assertThat(proposal.refusals()).isEmpty();
+    }
 }

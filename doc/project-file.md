@@ -116,8 +116,8 @@ image:
   env:
     JAVA_HOME: /opt/graalvm
 
-  # Optional. Extra Containerfile lines, run as root at build time: RUN, ARG and ENV only. Keep it
-  # small: any change rebuilds the image.
+  # Optional. Extra Containerfile lines, run as root at build time: RUN, ARG and ENV, and COPY only
+  # from an image pinned by its digest. Keep it small: any change rebuilds the image.
   run: |
     RUN apt-get update && apt-get install -y --no-install-recommends jq \
         && rm -rf /var/lib/apt/lists/*
@@ -340,7 +340,10 @@ image:
 - **Only the image.** Egress, limits, `build.package_sources`, the class and every other rule stay the project's: a
   repository that could name them would widen what its own tasks may do. Any other key is refused by its name, at the
   start, before an image is built. `run` takes `RUN`, `ARG` and `ENV` lines only, here and in the project file: a
-  `FROM`, `COPY`, `ADD`, `USER` or `ENTRYPOINT` is refused at its line. A variable Porelo sets in every task (`PATH`
+  `FROM`, `COPY`, `ADD`, `USER` or `ENTRYPOINT` is refused at its line. The one exception is
+  `COPY --from=<image>@sha256:<digest>`, with the digest required: it copies from an image pinned before the line
+  is written, never from the repository. A `COPY` from anything else, an image by its tag or a stage among them, is
+  refused at its line. A variable Porelo sets in every task (`PATH`
   the task account's local `bin` folder, then `/usr/local/bin:/usr/bin:/bin`, `HOME` `/home/agent`, `LANG` `C.UTF-8`, or any `PORELO_*` set
   per task) is refused too, naming the value and that the line must be removed.
 - **The image sees nothing of the repository:** the `run` lines run in Porelo's own build directory. What a

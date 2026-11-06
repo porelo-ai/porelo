@@ -249,7 +249,8 @@ final class ProjectSchema {
                             "image",
                             "run",
                             "Extra Containerfile lines, run as root while the image is built: RUN,"
-                                    + " ARG and ENV only.",
+                                    + " ARG and ENV, and COPY only from an image pinned by"
+                                    + " its digest.",
                             "string",
                             "",
                             false),

@@ -36,8 +36,8 @@ method Detect(directory: string, home: string) -> (findings: []Finding, unplaced
 
 # Looks up, once, what Detect read: called only when a project file is made, never for a start with a file. findings are
 # this adapter's own Detect findings for the directory and home, and no other adapter's. The answer replaces them whole.
-# Two kinds of key are placed by their prefix alone: run.<name>, Containerfile lines for the image, RUN, ARG and ENV only,
-# joined in the order of the names; and env.<NAME>, a variable's value for the image. A name Porelo sets in every task,
+# Two kinds of key are placed by their prefix alone: run.<name>, Containerfile lines for the image, RUN, ARG and ENV only
+# and a COPY from an image pinned by its digest, joined in the order of the names; and env.<NAME>, a variable's value for the image. A name Porelo sets in every task,
 # PATH among them, is refused. This is the one method that may open a connection: the adapter is started for it with
 # HTTP_PROXY, HTTPS_PROXY, NO_PROXY and their lower-case forms where the person has them set, and nothing else. It
 # keeps each request within 5 seconds, and Porelo waits 20 seconds for the whole answer; a value it cannot look up in

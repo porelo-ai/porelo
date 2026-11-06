@@ -114,8 +114,8 @@ for a start with a file, and gives it this adapter's own `Detect` findings for t
 adapter's. It returns `findings`, which replace those whole. Two kinds of key are placed by their prefix alone:
 
 - `run.<name>`: Containerfile lines for the project's `image.run`, joined in the order of the names after the
-  package lines. Only `RUN`, `ARG` and `ENV` are allowed, by the same rule the project file is held to; a key whose
-  lines break it is left out whole, and the question says so.
+  package lines. Only `RUN`, `ARG`, `ENV` and a `COPY` from an image pinned by its digest are allowed, by the same
+  rule the project file is held to; a key whose lines break it is left out whole, and the question says so.
 - `env.<NAME>`: a variable's value for the project's `image.env`. A name Porelo sets in every task is refused,
   `PATH` and `PORELO_*` among them, so a tool's commands are linked into `/usr/local/bin` instead.
 

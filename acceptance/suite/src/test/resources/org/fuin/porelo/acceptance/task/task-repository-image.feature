@@ -46,6 +46,35 @@ Feature: A repository says what its tasks are built in
         And its output contains "from-the-repository"
         And its output contains "env: said by the repository"
 
+    Scenario: a repository's image copies from an image pinned by its digest
+        When a script runs:
+            """
+            set -e
+            podman image exists ubuntu:24.04 || podman pull -q ubuntu:24.04 > /dev/null
+            pinned=$(podman image inspect ubuntu:24.04 --format '{{index .RepoDigests 0}}')
+            case "$pinned" in *@sha256:*) ;; *) echo "no digest for ubuntu:24.04: $pinned"; exit 1 ;; esac
+            source=~/imaged/.git/pinned-source
+            rm -rf "$source" && git init -q -b main "$source"
+            printf '%s\n' 'image:' '  from: "ubuntu:24.04"' '  run: |' \
+                "    COPY --from=$pinned /etc/os-release /etc/porelo-copied-os-release" > "$source/porelo.yml"
+            git -C "$source" -c user.name=T -c user.email=t@example.com add porelo.yml
+            git -C "$source" -c user.name=T -c user.email=t@example.com commit -q -m image
+            printf '%s\n' 'repositories:' '  pinned:' "    upstream: \"file://$source\"" >> ~/imaged/project.yml
+            git -C ~/imaged add project.yml && git -C ~/imaged commit -q -m pinned
+            timeout 600 porelo task start copied --project imaged --repository pinned --agent stub \
+                --attach shell --detach --clearance deny
+            """
+        Then it exits zero
+        And its output has a line matching "image lines +from porelo.yml at refs/heads/main of pinned.*"
+        When a script runs:
+            """
+            podman exec porelo-imaged-copied sh -c 'grep -c "^ID=ubuntu" /etc/porelo-copied-os-release'
+            porelo task remove porelo-imaged-copied --force > /dev/null
+            podman rmi porelo/imaged_pinned > /dev/null 2>&1 || true
+            """
+        Then it exits zero
+        And its output contains "1"
+
     Scenario: a repository's file that names a rule of the project is refused before anything is built
         When a script runs:
             """
