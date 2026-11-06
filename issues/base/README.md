@@ -20,6 +20,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b306"></a>[B306](B306-Porelos-Build-Runs-On-The-Local-Forge.md) | M | - | porelo's workflows run green on the host's Forgejo and the central forge on one commit: the legs only on the central forge for now, no provider named, deploy and uploads switched by variables on both forges |
 | <a id="b469"></a>[B469](B469-A-Second-Start-Asks-Before-Making-Another-Task.md) | S | - | A start with no name in a repository that has a task asks to attach (A) or make a new one (N), instead of making another numbered task each time. |
 | <a id="b468"></a>[B468](B468-An-Adapter-Gets-The-Projects-Settings-Meant-For-It.md) | S | - | An ecosystem adapter receives at `Configure` the block the project keeps for it under `extensions.<adapter>`, unchanged, unread by Porelo and bounded in size; no tool-specific field in the contract. |
 | <a id="b466"></a>[B466](B466-A-Start-With-No-Name-Picks-Names-That-Fit.md) | S | - | A start with no name proposes a project that leaves a task room and cuts the default task name to fit 64 characters; a too-long name is refused with one that fits. |
@@ -63,7 +64,6 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
-| <a id="b306"></a>[B306](B306-Porelos-Build-Runs-On-The-Local-Forge.md) | M | - | porelo's workflows run green on the host's Forgejo and the central forge on one commit: the legs only on the central forge for now, no provider named, deploy and uploads switched by variables on both forges |
 | <a id="b470"></a>[B470](B470-A-Repository-Of-Its-Own-Stays-In-Default-And-Says-What-It-Needs.md) | L | - | A checkout with no project of an organization stays in `default`; its `porelo.yml` says what its task needs, added to the project file's defaults key by key, allowed once on this machine or signed in an organization; detection writes `porelo.yml`, not `project.yml`. |
 | <a id="b459"></a>[B459](B459-Every-Credential-Failure-Says-What-To-Do.md) | L | - | Credential failure inventory, upstream advice, agent readiness and source-aware unlock/storage actions; push/provider paths, frontend agreement, window controls and live remedies still pending. |
 | <a id="b458"></a>[B458](B458-A-Refused-Push-Says-Which-Credential.md) | M | - | Backend built: selected SSH identities, public key inventory, trial and named refusal; focused guards pass, complete unit verification blocked, window remains. |

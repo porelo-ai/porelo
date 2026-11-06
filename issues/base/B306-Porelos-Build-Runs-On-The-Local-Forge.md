@@ -1,6 +1,6 @@
 # B306 — Porelo's Build Runs On The Local Forge
 
-**Status:** Implementing.
+**Status:** Review.
 **Size:** M - the deploy job's condition and profile, its package steps guarded, `settings.xml`'s registry and their
 tests here; what only a forge shows is measured on one. Estimate 150 minutes, the shared registry design given.
 
@@ -59,6 +59,26 @@ where they differ.
 - **Open:** the newest-snapshot rule and the private-coordinate filter in `settings.xml` belong to the shared registry
   design this issue waits for; the manifest proves names arrived (`Leg.java:698-708`), not their content, and is not
   called a provenance proof.
+
+## Built
+
+Built on 2026-11-06 by a Codex task, reviewed line by line:
+
+- **The deploy job** runs after a passed Build alone where `vars.PORELO_PUBLISH == 'false'`, still only for a push to
+  `main` or a version tag and never when cancelled; on the central forge its condition is unchanged.
+- **The package steps** - the signing key, the jars' install, the binaries' download and manifest, the packages' build,
+  check, upload and index check - run only where `PORELO_PUBLISH != 'false'`; the package checker stays strict.
+- ***Deploy the jars*** takes its profile from `PORELO_DEPLOY_PROFILE` through the step's environment, quoted, and
+  refuses an empty one on a forge that publishes no packages before Maven runs; unset on the central forge it stays
+  `central-sonatype-release`. `settings.xml` gives the registry id `porelo-forge`, which porelo-parent's
+  `forge-release` profile deploys with (since v0.2.1), `PORELO_PUBLISHER_TOKEN` from the environment. The dry run keeps
+  Central's profile.
+- **Tests:** `core/.../PublishWorkflowTest.java` evaluates the job's and each step's condition for every combination
+  above, and runs the deploy step's script in bash with a stand-in `mvnw`, an empty and an injected profile among
+  them; 11 of its 22 failed on the workflow before.
+- **Measured only on a forge, still open:** the expressions on Forgejo's runner, the registry's authorization, and
+  both forges green on one commit. The shared registry design (newest snapshot, private-coordinate filter) stays
+  outside, as *Open* says.
 
 ## Plan
 

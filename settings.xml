@@ -18,6 +18,14 @@
             <password>${env.OSS_SONATYPE_TOKEN}</password>
         </server>
 
+        <!-- The forge-release deploy profile in porelo-parent uses this registry id. -->
+
+        <server>
+            <id>porelo-forge</id>
+            <username>porelo-publisher</username>
+            <password>${env.PORELO_PUBLISHER_TOKEN}</password>
+        </server>
+
     </servers>
 
     <profiles>
