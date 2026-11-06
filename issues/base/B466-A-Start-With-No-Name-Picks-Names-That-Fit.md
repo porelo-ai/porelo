@@ -1,6 +1,6 @@
 # B466 — A Start With No Name Picks Names That Fit
 
-**Status:** Analyzed.
+**Status:** Implementing.
 **Size:** S - two naming methods and one refusal in `app-model` and `runtime`, with their unit tests; no contract.
 
 **What must be true.** `porelo task start` with no name never picks a project and task name whose container name is longer
