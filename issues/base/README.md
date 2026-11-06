@@ -47,7 +47,6 @@ from its side, as *blocked by*.
 | <a id="b361"></a>[B361](B361-An-Agent-Starts-Only-The-Subagents-Its-Task-Allows.md) | M | - | Porelo's agent interface carries how many subagents an agent may start in a task, default none, and refuses a value the agent cannot enforce |
 | <a id="b393"></a>[B393](B393-A-Task-Of-The-Default-Project-Never-Joins-A-Room.md) | S | - | A task of the project `default` never joins a room, whatever the machine or host has; a repository name that could write a `mail` section into its file is refused. |
 | <a id="b395"></a>[B395](B395-A-Transport-Borrows-The-Token-Its-Lifecycle-Needs.md) | S | - | A transport says in `describe` which secret of the person's a lifecycle verb needs, and Porelo lends it from the vault for that verb alone. |
-| <a id="b417"></a>[B417](B417-An-Admin-Signs-A-Projects-File-Anew.md) | M | - | For 0.6, a defect: removing, locking or demoting the admin who last signed a project's file stops every new start. `project sign` lets a current admin read and sign it, and the interface offers it |
 | <a id="b220"></a>[B220](B220-Build-Tool-Plugins-Found-At-Run-Time.md) | M | - | Build-tool plugins as native executables of their own over `Ecosystem1` (`detect`, `configure`), found at run time; the contract, discovery and a stub. | 0 |
 | <a id="b221"></a>[B221](B221-A-Project-Proposed-From-A-Checkout.md) | L | `porelo` [B220](README.md#b220) | `porelo project init <checkout>`: the plugins' answers merged into a tools draft and a `project.yml` draft, each value with its source, disagreements named, no credential copied. | 0 |
 | <a id="b214"></a>[B214](B214-A-Vault-Entry-Put-Again-Unchanged.md) | M | - | `vault put` given the value an entry already holds says `unchanged` and exits 0, so a second play reports nothing changed |
@@ -264,6 +263,7 @@ from its side, as *blocked by*.
 
 | # | Title | What was built |
 |---|---|---|
+| <a id="b417"></a>B417 | An Admin Signs A Project's File Anew | `porelo project sign` shows a refused project file to a current admin and, on `--yes` against the revision read, signs it anew by an empty commit whose `Porelo-Signs-Anew` trailer makes it the file's newest change, so the file stays byte for byte |
 | <a id="b421"></a>B421 | A Host's Keys Shown Before They Are Trusted | `credentials trust-host --json` answers a host's keys and records nothing, so a window can ask |
 | <a id="b420"></a>B420 | A Card Proposed From What Is Found | `identity propose` finds login, name, email and key with their sources, so a person only signs |
 | <a id="b419"></a>B419 | A Card Renewed With Its Key | `identity renew` gives the same key a new term, also past the card's end, and `identity show` says how long it has left |
