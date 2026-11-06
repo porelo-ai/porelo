@@ -51,6 +51,9 @@ Feature: Being inside a task, the way a person is
         And I wait for the shell inside the container
         And I run "cd /workspace && echo work > NEW.md && git add -A && git commit -q -m work && git push"
         Then the terminal shows "refs/porelo/incoming"
+        # The gate advertises no incoming ref: a pull takes the branch the task started from.
+        When I run "git pull -q && echo pulled-$((1+1))"
+        Then the terminal shows "pulled-2"
         When I run "exit"
         Then the terminal shows "ready$"
         # Rejected, not left behind: a new task called shell is refused while work of an earlier one waits at the gate.
