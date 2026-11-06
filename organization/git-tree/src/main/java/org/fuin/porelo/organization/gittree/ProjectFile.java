@@ -48,7 +48,6 @@ public final class ProjectFile {
     private static final String ADMIN = "admin";
 
     /** What a signing adds, as only a commit that changes the file is judged. */
-    private static final String MARK = "# signed anew by ";
 
     /**
      * What a read found.
@@ -280,11 +279,17 @@ public final class ProjectFile {
         };
     }
 
+    /**
+     * The newest commit on the first-parent line that changed the file, or signed it anew with no
+     * change: either way its signer is judged.
+     */
     private static Optional<String> newestChange(final TreeRepository clone, final String path) {
         final List<Map.Entry<String, String>> line = clone.line(null);
+        final java.util.Set<String> signedAnew = clone.signingAnew(path);
         for (int each = line.size() - 1; each >= 0; each--) {
             final Map.Entry<String, String> step = line.get(each);
-            if (clone.changed(step.getKey(), step.getValue()).contains(path)) {
+            if (signedAnew.contains(step.getKey())
+                    || clone.changed(step.getKey(), step.getValue()).contains(path)) {
                 return Optional.of(step.getKey());
             }
         }
@@ -368,16 +373,19 @@ public final class ProjectFile {
                 throw new Refused(Refused.MOVED_ON, "the project repository moved on", tip);
             }
             // Reading here says nothing of a machine that accepted a newer one, so it signs too.
-            final String text = signable(clone, tip, project);
+            signable(clone, tip, project);
+            // An empty commit: the file stays byte for byte, and the trailer makes this
+            // signature the one its newest change is judged by.
             final String commit =
                     clone.commit(
                             tip,
-                            Map.of(PATH, signed(text, change.id())),
+                            Map.of(),
                             subject,
                             change.id(),
                             signing,
                             acting,
-                            change.acting().login());
+                            change.acting().login(),
+                            PATH);
             if (!clone.push(address, access)) {
                 throw new GitTreeStore.Unreachable(
                         "the project repository did not take the change");
@@ -419,12 +427,8 @@ public final class ProjectFile {
         }
     }
 
-    private static String signed(final String text, final String id) {
-        return text + (text.endsWith("\n") ? "" : "\n") + MARK + id + "\n";
-    }
-
-    /** The file as it stands, if a signature would make it read. */
-    private static String signable(
+    /** Refuses unless a signature would make the file as it stands read. */
+    private static void signable(
             final TreeRepository clone, final String tip, final String project) {
         final Optional<String> text;
         final @Nullable String named;
@@ -457,24 +461,6 @@ public final class ProjectFile {
                     "the project repository's project.yml names another project",
                     tip);
         }
-        // What is pushed must read: the longest line an id can make has to fit, and to parse.
-        final String longest = signed(text.orElseThrow(), "x".repeat(64));
-        if (longest.getBytes(StandardCharsets.UTF_8).length > TreeRepository.LIMIT) {
-            throw new Refused(
-                    Refused.REFUSED_STATE,
-                    "a signature's line would take the project repository's project.yml over the"
-                            + " limit of what is read",
-                    tip);
-        }
-        try {
-            parsed(longest, inClone(clone, tip));
-        } catch (RuntimeException ex) {
-            throw new Refused(
-                    Refused.REFUSED_STATE,
-                    "the project repository's project.yml would not read with a signature's line",
-                    tip);
-        }
-        return text.orElseThrow();
     }
 
     /**

@@ -1029,7 +1029,9 @@ checkout decides nothing.
 A project's `project.yml` lies in its own repository, beside files developers change on their own. Porelo judges only the
 newest commit on the first-parent line that changed that file: it must be signed by a key with an `admin` row. Another
 file on top changes nothing. An unsigned change reads as refused until an admin signs the file anew, and that admin then
-signs the whole file. So does a file whose signer is no admin now: a removed, locked or demoted admin's signature counts for
+signs the whole file. Signing anew is an empty commit with the trailer `Porelo-Signs-Anew: project.yml`, which counts as the
+file's newest change, so the file stays byte for byte; a trailer anyone can write only says which signature to judge, and one
+whose signer is no admin is refused like that person's change. So does a file whose signer is no admin now: a removed, locked or demoted admin's signature counts for
 nothing from that moment, since the signer writes a commit's date, and every new start of the project stops until another admin runs
 `porelo project sign`, which shows them the file and signs only the revision they name. A machine keeps the date of the newest change it accepted, and refuses an older one, since anyone
 with write access could otherwise bring back an older signed file, with no force push. A machine new to the project has

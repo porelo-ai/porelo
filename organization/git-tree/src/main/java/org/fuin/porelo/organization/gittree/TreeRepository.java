@@ -59,6 +59,12 @@ final class TreeRepository implements AutoCloseable {
 
     private static final String CHANGE_ID = "Porelo-Change-Id";
 
+    /**
+     * The trailer of a commit that changes no file and signs one anew: it counts as that file's
+     * newest change, judged by its signer as any change is.
+     */
+    private static final String SIGNS_ANEW = "Porelo-Signs-Anew";
+
     /** What the command runner writes where it dropped the start of an output. */
     private static final Pattern CUT = Pattern.compile("\\[[0-9]+ bytes cut before this\\]\\n");
 
@@ -449,12 +455,12 @@ final class TreeRepository implements AutoCloseable {
                                 "--first-parent",
                                 "--format=%H %(trailers:key="
                                         + CHANGE_ID
-                                        + ",valueonly,separator=,)",
+                                        + ",valueonly,separator=%x00)",
                                 BRANCH)
                         .lines()
                         .toList()) {
             final String[] fields = row.split(" ", 2);
-            if (fields.length < 2 || !List.of(fields[1].split(",")).contains(id)) {
+            if (fields.length < 2 || !List.of(fields[1].split("\u0000")).contains(id)) {
                 newest = null;
                 continue;
             }
@@ -466,6 +472,36 @@ final class TreeRepository implements AutoCloseable {
             }
         }
         return Optional.empty();
+    }
+
+    /**
+     * Returns the commits on the first-parent line that sign a file anew. A trailer anyone can
+     * write: it only says which signature to judge, never that one is good.
+     *
+     * @param path The file.
+     * @return The commits whose trailer names it.
+     */
+    java.util.Set<String> signingAnew(final String path) {
+        // Each value framed by a NUL, which no trailer holds: a ',' in git's format ends the option
+        // and leaves no separator, so two values ran together and a comma of a value's own split
+        // it.
+        final java.util.Set<String> commits = new java.util.HashSet<>();
+        for (final String row :
+                require(
+                                "log",
+                                "--first-parent",
+                                "--format=%H %(trailers:key="
+                                        + SIGNS_ANEW
+                                        + ",valueonly,separator=%x00)",
+                                BRANCH)
+                        .lines()
+                        .toList()) {
+            final String[] fields = row.split(" ", 2);
+            if (fields.length == 2 && List.of(fields[1].split("\u0000")).contains(path)) {
+                commits.add(fields[0]);
+            }
+        }
+        return commits;
     }
 
     boolean signedBy(final String commit, final String fingerprint) throws IOException {
@@ -498,6 +534,35 @@ final class TreeRepository implements AutoCloseable {
             final CommitSigning signing,
             final String key,
             final String login)
+            throws IOException {
+        return commit(parent, files, subject, id, signing, key, login, null);
+    }
+
+    /**
+     * Makes a signed commit as {@link #commit(String, Map, String, String, CommitSigning, String,
+     * String)} does, and with no file changed, one that signs a file anew.
+     *
+     * @param parent The tip.
+     * @param files What changes; empty to sign anew.
+     * @param subject The commit's subject.
+     * @param id The change's id.
+     * @param signing Whose agent signs.
+     * @param key The key that signs.
+     * @param login Who it is written as.
+     * @param signsAnew The file this commit signs anew, or {@code null}.
+     * @return The commit, which the branch now names.
+     * @throws IOException When a file cannot be handed to git.
+     * @throws CardException When git cannot make it.
+     */
+    String commit(
+            final String parent,
+            final Map<String, @Nullable String> files,
+            final String subject,
+            final String id,
+            final CommitSigning signing,
+            final String key,
+            final String login,
+            final @Nullable String signsAnew)
             throws IOException {
         final Map<String, String> index =
                 Map.of("GIT_INDEX_FILE", scratch.resolve("index").toString());
@@ -542,7 +607,17 @@ final class TreeRepository implements AutoCloseable {
         if (!parent.isEmpty()) {
             arguments.addAll(List.of("-p", parent));
         }
-        arguments.addAll(List.of("-m", subject + "\n\n" + CHANGE_ID + ": " + id + "\n", tree));
+        arguments.addAll(
+                List.of(
+                        "-m",
+                        subject
+                                + "\n\n"
+                                + CHANGE_ID
+                                + ": "
+                                + id
+                                + "\n"
+                                + (signsAnew == null ? "" : SIGNS_ANEW + ": " + signsAnew + "\n"),
+                        tree));
         final CommandResult made = git(identity, arguments.toArray(String[]::new));
         if (!made.successful() && NOT_SIGNED.matcher(made.standardError()).find()) {
             throw new Refused(

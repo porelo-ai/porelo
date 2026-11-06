@@ -23,6 +23,7 @@ import org.fuin.porelo.organization.OrganizationWrites.Change;
 import org.fuin.porelo.organization.OrganizationWrites.Written;
 import org.fuin.porelo.vault.OpenSshPrivateKey;
 import org.fuin.porelo.vault.PersonCard;
+import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -114,6 +115,22 @@ class ProjectFileTest {
                 "a change");
         return git("rev-parse", "HEAD");
     }
+
+    /** A commit that changes no file, signed by this key or, for {@code null}, by none. */
+    private String emptyCommit(final @Nullable String signer, final String message) {
+        final List<String> args = new ArrayList<>();
+        if (signer != null) {
+            args.addAll(List.of("-c", "user.signingkey=" + keyFiles.get(signer)));
+        }
+        args.addAll(List.of("commit", "-q", "--allow-empty", "-m", message));
+        if (signer != null) {
+            args.add("-S");
+        }
+        git(args.toArray(String[]::new));
+        return git("rev-parse", "HEAD");
+    }
+
+    private static final String SIGNS_ANEW = "a change\n\nPorelo-Signs-Anew: project.yml\n";
 
     private String key(final String holder) {
         return PersonCard.keyLine(keys.get(holder));
@@ -429,7 +446,55 @@ class ProjectFileTest {
         assertThat(read.signer()).isEqualTo(key("carol"));
         assertThat(Files.readString(repo.resolve("project.yml")))
                 .as("what the file said stays, every byte")
-                .isEqualTo(TEXT + "# signed anew by again\n");
+                .isEqualTo(TEXT);
+        assertThat(git("diff-tree", "--no-commit-id", "--name-only", "-r", "HEAD~1", "HEAD"))
+                .as("an empty commit")
+                .isEmpty();
+        assertThat(git("log", "-1", "--format=%(trailers:key=Porelo-Signs-Anew,valueonly)"))
+                .isEqualTo("project.yml");
+    }
+
+    @Test
+    void aSigningAnewByOneWhoIsNoAdminIsRefusedLikeTheirChange() throws Exception {
+        emptyCommit("carol", SIGNS_ANEW);
+
+        final ProjectFile.Read read = read();
+
+        assertThat(read.state()).isEqualTo(ProjectFile.REFUSED);
+        assertThat(read.why()).contains(PersonCard.fingerprint(key("carol")));
+    }
+
+    @Test
+    void anUnsignedSigningAnewIsRefused() throws Exception {
+        emptyCommit(null, SIGNS_ANEW);
+
+        assertThat(read().state()).isEqualTo(ProjectFile.REFUSED);
+    }
+
+    @Test
+    void aSigningAnewNamedTwiceIsJudgedAsOnce() throws Exception {
+        emptyCommit(
+                null,
+                "a change\n\nPorelo-Signs-Anew: project.yml\nPorelo-Signs-Anew: project.yml\n");
+
+        assertThat(read().state()).isEqualTo(ProjectFile.REFUSED);
+    }
+
+    @Test
+    void onlyAValueThatIsTheWholePathSignsItAnew() throws Exception {
+        commit("project.yml", TEXT + "# mallory's\n", "mallory");
+        emptyCommit("alice", "a change\n\nPorelo-Signs-Anew: README.md,project.yml\n");
+        emptyCommit("alice", "a change\n\nPorelo-Signs-Anew: project.\nPorelo-Signs-Anew: yml\n");
+
+        assertThat(read().state()).isEqualTo(ProjectFile.REFUSED);
+    }
+
+    @Test
+    void anEmptyCommitThatNamesNoSigningAnewLeavesTheFileRead() throws Exception {
+        emptyCommit("mallory", "a change\n\nPorelo-Signs-Anew: README.md\n");
+        emptyCommit(null, "nothing at all");
+
+        assertThat(read().state()).isEqualTo(ProjectFile.READ);
     }
 
     @Test
@@ -564,23 +629,17 @@ class ProjectFileTest {
     }
 
     @Test
-    void aFileASignatureWouldTakeOverTheLimitIsRefusedAndNothingPushed() throws Exception {
+    void aFileAtTheLimitIsSignedAnewWithNoByteAdded() throws Exception {
         final String padding = "# " + "x".repeat(1024 * 1024 - TEXT.length() - 3) + "\n";
         commit("project.yml", TEXT + padding, "mallory");
         final String tip = git("rev-parse", "HEAD");
         assertThat(Files.size(repo.resolve("project.yml"))).isEqualTo(1024 * 1024);
 
-        assertThat(file().look(repo.toString(), rows(), "demo").blocked()).contains("limit");
-        refusedAs(
-                Refused.REFUSED_STATE,
-                () ->
-                        file().sign(
-                                        changeOn("alice", "again", tip),
-                                        repo.toString(),
-                                        rows(),
-                                        "demo"));
+        assertThat(file().look(repo.toString(), rows(), "demo").blocked()).isNull();
+        file().sign(changeOn("alice", "again", tip), repo.toString(), rows(), "demo");
 
-        assertThat(git("rev-parse", "HEAD")).isEqualTo(tip);
+        assertThat(Files.size(repo.resolve("project.yml"))).isEqualTo(1024 * 1024);
+        assertThat(read().state()).isEqualTo(ProjectFile.READ);
     }
 
     @Test

@@ -42,8 +42,10 @@ them all, and what guards it is that the admin reads the file and why it stood r
    `--yes` it changes nothing and answers `state`, `why`, `revision`, the newest signer and the file's text, which anyone with
    write wrote, so it is shown without control characters. With `--yes`, `--base` is required and refuses a repository that moved
    on (`moved-on`), so what is signed is what was read. A file that reads on this machine is signed too: another may refuse it as older than it accepted, and could not otherwise be got out of it.
-2. **The commit**: the file's bytes kept and one line added, `# signed anew by <id>`, since only a commit that changes the file is
-   judged, as `filedAnew` does for an address. Asked again under the same id it answers that change.
+2. **The commit**, rebuilt by the operator's word of 2026-11-06: an empty signed commit with the trailer
+   `Porelo-Signs-Anew: project.yml`, which counts as the file's newest change, as for the organization, so the file stays byte for
+   byte. A trailer anyone can write only says which signature to judge: a non-admin's is refused like their change, an unsigned one
+   too. Asked again under the same id it answers that change.
 3. **What it still refuses**: an acting key that is no admin's now (`not-allowed`), a file that does not read or names another
    project (`refused-state`): those are mended by hand, as a signature would not make them read.
 4. **The interface offers it**, to an admin while the file stands refused, with the file to read first. To anyone else it says
