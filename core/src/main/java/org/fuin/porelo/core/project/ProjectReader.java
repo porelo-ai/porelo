@@ -158,11 +158,13 @@ public final class ProjectReader {
      * @param project The project a task runs under.
      * @param asked What the added files set otherwise than the project, outside the image.
      * @param sources Each value's path to the file that set it.
+     * @param removed What the files took away, each with the file that did.
      */
     public record WithRepository(
             Project project,
             List<org.fuin.porelo.core.project.file.RepositorySettings.Asked> asked,
-            java.util.Map<String, String> sources) {}
+            java.util.Map<String, String> sources,
+            List<org.fuin.porelo.core.project.file.RepositorySettings.Removal> removed) {}
 
     /**
      * Reads a project file on this machine and adds the files of a repository to it, each as {@link
@@ -187,7 +189,8 @@ public final class ProjectReader {
         return new WithRepository(
                 placement.apply(project(read.file(), snippets, origin)),
                 read.asked(),
-                read.sources());
+                read.sources(),
+                read.removed());
     }
 
     /**

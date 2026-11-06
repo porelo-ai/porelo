@@ -179,12 +179,17 @@ public final class EgressControl {
      */
     public Map<String, String> reachable(
             Path projectFile, @Nullable String repository, @Nullable String agentName) {
-        final Project project = ProjectReader.read(projectFile);
-        // Named only to be found: what a task may reach is the project's, whichever repository.
+        final Project read = ProjectReader.read(projectFile);
+        // What a task may reach is the project's, whichever repository; in 'default' with what the
+        // repository's own files add, each named by the file that gave it.
         final org.fuin.porelo.core.project.Repository chosen =
-                GateSupport.repository(project, repository);
+                GateSupport.repository(read, repository);
+        final RepositoryOwnSettings.Found own = own(projectFile, read, chosen);
+        final Project project = own == null ? read : own.project();
         final Map<String, String> declared =
-                EgressReport.projectEgress(project, context.paths().egress().egressSets());
+                labelled(
+                        EgressReport.projectEgress(project, context.paths().egress().egressSets()),
+                        own);
         try (InstalledAgents agents = context.agents()) {
             final AgentChoice.Choice choice =
                     AgentChoice.decided(context, agents, agentName, chosen);
@@ -213,16 +218,82 @@ public final class EgressControl {
      */
     public Map<String, String> refusals(
             Path projectFile, @Nullable String repository, @Nullable String agentName) {
-        final Project project = ProjectReader.read(projectFile);
+        final Project read = ProjectReader.read(projectFile);
+        final org.fuin.porelo.core.project.Repository chosen =
+                GateSupport.repository(read, repository);
+        final RepositoryOwnSettings.Found own = own(projectFile, read, chosen);
+        final Project project = own == null ? read : own.project();
         try (InstalledAgents agents = context.agents()) {
             return EgressReport.refusals(
-                    AgentChoice.select(
-                            context,
-                            agents,
-                            agentName,
-                            GateSupport.repository(project, repository)),
-                    project);
+                    AgentChoice.select(context, agents, agentName, chosen), project);
         }
+    }
+
+    /**
+     * Returns what a repository's own files in the default project took away from what a task may
+     * reach, each with the file that did.
+     *
+     * @param projectFile The project file.
+     * @param repository Which repository, or {@code null} for the project's own.
+     * @return Each removal under {@code egress} as {@code key} and {@code by}, in order; empty
+     *     outside the default project.
+     */
+    public List<Map<String, Object>> removed(Path projectFile, @Nullable String repository) {
+        final Project read = ProjectReader.read(projectFile);
+        final RepositoryOwnSettings.Found own =
+                own(projectFile, read, GateSupport.repository(read, repository));
+        if (own == null) {
+            return List.of();
+        }
+        return own.removed().stream()
+                .filter(each -> each.key().startsWith("egress."))
+                .<Map<String, Object>>map(each -> Map.of("key", each.key(), "by", each.by()))
+                .toList();
+    }
+
+    /**
+     * What a repository's own files add in the default project, for a view: a file that does not
+     * read shows the project as it is, and the start says why.
+     */
+    private RepositoryOwnSettings.@Nullable Found own(
+            final Path projectFile,
+            final Project project,
+            final org.fuin.porelo.core.project.@Nullable Repository chosen) {
+        if (!DefaultProject.is(project.name()) || chosen == null) {
+            return null;
+        }
+        try {
+            return RepositoryOwnSettings.of(context, projectFile, chosen);
+        } catch (ProjectException ex) {
+            return null;
+        }
+    }
+
+    /** Names a repository's file where it, not the project, gave a host or a set. */
+    private static Map<String, String> labelled(
+            final Map<String, String> origins, final RepositoryOwnSettings.@Nullable Found own) {
+        if (own == null) {
+            return origins;
+        }
+        final String project = org.fuin.porelo.core.project.file.RepositorySettings.PROJECT;
+        final Map<String, String> labelled = new LinkedHashMap<>();
+        origins.forEach(
+                (host, origin) -> {
+                    final boolean named = "project".equals(origin);
+                    final String key =
+                            named
+                                    ? "egress.domains[" + host + "]"
+                                    : origin.startsWith("set ")
+                                            ? "egress.sets[" + origin.substring(4) + "]"
+                                            : "";
+                    final String source = own.sources().getOrDefault(key, project);
+                    labelled.put(
+                            host,
+                            source.equals(project)
+                                    ? origin
+                                    : named ? source : origin + " (" + source + ")");
+                });
+        return labelled;
     }
 
     /**

@@ -45,12 +45,14 @@ public final class RepositoryOwnSettings {
      * @param hash The hash a yes names: of all of {@code asked}, the state allowed, though a person
      *     is shown only what is new, changed or removed since the last yes.
      * @param sources Each value's path to the file that set it.
+     * @param removed What the files took away, each with the file that did.
      */
     public record Found(
             org.fuin.porelo.core.project.Project project,
             List<Asked> asked,
             String hash,
-            Map<String, String> sources) {
+            Map<String, String> sources,
+            List<RepositorySettings.Removal> removed) {
 
         /**
          * Returns what a person is to be shown and allow before a start runs under them.
@@ -126,7 +128,8 @@ public final class RepositoryOwnSettings {
                 read.project(),
                 read.asked(),
                 RepositoryAllowance.hash(read.asked()),
-                read.sources());
+                read.sources(),
+                read.removed());
     }
 
     /**

@@ -50,13 +50,26 @@ public final class RepositorySettings {
     public record Asked(String key, String value, String was, boolean removed) {}
 
     /**
+     * A value an added file took away, and which file did.
+     *
+     * @param key Its dotted path, a list's entry as {@code path[entry]}.
+     * @param by The file that took it away, as its layer's source names it.
+     */
+    public record Removal(String key, String by) {}
+
+    /**
      * What the files make together.
      *
      * @param file The project file they make, judged.
      * @param asked What they set otherwise than the project, in the order written, removals last.
      * @param sources Each value's path to the file that set it.
+     * @param removed What they took away and is not there again, in order.
      */
-    public record Read(ProjectFile file, List<Asked> asked, Map<String, String> sources) {}
+    public record Read(
+            ProjectFile file,
+            List<Asked> asked,
+            Map<String, String> sources,
+            List<Removal> removed) {}
 
     /**
      * Reads a project file and adds the given files to it.
@@ -95,7 +108,13 @@ public final class RepositorySettings {
         ProjectFileReader.refuse(binding);
         ProjectFileCheck.check(file, snippets).forEach(binding::fault);
         ProjectFileReader.refuse(binding);
-        return new Read(file, asked(was, values(merged.root())), merged.sources());
+        return new Read(
+                file,
+                asked(was, values(merged.root())),
+                merged.sources(),
+                merged.removed().stream()
+                        .map(each -> new Removal(each.path(), each.by()))
+                        .toList());
     }
 
     /** A repository adds to a project and never names, lists or becomes one. */

@@ -107,9 +107,10 @@ final class EgressMethods {
                                                     repository.isEmpty() ? null : repository,
                                                     named)
                                             .keySet()));
-                    // What a repository's own file took away, the allowance of a repository's
-                    // settings.
-                    answer.put("removed", List.of());
+                    // What a repository's own files in 'default' took away from it.
+                    answer.put(
+                            "removed",
+                            egress.removed(file, repository.isEmpty() ? null : repository));
                     replies.last(answer);
                 });
 

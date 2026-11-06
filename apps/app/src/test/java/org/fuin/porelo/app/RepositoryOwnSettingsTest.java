@@ -131,6 +131,34 @@ class RepositoryOwnSettingsTest {
                 .isEqualTo(StartCheck.Outcome.READY);
     }
 
+    @Test
+    void theEgressViewNamesTheFileThatGaveOrTookAHost() throws Exception {
+        final PoreloContext context = context();
+        final Path projectFile =
+                shop(
+                        context,
+                        "egress:\n  domains:\n    - \"build.example.org\"\n"
+                                + "    - \"mirror.example.org\"\n");
+        Files.writeString(
+                checkout().resolve(".porelo.yml"),
+                "egress:\n  domains:\n    - \"!mirror.example.org\"\n");
+        final EgressControl egress = new EgressControl(context);
+
+        assertThat(egress.reachable(projectFile, "shop", null))
+                .containsEntry("build.example.org", "porelo.yml of shop")
+                .doesNotContainKey("mirror.example.org");
+        assertThat(egress.removed(projectFile, "shop"))
+                .containsExactly(
+                        Map.of(
+                                "key",
+                                "egress.domains[mirror.example.org]",
+                                "by",
+                                RepositoryOwnSettings.OVERRIDE));
+        assertThat(egress.reachable(projectFile, null, null))
+                .as("asked without a repository, the project's own set")
+                .doesNotContainKey("build.example.org");
+    }
+
     private Path shop(final PoreloContext context, final String porelo) throws Exception {
         Files.createDirectories(checkout());
         Files.writeString(checkout().resolve("porelo.yml"), porelo);

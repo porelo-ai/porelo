@@ -117,8 +117,9 @@ method Egress(
   # Hosts an agent declares it asks for and is deliberately not given. Distinguishable from a
   # host nobody added, which is the distinction the firewall itself cannot make.
   refused: []string,
-  # What the repository's porelo.yml or the local override took away from the project's egress. Empty
-  # until the allowance of a repository's settings.
+  # What the repository's porelo.yml or the person's .porelo.yml beside it took away, in 'default', each
+  # with the file that did: from the project's egress or from what the checked-in file added. Empty
+  # outside 'default' and without a repository.
   removed: []RemovedSetting
 )
 
