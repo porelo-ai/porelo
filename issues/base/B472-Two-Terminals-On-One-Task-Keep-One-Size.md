@@ -1,6 +1,6 @@
 # B472 — Two Terminals On One Task Keep One Size
 
-**Status:** Analyzed.
+**Status:** Implementing.
 **Size:** S - one tmux option in the image's `tmux.conf`, its test, and a check with two clients on the VM. Estimate 45
 minutes.
 

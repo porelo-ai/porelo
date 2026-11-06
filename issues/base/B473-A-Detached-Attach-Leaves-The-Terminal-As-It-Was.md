@@ -1,6 +1,6 @@
 # B473 — A Detached Attach Leaves The Terminal As It Was
 
-**Status:** Analyzed.
+**Status:** Implementing.
 **Size:** S - the CLI saves the terminal's settings before an attach and restores them, with the modes tmux turns on
 reset, however the attach ends; its tests, and a check on the VM. Estimate 60 minutes.
 

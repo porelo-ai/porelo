@@ -65,6 +65,8 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b472"></a>[B472](B472-Two-Terminals-On-One-Task-Keep-One-Size.md) | S | - | `window-size smallest` in the image's `tmux.conf`: two terminals on one task keep one size, the agent is not redrawn on every switch, its history holds no copies | Whether the window follows the smaller size |
+| <a id="b473"></a>[B473](B473-A-Detached-Attach-Leaves-The-Terminal-As-It-Was.md) | S | - | However an attach ends, the CLI restores the terminal's settings and resets the modes tmux turns on: no mouse reports typed at the prompt, typing works | - |
 | <a id="b470"></a>[B470](B470-A-Repository-Of-Its-Own-Stays-In-Default-And-Says-What-It-Needs.md) | L | - | A checkout with no project of an organization stays in `default`; its `porelo.yml` says what its task needs, added to the project file's defaults key by key, allowed once on this machine or signed in an organization; detection writes `porelo.yml`, not `project.yml`. |
 | <a id="b459"></a>[B459](B459-Every-Credential-Failure-Says-What-To-Do.md) | L | - | Credential failure inventory, upstream advice, agent readiness and source-aware unlock/storage actions; push/provider paths, frontend agreement, window controls and live remedies still pending. |
 | <a id="b458"></a>[B458](B458-A-Refused-Push-Says-Which-Credential.md) | M | - | Backend built: selected SSH identities, public key inventory, trial and named refusal; focused guards pass, complete unit verification blocked, window remains. |
@@ -89,8 +91,6 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers | Open questions |
 |---|---|---|---|---|
-| <a id="b472"></a>[B472](B472-Two-Terminals-On-One-Task-Keep-One-Size.md) | S | - | `window-size smallest` in the image's `tmux.conf`: two terminals on one task keep one size, the agent is not redrawn on every switch, its history holds no copies | Whether the window follows the smaller size |
-| <a id="b473"></a>[B473](B473-A-Detached-Attach-Leaves-The-Terminal-As-It-Was.md) | S | - | However an attach ends, the CLI restores the terminal's settings and resets the modes tmux turns on: no mouse reports typed at the prompt, typing works | - |
 | <a id="b308"></a>[B308](B308-A-Guide-For-Adding-A-Provider-Or-An-Agent.md) | L | - | One guide in `doc/` to the checks that prove a new provider or agent safe, with scripts beside the acceptance kit: recording a provider's answers through the broker, the walk script's shared shape; the agents' part kept by their repositories | 0 |
 | <a id="b136"></a>[B136](B136-An-Approve-Bound-To-What-Was-Reviewed.md) | M | - | Capture one reviewed commit for patch/log and every approval path; confirmations and signatures use that key; SARIF never authorizes forwarding. | 0 |
 | <a id="b150"></a>[B150](B150-The-Whole-Diff-In-Review.md) | M | - | Bound serialized review replies with explicit file-boundary cuts; retain complete file inventory or refuse by name; full-diff risk and SARIF completeness stay independent. | 0 |
