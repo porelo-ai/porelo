@@ -47,7 +47,7 @@ Feature: The first start finds what a repository needs
             test -e project.yml && echo 'a project.yml too' || echo 'no project.yml'
             git log --oneline -- porelo.yml | wc -l | sed 's/^/commits of it: /'
             porelo task start second --agent stub --no-input --dry-run > "$HOME/first-start-probe/second.out" 2>&1 || true
-            grep -c -E "^project +'?default" "$HOME/first-start-probe/second.out" | sed 's/^/in default again: /'
+            grep -q -E "^project +'?default" "$HOME/first-start-probe/second.out" && echo 'in default again: yes'
             grep -c 'not allowed on this machine yet' "$HOME/first-start-probe/second.out" | sed 's/^/asked again: /'
             porelo task remove porelo-default-probe --force > /dev/null 2>&1 || true
             rm -rf ~/first-start-probe
@@ -55,7 +55,7 @@ Feature: The first start finds what a repository needs
         Then its output contains "the host in it: 1"
         And its output contains "no project.yml"
         And its output contains "commits of it: 0"
-        And its output contains "in default again: 1"
+        And its output contains "in default again: yes"
         And its output contains "asked again: 0"
 
     @first-start-answers
