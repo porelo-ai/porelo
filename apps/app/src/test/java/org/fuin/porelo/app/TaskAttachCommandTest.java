@@ -11,6 +11,8 @@ import org.fuin.porelo.core.config.XdgPaths;
 import org.fuin.porelo.testing.FakeCommandRunner;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import picocli.CommandLine;
 
 /**
@@ -29,6 +31,13 @@ class TaskAttachCommandTest {
 
     private final StringWriter err = new StringWriter();
 
+    private final StringWriter out = new StringWriter();
+
+    private boolean terminal;
+
+    private int execExit;
+
+    /** Runs attach with a terminal and exit code supplied by the test. */
     private int run(Path dir, String... arguments) {
         final XdgPaths xdg =
                 XdgPaths.of(
@@ -45,12 +54,42 @@ class TaskAttachCommandTest {
                         new PoreloPaths(xdg, dir.resolve("bin")),
                         command -> {
                             attached.addAll(command);
-                            return 0;
+                            return execExit;
                         });
         final CommandLine cmd = PoreloCli.commandLine(context);
-        cmd.setOut(new PrintWriter(new StringWriter()));
+        cmd.setOut(new PrintWriter(out));
         cmd.setErr(new PrintWriter(err));
+        ((TaskAttachCommand)
+                                cmd.getSubcommands()
+                                        .get("task")
+                                        .getSubcommands()
+                                        .get("attach")
+                                        .getCommand())
+                        .terminal =
+                () -> terminal;
         return cmd.execute(arguments);
+    }
+
+    /** The attach command restores the terminal after either podman exit status. */
+    @ParameterizedTest
+    @ValueSource(ints = {0, 125})
+    void returnsTheTerminalAfterAttachingToAnExistingSession(int code, @TempDir Path dir) {
+        runner.answering("ps", "porelo-uc-shell-1\tUp 4 minutes\n");
+        runner.answering("stty -g", "saved-settings\n");
+        terminal = true;
+        execExit = code;
+
+        assertThat(run(dir, "task", "attach", "porelo-uc-shell-1"))
+                .as("attach preserves the session's exit code")
+                .isEqualTo(code);
+
+        assertThat(attached).as("the existing tmux session is attached").contains("tmux");
+        assertThat(runner.only("stty \"$1\"").arguments())
+                .as("the terminal settings saved before attach are restored")
+                .endsWith("saved-settings");
+        assertThat(out.toString())
+                .as("attach resets every terminal mode on its output stream")
+                .isEqualTo(TerminalAttachTest.RESETS);
     }
 
     @Test

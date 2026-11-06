@@ -63,6 +63,9 @@ public class TaskAttachCommand implements Callable<Integer>, PoreloFactory.Conte
 
     @Spec private CommandSpec spec;
 
+    /** Whether a person is at a terminal; a test says so, since it has none. */
+    java.util.function.BooleanSupplier terminal = Offer::atTerminal;
+
     private PoreloContext context = PoreloContext.real();
 
     @Override
@@ -210,7 +213,7 @@ public class TaskAttachCommand implements Callable<Integer>, PoreloFactory.Conte
         // container, and this is the one path where a person's own terminal is on the other end.
         // One handle for both calls - context.podman() builds a new one each time, so asking
         // through two of them would ask the container twice.
-        return goInto(context, container, out);
+        return goInto(context, container, terminal.getAsBoolean(), out, err);
     }
 
     /**
@@ -218,21 +221,34 @@ public class TaskAttachCommand implements Callable<Integer>, PoreloFactory.Conte
      *
      * @param context The machine.
      * @param container The running task.
+     * @param terminal Whether a person is at a terminal.
      * @param out Where to report.
+     * @param err Where a terminal restore failure is reported.
      * @return The session's exit code.
      */
-    static int goInto(final PoreloContext context, final String container, final PrintWriter out) {
+    static int goInto(
+            final PoreloContext context,
+            final String container,
+            final boolean terminal,
+            final PrintWriter out,
+            final PrintWriter err) {
         final org.fuin.porelo.runtime.Podman podman = context.podman();
         // An agent task whose session is gone starts its agent again, continuing where it can;
         // otherwise the session that is there, or a shell.
         final String agent = new TaskSession(context).attachedAgent(container, out);
         if (agent != null) {
-            return context.exec()
-                    .applyAsInt(context.tasks().attachCommand(container, "/bin/bash", agent, null));
+            return TerminalAttach.run(
+                    context,
+                    context.tasks().attachCommand(container, "/bin/bash", agent, null),
+                    terminal,
+                    out,
+                    err);
         }
-        return context.exec()
-                .applyAsInt(
-                        podman.attachArguments(
-                                container, sessionCommand(), podman.terminalFor(container)));
+        return TerminalAttach.run(
+                context,
+                podman.attachArguments(container, sessionCommand(), podman.terminalFor(container)),
+                terminal,
+                out,
+                err);
     }
 }

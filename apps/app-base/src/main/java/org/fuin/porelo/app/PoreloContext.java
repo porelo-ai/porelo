@@ -330,13 +330,36 @@ public record PoreloContext(
      */
     private static int runInTerminal(List<String> arguments) {
         try {
-            return new ProcessBuilder(arguments).inheritIO().start().waitFor();
+            return waitInTerminal(new ProcessBuilder(arguments).inheritIO().start());
         } catch (java.io.IOException ex) {
             throw new org.fuin.porelo.core.process.CommandException(
                     org.fuin.porelo.core.process.Command.of(arguments), ex);
-        } catch (InterruptedException ex) {
-            Thread.currentThread().interrupt();
-            return 130;
+        }
+    }
+
+    /**
+     * Waits until a terminal's child has exited, terminating it on interruption so it cannot keep
+     * reading or writing after its caller restores the terminal.
+     *
+     * @param process The child with inherited terminal I/O.
+     * @return Its exit code, or 130 when interrupted.
+     */
+    static int waitInTerminal(final Process process) {
+        boolean interrupted = false;
+        try {
+            while (true) {
+                try {
+                    final int code = process.waitFor();
+                    return interrupted ? 130 : code;
+                } catch (InterruptedException ex) {
+                    interrupted = true;
+                    process.destroyForcibly();
+                }
+            }
+        } finally {
+            if (interrupted) {
+                Thread.currentThread().interrupt();
+            }
         }
     }
 

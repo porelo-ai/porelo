@@ -13,6 +13,8 @@ import org.fuin.porelo.core.config.XdgPaths;
 import org.fuin.porelo.testing.FakeCommandRunner;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import picocli.CommandLine;
 
 /**
@@ -50,6 +52,7 @@ class TaskRunCommandTest {
     private final FakeCommandRunner runner =
             new StoppingCommandRunner()
                     .answering("{{.State.Status}}", "")
+                    .answering("stty -g", "saved-settings\n")
                     .answering(" create ", "0123456789abcdef");
 
     private final List<List<String>> execCalls = new ArrayList<>();
@@ -1135,6 +1138,7 @@ class TaskRunCommandTest {
         // 'start' wants to work in it, and was sent to a second command instead.
         final PoreloContext context = context(dir, true);
         runner.answering("ps", RUNNING_SHELL);
+        runner.answering("stty -g", "saved-settings\n");
 
         assertThat(startAt(context, true, "-p", projectFile(dir, MINIMAL)))
                 .as("said: %s", err)
@@ -1143,6 +1147,12 @@ class TaskRunCommandTest {
         assertThat(err.toString()).doesNotContain("already running");
         assertThat(execCalls).as("the session it went into").hasSize(1);
         assertThat(String.join(" ", execCalls.get(0))).contains("porelo-uc-shell");
+        assertThat(out.toString())
+                .as("entering an already running task also restores the terminal")
+                .endsWith(TerminalAttachTest.RESETS);
+        assertThat(runner.only("stty \"$1\"").arguments())
+                .as("the shared attach restores the settings it saved")
+                .endsWith("saved-settings");
     }
 
     @Test
@@ -4285,6 +4295,37 @@ class TaskRunCommandTest {
         assertThat(runner.lines())
                 .as("an interrupted run must not be swept up")
                 .noneMatch(line -> line.contains("rm --force"));
+    }
+
+    /** Every way out of a new task's attach resets before the detached-task message. */
+    @ParameterizedTest
+    @ValueSource(strings = {"normal", "nonzero", "exception"})
+    void resetsBeforeSayingThatTheDetachedTaskIsStillRunning(String ending, @TempDir Path dir)
+            throws IOException {
+        final PoreloContext prepared = context(dir, true);
+        runner.failing("test -f", 1, "the session has not ended");
+        runner.answering("stty -g", "saved-settings\n");
+        execExit = "nonzero".equals(ending) ? 125 : 0;
+        execDies = "exception".equals(ending);
+
+        final int code =
+                startAt(prepared, true, "--attach", "shell", "-p", projectFile(dir, MINIMAL));
+
+        assertThat(code)
+                .as("cleanup preserves a returned podman exit status")
+                .isEqualTo(execDies ? 70 : execExit);
+        assertThat(execCalls).as("the new task's session was attached").hasSize(1);
+        assertThat(runner.only("stty \"$1\"").arguments())
+                .as("start restores the saved settings")
+                .endsWith("saved-settings");
+        assertThat(out.toString())
+                .as("terminal cleanup finishes before teardown reports the detached task")
+                .contains(
+                        TerminalAttachTest.RESETS
+                                + System.lineSeparator()
+                                + "detached  "
+                                + containerName()
+                                + " is still running");
     }
 
     @Test

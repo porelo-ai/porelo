@@ -787,19 +787,21 @@ public class TaskRunCommand implements Callable<Integer>, PoreloFactory.ContextA
                 return existing.code();
             }
             // An agent task whose session is gone starts its agent again, continuing where it can.
-            return context.exec()
-                    .applyAsInt(
-                            context.tasks()
-                                    .attachCommand(
-                                            existing.container(),
-                                            shell,
-                                            new TaskSession(context)
-                                                    .attachedAgent(existing.container(), out),
-                                            existing.project()
-                                                    + "/"
-                                                    + org.fuin.porelo.runtime.ContainerName.taskIn(
-                                                            existing.project(),
-                                                            existing.container())));
+            return TerminalAttach.run(
+                    context,
+                    context.tasks()
+                            .attachCommand(
+                                    existing.container(),
+                                    shell,
+                                    new TaskSession(context)
+                                            .attachedAgent(existing.container(), out),
+                                    existing.project()
+                                            + "/"
+                                            + org.fuin.porelo.runtime.ContainerName.taskIn(
+                                                    existing.project(), existing.container())),
+                    terminal.getAsBoolean(),
+                    out,
+                    err);
         }
 
         return retried(
@@ -926,16 +928,19 @@ public class TaskRunCommand implements Callable<Integer>, PoreloFactory.ContextA
                                                                 .applyAsInt(outcome.get()));
                                             })) {
                                 left =
-                                        context.exec()
-                                                .applyAsInt(
-                                                        running.runner()
-                                                                .attachCommand(
-                                                                        running.container(),
-                                                                        shell,
-                                                                        startWith,
-                                                                        running.project().name()
-                                                                                + "/"
-                                                                                + task));
+                                        TerminalAttach.run(
+                                                context,
+                                                running.runner()
+                                                        .attachCommand(
+                                                                running.container(),
+                                                                shell,
+                                                                startWith,
+                                                                running.project().name()
+                                                                        + "/"
+                                                                        + task),
+                                                terminal.getAsBoolean(),
+                                                out,
+                                                err);
                                 // A shell exits with its last command's status, which is not a
                                 // verdict on the task. Reported from a machine where a typo at the
                                 // prompt - 'bash: /exit: No such file or directory' - made leaving
@@ -1358,7 +1363,7 @@ public class TaskRunCommand implements Callable<Integer>, PoreloFactory.ContextA
             err.flush();
             return 64;
         }
-        return TaskAttachCommand.goInto(context, container, out);
+        return TaskAttachCommand.goInto(context, container, terminal.getAsBoolean(), out, err);
     }
 
     /**

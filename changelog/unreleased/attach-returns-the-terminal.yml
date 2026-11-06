@@ -1,0 +1,2 @@
+title: "Leaving a task's session, by detaching, by a session that ends or by one that fails, returns the terminal as it was: its saved settings come back and the modes a session may leave on (mouse reporting, focus events, bracketed paste, extended keys, the other screen, a hidden cursor) are reset; without a terminal nothing is added"
+type: fixed
