@@ -88,7 +88,7 @@ class InstallTest {
     }
 
     @Test
-    void twoTimedOutMirrorsFailAndNameBothSteps() {
+    void threeTimedOutAttemptsFailAndNameEachStep() {
         final var commands = new java.util.ArrayList<List<String>>();
         final var attempts = new java.util.ArrayList<List<String>>();
         final Install install =
@@ -104,9 +104,9 @@ class InstallTest {
                             attempts.add(command);
                             return new Commands.Result(
                                     Commands.TIMED_OUT,
-                                    attempts.size() == 1
-                                            ? "STEP: apt-get update\nAzure stalled\n"
-                                            : "STEP: installing porelo\narchive stalled\n");
+                                    attempts.size() == 2
+                                            ? "STEP: installing porelo\narchive stalled\n"
+                                            : "STEP: apt-get update\nAzure stalled\n");
                         });
 
         install.checkUbuntu("Ubuntu 26.04", VERSION, out.report);
@@ -115,9 +115,12 @@ class InstallTest {
                 .as("both exhausted mirrors retain their own step")
                 .contains("on azure.archive.ubuntu.com during apt-get update")
                 .contains("on archive.ubuntu.com during installing porelo");
-        assertThat(attempts).as("there are exactly two bounded attempts").hasSize(2);
-        assertThat(commands).as("both exhausted containers are removed").hasSize(4);
-        for (final int attempt : List.of(0, 2)) {
+        assertThat(attempts).as("there are exactly three bounded attempts").hasSize(3);
+        assertThat(attempts.get(2).getLast())
+                .as("the third goes back to the first mirror, in a fresh container")
+                .contains("URIs: " + AZURE);
+        assertThat(commands).as("each exhausted container is removed").hasSize(6);
+        for (final int attempt : List.of(0, 2, 4)) {
             final List<String> command = commands.get(attempt);
             assertThat(command).as("each exhausted install has a name").contains("--name");
             assertThat(commands.get(attempt + 1))
@@ -126,6 +129,48 @@ class InstallTest {
                             "podman", "rm", "-f", command.get(command.indexOf("--name") + 1));
         }
         assertThat(out.report.failures()).as("neither mirror completed the install").isPositive();
+    }
+
+    @Test
+    void aThirdAttemptOnTheFirstMirrorRecoversTheInstall() {
+        final var attempts = new java.util.ArrayList<List<String>>();
+        final Install install =
+                new Install(
+                        Path.of("/d/porelo.deb"),
+                        Path.of("/r/porelo.rpm"),
+                        Path.of("/a/stub.deb"),
+                        (command, limit) -> {
+                            if (command.get(1).equals("rm")) {
+                                return new Commands.Result(0, "");
+                            }
+                            attempts.add(command);
+                            return attempts.size() < 3
+                                    ? new Commands.Result(
+                                            Commands.TIMED_OUT,
+                                            "STEP: installing porelo\nslow archive\n")
+                                    : new Commands.Result(0, EVERYTHING);
+                        });
+
+        install.checkUbuntu("Ubuntu 26.04", VERSION, out.report);
+
+        assertThat(out.report.failures()).isZero();
+        assertThat(attempts).hasSize(3);
+        assertThat(out.text())
+                .contains(
+                        "on archive.ubuntu.com during installing porelo; tried again on"
+                                + " azure.archive.ubuntu.com");
+    }
+
+    @Test
+    void aptRetriesAFailedFetchFiveTimes() {
+        final Install install =
+                new Install(
+                        Path.of("/d/porelo.deb"),
+                        Path.of("/r/porelo.rpm"),
+                        Path.of("/a/stub.deb"),
+                        (command, limit) -> new Commands.Result(0, ""));
+
+        assertThat(install.ubuntu(AZURE)).contains("'Acquire::Retries \"5\";'");
     }
 
     @Test
@@ -301,7 +346,7 @@ class InstallTest {
     }
 
     @Test
-    void eachUbuntuMirrorHasThreeMinutesForTheWholeContainer() {
+    void eachUbuntuAttemptHasThreeMinutesForTheWholeContainer() {
         final var limits = new java.util.ArrayList<Duration>();
         final Install install =
                 new Install(
@@ -320,8 +365,9 @@ class InstallTest {
         install.checkUbuntu("Ubuntu 26.04", VERSION, out.report);
 
         assertThat(limits)
-                .as("update and install share a three minute budget per mirror")
-                .containsExactly(Duration.ofMinutes(3), Duration.ofMinutes(3));
+                .as("update and install share a three minute budget per attempt")
+                .containsExactly(
+                        Duration.ofMinutes(3), Duration.ofMinutes(3), Duration.ofMinutes(3));
     }
 
     @ParameterizedTest

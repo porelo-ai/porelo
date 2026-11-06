@@ -127,19 +127,23 @@ record Install(
                         .formatted(mirror));
     }
 
-    /** Checks Ubuntu, retrying only a timed-out mirror in a fresh container. */
+    /**
+     * Checks Ubuntu, retrying only a timed-out attempt, each in a fresh container: the other
+     * mirror, then the first again, since one slow moment of a mirror failed a Build on its own.
+     */
     void checkUbuntu(String label, String version, Report report) {
         report.section("installs on " + label);
-        Commands.Result result = runIn(Main.UBUNTU, ubuntu(AZURE), report);
-        String mirror = AZURE;
-        if (result.exit() == Commands.TIMED_OUT) {
+        final List<String> mirrors = List.of(AZURE, ARCHIVE, AZURE);
+        String mirror = mirrors.getFirst();
+        Commands.Result result = runIn(Main.UBUNTU, ubuntu(mirror), report);
+        for (int next = 1; next < mirrors.size() && result.exit() == Commands.TIMED_OUT; next++) {
             report.info(
-                    atLimit(label, " on " + URI.create(AZURE).getHost(), result)
+                    atLimit(label, " on " + URI.create(mirror).getHost(), result)
                             + "; tried again on "
-                            + URI.create(ARCHIVE).getHost());
+                            + URI.create(mirrors.get(next)).getHost());
             lastOutput(result.output(), report);
-            result = runIn(Main.UBUNTU, ubuntu(ARCHIVE), report);
-            mirror = ARCHIVE;
+            mirror = mirrors.get(next);
+            result = runIn(Main.UBUNTU, ubuntu(mirror), report);
         }
         checked(label, " on " + URI.create(mirror).getHost(), result, version, report);
     }
@@ -166,7 +170,7 @@ record Install(
                 echo "STEP: selecting noninteractive apt"
                 export DEBIAN_FRONTEND=noninteractive
                 echo "STEP: configuring apt timeouts"
-                printf '%s\\n' 'Acquire::http::Timeout "20";' 'Acquire::Retries "2";' \\
+                printf '%s\\n' 'Acquire::http::Timeout "20";' 'Acquire::Retries "5";' \\
                     > /etc/apt/apt.conf.d/99-porelo-timeouts
                 """
                 + sources
