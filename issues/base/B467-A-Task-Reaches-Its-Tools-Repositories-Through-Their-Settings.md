@@ -32,3 +32,6 @@ image itself carries settings, a build in the task asks the tool's default hosts
 - Which URL a declared repository has inside the task: its own, reached through the egress, or one the broker serves
   so that a credential stays on the host.
 - Where in `project.yml` the repositories go, and whether a first start's draft fills them from what detection found.
+- How a repository that wants a username and a password is served: the broker sends one stored value after a prefix,
+  so today such a credential is stored as the Base64 of `username:password` behind `Basic `; whether the broker should
+  compose the two itself.
