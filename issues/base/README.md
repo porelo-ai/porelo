@@ -88,6 +88,8 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers | Open questions |
 |---|---|---|---|---|
+| <a id="b472"></a>[B472](B472-Two-Terminals-On-One-Task-Keep-One-Size.md) | S | - | `window-size smallest` in the image's `tmux.conf`: two terminals on one task keep one size, the agent is not redrawn on every switch, its history holds no copies | Whether the window follows the smaller size |
+| <a id="b473"></a>[B473](B473-A-Detached-Attach-Leaves-The-Terminal-As-It-Was.md) | S | - | However an attach ends, the CLI restores the terminal's settings and resets the modes tmux turns on: no mouse reports typed at the prompt, typing works | - |
 | <a id="b471"></a>[B471](B471-The-Installation-Guide-Leads-To-The-Window.md) | S | - | `README.md` and `doc/getting-started.md` name the window: `porelo-frontend` from the same repositories, and on Windows the ZIP or MSIX in the window's chapter, with Porelo in a WSL distribution of a supported system | - |
 | <a id="b308"></a>[B308](B308-A-Guide-For-Adding-A-Provider-Or-An-Agent.md) | L | - | One guide in `doc/` to the checks that prove a new provider or agent safe, with scripts beside the acceptance kit: recording a provider's answers through the broker, the walk script's shared shape; the agents' part kept by their repositories | 0 |
 | <a id="b136"></a>[B136](B136-An-Approve-Bound-To-What-Was-Reviewed.md) | M | - | Capture one reviewed commit for patch/log and every approval path; confirmations and signatures use that key; SARIF never authorizes forwarding. | 0 |
