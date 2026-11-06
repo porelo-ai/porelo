@@ -91,7 +91,13 @@ class FirstStartTest {
     }
 
     private WorkOrigin.Choice atTerminal(final String answer) {
+        return atTerminal(answer, false);
+    }
+
+    /** As a person at a terminal answers, with {@code --notes} or without. */
+    private WorkOrigin.Choice atTerminal(final String answer, final boolean notes) {
         return new FirstStartAtTerminal(firstStart(), new PrintWriter(said))
+                .withNotes(notes)
                 .choose(
                         checkout,
                         new Offer(
@@ -121,7 +127,7 @@ class FirstStartTest {
                         tool("package.maven", "", "pom.xml"),
                         host("repo.example.org", Finding.Origin.YOURS));
 
-        final WorkOrigin.Choice choice = atTerminal("y");
+        final WorkOrigin.Choice choice = atTerminal("y", true);
 
         assertThat(choice.project()).isEqualTo("shop-project");
         assertThat(choice.repository()).isEqualTo("shop");
@@ -284,7 +290,7 @@ class FirstStartTest {
                                 true,
                                 "set by its parent org.acme:parent:1, not in the local repository"));
 
-        assertThat(atTerminal("y")).isNotNull();
+        assertThat(atTerminal("y", true)).isNotNull();
 
         assertThat(said.toString())
                 .contains("unknown  tool.jdk", "org.acme:parent:1", "without it");
@@ -1248,7 +1254,7 @@ class FirstStartTest {
             answer.discard();
         }
 
-        atTerminal("n");
+        atTerminal("n", true);
 
         assertThat(said.toString())
                 .contains("the extensions here need a build to read")
@@ -1548,8 +1554,42 @@ class FirstStartTest {
 
         assertThat(said.toString())
                 .as("they run as root of the build, so a person reads them before a yes")
+                .contains("  image line  " + FETCHED + "\n")
+                .contains("  image env  JAVA_HOME=/opt/java");
+
+        said.getBuffer().setLength(0);
+        atTerminal("n", true);
+        assertThat(said.toString())
                 .contains("found    image line " + FETCHED + " (pom.xml)")
                 .contains("found    image env JAVA_HOME=/opt/java");
+    }
+
+    @Test
+    void aFirstStartSaysWhatItFoundInOneLineAndEverythingWithNotes() throws Exception {
+        plugin();
+        detector =
+                answering(
+                        tool("package.maven", "", "pom.xml"),
+                        host("repo.example.org", Finding.Origin.YOURS),
+                        host("central.example.org", Finding.Origin.YOURS));
+
+        atTerminal("n");
+
+        final java.util.List<String> lines = said.toString().lines().toList();
+        assertThat(lines.getFirst())
+                .startsWith("porelo: this repository has no project.yml; found ")
+                .contains("package.maven")
+                .contains("opens 2 hosts")
+                .endsWith("porelo task start --notes)")
+                .doesNotContain("pom.xml", "repo.example.org");
+        assertThat(lines).noneMatch(line -> line.contains("takes this repository from"));
+        assertThat(lines).as("one line, then what a no says").hasSize(2);
+
+        said.getBuffer().setLength(0);
+        atTerminal("n", true);
+        assertThat(said.toString())
+                .contains("pom.xml", "repo.example.org", "central.example.org")
+                .contains("takes this repository from " + ORIGIN);
     }
 
     @Test

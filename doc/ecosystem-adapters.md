@@ -61,7 +61,10 @@ says yes at a terminal; the file then goes into the checkout, and this machine's
 same computer.
 
 What an adapter says for a person reaches the question, at a terminal and through `FirstStart`: each `unplaced` thing, with its
-adapter, file and line, among `notes`, as is what it says of a host; a tool's `note` stands beside it. These are not part of what a yes
+adapter, file and line, among `notes`, as is what it says of a host; a tool's `note` stands beside it. A terminal says one
+line, what was found and how many hosts and notes there are, and under it only what bears on trust: each image line and
+each host only the checkout names. `porelo task start --notes` says each finding with its file and note, each host, and
+each note whole. These are not part of what a yes
 names, as they change nothing written. A value from no file, such as a tool's built-in default, is said by its `note` in a draft's
 comment: that is written, so it is part of what a yes names.
 

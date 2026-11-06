@@ -136,6 +136,14 @@ public class TaskRunCommand implements Callable<Integer>, PoreloFactory.ContextA
     private boolean rm;
 
     @Option(
+            names = "--notes",
+            description =
+                    "At a first start, says everything the ecosystem adapters found: each note"
+                            + " whole, with what to add to project.yml, and each finding with its"
+                            + " file. Without it the question comes after one line.")
+    private boolean notes;
+
+    @Option(
             names = "--dry-run",
             description = "Reports what would be done without starting anything.")
     private boolean dryRun;
@@ -546,6 +554,7 @@ public class TaskRunCommand implements Callable<Integer>, PoreloFactory.ContextA
                     // organization's project and a start with nobody to ask go as they always did.
                     final WorkOrigin.Choice first =
                             new FirstStartAtTerminal(new FirstStart(context, detector), err)
+                                    .withNotes(notes)
                                     .choose(
                                             standing,
                                             firstStartOffer(err),
@@ -1258,6 +1267,7 @@ public class TaskRunCommand implements Callable<Integer>, PoreloFactory.ContextA
      */
     private static final java.util.List<String> AT_START_ONLY =
             java.util.List.of(
+                    "--notes",
                     "--agent",
                     "--provider",
                     "--credential",

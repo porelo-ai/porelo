@@ -70,13 +70,14 @@ The remote executable defaults to `porelo`; use `--remote-porelo <path>` for an 
 
 **Start work.** In a checkout, `porelo task start` works in the project that names its repository,
 else in `default`, and names the task after the repository. A first start in a checkout with no project asks
-the installed [adapters](ecosystem-adapters.md) what it needs, shows the packages and tools found and each host it
-would open, and at your yes writes `project.yml` where you stand, for you to commit, and starts from it. In `default` the checkout is the source,
+the installed [adapters](ecosystem-adapters.md) what it needs, says in one line the packages and tools found and how
+many hosts it would open, with each image line and each host only the checkout names under it, and at your yes writes `project.yml` where you stand, for you to commit, and starts from it. In `default` the checkout is the source,
 both ways: its committed history goes into the task, local commits included, and the approved work
 comes back into it; its remote is yours to pull from and push to, and Porelo never reaches it. A project
 that names the repository takes it from its remote and sends approved work there instead. Elsewhere, name both:
 `porelo task start -p PROJECT -r REPOSITORY`. The same verb creates a task, brings back a stopped one
-with its workspace, and refuses a running one. Leaving the session keeps the container; `--rm` does
+with its workspace, and refuses a running one. `--notes` says everything at a first start: each finding with its file,
+each host, and each adapter's note whole, which says what to add to `project.yml`. Leaving the session keeps the container; `--rm` does
 not. A project your organization names needs nothing first: `porelo project list` shows it.
 
 **Find and re-enter a task.** `porelo task list`, `porelo task status TASK`, `porelo task attach TASK`,

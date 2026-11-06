@@ -14,6 +14,11 @@ final class FirstStartAtTerminal {
 
     private final boolean colour;
 
+    private final boolean full;
+
+    private static final String ONLY_HERE =
+            "  <- only this repository names it, and no curated set";
+
     /**
      * Constructor.
      *
@@ -32,9 +37,29 @@ final class FirstStartAtTerminal {
      * @param colour Whether a warning is painted; the words say it either way.
      */
     FirstStartAtTerminal(final FirstStart firstStart, final PrintWriter err, final boolean colour) {
+        this(firstStart, err, colour, false);
+    }
+
+    private FirstStartAtTerminal(
+            final FirstStart firstStart,
+            final PrintWriter err,
+            final boolean colour,
+            final boolean full) {
         this.firstStart = firstStart;
         this.err = err;
         this.colour = colour;
+        this.full = full;
+    }
+
+    /**
+     * Returns this question saying everything: each note of the adapters whole, and each finding
+     * with its file and note. Without it a person reads one line, and what bears on trust.
+     *
+     * @param notes Whether to say everything.
+     * @return The question.
+     */
+    FirstStartAtTerminal withNotes(final boolean notes) {
+        return new FirstStartAtTerminal(firstStart, err, colour, notes);
     }
 
     /**
@@ -73,7 +98,12 @@ final class FirstStartAtTerminal {
             // Outside a checkout the start says so itself.
             return null;
         }
-        answer.notes().forEach(this::say);
+        final boolean asking =
+                answer.outcome() == FirstStart.Outcome.ASK_NEW
+                        || answer.outcome() == FirstStart.Outcome.ASK_UNKNOWN_FILE;
+        if (full || !asking) {
+            answer.notes().forEach(this::say);
+        }
         try {
             return switch (answer.outcome()) {
                 case KNOWN ->
@@ -123,38 +153,10 @@ final class FirstStartAtTerminal {
         if (answer.refusal() != null && answer.found().isEmpty()) {
             throw answer.refusal();
         }
-        say(
-                isNew
-                        ? "this repository has no project.yml. Read from it and this machine:"
-                        : "this machine has not approved "
-                                + org.fuin.porelo.vault.RegistryText.printable(file.toString())
-                                + ", which says:");
-        for (final FirstStart.Found each : answer.found()) {
-            if (each.unknown()) {
-                say(
-                        "  unknown  "
-                                + each.what()
-                                + ": "
-                                + each.value()
-                                + " (set in "
-                                + each.source()
-                                + "). A yes writes the file without it.");
-            } else {
-                say(
-                        "  found    "
-                                + each.what()
-                                + (each.value().isEmpty() ? "" : " " + each.value())
-                                + (each.source().isEmpty() ? "" : " (" + each.source() + ")")
-                                + (each.note().isEmpty() ? "" : ": " + each.note()));
-            }
-        }
-        for (final String host : answer.hosts()) {
-            say(
-                    "  opens    "
-                            + host
-                            + (answer.marked().contains(host)
-                                    ? "  <- only this repository names it, and no curated set"
-                                    : ""));
+        if (!full) {
+            summed(answer, isNew, file);
+        } else {
+            said(answer, isNew, file);
         }
         if (answer.refusal() != null) {
             throw answer.refusal();
@@ -208,6 +210,77 @@ final class FirstStartAtTerminal {
                         + "', from "
                         + org.fuin.porelo.vault.RegistryText.printable(file.toString())
                         + (isNew ? ", which is yours to commit and adapt" : ""));
+    }
+
+    /** Everything, as {@code --notes} asks: each finding with its file and its note. */
+    private void said(final FirstStart.Answer answer, final boolean isNew, final Path file) {
+        say(
+                isNew
+                        ? "this repository has no project.yml. Read from it and this machine:"
+                        : "this machine has not approved "
+                                + org.fuin.porelo.vault.RegistryText.printable(file.toString())
+                                + ", which says:");
+        for (final FirstStart.Found each : answer.found()) {
+            if (each.unknown()) {
+                say(
+                        "  unknown  "
+                                + each.what()
+                                + ": "
+                                + each.value()
+                                + " (set in "
+                                + each.source()
+                                + "). A yes writes the file without it.");
+            } else {
+                say(
+                        "  found    "
+                                + each.what()
+                                + (each.value().isEmpty() ? "" : " " + each.value())
+                                + (each.source().isEmpty() ? "" : " (" + each.source() + ")")
+                                + (each.note().isEmpty() ? "" : ": " + each.note()));
+            }
+        }
+        for (final String host : answer.hosts()) {
+            say("  opens    " + host + (answer.marked().contains(host) ? ONLY_HERE : ""));
+        }
+    }
+
+    /**
+     * One line a person reads at a glance, and under it, whole, only what bears on trust: each
+     * image line, as it runs as root of the build, and each host only this checkout names.
+     */
+    private void summed(final FirstStart.Answer answer, final boolean isNew, final Path file) {
+        final java.util.List<String> items = new java.util.ArrayList<>();
+        final java.util.List<String> whole = new java.util.ArrayList<>();
+        for (final FirstStart.Found each : answer.found()) {
+            if (each.unknown()) {
+                items.add("leaves out " + each.what());
+            } else if (each.what().startsWith("image ")) {
+                whole.add(each.what() + "  " + each.value());
+            } else if ("credential needed".equals(each.what())) {
+                items.add("needs credential " + each.value());
+            } else {
+                items.add(each.what() + (each.value().isEmpty() ? "" : " " + each.value()));
+            }
+        }
+        final int hosts = answer.hosts().size();
+        final int notes = answer.notes().size();
+        say(
+                (isNew
+                                ? "this repository has no project.yml"
+                                : "this machine has not approved "
+                                        + org.fuin.porelo.vault.RegistryText.printable(
+                                                file.toString()))
+                        + (items.isEmpty() ? "" : "; found " + String.join(", ", items))
+                        + "; opens "
+                        + hosts
+                        + (hosts == 1 ? " host" : " hosts")
+                        + " (details"
+                        + (notes == 0 ? "" : " and " + notes + (notes == 1 ? " note" : " notes"))
+                        + ": porelo task start --notes)");
+        whole.forEach(line -> say("  " + line));
+        for (final String host : answer.marked()) {
+            say("  opens    " + host + ONLY_HERE);
+        }
     }
 
     /**
