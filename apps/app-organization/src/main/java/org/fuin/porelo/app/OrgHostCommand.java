@@ -1,6 +1,10 @@
 package org.fuin.porelo.app;
 
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import org.fuin.porelo.core.project.Repository;
 import org.fuin.porelo.organization.Organization;
 import org.fuin.porelo.organization.OrganizationQuestions;
 import org.fuin.porelo.organization.OrganizationQuestions.Refused;
@@ -245,7 +249,7 @@ public class OrgHostCommand {
             name = "carry",
             mixinStandardHelpOptions = true,
             exitCodeOnInvalidInput = 64,
-            description = "Puts a project on a host.")
+            description = "Puts a project on a host, whole or by some of its repositories.")
     public static class Carry extends OrgWriting {
 
         @Parameters(paramLabel = "HOST", description = "The host.")
@@ -254,14 +258,45 @@ public class OrgHostCommand {
         @Parameters(paramLabel = "PROJECT", description = "The project.")
         private String project = "";
 
+        @Option(
+                names = "--repository",
+                paramLabel = "NAME",
+                description =
+                        "A repository of the project to carry, added to those the host carries;"
+                                + " without one, the whole project.")
+        private List<String> repositories = new ArrayList<>();
+
         @Override
         OrganizationWrites.Written write(
                 final PoreloContext machine,
                 final Session opened,
                 final OrganizationWrites.Change change)
                 throws IOException {
-            return opened.writes().addProjectToHost(change, host, project);
+            return opened.writes().addProjectToHost(change, host, project, named(repositories));
         }
+
+        @Override
+        void more(final Map<String, @Nullable Object> answer) {
+            answer.put("project", project);
+            answer.put("repositories", named(repositories));
+        }
+    }
+
+    /** The repositories named, each once and each a name a repository can have. */
+    static List<String> named(final List<String> repositories) {
+        final List<String> named = new ArrayList<>();
+        for (final String each : repositories) {
+            if (!each.matches(Repository.NAME_PATTERN)) {
+                throw new Refused(
+                        Refused.USAGE,
+                        "--repository names something no repository can be called",
+                        null);
+            }
+            if (!named.contains(each)) {
+                named.add(each);
+            }
+        }
+        return List.copyOf(named);
     }
 
     /** Takes a project off a host. */
@@ -269,7 +304,7 @@ public class OrgHostCommand {
             name = "uncarry",
             mixinStandardHelpOptions = true,
             exitCodeOnInvalidInput = 64,
-            description = "Takes a project off a host.")
+            description = "Takes a project off a host, whole or some of its repositories.")
     public static class Uncarry extends OrgWriting {
 
         @Parameters(paramLabel = "HOST", description = "The host.")
@@ -278,13 +313,29 @@ public class OrgHostCommand {
         @Parameters(paramLabel = "PROJECT", description = "The project.")
         private String project = "";
 
+        @Option(
+                names = "--repository",
+                paramLabel = "NAME",
+                description =
+                        "A repository the host carries of the project, to take off; without one,"
+                                + " the whole project.")
+        private List<String> repositories = new ArrayList<>();
+
         @Override
         OrganizationWrites.Written write(
                 final PoreloContext machine,
                 final Session opened,
                 final OrganizationWrites.Change change)
                 throws IOException {
-            return opened.writes().removeProjectFromHost(change, host, project);
+            return opened.writes()
+                    .removeProjectFromHost(change, host, project, named(repositories));
+        }
+
+        @Override
+        void more(final Map<String, @Nullable Object> answer) {
+            // The host deletes the read key it made for each repository taken off.
+            answer.put("project", project);
+            answer.put("repositories", named(repositories));
         }
     }
 }

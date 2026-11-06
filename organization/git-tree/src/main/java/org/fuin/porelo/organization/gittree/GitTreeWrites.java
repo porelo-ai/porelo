@@ -805,7 +805,9 @@ public final class GitTreeWrites implements OrganizationWrites {
                     }
                     final List<TreeFiles.HostAdmin> admins = new ArrayList<>(file.admins());
                     admins.add(new TreeFiles.HostAdmin(login, null));
-                    return hostFile(host, new TreeFiles.HostFile(admins, file.projects()));
+                    return hostFile(
+                            host,
+                            new TreeFiles.HostFile(admins, file.projects(), file.repositories()));
                 });
     }
 
@@ -829,37 +831,84 @@ public final class GitTreeWrites implements OrganizationWrites {
                         throw new Refused(
                                 Refused.LAST_OF_ITS_KIND, "this is the host's only admin", null);
                     }
-                    return hostFile(host, new TreeFiles.HostFile(kept, file.projects()));
+                    return hostFile(
+                            host,
+                            new TreeFiles.HostFile(kept, file.projects(), file.repositories()));
                 });
     }
 
     @Override
-    public Written addProjectToHost(final Change change, final String host, final String project)
+    public Written addProjectToHost(
+            final Change change,
+            final String host,
+            final String project,
+            final List<String> repositories)
             throws IOException {
         return changeOn(
                 change,
-                TreeRepository.asked("Put a project on a host", host, project),
+                repositories.isEmpty()
+                        ? TreeRepository.asked("Put a project on a host", host, project)
+                        : TreeRepository.asked(
+                                "Put repositories of a project on a host",
+                                host,
+                                project,
+                                String.join(" ", repositories)),
                 before -> {
                     final TreeModel model = before.model();
                     final TreeFiles.HostFile file = host(model, host).file();
                     final TreeModel.ProjectState state = project(model, project);
-                    if (file.projects().contains(project)) {
-                        throw new Refused(Refused.EXISTS, "this host carries it", null);
-                    }
-                    if (model.hosts().values().stream()
-                            .anyMatch(each -> each.file().projects().contains(project))) {
-                        throw new Refused(Refused.ON_ANOTHER_HOST, "another host carries it", null);
+                    final List<String> carried = carriedAfter(file, project, repositories);
+                    for (final Map.Entry<String, TreeModel.HostState> other :
+                            model.hosts().entrySet()) {
+                        final TreeFiles.HostFile there = other.getValue().file();
+                        if (other.getKey().equals(host) || !there.projects().contains(project)) {
+                            continue;
+                        }
+                        final List<String> elsewhere = there.carried(project);
+                        if (carried.isEmpty() || elsewhere.isEmpty()) {
+                            throw new Refused(
+                                    Refused.ON_ANOTHER_HOST, other.getKey() + " carries it", null);
+                        }
+                        final List<String> both =
+                                carried.stream().filter(elsewhere::contains).toList();
+                        if (!both.isEmpty()) {
+                            throw new Refused(
+                                    Refused.ON_ANOTHER_HOST,
+                                    other.getKey() + " carries " + String.join(", ", both),
+                                    null);
+                        }
                     }
                     if (state.address() == null) {
                         throw noAddress(before, project);
                     }
-                    final List<String> projects = new ArrayList<>(file.projects());
-                    projects.add(project);
                     return List.of(
                             new Step(
-                                    hostFile(host, new TreeFiles.HostFile(file.admins(), projects)),
+                                    hostFile(host, file.with(project, carried)),
                                     change.acting().key()));
                 });
+    }
+
+    /**
+     * What the host carries of a project once these are added: none for the whole project.
+     *
+     * @throws Refused When it carries all of them already.
+     */
+    private static List<String> carriedAfter(
+            final TreeFiles.HostFile file, final String project, final List<String> repositories) {
+        final boolean on = file.projects().contains(project);
+        final List<String> was = file.carried(project);
+        if (on && was.isEmpty()) {
+            throw new Refused(Refused.EXISTS, "this host carries it", null);
+        }
+        if (repositories.isEmpty()) {
+            return List.of();
+        }
+        final List<String> carried = new ArrayList<>(was);
+        repositories.stream().filter(each -> !carried.contains(each)).forEach(carried::add);
+        if (on && carried.size() == was.size()) {
+            throw new Refused(Refused.EXISTS, "this host carries them", null);
+        }
+        return List.copyOf(carried);
     }
 
     /** Each names the way out open to it: a project never opened cannot have an address changed. */
@@ -887,22 +936,47 @@ public final class GitTreeWrites implements OrganizationWrites {
 
     @Override
     public Written removeProjectFromHost(
-            final Change change, final String host, final String project) throws IOException {
+            final Change change,
+            final String host,
+            final String project,
+            final List<String> repositories)
+            throws IOException {
         return one(
                 change,
-                TreeRepository.asked("Take a project off a host", host, project),
+                repositories.isEmpty()
+                        ? TreeRepository.asked("Take a project off a host", host, project)
+                        : TreeRepository.asked(
+                                "Take repositories of a project off a host",
+                                host,
+                                project,
+                                String.join(" ", repositories)),
                 model -> {
                     final TreeFiles.HostFile file = host(model, host).file();
                     if (!file.projects().contains(project)) {
                         throw new Refused(Refused.NOT_FOUND, "this host does not carry it", null);
                     }
-                    return hostFile(
-                            host,
-                            new TreeFiles.HostFile(
-                                    file.admins(),
-                                    file.projects().stream()
-                                            .filter(each -> !each.equals(project))
-                                            .toList()));
+                    if (repositories.isEmpty()) {
+                        return hostFile(host, file.with(project, null));
+                    }
+                    final List<String> was = file.carried(project);
+                    if (was.isEmpty()) {
+                        throw new Refused(
+                                Refused.REFUSED_STATE,
+                                "this host carries the whole project; take it off whole and put"
+                                        + " back the repositories it keeps",
+                                null);
+                    }
+                    final List<String> absent =
+                            repositories.stream().filter(each -> !was.contains(each)).toList();
+                    if (!absent.isEmpty()) {
+                        throw new Refused(
+                                Refused.NOT_FOUND,
+                                "this host does not carry " + String.join(", ", absent),
+                                null);
+                    }
+                    final List<String> kept =
+                            was.stream().filter(each -> !repositories.contains(each)).toList();
+                    return hostFile(host, file.with(project, kept.isEmpty() ? null : kept));
                 });
     }
 
@@ -1067,7 +1141,8 @@ public final class GitTreeWrites implements OrganizationWrites {
         admins.add(new TreeFiles.HostAdmin(acting.login(), key));
         return Map.of(
                 "hosts/" + host + "/host.yml",
-                TreeFiles.hostFileText(new TreeFiles.HostFile(admins, file.projects())));
+                TreeFiles.hostFileText(
+                        new TreeFiles.HostFile(admins, file.projects(), file.repositories())));
     }
 
     /** Checks that a card is the acting person's own, and returns where it is filed. */

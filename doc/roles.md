@@ -38,7 +38,7 @@ Each path is judged alone. A path not listed here is never read.
 | `projects/<project>/card` | An organization admin | Adds the project with its first admin, names another, or removes the project, which also leaves its host. |
 | `projects/<project>/members.yml` | A project admin for its developers, an organization admin for its admins | The card's admin writes the first one, naming themselves the one unlocked admin. It goes only with its project. |
 | `projects/<project>/repository.yml` | A project admin | The project's address. It goes only with its project. |
-| `hosts/<host>/host.yml` | An organization admin adds it, and changes its admins; a machine admin changes what it carries and their own backup key; either removes it | A new machine holds one admin and nothing else. |
+| `hosts/<host>/host.yml` | An organization admin adds it, and changes its admins; a machine admin changes what it carries and their own backup key; either removes it | A new machine holds one admin and nothing else. An entry of `projects` is a project's name, the whole project, or `{name: P, repositories: [a, b]}`, some of its repositories. |
 | `hosts/<host>/card` | A machine admin | An organization admin may remove it only together with `host.yml`. |
 
 ## A project's own file

@@ -268,13 +268,16 @@ public interface OrganizationQuestions {
      * @param card What its card says, or {@code null} until its admins say.
      * @param admins One row per key, backup keys among them: an admin with no accepted card has
      *     none.
-     * @param projects The projects it carries.
+     * @param projects The projects it carries, wholly or by some of their repositories.
+     * @param repositories For each project it carries by some of its repositories, their names; a
+     *     project not here it carries whole.
      */
     record Host(
             String host,
             Organization.@Nullable Card card,
             List<Organization.Owner> admins,
-            List<String> projects) {}
+            List<String> projects,
+            java.util.Map<String, List<String>> repositories) {}
 
     /**
      * Returns whether a login holds the organization's owner place with a key of its own: a backup
@@ -347,7 +350,8 @@ public interface OrganizationQuestions {
     List<String> hostsFor(String login);
 
     /**
-     * Returns the one host carrying a project.
+     * Returns a host carrying a project, whole or by some of its repositories; with several, one of
+     * them.
      *
      * @param project The project's name.
      * @return The host's name, or empty when none carries it.

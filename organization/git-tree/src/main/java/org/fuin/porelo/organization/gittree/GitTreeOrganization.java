@@ -306,7 +306,8 @@ record GitTreeOrganization(
                                         each.getKey(),
                                         card(each.getValue().card()),
                                         admins(each.getValue()),
-                                        each.getValue().file().projects()))
+                                        each.getValue().file().projects(),
+                                        each.getValue().file().repositories()))
                 .toList();
     }
 

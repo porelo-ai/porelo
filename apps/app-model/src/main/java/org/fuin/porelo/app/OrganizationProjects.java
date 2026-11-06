@@ -76,6 +76,8 @@ public final class OrganizationProjects {
      * @param homeserver The host's homeserver, or {@code null}.
      * @param room The room on it, or {@code null}.
      * @param host The host carrying it, named in a host's file, or {@code null}.
+     * @param repositories The repositories the host carries of it, as its file names them; none for
+     *     the whole project, or where no host says.
      */
     public record Placed(
             String project,
@@ -85,7 +87,32 @@ public final class OrganizationProjects {
             List<Key> keys,
             @Nullable String homeserver,
             @Nullable String room,
-            @Nullable String host) {
+            @Nullable String host,
+            List<String> repositories) {
+
+        /**
+         * A project carried whole, or placed by a start.
+         *
+         * @param project Its name.
+         * @param revision The project repository's revision placed.
+         * @param address The project repository.
+         * @param fetchFrom The host's forge for it, or {@code null}.
+         * @param keys Its members' keys.
+         * @param homeserver The host's homeserver, or {@code null}.
+         * @param room The room on it, or {@code null}.
+         * @param host The host carrying it, or {@code null}.
+         */
+        public Placed(
+                final String project,
+                final String revision,
+                final String address,
+                final @Nullable String fetchFrom,
+                final List<Key> keys,
+                final @Nullable String homeserver,
+                final @Nullable String room,
+                final @Nullable String host) {
+            this(project, revision, address, fetchFrom, keys, homeserver, room, host, List.of());
+        }
 
         /**
          * Returns the keys that hold on a day.
@@ -216,7 +243,8 @@ public final class OrganizationProjects {
                         host.keys(),
                         host.homeserver(),
                         host.room(),
-                        host.host());
+                        host.host(),
+                        host.repositories());
     }
 
     /**
@@ -334,11 +362,32 @@ public final class OrganizationProjects {
                     List.copyOf(keys),
                     optional(document, "homeserver"),
                     optional(document, "room"),
-                    optional(document, "host"));
+                    optional(document, "host"),
+                    repositories(document, file));
         } catch (final DateTimeParseException | IllegalArgumentException ex) {
             // What the parser says quotes the file.
             throw new IOException(file + " does not read", ex);
         }
+    }
+
+    /** What a host's file names it carries of a project; none, as before it could name any. */
+    private static List<String> repositories(final Map<?, ?> document, final Path file)
+            throws IOException {
+        if (document.get("repositories") == null) {
+            return List.of();
+        }
+        if (!(document.get("repositories") instanceof List<?> rows)) {
+            throw new IOException(file + " does not read");
+        }
+        final List<String> names = new ArrayList<>();
+        for (final Object row : rows) {
+            if (!(row instanceof String name)
+                    || !name.matches(org.fuin.porelo.core.project.Repository.NAME_PATTERN)) {
+                throw new IOException(file + " names something no repository can be called");
+            }
+            names.add(name);
+        }
+        return List.copyOf(names);
     }
 
     private static String text(final Map<?, ?> map, final String name, final Path file)

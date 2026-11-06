@@ -1224,6 +1224,110 @@ class GitTreeWritesTest {
         assertThat(read().getRefusals()).isEmpty();
     }
 
+    private void twoHostsAndAnOpenedProject() throws Exception {
+        demo();
+        as("mia").addHost(change("mia", "mia", "build"), "build", "alice");
+        as("mia").addHost(change("mia", "mia", "other"), "other", "alice");
+        as("alice")
+                .changeProjectRepository(
+                        change("alice", "alice", "open"),
+                        "demo",
+                        "ssh://git@forge.example/acme/demo");
+    }
+
+    private Map<String, List<String>> carriedOn(final String host) throws Exception {
+        return read().getHosts().stream()
+                .filter(each -> each.host().equals(host))
+                .findFirst()
+                .orElseThrow()
+                .repositories();
+    }
+
+    @Test
+    void repositoriesCarriedTwiceAddUpAndTakingOffTheLastTakesOffTheProject() throws Exception {
+        twoHostsAndAnOpenedProject();
+
+        as("alice")
+                .addProjectToHost(change("alice", "alice", "a"), "build", "demo", List.of("api"));
+        as("alice")
+                .addProjectToHost(change("alice", "alice", "b"), "build", "demo", List.of("web"));
+        assertThat(carriedOn("build")).isEqualTo(Map.of("demo", List.of("api", "web")));
+        assertThat(Files.readString(repo.resolve("hosts/build/host.yml")))
+                .as("written back in the mapping form")
+                .contains("  - name: demo\n    repositories:\n      - api\n      - web\n");
+
+        as("alice")
+                .removeProjectFromHost(
+                        change("alice", "alice", "c"), "build", "demo", List.of("api"));
+        assertThat(carriedOn("build")).isEqualTo(Map.of("demo", List.of("web")));
+        as("alice")
+                .removeProjectFromHost(
+                        change("alice", "alice", "d"), "build", "demo", List.of("web"));
+
+        assertThat(read().hostOf("demo")).as("the last one took the project off").isEmpty();
+        assertThat(read().getRefusals()).isEmpty();
+    }
+
+    @Test
+    void aRepositoryCarriedElsewhereOrUnderAWholeProjectIsRefused() throws Exception {
+        twoHostsAndAnOpenedProject();
+        as("alice")
+                .addProjectToHost(change("alice", "alice", "a"), "build", "demo", List.of("api"));
+
+        refusedAs(
+                "on-another-host",
+                () ->
+                        as("alice")
+                                .addProjectToHost(
+                                        change("alice", "alice", "b"),
+                                        "other",
+                                        "demo",
+                                        List.of("web", "api")));
+        refusedAs(
+                "on-another-host",
+                () -> as("alice").addProjectToHost(change("alice", "alice", "c"), "other", "demo"));
+        refusedAs(
+                "exists",
+                () ->
+                        as("alice")
+                                .addProjectToHost(
+                                        change("alice", "alice", "d"),
+                                        "build",
+                                        "demo",
+                                        List.of("api")));
+        refusedAs(
+                "not-found",
+                () ->
+                        as("alice")
+                                .removeProjectFromHost(
+                                        change("alice", "alice", "e"),
+                                        "build",
+                                        "demo",
+                                        List.of("web")));
+
+        as("alice")
+                .addProjectToHost(change("alice", "alice", "f"), "other", "demo", List.of("web"));
+        assertThat(carriedOn("other")).isEqualTo(Map.of("demo", List.of("web")));
+        assertThat(read().getRefusals()).isEmpty();
+    }
+
+    @Test
+    void aRepositoryCannotBeTakenOffAProjectCarriedWhole() throws Exception {
+        twoHostsAndAnOpenedProject();
+        as("alice").addProjectToHost(change("alice", "alice", "a"), "build", "demo");
+
+        refusedAs(
+                "refused-state",
+                () ->
+                        as("alice")
+                                .removeProjectFromHost(
+                                        change("alice", "alice", "b"),
+                                        "build",
+                                        "demo",
+                                        List.of("api")));
+        assertThat(read().hostOf("demo")).contains("build");
+    }
+
     @Test
     void aHostIsRemovedByAnOwnerAlone() throws Exception {
         build();

@@ -1,6 +1,7 @@
 package org.fuin.porelo.organization;
 
 import java.io.IOException;
+import java.util.List;
 import java.util.regex.Pattern;
 import org.jspecify.annotations.Nullable;
 
@@ -348,7 +349,25 @@ public interface OrganizationWrites {
      * @throws IOException When something unexpected happened; the change may have been made, so ask
      *     again with the same id.
      */
-    Written addProjectToHost(Change change, String host, String project) throws IOException;
+    default Written addProjectToHost(Change change, String host, String project)
+            throws IOException {
+        return addProjectToHost(change, host, project, List.of());
+    }
+
+    /**
+     * Puts a project on a host, whole or by some of its repositories. Repositories named are added
+     * to those the host carries of it already.
+     *
+     * @param change Who acts, against which state, under which id.
+     * @param host Its name.
+     * @param project The project.
+     * @param repositories The repositories to carry, or none for the whole project.
+     * @return What the change made, or made before under this id.
+     * @throws IOException When something unexpected happened; the change may have been made, so ask
+     *     again with the same id.
+     */
+    Written addProjectToHost(Change change, String host, String project, List<String> repositories)
+            throws IOException;
 
     /**
      * Takes a project off a host.
@@ -360,7 +379,26 @@ public interface OrganizationWrites {
      * @throws IOException When something unexpected happened; the change may have been made, so ask
      *     again with the same id.
      */
-    Written removeProjectFromHost(Change change, String host, String project) throws IOException;
+    default Written removeProjectFromHost(Change change, String host, String project)
+            throws IOException {
+        return removeProjectFromHost(change, host, project, List.of());
+    }
+
+    /**
+     * Takes a project off a host, whole or some of the repositories it carries of it. Taking off
+     * the last of them takes the project off.
+     *
+     * @param change Who acts, against which state, under which id.
+     * @param host Its name.
+     * @param project The project.
+     * @param repositories The repositories to take off, or none for the whole project.
+     * @return What the change made, or made before under this id.
+     * @throws IOException When something unexpected happened; the change may have been made, so ask
+     *     again with the same id.
+     */
+    Written removeProjectFromHost(
+            Change change, String host, String project, List<String> repositories)
+            throws IOException;
 
     /**
      * Files a backup key's public half for the place the acting person holds.

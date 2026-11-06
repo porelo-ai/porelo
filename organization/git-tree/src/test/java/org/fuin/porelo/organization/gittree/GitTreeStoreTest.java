@@ -1829,6 +1829,101 @@ class GitTreeStoreTest {
         assertThat(refusedPaths(answers)).containsExactly("hosts/other/host.yml");
     }
 
+    private void otherHost() throws IOException {
+        write("hosts/other/host.yml", "admins:\n  - login: alice\nprojects: []\n");
+        commit("mia");
+    }
+
+    private static String carrying(final String project, final String... repositories) {
+        return "admins:\n  - login: alice\nprojects:\n  - name: "
+                + project
+                + "\n    repositories: ["
+                + String.join(", ", repositories)
+                + "]\n";
+    }
+
+    @Test
+    void aHostCarriesSingleRepositoriesOfAProjectAndAnotherHostTheOthers() throws Exception {
+        founded();
+        project();
+        host();
+        otherHost();
+        write("hosts/build/host.yml", carrying("demo", "api", "web"));
+        commit("alice");
+        write("hosts/other/host.yml", carrying("demo", "docs"));
+        commit("alice");
+
+        final OrganizationQuestions answers = read();
+
+        assertThat(refusedPaths(answers)).isEmpty();
+        assertThat(answers.getHosts())
+                .extracting(
+                        OrganizationQuestions.Host::host, OrganizationQuestions.Host::repositories)
+                .containsExactlyInAnyOrder(
+                        org.assertj.core.groups.Tuple.tuple(
+                                "build", Map.of("demo", List.of("api", "web"))),
+                        org.assertj.core.groups.Tuple.tuple(
+                                "other", Map.of("demo", List.of("docs"))));
+    }
+
+    @Test
+    void oneRepositoryOnTwoHostsIsRefusedAtTheSecondHostsPath() throws Exception {
+        founded();
+        project();
+        host();
+        otherHost();
+        write("hosts/build/host.yml", carrying("demo", "api"));
+        commit("alice");
+        write("hosts/other/host.yml", carrying("demo", "web", "api"));
+        commit("alice");
+
+        final OrganizationQuestions answers = read();
+
+        assertThat(refusedPaths(answers)).containsExactly("hosts/other/host.yml");
+        assertThat(answers.getHosts())
+                .filteredOn(host -> host.host().equals("other"))
+                .extracting(OrganizationQuestions.Host::projects)
+                .containsExactly(List.of());
+    }
+
+    @Test
+    void aWholeProjectOnOneHostKeepsEachOfItsRepositoriesOffAnother() throws Exception {
+        founded();
+        project();
+        host();
+        carried();
+        otherHost();
+        write("hosts/other/host.yml", carrying("demo", "api"));
+        commit("alice");
+
+        assertThat(refusedPaths(read())).containsExactly("hosts/other/host.yml");
+    }
+
+    @Test
+    void aRepositoryOnOneHostKeepsTheWholeProjectOffAnother() throws Exception {
+        founded();
+        project();
+        host();
+        otherHost();
+        write("hosts/build/host.yml", carrying("demo", "api"));
+        commit("alice");
+        write("hosts/other/host.yml", "admins:\n  - login: alice\nprojects: [demo]\n");
+        commit("alice");
+
+        assertThat(refusedPaths(read())).containsExactly("hosts/other/host.yml");
+    }
+
+    @Test
+    void aProjectsEntryNamingNoRepositoryIsRefused() throws Exception {
+        founded();
+        project();
+        host();
+        write("hosts/build/host.yml", carrying("demo"));
+        commit("alice");
+
+        assertThat(refusedPaths(read())).containsExactly("hosts/build/host.yml");
+    }
+
     @Test
     void aHostCannotCarryAProjectThatDoesNotExist() throws Exception {
         founded();

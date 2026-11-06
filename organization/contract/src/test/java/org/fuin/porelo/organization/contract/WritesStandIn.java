@@ -551,7 +551,15 @@ final class WritesStandIn implements WritesFixture, OrganizationWrites {
     }
 
     @Override
-    public Written addProjectToHost(final Change change, final String host, final String project) {
+    public Written addProjectToHost(
+            final Change change,
+            final String host,
+            final String project,
+            final List<String> repositories) {
+        // The contract holds whole projects; single repositories are the git tree's own tests'.
+        if (!repositories.isEmpty()) {
+            throw new UnsupportedOperationException("single repositories");
+        }
         return change(
                 change,
                 "on host " + host + " " + project,
@@ -643,7 +651,13 @@ final class WritesStandIn implements WritesFixture, OrganizationWrites {
 
     @Override
     public Written removeProjectFromHost(
-            final Change change, final String host, final String project) {
+            final Change change,
+            final String host,
+            final String project,
+            final List<String> repositories) {
+        if (!repositories.isEmpty()) {
+            throw new UnsupportedOperationException("single repositories");
+        }
         return change(
                 change,
                 "off host " + host + " " + project,

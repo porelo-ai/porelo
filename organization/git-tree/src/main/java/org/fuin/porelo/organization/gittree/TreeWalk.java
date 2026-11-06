@@ -1027,12 +1027,7 @@ final class TreeWalk {
                 .replaceAll(
                         (name, host) ->
                                 new TreeModel.HostState(
-                                        new TreeFiles.HostFile(
-                                                host.file().admins(),
-                                                host.file().projects().stream()
-                                                        .filter(each -> !each.equals(project))
-                                                        .toList()),
-                                        host.card()));
+                                        host.file().with(project, null), host.card()));
     }
 
     /**
@@ -1080,10 +1075,7 @@ final class TreeWalk {
         if (own && !above && roles) {
             hostAdminsKept(before, prior.file().admins(), file.admins(), signer);
         }
-        if (above
-                && !own
-                && !new java.util.HashSet<>(prior.file().projects())
-                        .equals(new java.util.HashSet<>(file.projects()))) {
+        if (above && !own && !carries(prior.file()).equals(carries(file))) {
             throw new Refused("what a machine carries is its admin's to change");
         }
         for (final TreeFiles.HostAdmin admin : file.admins()) {
@@ -1095,7 +1087,7 @@ final class TreeWalk {
             }
         }
         for (final String project : file.projects()) {
-            carriable(before, host, prior, project);
+            carriable(before, host, prior, file, project);
         }
         model.hosts().put(host, new TreeModel.HostState(file, prior.card()));
     }
@@ -1124,30 +1116,45 @@ final class TreeWalk {
         return rows;
     }
 
-    /** A project newly on a host must stand, and be on no other host. */
+    /** What a host carries: each project, with the repositories it carries of it or none. */
+    private static Map<String, Set<String>> carries(final TreeFiles.HostFile file) {
+        final Map<String, Set<String>> carried = new java.util.HashMap<>();
+        file.projects().forEach(project -> carried.put(project, Set.copyOf(file.carried(project))));
+        return carried;
+    }
+
+    /**
+     * A project newly on a host, or carried by other repositories than before, must stand, and
+     * nothing it carries of it may be on another host: a whole project excludes each of its
+     * repositories elsewhere, and a repository is on one host at most.
+     */
     private static void carriable(
             final TreeModel before,
             final String host,
             final TreeModel.HostState prior,
+            final TreeFiles.HostFile file,
             final String project)
             throws Refused {
-        if (prior.file().projects().contains(project)) {
+        final List<String> carried = file.carried(project);
+        if (prior.file().projects().contains(project)
+                && Set.copyOf(prior.file().carried(project)).equals(Set.copyOf(carried))) {
             return;
         }
         if (!before.projects().containsKey(project)) {
             throw new Refused("no such project");
         }
-        final boolean elsewhere =
-                before.hosts().entrySet().stream()
-                        .anyMatch(
-                                other ->
-                                        !other.getKey().equals(host)
-                                                && other.getValue()
-                                                        .file()
-                                                        .projects()
-                                                        .contains(project));
-        if (elsewhere) {
-            throw new Refused("the project is on another host");
+        for (final Map.Entry<String, TreeModel.HostState> other : before.hosts().entrySet()) {
+            final TreeFiles.HostFile there = other.getValue().file();
+            if (other.getKey().equals(host) || !there.projects().contains(project)) {
+                continue;
+            }
+            final List<String> elsewhere = there.carried(project);
+            if (carried.isEmpty() || elsewhere.isEmpty()) {
+                throw new Refused("the project is on another host");
+            }
+            if (carried.stream().anyMatch(elsewhere::contains)) {
+                throw new Refused("a repository of the project is on another host");
+            }
         }
     }
 

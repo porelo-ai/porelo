@@ -106,6 +106,7 @@ would change the answer.
 | A past commit is judged by the whole chain of its key, read to the tip | a key handed on keeps its commits on a new machine; a lost key's stay refused, and an owner adds the project's admins again | [entry](#a-past-commit-is-judged-by-the-whole-chain-of-its-key-read-to-the-tip) |
 | **Projects and following** | | |
 | One agent works in one repository | a task holds one repository, so an agent that spans several is one per repository, its commits authored by the name it goes by | [entry](#one-agent-works-in-one-repository) |
+| A host carries a project whole or by some of its repositories | a repository is on one host at most, and a project carried whole keeps its repositories off every other host; each read key is deleted by whoever made it | [entry](#a-host-carries-a-project-whole-or-by-some-of-its-repositories) |
 | A project file describes constraints, not instructions | no prompt or standing instruction belongs in `project.yml` | [entry](#a-project-file-describes-constraints-not-instructions) |
 | A project is named, never pointed at | every command and call takes a project name; no path form exists | [entry](#a-project-is-named-never-pointed-at) |
 | A signature counts when it arrives, never when it says it was made | commits judged at arrival by the gate and the forge's pre-receive hook, messages when the receiver takes them; a date the signer writes decides nothing | [entry](#a-signature-counts-when-it-arrives-never-when-it-says-it-was-made) |
@@ -1533,3 +1534,13 @@ afterwards through `Decide`, from the interface while the task runs. Whoever wan
 A task holds one repository, so an agent whose work spans several becomes one per repository, and reading across them
 is the coordinator's. A task's commits carry the name it goes by as their author, `Agent <nickname>` or `Agent
 <repository>` at `agent@localhost`, not as a trailer, so who wrote a commit is read where git shows it.
+
+## A host carries a project whole or by some of its repositories
+
+*2026-11-06.* An entry of a host's `projects` names a project whole, or names some of its repositories. A repository is
+on one host at most, and a project carried whole keeps each of its repositories off every other host, so the reader
+refuses at its path a host file that would put one repository on two hosts. One project may be spread over several
+hosts by its repositories. Whether a named repository exists is not knowable from the organization's files, since a
+project's repositories are in its own `project.yml`: the host's follow refuses an unknown one. Each read key at the
+central forge is deleted by whoever made it, by the id it kept: the host its per-repository keys, Porelo the
+organization's (`org remove-read-key`).

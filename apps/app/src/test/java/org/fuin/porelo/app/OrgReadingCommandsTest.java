@@ -347,6 +347,9 @@ class OrgReadingCommandsTest {
         final Object build = ((List<?>) answer.get("hosts")).getFirst();
         assertThat(field(field(build, "services"), "forge"))
                 .isEqualTo(Map.of("web_port", 3000.0, "git_port", 2222.0));
+        assertThat(field(build, "repositories"))
+                .as("none for a project carried whole")
+                .isEqualTo(Map.of());
         assertThat(((List<?>) field(build, "admins")))
                 .as("the pin of a first up holds login and key")
                 .singleElement()
@@ -783,6 +786,9 @@ class OrgReadingCommandsTest {
         assertThat(field(rows.getFirst(), "role")).isEqualTo("admin");
         assertThat(field(rows.getFirst(), "locked")).isEqualTo(false);
         assertThat(field(rows.getFirst(), "host")).isEqualTo("build");
+        assertThat(field(rows.getFirst(), "repositories"))
+                .as("a host file naming none carries the whole project")
+                .isEqualTo(List.of());
         assertThat(field(rows.getFirst(), "opened")).isEqualTo(true);
         assertThat(rows).hasSize(2);
     }

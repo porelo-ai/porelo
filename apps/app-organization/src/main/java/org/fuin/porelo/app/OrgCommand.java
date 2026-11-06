@@ -27,6 +27,7 @@ import picocli.CommandLine.Command;
             OrgFetchCommand.class,
             OrgSignersCommand.class,
             OrgAddReadKeyCommand.class,
+            OrgRemoveReadKeyCommand.class,
             OrgCreateCommand.class,
             OrgOwnerCommand.class,
             OrgAdminCommand.class,
@@ -216,6 +217,7 @@ public class OrgCommand extends OrgReading {
                                                 admin.backup()))
                         .toList());
         row.put("projects", host.projects());
+        row.put("repositories", new java.util.TreeMap<>(host.repositories()));
         return row;
     }
 

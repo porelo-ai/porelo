@@ -1,7 +1,6 @@
 # [B479](README.md#b479) — A Host Carries Single Repositories Of A Project
 
-**Status:** Accepted, on the operator's word (2026-11-06). Not started before the operator sets it to Backlog;
-[B470](README.md#b470) and the rehearsal go first.
+**Status:** Review. Accepted and set to Backlog on the operator's word (2026-11-06).
 **Size:** M - a second entry form in a host's `host.yml`, its judging, both verbs and what reads a host's projects;
 their tests. Estimate 150 minutes.
 
@@ -55,3 +54,29 @@ are filed in their repositories.
   repositories stay on one host and only a subset is carried.
 - Whether the gate and a task on a host need the project's other repositories at all (a task names one repository; a
   project-wide task does not exist today).
+
+## Done
+
+- **The entry form** (`TreeFiles.hostFile`, `hostFileText`): an entry of `projects` is a name or
+  `{name: P, repositories: [a, b]}`, each name once, at least one repository. It is written back in the same form,
+  and a host file of names alone reads and writes as before. The trust record keeps a host's repositories, and one
+  from before reads as whole projects.
+- **The reader** (`TreeWalk.carriable`): an entry new or changed must name a project that stands. A project carried
+  whole keeps each of its repositories off every other host, and a repository is on one host at most. What a host
+  carries, its repositories included, stays its admin's to change.
+- **The verbs** (`OrgHostCommand`): `carry HOST PROJECT [--repository NAME]...` adds those repositories to the host's
+  entry, or carries the whole project; `uncarry` takes them off, the last of them with the project. `--json`
+  answers `project` and `repositories`, from which the host deletes its read keys. `uncarry --repository` of a
+  project carried whole is `refused-state`. A name no repository can have is refused as usage before anything is
+  asked.
+- **The read keys:** `porelo org remove-read-key --settings FILE --key FILE`, the token on standard input
+  (`ForgeReadKey.remove`, by the listed id, the comment ignored). Not there is `removed: false`, so a retry is
+  harmless. `add-read-key` and it share their reading of the token and the key (`OrgReadKeyCommand`).
+- **What reads it:** `OrganizationQuestions.Host.repositories`; `OrganizationProjects.Placed.repositories` from a
+  host's file, none for the whole project or a file from before.
+- **Open questions, as assumed:** one project may be spread over several hosts by its repositories. `carry` does not
+  check a repository name against an accepted `project.yml`: the organization's files do not know a project's
+  repositories, and the host's follow refuses an unknown one.
+- **Tests:** in GitTreeStoreTest, GitTreeWritesTest, OrgWritingCommandsTest, OrgRemoveReadKeyCommandTest and
+  OrganizationProjectsHostTest. Each was seen red with its rule broken: the reader's two exclusions (3 fail), the
+  write-back and adding up (2), the name check (2), the key match (3), the host file's repositories (2).

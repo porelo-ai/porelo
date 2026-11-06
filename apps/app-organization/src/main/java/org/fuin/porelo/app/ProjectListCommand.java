@@ -116,6 +116,8 @@ public class ProjectListCommand extends OrgReading {
                         .orElse(null));
         row.put("locked", false);
         row.put("host", hosted.host());
+        // What the host carries of it, as its file names it: none for the whole project.
+        row.put("repositories", hosted.repositories());
         row.put("opened", true);
         return row;
     }

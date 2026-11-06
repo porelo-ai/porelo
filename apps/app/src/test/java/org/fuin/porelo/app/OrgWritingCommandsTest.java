@@ -186,8 +186,15 @@ class OrgWritingCommandsTest {
                 Arguments.of("org host remove build", "removeHost[build]"),
                 Arguments.of("org host admin add build alice", "addHostAdmin[build, alice]"),
                 Arguments.of("org host admin remove build alice", "removeHostAdmin[build, alice]"),
-                Arguments.of("org host carry build demo", "addProjectToHost[build, demo]"),
-                Arguments.of("org host uncarry build demo", "removeProjectFromHost[build, demo]"),
+                Arguments.of("org host carry build demo", "addProjectToHost[build, demo, []]"),
+                Arguments.of(
+                        "org host carry build demo --repository api --repository web --repository api",
+                        "addProjectToHost[build, demo, [api, web]]"),
+                Arguments.of(
+                        "org host uncarry build demo", "removeProjectFromHost[build, demo, []]"),
+                Arguments.of(
+                        "org host uncarry build demo --repository web",
+                        "removeProjectFromHost[build, demo, [web]]"),
                 Arguments.of(
                         "project member add demo alice --role developer",
                         "addProjectMember[demo, alice, developer]"),
@@ -222,6 +229,32 @@ class OrgWritingCommandsTest {
         assertThat(answer().get("of"))
                 .as("whose revision this is, which a project's own commit answers differently")
                 .isEqualTo("organization");
+    }
+
+    @Test
+    void carryAnswersTheRepositoriesItPutOnTheHostAndRefusesANameNoRepositoryHas() {
+        assertThat(
+                        run(
+                                "org",
+                                "host",
+                                "carry",
+                                "build",
+                                "demo",
+                                "--repository",
+                                "api",
+                                "--json",
+                                "--id",
+                                "one",
+                                "--base",
+                                REVISION))
+                .as("what it said: %s", err)
+                .isZero();
+        assertThat(answer().get("project")).isEqualTo("demo");
+        assertThat(answer().get("repositories")).isEqualTo(List.of("api"));
+
+        assertThat(run("org", "host", "carry", "build", "demo", "--repository", "No_Name"))
+                .isEqualTo(64);
+        assertThat(calls).as("nothing asked of the organization").hasSize(1);
     }
 
     static Stream<Arguments> everyReason() {

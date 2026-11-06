@@ -147,6 +147,9 @@ record TreeRecord(@Nullable String commit, TreeModel model, List<Organization.Re
         }
         written.put("admins", admins);
         written.put("projects", host.file().projects());
+        if (!host.file().repositories().isEmpty()) {
+            written.put("repositories", new java.util.TreeMap<>(host.file().repositories()));
+        }
         final HostCard card = host.card();
         written.put("card", card == null ? null : card.body() + card.signature());
         return written;
@@ -326,6 +329,19 @@ record TreeRecord(@Nullable String commit, TreeModel model, List<Organization.Re
         for (final Object each : list(entry.get("projects"), "hosts")) {
             projects.add(string(each, "hosts"));
         }
+        // A record from before a host carried single repositories has none: each project whole.
+        final Map<String, List<String>> repositories = new java.util.LinkedHashMap<>();
+        if (entry.get("repositories") != null) {
+            for (final Map.Entry<?, ?> some : map(entry.get("repositories"), "hosts").entrySet()) {
+                final String project = string(some.getKey(), "hosts");
+                final List<String> carried = new ArrayList<>();
+                for (final Object each : list(some.getValue(), "hosts")) {
+                    carried.add(string(each, "hosts"));
+                }
+                require(projects.contains(project) && !carried.isEmpty(), "hosts");
+                repositories.put(project, List.copyOf(carried));
+            }
+        }
         HostCard card = null;
         if (entry.get("card") != null) {
             try {
@@ -336,7 +352,9 @@ record TreeRecord(@Nullable String commit, TreeModel model, List<Organization.Re
             require(card.host().equals(name), "hosts");
         }
         return new TreeModel.HostState(
-                new TreeFiles.HostFile(List.copyOf(admins), List.copyOf(projects)), card);
+                new TreeFiles.HostFile(
+                        List.copyOf(admins), List.copyOf(projects), Map.copyOf(repositories)),
+                card);
     }
 
     private static String fingerprint(final @Nullable Object value, final String field) {

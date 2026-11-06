@@ -8,6 +8,7 @@ import java.util.Set;
 import java.util.regex.Pattern;
 import org.fuin.porelo.core.project.AddressForm;
 import org.fuin.porelo.core.project.Project;
+import org.fuin.porelo.core.project.Repository;
 import org.fuin.porelo.vault.CardException;
 import org.fuin.porelo.vault.PersonCard;
 import org.jspecify.annotations.Nullable;
@@ -78,9 +79,59 @@ final class TreeFiles {
      * A host's {@code host.yml}.
      *
      * @param admins Its admins.
-     * @param projects The names of the projects it carries.
+     * @param projects The names of the projects it carries, wholly or by some of their
+     *     repositories.
+     * @param repositories For a project it carries by some of its repositories, their names; a
+     *     project not here is carried whole.
      */
-    record HostFile(List<HostAdmin> admins, List<String> projects) {}
+    record HostFile(
+            List<HostAdmin> admins, List<String> projects, Map<String, List<String>> repositories) {
+
+        /**
+         * A host that carries each of its projects whole.
+         *
+         * @param admins Its admins.
+         * @param projects The names of the projects it carries.
+         */
+        HostFile(final List<HostAdmin> admins, final List<String> projects) {
+            this(admins, projects, Map.of());
+        }
+
+        /**
+         * Returns the repositories it carries of a project.
+         *
+         * @param project The project's name.
+         * @return Their names, or an empty list when it carries the project whole.
+         */
+        List<String> carried(final String project) {
+            return repositories.getOrDefault(project, List.of());
+        }
+
+        /**
+         * Returns this file with a project's entry replaced, its admins kept.
+         *
+         * @param project The project.
+         * @param carried {@code null} to take it off, empty to carry it whole, otherwise those of
+         *     its repositories.
+         * @return The file.
+         */
+        HostFile with(final String project, final @Nullable List<String> carried) {
+            final List<String> names = new ArrayList<>(projects);
+            final Map<String, List<String>> some = new java.util.LinkedHashMap<>(repositories);
+            some.remove(project);
+            if (carried == null) {
+                names.remove(project);
+            } else {
+                if (!names.contains(project)) {
+                    names.add(project);
+                }
+                if (!carried.isEmpty()) {
+                    some.put(project, List.copyOf(carried));
+                }
+            }
+            return new HostFile(admins, List.copyOf(names), Map.copyOf(some));
+        }
+    }
 
     /** Whether a name is one a host may carry. */
     static boolean host(final String name) {
@@ -189,14 +240,34 @@ final class TreeFiles {
             throw new CardException("no admin holds the place with a key of their own");
         }
         final List<String> projects = new ArrayList<>();
+        final Map<String, List<String>> repositories = new java.util.LinkedHashMap<>();
         for (final Object each : list(file.get("projects"), "projects")) {
-            final String name = string(each, "a project");
+            final String name;
+            if (each instanceof Map<?, ?>) {
+                // A project carried by some of its repositories: the others are another host's.
+                final Map<?, ?> some = entry(each, Set.of("name", "repositories"));
+                name = string(some.get("name"), "a project");
+                final List<String> carried = new ArrayList<>();
+                for (final Object repository : list(some.get("repositories"), "repositories")) {
+                    final String named = string(repository, "a repository");
+                    if (!named.matches(Repository.NAME_PATTERN) || carried.contains(named)) {
+                        throw new CardException("a repository is no name, or is named twice");
+                    }
+                    carried.add(named);
+                }
+                if (carried.isEmpty()) {
+                    throw new CardException("a project's entry names no repository");
+                }
+                repositories.put(name, List.copyOf(carried));
+            } else {
+                name = string(each, "a project");
+            }
             if (!name.matches(Project.NAME_PATTERN) || projects.contains(name)) {
                 throw new CardException("a project is no name, or is named twice");
             }
             projects.add(name);
         }
-        return new HostFile(List.copyOf(admins), List.copyOf(projects));
+        return new HostFile(List.copyOf(admins), List.copyOf(projects), Map.copyOf(repositories));
     }
 
     /**
@@ -272,7 +343,15 @@ final class TreeFiles {
             }
         }
         text.append(file.projects().isEmpty() ? "projects: []\n" : "projects:\n");
-        file.projects().forEach(each -> text.append("  - ").append(each).append('\n'));
+        for (final String project : file.projects()) {
+            final List<String> carried = file.carried(project);
+            if (carried.isEmpty()) {
+                text.append("  - ").append(project).append('\n');
+            } else {
+                text.append("  - name: ").append(project).append("\n    repositories:\n");
+                carried.forEach(each -> text.append("      - ").append(each).append('\n'));
+            }
+        }
         return text.toString();
     }
 

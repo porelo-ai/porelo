@@ -3,6 +3,7 @@ package org.fuin.porelo.organization.gittree;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.UncheckedIOException;
+import java.math.BigDecimal;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -23,8 +24,8 @@ import org.fuin.porelo.wire.Json;
 import org.jspecify.annotations.Nullable;
 
 /**
- * Adds a host's read-only deploy key to the organization's repository on its forge, with the token
- * of the person setting the host up. GitHub and Forgejo answer these paths alike.
+ * Adds or removes a host's read-only deploy key on the organization's repository, with the person's
+ * forge token. GitHub and Forgejo answer these paths alike.
  */
 public final class ForgeReadKey {
 
@@ -145,6 +146,60 @@ public final class ForgeReadKey {
     }
 
     /**
+     * Removes the key by the id the repository lists, ignoring its comment.
+     *
+     * @param key The public key, its type and base64.
+     * @return Whether it was removed: {@code false} when it was not there.
+     * @throws Refused {@code not-allowed} when the forge refuses the token; {@code cannot-say} when
+     *     it cannot be reached or does not say.
+     */
+    public boolean remove(final String key) {
+        for (int page = 1; page <= LAST_PAGE; page++) {
+            final List<?> rows = keys(page);
+            for (final Object row : rows) {
+                if (!(row instanceof Map<?, ?> held) || !(held.get("key") instanceof String text)) {
+                    throw new Refused(
+                            Refused.CANNOT_SAY, "the forge did not name a listed key", null);
+                }
+                if (same(text, key)) {
+                    final long id = keyId(held);
+                    final Answer answer =
+                            ask(
+                                    HttpRequest.newBuilder(URI.create(repository + "/keys/" + id))
+                                            .DELETE());
+                    if (answer.status() == 204) {
+                        return true;
+                    }
+                    refusedToken(answer.status());
+                    // A forge's refusal could quote the token: only our words and its status leave.
+                    throw new Refused(
+                            Refused.CANNOT_SAY,
+                            "the forge did not remove the key, answering " + answer.status(),
+                            null);
+                }
+            }
+            if (rows.isEmpty()) {
+                return false;
+            }
+        }
+        throw new Refused(Refused.CANNOT_SAY, "the forge lists more keys than are read", null);
+    }
+
+    private static long keyId(final Map<?, ?> held) {
+        if (held.get("id") instanceof BigDecimal number) {
+            try {
+                final long id = number.longValueExact();
+                if (id > 0) {
+                    return id;
+                }
+            } catch (ArithmeticException ex) {
+                // An inexact id could delete a different key.
+            }
+        }
+        throw new Refused(Refused.CANNOT_SAY, "the forge did not name the key's id", null);
+    }
+
+    /**
      * Returns the repository's latest commit as the forge names it: a word for the person, no
      * state.
      *
@@ -167,7 +222,7 @@ public final class ForgeReadKey {
             }
             return null;
         } catch (RuntimeException ex) {
-            // The key stands by now: a commit the forge will not name is no failure of adding it.
+            // A commit the forge will not name is no failure of changing its read key.
             return null;
         }
     }
@@ -188,14 +243,17 @@ public final class ForgeReadKey {
         refusedToken(answer.status());
         if (answer.status() == 200) {
             try {
-                if (Json.parse(answer.body()) instanceof List<?> rows) {
+                if (Json.parseDecimals(answer.body()) instanceof List<?> rows) {
                     return rows;
                 }
             } catch (RuntimeException ex) {
                 // Falls through: what it answered says nothing.
             }
         }
-        throw new Refused(Refused.CANNOT_SAY, "the forge did not list the keys", null);
+        throw new Refused(
+                Refused.CANNOT_SAY,
+                "the forge did not list the keys, answering " + answer.status(),
+                null);
     }
 
     /** A forge answers 404 for a repository a token may not see: both are this token's refusal. */
