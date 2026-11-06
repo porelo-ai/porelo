@@ -803,6 +803,15 @@ class TaskRunCommandTest {
                                                 org.fuin.porelo.ecosystem.api.Finding.Origin
                                                         .CHECKOUT,
                                                 false,
+                                                ""),
+                                        new org.fuin.porelo.ecosystem.api.Finding(
+                                                org.fuin.porelo.ecosystem.api.Finding.Part.RULES,
+                                                "host.repo.example.org",
+                                                "yes",
+                                                "pom.xml",
+                                                1,
+                                                org.fuin.porelo.ecosystem.api.Finding.Origin.YOURS,
+                                                false,
                                                 "")));
                     }
                 };
@@ -818,10 +827,16 @@ class TaskRunCommandTest {
         firstStartAt(context(dir, true), checkout, true, "y", "--attach", "shell", "--detach");
 
         assertThat(firstStartAsked).hasSize(1);
-        assertThat(checkout.resolve("project.yml")).exists();
-        assertThat(out.toString()).contains("project        'shop-project'");
+        assertThat(checkout.resolve("porelo.yml")).exists();
+        assertThat(checkout.resolve("project.yml")).doesNotExist();
+        assertThat(Files.readString(checkout.resolve("porelo.yml"))).contains("repo.example.org");
+        assertThat(err.toString()).doesNotContain("has not allowed", "Allow it for");
+        assertThat(out.toString())
+                .as("the launch passed the settings check without another question")
+                .contains("base image", "egress.domains[repo.example.org]");
+        assertThat(out.toString()).contains("project        'default'");
         assertThat(out.toString()).contains("task           shop");
-        assertThat(String.join("\n", runner.lines())).contains("porelo-shop-project-shop");
+        assertThat(String.join("\n", runner.lines())).contains("porelo-default-shop");
     }
 
     @Test
@@ -889,12 +904,19 @@ class TaskRunCommandTest {
 
         // A start that asked nothing put the checkout in 'default'; the later approved file made
         // the task, and each start after it saw only 'default' and made another.
-        firstStartOrigin = null;
+        // The approved file names its repository by this upstream, as a checkout cloned from it.
+        firstStartOrigin = "https://forge.example/acme/shop.git";
         final Path checkout = Files.createDirectories(dir.resolve("shop")).toRealPath();
         firstStartAt(context(dir, true), checkout, false, "y", "--attach", "shell", "--detach");
+        Files.writeString(
+                checkout.resolve("project.yml"), APPROVED.replace("strangers", "shop-project"));
         firstStartAt(context(dir, true), checkout, true, "y", "--attach", "shell", "--detach");
         out.getBuffer().setLength(0);
-        runner.answering("ps", SHOP_TASK);
+        runner.answering(
+                "ps",
+                SHOP_TASK
+                        .replace("porelo-default-shop", "porelo-shop-project-shop")
+                        .replace("\tdefault\t", "\tshop-project\t"));
 
         firstStartAt(context(dir, true), checkout, false, "y", "--attach", "shell", "--detach");
 
@@ -904,10 +926,17 @@ class TaskRunCommandTest {
     @Test
     void aCheckoutsFileGivesOnlyTheNameAndTheApprovedCopyTheRest(@TempDir Path dir)
             throws IOException {
-        firstStartOrigin = null;
+        // The approved file names its repository by this upstream, as a checkout cloned from it.
+        firstStartOrigin = "https://forge.example/acme/shop.git";
         final Path checkout = Files.createDirectories(dir.resolve("shop")).toRealPath();
+        Files.writeString(
+                checkout.resolve("project.yml"), APPROVED.replace("strangers", "shop-project"));
         firstStartAt(context(dir, true), checkout, true, "y", "--attach", "shell", "--detach");
-        runner.answering("ps", SHOP_TASK);
+        runner.answering(
+                "ps",
+                SHOP_TASK
+                        .replace("porelo-default-shop", "porelo-shop-project-shop")
+                        .replace("\tdefault\t", "\tshop-project\t"));
         final Path file = checkout.resolve("project.yml");
         final String text = Files.readString(file);
         assertThat(text).contains("\n  shop:\n");
@@ -924,8 +953,14 @@ class TaskRunCommandTest {
     void aLinkInPlaceOfTheCheckoutsFileNamesNoProject(@TempDir Path dir) throws IOException {
         firstStartOrigin = null;
         final Path checkout = Files.createDirectories(dir.resolve("shop")).toRealPath();
+        Files.writeString(
+                checkout.resolve("project.yml"), APPROVED.replace("strangers", "shop-project"));
         firstStartAt(context(dir, true), checkout, true, "y", "--attach", "shell", "--detach");
-        runner.answering("ps", SHOP_TASK);
+        runner.answering(
+                "ps",
+                SHOP_TASK
+                        .replace("porelo-default-shop", "porelo-shop-project-shop")
+                        .replace("\tdefault\t", "\tshop-project\t"));
         final Path file = checkout.resolve("project.yml");
         final Path elsewhere =
                 Files.writeString(
@@ -946,9 +981,7 @@ class TaskRunCommandTest {
         firstStartAt(context(dir, true), checkout, true, "y", "--attach", "shell", "--detach");
         runner.answering(
                 "ps",
-                SHOP_TASK
-                        + SHOP_TASK.replace(
-                                "porelo-shop-project-shop\t", "porelo-shop-project-shop-2\t"));
+                SHOP_TASK + SHOP_TASK.replace("porelo-default-shop\t", "porelo-default-shop-2\t"));
         out.getBuffer().setLength(0);
 
         taskAnswer = "a";
@@ -965,9 +998,9 @@ class TaskRunCommandTest {
 
         assertThat(taskAsked).as("--no-input asks nothing, even at a terminal").isEmpty();
         assertThat(refused).isNotZero();
-        assertThat(err.toString()).contains("porelo-shop-project-shop-2", "name one");
+        assertThat(err.toString()).contains("porelo-default-shop-2", "name one");
 
-        taskAnswer = "porelo-shop-project-shop-2";
+        taskAnswer = "porelo-default-shop-2";
         firstStartAt(context(dir, true), checkout, true, "y", "--attach", "shell", "--detach");
 
         assertThat(taskAsked).as("asked, at a terminal, which of them").isNotEmpty();
@@ -976,7 +1009,7 @@ class TaskRunCommandTest {
 
     /** The task a first start in 'shop' made, as podman lists it. */
     private static final String SHOP_TASK =
-            "porelo-shop-project-shop\tExited (0)\t1700000000\t1700000100\tshop-project\tguarded"
+            "porelo-default-shop\tExited (0)\t1700000000\t1700000100\tdefault\tguarded"
                     + "\tshop\t\n";
 
     @Test
@@ -987,6 +1020,7 @@ class TaskRunCommandTest {
 
         assertThat(firstStartAsked).hasSize(1);
         assertThat(checkout.resolve("project.yml")).doesNotExist();
+        assertThat(checkout.resolve("porelo.yml")).doesNotExist();
         assertThat(out.toString()).contains("'default'");
     }
 
@@ -999,6 +1033,7 @@ class TaskRunCommandTest {
 
         assertThat(firstStartAsked).isEmpty();
         assertThat(checkout.resolve("project.yml")).doesNotExist();
+        assertThat(checkout.resolve("porelo.yml")).doesNotExist();
         assertThat(err.toString()).contains("package.maven", "nothing written", "without --yes");
         assertThat(out.toString()).contains("'default'");
     }
@@ -1011,6 +1046,7 @@ class TaskRunCommandTest {
 
         assertThat(firstStartAsked).isEmpty();
         assertThat(checkout.resolve("project.yml")).doesNotExist();
+        assertThat(checkout.resolve("porelo.yml")).doesNotExist();
         assertThat(err.toString()).contains("package.maven", "nothing written");
     }
 
@@ -1022,6 +1058,7 @@ class TaskRunCommandTest {
 
         assertThat(firstStartAsked).isEmpty();
         assertThat(checkout.resolve("project.yml")).doesNotExist();
+        assertThat(checkout.resolve("porelo.yml")).doesNotExist();
         assertThat(err.toString()).contains("package.maven", "A dry run writes nothing");
     }
 
@@ -1044,6 +1081,7 @@ class TaskRunCommandTest {
         assertThat(firstStartDetected).isFalse();
         assertThat(firstStartAsked).isEmpty();
         assertThat(checkout.resolve("project.yml")).doesNotExist();
+        assertThat(checkout.resolve("porelo.yml")).doesNotExist();
     }
 
     private static final String APPROVED =

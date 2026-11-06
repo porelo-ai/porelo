@@ -13,6 +13,15 @@ import java.nio.file.Path;
  */
 public record TaskPaths(PoreloPaths paths) {
 
+    /**
+     * Returns where a start remembers advice already said for an old local project's checkout.
+     *
+     * @return The directory in this machine's state, outside every checkout.
+     */
+    public Path localProjectNotes() {
+        return paths.xdg().state().resolve("notes").resolve("local-project");
+    }
+
     /** Returns the durable usage record retained after this container is removed. */
     public Path usageRecord(String container) {
         return paths.xdg().state().resolve("usage").resolve(container + ".jsonl");

@@ -119,8 +119,9 @@ class FirstStartTest {
                         "Start once at a terminal without --yes or --no-input to be asked.");
     }
 
+    /** A terminal yes writes repository settings and allows the following launch. */
     @Test
-    void aYesWritesTheFileWhereThePersonStandsCommitsNothingAndFindsTheProject() throws Exception {
+    void aYesWritesRepositorySettingsAndStaysInDefault() throws Exception {
         plugin();
         detector =
                 answering(
@@ -129,21 +130,92 @@ class FirstStartTest {
 
         final WorkOrigin.Choice choice = atTerminal("y", true);
 
-        assertThat(choice.project()).isEqualTo("shop-project");
+        assertThat(choice.project()).isEqualTo("default");
         assertThat(choice.repository()).isEqualTo("shop");
-        final Path file = checkout.resolve("project.yml");
-        assertThat(file).exists();
-        assertThat(Files.readString(file))
-                .contains("name: shop-project", "upstream: " + ORIGIN, "maven");
+        assertThat(checkout.resolve("project.yml")).doesNotExist();
+        assertThat(checkout.resolve("porelo.yml")).exists();
+        assertThat(Files.readString(checkout.resolve("porelo.yml")))
+                .contains("maven", "repo.example.org")
+                .doesNotContain("project:", "repositories:", "organization:", "members:");
+        assertThat(questions).singleElement().asString().contains("porelo.yml", "default");
         assertThat(said.toString()).contains("package.maven", "pom.xml", "repo.example.org");
-        assertThat(said.toString())
-                .as("a yes moves where the work goes, so the question says so")
-                .contains("takes this repository from " + ORIGIN);
         assertThat(String.join("\n", runner.lines())).doesNotContain(" commit", " add ");
-        assertThat(ProjectSource.resolve(context, "shop-project").outcome())
-                .isEqualTo(ProjectSource.Outcome.RECORDED);
-        assertThat(ProjectSource.resolve(context, "shop-project").file())
-                .isEqualTo(context.paths().projects().defaultProjectFile("shop-project"));
+        assertThat(context.paths().projects().projectApprovals()).doesNotExist();
+        assertReadyWithOwnSettings();
+    }
+
+    /** The written file reads as repository settings and has nothing left to allow. */
+    private void assertReadyWithOwnSettings() {
+        final Path file = new DefaultProject(context).file();
+        final var project = org.fuin.porelo.core.project.ProjectReader.read(file);
+        final var found = RepositoryOwnSettings.of(context, file, project.repository("shop"));
+        assertThat(found).isNotNull();
+        assertThat(found.project().egress().domains()).contains("repo.example.org");
+        assertThat(found.toAllow(context, "shop")).isEmpty();
+        assertThat(
+                        StartCheck.withSettings(
+                                        context,
+                                        new StartCheck.Result(
+                                                StartCheck.Outcome.READY, "", "", "", ""),
+                                        file,
+                                        "shop")
+                                .outcome())
+                .isEqualTo(StartCheck.Outcome.READY);
+        assertThat(new DefaultProject(context).entries())
+                .singleElement()
+                .satisfies(
+                        entry -> {
+                            assertThat(entry.checkout()).isEqualTo(checkout.toString());
+                            assertThat(entry.upstream()).isEqualTo(checkout.toString());
+                        });
+    }
+
+    /** An existing repository file skips detection and leaves its allowance to the launch. */
+    @Test
+    void aCheckoutWithRepositorySettingsIsKnown() throws Exception {
+        Files.writeString(
+                checkout.resolve("porelo.yml"), "egress:\n  domains: [repo.example.org]\n");
+        final FirstStart.Answer answer = firstStart().look(checkout);
+        assertThat(answer.outcome()).isEqualTo(FirstStart.Outcome.KNOWN);
+        assertThat(answer.project()).isEqualTo("default");
+        assertThat(detected).isZero();
+        assertThat(atTerminal("n").project()).isEqualTo("default");
+        assertThat(questions).isEmpty();
+        final Path file = new DefaultProject(context).file();
+        final var project = org.fuin.porelo.core.project.ProjectReader.read(file);
+        assertThat(
+                        RepositoryOwnSettings.of(context, file, project.repository("shop"))
+                                .toAllow(context, "shop"))
+                .isNotEmpty();
+    }
+
+    /** The old approved project stays intact; advice is recorded per checkout on this machine. */
+    @Test
+    void anApprovedLocalProjectStartsAsBeforeAndHearsTheNoteOnce() throws Exception {
+        Files.writeString(checkout.resolve("project.yml"), FILE);
+        assertThat(atTerminal("y").project()).isEqualTo("strangers");
+        said.getBuffer().setLength(0);
+        questions.clear();
+
+        assertThat(atTerminal("n").project()).isEqualTo("strangers");
+        assertThat(
+                        said.toString()
+                                .lines()
+                                .filter(
+                                        line ->
+                                                line.contains("porelo.yml")
+                                                        && line.contains("default")))
+                .hasSize(1);
+        said.getBuffer().setLength(0);
+        assertThat(atTerminal("n").project()).isEqualTo("strangers");
+        assertThat(said.toString()).doesNotContain("porelo.yml");
+        assertThat(questions).isEmpty();
+        assertThat(checkout.resolve("project.yml")).hasContent(FILE);
+        assertThat(checkout.resolve("porelo.yml")).doesNotExist();
+        secondCheckout(ORIGIN);
+        Files.writeString(checkout.resolve("project.yml"), FILE);
+        assertThat(atTerminal("n").project()).isEqualTo("strangers");
+        assertThat(said.toString()).contains("porelo.yml", "default");
     }
 
     @Test
@@ -153,6 +225,7 @@ class FirstStartTest {
         assertThat(atTerminal("n")).isNull();
 
         assertThat(checkout.resolve("project.yml")).doesNotExist();
+        assertThat(checkout.resolve("porelo.yml")).doesNotExist();
         assertThat(context.paths().projects().projectApprovals()).doesNotExist();
         assertThat(ProjectSource.resolve(context, "shop-project").file()).isNull();
         assertThat(said.toString()).contains("nothing kept");
@@ -167,6 +240,7 @@ class FirstStartTest {
         assertThat(unattended()).isNull();
 
         assertThat(checkout.resolve("project.yml")).doesNotExist();
+        assertThat(checkout.resolve("porelo.yml")).doesNotExist();
         assertThat(questions).isEmpty();
         assertThat(said.toString())
                 .contains("package.maven", "nothing written", "without --yes", "'default'");
@@ -180,6 +254,7 @@ class FirstStartTest {
         assertThat(questions).isEmpty();
         assertThat(said.toString()).contains("no ecosystem adapter is installed");
         assertThat(checkout.resolve("project.yml")).doesNotExist();
+        assertThat(checkout.resolve("porelo.yml")).doesNotExist();
     }
 
     @Test
@@ -237,6 +312,7 @@ class FirstStartTest {
         assertThat(atTerminal("y")).isNull();
 
         assertThat(checkout.resolve("project.yml")).doesNotExist();
+        assertThat(checkout.resolve("porelo.yml")).doesNotExist();
         assertThat(questions).isEmpty();
         assertThat(said.toString()).doesNotContain("token");
     }
@@ -257,6 +333,7 @@ class FirstStartTest {
                 .contains("nexus.evil.example  <- only this repository names it")
                 .doesNotContain("repo.maven.apache.org  <-");
         assertThat(checkout.resolve("project.yml")).doesNotExist();
+        assertThat(checkout.resolve("porelo.yml")).doesNotExist();
         assertThat(firstStart().look(checkout).marked()).containsExactly("nexus.evil.example");
     }
 
@@ -294,13 +371,14 @@ class FirstStartTest {
 
         assertThat(said.toString())
                 .contains("unknown  tool.jdk", "org.acme:parent:1", "without it");
-        final String text = Files.readString(checkout.resolve("project.yml"));
+        final String text = Files.readString(checkout.resolve("porelo.yml"));
         assertThat(text).doesNotContain("RUN ");
         assertThat(firstStart().look(checkout).outcome()).isEqualTo(FirstStart.Outcome.KNOWN);
     }
 
+    /** A repository draft stays usable when its former proposed project name is already taken. */
     @Test
-    void aNameThatIsAnotherLocalProjectsIsRefusedAtTheQuestion() throws Exception {
+    void aDraftDoesNotTakeAnotherLocalProjectsName() throws Exception {
         plugin();
         final Path written = context.paths().projects().defaultProjectFile("shop-project");
         Files.createDirectories(written.getParent());
@@ -309,15 +387,16 @@ class FirstStartTest {
                 "project:\n  name: shop-project\n  security_class: guarded\n"
                         + "image:\n  from: ubuntu:24.04\n");
 
-        assertThat(atTerminal("y")).isNull();
+        assertThat(atTerminal("y").project()).isEqualTo("default");
 
-        assertThat(questions).isEmpty();
+        assertThat(questions).hasSize(1);
         assertThat(checkout.resolve("project.yml")).doesNotExist();
-        assertThat(said.toString()).contains("already has a project 'shop-project'");
+        assertThat(checkout.resolve("porelo.yml")).exists();
     }
 
+    /** The repository file makes later starts known without repeating detection or consent. */
     @Test
-    void theSecondStartFindsTheProjectWithNoQuestionAndNoPlugin() throws Exception {
+    void theSecondStartStaysInDefaultWithNoQuestionAndNoPlugin() throws Exception {
         plugin();
         atTerminal("y");
         final int asked = detected;
@@ -325,7 +404,7 @@ class FirstStartTest {
 
         final WorkOrigin.Choice second = atTerminal("n");
 
-        assertThat(second.project()).isEqualTo("shop-project");
+        assertThat(second.project()).isEqualTo("default");
         assertThat(second.repository()).isEqualTo("shop");
         assertThat(questions).isEmpty();
         assertThat(detected).isEqualTo(asked);
@@ -333,14 +412,14 @@ class FirstStartTest {
 
     @Test
     void anotherCheckoutOfTheSameOriginFindsTheRecordedProject() throws Exception {
-        plugin();
+        Files.writeString(checkout.resolve("project.yml"), FILE);
         atTerminal("y");
         checkout = Files.createDirectories(root.resolve("other/shop")).toRealPath();
         final int asked = detected;
 
         final WorkOrigin.Choice found = WorkOrigin.placedNaming(context, ORIGIN);
 
-        assertThat(found.project()).isEqualTo("shop-project");
+        assertThat(found.project()).isEqualTo("strangers");
         assertThat(found.repository()).isEqualTo("shop");
         assertThat(detected).isEqualTo(asked);
     }
@@ -503,12 +582,12 @@ class FirstStartTest {
                 .isInstanceOfSatisfying(
                         FirstStart.Refused.class,
                         ex -> assertThat(ex.reason()).isEqualTo(FirstStart.Reason.MOVED_ON));
-        assertThat(checkout.resolve("project.yml")).doesNotExist();
+        assertThat(checkout.resolve("porelo.yml")).doesNotExist();
 
-        assertThat(firstStart().confirm(checkout, asked.hash())).isEqualTo("shop-project");
+        assertThat(firstStart().confirm(checkout, asked.hash())).isEqualTo("default");
 
-        assertThat(Files.readString(checkout.resolve("project.yml"))).isEqualTo(asked.file());
-        assertThat(firstStart().confirm(checkout, asked.hash())).isEqualTo("shop-project");
+        assertThat(Files.readString(checkout.resolve("porelo.yml"))).isEqualTo(asked.file());
+        assertThat(firstStart().confirm(checkout, asked.hash())).isEqualTo("default");
     }
 
     private static final String WITH_SNIPPET =
@@ -771,14 +850,15 @@ class FirstStartTest {
         assertThat(again.outcome()).isEqualTo(FirstStart.Outcome.KNOWN);
     }
 
+    /** A failed old-project approval rolls back its staged copy and preserves the checkout. */
     @Test
-    void aRecordThatFailsAtTheLastStepTakesTheCopyAndTheNewFileBack() throws Exception {
-        plugin();
+    void aRecordThatFailsAtTheLastStepTakesTheCopyBack() throws Exception {
+        Files.writeString(checkout.resolve("project.yml"), FILE);
         // A directory in the record's place: the record is written, and only its rename fails.
         Files.createDirectories(
-                context.paths().projects().projectApprovals().resolve("shop-project/in-the-way"));
+                context.paths().projects().projectApprovals().resolve("strangers/in-the-way"));
         final FirstStart.Answer answer = firstStart().look(checkout);
-        assertThat(answer.outcome()).isEqualTo(FirstStart.Outcome.ASK_NEW);
+        assertThat(answer.outcome()).isEqualTo(FirstStart.Outcome.ASK_UNKNOWN_FILE);
 
         assertThatThrownBy(() -> firstStart().take(answer))
                 .isInstanceOfSatisfying(
@@ -786,8 +866,8 @@ class FirstStartTest {
                         ex -> assertThat(ex.reason()).isEqualTo(FirstStart.Reason.NOT_WRITTEN));
         answer.discard();
 
-        assertThat(context.paths().projects().defaultProjectFile("shop-project")).doesNotExist();
-        assertThat(checkout.resolve("project.yml")).doesNotExist();
+        assertThat(context.paths().projects().defaultProjectFile("strangers")).doesNotExist();
+        assertThat(checkout.resolve("project.yml")).hasContent(FILE);
     }
 
     @Test
@@ -949,19 +1029,26 @@ class FirstStartTest {
         assertThat(answer.refusal().reason()).isEqualTo(FirstStart.Reason.FILE_UNREADABLE);
     }
 
+    /** The draft hash names the exact written bytes and filename, and changes with the draft. */
     @Test
-    void aNewFileGoesIntoTheCheckoutAndTheCopyIsWhatStarts() throws Exception {
+    void aDraftHashCoversItsTextAndRepositoryFileName() throws Exception {
         plugin();
-        assertThat(atTerminal("y")).isNotNull();
-        final Path file = checkout.resolve("project.yml");
-        final String written = Files.readString(file);
-
-        Files.writeString(file, written + "# touched\n");
-
-        final Path started = ProjectSource.require(context, "shop-project");
-        assertThat(started)
-                .isEqualTo(context.paths().projects().defaultProjectFile("shop-project"));
-        assertThat(Files.readString(started)).isEqualTo(written);
+        detector = answering(host("repo.example.org", Finding.Origin.YOURS));
+        final FirstStart.Answer answer = firstStart().look(checkout);
+        assertThat(answer.project()).isEqualTo("default");
+        assertThat(answer.asMap().get("fileName")).isEqualTo("porelo.yml");
+        assertThat(firstStart().take(answer)).isEqualTo("default");
+        assertThat(checkout.resolve("porelo.yml")).hasContent(answer.file());
+        assertThat(answer.hash()).isEqualTo(ProjectApprovals.hash(checkout, List.of("porelo.yml")));
+        Files.writeString(checkout.resolve("project.yml"), answer.file());
+        assertThat(answer.hash())
+                .isNotEqualTo(ProjectApprovals.hash(checkout, List.of("project.yml")));
+        Files.delete(checkout.resolve("project.yml"));
+        Files.writeString(checkout.resolve("porelo.yml"), answer.file() + "# changed\n");
+        assertThatThrownBy(() -> firstStart().confirm(checkout, answer.hash()))
+                .isInstanceOfSatisfying(
+                        FirstStart.Refused.class,
+                        ex -> assertThat(ex.reason()).isEqualTo(FirstStart.Reason.MOVED_ON));
     }
 
     @Test
@@ -1163,16 +1250,20 @@ class FirstStartTest {
                 .contains(WITH_SNIPPET.strip(), "image.inc", "RUN echo approved");
     }
 
+    /** A forge on the host does not turn a repository draft into an online project. */
     @Test
-    void aNewFileThatIsOnlineSaysSoAndHoldsNoMailOrBuilds() throws Exception {
+    void aNewRepositoryFileDefinesNoProjectEvenForAHostsForge() throws Exception {
         plugin();
         runner.answering("get-url origin", "http://127.0.0.1:3000/acme/shop.git");
 
         final FirstStart.Answer answer = firstStart().look(checkout);
 
-        assertThat(answer.file()).contains("security_class: online");
+        assertThat(answer.project()).isEqualTo("default");
+        assertThat(answer.file()).doesNotContain("project:", "security_class:", "repositories:");
         assertThat(answer.file()).doesNotContain("\nmail:", "\nbuilds:", "\ncredentials:");
-        assertThat(answer.found()).extracting(FirstStart.Found::what).contains("security class");
+        assertThat(answer.found())
+                .extracting(FirstStart.Found::what)
+                .doesNotContain("security class");
     }
 
     @Test
@@ -1577,7 +1668,7 @@ class FirstStartTest {
 
         final java.util.List<String> lines = said.toString().lines().toList();
         assertThat(lines.getFirst())
-                .startsWith("porelo: this repository has no project.yml; found ")
+                .startsWith("porelo: this repository has no porelo.yml; found ")
                 .contains("package.maven")
                 .contains("opens 2 hosts")
                 .endsWith("porelo task start --notes)")
@@ -1589,7 +1680,7 @@ class FirstStartTest {
         atTerminal("n", true);
         assertThat(said.toString())
                 .contains("pom.xml", "repo.example.org", "central.example.org")
-                .contains("takes this repository from " + ORIGIN);
+                .contains("stays in 'default'");
     }
 
     @Test
@@ -1727,10 +1818,9 @@ class FirstStartTest {
                                 assertThat(refused.reason()).isEqualTo(FirstStart.Reason.MOVED_ON));
         assertThat(lookedUp).hasSize(2);
 
-        assertThat(asking.confirm(checkout, asked.hash(), java.util.Map.of()))
-                .isEqualTo("shop-project");
+        assertThat(asking.confirm(checkout, asked.hash(), java.util.Map.of())).isEqualTo("default");
         assertThat(lookedUp).as("the yes took the question's own lookup").hasSize(2);
-        assertThat(Files.readString(checkout.resolve("project.yml")))
+        assertThat(Files.readString(checkout.resolve("porelo.yml")))
                 .as("what the person read is what is written")
                 .contains(FETCHED)
                 .doesNotContain("newer");

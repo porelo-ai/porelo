@@ -190,7 +190,8 @@ class FirstStartMethodsTest {
                 client -> {
                     final var asked = firstStart(client);
                     assertThat(asked.get("outcome")).isEqualTo("ASK_NEW");
-                    assertThat(asked.get("project")).isEqualTo("shop-project");
+                    assertThat(asked.get("project")).isEqualTo("default");
+                    assertThat(asked.get("fileName")).isEqualTo("porelo.yml");
                     assertThat((List<?>) asked.get("notes"))
                             .anyMatch(
                                     each -> String.valueOf(each).contains("a container is built"));
@@ -216,15 +217,28 @@ class FirstStartMethodsTest {
                                             "pom.xml",
                                             "note",
                                             ""));
-                    assertThat(checkout.resolve("project.yml"))
+                    assertThat(checkout.resolve("porelo.yml"))
                             .as("a look writes nothing")
                             .doesNotExist();
 
                     final var confirmed = confirm(client, (String) asked.get("hash"));
 
-                    assertThat(confirmed.get("project")).isEqualTo("shop-project");
-                    assertThat(Files.readString(checkout.resolve("project.yml")))
+                    assertThat(confirmed.get("project")).isEqualTo("default");
+                    assertThat(Files.readString(checkout.resolve("porelo.yml")))
                             .isEqualTo(asked.get("file"));
+                    assertThat(checkout.resolve("project.yml")).doesNotExist();
+                    final Path file = new org.fuin.porelo.app.DefaultProject(context).file();
+                    final var project = org.fuin.porelo.core.project.ProjectReader.read(file);
+                    final var found =
+                            org.fuin.porelo.app.RepositoryOwnSettings.of(
+                                    context, file, project.repository("shop"));
+                    assertThat(found).isNotNull();
+                    assertThat(found.project().egress().domains()).contains("nexus.evil.example");
+                    assertThat(found.toAllow(context, "shop")).isEmpty();
+                    assertThat(
+                                    org.fuin.porelo.app.ProjectApprovals.hash(
+                                            checkout, List.of("porelo.yml")))
+                            .isEqualTo(asked.get("hash"));
                     assertThat(firstStart(client).get("outcome")).isEqualTo("KNOWN");
                 });
     }
@@ -264,7 +278,7 @@ class FirstStartMethodsTest {
         assertThat(Files.readAllLines(context.paths().xdg().home().resolve("lookups")))
                 .as("the yes took the lookup its question made")
                 .hasSize(1);
-        assertThat(Files.readString(checkout.resolve("project.yml")))
+        assertThat(Files.readString(checkout.resolve("porelo.yml")))
                 .contains("looked up through the proxy sent")
                 .doesNotContain("not-a-real-one");
     }
@@ -336,6 +350,45 @@ class FirstStartMethodsTest {
             assertThat(entries.map(each -> each.getFileName().toString()))
                     .noneMatch(name -> name.startsWith(".staging-"));
         }
+    }
+
+    /**
+     * A repository file already present leaves allowance to CanStart and never drafts a project.
+     */
+    @Test
+    void aRepositoryFileAlreadyPresentIsKnown() throws Exception {
+        Files.writeString(
+                checkout.resolve("porelo.yml"), "egress:\n  domains: [repo.example.org]\n");
+        serving(
+                client -> {
+                    final var answer = firstStart(client);
+                    assertThat(answer.get("outcome")).isEqualTo("KNOWN");
+                    assertThat(answer.get("project")).isEqualTo("default");
+                });
+        assertThat(checkout.resolve("project.yml")).doesNotExist();
+    }
+
+    /** An old approved checkout stays a local project and gets the advice once. */
+    @Test
+    void anApprovedProjectIsKnownAndGetsTheNoteOnce() throws Exception {
+        Files.writeString(checkout.resolve("project.yml"), FILE);
+        serving(
+                client -> {
+                    final var asked = firstStart(client);
+                    assertThat(asked.get("fileName")).isEqualTo("project.yml");
+                    assertThat(confirm(client, (String) asked.get("hash")).get("project"))
+                            .isEqualTo("strangers");
+                    final var first = firstStart(client);
+                    assertThat(first.get("outcome")).isEqualTo("KNOWN");
+                    assertThat(first.get("project")).isEqualTo("strangers");
+                    assertThat((List<?>) first.get("notes"))
+                            .singleElement()
+                            .asString()
+                            .contains("porelo.yml", "default");
+                    assertThat((List<?>) firstStart(client).get("notes")).isEmpty();
+                });
+        assertThat(checkout.resolve("project.yml")).hasContent(FILE);
+        assertThat(checkout.resolve("porelo.yml")).doesNotExist();
     }
 
     @Test

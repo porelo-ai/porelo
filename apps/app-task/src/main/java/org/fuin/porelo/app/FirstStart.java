@@ -32,8 +32,9 @@ import org.jspecify.annotations.Nullable;
  * What a first start in a checkout on the {@code default} path may take from the repository.
  *
  * <p><strong>A repository decides nothing by itself.</strong> A plugin's answer and a {@code
- * project.yml} are a stranger's input: nothing either says opens a host or chooses a package
- * without a person's yes to exactly that text, by its hash. A No has no call and keeps nothing.
+ * project.yml} are a stranger's input: a draft opens no host or chooses a package without a
+ * person's yes to exactly that text, by its hash. A No has no call and keeps nothing. A new draft
+ * is a repository's {@code porelo.yml} in {@code default}; existing local projects stay projects.
  *
  * <p>One question, one implementation: the terminal and the daemon only render it. An
  * organization's project is not asked about, since it takes its signed file.
@@ -211,9 +212,7 @@ public final class FirstStart {
             map.put("hosts", hosts);
             map.put("marked", marked);
             map.put("file", file);
-            // The file a yes writes or approves; "porelo.yml" with the first start writing a
-            // repository's own file.
-            map.put("fileName", FILE_NAME);
+            map.put("fileName", target == null ? "" : target.getFileName().toString());
             map.put("project", project);
             map.put("hash", hash);
             map.put("notes", notes);
@@ -222,7 +221,11 @@ public final class FirstStart {
         }
     }
 
+    /** An existing local project's file, whose approval remains a project approval. */
     private static final String FILE_NAME = CheckoutProject.FILE_NAME;
+
+    /** A new draft belongs to its repository while the project stays default. */
+    private static final String REPOSITORY_FILE = ImageChoice.FILE;
 
     /** How many lookups a question keeps, for a daemon that is asked by many. */
     private static final int KEPT = 32;
@@ -272,8 +275,9 @@ public final class FirstStart {
     }
 
     /**
-     * Looks at a checkout, changing nothing there; a question holds a staged copy of what it asks
-     * about, which {@link Answer#discard()} or {@link #take(Answer)} ends.
+     * Looks at a checkout, changing nothing there. A question about an existing project holds a
+     * staged copy, which {@link Answer#discard()} or {@link #take(Answer)} ends; a new repository's
+     * draft holds its text alone. Advice already said is remembered in this machine's state.
      *
      * @param directory Where the person stands.
      * @return What to do.
@@ -326,10 +330,28 @@ public final class FirstStart {
             final WorkOrigin.Choice recorded = new ProjectApprovals(context).naming(origin);
             if (recorded != null) {
                 return Answer.plain(
-                        Outcome.KNOWN, recorded.project(), recorded.repository(), List.of());
+                        Outcome.KNOWN,
+                        recorded.project(),
+                        recorded.repository(),
+                        localProjectNote(top));
             }
         }
+        final Path own = top.resolve(REPOSITORY_FILE);
+        if (Files.exists(own, java.nio.file.LinkOption.NOFOLLOW_LINKS)) {
+            return knownRepository(own, top, origin);
+        }
         return detected(here, top, origin, proxies);
+    }
+
+    /**
+     * Registers the checkout on the default path when the terminal proceeds with an existing
+     * repository file, as a start without a draft already does.
+     *
+     * @param directory The checkout the person starts in.
+     * @return Its entry in default.
+     */
+    WorkOrigin.Choice defaultChoice(final Path directory) {
+        return WorkOrigin.withoutApproved(context, directory);
     }
 
     /**
@@ -380,8 +402,8 @@ public final class FirstStart {
     }
 
     /**
-     * Takes a yes to what a look answered: its copy becomes the project, whatever the checkout now
-     * holds, and a new file goes into the checkout for the person to commit.
+     * Takes a yes to what a look answered: a new repository file is written and allowed in {@code
+     * default}; an existing project file's staged copy becomes the local project.
      *
      * @param answer What the person read.
      * @return The project.
@@ -393,8 +415,14 @@ public final class FirstStart {
             throw answer.refusal();
         }
         final Path file = Objects.requireNonNull(answer.target(), "a question names its file");
+        if (answer.outcome() == Outcome.ASK_NEW) {
+            takeRepository(answer, file);
+            forgetLookup(file);
+            return DefaultProject.NAME;
+        }
         final StagedProject staged =
-                Objects.requireNonNull(answer.staged(), "a question holds its copy");
+                Objects.requireNonNull(
+                        answer.staged(), "an existing project's question holds its copy");
         final Path place =
                 Objects.requireNonNull(
                         context.paths().projects().defaultProjectFile(answer.project()).getParent(),
@@ -406,45 +434,151 @@ public final class FirstStart {
             refused =
                     FileLocks.holding(
                             projects().resolve(".approving-" + answer.project() + ".lock"),
-                            () -> install(answer, file, staged, place));
+                            () -> install(answer, staged, place));
         } catch (IOException ex) {
             throw new Refused(Reason.NOT_WRITTEN, "cannot keep it: " + printable(ex.toString()));
         }
         if (refused.isPresent()) {
             throw refused.get();
         }
-        // The question is answered: what it looked up is not kept for another.
+        forgetLookup(file);
+        return answer.project();
+    }
+
+    /** Ends a question's lookup so a later draft cannot reuse an answered question. */
+    private void forgetLookup(final Path file) {
         final @Nullable Path checkout = file.getParent();
         synchronized (kept) {
             kept.keySet().removeIf(each -> each.checkout().equals(checkout));
         }
-        return answer.project();
+    }
+
+    /** Writes only a new file: a yes also allows exactly what the following start reads. */
+    private void takeRepository(final Answer answer, final Path file) throws Refused {
+        final Path top =
+                Objects.requireNonNull(file.getParent(), "a repository file has a checkout");
+        boolean wrote = false;
+        try {
+            write(file, answer.file());
+            wrote = true;
+            final DefaultProject fallback = new DefaultProject(context);
+            final DefaultProject.Entry entry =
+                    fallback.add(top.toString(), answer.repository(), top.toString(), origin(top));
+            final Path projectFile = fallback.file();
+            final Repository repository =
+                    Objects.requireNonNull(
+                            ProjectReader.read(projectFile).repository(entry.name()),
+                            "the default project holds the checkout just added");
+            final RepositoryOwnSettings.Found found =
+                    Objects.requireNonNull(
+                            RepositoryOwnSettings.of(context, projectFile, repository),
+                            "the draft just written is a repository's own settings");
+            if (!ProjectApprovals.hash(top, List.of(REPOSITORY_FILE)).equals(answer.hash())) {
+                throw new Refused(Reason.MOVED_ON, "the file is not what that hash named");
+            }
+            new RepositoryAllowance(context).allow(entry.name(), found.asked());
+        } catch (IOException | DefaultProject.Refused | RuntimeException ex) {
+            if (wrote) {
+                try {
+                    Files.deleteIfExists(file);
+                } catch (IOException cleanup) {
+                    ex.addSuppressed(cleanup);
+                }
+            }
+            throw new Refused(Reason.NOT_WRITTEN, "cannot keep it: " + printable(ex.toString()));
+        }
+    }
+
+    /** Answers without detection; the launch still checks an existing file's allowance. */
+    private Answer knownRepository(final Path file, final Path top, final String origin) {
+        String hash = "";
+        try {
+            if (Files.isRegularFile(file, java.nio.file.LinkOption.NOFOLLOW_LINKS)
+                    && Files.size(file) <= 1024 * 1024) {
+                hash = ProjectApprovals.hash(top, List.of(REPOSITORY_FILE));
+            }
+        } catch (IOException ex) {
+            // The launch reports an unreadable repository file; a look approves nothing here.
+        }
+        return new Answer(
+                Outcome.KNOWN,
+                List.of(),
+                List.of(),
+                List.of(),
+                "",
+                DefaultProject.NAME,
+                hash,
+                repositoryName(top, origin),
+                file,
+                null,
+                List.of(),
+                null,
+                CheckoutProject.upstream(origin, top));
+    }
+
+    /** Keeps the draft and its allowance under the name a default start uses after collisions. */
+    private String repositoryName(final Path top, final String origin) {
+        final DefaultProject fallback = new DefaultProject(context);
+        final DefaultProject.Entry entry = fallback.withUpstream(top.toString());
+        if (entry != null) {
+            return entry.name();
+        }
+        final String wanted = RepositoryAddress.nameOf(CheckoutProject.upstream(origin, top));
+        final Set<String> taken = new LinkedHashSet<>();
+        fallback.entries().forEach(each -> taken.add(each.name()));
+        String candidate = wanted;
+        for (int number = 2; DefaultProject.is(candidate) || taken.contains(candidate); number++) {
+            candidate = wanted + "-" + number;
+        }
+        return candidate;
+    }
+
+    /** Keeps advice outside the checkout, so pulling or editing work cannot reset what was said. */
+    private List<String> localProjectNote(final Path top) {
+        final Path marks = context.paths().tasks().localProjectNotes();
+        final Path mark = marks.resolve(hash("checkout", top.toString()));
+        try {
+            org.fuin.porelo.wire.Directories.create(marks);
+            Files.writeString(mark, "", java.nio.file.StandardOpenOption.CREATE_NEW);
+            return List.of(
+                    "porelo.yml keeps a repository like this in 'default'; this checkout keeps its"
+                            + " approved project.yml.");
+        } catch (java.nio.file.FileAlreadyExistsException ex) {
+            return List.of();
+        } catch (IOException ex) {
+            return List.of("cannot record the local project note: " + printable(ex.toString()));
+        }
+    }
+
+    /** Hashes a single named text with the same framing as a project approval. */
+    private static String hash(final String name, final String text) {
+        try {
+            final java.security.MessageDigest digest =
+                    java.security.MessageDigest.getInstance("SHA-256");
+            final byte[] named = name.getBytes(StandardCharsets.UTF_8);
+            final byte[] bytes = text.getBytes(StandardCharsets.UTF_8);
+            digest.update((named.length + ":").getBytes(StandardCharsets.UTF_8));
+            digest.update(named);
+            digest.update((":" + bytes.length + ":").getBytes(StandardCharsets.UTF_8));
+            digest.update(bytes);
+            return java.util.HexFormat.of().formatHex(digest.digest());
+        } catch (java.security.NoSuchAlgorithmException ex) {
+            throw new IllegalStateException("every Java has SHA-256", ex);
+        }
     }
 
     private Optional<Refused> install(
-            final Answer answer, final Path file, final StagedProject staged, final Path place)
-            throws IOException {
+            final Answer answer, final StagedProject staged, final Path place) throws IOException {
         final Refused now = nameRefusal(answer.project(), answer.upstream());
         if (now != null) {
             return Optional.of(now);
         }
         final ProjectApprovals.Prepared record =
                 new ProjectApprovals(context).prepare(answer.project(), answer.upstream());
-        boolean wrote = false;
         try {
-            if (answer.outcome() == Outcome.ASK_NEW) {
-                write(file, answer.file());
-                wrote = true;
-            }
             staged.install(place, record::commit);
-        } catch (Refused ex) {
-            record.abandon();
-            return Optional.of(ex);
         } catch (IOException ex) {
             record.abandon();
-            if (wrote) {
-                Files.deleteIfExists(file);
-            }
             throw ex;
         }
         return Optional.empty();
@@ -460,7 +594,8 @@ public final class FirstStart {
                     java.nio.file.StandardOpenOption.CREATE_NEW,
                     java.nio.file.StandardOpenOption.WRITE);
         } catch (java.nio.file.FileAlreadyExistsException ex) {
-            throw new Refused(Reason.MOVED_ON, "a " + FILE_NAME + " appeared since it was read");
+            throw new Refused(
+                    Reason.MOVED_ON, "a " + file.getFileName() + " appeared since it was read");
         }
     }
 
@@ -545,7 +680,7 @@ public final class FirstStart {
                     repository,
                     file,
                     null,
-                    List.of(),
+                    localProjectNote(top),
                     null,
                     upstream);
         }
@@ -674,12 +809,11 @@ public final class FirstStart {
             return Answer.plain(Outcome.NO_PLUGIN, "", "", notes);
         }
         final String upstream = CheckoutProject.upstream(origin, top);
-        final String repository = RepositoryAddress.nameOf(upstream);
-        final String name = ProjectProposal.projectName(repository);
+        final String repository = repositoryName(top, origin);
         final ProjectProposal proposal;
         try {
             // A repository with no origin is reached where a task in 'default' reaches it.
-            proposal = new ProjectProposal(repository, upstream, null, null, name);
+            proposal = new ProjectProposal(repository, upstream, null, null);
         } catch (IllegalArgumentException ex) {
             return Answer.plain(
                     Outcome.NOTHING_RECOGNIZED,
@@ -712,7 +846,7 @@ public final class FirstStart {
             }
             // Before the draft is made: one that cannot be made still says these.
             proposal.notesForAPerson().forEach(each -> notes.add(printable(each)));
-            final String text = String.valueOf(proposal.answer().get("draft"));
+            final String text = repositoryDraft(String.valueOf(proposal.answer().get("draft")));
             proposal.refusals().forEach(each -> notes.add(printable(each)));
             proposal.tools()
                     .forEach(
@@ -763,43 +897,54 @@ public final class FirstStart {
             final List<String> onlyHere =
                     proposal.checkoutHosts().stream().map(FirstStart::printable).toList();
             notes.add(
-                    printable(
-                            "a task in it takes this repository from "
-                                    + upstream
-                                    + ", and approved work goes back there"));
-            if (ProjectReader.read(new java.io.StringReader(text), "project.yml draft")
-                            .securityClass()
-                    == org.fuin.porelo.core.project.SecurityClass.ONLINE) {
-                found.add(found("security class", "online"));
-            }
-            final StagedProject staged;
-            final String hash;
-            try {
-                staged = StagedProject.of(projects(), text);
-                hash = staged.hash();
-            } catch (IOException ex) {
-                notes.add(printable("cannot stage a project file: " + ex));
-                return Answer.plain(Outcome.NOTHING_RECOGNIZED, "", "", notes);
-            }
+                    "this repository stays in 'default': its history comes from the checkout, and"
+                            + " approved work goes back there");
+            final String hash = hash(REPOSITORY_FILE, text);
             return new Answer(
                     Outcome.ASK_NEW,
                     List.copyOf(found),
                     hosts,
                     outsideCuratedSets(onlyHere),
                     text,
-                    name,
+                    DefaultProject.NAME,
                     hash,
                     repository,
-                    here.resolve(FILE_NAME),
-                    nameRefusal(name, upstream),
+                    top.resolve(REPOSITORY_FILE),
+                    null,
                     List.copyOf(notes),
-                    staged,
+                    null,
                     upstream);
         } catch (ProjectException | IllegalArgumentException ex) {
             // Its words may repeat what it was told: a plugin's answer is a stranger's input.
-            notes.add("an ecosystem adapter's answer makes no project file, so none is proposed");
+            notes.add(
+                    "an ecosystem adapter's answer makes no repository file, so none is proposed");
             return Answer.plain(Outcome.NOTHING_RECOGNIZED, "", "", notes);
         }
+    }
+
+    /** Keeps the detected settings while leaving project identity and membership to the project. */
+    private static String repositoryDraft(final String text) {
+        final var project =
+                org.fuin.porelo.core.project.file.ProjectFileReader.read(
+                        new java.io.StringReader(text), "the detected draft", null);
+        final String written =
+                org.fuin.porelo.core.project.file.ProjectFileWriter.entry(
+                        new org.fuin.porelo.core.project.file.ProjectFile(
+                                null,
+                                project.image(),
+                                project.build(),
+                                project.egress(),
+                                project.limits(),
+                                project.mail(),
+                                project.builds(),
+                                project.parameters(),
+                                project.branch(),
+                                project.credentials(),
+                                Map.of(),
+                                project.baseBranch()));
+        org.fuin.porelo.core.project.file.RepositoryFileReader.readBesideSettings(
+                new java.io.StringReader(written), REPOSITORY_FILE, null);
+        return written;
     }
 
     private List<String> outsideCuratedSets(final List<String> hosts) {

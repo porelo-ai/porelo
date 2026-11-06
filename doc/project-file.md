@@ -3,8 +3,9 @@
 Everything `project.yml` can say, and what each key is for.
 
 **You do not need one to begin.** A task started in a checkout with no project named runs in the
-built-in project `default`, which uses Porelo's own settings. Write a project file when you want other
-settings.
+built-in project `default`, which uses Porelo's defaults. A first start with an ecosystem adapter writes
+`porelo.yml` after your yes and stays in `default`; that yes also allows its settings on this machine.
+Write a project file when you want a named project.
 
 **Written by hand, it needs no repository and no organization.** Write it to
 `$XDG_CONFIG_HOME/porelo/projects/NAME/project.yml`, with `project.name` the same `NAME`, then run
@@ -400,6 +401,13 @@ limits:
 build:
   package_sources: ~          # null takes the project's key away
 ```
+
+A first start's draft holds the image lines and hosts the ecosystem adapters found. A yes writes `porelo.yml`,
+adds this checkout to `default`, and allows what the file asks on this machine. A checkout already holding
+`porelo.yml` needs no first-start draft; its settings still need the allowance described below.
+
+An approved `project.yml` from an earlier first start stays a project of this machine and starts as before.
+A start says once per checkout that `porelo.yml` keeps such a repository in `default`; nothing is converted.
 
 - **Mappings merge key by key; a list takes the project's entries, then the file's; a single value the file sets
   wins.** `null` removes a key, a quoted `"!entry"` removes that entry from a list, and `"!*"` every entry the

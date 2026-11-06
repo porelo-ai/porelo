@@ -107,12 +107,15 @@ final class FirstStartAtTerminal {
         try {
             return switch (answer.outcome()) {
                 case KNOWN ->
-                        new WorkOrigin.Choice(
-                                answer.project(),
-                                answer.repository(),
-                                "'"
-                                        + answer.project()
-                                        + "', this machine's copy of the project.yml it approved");
+                        DefaultProject.is(answer.project())
+                                ? firstStart.defaultChoice(directory)
+                                : new WorkOrigin.Choice(
+                                        answer.project(),
+                                        answer.repository(),
+                                        "'"
+                                                + answer.project()
+                                                + "', this machine's copy of the project.yml it"
+                                                + " approved");
                 case NOT_DEFAULT -> null;
                 case NO_PLUGIN -> {
                     say(
@@ -183,12 +186,11 @@ final class FirstStartAtTerminal {
         final boolean yes =
                 offer.confirm(
                         isNew
-                                ? "This repository has no project.yml"
+                                ? "This repository has no porelo.yml"
                                 : "This project.yml is not approved here",
                         isNew
-                                ? "Write project.yml here as project '"
-                                        + answer.project()
-                                        + "', for you to commit, and start from it?"
+                                ? "Write porelo.yml here, for you to commit, allow its settings,"
+                                        + " and start in 'default'?"
                                 : "Approve it as project '"
                                         + answer.project()
                                         + "' and start from it?",
@@ -216,7 +218,7 @@ final class FirstStartAtTerminal {
     private void said(final FirstStart.Answer answer, final boolean isNew, final Path file) {
         say(
                 isNew
-                        ? "this repository has no project.yml. Read from it and this machine:"
+                        ? "this repository has no porelo.yml. Read from it and this machine:"
                         : "this machine has not approved "
                                 + org.fuin.porelo.vault.RegistryText.printable(file.toString())
                                 + ", which says:");
@@ -266,7 +268,7 @@ final class FirstStartAtTerminal {
         final int notes = answer.notes().size();
         say(
                 (isNew
-                                ? "this repository has no project.yml"
+                                ? "this repository has no porelo.yml"
                                 : "this machine has not approved "
                                         + org.fuin.porelo.vault.RegistryText.printable(
                                                 file.toString()))
