@@ -241,8 +241,26 @@ class EcosystemServerTest {
                                                         "extension",
                                                         "mirrorOf=*")))
                         .as("a block of the wrong type is never read as none")
-                        .isInstanceOf(VarlinkException.class)
-                        .hasMessageContaining("InvalidParameter");
+                        .isInstanceOfSatisfying(
+                                VarlinkException.class,
+                                said ->
+                                        assertThat(said.getParameters())
+                                                .containsEntry("parameter", "extension"));
+                assertThatThrownBy(
+                                () ->
+                                        client.call(
+                                                EcosystemProtocol.CONFIGURE,
+                                                Map.of(
+                                                        "repositories",
+                                                        List.of(),
+                                                        "extension",
+                                                        Map.of(" ", "v"))))
+                        .as("nor one the contract does not carry")
+                        .isInstanceOfSatisfying(
+                                VarlinkException.class,
+                                said ->
+                                        assertThat(said.getParameters())
+                                                .containsEntry("parameter", "extension"));
             }
         }
     }

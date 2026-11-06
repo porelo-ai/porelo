@@ -147,7 +147,8 @@ adapter's own words.
 block the project keeps for this adapter under `extensions.<adapter>`: plain JSON values, at most 16384 bytes as
 compact JSON and 8 levels deep, absent when the project keeps none. Porelo passes the block unchanged and never reads
 it; the adapter validates it and refuses with `Unreadable(detail)` naming the key, never a value. Nothing in it
-widens what a task reaches, which follows from the repositories' names and URLs alone. An adapter built before the
+widens what a task reaches, which follows from the repositories' names and URLs alone. A number arrives as a decimal,
+`3` as `3.0`; a setting that needs exact digits is text. An adapter built before the
 block ignores it; in the API it overrides `configure(repositories, extension)` to read it. It returns
 `files`, each with a `path`, `content`, and `ownerOnly`. A path is relative to the task user's home, with
 no empty segment, `.` or `..`, quote, backslash, or control character. Porelo places these files; the adapter

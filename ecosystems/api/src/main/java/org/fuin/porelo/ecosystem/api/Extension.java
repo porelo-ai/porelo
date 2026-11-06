@@ -16,6 +16,9 @@ import org.jspecify.annotations.Nullable;
  * a field of the contract, and the adapter says what it means. Nothing in it widens what a task
  * reaches: that is decided from the repositories' names and URLs alone.
  *
+ * <p>A number reaches the adapter as a decimal, {@code 3} as {@code 3.0}, and one beyond a double's
+ * precision rounded: a setting that needs exact digits is kept as text.
+ *
  * @param values Plain JSON values: text, a truth value, a finite number, a list or a map with
  *     non-blank keys, never null; copied, so the caller's later changes reach no adapter.
  */
@@ -73,7 +76,8 @@ public record Extension(Map<String, Object> values) {
         return switch (given) {
             case String text -> text;
             case Boolean truth -> truth;
-            case Number number when Double.isFinite(number.doubleValue()) -> number;
+            case Number number when unchangeable(number) && Double.isFinite(number.doubleValue()) ->
+                    number;
             case Map<?, ?> nested -> map(nested, depth + 1);
             case List<?> list -> list(list, depth + 1);
             case null, default ->
@@ -81,6 +85,21 @@ public record Extension(Map<String, Object> values) {
                             "the extension holds a value that is no text, truth value, finite"
                                     + " number, list or map");
         };
+    }
+
+    /**
+     * Only a number that cannot change after it was checked: an atomic or an adder could turn NaN
+     * or grow past the size limit before the block is written.
+     */
+    private static boolean unchangeable(final Number number) {
+        return number instanceof Integer
+                || number instanceof Long
+                || number instanceof Short
+                || number instanceof Byte
+                || number instanceof Double
+                || number instanceof Float
+                || number instanceof java.math.BigInteger
+                || number instanceof java.math.BigDecimal;
     }
 
     private static List<Object> list(final List<?> given, final int depth) {
