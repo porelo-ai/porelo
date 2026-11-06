@@ -97,7 +97,7 @@ Feature: A repository says what its tasks are built in
         And its output has a line matching "exit [1-9][0-9]*"
         And its output contains "no image was built"
 
-    Scenario: a person's local override replaces the repository's image whole
+    Scenario: a person's local override adds to the repository's image, its own values winning
         When a script runs:
             """
             set -e
@@ -125,10 +125,10 @@ Feature: A repository says what its tasks are built in
             """
         Then it exits zero
         And its output has a line matching "image env +REPOSITORY_IMAGE from .*/projects/imaged/tooled/.porelo.yml \(local override\)"
-        And its output contains "env: said by the person / unset"
-        And its output contains "no repository lines"
+        And its output contains "env: said by the person / the repository's"
+        And its output contains "from-the-repository"
 
-    Scenario: a task started from a checkout in 'default' takes the checkout's own files, the override first
+    Scenario: a task started from a checkout in 'default' takes the checkout's own files, the override adding to them
         When a script runs:
             """
             set -e
@@ -157,4 +157,4 @@ Feature: A repository says what its tasks are built in
         And its output has a line matching "image env +CHECKOUT_IMAGE from .*/dimg[a-z0-9]*/.porelo.yml"
         And its output has a line matching "task image +porelo/default_dimg[a-z0-9]*"
         And its output contains "env: the person's"
-        And its output contains "no checked-in lines"
+        And its output contains "from-the-checkout"
