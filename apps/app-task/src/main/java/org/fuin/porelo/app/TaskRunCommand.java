@@ -292,6 +292,9 @@ public class TaskRunCommand implements Callable<Integer>, PoreloFactory.ContextA
     /** Who answers a first start's question. */
     Offer.Asker firstStartAsker = Offer.Asker.terminal();
 
+    /** Asks whether to go into the task this checkout already has; a test answers it. */
+    Offer.Asker taskAsker = Offer.Asker.terminal();
+
     private PoreloContext context = PoreloContext.real();
 
     /** The phantom-token environment, kept so the agent run gets the same one the container has. */
@@ -327,7 +330,7 @@ public class TaskRunCommand implements Callable<Integer>, PoreloFactory.ContextA
      * task's.
      */
     private @Nullable ContainerSummary existingOutsideACheckout() {
-        if (TaskTarget.fromCheckout(context, Path.of(".")) != null) {
+        if (TaskTarget.fromCheckout(context, standing) != null) {
             return null;
         }
         final String container = TaskTarget.spelled(context, task);
@@ -490,6 +493,41 @@ public class TaskRunCommand implements Callable<Integer>, PoreloFactory.ContextA
         return code;
     }
 
+    /**
+     * Asks a person at a terminal whether to go into the task this checkout already has or start a
+     * new one; a start nobody can ask goes into it, so it never makes a second task unasked.
+     *
+     * @param started The checkout's tasks, by container name.
+     * @return {@code true} when the person chose a new task.
+     */
+    private boolean newTaskChosen(final java.util.List<String> started, final String prefix) {
+        if (!askable()) {
+            return false;
+        }
+        final java.util.Map<String, Boolean> running = new java.util.HashMap<>();
+        context.podman()
+                .poreloTasks()
+                .forEach(summary -> running.put(summary.name(), summary.running()));
+        final java.util.List<String> names =
+                started.stream().map(name -> name.substring(prefix.length())).toList();
+        final String which =
+                started.size() == 1
+                        ? names.getFirst()
+                                + " is "
+                                + (Boolean.TRUE.equals(running.get(started.getFirst()))
+                                        ? "running"
+                                        : "stopped")
+                                + " - attach to it"
+                        : "This checkout has " + String.join(", ", names) + " - attach to one";
+        final String answer = taskAsker.ask(which + " (A) or start a new task (N)? [A/n]");
+        return answer != null && answer.strip().equalsIgnoreCase("n");
+    }
+
+    /** Whether a person may be asked: at a terminal, by a start not told to ask nothing. */
+    private boolean askable() {
+        return !(yes || noInput || dryRun || !terminal.getAsBoolean());
+    }
+
     /** A person is asked only at a terminal, and never by a start that was told to ask nothing. */
     private @Nullable Offer firstStartOffer(final PrintWriter err) {
         return yes || noInput || dryRun || !terminal.getAsBoolean()
@@ -606,17 +644,25 @@ public class TaskRunCommand implements Callable<Integer>, PoreloFactory.ContextA
                     && !repository.isBlank()) {
                 // The task started from this checkout, when there is one, as every other task
                 // command takes it; a new one only when there is none.
-                final java.util.List<String> started =
-                        TaskTarget.fromCheckout(context, Path.of("."));
                 final String prefix = "porelo-" + projectName + "-";
-                if (started != null && started.size() > 1) {
+                final java.util.List<String> all = TaskTarget.fromCheckout(context, standing);
+                // Only this project's: a task of another one is never taken, nor cut by its prefix.
+                final java.util.List<String> started =
+                        all == null
+                                ? null
+                                : all.stream().filter(name -> name.startsWith(prefix)).toList();
+                final boolean wantsNew =
+                        started != null && !started.isEmpty() && newTaskChosen(started, prefix);
+                if (wantsNew) {
+                    task = TaskNames.fromRepository(context, projectName, repository);
+                    spec.commandLine()
+                            .getOut()
+                            .println("task           " + task + " - a new one, as chosen");
+                } else if (started != null && started.size() > 1) {
                     final TaskTarget.Found found =
                             TaskTarget.resolve(
-                                    context,
-                                    null,
-                                    Path.of("."),
-                                    TaskTarget.console(spec.commandLine().getOut()));
-                    if (found.container() == null) {
+                                    context, null, standing, askable() ? taskAsker::ask : null);
+                    if (found.container() == null || !started.contains(found.container())) {
                         err.println(
                                 "porelo: "
                                         + found.refusal()
@@ -626,9 +672,7 @@ public class TaskRunCommand implements Callable<Integer>, PoreloFactory.ContextA
                     }
                     task = found.container().substring(prefix.length());
                     spec.commandLine().getOut().println("task           " + task);
-                } else if (started != null
-                        && started.size() == 1
-                        && started.getFirst().startsWith(prefix)) {
+                } else if (started != null && started.size() == 1) {
                     task = started.getFirst().substring(prefix.length());
                     spec.commandLine()
                             .getOut()

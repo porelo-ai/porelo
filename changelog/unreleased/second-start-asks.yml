@@ -1,0 +1,2 @@
+title: "A start with no name in a checkout that already has a task asks at a terminal whether to attach to it or start a new one, and without a terminal goes into it, also in a checkout with its own project file and no origin, which made a new numbered task each time"
+type: fixed

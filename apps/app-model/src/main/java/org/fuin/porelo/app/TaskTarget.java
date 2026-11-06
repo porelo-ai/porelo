@@ -92,42 +92,28 @@ public final class TaskTarget {
         if (top == null) {
             return null;
         }
-        String project = null;
-        String repository = null;
-        final DefaultProject.Entry own = new DefaultProject(context).withUpstream(top.toString());
-        if (own != null) {
+        // In the start's order: a project placed for the origin, then the checkout's own approved
+        // project file, then 'default'. A checkout once recorded in 'default' and later given an
+        // approved file of its own is that project's, as its start takes it.
+        final String origin = originOf(context, top);
+        WorkOrigin.Choice found =
+                origin.isEmpty() ? null : WorkOrigin.placedNaming(context, origin);
+        if (found == null) {
+            found = CheckoutProject.approved(context, directory, top, origin);
+        }
+        String project = found == null ? null : found.project();
+        String repository = found == null ? null : found.repository();
+        if (project == null) {
+            final DefaultProject entries = new DefaultProject(context);
+            DefaultProject.Entry own = entries.withUpstream(top.toString());
+            if (own == null && !origin.isEmpty()) {
+                own = entries.withUpstream(origin);
+            }
+            if (own == null) {
+                return null;
+            }
             project = DefaultProject.NAME;
             repository = own.name();
-        } else {
-            final CommandResult remote =
-                    context.runner()
-                            .run(
-                                    Command.of(
-                                            "git",
-                                            "-C",
-                                            top.toString(),
-                                            "remote",
-                                            "get-url",
-                                            "origin"));
-            final String origin =
-                    RepositoryAddress.withoutCredential(
-                            remote.successful() ? remote.standardOutput().strip() : "");
-            if (!origin.isEmpty()) {
-                final WorkOrigin.Choice placed = WorkOrigin.placedNaming(context, origin);
-                final DefaultProject.Entry earlier =
-                        placed == null ? new DefaultProject(context).withUpstream(origin) : null;
-                project =
-                        placed != null
-                                ? placed.project()
-                                : earlier != null ? DefaultProject.NAME : null;
-                repository =
-                        placed != null
-                                ? placed.repository()
-                                : earlier != null ? earlier.name() : null;
-            }
-        }
-        if (project == null) {
-            return null;
         }
         final String inProject = project;
         final String ofRepository = repository;
@@ -139,6 +125,21 @@ public final class TaskTarget {
                                         && ofRepository.equals(task.repository()))
                 .map(ContainerSummary::name)
                 .toList();
+    }
+
+    private static String originOf(final PoreloContext context, final Path top) {
+        final CommandResult remote =
+                context.runner()
+                        .run(
+                                Command.of(
+                                        "git",
+                                        "-C",
+                                        top.toString(),
+                                        "remote",
+                                        "get-url",
+                                        "origin"));
+        return RepositoryAddress.withoutCredential(
+                remote.successful() ? remote.standardOutput().strip() : "");
     }
 
     /**

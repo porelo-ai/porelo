@@ -1,6 +1,6 @@
 # B469 — A Second Start Asks Before Making Another Task
 
-**Status:** Implementing.
+**Status:** Review.
 **Size:** S - the checkout's tasks found for a checkout with its own project file, one question in the start, their
 tests and one line of `doc/commands.md`; no contract.
 

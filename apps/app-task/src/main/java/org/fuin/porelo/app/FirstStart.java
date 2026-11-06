@@ -219,7 +219,7 @@ public final class FirstStart {
         }
     }
 
-    private static final String FILE_NAME = "project.yml";
+    private static final String FILE_NAME = CheckoutProject.FILE_NAME;
 
     /** How many lookups a question keeps, for a daemon that is asked by many. */
     private static final int KEPT = 32;
@@ -527,8 +527,8 @@ public final class FirstStart {
                                     + " write it as a name, in quotes if it is only digits"));
         }
         final Project project = staged.project();
-        final String repository = repositoryOf(project, origin, top);
-        final String upstream = upstream(origin, top);
+        final String repository = CheckoutProject.repositoryOf(project, origin, top);
+        final String upstream = CheckoutProject.upstream(origin, top);
         if (holdsTheCopy(project.name(), staged, upstream)) {
             staged.discard();
             return new Answer(
@@ -565,13 +565,6 @@ public final class FirstStart {
                 upstream);
     }
 
-    /** What a checkout is known by: a usable origin, else its own path, as a `default` entry. */
-    private static String upstream(final String origin, final Path top) {
-        return !origin.isEmpty() && !origin.contains("?") && !origin.contains("#")
-                ? origin
-                : top.toString();
-    }
-
     /**
      * Same file, same project: the name finds this machine's copy, holding just what was hashed,
      * and approved for this upstream.
@@ -599,16 +592,6 @@ public final class FirstStart {
                 List.of(),
                 null,
                 "");
-    }
-
-    private static String repositoryOf(final Project project, final String origin, final Path top) {
-        for (final Repository each : project.workRepositories()) {
-            if ((!origin.isEmpty() && RepositoryAddress.sameUpstream(each.upstream(), origin))
-                    || RepositoryAddress.sameUpstream(each.upstream(), top.toString())) {
-                return each.name();
-            }
-        }
-        return "";
     }
 
     /**
@@ -687,7 +670,7 @@ public final class FirstStart {
         if (usable.isEmpty()) {
             return Answer.plain(Outcome.NO_PLUGIN, "", "", notes);
         }
-        final String upstream = upstream(origin, top);
+        final String upstream = CheckoutProject.upstream(origin, top);
         final String repository = RepositoryAddress.nameOf(upstream);
         final String name = ProjectProposal.projectName(repository);
         final ProjectProposal proposal;
