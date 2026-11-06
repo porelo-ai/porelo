@@ -20,12 +20,6 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
-| <a id="b456"></a>[B456](B456-A-Plugin-Resolves-What-A-Project-Asks.md) | L | - | `Resolve` in `Ecosystem1`, asked when a file is made: `run.<name>` and `env.<NAME>` placed in the draft, the fetched lines shown whole, proxy settings for that process alone; unit tests pass, the scenario awaits the VM. |
-| <a id="b464"></a>[B464](B464-A-Review-Counts-Lines-Without-Their-Endings.md) | M | - | Backend counts and the optional patch switch are built; 84 focused tests pass. Full units stop at sandbox socket ownership checks; the window remains separate. |
-| <a id="b454"></a>[B454](B454-A-Scenarios-Setup-Says-When-It-Failed.md) | XS | - | The first-start scenario checks its setup and cleans up even after a red. |
-| <a id="b451"></a>[B451](B451-An-Ecosystem-Adapter-Is-Not-A-Plugin.md) | S | - | Documentation and human output say "ecosystem adapter"; JSON stays compatible. Focused tests pass; full units stop at sandbox socket ownership checks. |
-| <a id="b463"></a>[B463](B463-A-File-Written-Back-Keeps-Its-Comments.md) | S | - | Organization settings keep comments and unrelated keys through the node tree; lossy writes are refused; unit regressions pass, full suite awaits valid directory ownership. |
-| <a id="b460"></a>[B460](B460-A-Task-Starts-On-The-Branch-Of-Its-Checkout.md) | L | - | Checkout branch, `--from`, `base_branch`, and retained review/approval base; 312 focused tests pass, full unit run needs a namespace with valid socket ownership; window handover recorded. |
 | <a id="b457"></a>[B457](B457-A-File-Not-Taken-Is-A-Warning.md) | XS | - | A start going on without a `project.yml` that was not taken warns in color. |
 | <a id="b452"></a>[B452](B452-A-Value-With-No-File-Prints-No-Line.md) | XS | - | A value with no file prints no `:0` in a draft. |
 | <a id="b455"></a>[B455](B455-A-First-Start-Says-What-A-Plugin-Could-Not-Place.md) | S | - | A first start's question shows what a plugin could not place and its notes. |
@@ -75,7 +69,6 @@ from its side, as *blocked by*.
 |---|---|---|---|
 | <a id="b459"></a>[B459](B459-Every-Credential-Failure-Says-What-To-Do.md) | L | - | Credential failure inventory, upstream advice, agent readiness and source-aware unlock/storage actions; push/provider paths, frontend agreement, window controls and live remedies still pending. |
 | <a id="b458"></a>[B458](B458-A-Refused-Push-Says-Which-Credential.md) | M | - | Backend built: selected SSH identities, public key inventory, trial and named refusal; focused guards pass, complete unit verification blocked, window remains. |
-| <a id="b462"></a>[B462](B462-One-Model-For-A-Project-File.md) | XL | - | A project file is read and written through one typed model only; measured first. |
 | <a id="b429"></a>[B429](B429-One-Line-Installs-Everything.md) | L | - | `sudo apt install 'porelo*' keepassxc` installs all of Porelo on every channel and stays true: the test agent leaves the channels, and a check runs the line against the published index. |
 | <a id="b385"></a>[B385](B385-A-KeePassXC-Key-That-Is-Usable.md) | L | - | `--keepassxc` asks the master password once, a retry takes the key already made, no empty entry left, a clear refusal under `su` or a redirected stderr, aligned exit codes |
 | <a id="b154"></a>[B154](B154-A-Tamper-Evident-Event-Log-Per-Node.md) | L | - | One hash-chained event log per account, anchored in the user's journal, optionally copied off the machine, kept by `porelo clear`; written by approve, reject, clearance, hand-in, credentials and project changes.; part 1 built, the copy off the machine after it |
@@ -84,7 +77,6 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
-| <a id="b453"></a>[B453](B453-A-Draft-Replaces-A-Repositorys-Own-Image.md) | S | - | A draft does not silently replace the image a repository says it needs. |
 | <a id="b450"></a>[B450](B450-The-RPM-Index-Loses-What-A-Package-Recommends.md) | M | Artifactory's settings read | A default `dnf install` brings what the package recommends, which the RPM index loses today. |
 | <a id="b449"></a>[B449](B449-A-Repositorys-Own-File-Reaches-The-Image-Unasked.md) | S | - | A repository's `porelo.yml` chooses no line of an image without a person's yes. |
 | <a id="b442"></a>[B442](B442-One-Line-Installs-Everything-On-Fedora-And-RHEL.md) | M | - | `sudo dnf install 'porelo*' keepassxc` installs all of Porelo on Fedora and RHEL, shown by a real run. |
@@ -278,6 +270,13 @@ from its side, as *blocked by*.
 
 | # | Title | What was built |
 |---|---|---|
+| <a id="b464"></a>B464 | A Review Counts Lines Without Their Endings | A review's counts and its gate count lines without their endings, the daemon's contract says so, and an optional switch hands the patch along, with a wire test |
+| <a id="b463"></a>B463 | A File Written Back Keeps Its Comments | An organization file written back keeps its comments and the keys it does not change, through the node tree; a write that would lose them is refused |
+| <a id="b462"></a>B462 | One Model For A Project File | A project file is read and checked through one typed model: the image is `from`, `run`, `run_file` and `env`, a repository entry has none, one image source is taken whole, and Porelo never changes an existing file but shows the entry to write |
+| <a id="b460"></a>B460 | A Task Starts On The Branch Of Its Checkout | A task starts on its checkout's branch, on `--from`, or on the project's `base_branch`, and its review and approval keep the base it started from |
+| <a id="b456"></a>B456 | A Plugin Resolves What A Project Asks | `Ecosystem1.Resolve` is asked when a file is made: `run.<name>` and `env.<NAME>` go into the draft, the fetched lines are shown whole, and the lookup gets only the proxy settings |
+| <a id="b454"></a>B454 | A Scenario's Setup Says When It Failed | The first-start scenario checks its own setup and cleans up even after a red |
+| <a id="b451"></a>B451 | An Ecosystem Adapter Is Not A Plugin | The documents and the human output say "ecosystem adapter"; the JSON stays as it was |
 | <a id="b445"></a>B445 | The Test Agent Has A Place Of Its Own | Every snapshot Build publishes the stub agent's binary by version with its checksum in `porelo-dist-test`, read anonymously by the interface's scenario; the packages left the indexes, and the 202 old files were deleted on the operator's word, both indexes then naming none. Not yet seen run: the cleaning beyond the newest 20 versions |
 | <a id="b390"></a>B390 | The Organization's API Apart From Its Git Reading | Porelo asks for its organization through `organization/api`, which says nothing of Git, with the store's reading behind it in an adapter, and nothing a person, host or interface sees changed |
 | <a id="b391"></a>B391 | The Cut To The New Organization | `identity` files through the store's writes on `organization/git-tree`, the adapter alone commits and signs, and every command, daemon method and adapter of the old registry is gone |
@@ -421,6 +420,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b453"></a>B453 | S | - | A draft replacing a repository's own image is not built on its own: under [B462](#b462) one image source is taken whole, and the repository's `porelo.yml` stands before the project's `image`. |
 | <a id="b461"></a>B461 | S | - | A generated project file saying `base_image` once is not built on its own: the target structure of [B462](#b462) has no image, egress or limits on a repository, and writes only from its model. |
 | <a id="b387"></a>B387 | S | - | A project followed before its access file exists is gone: following by hand and `project access init` went with the cut, and `project open` makes a project's first commit. |
 | <a id="b381"></a>B381 | S | - | A racing start stopping only its own task is not built on its own: it is part of [B384](#b384). |
