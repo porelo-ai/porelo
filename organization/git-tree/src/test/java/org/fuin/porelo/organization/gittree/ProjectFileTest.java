@@ -272,7 +272,17 @@ class ProjectFileTest {
         final ProjectFile.Read read = read();
 
         assertThat(read.state()).isEqualTo(ProjectFile.REFUSED);
-        assertThat(read.why()).doesNotContain("hunter2");
+        assertThat(read.why()).doesNotContain("hunter2").contains("at line 3");
+    }
+
+    @Test
+    void aSignedFileThatDoesNotReadNamesTheKeyAPersonChanges() throws Exception {
+        commit("project.yml", TEXT.replace("online\"", "online\"\n  review: \"maybe\""), "alice");
+
+        final ProjectFile.Read read = read();
+
+        assertThat(read.state()).isEqualTo(ProjectFile.REFUSED);
+        assertThat(read.why()).contains("does not read").contains("project.review");
     }
 
     @Test

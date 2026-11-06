@@ -210,11 +210,12 @@ public final class ProjectFile {
         } catch (CardException ex) {
             return refused(String.valueOf(ex.getMessage()));
         } catch (ProjectException ex) {
-            if (guard != null) {
-                return refused("the project repository's project.yml does not read");
-            }
-            // Past the signature only: an admin of the project wrote what this quotes.
-            return refused(RegistryText.printable(String.valueOf(ex.getMessage())));
+            // Past the signature only: an admin of the project wrote what this quotes, and a file
+            // that is no YAML is named by its line alone. Without it a person cannot tell what to
+            // change.
+            return refused(
+                    "the project repository's project.yml does not read: "
+                            + RegistryText.printable(String.valueOf(ex.getMessage())));
         } catch (RuntimeException ex) {
             // What the reader says quotes the file, which anyone with write access wrote.
             return refused("the project repository's project.yml does not read");
