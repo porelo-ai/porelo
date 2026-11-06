@@ -34,7 +34,7 @@ Feature: The first start finds what a repository needs
         Then its output contains "nothing written and nothing opened"
         And its output contains "no file yet"
         Given a terminal on the machine
-        When I run "cd ~/first-start-probe/shop && porelo task start probe --agent stub --detach --clearance deny"
+        When I run "cd ~/first-start-probe/shop && porelo task start probe --agent stub --detach --clearance deny --notes"
         Then the terminal shows "Dockerfile:3: a container is built here"
         And the terminal shows "nexus.first-start.example  <- only this repository names it"
         And the terminal shows "[y/N]"
@@ -105,8 +105,8 @@ Feature: The first start finds what a repository needs
         Then its output contains "fetched at a dry run: 0"
         Given a terminal on the machine
         When I run "cd ~/first-start-resolve/tool && porelo task start probe --agent stub --detach --clearance deny"
-        Then the terminal shows "image line RUN echo fetched-by-the-stub (pom.xml)"
-        And the terminal shows "image env STUB_HOME=/opt/stub"
+        Then the terminal shows "image line  RUN echo fetched-by-the-stub"
+        And the terminal shows "image env  STUB_HOME=/opt/stub"
         # Nothing here builds a container or names a host of its own, so a yes is the default.
         And the terminal shows "[Y/n]"
         When I type "n"
