@@ -144,6 +144,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b467"></a>[B467](B467-A-Task-Reaches-Its-Tools-Repositories-Through-Their-Settings.md) | - | - | A project declares its build tool's repositories in `project.yml`, and a task start calls the ecosystem adapter's `Configure` and places the settings files it returns. |
 | <a id="b465"></a>[B465](B465-An-Older-Project-File-Is-Refused-By-Ancestry-Not-By-Date.md) | S | - | A machine remembers the project file's commit it accepted and refuses a later one that does not descend from it, so a file signed in the same second as a newer one cannot come back. |
 | <a id="b447"></a>[B447](B447-What-Core-Takes-On-A-Persons-Computer.md) | L | - | A measured overhead of Core in Linux, in WSL, in a VM on a Mac and on a central host, in one table, and the Mac's day with an arm64 build. |
 | <a id="b448"></a>[B448](B448-A-Test-Fails-In-A-Deep-Checkout.md) | XS | - | One unit test fails in a deep checkout, by a socket path too long. |
