@@ -20,6 +20,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b468"></a>[B468](B468-An-Adapter-Gets-The-Projects-Settings-Meant-For-It.md) | S | - | An ecosystem adapter receives at `Configure` the block the project keeps for it under `extensions.<adapter>`, unchanged, unread by Porelo and bounded in size; no tool-specific field in the contract. |
 | <a id="b466"></a>[B466](B466-A-Start-With-No-Name-Picks-Names-That-Fit.md) | S | - | A start with no name proposes a project that leaves a task room and cuts the default task name to fit 64 characters; a too-long name is refused with one that fits. |
 | <a id="b450"></a>[B450](B450-The-RPM-Index-Loses-What-A-Package-Recommends.md) | XS | - | A default `dnf install` brings what the package recommends, now that the RPM index keeps it, and the `dnf` lines no longer name it. |
 | <a id="b457"></a>[B457](B457-A-File-Not-Taken-Is-A-Warning.md) | XS | - | A start going on without a `project.yml` that was not taken warns in color. |
@@ -61,7 +62,6 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
-| <a id="b468"></a>[B468](B468-An-Adapter-Gets-The-Projects-Settings-Meant-For-It.md) | S | - | An ecosystem adapter receives at `Configure` the block the project keeps for it under `extensions.<adapter>`, unchanged, unread by Porelo and bounded in size; no tool-specific field in the contract. |
 | <a id="b467"></a>[B467](B467-A-Task-Reaches-Its-Tools-Repositories-Through-Their-Settings.md) | M | [B468](#b468) | A project declares its build tool's repositories in `project.yml`, and a task start calls the ecosystem adapter's `Configure` and places the settings files it returns. |
 | <a id="b459"></a>[B459](B459-Every-Credential-Failure-Says-What-To-Do.md) | L | - | Credential failure inventory, upstream advice, agent readiness and source-aware unlock/storage actions; push/provider paths, frontend agreement, window controls and live remedies still pending. |
 | <a id="b458"></a>[B458](B458-A-Refused-Push-Says-Which-Credential.md) | M | - | Backend built: selected SSH identities, public key inventory, trial and named refusal; focused guards pass, complete unit verification blocked, window remains. |

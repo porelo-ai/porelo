@@ -165,4 +165,108 @@ class EcosystemServerTest {
                             assertThat(said.getParameters()).containsEntry("parameter", parameter);
                         });
     }
+
+    @Test
+    void handsTheProjectsExtensionToTheAdapterUnchanged() throws IOException {
+
+        // A tool's peculiarity, such as one repository standing in for all, has no field of its
+        // own in the contract: it reaches the adapter in the block the project keeps for it.
+        try (EcosystemServer server =
+                new EcosystemServer(new FakeEcosystem(), directory.resolve("p.sock"))) {
+            Thread.ofPlatform().daemon().start(server::serve);
+            try (VarlinkClient client = new VarlinkClient(server.socketPath())) {
+
+                final List<File> files =
+                        File.of(
+                                client.call(
+                                        EcosystemProtocol.CONFIGURE,
+                                        Map.of(
+                                                "repositories",
+                                                List.of(Map.of("name", "corp", "url", CORP)),
+                                                "extension",
+                                                Map.of("mirrorOf", Map.of("corp", "*")))));
+
+                assertThat(files)
+                        .as("the block arrived as it was sent")
+                        .contains(
+                                new File(
+                                        ".fake/extension",
+                                        "{\"mirrorOf\":{\"corp\":\"*\"}}",
+                                        false));
+            }
+        }
+    }
+
+    @Test
+    void anAdapterBuiltBeforeTheExtensionAnswersACallThatCarriesOne() throws IOException {
+        try (EcosystemServer server =
+                new EcosystemServer(new EarlierEcosystem(), directory.resolve("p.sock"))) {
+            Thread.ofPlatform().daemon().start(server::serve);
+            try (VarlinkClient client = new VarlinkClient(server.socketPath())) {
+
+                final List<File> files =
+                        File.of(
+                                client.call(
+                                        EcosystemProtocol.CONFIGURE,
+                                        Map.of(
+                                                "repositories",
+                                                List.of(Map.of("name", "corp", "url", CORP)),
+                                                "extension",
+                                                Map.of("mirrorOf", Map.of("corp", "*")))));
+
+                assertThat(files)
+                        .as("it answers as it always did")
+                        .containsExactly(new File(".earlier/corp", CORP, false));
+            }
+        }
+    }
+
+    @Test
+    void refusesAnExtensionThatIsNoObject() throws IOException {
+        try (EcosystemServer server =
+                new EcosystemServer(new FakeEcosystem(), directory.resolve("p.sock"))) {
+            Thread.ofPlatform().daemon().start(server::serve);
+            try (VarlinkClient client = new VarlinkClient(server.socketPath())) {
+
+                assertThatThrownBy(
+                                () ->
+                                        client.call(
+                                                EcosystemProtocol.CONFIGURE,
+                                                Map.of(
+                                                        "repositories",
+                                                        List.of(
+                                                                Map.of(
+                                                                        "name", "corp", "url",
+                                                                        CORP)),
+                                                        "extension",
+                                                        "mirrorOf=*")))
+                        .as("a block of the wrong type is never read as none")
+                        .isInstanceOf(VarlinkException.class)
+                        .hasMessageContaining("InvalidParameter");
+            }
+        }
+    }
+
+    private static final String CORP = "http://127.0.0.1:1/corp/";
+
+    /** An adapter as one was built before the extension: it implements only the first method. */
+    private static final class EarlierEcosystem implements Ecosystem {
+
+        @Override
+        public String ecosystem() {
+            return "earlier";
+        }
+
+        @Override
+        public Detection detect(final Path project, final Path home) {
+            return new Detection(List.of(), List.of());
+        }
+
+        @Override
+        public List<File> configure(final List<Repository> repositories) {
+            return repositories.stream()
+                    .map(each -> new File(".earlier/" + each.name(), each.url(), false))
+                    .toList();
+        }
+    }
 }

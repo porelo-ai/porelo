@@ -76,6 +76,25 @@ class InstalledEcosystemTest {
     }
 
     @Test
+    void sendsTheExtensionToThePluginProcessAndNothingWhenThereIsNone() throws IOException {
+        try (InstalledEcosystem plugin = new InstalledEcosystem(fake(), run())) {
+            final List<Repository> corp =
+                    List.of(new Repository("corp", "http://127.0.0.1:1/corp/"));
+
+            assertThat(
+                            plugin.configure(
+                                    corp, new Extension(Map.of("mirrorOf", Map.of("corp", "*")))))
+                    .as("the block crossed the process boundary unchanged")
+                    .contains(
+                            new File(".fake/extension", "{\"mirrorOf\":{\"corp\":\"*\"}}", false));
+            assertThat(plugin.configure(corp, Extension.NONE))
+                    .as("no block, no parameter")
+                    .extracting(File::path)
+                    .containsExactly(".fake/corp");
+        }
+    }
+
+    @Test
     void hearsARefusalAsTheRefusalItIs() throws IOException {
         try (InstalledEcosystem plugin = new InstalledEcosystem(fake(), run())) {
 

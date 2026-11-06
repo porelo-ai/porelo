@@ -58,7 +58,8 @@ class ContractTest {
                                 + " -> (findings: []Finding)")
                 .contains("type Repository (name: string, url: string)")
                 .contains("type File (path: string, content: string, ownerOnly: bool)")
-                .contains("method Configure(repositories: []Repository) -> (files: []File)")
+                .contains(
+                        "method Configure(repositories: []Repository, extension: ?object) -> (files: []File)")
                 .contains("error NotRecognized ()")
                 .contains("error Unreadable (detail: string)");
     }

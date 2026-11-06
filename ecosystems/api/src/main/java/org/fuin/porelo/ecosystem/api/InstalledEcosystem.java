@@ -260,23 +260,37 @@ public final class InstalledEcosystem implements AutoCloseable {
      * Asks which files the tool's settings need so that it reaches these repositories.
      *
      * @param repositories The repositories a task declares.
+     * @param extension What the project keeps for this adapter, sent only when it holds something,
+     *     so a call to a plugin built before it reads as it always did.
      * @return The files.
      * @throws EcosystemRefused When it cannot answer.
      * @throws EcosystemException When the plugin failed, lacks the method, or answered a file that
      *     is no plain path inside the home.
      */
-    public List<File> configure(final List<Repository> repositories) {
-        final Map<String, Object> answer =
-                call(
-                        EcosystemProtocol.CONFIGURE,
-                        Map.of(
-                                "repositories",
-                                repositories.stream().map(Repository::asMap).toList()));
+    public List<File> configure(final List<Repository> repositories, final Extension extension) {
+        final Map<String, Object> parameters = new java.util.LinkedHashMap<>();
+        parameters.put("repositories", repositories.stream().map(Repository::asMap).toList());
+        if (!extension.isEmpty()) {
+            parameters.put("extension", extension.values());
+        }
+        final Map<String, Object> answer = call(EcosystemProtocol.CONFIGURE, parameters);
         try {
             return File.of(answer);
         } catch (IllegalArgumentException ex) {
             throw fault(executable + " answered files that cannot be placed: " + ex.getMessage());
         }
+    }
+
+    /**
+     * Asks which files the tool's settings need, for a project that keeps nothing for this adapter.
+     *
+     * @param repositories The repositories a task declares.
+     * @return The files.
+     * @throws EcosystemRefused When it cannot answer.
+     * @throws EcosystemException As {@link #configure(List, Extension)}.
+     */
+    public List<File> configure(final List<Repository> repositories) {
+        return configure(repositories, Extension.NONE);
     }
 
     /**

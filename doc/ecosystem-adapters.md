@@ -112,6 +112,16 @@ If a value cannot be read without running code, set `unknown` to true and leave 
 credential by its id only, never by its value. Report material that cannot be placed as `unplaced`, with
 its file, line, and note. Do not execute a build file to learn what it would do.
 
+Three kinds of `RULES` key carry what a first start's draft writes beside the image:
+
+- `repository.<name>`: a repository the tool reaches, its value the URL. The draft declares it as a tool repository
+  of that name, and its host in `egress`. The name is `[A-Za-z0-9_-]`, at most 64 characters.
+- `extension.<key>`: a text value the draft writes under `extensions.<adapter>.<key>`, the key's dots nesting, for
+  this adapter's `Configure` to read; `extension.mirrorOf.corp` becomes `mirrorOf: {corp: ...}`.
+- `credential.<id>`, its value the id, and beside it `credential-kind.<id>`: `basic` (a username and a password),
+  `header:<Name>` (a token in that header, the name only) or `unsupported`; its note says what the person stores in
+  the Porelo-Vault. A value is never a secret.
+
 `Resolve(directory, home, findings)` looks up, once, the exact versions of what `Detect` read: the newest stable
 release a project asks, its download URL and its digest. Porelo calls it only when a project file is made, never
 for a start with a file, and gives it this adapter's own `Detect` findings for the directory and home, and no other
@@ -133,7 +143,12 @@ unknown. An adapter that cannot say answers `MethodNotFound`, which `Ecosystem.r
 on a refusal, a failure or a timeout, what `Detect` found stands, with a note naming what was asked and never the
 adapter's own words.
 
-`Configure(repositories)` receives each declared repository's name and URL inside the task. It returns
+`Configure(repositories, extension)` receives each declared repository's name and URL inside the task, and the
+block the project keeps for this adapter under `extensions.<adapter>`: plain JSON values, at most 16384 bytes as
+compact JSON and 8 levels deep, absent when the project keeps none. Porelo passes the block unchanged and never reads
+it; the adapter validates it and refuses with `Unreadable(detail)` naming the key, never a value. Nothing in it
+widens what a task reaches, which follows from the repositories' names and URLs alone. An adapter built before the
+block ignores it; in the API it overrides `configure(repositories, extension)` to read it. It returns
 `files`, each with a `path`, `content`, and `ownerOnly`. A path is relative to the task user's home, with
 no empty segment, `.` or `..`, quote, backslash, or control character. Porelo places these files; the adapter
 writes nothing. There is no checkout directory in this question because the workspace stays inside the

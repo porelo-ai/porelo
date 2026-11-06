@@ -54,7 +54,9 @@ type File (path: string, content: string, ownerOnly: bool)
 
 # The files the tool's settings need so that it reaches these repositories. Given no directory, since nothing reads a
 # task's workspace from the host, it answers whenever a repository is declared, and it writes nothing itself.
-method Configure(repositories: []Repository) -> (files: []File)
+# extension is what the project keeps for this adapter alone, unread by Porelo and absent when it keeps nothing: plain
+# JSON values, at most 16384 bytes as compact JSON and 8 levels deep. It never widens what a task reaches.
+method Configure(repositories: []Repository, extension: ?object) -> (files: []File)
 
 # The directory holds nothing of this adapter's tool.
 error NotRecognized ()

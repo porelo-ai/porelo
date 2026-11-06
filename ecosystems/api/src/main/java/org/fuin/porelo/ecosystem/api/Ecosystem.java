@@ -66,4 +66,21 @@ public interface Ecosystem {
      * @throws EcosystemRefused When it cannot answer.
      */
     List<File> configure(List<Repository> repositories);
+
+    /**
+     * Returns the files the tool's settings need so that it reaches these repositories, given what
+     * the project keeps for this adapter, writing nothing itself.
+     *
+     * <p>An adapter whose tool needs nothing beside the repositories leaves this as it is; one that
+     * reads the block validates it and refuses with {@link EcosystemRefused} naming the key, never
+     * a value.
+     *
+     * @param repositories The repositories a task declares.
+     * @param extension What the project keeps for this adapter; {@link Extension#NONE} for nothing.
+     * @return The files.
+     * @throws EcosystemRefused When it cannot answer.
+     */
+    default List<File> configure(final List<Repository> repositories, final Extension extension) {
+        return configure(repositories);
+    }
 }

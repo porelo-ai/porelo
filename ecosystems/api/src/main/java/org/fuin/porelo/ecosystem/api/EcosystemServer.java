@@ -72,7 +72,9 @@ public class EcosystemServer implements AutoCloseable {
                 "Configure",
                 (parameters, replies) -> {
                     final List<Repository> repositories = repositories(parameters);
-                    final List<File> files = answering(() -> ecosystem.configure(repositories));
+                    final Extension extension = extension(parameters);
+                    final List<File> files =
+                            answering(() -> ecosystem.configure(repositories, extension));
                     replies.last(Map.of("files", files.stream().map(File::asMap).toList()));
                 });
     }
@@ -160,6 +162,14 @@ public class EcosystemServer implements AutoCloseable {
             return Wire.list(parameters, "repositories", Repository::of);
         } catch (IllegalArgumentException ex) {
             throw invalid("repositories");
+        }
+    }
+
+    private static Extension extension(final Map<String, Object> parameters) {
+        try {
+            return Extension.of(parameters);
+        } catch (IllegalArgumentException ex) {
+            throw invalid("extension");
         }
     }
 

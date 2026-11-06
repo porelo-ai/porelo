@@ -1,6 +1,6 @@
 # B468 — An Adapter Gets The Project's Settings Meant For It
 
-**Status:** Implementing.
+**Status:** Review.
 **Size:** S - one record, one optional parameter, the interface description, the adapter document and their tests in
 `ecosystems/`; a contract other repositories read, grown compatibly.
 

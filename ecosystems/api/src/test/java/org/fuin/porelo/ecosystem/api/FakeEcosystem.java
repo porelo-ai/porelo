@@ -11,9 +11,10 @@ import java.util.Optional;
  * <p>A directory named {@code other} is not recognized, one named {@code locked} cannot be read,
  * one named {@code gone} ends the plugin's process before it answers. Any other is answered with
  * one finding per part, naming the directory and the home it was given. {@code configure} answers
- * one file per repository, holding its name and URL. {@code resolve} answers a {@code run.<key>}
- * for each finding it is given, holding its key and value, and an {@code env.FAKE_DIRECTORY} naming
- * the directory; for a directory named {@code slow} it answers only after half a minute.
+ * one file per repository, holding its name and URL, and one more holding the extension it was
+ * given, as JSON, when it was given one. {@code resolve} answers a {@code run.<key>} for each
+ * finding it is given, holding its key and value, and an {@code env.FAKE_DIRECTORY} naming the
+ * directory; for a directory named {@code slow} it answers only after half a minute.
  */
 public final class FakeEcosystem implements Ecosystem {
 
@@ -114,5 +115,19 @@ public final class FakeEcosystem implements Ecosystem {
                                         repository.url(),
                                         repository.name().startsWith("private")))
                 .toList();
+    }
+
+    @Override
+    public List<File> configure(final List<Repository> repositories, final Extension extension) {
+        // What arrived, written back as a file, so a test sees the block cross the socket.
+        final List<File> files = new java.util.ArrayList<>(configure(repositories));
+        if (!extension.values().isEmpty()) {
+            files.add(
+                    new File(
+                            ".fake/extension",
+                            org.fuin.porelo.wire.Json.write(extension.values()),
+                            false));
+        }
+        return files;
     }
 }

@@ -1,0 +1,2 @@
+title: "An ecosystem adapter's `Configure` also receives the block a project keeps for that adapter, unchanged and bounded in size, so a tool's own settings need no field of their own in `porelo-ecosystem-api`"
+type: added
