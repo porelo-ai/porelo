@@ -374,11 +374,12 @@ public class TaskWorkspace {
                 + "if [ -n \"$PORELO_TASK_REF\" ]; then "
                 + "  git config remote.porelo.push \"HEAD:$PORELO_TASK_REF\"; "
                 + "  git config remote.pushDefault porelo; "
-                // The branch tracks where its push goes - the task's own ref - not the gate's
-                // branch, which moves only when work is approved: 'git status' said "ahead by 1"
-                // right after a push landed. At the gate the ref is mapped by a pattern that
-                // matches it alone, so a fetch before the first push finds nothing and does not
-                // fail; for a task on its remote, refs/heads/* maps it already.
+                // A push goes to the task's own ref, a pull comes from the branch the task started
+                // from. The gate advertises its branches and never an incoming ref, so a branch
+                // tracking its own ref made every 'git pull' fail; 'git status' counts against the
+                // gate's branch, which moves only when work is approved. The task's ref is still
+                // mapped, by a pattern that matches it alone, so porelo/incoming/<task> names what
+                // was handed in; for a task on its remote, refs/heads/* maps it already.
                 + "  case \"$PORELO_TASK_REF\" in refs/porelo/incoming/*) "
                 + "    tracked=\"refs/remotes/porelo/incoming/${PORELO_TASK_REF#refs/porelo/incoming/}\"; "
                 + "    spec=\"+$PORELO_TASK_REF*:$tracked*\"; "
@@ -387,9 +388,13 @@ public class TaskWorkspace {
                 + "  *) tracked=;; esac; "
                 + "  branch=$(git symbolic-ref -q --short HEAD || true); "
                 + "  if [ -n \"$tracked\" ] && [ -n \"$branch\" ] && git rev-parse -q --verify HEAD >/dev/null; then "
-                + "    git config \"branch.$branch.remote\" porelo; git config \"branch.$branch.merge\" \"$PORELO_TASK_REF\"; "
-                // Where nothing was handed in yet, the start is: up to date until the agent
-                // commits.
+                + "    merge=\"$PORELO_TASK_REF\"; "
+                + "    case \"$PORELO_TASK_REF\" in refs/porelo/incoming/*) "
+                + "      base=\"${PORELO_BASE_BRANCH:-$branch}\"; "
+                + "      if git rev-parse -q --verify \"refs/remotes/porelo/$base\" >/dev/null; then merge=\"refs/heads/$base\"; else merge=; fi;; esac; "
+                + "    if [ -n \"$merge\" ]; then "
+                + "      git config \"branch.$branch.remote\" porelo; git config \"branch.$branch.merge\" \"$merge\"; fi; "
+                // Where nothing was handed in yet, the start is.
                 + "    git rev-parse -q --verify \"$tracked\" >/dev/null || git update-ref \"$tracked\" HEAD; fi; fi";
     }
 

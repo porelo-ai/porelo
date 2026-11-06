@@ -232,32 +232,25 @@ class TaskWorkspaceTest {
     }
 
     @Test
-    void theBranchTracksTheTasksOwnPlaceSoStatusSaysWhatWasHandedIn(@TempDir Path root)
+    void whatWasHandedInStaysNamedByItsPushPlaceAndAResumedTaskDoublesNothing(@TempDir Path root)
             throws IOException {
 
-        // After 'git push' landed on the task's ref, 'git status' still said "ahead of
-        // 'porelo/develop' by 1 commit" - the gate's branch, which moves only on approval. An agent
-        // pushes again.
         final Path mirror = seededMirror(root, "main");
         final Path workspace = Files.createDirectories(root.resolve("workspace"));
         runCloneScript(workspace, mirror, "refs/porelo/incoming/shell");
         assertThat(git(workspace, "status", "-sb").lines().findFirst().orElseThrow())
                 .as("nothing done yet")
-                .contains("porelo/incoming/shell")
+                .contains("porelo/main")
                 .doesNotContain("ahead");
         git(workspace, "fetch", "porelo");
 
         Files.writeString(workspace.resolve("NEW.md"), "the agent's work\n");
         git(workspace, "add", "-A");
         git(workspace, "commit", "-q", "-m", "agent work");
-        assertThat(git(workspace, "status", "-sb").lines().findFirst().orElseThrow())
-                .contains("ahead 1");
-
         git(workspace, "push", "-q", "porelo");
-        assertThat(git(workspace, "status", "-sb").lines().findFirst().orElseThrow())
+        assertThat(git(workspace, "rev-list", "--count", "porelo/incoming/shell..HEAD").strip())
                 .as("handed in")
-                .contains("porelo/incoming/shell")
-                .doesNotContain("ahead");
+                .isEqualTo("0");
 
         // Again, as a resumed task runs it: nothing doubles, nothing handed in is forgotten.
         runCloneScript(workspace, mirror, "refs/porelo/incoming/shell");
@@ -267,8 +260,42 @@ class TaskWorkspaceTest {
                                 .filter(line -> line.contains("incoming"))
                                 .count())
                 .isEqualTo(1);
-        assertThat(git(workspace, "status", "-sb").lines().findFirst().orElseThrow())
-                .doesNotContain("ahead");
+        assertThat(git(workspace, "rev-list", "--count", "porelo/incoming/shell..HEAD").strip())
+                .isEqualTo("0");
+        assertThat(git(workspace, "rev-parse", "--abbrev-ref", "@{upstream}").strip())
+                .isEqualTo("porelo/main");
+    }
+
+    @Test
+    void aPullTakesTheBranchTheTaskStartedFromWhileAPushGoesToItsOwnRef(@TempDir Path root)
+            throws IOException {
+
+        // The gate advertises its branches and never the incoming refs, so a branch tracking its
+        // own ref made every 'git pull' fail: "the configured upstream ref was not fetched".
+        final Path mirror = seededMirror(root, "develop");
+        final Path workspace = Files.createDirectories(root.resolve("workspace"));
+        runCloneScript(workspace, mirror, "refs/porelo/incoming/shell");
+
+        assertThat(git(workspace, "rev-parse", "--abbrev-ref", "@{upstream}").strip())
+                .isEqualTo("porelo/develop");
+        assertThat(git(workspace, "config", "remote.porelo.push").strip())
+                .isEqualTo("HEAD:refs/porelo/incoming/shell");
+        git(workspace, "pull", "-q");
+
+        Files.writeString(workspace.resolve("NEW.md"), "the agent's work\n");
+        git(workspace, "add", "-A");
+        git(workspace, "commit", "-q", "-m", "agent work");
+        git(workspace, "push", "-q");
+        assertThat(git(mirror, "for-each-ref", "--format=%(refname)").lines())
+                .contains("refs/porelo/incoming/shell")
+                .doesNotContain("refs/heads/shell");
+        assertThat(git(mirror, "rev-parse", "refs/heads/develop").strip())
+                .as("the branch moves only when work is approved")
+                .isNotEqualTo(git(workspace, "rev-parse", "HEAD").strip());
+
+        // What the gate advertises, without the task's own ref: a pull still has its branch.
+        git(mirror, "update-ref", "-d", "refs/porelo/incoming/shell");
+        git(workspace, "pull", "-q");
     }
 
     @Test
