@@ -1,6 +1,6 @@
 # B306 — Porelo's Build Runs On The Local Forge
 
-**Status:** Analyzed.
+**Status:** Implementing.
 **Size:** M - the deploy job's condition and profile, its package steps guarded, `settings.xml`'s registry and their
 tests here; what only a forge shows is measured on one. Estimate 150 minutes, the shared registry design given.
 
