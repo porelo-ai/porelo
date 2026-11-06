@@ -17,19 +17,21 @@ import org.fuin.porelo.core.project.SnippetFiles;
 import org.jspecify.annotations.Nullable;
 
 /**
- * The image a task on one repository is built from: one source, taken whole, and named so a start
- * can say which.
+ * The image a task on one repository is built from, with each part's source named so a start can
+ * say which.
  *
- * <p>The order, the first that is there wins: the person's local override, the repository's own
- * {@code porelo.yml} at its reviewed default branch, and the project's {@code image}. In the
- * project {@code default}, a task started from a person's checkout reads that checkout's {@code
- * .porelo.yml}, then its {@code porelo.yml}, then the default image. Nothing of a later source is
- * mixed in: a project's lines written for its own base image never run on a repository's.
+ * <p>The sources, the one that wins first: the person's local override, the repository's own {@code
+ * porelo.yml} at its reviewed default branch, and the project's {@code image}. In the project
+ * {@code default}, a task started from a person's checkout reads that checkout's {@code
+ * .porelo.yml}, then its {@code porelo.yml}, then the default image. Each adds to the project's
+ * image key by key, as the operator decided: a value it sets wins, its lines follow the project's,
+ * and its variables join the project's.
  *
  * @param baseImage The image to build on.
  * @param baseFrom Where it came from.
  * @param snippet The Containerfile lines, or {@code null} when no source gives any.
- * @param snippetFrom Where they came from, or {@code null} with them.
+ * @param snippetFrom Where they came from, or {@code null} with them; several sources joined.
+ * @param lineFrom Where each of the lines came from, one entry per line.
  * @param env The variables, in the order their sources wrote them.
  * @param envFrom Where each variable came from.
  */
@@ -38,6 +40,7 @@ public record ImageChoice(
         String baseFrom,
         @Nullable String snippet,
         @Nullable String snippetFrom,
+        List<String> lineFrom,
         Map<String, String> env,
         Map<String, String> envFrom) {
 
@@ -51,38 +54,67 @@ public record ImageChoice(
      * @param baseFrom Where it came from.
      * @param snippet The lines, or {@code null}.
      * @param snippetFrom Where they came from, or {@code null}.
+     * @param lineFrom Where each line came from.
      * @param env The variables.
      * @param envFrom Where each came from.
      */
     public ImageChoice {
+        lineFrom = List.copyOf(lineFrom);
         env = java.util.Collections.unmodifiableMap(new LinkedHashMap<>(env));
         envFrom = java.util.Collections.unmodifiableMap(new LinkedHashMap<>(envFrom));
     }
 
     /**
-     * Takes the first of the sources given in the order they win in, whole.
+     * Adds the sources to the project's image key by key: a value a source sets wins over the ones
+     * after it, lines come in the project's order first, and variables join.
      *
-     * @param order The sources, first wins; the last is the project's own image, which always names
-     *     a base image.
+     * @param order The sources, the one that wins first; the last is the project's own image.
      * @return The choice.
      */
     static ImageChoice merge(List<ImageSource> order) {
         if (order.isEmpty()) {
             throw new ProjectException("No source names a base image");
         }
-        final ImageSource source = order.getFirst();
-        final String base = source.baseImage();
-        if (base == null) {
-            throw new ProjectException(source.from() + " names no base image");
-        }
+        // The project's first, each later source adding to it: a value it sets wins, its lines
+        // follow the earlier ones, its variables join theirs.
+        final List<ImageSource> earliestFirst = new ArrayList<>(order).reversed();
+        String base = null;
+        String baseFrom = null;
+        final StringBuilder lines = new StringBuilder();
+        final List<String> linesFrom = new ArrayList<>();
+        final List<String> lineFrom = new ArrayList<>();
+        final Map<String, String> env = new LinkedHashMap<>();
         final Map<String, String> envFrom = new LinkedHashMap<>();
-        source.env().keySet().forEach(name -> envFrom.put(name, source.from()));
+        for (final ImageSource source : earliestFirst) {
+            if (source.baseImage() != null) {
+                base = source.baseImage();
+                baseFrom = source.from();
+            }
+            if (source.snippet() != null && !source.snippet().isBlank()) {
+                if (!lines.isEmpty() && lines.charAt(lines.length() - 1) != '\n') {
+                    lines.append('\n');
+                }
+                lines.append(source.snippet());
+                linesFrom.add(source.from());
+                source.snippet().lines().forEach(line -> lineFrom.add(source.from()));
+            }
+            source.env()
+                    .forEach(
+                            (name, value) -> {
+                                env.put(name, value);
+                                envFrom.put(name, source.from());
+                            });
+        }
+        if (base == null || baseFrom == null) {
+            throw new ProjectException(order.getFirst().from() + " names no base image");
+        }
         return new ImageChoice(
                 base,
-                source.from(),
-                source.snippet(),
-                source.snippet() == null ? null : source.from(),
-                source.env(),
+                baseFrom,
+                lines.isEmpty() ? null : lines.toString(),
+                linesFrom.isEmpty() ? null : String.join(", then ", linesFrom),
+                lineFrom,
+                env,
                 envFrom);
     }
 

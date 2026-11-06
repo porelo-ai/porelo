@@ -49,14 +49,14 @@ class RepositoryImageReaderTest {
     }
 
     @Test
-    void refusesAFileThatNamesNoBaseImage() {
+    void readsAFileThatAddsToTheProjectsBaseImage() {
 
-        // Its image is taken whole, with nothing of the project's: lines and variables without a
-        // base image would build on one nobody chose for them.
-        assertThatThrownBy(() -> read("image:\n  env:\n    FOO: bar\n"))
-                .isInstanceOf(ProjectException.class)
-                .hasMessageContaining("porelo.yml:1:")
-                .hasMessageContaining("'image.from' is required");
+        // It adds to the project's image, as the operator decided, so it may leave the base to
+        // the project and add only lines or variables.
+        final ImageSource source = read("image:\n  env:\n    FOO: bar\n");
+
+        assertThat(source.baseImage()).as("the project's base stays").isNull();
+        assertThat(source.env()).containsEntry("FOO", "bar");
     }
 
     @Test

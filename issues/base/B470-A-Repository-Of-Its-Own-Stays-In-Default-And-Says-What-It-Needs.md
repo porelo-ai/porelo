@@ -3,7 +3,8 @@
 **Status:** Implementing.
 **Size:** L - the repository file's form and the merge in `core`, the image rule and the sources in `app-model`, the
 allowance and two daemon calls, the judging of `porelo.yml` in an organization's project, the first start's draft;
-built in four steps, each safe on its own.
+built in four steps, each safe on its own. Estimate 180 minutes for the whole, from today's actuals against
+estimates.
 
 **What must be true.** A checkout with no project of an organization goes into `default`, and no start writes a
 `project.yml` for it. The repository's own `porelo.yml` says what its task needs, in the project file's form less what
@@ -68,8 +69,9 @@ default.
   `project` `default` and gains `fileName`. A yes is also the allowance of what it wrote.
 - **Checkouts that already got a `project.yml`** stay projects of this machine and start as today. A start there says
   once that `porelo.yml` keeps such a repository in `default`; nothing is converted unasked.
-- **Steps, each safe on its own:** (1) form, merge and sources, with every key beyond `image` refused unless allowed or
-  signed - so nothing widens before (2) and (3); (2) the allowance in `default` with the two calls; (3) the signature
+- **Steps, each safe on its own:** (1) the merge on the YAML tree with each value's source, and the image added key by
+  key; removals and the keys beyond `image` reach a start with (2), every key beyond `image` still refused until allowed or signed,
+  so nothing widens before (2) and (3); (2) the allowance in `default` with the two calls; (3) the signature
   in an organization's project; (4) the first start's draft, `fileName`, and the note in old checkouts. The tool
   repositories of [B467](README.md#b467) follow as their own issue on top, once the settings reach a start.
 - **Red first:** a merge test per rule (map, list, value, `null`, `"!entry"`, `"!*"`, unquoted `!`, a removal matching

@@ -55,13 +55,7 @@ final class ImageRecording {
     /** The snippet's lines, then one ENV line per variable, as the choice builds them. */
     private static List<String> lineSources(final Project project, final ImageChoice choice) {
         final List<String> sources = new ArrayList<>();
-        final String snippet = choice.snippet();
-        final String snippetFrom = choice.snippetFrom();
-        if (snippet != null && snippetFrom != null) {
-            sources.addAll(
-                    Collections.nCopies(
-                            (int) snippet.lines().count(), named(project, snippetFrom)));
-        }
+        choice.lineFrom().forEach(from -> sources.add(named(project, from)));
         choice.env()
                 .keySet()
                 .forEach(

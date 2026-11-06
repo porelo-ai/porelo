@@ -138,8 +138,8 @@ public final class ProjectFileCheck {
         if (file.image() == null) {
             check.fault("image", "'image' is required");
         } else {
-            // Taken whole, with nothing of the project's, so it names its own base image.
-            check.image(file.image(), "image");
+            // It adds to the project's image, so the base may stay the project's.
+            check.image(file.image(), "image", false);
         }
         return List.copyOf(check.faults);
     }
@@ -252,9 +252,15 @@ public final class ProjectFileCheck {
     }
 
     private void image(final Image image, final String path) {
+        image(image, path, true);
+    }
+
+    private void image(final Image image, final String path, final boolean baseRequired) {
         final String from = image.from();
         if (from == null || from.isBlank()) {
-            fault(path + ".from", "'" + path + ".from' is required");
+            if (baseRequired || from != null) {
+                fault(path + ".from", "'" + path + ".from' is required");
+            }
         } else {
             refuseAsOption(from, path + ".from");
         }

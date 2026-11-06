@@ -187,9 +187,10 @@ class PreparationTest {
     }
 
     @Test
-    void aRepositorysImageHoldsNoLineOfTheProjects(@TempDir Path dir) throws Exception {
-        // Taken whole: the project's lines on the repository's base image make an image nobody
-        // wrote.
+    void aRepositorysImageAddsToTheProjectsLinesEachRecordedWithItsSource(@TempDir Path dir)
+            throws Exception {
+        // The operator's decision: a repository's file adds to the project's image, its lines and
+        // variables after the project's, and each line keeps where it came from.
         final Path file = dir.resolve("project.yml");
         Files.writeString(
                 file,
@@ -207,7 +208,8 @@ class PreparationTest {
         override(
                 dir,
                 file,
-                "image:\n  from: \"debian:13\"\n  env:\n    NPM_TOKEN: \"the-value-itself\"\n");
+                "image:\n  from: \"debian:13\"\n  run: \"RUN apt-get install -y gradle\"\n"
+                        + "  env:\n    NPM_TOKEN: \"the-value-itself\"\n");
 
         Preparation.prepare(
                 context(dir),
@@ -221,8 +223,11 @@ class PreparationTest {
         final var settings = recorded(dir, "demo_backend");
         assertThat(settings.lines())
                 .extracting(ImageSettings.Sourced::source)
-                .as("the repository's line alone")
-                .satisfiesExactly(only -> assertThat(only).endsWith("(local override)"));
+                .as("each line with its own source: the project's, then the repository's")
+                .satisfiesExactly(
+                        first -> assertThat(first).isEqualTo("project.yml"),
+                        second -> assertThat(second).endsWith("(local override)"),
+                        third -> assertThat(third).endsWith("(local override)"));
         assertThat(settings.lines().getLast().value())
                 .as("recorded by its name")
                 .isEqualTo("ENV NPM_TOKEN=" + ImageSettings.WITHHELD);

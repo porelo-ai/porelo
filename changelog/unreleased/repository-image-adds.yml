@@ -1,0 +1,2 @@
+title: "A repository's porelo.yml and a local override add to the project's image key by key: a value they set wins, their run lines follow the project's and their env variables join the project's, where before the first file taken replaced the project's image whole"
+type: changed

@@ -23,7 +23,7 @@ would change the answer.
 | A stop of every task keeps its tokens | `task stop --all` and `panic` stop as `task stop` does; revoking is `vault lock` or `vault remove`, a step of its own | [entry](#a-stop-of-every-task-keeps-its-tokens) |
 | Nested containers never in a guarded project | `guarded` never sets them; only on a task's own kernel where the assessment says so | [entry](#nested-containers-never-in-a-guarded-project) |
 | A devcontainer file's features are not fetched | its image or Dockerfile is used, each feature named as not installed; nothing runs at build that the project file does not name | [entry](#a-devcontainer-files-features-are-not-fetched) |
-| A repository's image comes from porelo.yml, taken whole, and its build keeps the host's network | accepted: `image` only (`from`, `run`, `env`), the first of override, reviewed default branch and project taken whole; the build still reaches the network outside the task's firewall | [entry](#a-repositorys-image-comes-from-poreloyml-taken-whole-and-its-build-keeps-the-hosts-network) |
+| A repository's image comes from porelo.yml, taken whole, and its build keeps the host's network | superseded for what wins: a repository's file and the override now add to the project's image key by key, as porelo-project's decision "A repository of its own stays in Default and says what it needs" sets; `image` only, and the build's network, still hold | [entry](#a-repositorys-image-comes-from-poreloyml-taken-whole-and-its-build-keeps-the-hosts-network) |
 | A first start takes no project.yml without a yes | a person's yes to the text at a terminal; this machine's own copy of it is what starts; same upstream and same hash is the same project; no comparison to an adapter; only on the `default` path | [entry](#a-first-start-takes-no-projectyml-without-a-yes) |
 | A project's own file is judged by its newest change alone | accepted: an admin's signature on the newest change to `project.yml` is what counts, an older one is refused, and a file it names needs none, so a snippet file gets around `egress` while the image is built | [entry](#a-projects-own-file-is-judged-by-its-newest-change-alone) |
 | Several attempts share one credential | not split or queued; a reached limit said per attempt; five attempts by default | [entry](#several-attempts-share-one-credential) |
@@ -976,6 +976,11 @@ devcontainer file. Porelo takes the file's image, or builds its Dockerfile from 
 each feature as not installed, so nothing runs at build time that the project file does not name.
 
 ## A repository's image comes from porelo.yml, taken whole, and its build keeps the host's network
+
+*Superseded on 2026-11-06 for what wins: the operator decided in porelo-project's "A repository of its own stays in
+Default and says what it needs" that a repository's `porelo.yml` and the local override add to the project's image key
+by key - a value they set wins, their `run` lines follow the project's, their `env` joins it. The rest of this entry
+still holds until that issue gives the repository's file more than `image`.*
 
 A repository declares the toolchain its tasks need in `porelo.yml` at its root, instead of a devcontainer file whose
 tools sit behind `features` Porelo does not run. The file may hold `image` only (`from`, `run` or `run_file`, and

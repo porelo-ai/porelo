@@ -27,29 +27,29 @@ class ImageChoiceTest {
     private final ProcessCommandRunner runner = new ProcessCommandRunner();
 
     @Test
-    void theFirstSourceIsTakenWholeAndNoLineOfALaterOneIsMixedIn() {
+    void aRepositoryAddsToTheProjectsImageKeyByKey() {
 
-        // Mixed key by key, a project's lines ran on a repository's base image that nobody wrote
-        // them for, and a variable the repository never set reached its build.
+        // The operator's decision: porelo.yml adds to the project's defaults. A value it sets wins,
+        // its lines come after the project's, and its variables join the project's.
         final ImageChoice choice =
                 ImageChoice.merge(
                         List.of(
                                 new ImageSource(
-                                        "file-base", null, Map.of("A", "file"), "porelo.yml"),
+                                        "file-base", "RUN file", Map.of("A", "file"), "porelo.yml"),
                                 new ImageSource(
                                         "project-base",
                                         "RUN project",
                                         Map.of("A", "project", "B", "project"),
                                         "project")));
 
-        assertThat(choice.baseImage()).as("base image").isEqualTo("file-base");
+        assertThat(choice.baseImage()).as("the repository's value wins").isEqualTo("file-base");
         assertThat(choice.baseFrom()).isEqualTo("porelo.yml");
-        assertThat(choice.snippet()).as("no line of the project's").isNull();
-        assertThat(choice.snippetFrom()).isNull();
-        assertThat(choice.env())
-                .as("variables of the one source only")
-                .isEqualTo(Map.of("A", "file"));
-        assertThat(choice.envFrom()).isEqualTo(Map.of("A", "porelo.yml"));
+        assertThat(choice.snippet())
+                .as("the project's lines, then the repository's")
+                .isEqualTo("RUN project\nRUN file");
+        assertThat(choice.snippetFrom()).isEqualTo("project, then porelo.yml");
+        assertThat(choice.env()).isEqualTo(Map.of("A", "file", "B", "project"));
+        assertThat(choice.envFrom()).isEqualTo(Map.of("A", "porelo.yml", "B", "project"));
     }
 
     @Test
@@ -168,7 +168,9 @@ class ImageChoiceTest {
 
         assertThat(choice.baseImage()).as("from the override").isEqualTo("local");
         assertThat(choice.baseFrom()).endsWith("work/.porelo.yml");
-        assertThat(choice.snippet()).as("nothing of the checked-in file").isNull();
+        assertThat(choice.snippet())
+                .as("the checked-in file's lines, the override setting only the base")
+                .isEqualTo("RUN from-the-checkout");
     }
 
     private void git(Path directory, String... arguments) {
@@ -397,8 +399,8 @@ class ImageChoiceTest {
         assertThat(reviewed.snippet()).isEqualTo("RUN from-file");
         assertThat(reviewed.snippetFrom()).contains("porelo.yml at refs/heads/main of backend");
         assertThat(reviewed.env())
-                .as("the mirror's variables, none of the project's")
-                .isEqualTo(Map.of("FROM_FILE", "yes"));
+                .as("the project's variables, then the mirror's")
+                .isEqualTo(Map.of("FROM_PROJECT", "yes", "FROM_FILE", "yes"));
 
         final Path override = ImageChoice.override(context, project, backend);
         assertThat(override)
@@ -411,7 +413,9 @@ class ImageChoiceTest {
 
         assertThat(choice.baseImage()).as("from the override").isEqualTo("local-base");
         assertThat(choice.baseFrom()).contains("local override");
-        assertThat(choice.snippet()).as("nothing of the mirror's").isNull();
-        assertThat(choice.env()).as("nothing of the mirror's or the project's").isEmpty();
+        assertThat(choice.snippet()).as("the mirror's lines stay").isEqualTo("RUN from-file");
+        assertThat(choice.env())
+                .as("the project's and the mirror's variables stay")
+                .isEqualTo(Map.of("FROM_PROJECT", "yes", "FROM_FILE", "yes"));
     }
 }
