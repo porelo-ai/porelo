@@ -85,6 +85,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers | Open questions |
 |---|---|---|---|---|
+| <a id="b469"></a>[B469](B469-A-Second-Start-Asks-Before-Making-Another-Task.md) | S | - | A start with no name in a repository that has a task asks to attach (A) or make a new one (N), instead of making another numbered task each time. | 1 |
 | <a id="b308"></a>[B308](B308-A-Guide-For-Adding-A-Provider-Or-An-Agent.md) | L | - | One guide in `doc/` to the checks that prove a new provider or agent safe, with scripts beside the acceptance kit: recording a provider's answers through the broker, the walk script's shared shape; the agents' part kept by their repositories | 0 |
 | <a id="b136"></a>[B136](B136-An-Approve-Bound-To-What-Was-Reviewed.md) | M | - | Capture one reviewed commit for patch/log and every approval path; confirmations and signatures use that key; SARIF never authorizes forwarding. | 0 |
 | <a id="b150"></a>[B150](B150-The-Whole-Diff-In-Review.md) | M | - | Bound serialized review replies with explicit file-boundary cuts; retain complete file inventory or refuse by name; full-diff risk and SARIF completeness stay independent. | 0 |
@@ -146,7 +147,6 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
-| <a id="b469"></a>[B469](B469-A-Second-Start-Asks-Before-Making-Another-Task.md) | - | - | A start with no name in a repository that has a task asks to attach (A) or make a new one (N), instead of making another numbered task each time. |
 | <a id="b465"></a>[B465](B465-An-Older-Project-File-Is-Refused-By-Ancestry-Not-By-Date.md) | S | - | A machine remembers the project file's commit it accepted and refuses a later one that does not descend from it, so a file signed in the same second as a newer one cannot come back. |
 | <a id="b447"></a>[B447](B447-What-Core-Takes-On-A-Persons-Computer.md) | L | - | A measured overhead of Core in Linux, in WSL, in a VM on a Mac and on a central host, in one table, and the Mac's day with an arm64 build. |
 | <a id="b448"></a>[B448](B448-A-Test-Fails-In-A-Deep-Checkout.md) | XS | - | One unit test fails in a deep checkout, by a socket path too long. |

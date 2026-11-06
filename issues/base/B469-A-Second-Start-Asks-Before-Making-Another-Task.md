@@ -1,7 +1,8 @@
 # B469 — A Second Start Asks Before Making Another Task
 
-**Status:** Idea.
-**Size:** -
+**Status:** Analyzed.
+**Size:** S - the checkout's tasks found for a checkout with its own project file, one question in the start, their
+tests and one line of `doc/commands.md`; no contract.
 
 **What must be true.** `porelo task start` with no name, in a repository that already has a task, never quietly makes
 another one. At a terminal it asks, in substance, "`<task>` is already running - attach to it (A) or start a new task
@@ -18,6 +19,24 @@ method knows the checkout's project only when the checkout is a repository of `d
 under a project on this machine. A checkout that carries its own `project.yml`, as one does after a first start wrote
 it, is neither, so the start finds no task and `TaskNames.fromRepository` picks the next free name.
 
+## Plan
+
+- **Find the checkout's tasks.** `TaskTarget.fromCheckout` also knows the project of a checkout whose own `project.yml`
+  this machine approved: it reads the project's name in the checkout's `project.yml` and takes it when this machine
+  holds an approved copy of that project, the repository being the checkout's own; read only, never adding anything to
+  `default`. That one change also lets `task attach`, `task logs` and every other task command
+  find the task of such a checkout with no name, which today they refuse.
+- **Ask at a terminal.** In `TaskRunCommand`'s branch for a start with no name, where one task of the checkout is there,
+  the start asks "`<task>` is running - attach to it (A) or start a new task (N)?" (`stopped` where it is); A takes that
+  task, which the start resumes and attaches to as it does a named one, and N names a new one with
+  `TaskNames.fromRepository`, as today. With several, the question lists them, A asks which, and N names a new one.
+- **Without a terminal** (`--no-input`, no terminal, `--yes`, `--dry-run`): one task there is resumed and the line
+  says so, as today for a checkout whose tasks were found; several are refused, naming them and `porelo task start
+  <name>`; a new task comes only from a name. The numbered names (`-2`) then come only from N.
+- **Red first:** in `TaskLifecycleCommandsTest`, a checkout with its own approved project file and one task: a start with
+  no name and no terminal takes that task, where today it names `-2`; with a terminal answering N it names `-2`, and
+  answering A it takes the task. `TaskTargetTest`: `fromCheckout` answers that task.
+
 ## Acceptance
 
 - In a checkout with its own `project.yml` and one task of it, a start with no name at a terminal asks A or N; A attaches
@@ -28,5 +47,10 @@ it, is neither, so the start finds no task and `TaskNames.fromRepository` picks 
 
 ## Open questions
 
-- Without a terminal: resume the one task there, as proposed, or refuse and name both commands? And whether the numbered
-  names (`-2`) then come only from N at a terminal.
+- Without a terminal, with one task of the checkout there: resume it (proposed - predictable, and it never makes a
+  second task unasked) or refuse and name both commands?
+
+## To be checked
+
+- Whether an interface starts a task with no name through the daemon (`StartCheck` names one with
+  `TaskNames.fromRepository`); if so, it asks the same question in its own window, from the tasks the daemon lists.
