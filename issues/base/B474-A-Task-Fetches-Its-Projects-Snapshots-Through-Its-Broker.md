@@ -8,8 +8,8 @@ and the settings through `porelo.yml` and Configure; their tests. Estimate 180 m
 **What must be true.** A task's build resolves its project's own snapshots from the host's forge registry, by the
 repository name its `porelo.yml` declares, through Porelo's broker: `GET` and `HEAD` below
 `/api/packages/<organization>/maven` of the task's own project and nothing else, with the host-issued token never in
-the container. porelo-project's PJ75 is the whole; this is porelo's part, and porelo-host's HO131 is the host's
-(the task token gains `read:package`, with its Molecule check).
+the container. The project's plan holds the whole; this is porelo's part, and the host's part is porelo-host's: the
+task token it issues gains `read:package`, with its Molecule check.
 
 ## Found
 
@@ -28,7 +28,7 @@ Read in the code on 2026-11-06 (a Codex reading, checked line by line):
   are not credentials"), so the broker cannot read the forge token through the general view.
 - **The start order:** `TaskLaunch` starts the broker (`wiring().startVault`) before the host helper issues the token.
 - **Configure** carries repositories and the adapter's extension already ([B468](README.md#b468)); a repository's
-  `porelo.yml` declaring a tool repository and a credential by name and kind is B470/B467's.
+  `porelo.yml` declaring a tool repository and a credential by name and kind is [B470](README.md#b470)/[B467](README.md#b467)'s.
 
 ## Plan
 
@@ -41,8 +41,8 @@ Read in the code on 2026-11-06 (a Codex reading, checked line by line):
    credential listing; the start obtains and keeps the token before the broker starts, and a failed start still ends
    it.
 4. **The settings:** the repository's `porelo.yml` names the tool repository and its credential by name and kind
-   (B470, B467); Configure writes Maven's settings with the broker's address and a phantom token. A checkout that runs
-   with `-s settings.xml` reads the same variable as porelo's own (B306).
+   ([B470](README.md#b470), [B467](README.md#b467)); Configure writes Maven's settings with the broker's address and a phantom token. A checkout that runs
+   with `-s settings.xml` reads the same variable as porelo's own ([B306](README.md#b306)).
 - **Red tests:** a package request outside the organization's maven path is refused before upstream; a jar and a POM
   round-trip unchanged; the real token is in neither the container, its environment nor its settings; a failed start
   ends it.
@@ -52,4 +52,4 @@ Read in the code on 2026-11-06 (a Codex reading, checked line by line):
 ## Open questions
 
 - Whether removing a task ends its token at once, or its expiry suffices.
-- The newest-snapshot rule and the private-coordinate filter: the shared registry design, as for B306.
+- The newest-snapshot rule and the private-coordinate filter: the shared registry design, as for [B306](README.md#b306).
