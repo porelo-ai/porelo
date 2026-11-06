@@ -1,6 +1,6 @@
 # B469 — A Second Start Asks Before Making Another Task
 
-**Status:** Analyzed.
+**Status:** Implementing.
 **Size:** S - the checkout's tasks found for a checkout with its own project file, one question in the start, their
 tests and one line of `doc/commands.md`; no contract.
 
@@ -31,7 +31,7 @@ it, is neither, so the start finds no task and `TaskNames.fromRepository` picks 
   task, which the start resumes and attaches to as it does a named one, and N names a new one with
   `TaskNames.fromRepository`, as today. With several, the question lists them, A asks which, and N names a new one.
 - **Without a terminal** (`--no-input`, no terminal, `--yes`, `--dry-run`): one task there is resumed and the line
-  says so, as today for a checkout whose tasks were found; several are refused, naming them and `porelo task start
+  says so, as today for a checkout whose tasks were found - it never makes a second task unasked; several are refused, naming them and `porelo task start
   <name>`; a new task comes only from a name. The numbered names (`-2`) then come only from N.
 - **Red first:** in `TaskLifecycleCommandsTest`, a checkout with its own approved project file and one task: a start with
   no name and no terminal takes that task, where today it names `-2`; with a terminal answering N it names `-2`, and
@@ -44,11 +44,6 @@ it, is neither, so the start finds no task and `TaskNames.fromRepository` picks 
 - With several tasks of the checkout, the question names them and A lets the person choose one.
 - Without a terminal, a start with no name and a task already there starts or resumes that task and says so; a new task
   is made only when named. A start with a name keeps today's meaning.
-
-## Open questions
-
-- Without a terminal, with one task of the checkout there: resume it (proposed - predictable, and it never makes a
-  second task unasked) or refuse and name both commands?
 
 ## To be checked
 
