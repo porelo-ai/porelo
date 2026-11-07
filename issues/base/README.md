@@ -160,6 +160,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b487"></a>[B487](B487-The-Organization-Adapter-Apart-From-Porelo.md) | - | - | Everything about the organization and the source of its projects moves out of `porelo` into an organization adapter, an executable of its own asked across a process boundary; `porelo` keeps tasks, the machine, code repositories, a cache of project settings, and `default` and hand-written projects. |
 | <a id="b484"></a>[B484](B484-Working-On-A-Repository-Outside-The-Organizations-Projects.md) | - | - | How a repository of none of the organization's projects is worked on in the default project, alike on a laptop and on a host with or without its forge: first one of the person's own, pushed to; then someone else's, through a fork. Open question for the operator. |
 | <a id="b483"></a>[B483](B483-A-Waiting-Host-Approval-Outlives-Its-Tasks-Removal.md) | S | - | Work waiting at a host's gate can still be approved as its task after the task is removed, or the removal says it cannot and how else; the forge token's lifetime is decided first. |
 | <a id="b476"></a>[B476](B476-Porelos-Own-Commits-Carry-The-Accounts-Noreply-Address.md) | S | - | Porelo's own commits carry the account's GitHub noreply address from the forge's account answer, so GitHub shows them Verified; a forge without one keeps the .invalid address. Low priority. |

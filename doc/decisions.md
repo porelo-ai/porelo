@@ -90,7 +90,7 @@ would change the answer.
 | A credential with no expiry is stored and named | accepted, never refused; the store says so and the list marks it (not yet built) | [entry](#a-credential-with-no-expiry-is-stored-and-named) |
 | A storage class Porelo cannot prove is shown as user-scoped | stronger only by a slot the node enrolled or evidence it checks; a client's claim is recorded and shown as user-scoped (not yet built) | [entry](#a-storage-class-porelo-cannot-prove-is-shown-as-user-scoped) |
 | An organization is judged path by path, and a first card by the forge's public key list | each path by the signers its rule names, never the commit's signer alone; a first card trusted from `<forge>/<login>.keys`, not the forge's API; written by plain signed Git | [entry](#an-organization-is-judged-path-by-path-and-a-first-card-by-the-forges-public-key-list) |
-| The organization's adapter is linked into Porelo | it decides whom Porelo trusts, so it is no executable that would have to be trusted first; a second one comes with a release; its API carries plain data, so one can stand behind a process later | [entry](#the-organizations-adapter-is-linked-into-porelo) |
+| The organization adapter is an executable of its own | asked across a process boundary through `organization/api`; trusting it is the user's choice, and Porelo vouches for its Git implementation | [entry](#the-organization-adapter-is-an-executable-of-its-own) |
 | A new key goes straight into KeePassXC, and a running KeePassXC is locked to serve it | accepted: no key file and no master password in Porelo; every database the running KeePassXC has open is locked, and the others stay locked until the person unlocks them | [entry](#a-new-key-goes-straight-into-keepassxc-and-a-running-keepassxc-is-locked-to-serve-it) |
 | An organization's trust record is checked, not hardened against whoever writes the state directory | accepted: a record that fails a check is discarded and the registry walked again from its founding commit; a writer of `$XDG_STATE_HOME` can change Porelo's config and binaries too | [entry](#an-organizations-trust-record-is-checked-not-hardened-against-whoever-writes-the-state-directory) |
 | A backup key replaces only the card of the person who filed it | it replaces that login's key and nothing else, revoking the old one; an owner's backup signs `owners.yml` and the new key the card; nobody may name a backup for someone else | [entry](#a-backup-key-replaces-only-the-card-of-the-person-who-filed-it) |
@@ -646,16 +646,13 @@ signs it, so a key that has ended or was retired could otherwise date new work i
 cost:** a commit signed while its certificate held but pushed after it ended is refused; a running task's
 certificate is renewed with `porelo task certify` before it ends.
 
-## The organization's adapter is linked into Porelo
+## The organization adapter is an executable of its own
 
-Porelo asks for its organization through an API that says nothing of how it is kept, and the Git adapter stands behind
-it. The adapter is built into Porelo, not an executable of its own behind a contract as a build adapter is. It decides
-whom Porelo trusts, so an executable would itself have to be trusted first, by something that has no organization to ask
-yet. A second adapter therefore comes with a Porelo release. **What keeps the other way open:** the API carries plain
-data only, with no path and no revision of Git's, and a test holds it to that. The one thing a store asks back is
-`IdentitySource`, which an executable would have to answer over its boundary. Callers ask the API, and only where a store
-is opened names the adapter, so an executable can stand behind it later by changing that place. **What would change the answer:** an adapter that cannot ship with Porelo, such
-as one a company must keep to itself.
+The organization adapter is an executable of its own on the machine where `porelo` runs, asked across a process boundary
+through `organization/api`. **The exposure:** whoever installs an adapter trusts it with whom Porelo believes: its answers
+decide who may sign, which keys hold and what a project's settings are. **Why it stays:** how an organization is kept is
+the user's choice, and Porelo cannot check an adapter it did not write; it vouches for its Git implementation, which
+passes `organization/contract`. **What would change the answer:** a way for Porelo to check an adapter's answers itself.
 
 ## A host believes the forge about a member's first card
 
