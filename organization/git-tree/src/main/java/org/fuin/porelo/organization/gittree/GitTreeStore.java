@@ -205,6 +205,34 @@ public final class GitTreeStore {
     }
 
     /**
+     * Reads the organization from the checkout a person keeps of its repository, at the checkout's
+     * {@code main}, fetching nothing: walked as a fetched one is, against the record last trusted,
+     * which it keeps as a read does. The checkout's own settings and hooks have no say, and nothing
+     * in it changes.
+     *
+     * @param checkout The checkout's top directory.
+     * @param identities Who says whose keys are whose.
+     * @return The answers, at the commit the walk reached.
+     * @throws IOException When it cannot be read, or the record cannot be kept.
+     * @throws OrganizationException When its history proves nothing.
+     * @throws OrganizationQuestions.Refused When it is no checkout of this account, or it does not
+     *     continue the record.
+     */
+    public OrganizationQuestions readCheckout(final Path checkout, final IdentitySource identities)
+            throws IOException {
+        return walk(
+                identities,
+                null,
+                () -> TreeRepository.borrowing(TreeRepository.checkoutDirectory(checkout), runner));
+    }
+
+    /** How the repository a walk reads is had. */
+    @FunctionalInterface
+    private interface Opening {
+        TreeRepository open() throws IOException;
+    }
+
+    /**
      * Answers the last state kept, fetching nothing, for when the repository cannot be reached.
      * With no history at hand it cannot check the record against it, so it rests on the owner-only
      * file alone: <strong>no security check may rest on this answer.</strong>
@@ -220,9 +248,15 @@ public final class GitTreeStore {
 
     private OrganizationQuestions walk(
             final IdentitySource identities, final @Nullable String revision) throws IOException {
+        return walk(identities, revision, () -> TreeRepository.fetch(repository, runner, access));
+    }
+
+    private OrganizationQuestions walk(
+            final IdentitySource identities, final @Nullable String revision, final Opening opening)
+            throws IOException {
         final List<String> warnings = new ArrayList<>();
         final TreeRecord kept = kept(warnings);
-        try (TreeRepository clone = TreeRepository.fetch(repository, runner, access)) {
+        try (TreeRepository clone = opening.open()) {
             final List<String> line = clone.line(null).stream().map(Map.Entry::getKey).toList();
             final String commit = kept == null ? null : kept.commit();
             if (commit != null && !line.contains(commit)) {

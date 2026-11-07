@@ -1,6 +1,6 @@
 # [B488](README.md#b488) — A Repository File Signed From The Checkouts A Person Keeps
 
-**Status:** Implementing.
+**Status:** Review.
 **Size:** M - one contract change of a command, read and signing paths in `organization/git-tree` beside today's,
 docs and an acceptance step; one repository.
 
@@ -79,20 +79,22 @@ Steps:
      `Porelo-Signs-Anew: porelo.yml` and `Porelo-Change-Id`.
    - **The push.** It pushes `main:main` to `upstream` from the scratch repository, never forced. (c)'s config,
      hooks and `insteadOf` never apply, because git runs on the scratch repository.
-   - **Into (c).** Only after the push is taken does Porelo fetch the one commit into (c) and move `main`. It runs
-     `git --git-dir=<c> -c core.hooksPath=/dev/null fetch --no-tags --no-write-fetch-head <scratch> <commit>`,
-     then `update-ref refs/heads/main <commit> <old>`. A refused push leaves (c) as it was.
+   - **Into (c).** Only after the push is taken does Porelo write the one commit object into (c) and move `main`
+     (`TreeRepository.handBack`). It runs `hash-object -t commit -w --no-filters` with the commit's text, which
+     must give back the same id, then `update-ref refs/heads/main <commit> <old>`, both with
+     `core.hooksPath=/dev/null`. No transport is involved, so no address rewrite of (c) applies. A refused push
+     leaves (c) as it was.
    - **A `main` that moved meanwhile** makes `update-ref` fail. The answer then says the forge holds the signature
      and that a fetch brings it.
    - **Measured 2026-11-07:**
-     - `update-ref` alone fails, because the commit object exists only in the scratch repository. The fetch puts it
-       into (c).
+     - `update-ref` alone fails, because the commit object exists only in the scratch repository. Writing the one
+       object first, by fetch in the measurement and by `hash-object` as built, puts it into (c).
      - With `core.hooksPath=/dev/null` a `reference-transaction` hook in (c) does not run. As a control, it runs
        without that setting.
      - An `insteadOf` in (c)'s config does not redirect the push.
      - `git status` in (c) stays clean, and `refs/heads/main` is the only ref.
 4. **Command and settings.**
-   - `porelo setup --organization-checkout PATH` and `porelo setup --project-checkout PROJECT PATH` each record a
+   - `porelo setup --organization-checkout PATH` and `porelo setup --project-checkout PROJECT=PATH` each record a
      checkout once, in this machine's settings. They check that it is a git checkout of this account.
    - `porelo project sign-repository-file [-C PATH] [--yes] [--id ID] [--json]` signs the checkout it runs in, or
      the one at `-C`, and finds the repository by the judged `upstream` its `origin` names. With no `PROJECT
@@ -106,6 +108,18 @@ Steps:
 6. **[B487](README.md#b487).** Reading the organization there belongs to the organization adapter, and
    `sign-repository-file` stays in `porelo`; that contract would need a question "signing keys of a project, read
    from a checkout at PATH". This is built here in today's modules and does not wait for that decision.
+
+After the review by another model, these points were added to the plan:
+- A project's checkout is judged with the keys of the name it is kept under. A `project.yml` naming another project
+  is refused before this machine remembers its date.
+- A signing asked again under its `--id` is found only when the forge holds it. A local commit that carries the id is
+  treated like any other local commit.
+- A forge without `main` is refused as it stands.
+- (c) is refused when its top, its `.git`, its `gitdir:` or its `commondir` belong to another account, each judged
+  where its links lead.
+- The hand-back writes nothing into (c) when its `main` moved. Moving `main` appends one reflog line naming Porelo,
+  as git's own commands do.
+- `origin` is read with `--no-includes` and is the first of several.
 
 The test that goes red first is in `ProjectFileTest`. Two bare "forge" repositories and a checkout of each are set
 up:
@@ -129,4 +143,8 @@ up:
   - (c) with a local commit the forge lacks is refused, naming that commit.
   - (c) whose `origin` names another address is refused, naming both.
 - A `git worktree` checkout signs like a plain one.
-- An acceptance step on the VM runs this with a checkout prepared from the forge-on-VM repositories.
+- An acceptance step on the VM runs the native binary: `porelo setup` names the checkouts and keeps them in
+  `checkouts.yml`, a plain directory is refused, and `sign-repository-file -C` says what is missing and refuses
+  `--base`. A signing on the VM end to end would need an organization with a forge that vouches for its keys, which
+  the suite does not hold; the signing itself is covered by the unit tests on real git repositories
+  (`ProjectFileCheckoutTest`, `ProjectSignRepositoryFileCheckoutTest`).

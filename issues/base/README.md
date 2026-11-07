@@ -20,6 +20,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b488"></a>[B488](B488-A-Repository-File-Signed-From-The-Checkouts-A-Person-Keeps.md) | M | - | A person signs a repository's `porelo.yml` anew from exactly the organization's, the project's and that repository's checkouts and their signing key, checked against the project's signers: one empty signed commit on the checkout's `main`, pushed fast-forward; no taken project, no clone, no `--base`. |
 | <a id="b486"></a>[B486](B486-The-Name-An-Agent-Goes-By.md) | S | - | Without a nickname an agent goes by "Agent " and its key capitalized, taken as it is; a nickname may be several ASCII words; colon, comma, control and non-ASCII characters and double spaces refused; no two names alike without case or with spaces collapsed, nor one the start of another before a space. |
 | <a id="b478"></a>[B478](B478-A-Hosts-Organization-Token-Is-Handed-Over-Without-Leaving-Porelo.md) | S | - | One command pipes the token declared for an organization's forge to a host's org refresh on standard input, over SSH pinned to its card's key; the value never leaves Porelo. |
 | <a id="b485"></a>[B485](B485-Project-Yml-Names-Central-Not-Upstream.md) | S | - | `project.yml` names `central:`; `upstream:` is read alike and `project verify` answers it as a rename, refusing nothing; Porelo writes only `central:`. |
@@ -76,7 +77,6 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
-| <a id="b488"></a>[B488](B488-A-Repository-File-Signed-From-The-Checkouts-A-Person-Keeps.md) | M | - | A person signs a repository's `porelo.yml` anew from exactly the organization's, the project's and that repository's checkouts and their signing key, checked against the project's signers: one empty signed commit on the checkout's `main`, pushed fast-forward; no taken project, no clone, no `--base`. |
 | <a id="b459"></a>[B459](B459-Every-Credential-Failure-Says-What-To-Do.md) | L | - | Credential failure inventory, upstream advice, agent readiness and source-aware unlock/storage actions; push/provider paths, frontend agreement, window controls and live remedies still pending. |
 | <a id="b458"></a>[B458](B458-A-Refused-Push-Says-Which-Credential.md) | M | - | Backend built: selected SSH identities, public key inventory, trial and named refusal; focused guards pass, complete unit verification blocked, window remains. |
 | <a id="b429"></a>[B429](B429-One-Line-Installs-Everything.md) | L | - | `sudo apt install 'porelo*' keepassxc` installs all of Porelo on every channel and stays true: the test agent leaves the channels, and a check runs the line against the published index. |

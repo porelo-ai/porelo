@@ -201,6 +201,20 @@ public final class ProjectFile {
             final @Nullable ProjectFile guard,
             final String address)
             throws IOException {
+        return judged(clone, keys, guard, address, null);
+    }
+
+    /**
+     * Judges the file; with a name, a file naming another project is refused before this machine
+     * remembers anything of it, since the keys it was judged with are that name's.
+     */
+    private static Read judged(
+            final TreeRepository clone,
+            final List<SigningKey> keys,
+            final @Nullable ProjectFile guard,
+            final String address,
+            final @Nullable String names)
+            throws IOException {
         try {
             final String tip = clone.tip();
             final Optional<String> newest = newestChange(clone, PATH);
@@ -236,6 +250,14 @@ public final class ProjectFile {
             }
             final String text = clone.text(blob.orElseThrow());
             final Project project = parsed(text, inClone(clone, tip));
+            if (names != null && !names.equals(project.name())) {
+                return refused(
+                        "the checkout's project.yml names the project "
+                                + project.name()
+                                + ", not "
+                                + names,
+                        signer);
+            }
             final Read read =
                     new Read(
                             READ,
@@ -423,6 +445,193 @@ public final class ProjectFile {
         return sign(change, address, keys, REPOSITORY_PATH, REPOSITORY_PATH, REPOSITORY_ROLES);
     }
 
+    /**
+     * Reads the project's file in the checkout a person keeps of the project's repository, at its
+     * {@code main}, as a start reads it fetched: against the keys of the project's admins and what
+     * this machine accepted of that repository before.
+     *
+     * @param checkout The checkout's top directory.
+     * @param address The project repository's address in the organization, which names what this
+     *     machine remembers of it.
+     * @param keys The project's signing keys.
+     * @param project The project the file must name, whose keys these are.
+     * @return What was found.
+     * @throws Refused {@code usage} when it is no checkout of this account.
+     * @throws IOException When something unexpected happened.
+     */
+    public Read readCheckout(
+            final Path checkout,
+            final String address,
+            final List<SigningKey> keys,
+            final String project)
+            throws IOException {
+        try (TreeRepository clone =
+                TreeRepository.borrowing(TreeRepository.checkoutDirectory(checkout), runner)) {
+            return judged(clone, keys, this, address, project);
+        } catch (CommandException ex) {
+            return new Read(CANNOT_SAY, null, null, null);
+        }
+    }
+
+    /**
+     * Shows a repository's file at the {@code main} of the checkout a person keeps, and its newest
+     * change, before they sign it.
+     *
+     * @param checkout The checkout's top directory.
+     * @param keys The project's signing keys.
+     * @return The text and signature at that main.
+     * @throws Refused {@code usage} when it is no checkout of this account, {@code refused-state}
+     *     when it has no main.
+     * @throws IOException When a signature cannot be checked.
+     */
+    public RepositoryLook lookCheckout(final Path checkout, final List<SigningKey> keys)
+            throws IOException {
+        try (TreeRepository clone =
+                TreeRepository.borrowing(TreeRepository.checkoutDirectory(checkout), runner)) {
+            return looked(clone, keys);
+        } catch (CommandException ex) {
+            return new RepositoryLook(
+                    new Look(new Read(CANNOT_SAY, null, null, null), null, null, null), null);
+        }
+    }
+
+    /**
+     * Signs a repository's file anew from the checkout a person keeps: an empty signed commit on
+     * the {@code main} they read, pushed to the repository's upstream as a plain step forward, and
+     * only then put into the checkout. Nothing else of the checkout is read by its own settings or
+     * changed.
+     *
+     * @param change Who acts, under which id; its base is not asked, since the main read is signed.
+     * @param checkout The checkout's top directory.
+     * @param upstream The repository's address, as the judged project file names it.
+     * @param keys The project's signing keys.
+     * @return What it made, or made before under this id.
+     * @throws Refused {@code usage} when it is no checkout of this account or its origin names
+     *     another address, {@code not-allowed} when the key may not sign, {@code moved-on} when the
+     *     forge's main is not what was read, {@code refused-state} when the checkout holds commits
+     *     the forge does not or no file.
+     * @throws IOException When something unexpected happened; the change may have been made.
+     */
+    public OrganizationWrites.Written signCheckout(
+            final OrganizationWrites.Change change,
+            final Path checkout,
+            final String upstream,
+            final List<SigningKey> keys)
+            throws IOException {
+        final String acting = change.acting().key();
+        final String subject =
+                TreeRepository.asked("Sign the repository file anew", REPOSITORY_PATH);
+        try (TreeRepository clone =
+                TreeRepository.borrowing(TreeRepository.checkoutDirectory(checkout), runner)) {
+            final String read = clone.tip();
+            final String origin = clone.origin();
+            if (!origin.equals(upstream)) {
+                throw new Refused(
+                        Refused.USAGE,
+                        "the checkout's origin is "
+                                + (origin.isEmpty() ? "none" : origin)
+                                + ", but the project names "
+                                + upstream
+                                + " for this repository",
+                        read);
+            }
+            if (!aKeyOf(acting, keys, OffsetDateTime.now().toString(), REPOSITORY_ROLES)) {
+                throw new Refused(
+                        Refused.NOT_ALLOWED,
+                        "the key that acts is no key of this project's admin or developer",
+                        read);
+            }
+            final String forge = clone.mainAt(upstream, access);
+            // Asked again under its id: only a commit the forge holds was made, whatever the
+            // checkout holds of its own.
+            final Optional<String> made = own(clone, change);
+            if (made.isPresent()
+                    && (forge.equals(made.orElseThrow())
+                            || clone.onlyHere(forge).isPresent()
+                                    && clone.hasAncestor(forge, made.orElseThrow()))) {
+                if (!clone.subject(made.orElseThrow()).equals(subject)) {
+                    throw new Refused(
+                            Refused.USAGE, "this --id named another change", made.orElseThrow());
+                }
+                return new OrganizationWrites.Written(made.orElseThrow(), change.id(), true);
+            }
+            signable(clone, read, REPOSITORY_PATH, REPOSITORY_PATH);
+            if (forge.isEmpty()) {
+                throw new Refused(
+                        Refused.REFUSED_STATE,
+                        "the forge's repository has no main to sign on top of",
+                        read);
+            }
+            if (!forge.equals(read)) {
+                final Optional<List<String>> local = clone.onlyHere(forge);
+                if (local.isPresent() && !local.orElseThrow().isEmpty()) {
+                    throw new Refused(
+                            Refused.REFUSED_STATE,
+                            "the checkout's main holds commits the forge does not, which a"
+                                    + " signature would carry along: "
+                                    + String.join(", ", local.orElseThrow()),
+                            read);
+                }
+                throw new Refused(
+                        Refused.MOVED_ON,
+                        "the forge's main moved on from what the checkout holds: fetch, read"
+                                + " again and sign again",
+                        read);
+            }
+            final String commit =
+                    clone.commit(
+                            read,
+                            Map.of(),
+                            subject,
+                            change.id(),
+                            signing,
+                            acting,
+                            change.acting().login(),
+                            REPOSITORY_PATH);
+            if (!clone.push(upstream, access)) {
+                throw new GitTreeStore.Unreachable(
+                        "the repository did not take the change: fetch, read again and sign again");
+            }
+            // The forge holds it now; a checkout the person moved meanwhile gets it by a fetch.
+            clone.handBack(commit, read);
+            return new OrganizationWrites.Written(commit, change.id(), false);
+        } catch (CardException ex) {
+            throw new IOException(ex.getMessage(), ex);
+        }
+    }
+
+    /**
+     * Returns the address the {@code origin} of a checkout a person keeps names.
+     *
+     * @param runner How git runs.
+     * @param checkout The checkout's top directory.
+     * @return It, or "" when it names none.
+     * @throws IOException When it is no checkout or has no main.
+     */
+    public static String checkoutOrigin(final CommandRunner runner, final Path checkout)
+            throws IOException {
+        try (TreeRepository clone =
+                TreeRepository.borrowing(TreeRepository.checkoutDirectory(checkout), runner)) {
+            return clone.origin();
+        }
+    }
+
+    /**
+     * Returns where the {@code main} of a checkout a person keeps stands.
+     *
+     * @param runner How git runs.
+     * @param checkout The checkout's top directory.
+     * @return Its commit.
+     * @throws IOException When it is no checkout or has no main.
+     */
+    public static String checkoutMain(final CommandRunner runner, final Path checkout)
+            throws IOException {
+        try (TreeRepository clone =
+                TreeRepository.borrowing(TreeRepository.checkoutDirectory(checkout), runner)) {
+            return clone.tip();
+        }
+    }
+
     private OrganizationWrites.Written sign(
             final OrganizationWrites.Change change,
             final String address,
@@ -494,30 +703,34 @@ public final class ProjectFile {
     public RepositoryLook lookRepositoryFile(final String address, final List<SigningKey> keys)
             throws IOException {
         try (TreeRepository clone = fetch(address, REPOSITORY_PATH)) {
-            final String tip = clone.tip();
-            final String text = clone.object(tip, REPOSITORY_PATH).map(clone::text).orElse(null);
-            final String change = newestChange(clone, REPOSITORY_PATH).orElse(null);
-            Read read;
-            try {
-                final String signer = change == null ? null : clone.signer(change);
-                read =
-                        change != null
-                                        && signer != null
-                                        && aKeyOf(
-                                                signer, keys, clone.dated(change), REPOSITORY_ROLES)
-                                ? new Read(READ, tip, null, null, signer)
-                                : refused(
-                                        "the newest change has no project admin's or developer's signature",
-                                        signer);
-            } catch (CardException ex) {
-                read = refused(String.valueOf(ex.getMessage()));
-            }
-            final String blocked = text == null ? "the repository holds no porelo.yml" : null;
-            return new RepositoryLook(new Look(read, tip, text, blocked), change);
+            return looked(clone, keys);
         } catch (GitTreeStore.Unreachable | CommandException ex) {
             return new RepositoryLook(
                     new Look(new Read(CANNOT_SAY, null, null, null), null, null, null), null);
         }
+    }
+
+    private static RepositoryLook looked(final TreeRepository clone, final List<SigningKey> keys)
+            throws IOException {
+        final String tip = clone.tip();
+        final String text = clone.object(tip, REPOSITORY_PATH).map(clone::text).orElse(null);
+        final String change = newestChange(clone, REPOSITORY_PATH).orElse(null);
+        Read read;
+        try {
+            final String signer = change == null ? null : clone.signer(change);
+            read =
+                    change != null
+                                    && signer != null
+                                    && aKeyOf(signer, keys, clone.dated(change), REPOSITORY_ROLES)
+                            ? new Read(READ, tip, null, null, signer)
+                            : refused(
+                                    "the newest change has no project admin's or developer's signature",
+                                    signer);
+        } catch (CardException ex) {
+            read = refused(String.valueOf(ex.getMessage()));
+        }
+        final String blocked = text == null ? "the repository holds no porelo.yml" : null;
+        return new RepositoryLook(new Look(read, tip, text, blocked), change);
     }
 
     private TreeRepository fetch(final String address, final String path) throws IOException {

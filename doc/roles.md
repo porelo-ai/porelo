@@ -51,6 +51,9 @@ admin signs it anew with `porelo project sign`. See [how the file reaches a mach
 A repository's `porelo.yml` may be signed anew by a project admin or developer with
 `porelo project sign-repository-file PROJECT REPOSITORY`. The acting key must be valid today among the project's
 keys taken on this machine. Without `--yes` the command shows the file; signing needs `--yes --base REVISION`.
+From the checkouts a person keeps of the organization's, the project's and that repository's repositories,
+`porelo project sign-repository-file -C PATH --yes` signs the checkout's `main` with no project taken; the key is
+checked against the signers the organization's checkout names.
 
 ## On a machine
 

@@ -360,7 +360,8 @@ image:
   last. A project admin or developer reads it with `porelo project sign-repository-file PROJECT REPOSITORY`, then
   signs the revision read with `--yes --base REVISION`; `--id ID` makes a retry safe. This pushes an empty signed
   commit with `Porelo-Signs-Anew: porelo.yml` to the `central` address in the project's judged file, on the repository's
-  default branch. The signature anew takes on the file as it stands, unsigned changes before it included; one by
+  default branch. Who keeps checkouts of the organization's, the project's and that repository's repositories signs
+from them instead with `porelo project sign-repository-file -C PATH --yes`, the checkout's `main` as read. The signature anew takes on the file as it stands, unsigned changes before it included; one by
   anybody else changes nothing. It does not repair a rewritten history. Nothing on the machine allows a refused
   change.
   Signed, it adds to the project's file as a repository's file does in `default` (see below), image and settings

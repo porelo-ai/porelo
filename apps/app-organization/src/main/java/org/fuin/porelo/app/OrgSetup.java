@@ -17,6 +17,7 @@ import org.fuin.porelo.organization.OrganizationException;
 import org.fuin.porelo.organization.OrganizationQuestions;
 import org.fuin.porelo.organization.OrganizationQuestions.Refused;
 import org.fuin.porelo.organization.gittree.GitTreeStore;
+import org.fuin.porelo.organization.gittree.ProjectFile;
 import org.fuin.porelo.vault.AgentKey;
 import org.fuin.porelo.vault.SshAgentClient;
 import org.fuin.porelo.vault.VaultException;
@@ -33,6 +34,22 @@ public final class OrgSetup {
             description = "Points this machine at the organization kept at this address.")
     private @Nullable String address;
 
+    @Option(
+            names = "--organization-checkout",
+            paramLabel = "PATH",
+            description =
+                    "Names the checkout you keep of the organization's repository, which signing a"
+                            + " repository's file reads where it stands.")
+    private @Nullable Path organizationCheckout;
+
+    @Option(
+            names = "--project-checkout",
+            paramLabel = "PROJECT=PATH",
+            description =
+                    "Names the checkout you keep of a project's repository; may be given more than"
+                            + " once.")
+    private Map<String, Path> projectCheckouts = new LinkedHashMap<>();
+
     @Option(names = "--replace", description = "Replaces the organization this machine has.")
     private boolean replace;
 
@@ -48,7 +65,7 @@ public final class OrgSetup {
      * @return Whether an address was named.
      */
     public boolean named() {
-        return address != null;
+        return address != null || organizationCheckout != null || !projectCheckouts.isEmpty();
     }
 
     /**
@@ -61,7 +78,23 @@ public final class OrgSetup {
      */
     public int run(final PoreloContext machine, final CommandSpec spec) throws IOException {
         try {
-            final Map<String, @Nullable Object> answer = answer(machine, spec);
+            final Map<String, @Nullable Object> answer =
+                    address == null ? new LinkedHashMap<>() : answer(machine, spec);
+            final Map<String, String> checkouts = checkouts(machine);
+            if (address == null) {
+                if (json) {
+                    answer.put("checkouts", checkouts);
+                    OrgOutput.answer(spec, answer);
+                } else {
+                    checkouts.forEach(
+                            (what, where) ->
+                                    OrgOutput.line(spec, "Checkout of " + what + ": " + where));
+                }
+                return 0;
+            }
+            if (!checkouts.isEmpty()) {
+                answer.put("checkouts", checkouts);
+            }
             if (json) {
                 OrgOutput.answer(spec, answer);
             } else {
@@ -71,6 +104,9 @@ public final class OrgSetup {
                         answer.get("login") == null
                                 ? "No key in your agent has a card there: this machine only reads"
                                 : "Acting here as " + answer.get("login"));
+                checkouts.forEach(
+                        (what, where) ->
+                                OrgOutput.line(spec, "Checkout of " + what + ": " + where));
             }
             return 0;
         } catch (Refused refused) {
@@ -105,6 +141,43 @@ public final class OrgSetup {
                 org.fuin.porelo.organization.gittree.ForgeAddress.withoutUserinfo(named));
         answer.put("login", login);
         return answer;
+    }
+
+    /**
+     * Writes the checkouts named, each seen to be a checkout of this account with a main.
+     *
+     * @return What each now names, as {@code organization} or {@code project NAME}.
+     */
+    private Map<String, String> checkouts(final PoreloContext machine) throws IOException {
+        final Map<String, String> named = new LinkedHashMap<>();
+        if (organizationCheckout == null && projectCheckouts.isEmpty()) {
+            return named;
+        }
+        OrgCheckouts settings = OrgCheckouts.of(machine);
+        if (organizationCheckout != null) {
+            final Path checkout = seen(machine, organizationCheckout);
+            settings = settings.withOrganization(checkout);
+            named.put("organization", checkout.toString());
+        }
+        for (final Map.Entry<String, Path> row : projectCheckouts.entrySet()) {
+            if (!row.getKey().matches(org.fuin.porelo.core.project.Project.NAME_PATTERN)) {
+                throw new Refused(
+                        Refused.USAGE,
+                        "--project-checkout names no project: " + row.getKey(),
+                        null);
+            }
+            final Path checkout = seen(machine, row.getValue());
+            settings = settings.withProject(row.getKey(), checkout);
+            named.put("project " + row.getKey(), checkout.toString());
+        }
+        settings.write(machine);
+        return named;
+    }
+
+    private static Path seen(final PoreloContext machine, final Path checkout) throws IOException {
+        final Path absolute = checkout.toAbsolutePath().normalize();
+        ProjectFile.checkoutMain(machine.runner(), absolute);
+        return absolute;
     }
 
     /**

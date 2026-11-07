@@ -2665,6 +2665,43 @@ class GitTreeStoreTest {
     }
 
     @Test
+    void aCheckoutOfTheOrganizationIsReadWhereItStandsAsAFetchReadsIt() throws Exception {
+        founded();
+        project();
+        final OrganizationQuestions fetched = read();
+        final String status = git("status", "--porcelain=v1");
+
+        final OrganizationQuestions standing = keeping().readCheckout(repo, forge);
+
+        assertThat(standing.revision()).as("at the checkout's main").isEqualTo(fetched.revision());
+        assertThat(standing.signingKeys("demo"))
+                .as("the same signers")
+                .isEqualTo(fetched.signingKeys("demo"));
+        assertThat(standing.whole()).as("the walk reached the checkout's main").isTrue();
+        assertThat(git("status", "--porcelain=v1"))
+                .as("the checkout is left alone")
+                .isEqualTo(status);
+        assertThat(Files.exists(trustRecord())).as("what it trusted is kept").isTrue();
+    }
+
+    @Test
+    void aCheckoutWoundBackBehindWhatWasTrustedIsRefused() throws Exception {
+        final String first = founded();
+        project();
+        keeping().readCheckout(repo, forge);
+
+        git("reset", "-q", "--hard", first);
+
+        assertThatThrownBy(() -> keeping().readCheckout(repo, forge))
+                .as("an older state is refused from a checkout as from a forge")
+                .isInstanceOfSatisfying(
+                        OrganizationQuestions.Refused.class,
+                        refused ->
+                                assertThat(refused.reason())
+                                        .isEqualTo(OrganizationQuestions.Refused.REFUSED_STATE));
+    }
+
+    @Test
     void anEarlierKeyGetsARowSayingSinceWhenItNoLongerHolds() throws Exception {
         founded();
         project();

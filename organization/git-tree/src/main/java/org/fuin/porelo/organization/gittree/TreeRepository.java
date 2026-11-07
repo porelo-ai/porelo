@@ -76,6 +76,9 @@ final class TreeRepository implements AutoCloseable {
 
     private String branch = BRANCH;
 
+    /** The git directory of the checkout a borrowing reads, or {@code null} for an own clone. */
+    private @Nullable Path borrowed;
+
     private TreeRepository(final Path scratch, final CommandRunner runner) {
         this(scratch, scratch.resolve("organization.git"), runner);
     }
@@ -99,6 +102,244 @@ final class TreeRepository implements AutoCloseable {
             throws IOException {
         return new TreeRepository(
                 Files.createTempDirectory("porelo-organization-"), repository, runner);
+    }
+
+    /**
+     * Returns the git directory a person's checkout keeps its branches and objects in: the
+     * checkout's own, or for a {@code git worktree} the one it shares. Read from the files alone,
+     * so that nothing of the checkout's configuration runs.
+     *
+     * @param checkout The checkout's top directory.
+     * @return The git directory.
+     * @throws Refused {@code usage} when it is no checkout, a shallow one, or another account's.
+     * @throws IOException When it cannot be read.
+     */
+    static Path checkoutDirectory(final Path checkout) throws IOException {
+        try {
+            final java.nio.file.attribute.UserPrincipal self =
+                    checkout.getFileSystem()
+                            .getUserPrincipalLookupService()
+                            .lookupPrincipalByName(System.getProperty("user.name", ""));
+            final Path top = checkout.toRealPath();
+            final Path dotGit = top.resolve(".git");
+            ours(top, self, checkout);
+            ours(dotGit, self, checkout);
+            final Path own;
+            if (Files.isDirectory(dotGit, java.nio.file.LinkOption.NOFOLLOW_LINKS)) {
+                own = dotGit;
+            } else if (Files.isRegularFile(dotGit, java.nio.file.LinkOption.NOFOLLOW_LINKS)
+                    && Files.size(dotGit) < 4096) {
+                final String line = Files.readString(dotGit, StandardCharsets.UTF_8).strip();
+                if (!line.startsWith("gitdir: ")) {
+                    throw noCheckout(checkout);
+                }
+                own = top.resolve(line.substring(8)).toRealPath();
+                ours(own, self, checkout);
+            } else {
+                throw noCheckout(checkout);
+            }
+            Path common = own;
+            final Path named = own.resolve("commondir");
+            if (Files.isRegularFile(named, java.nio.file.LinkOption.NOFOLLOW_LINKS)
+                    && Files.size(named) < 4096) {
+                common =
+                        own.resolve(Files.readString(named, StandardCharsets.UTF_8).strip())
+                                .toRealPath();
+            }
+            ours(common, self, checkout);
+            if (!Files.isDirectory(
+                    common.resolve("objects"), java.nio.file.LinkOption.NOFOLLOW_LINKS)) {
+                throw noCheckout(checkout);
+            }
+            if (Files.exists(common.resolve("shallow"), java.nio.file.LinkOption.NOFOLLOW_LINKS)) {
+                throw new Refused(
+                        Refused.USAGE,
+                        "the checkout at " + checkout + " is shallow and cannot prove its history",
+                        null);
+            }
+            return common;
+        } catch (java.nio.file.InvalidPathException
+                | java.nio.charset.MalformedInputException
+                | java.nio.file.NoSuchFileException ex) {
+            throw noCheckout(checkout);
+        }
+    }
+
+    /** Refuses what another account owns: a checkout signs only for whoever keeps it. */
+    private static void ours(
+            final Path path, final java.nio.file.attribute.UserPrincipal self, final Path checkout)
+            throws IOException {
+        if (!Files.exists(path, java.nio.file.LinkOption.NOFOLLOW_LINKS)) {
+            throw noCheckout(checkout);
+        }
+        if (!Files.getOwner(path, java.nio.file.LinkOption.NOFOLLOW_LINKS).equals(self)) {
+            throw new Refused(
+                    Refused.USAGE,
+                    "the checkout at " + checkout + " belongs to another account",
+                    null);
+        }
+    }
+
+    private static Refused noCheckout(final Path checkout) {
+        return new Refused(Refused.USAGE, checkout + " is no git checkout", null);
+    }
+
+    /**
+     * Reads a person's checkout through a scratch repository that borrows its objects and starts at
+     * its {@code main}. Git runs on the scratch repository alone, so the checkout's configuration,
+     * hooks and address rewrites have no say, and nothing is written into it until {@link
+     * #handBack}.
+     *
+     * @param checkout The checkout's git directory, from {@link #checkoutDirectory}.
+     * @param runner How git runs.
+     * @return The repository to read.
+     * @throws Refused {@code usage} when the checkout is another account's, {@code refused-state}
+     *     when it has no main.
+     * @throws IOException When the scratch repository cannot be made.
+     */
+    static TreeRepository borrowing(final Path checkout, final CommandRunner runner)
+            throws IOException {
+        final TreeRepository clone =
+                new TreeRepository(Files.createTempDirectory("porelo-organization-"), runner);
+        try {
+            final Path template = Files.createDirectory(clone.scratch.resolve("empty-template"));
+            if (!clone.git(
+                            "init",
+                            "-q",
+                            "--bare",
+                            "--template=" + template,
+                            clone.repository.toString())
+                    .successful()) {
+                throw new IOException("cannot make the scratch repository");
+            }
+            final Path alternates = clone.repository.resolve("objects/info/alternates");
+            Files.createDirectories(alternates.getParent());
+            Files.writeString(
+                    alternates, checkout.resolve("objects") + "\n", StandardCharsets.UTF_8);
+            final CommandResult main =
+                    new TreeRepository(clone.scratch, checkout, runner)
+                            .git(
+                                    "rev-parse",
+                                    "--verify",
+                                    "-q",
+                                    "--end-of-options",
+                                    BRANCH + "^{commit}");
+            if (!main.successful()) {
+                throw new Refused(
+                        Refused.REFUSED_STATE,
+                        "the checkout at " + checkout + " has no main",
+                        null);
+            }
+            clone.require("update-ref", BRANCH, main.standardOutput().strip());
+            clone.borrowed = checkout;
+            return clone;
+        } catch (IOException | RuntimeException ex) {
+            clone.close();
+            throw ex;
+        }
+    }
+
+    /**
+     * Returns the address the borrowed checkout's {@code origin} names.
+     *
+     * @return It, or "" when it names none.
+     */
+    String origin() {
+        final CommandResult named =
+                new TreeRepository(scratch, borrowed(), runner)
+                        .git("config", "--no-includes", "--get-all", "remote.origin.url");
+        // Git fetches from the first of several.
+        return named.successful()
+                ? named.standardOutput().lines().findFirst().orElse("").strip()
+                : "";
+    }
+
+    /**
+     * Puts a commit made here into the borrowed checkout and moves its {@code main} to it, if main
+     * still stands where it was read. Only the one object and the one ref are written.
+     *
+     * @param commit The commit, made here on the checkout's main.
+     * @param read Where the checkout's main stood when it was read.
+     * @return Whether the checkout's main moved; it did not when the person moved it meanwhile.
+     * @throws IOException When the commit cannot be written.
+     */
+    boolean handBack(final String commit, final String read) throws IOException {
+        final Path object = scratch.resolve("commit");
+        Files.writeString(
+                object,
+                require("cat-file", "commit", "--end-of-options", commit),
+                StandardCharsets.UTF_8);
+        final TreeRepository there = new TreeRepository(scratch, borrowed(), runner);
+        // A checkout moved meanwhile gets nothing, not even the object: a fetch brings it.
+        final CommandResult standing = there.git("rev-parse", "--verify", "-q", BRANCH);
+        if (!standing.successful() || !standing.standardOutput().strip().equals(read)) {
+            return false;
+        }
+        final String written =
+                written(
+                                there.git(
+                                        "hash-object",
+                                        "-t",
+                                        "commit",
+                                        "-w",
+                                        "--no-filters",
+                                        "--",
+                                        object.toString()))
+                        .strip();
+        if (!written.equals(commit)) {
+            throw new IOException("the signed commit did not come over whole");
+        }
+        // Its reflog says what moved main, as git's own commands do.
+        return there.git("update-ref", "-m", "porelo: signed porelo.yml anew", BRANCH, commit, read)
+                .successful();
+    }
+
+    /**
+     * Returns where a repository's {@code main} stands, without fetching it.
+     *
+     * @param address The repository.
+     * @param access What the question may use.
+     * @return Its commit, or "" when it has no main.
+     * @throws GitTreeStore.Unreachable When it does not answer.
+     */
+    String mainAt(final String address, final FetchAccess access) throws IOException {
+        try (FetchAccess.Lease lease = access.lend(address)) {
+            final List<String> arguments = new ArrayList<>(lease.arguments());
+            arguments.addAll(List.of("ls-remote", "--", address, BRANCH));
+            final CommandResult asked = git(lease.environment(), arguments.toArray(String[]::new));
+            if (!asked.successful()) {
+                throw new GitTreeStore.Unreachable("the repository cannot be reached");
+            }
+            return asked.standardOutput()
+                    .lines()
+                    .map(line -> line.split("\t", 2)[0])
+                    .findFirst()
+                    .orElse("");
+        }
+    }
+
+    /**
+     * Returns the commits on this main that a commit does not hold, newest first.
+     *
+     * @param other The commit.
+     * @return Them, or empty when the commit is not here at all.
+     */
+    Optional<List<String>> onlyHere(final String other) {
+        if (!git("cat-file", "-e", "--end-of-options", other + "^{commit}").successful()) {
+            return Optional.empty();
+        }
+        return Optional.of(
+                require("rev-list", "--end-of-options", branch, "^" + other, "--")
+                        .lines()
+                        .toList());
+    }
+
+    private Path borrowed() {
+        final Path checkout = borrowed;
+        if (checkout == null) {
+            throw new IllegalStateException("no checkout is borrowed");
+        }
+        return checkout;
     }
 
     /**
