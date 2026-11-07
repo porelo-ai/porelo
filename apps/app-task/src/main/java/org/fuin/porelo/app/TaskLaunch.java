@@ -586,6 +586,10 @@ public final class TaskLaunch {
 
     private final StartSteps steps;
 
+    private final HostPerson host;
+
+    private final @Nullable Path starterAgent;
+
     /** What to start. Replaced once, when a container name given as the task is taken apart. */
     private Request request;
 
@@ -622,9 +626,21 @@ public final class TaskLaunch {
      * @param steps Where progress goes.
      */
     public TaskLaunch(PoreloContext context, Request request, StartSteps steps) {
+        this(context, request, steps, new HostPerson(context), agentSocket());
+    }
+
+    /** Creates a launch with the host's helper and the starter's SSH agent. */
+    TaskLaunch(
+            PoreloContext context,
+            Request request,
+            StartSteps steps,
+            HostPerson host,
+            @Nullable Path starterAgent) {
         this.context = context;
         this.request = request;
         this.steps = steps;
+        this.host = host;
+        this.starterAgent = starterAgent;
     }
 
     /**
@@ -2023,6 +2039,25 @@ public final class TaskLaunch {
             }
             workspace().forgeBranch(forgeBranch);
             final TaskWorkspace workspace = workspace().openWorkspace(project, gated, out, err);
+            // Refused here, as the start would refuse it after its broker holds the credential:
+            // only an actual workspace needs a certificate, and it is known from this line on.
+            if (workspace != null && host.present()) {
+                final java.util.List<String> certifiers =
+                        TaskCertifying.certifiers(context, project);
+                if (!TaskCertifying.canCertify(
+                        project.name(),
+                        certifiers,
+                        remoteCertifier(project.name(), true, certifiers),
+                        starterAgent)) {
+                    throw new TaskCertification.Refused(
+                            TaskCertifying.noCertificate(
+                                    project.name(),
+                                    request.task(),
+                                    System.getProperty("user.name", ""),
+                                    certifiers,
+                                    repository.name()));
+                }
+            }
             final String earlier = workspace().refusal();
             if (earlier != null
                     && (retry = nameInstead(earlier, workspace().freeName(), offer)) != null) {
@@ -2292,7 +2327,6 @@ public final class TaskLaunch {
             }
             // Certified before its git is set up, so a task with a key signs from its first commit;
             // one whose starter's agent holds no certifier's key starts as it did, unsigned.
-            final HostPerson host = new HostPerson(context);
             final java.util.List<String> certifiers =
                     workspace == null
                             ? java.util.List.of()
@@ -2306,7 +2340,7 @@ public final class TaskLaunch {
                                     System.getProperty("user.name", ""),
                                     certifiers,
                                     remoteCertifier(project.name(), host.present(), certifiers),
-                                    agentSocket(),
+                                    starterAgent,
                                     java.time.Clock.systemUTC());
             // A host records each task's certificate and makes its forge token: it starts none
             // without one, since what it passes on is then vouched for by nobody.
@@ -3822,7 +3856,7 @@ public final class TaskLaunch {
                 issued.principal(),
                 file,
                 // The host's own forge names a project's organization after the project.
-                new HostPerson(context).present() ? hostRepository : null);
+                host.present() ? hostRepository : null);
     }
 
     /** The agent of the person starting the task, or {@code null} when there is none. */

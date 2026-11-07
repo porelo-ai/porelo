@@ -103,6 +103,25 @@ final class TaskCertifying {
         return host || !TaskCertification.NO_PROJECT.equals(project);
     }
 
+    /** Whether a task could be certified, listing agent keys without asking for a signature. */
+    static boolean canCertify(
+            String project,
+            List<String> certifiers,
+            TaskCertification.@Nullable Certifier remote,
+            @Nullable Path agent) {
+        if (certifiers.isEmpty() && !TaskCertification.NO_PROJECT.equals(project)) {
+            return false;
+        }
+        if (remote != null) {
+            return true;
+        }
+        return agent != null
+                && agentHolds(
+                                agent,
+                                TaskCertification.NO_PROJECT.equals(project) ? null : certifiers)
+                        != null;
+    }
+
     /**
      * Certifies a task at its start, or answers that it starts uncertified.
      *

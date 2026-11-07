@@ -276,6 +276,110 @@ class TaskRunCommandTest {
     }
 
     @Test
+    void aHostRefusesAnUncertifiableStartBeforeStartingItsBroker(@TempDir Path dir)
+            throws IOException {
+        // A broker started for a task that cannot be certified needlessly holds a real credential.
+        final PoreloContext context = previewContext(dir, true);
+        previewAgent(context, "preview");
+        Files.writeString(
+                context.paths().xdg().data().resolve("providers/preview.yaml"),
+                "token_env: { _default: PREVIEW_TOKEN }\n",
+                java.nio.file.StandardOpenOption.APPEND);
+        final Path projectFile =
+                PlacedFixture.place(
+                        context, "uc", MINIMAL, PlacedFixture.key("alice", "ssh-ed25519 AAAA"));
+        context.vault()
+                .write(
+                        java.util.Map.of(
+                                "preview",
+                                new org.fuin.porelo.vault.VaultEntry("test-key", "api-key")),
+                        "test-passphrase".toCharArray());
+        final Path events = Files.writeString(dir.resolve("start-events"), "");
+        final Path helper = Files.writeString(dir.resolve("host-person"), "");
+        final String ownPorelo = System.getProperty(PoreloBinary.NAMED);
+        final Path broker = dir.resolve("recording-porelo");
+        Files.writeString(
+                broker,
+                """
+                #!/bin/sh
+                if [ "$1" = vault ] && [ "$2" = serve ]; then
+                  echo broker >> %s
+                  while [ "$#" -gt 1 ]; do
+                    case "$1" in
+                      --socket) : > "$2" ;;
+                      --token-file) echo stand-in-token > "$2" ;;
+                    esac
+                    shift
+                  done
+                  exit 0
+                fi
+                exec %s "$@"
+                """
+                        .formatted(shellArgument(events.toString()), shellArgument(ownPorelo)));
+        Files.setPosixFilePermissions(
+                broker, java.nio.file.attribute.PosixFilePermissions.fromString("rwx------"));
+        System.setProperty(PoreloBinary.NAMED, broker.toString());
+        final int code;
+        try {
+            assertThat(
+                            context.asking(shown -> "test-passphrase".toCharArray())
+                                    .openerAsking(false, new PrintWriter(err)))
+                    .as("the fixture opens only its own vault, without an account keyring")
+                    .isPresent();
+            code =
+                    new TaskLaunch(
+                                    context,
+                                    new TaskLaunch.Request(
+                                            "first",
+                                            projectFile,
+                                            "preview",
+                                            null,
+                                            null,
+                                            8,
+                                            null,
+                                            false,
+                                            false,
+                                            "deny",
+                                            false,
+                                            org.fuin.porelo.wire.TaskMode.SHELL,
+                                            null,
+                                            null,
+                                            null,
+                                            60,
+                                            "uc",
+                                            java.util.Map.of(),
+                                            java.util.Map.of()),
+                                    new StartSteps(step -> {}, new PrintWriter(err)),
+                                    new HostPerson(context, helper),
+                                    null)
+                            .launch(
+                                    new PrintWriter(out, true),
+                                    new PrintWriter(err, true),
+                                    running -> running.cleanUp().applyAsInt(0));
+            Files.writeString(events, "refused\n", java.nio.file.StandardOpenOption.APPEND);
+        } finally {
+            System.setProperty(PoreloBinary.NAMED, ownPorelo);
+            PoreloContext.forgetAsked();
+        }
+
+        assertThat(code)
+                .as("the host refuses a task with no way to certify it: %s", err)
+                .isEqualTo(65);
+        assertThat(Files.readAllLines(events))
+                .as("certification must refuse before any broker holds the task's credential")
+                .containsExactly("refused");
+        assertThat(runner.lines())
+                .as("the refused task must prepare no image or container")
+                .noneMatch(line -> line.contains("podman build") || line.contains("podman create"));
+        assertThat(context.paths().tasks().containerState("porelo-uc-first"))
+                .as("the refused task must leave no runtime state or helpers")
+                .doesNotExist();
+        assertThat(context.paths().messaging().mailbox("porelo-uc-first"))
+                .as("the refused task must leave no mailbox")
+                .doesNotExist();
+    }
+
+    @Test
     void aTaskMountsNeitherTheDaemonsSocketNorADirectoryAboveIt(@TempDir Path dir)
             throws IOException {
         // The daemon answers a credential's length to whoever reaches its socket. In a rootless

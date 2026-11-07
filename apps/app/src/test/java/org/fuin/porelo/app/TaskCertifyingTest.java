@@ -18,6 +18,38 @@ class TaskCertifyingTest {
     @RegisterExtension final TestSshAgent agents = new TestSshAgent();
 
     @Test
+    void aStartChecksItsCertifiersWithoutAskingThePersonsComputerToSign() throws Exception {
+        // A preflight must neither reject a usable key nor ask for a certificate twice.
+        final String person = keygen("person");
+        final String other = keygen("other");
+        final Path socket = dir.resolve("checking.sock");
+        agentHolding(socket);
+        final TaskCertification.Certifier remote =
+                (key, principal, keyId, validBefore) -> {
+                    throw new AssertionError("a preflight must not ask for a signature");
+                };
+
+        assertThat(TaskCertifying.canCertify("demo", List.of(other, person), null, socket))
+                .as("any certifier's key held by the local agent can certify")
+                .isTrue();
+        assertThat(TaskCertifying.canCertify("demo", List.of(other), null, socket))
+                .as("an unrelated agent key cannot certify the project's task")
+                .isFalse();
+        assertThat(TaskCertifying.canCertify("demo", List.of(person), null, null))
+                .as("no remote certifier and no agent cannot certify")
+                .isFalse();
+        assertThat(TaskCertifying.canCertify("demo", List.of(person), remote, null))
+                .as("the person's computer can certify without an agent on the host")
+                .isTrue();
+        assertThat(TaskCertifying.canCertify("demo", List.of(), remote, socket))
+                .as("a project naming no certifiers stays uncertified even with a remote")
+                .isFalse();
+        assertThat(TaskCertifying.canCertify(TaskCertification.NO_PROJECT, List.of(), null, socket))
+                .as("a task with no project can use the agent's first Ed25519 key")
+                .isTrue();
+    }
+
+    @Test
     void aStartIsCertifiedOnlyWhenTheAgentHoldsACertifiersKeyOrThePersonsMachineCertifies()
             throws Exception {
         final String person = keygen("person");
