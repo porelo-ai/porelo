@@ -75,6 +75,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b486"></a>[B486](B486-The-Name-An-Agent-Goes-By.md) | S | - | Without a nickname an agent goes by "Agent " and its key capitalized, taken as it is; a nickname may be several ASCII words; colon, comma, control and non-ASCII characters and double spaces refused; no two names alike without case or with spaces collapsed, nor one the start of another before a space. |
 | <a id="b459"></a>[B459](B459-Every-Credential-Failure-Says-What-To-Do.md) | L | - | Credential failure inventory, upstream advice, agent readiness and source-aware unlock/storage actions; push/provider paths, frontend agreement, window controls and live remedies still pending. |
 | <a id="b458"></a>[B458](B458-A-Refused-Push-Says-Which-Credential.md) | M | - | Backend built: selected SSH identities, public key inventory, trial and named refusal; focused guards pass, complete unit verification blocked, window remains. |
 | <a id="b429"></a>[B429](B429-One-Line-Installs-Everything.md) | L | - | `sudo apt install 'porelo*' keepassxc` installs all of Porelo on every channel and stays true: the test agent leaves the channels, and a check runs the line against the published index. |
@@ -240,7 +241,6 @@ from its side, as *blocked by*.
 ## Estimated
 
 | # | Size | Blocked by | What it covers |
-| <a id="b486"></a>[B486](B486-The-Name-An-Agent-Goes-By.md) | S | - | Without a nickname an agent goes by "Agent " and its key capitalized, taken as it is; a nickname may be several ASCII words; colon, comma, control and non-ASCII characters and double spaces refused; no two names alike without case or with spaces collapsed, nor one the start of another before a space. |
 |---|---|---|---|
 | <a id="b316"></a>[B316](B316-A-Warning-Only-Where-Something-Is-Wrong.md) | M | - | Porelo warns only where something is wrong: `vault put` knows the names placed projects ask for (`builds.credential`, `credentials:`) and says what an entry is used for; a sweep of the command line's 263 warnings for fine states printed as findings |
 | <a id="b184"></a>[B184](B184-Only-What-Porelo-Delivered-Counts-As-A-Message.md) | M | - | A message in the inbox counts only when the account running Porelo owns it (root inside); the host reads the inbox without following links and names a planted file; the guide and the agent kit check the owner. |

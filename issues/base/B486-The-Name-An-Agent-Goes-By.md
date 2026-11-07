@@ -1,6 +1,6 @@
 # [B486](README.md#b486) — The Name An Agent Goes By
 
-**Status:** Estimated. Accepted on the operator's word (2026-11-07); its questions answered by the operator the same day.
+**Status:** Implementing.
 **Size:** S - the nickname's rule, the default name, the one check that two names differ, the schema and the docs.
 Estimate 75 minutes.
 
