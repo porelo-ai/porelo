@@ -47,6 +47,11 @@ key wrongly or loses data. Each one placed is split out with its own size.
 - Low: the refusal of a task name with characters no task may have suggests a lowercased one checked only against the
   pattern, so it can suggest a name another rule refuses: digits only (`123 ` suggests `123`), `people`, one beginning
   `porelo-`, or one too long for the project.
+- Low: a start wrong twice, an unknown `-r` and another refusal, hears whichever check comes first, and the unknown
+  name exits 64 where the other would exit 2; both refuse before anything is made. Found by [B491](README.md#b491)'s reading.
+- Low: on a host whose builds come from its file, a start with the vault locked and an agent that takes no credential
+  cannot see whether the vault holds the builds entry, so the helper starts and, once the vault opens without it,
+  says to store it with `porelo vault put` instead of naming `porelo-host-forge-token`. Found by [B493](README.md#b493)'s reading.
 - Done, for the tests only: tests in `apps/app` left their `ssh-agent -D` processes running after a failure or
   an interrupt; 43 were found on the host, the oldest 21 hours old. One shared helper now stops each test's
   agents and their descendants in `afterEach` or `close`, with a JVM shutdown hook as the last resort.
