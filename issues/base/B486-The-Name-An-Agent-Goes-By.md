@@ -44,9 +44,12 @@ Estimate 75 minutes.
   project's name, and reads no text head. The room the agents of this work use reads a head
   ("Agent Core, Agent Sluice:") by the pattern `Agent [A-Z][A-Za-z0-9-]*`: one word with a capital letter first.
   There, "Agent Sea Lion" would be read as "Agent Sea". That room's tools are no part of Porelo and ship nothing.
-- **The message sluice reads no head either.** This is read, not measured: the Coordinator read its main code on
-  2026-11-07 and found no parsing of a head and no pattern for agent names. Its name patterns are for file names,
-  field names and ids.
+- **The message sluice reads no head either.** It goes by `metadata.to` and `metadata.from` alone, never resolves
+  them, and passes the text only to its detectors. It holds both fields to Porelo's peer rule,
+  `[a-zA-Z0-9][a-zA-Z0-9_.@-]*` or `task:<project>:<task>`, and refuses a name with a space there as
+  `ENVELOPE/PEER_NAME_MALFORMED`. The name an agent goes by never reaches those fields: `goesBy()` is read only by
+  `TaskWorkspace` and `ProjectInventory`, nothing in `app-messaging` reads it, and the window uses it only in the
+  sentences it shows. A change that put it there would have to change the peer rule in both repositories.
 
 ## Plan
 
@@ -86,7 +89,3 @@ Estimate 75 minutes.
 - `issues:` stays a list; it is no part of this issue.
 - The room tools used by the agents of this work are brought to the new rule by the Coordinator, before a name of
   several words reaches an agent there; that is outside Porelo.
-
-## To be checked
-
-- That the message sluice reads no head and no agent name: Agent Sluice to confirm.
