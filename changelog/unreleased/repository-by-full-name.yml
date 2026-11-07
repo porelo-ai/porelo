@@ -1,0 +1,2 @@
+title: "`-r` takes a repository's full name as well as its key when exactly one repository has it, and a refusal lists every repository as key and full name"
+type: changed

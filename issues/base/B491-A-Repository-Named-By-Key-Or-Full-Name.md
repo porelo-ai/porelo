@@ -1,7 +1,7 @@
 # [B491](README.md#b491) — A Repository Named By Key Or Full Name
 
-**Status:** Implementing; built on the operator's word that every finding of the trial move is fixed before the
-second move.
+**Status:** Review; built on the operator's word that every finding of the trial move is fixed before the second
+move.
 **Size:** S - one lookup shared by every command with `-r`, and its tests.
 
 **What must be true.** Wherever a command takes `-r`/`--repository`, a person may name a repository by the key
@@ -26,8 +26,18 @@ than one is refused, and the refusal lists every repository as `<key> (<full nam
   address.
 - Every caller of `GateSupport.repository` and the task start's own lookup take it from that one place, so `task
   start`, `gate` and `egress` agree.
+- A full name is matched among the repositories work happens in, and the project's own only where none of them has it,
+  since a project of one repository keeps its file in that repository and both name one address.
+- The daemon's start resolves the name to the key before it names an unnamed task, and the upstream check names the
+  host of the repository found, so CanStart, Start and the command line agree whichever name was given.
 - **Red first:** tests of the lookup for a full name, a key, an ambiguous full name and an unknown name, the last two
   asserting the refusal's words list both forms.
+
+## Declined in review
+
+- **Which refusal comes first when a start is wrong twice.** A start naming an unknown repository and, say, an
+  undeclared parameter now hears about the repository first, with exit 64 instead of 2. Both are refusals before
+  anything is made; the order only reads differently, so it is left as it is.
 
 ## Acceptance
 

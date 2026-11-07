@@ -4405,6 +4405,38 @@ class TaskRunCommandTest {
               backend:
             """;
 
+    @ParameterizedTest
+    @ValueSource(strings = {"backend", "porelo-backend"})
+    void aStartByKeyOrFullNameRecordsTheSameRepository(String named, @TempDir Path dir)
+            throws IOException {
+        final int code =
+                execute(
+                        context(dir, true),
+                        "task",
+                        "start",
+                        "shell",
+                        "--attach",
+                        "shell",
+                        "--detach",
+                        "-p",
+                        projectFile(
+                                dir,
+                                TWO_REPOSITORIES
+                                        + "    central:"
+                                        + " https://forge.example.org/o/porelo-backend.git\n"),
+                        "-r",
+                        named);
+
+        assertThat(code).as("either name must start the same task: %s", err).isZero();
+        assertThat(runner.lines())
+                .as("the durable label must use the repository key whichever name was given")
+                .anyMatch(
+                        line ->
+                                line.contains("create")
+                                        && line.contains(
+                                                "--label org.fuin.porelo.repository=backend"));
+    }
+
     @Test
     void labelsTheContainerWithTheRepositoryTheTaskWorksOn(@TempDir Path dir) throws IOException {
 

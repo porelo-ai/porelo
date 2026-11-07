@@ -20,6 +20,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b491"></a>[B491](B491-A-Repository-Named-By-Key-Or-Full-Name.md) | S | - | `-r` takes a repository's key or its unique full name, and a refusal lists every repository as `<key> (<full name>)`. |
 | <a id="b490"></a>[B490](B490-Host-Refresh-Shows-The-Hosts-Progress.md) | S | - | `porelo org host refresh` says first that it asks the host to follow, then shows each line the host writes as it comes, withholding any line that holds the token. |
 | <a id="b489"></a>[B489](B489-A-Host-Takes-Only-The-Repositories-Its-Card-Names.md) | S | - | What `porelo org fetch` answers a host names, per project, the repositories its card carries, so a host carrying some takes only those; seen at the trial move taking all 17 of porelo, with 17 read keys on the central repositories. |
 | <a id="b488"></a>[B488](B488-A-Repository-File-Signed-From-The-Checkouts-A-Person-Keeps.md) | M | - | A person signs a repository's `porelo.yml` anew from exactly the organization's, the project's and that repository's checkouts and their signing key, checked against the project's signers: one empty signed commit on the checkout's `main`, pushed fast-forward; no taken project, no clone, no `--base`. |
@@ -79,7 +80,6 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
-| <a id="b491"></a>[B491](B491-A-Repository-Named-By-Key-Or-Full-Name.md) | S | - | `-r` takes a repository's key or its unique full name, and a refusal lists every repository as `<key> (<full name>)`. |
 | <a id="b459"></a>[B459](B459-Every-Credential-Failure-Says-What-To-Do.md) | L | - | Credential failure inventory, upstream advice, agent readiness and source-aware unlock/storage actions; push/provider paths, frontend agreement, window controls and live remedies still pending. |
 | <a id="b458"></a>[B458](B458-A-Refused-Push-Says-Which-Credential.md) | M | - | Backend built: selected SSH identities, public key inventory, trial and named refusal; focused guards pass, complete unit verification blocked, window remains. |
 | <a id="b429"></a>[B429](B429-One-Line-Installs-Everything.md) | L | - | `sudo apt install 'porelo*' keepassxc` installs all of Porelo on every channel and stays true: the test agent leaves the channels, and a check runs the line against the published index. |

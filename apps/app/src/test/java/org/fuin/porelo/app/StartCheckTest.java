@@ -423,6 +423,24 @@ class StartCheckTest {
     }
 
     @Test
+    void aStartCheckAcceptsTheSameRepositoryByKeyOrFullName(@TempDir Path dir) throws Exception {
+        final Path file = threeRepositories(dir);
+        Files.writeString(
+                file,
+                Files.readString(file)
+                        .replace(
+                                "backend:",
+                                "backend:\n"
+                                        + "    upstream:"
+                                        + " https://forge.example.org/o/shop-backend.git"));
+
+        assertThat(StartCheck.withRepository(READY, file, "shop-backend", true))
+                .as("CanStart must allow the full name that Start resolves to backend")
+                .isEqualTo(StartCheck.withRepository(READY, file, "backend", true))
+                .isEqualTo(READY);
+    }
+
+    @Test
     void aRunWithNoGateIsNotAskedWhichRepository(@TempDir Path dir) throws Exception {
 
         // It gets an empty directory and can commit nowhere, so it works on no repository and there
@@ -610,6 +628,45 @@ class StartCheckTest {
                     upstream: "ssh://git@forge.example.org:7999/uc/own-port.git"
                 """);
         return project;
+    }
+
+    @Test
+    void anUpstreamRefusingItsHostKeyNamesThatHostWhenTheRepositoryIsNamedByItsFullName(
+            @TempDir Path dir) throws Exception {
+        // Without the host, the window cannot offer to trust it, and the start stays refused.
+        final FakeCommandRunner runner =
+                new FakeCommandRunner()
+                        .failing("uc/shop-api.git", 128, "Host key verification failed.");
+        final PoreloContext context =
+                new PoreloContext(runner, context(dir).paths(), arguments -> 0);
+        Files.createDirectories(dir.resolve("project"));
+        final Path project = dir.resolve("project/project.yml");
+        Files.writeString(
+                project,
+                """
+                project:
+                  name: "uc"
+                  security_class: "guarded"
+                image:
+                  from: "ubuntu:24.04"
+                repositories:
+                  api:
+                    upstream: "ssh://git@forge.example.org:7999/uc/shop-api.git"
+                """);
+        final Path known = FollowCredential.knownHostsFile(context);
+        Files.createDirectories(known.getParent());
+        Files.writeString(
+                known, "[forge.example.org]:7999 ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIExample\n");
+
+        final StartCheck.Result result =
+                StartCheck.withUpstream(context, READY, project, "shop-api");
+
+        assertThat(result.outcome())
+                .as("the full name reaches the upstream's own answer")
+                .isEqualTo(StartCheck.Outcome.UNKNOWN_HOST_KEY);
+        assertThat(result.host())
+                .as("the host to trust is the repository's, whichever name it was given by")
+                .isEqualTo("forge.example.org:7999");
     }
 
     @Test

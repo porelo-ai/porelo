@@ -83,6 +83,24 @@ class GateApprovalBranchTest {
     }
 
     @Test
+    void anUnnamedStartByARepositorysFullNameIsNamedAsByItsKey() throws Exception {
+        // The window shows full names; a task named from one fails the name check CanStart passed.
+        final PoreloContext context =
+                context(
+                        "repositories:\n  api:\n    upstream: \"https://forge.example.org/uc/Shop_Api.git\"\n");
+
+        final var request =
+                PoreloDaemon.request(Map.of("project", "uc", "repository", "Shop_Api"), context);
+
+        assertThat(request.repository())
+                .as("the start goes on with the repository's key")
+                .isEqualTo("api");
+        assertThat(request.task())
+                .as("an unnamed task is named after the key, as CanStart names it")
+                .isEqualTo(org.fuin.porelo.app.TaskNames.fromRepository(context, "uc", "api"));
+    }
+
+    @Test
     void inAProjectWithABlockAnApprovalOntoMainIsRefusedNamingThePattern() throws Exception {
         final PoreloContext context =
                 context("branch:\n  template: \"fix/{task}\"\n  pattern: \"^fix/.+$\"\n");

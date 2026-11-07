@@ -639,6 +639,17 @@ public class TaskRunCommand implements Callable<Integer>, PoreloFactory.ContextA
                     }
                 }
             }
+            if (repository != null && !repository.isBlank()) {
+                final org.fuin.porelo.core.project.Project named = ProjectReader.read(projectFile);
+                try {
+                    repository = GateSupport.repository(named, repository).name();
+                } catch (final ProjectException ex) {
+                    // A name the project does not have is a usage error, as the start says it.
+                    err.println("porelo: " + ex.getMessage());
+                    err.flush();
+                    return 64;
+                }
+            }
             if (!spec.commandLine().getParseResult().hasMatchedPositional(0)
                     && repository != null
                     && !repository.isBlank()) {

@@ -768,7 +768,8 @@ public final class PoreloDaemon {
 
     static TaskLaunch.Request request(Map<String, Object> parameters, PoreloContext context) {
         final String task = text(parameters, "task");
-        final String repository = text(parameters, "repository");
+        final Path projectFile = projectFile(parameters, context);
+        final String repository = key(projectFile, text(parameters, "repository"));
         return new TaskLaunch.Request(
                 // Unnamed: after its repository, as at the command line.
                 !task.isEmpty()
@@ -779,7 +780,7 @@ public final class PoreloDaemon {
                                         context, text(parameters, "project"), repository),
                 // A name, resolved here rather than taken as a path. The machine prefers the file
                 // it verified; a client has no filesystem here to point at one.
-                projectFile(parameters, context),
+                projectFile,
                 empty(parameters, "agent"),
                 empty(parameters, "provider"),
                 empty(parameters, "credentialType"),
@@ -809,13 +810,31 @@ public final class PoreloDaemon {
                 // Not defaulted here. A project is a unit of work over one or more repositories,
                 // and a client that does not say which one the task is for gets the same refusal
                 // the CLI gives, naming what there is to choose from.
-                empty(parameters, "repository"),
+                repository.isEmpty() ? null : repository,
                 credentials(parameters),
                 values(parameters),
                 empty(parameters, "branch"),
                 // Absent leaves it to the project file, as at the command line.
                 subagents(parameters),
                 org.fuin.porelo.app.TaskBase.named(empty(parameters, "from")));
+    }
+
+    /**
+     * Returns the key of the repository a start names, by key or by full name, so an unnamed task
+     * is named as CanStart names it. A name the project lacks is kept, for the start to refuse.
+     */
+    private static String key(final Path projectFile, final String repository) {
+        if (repository.isEmpty()) {
+            return repository;
+        }
+        try {
+            return org.fuin.porelo.app.GateSupport.repository(
+                            org.fuin.porelo.core.project.ProjectReader.read(projectFile),
+                            repository)
+                    .name();
+        } catch (final RuntimeException ex) {
+            return repository;
+        }
     }
 
     /**

@@ -327,21 +327,6 @@ public final class GateSupport {
     }
 
     /**
-     * Resolves the repository a command was told to work on, falling back to the project's own.
-     *
-     * <p><strong>The fallback is not Porelo picking between equals.</strong> These are the commands
-     * whose subject is the project <em>file</em> - the gate, the shield, the talk commands - and
-     * the project's own repository is the one that file belongs to. Starting a task is the other
-     * case: there the repository is what the work is for, nothing points at one, and {@link
-     * TaskLaunch} refuses a request that names none rather than reaching this.
-     *
-     * @param project The project.
-     * @param named What was given, or {@code null} when nothing was.
-     * @return The repository named, or the project's own when nothing was named.
-     * @throws org.fuin.porelo.core.project.ProjectException If the project has no repository of
-     *     that name. The message names what there is.
-     */
-    /**
      * Returns the repository a command about one task means: the one named, else the one that task
      * worked on.
      *
@@ -375,20 +360,88 @@ public final class GateSupport {
         return OwnRepository.unnamed(project);
     }
 
+    /**
+     * Resolves the repository a command was told to work on, falling back to the project's own. A
+     * name is the key the project file gives the repository, else the full name its address ends
+     * in, when exactly one repository has it: a person reads full names in the window and the
+     * guides.
+     *
+     * <p><strong>The fallback is not Porelo picking between equals.</strong> These are the commands
+     * whose subject is the project <em>file</em> - the gate, the shield, the talk commands - and
+     * the project's own repository is the one that file belongs to. Starting a task is the other
+     * case: there the repository is what the work is for, nothing points at one, and {@link
+     * TaskLaunch} refuses a request that names none rather than reaching this.
+     *
+     * @param project The project.
+     * @param named The key or full name given, or {@code null} when nothing was.
+     * @return The repository named, or the project's own when nothing was named.
+     * @throws org.fuin.porelo.core.project.ProjectException If no repository, or more than one, has
+     *     that name. The message names each by its key and full name.
+     */
     public static Repository repository(Project project, @Nullable String named) {
         if (named == null || named.isBlank()) {
             return project.ownRepository();
         }
         final Repository found = project.repository(named);
-        if (found == null) {
-            throw new org.fuin.porelo.core.project.ProjectException(
-                    "Project '"
-                            + project.name()
-                            + "' has no repository '"
-                            + named
-                            + "'. It works in: "
-                            + OwnRepository.worksIn(project));
+        if (found != null) {
+            return found;
         }
-        return found;
+        // A project of one repository keeps its file there, so its own address is that one's too.
+        final java.util.List<Repository> matches =
+                project.workRepositories().stream()
+                        .filter(each -> named.equals(fullName(each)))
+                        .toList();
+        if (matches.size() == 1) {
+            return matches.getFirst();
+        }
+        if (matches.isEmpty() && named.equals(fullName(project.ownRepository()))) {
+            return project.ownRepository();
+        }
+        if (matches.size() > 1) {
+            throw new org.fuin.porelo.core.project.ProjectException(
+                    "Repository name '"
+                            + named
+                            + "' is ambiguous in project '"
+                            + project.name()
+                            + "': "
+                            + String.join(
+                                    ", ",
+                                    matches.stream().map(GateSupport::repositoryLabel).toList())
+                            + ". Choose a repository by its key with -r.");
+        }
+        throw new org.fuin.porelo.core.project.ProjectException(
+                "Project '"
+                        + project.name()
+                        + "' has no repository '"
+                        + named
+                        + "'. It works in: "
+                        + workableRepositories(project));
+    }
+
+    private static @Nullable String fullName(Repository repository) {
+        final String address =
+                RepositoryAddress.key(
+                        repository.central() == null
+                                ? repository.upstream()
+                                : repository.central());
+        return address == null ? null : address.substring(address.lastIndexOf('/') + 1);
+    }
+
+    private static String repositoryLabel(Repository repository) {
+        final String fullName = fullName(repository);
+        return fullName == null ? repository.name() : repository.name() + " (" + fullName + ")";
+    }
+
+    private static String workableRepositories(Project project) {
+        final java.util.List<String> names =
+                project.workRepositories().stream()
+                        .filter(each -> !OwnRepository.refused(project, each.name()))
+                        .filter(
+                                each ->
+                                        !DefaultProject.is(project.name())
+                                                || !each.name().equals(project.name()))
+                        .map(GateSupport::repositoryLabel)
+                        .toList();
+        return names.isEmpty() ? OwnRepository.worksIn(project) : String.join(", ", names);
     }
 }

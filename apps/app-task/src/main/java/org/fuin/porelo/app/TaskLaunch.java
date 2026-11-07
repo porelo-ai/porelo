@@ -934,7 +934,17 @@ public final class TaskLaunch {
         // would then look for that work where it is not. Ignoring it silently is the one answer
         // that leaves them believing it; the recorded one wins either way, so this says so rather
         // than acting on either.
-        final String named = request.repository();
+        final String named;
+        try {
+            named =
+                    request.repository() == null || request.repository().isBlank()
+                            ? request.repository()
+                            : GateSupport.repository(project, request.repository()).name();
+        } catch (ProjectException ex) {
+            err.println("porelo: " + ex.getMessage());
+            err.flush();
+            return new Existing(container, project.name(), 64);
+        }
         final String recorded = summary.get().repository();
         if (named != null
                 && !named.isBlank()
@@ -3731,15 +3741,17 @@ public final class TaskLaunch {
                             + "       porelo task start --repository "
                             + project.workRepositoryNames().get(0));
         }
-        if (OwnRepository.refused(project, request.repository())) {
+        final org.fuin.porelo.core.project.Repository chosen =
+                GateSupport.repository(project, request.repository());
+        if (OwnRepository.refused(project, chosen.name())) {
             throw new ProjectException(OwnRepository.refusal(project));
         }
         final String offHost =
-                new HostForgeAddress().refusal(project, request.repository(), request.upstream());
+                new HostForgeAddress().refusal(project, chosen.name(), request.upstream());
         if (offHost != null) {
             throw new ProjectException(offHost);
         }
-        return GateSupport.repository(project, request.repository());
+        return chosen;
     }
 
     private ClearanceWiring clearance() {

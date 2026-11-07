@@ -810,27 +810,28 @@ public final class StartCheck {
             return rest;
         }
         final org.fuin.porelo.core.project.Project project;
+        final org.fuin.porelo.core.project.Repository chosen;
         final Map<String, org.fuin.porelo.core.project.Parameters.Given> values;
         try {
             project = org.fuin.porelo.core.project.ProjectReader.read(projectFile);
+            chosen = GateSupport.repository(project, repository);
             values = project.parameters().resolve(parameters);
         } catch (RuntimeException ex) {
-            // A file that cannot be read is the other checks' to say, not a refused branch.
+            // The repository and parameter checks report their own refusals.
             return rest;
         }
-        if (!repository.equals(project.name()) && project.repository(repository) == null
-                || OwnRepository.refused(project, repository)) {
-            // An unknown repository is the repository check's to say.
+        if (OwnRepository.refused(project, chosen.name())) {
+            // The repository check reports why work in the project's own repository is refused.
             return rest;
         }
         // Named as the start names it: a container name taken back to the task's, and without a
         // name, the one its repository gives.
         final String task =
                 taskName == null || taskName.isBlank()
-                        ? TaskNames.fromRepository(context, project.name(), repository)
+                        ? TaskNames.fromRepository(context, project.name(), chosen.name())
                         : org.fuin.porelo.runtime.ContainerName.taskFrom(project.name(), taskName);
         final TaskBranch.Settled settled =
-                TaskBranch.settle(project, repository, task, values, branch);
+                TaskBranch.settle(project, chosen.name(), task, values, branch);
         if (settled.refused() == null) {
             return rest;
         }
@@ -1095,11 +1096,12 @@ public final class StartCheck {
         try {
             final org.fuin.porelo.core.project.Project project =
                     org.fuin.porelo.core.project.ProjectReader.read(projectFile);
-            final org.fuin.porelo.core.project.Repository chosen = project.repository(repository);
+            final org.fuin.porelo.core.project.Repository chosen =
+                    GateSupport.repository(project, repository);
             // With a mirror there the start goes on from it whatever the upstream says, so the
             // answer is ready and the network is not asked: a dialog asks this every few seconds.
             finding =
-                    chosen == null || UpstreamProbe.mirrored(context, project, chosen)
+                    UpstreamProbe.mirrored(context, project, chosen)
                             ? null
                             : UpstreamProbe.forStart(context, project, chosen, null);
         } catch (RuntimeException ex) {
@@ -1143,10 +1145,10 @@ public final class StartCheck {
 
     private static @Nullable String projectUpstream(Path projectFile, String repository) {
         try {
-            final org.fuin.porelo.core.project.Repository chosen =
-                    org.fuin.porelo.core.project.ProjectReader.read(projectFile)
-                            .repository(repository);
-            return chosen == null ? null : chosen.upstream();
+            return GateSupport.repository(
+                            org.fuin.porelo.core.project.ProjectReader.read(projectFile),
+                            repository)
+                    .upstream();
         } catch (RuntimeException ex) {
             return null;
         }
@@ -1192,11 +1194,7 @@ public final class StartCheck {
         try {
             final org.fuin.porelo.core.project.Project project =
                     org.fuin.porelo.core.project.ProjectReader.read(projectFile);
-            final org.fuin.porelo.core.project.Repository chosen =
-                    repository == null || repository.isBlank()
-                            ? project.ownRepository()
-                            : project.repository(repository);
-            upstream = chosen == null ? null : chosen.upstream();
+            upstream = GateSupport.repository(project, repository).upstream();
         } catch (RuntimeException ex) {
             return null;
         }
@@ -1269,7 +1267,18 @@ public final class StartCheck {
                             + "' works in: "
                             + String.join(", ", project.workRepositoryNames()));
         }
-        if (OwnRepository.refused(project, repository)) {
+        final org.fuin.porelo.core.project.Repository chosen;
+        try {
+            chosen = GateSupport.repository(project, repository);
+        } catch (org.fuin.porelo.core.project.ProjectException ex) {
+            return new Result(
+                    Outcome.UNKNOWN_REPOSITORY,
+                    rest.agent(),
+                    rest.provider(),
+                    rest.credential(),
+                    String.valueOf(ex.getMessage()));
+        }
+        if (OwnRepository.refused(project, chosen.name())) {
             return new Result(
                     Outcome.UNKNOWN_REPOSITORY,
                     rest.agent(),
@@ -1277,7 +1286,7 @@ public final class StartCheck {
                     rest.credential(),
                     OwnRepository.refusal(project));
         }
-        final String offHost = new HostForgeAddress().refusal(project, repository, null);
+        final String offHost = new HostForgeAddress().refusal(project, chosen.name(), null);
         if (offHost != null) {
             return new Result(
                     Outcome.UNKNOWN_REPOSITORY,
@@ -1285,19 +1294,6 @@ public final class StartCheck {
                     rest.provider(),
                     rest.credential(),
                     offHost);
-        }
-        if (project.repository(repository) == null) {
-            return new Result(
-                    Outcome.UNKNOWN_REPOSITORY,
-                    rest.agent(),
-                    rest.provider(),
-                    rest.credential(),
-                    "project '"
-                            + project.name()
-                            + "' has no repository '"
-                            + repository
-                            + "'. It works in: "
-                            + OwnRepository.worksIn(project));
         }
         return rest;
     }
@@ -1322,16 +1318,18 @@ public final class StartCheck {
             return rest;
         }
         final RepositoryOwnSettings.Found found;
+        final String repositoryName;
         try {
             final org.fuin.porelo.core.project.Project project =
                     org.fuin.porelo.core.project.ProjectReader.read(projectFile);
             final org.fuin.porelo.core.project.Repository chosen =
                     repository == null || repository.isBlank()
                             ? null
-                            : project.repository(repository);
+                            : GateSupport.repository(project, repository);
             if (chosen == null) {
                 return rest;
             }
+            repositoryName = chosen.name();
             if (!DefaultProject.is(project.name())) {
                 return signed(context, rest, project, chosen);
             }
@@ -1343,7 +1341,7 @@ public final class StartCheck {
             return rest;
         }
         final java.util.List<org.fuin.porelo.core.project.file.RepositorySettings.Asked> toAllow =
-                found.toAllow(context, java.util.Objects.requireNonNull(repository));
+                found.toAllow(context, repositoryName);
         if (toAllow.isEmpty()) {
             return rest;
         }
@@ -1352,7 +1350,7 @@ public final class StartCheck {
                 rest.agent(),
                 rest.provider(),
                 rest.credential(),
-                RepositorySettingsText.notAllowed(repository, toAllow),
+                RepositorySettingsText.notAllowed(repositoryName, toAllow),
                 rest.host(),
                 rest.agentSource(),
                 rest.agentFoundIn(),
@@ -1418,9 +1416,9 @@ public final class StartCheck {
         try {
             final org.fuin.porelo.core.project.Project project =
                     org.fuin.porelo.core.project.ProjectReader.read(projectFile);
-            return OwnRepository.refused(project, repository)
-                    ? null
-                    : project.repository(repository);
+            final org.fuin.porelo.core.project.Repository chosen =
+                    GateSupport.repository(project, repository);
+            return OwnRepository.refused(project, chosen.name()) ? null : chosen;
         } catch (RuntimeException ex) {
             return null;
         }
