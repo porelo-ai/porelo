@@ -40,7 +40,8 @@ final class StandIn implements OrganizationFixture, OfflineFixture {
         REPLACE,
         HOST,
         HOST_ADMIN,
-        HOST_CHANGE
+        HOST_CHANGE,
+        HOST_REPOSITORIES
     }
 
     /** One change on the line; its id says it apart from any other with the same content. */
@@ -98,6 +99,7 @@ final class StandIn implements OrganizationFixture, OfflineFixture {
         final Set<String> locked = new HashSet<>();
         final Set<String> firstSeen = new HashSet<>();
         final Map<String, Set<String>> hostAdmins = new HashMap<>();
+        final Map<String, List<String>> carried = new HashMap<>();
         final Set<String> pin;
         final List<Organization.Refusal> refusals = new ArrayList<>();
         final List<String> refusedKinds = new ArrayList<>();
@@ -159,7 +161,7 @@ final class StandIn implements OrganizationFixture, OfflineFixture {
                 case REMOVED_CARD -> judgeRemoval(entry);
                 case MEMBER -> judgeMember(entry);
                 case LOCK, UNLOCK -> judgeLock(entry);
-                case HOST_CHANGE -> judgeHostChange(entry);
+                case HOST_CHANGE, HOST_REPOSITORIES -> judgeHostChange(entry);
             };
         }
 
@@ -331,6 +333,7 @@ final class StandIn implements OrganizationFixture, OfflineFixture {
                 case HOST_CHANGE -> {
                     // A change that was accepted says nothing a check asks about.
                 }
+                case HOST_REPOSITORIES -> carried.put(args.get(1), args.subList(2, args.size()));
             }
         }
     }
@@ -544,6 +547,17 @@ final class StandIn implements OrganizationFixture, OfflineFixture {
     }
 
     @Override
+    public void carrySome(
+            final String admin,
+            final String host,
+            final String project,
+            final List<String> repositories) {
+        final List<String> args = new ArrayList<>(List.of(host, project));
+        args.addAll(repositories);
+        add(Kind.HOST_REPOSITORIES, key(admin), args.toArray(String[]::new));
+    }
+
+    @Override
     public void hostChangeNobodyAllowed(final @Nullable String signer, final String host) {
         add(Kind.HOST_CHANGE, signer == null ? null : key(signer), host);
     }
@@ -649,7 +663,15 @@ final class StandIn implements OrganizationFixture, OfflineFixture {
                         .filter(each -> given(walk, each, Break.OFFLINE_GIVES_FIRST_SEEN_SIGNER))
                         .map(each -> Map.of("login", each))
                         .toList();
-        return Map.of("project", name, "members", members, "signing_keys", signingKeys);
+        final Map<String, Object> row = new HashMap<>();
+        row.put("project", name);
+        row.put("members", members);
+        row.put("signing_keys", signingKeys);
+        final List<String> some = walk.carried.get(name);
+        if (some != null && !broken(Break.OFFLINE_CARRIES_WHOLE)) {
+            row.put("repositories", some);
+        }
+        return row;
     }
 
     private void refuseUnlessItContinues(final List<Entry> brought, final String since) {

@@ -69,6 +69,9 @@ public abstract class OfflineContract {
                 new Check<>("anOwnersChangeIsRefusedUnderThePin", OfflineContract::byOwner),
                 new Check<>("thePinFollowsAHandoverItSigned", OfflineContract::handover),
                 new Check<>("aHostIsGivenNoKeyOfAFirstSeenPerson", OfflineContract::firstSeen),
+                new Check<>(
+                        "aHostCarryingSomeRepositoriesIsToldWhichOnes",
+                        OfflineContract::carriedSome),
                 new Check<>("anOlderStateThanTheOneAppliedIsRefused", OfflineContract::older),
                 new Check<>("aRewrittenHistoryIsRefused", OfflineContract::rewritten));
     }
@@ -228,6 +231,31 @@ public abstract class OfflineContract {
                 .contains(ADMIN)
                 .doesNotContain(LATER);
         assertThat(logins(project.get("members"))).as("the role stays said").contains(ADMIN, LATER);
+    }
+
+    /**
+     * A host told nothing of a subset takes every repository of the project, with a read key on
+     * each central one it was never to carry.
+     */
+    private static void carriedSome(final OfflineFixture store) throws Exception {
+        arranged(store);
+        assertThat(onlyProject(answered(store, "")).get("repositories"))
+                .as("a project carried whole names no repositories")
+                .isNull();
+        store.carrySome(ADMIN, HOST, PROJECT, List.of("one"));
+
+        assertThat(onlyProject(answered(store, "")).get("repositories"))
+                .as("the host is told exactly the repositories its card carries")
+                .isEqualTo(List.of("one"));
+    }
+
+    private static Map<?, ?> onlyProject(final Map<String, Object> answer) {
+        return assertThat(answer.get("projects"))
+                .as("the host's one project")
+                .asInstanceOf(InstanceOfAssertFactories.list(Map.class))
+                .hasSize(1)
+                .actual()
+                .get(0);
     }
 
     private static List<Object> logins(final @Nullable Object rows) {

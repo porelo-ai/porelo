@@ -1,7 +1,7 @@
 # [B489](README.md#b489) — A Host Takes Only The Repositories Its Card Names
 
-**Status:** Implementing; built on the operator's word that every finding of the trial move is fixed before the
-second move.
+**Status:** Review; built on the operator's word that every finding of the trial move is fixed before the second
+move.
 **Size:** S - one module's answer and the offline contract that holds every adapter to it; the host already reads
 the field, so no other repository changes.
 

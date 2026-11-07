@@ -1,6 +1,7 @@
 package org.fuin.porelo.organization.contract;
 
 import java.io.IOException;
+import java.util.List;
 import org.fuin.porelo.organization.OfflineOrganization;
 import org.jspecify.annotations.Nullable;
 
@@ -47,6 +48,18 @@ public interface OfflineFixture {
      * @throws IOException When the change cannot be made.
      */
     void hostChangeNobodyAllowed(@Nullable String signer, String host) throws IOException;
+
+    /**
+     * The host's admin narrows what the host carries of a project to some of its repositories.
+     *
+     * @param admin The host's admin.
+     * @param host The host's name.
+     * @param project The project's name, which the host carries.
+     * @param repositories The names of the repositories it carries from now on, at least one.
+     * @throws IOException When the change cannot be made.
+     */
+    void carrySome(String admin, String host, String project, List<String> repositories)
+            throws IOException;
 
     /**
      * An owner makes somebody the host's admin too, which the store allows and the pin does not.

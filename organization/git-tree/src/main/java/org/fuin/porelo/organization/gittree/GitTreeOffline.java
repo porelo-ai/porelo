@@ -75,7 +75,9 @@ public final class GitTreeOffline implements OfflineOrganization {
         answer.put("persons", persons(state, held));
         answer.put(
                 "projects",
-                held.projects().stream().map(name -> project(state, name, vouched)).toList());
+                held.projects().stream()
+                        .map(name -> project(state, name, vouched, held.repositories().get(name)))
+                        .toList());
         return answer;
     }
 
@@ -163,11 +165,21 @@ public final class GitTreeOffline implements OfflineOrganization {
         return rows;
     }
 
+    /**
+     * One project's row. A host told nothing of a subset takes every repository, so a project the
+     * card carries by some names them, and one carried whole leaves the field out.
+     */
     private static Map<String, @Nullable Object> project(
-            final OrganizationQuestions state, final String project, final Set<String> vouched) {
+            final OrganizationQuestions state,
+            final String project,
+            final Set<String> vouched,
+            final @Nullable List<String> carried) {
         final Map<String, @Nullable Object> row = new LinkedHashMap<>();
         row.put("project", project);
         row.put("address", state.getProjectRepository(project).orElse(null));
+        if (carried != null) {
+            row.put("repositories", List.copyOf(carried));
+        }
         row.put(
                 "members",
                 state.getProjectMembers(project).orElse(List.of()).stream()

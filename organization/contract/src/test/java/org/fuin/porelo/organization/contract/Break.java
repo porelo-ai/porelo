@@ -131,6 +131,7 @@ enum Break {
     OFFLINE_ANSWERS_NOTHING(
             Set.of(),
             Set.of(
+                    "aHostCarryingSomeRepositoriesIsToldWhichOnes",
                     "aHostIsGivenNoKeyOfAFirstSeenPerson",
                     "thePinFollowsAHandoverItSigned",
                     "thePinnedKeyAnswersTheHostsState")),
@@ -141,9 +142,11 @@ enum Break {
     OFFLINE_GIVES_FIRST_SEEN_PERSON(Set.of(), Set.of("aHostIsGivenNoKeyOfAFirstSeenPerson")),
     OFFLINE_GIVES_FIRST_SEEN_SIGNER(Set.of(), Set.of("aHostIsGivenNoKeyOfAFirstSeenPerson")),
     OFFLINE_DROPS_A_FIRST_SEEN_ROLE(Set.of(), Set.of("aHostIsGivenNoKeyOfAFirstSeenPerson")),
+    OFFLINE_CARRIES_WHOLE(Set.of(), Set.of("aHostCarryingSomeRepositoriesIsToldWhichOnes")),
     OFFLINE_REFUSES_THE_PIN(
             Set.of(),
             Set.of(
+                    "aHostCarryingSomeRepositoriesIsToldWhichOnes",
                     "aHostIsGivenNoKeyOfAFirstSeenPerson",
                     "aRewrittenHistoryIsRefused",
                     "anOlderStateThanTheOneAppliedIsRefused",

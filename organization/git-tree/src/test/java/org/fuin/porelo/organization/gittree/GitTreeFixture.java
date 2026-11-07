@@ -485,6 +485,23 @@ final class GitTreeFixture implements OrganizationFixture, OfflineFixture {
     }
 
     @Override
+    public void carrySome(
+            final String admin,
+            final String host,
+            final String project,
+            final List<String> repositories)
+            throws IOException {
+        hostProjects =
+                "[{name: "
+                        + project
+                        + ", repositories: ["
+                        + String.join(", ", repositories)
+                        + "]}]";
+        writeHost(host, hostAdmins, hostProjects);
+        commit(nameOf(admin));
+    }
+
+    @Override
     public void hostChangeNobodyAllowed(final @Nullable String signer, final String host)
             throws IOException {
         write(
