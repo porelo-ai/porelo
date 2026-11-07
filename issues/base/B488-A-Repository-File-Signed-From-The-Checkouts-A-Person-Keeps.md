@@ -1,6 +1,6 @@
 # [B488](README.md#b488) — A Repository File Signed From The Checkouts A Person Keeps
 
-**Status:** Backlog (operator, 2026-11-07).
+**Status:** Implementing.
 **Size:** M - one contract change of a command, read and signing paths in `organization/git-tree` beside today's,
 docs and an acceptance step; one repository.
 

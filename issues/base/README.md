@@ -76,6 +76,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b488"></a>[B488](B488-A-Repository-File-Signed-From-The-Checkouts-A-Person-Keeps.md) | M | - | A person signs a repository's `porelo.yml` anew from exactly the organization's, the project's and that repository's checkouts and their signing key, checked against the project's signers: one empty signed commit on the checkout's `main`, pushed fast-forward; no taken project, no clone, no `--base`. |
 | <a id="b459"></a>[B459](B459-Every-Credential-Failure-Says-What-To-Do.md) | L | - | Credential failure inventory, upstream advice, agent readiness and source-aware unlock/storage actions; push/provider paths, frontend agreement, window controls and live remedies still pending. |
 | <a id="b458"></a>[B458](B458-A-Refused-Push-Says-Which-Credential.md) | M | - | Backend built: selected SSH identities, public key inventory, trial and named refusal; focused guards pass, complete unit verification blocked, window remains. |
 | <a id="b429"></a>[B429](B429-One-Line-Installs-Everything.md) | L | - | `sudo apt install 'porelo*' keepassxc` installs all of Porelo on every channel and stays true: the test agent leaves the channels, and a check runs the line against the published index. |
@@ -86,7 +87,6 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
-| <a id="b488"></a>[B488](B488-A-Repository-File-Signed-From-The-Checkouts-A-Person-Keeps.md) | M | - | A person signs a repository's `porelo.yml` anew from exactly the organization's, the project's and that repository's checkouts and their signing key, checked against the project's signers: one empty signed commit on the checkout's `main`, pushed fast-forward; no taken project, no clone, no `--base`. |
 | <a id="b474"></a>[B474](B474-A-Task-Fetches-Its-Projects-Snapshots-Through-Its-Broker.md) | M | [B470](#b470), [B467](#b467) | A package route in the task's broker: GET/HEAD below its own organization's maven path, refused before upstream otherwise; Maven's answers there alone; the task's host token read narrowly and made before the broker; settings through porelo.yml and Configure | Whether removal ends the token at once; the shared snapshot rule |
 | <a id="b467"></a>[B467](B467-A-Task-Reaches-Its-Tools-Repositories-Through-Their-Settings.md) | M | [B468](#b468) | A project declares its build tool's repositories in `project.yml`, and a task start calls the ecosystem adapter's `Configure` and places the settings files it returns. |
 | <a id="b449"></a>[B449](B449-A-Repositorys-Own-File-Reaches-The-Image-Unasked.md) | S | - | A repository's `porelo.yml` chooses no line of an image without a person's yes. |
