@@ -1,8 +1,9 @@
 # [B489](README.md#b489) — A Host Takes Only The Repositories Its Card Names
 
-**Status:** Accepted; filed as Accepted on the Coordinator's word, 2026-11-07T14:19Z. It is built only on the
-operator's word, after the trial move.
-**Size:** not estimated yet.
+**Status:** Implementing; built on the operator's word that every finding of the trial move is fixed before the
+second move.
+**Size:** S - one module's answer and the offline contract that holds every adapter to it; the host already reads
+the field, so no other repository changes.
 
 **What must be true.** A host whose card names some repositories of a project takes only those, plus the project's own
 repository. A card that names none carries the project whole, as today. What `porelo org fetch` answers a host says,
@@ -26,15 +27,28 @@ for each project, which repositories the card names, so the host's follow can te
   was meant. Each is a read key of porelo-move's on a central repository it was never to carry.
 - **The project's members reach 16 copies on porelo-move's forge** that were not meant to be there.
 
-## Plan (to be estimated)
+## Plan
 
-- `GitTreeOffline.project` writes `repositories` from the host's card: the names it carries of that project, or none
-  for a project carried whole.
-- The contract test of the offline answer (`OfflineContract`) holds both: a card naming some gives exactly those, and
-  a card naming none gives none.
-- **Red first:** the contract test against today's answer, which has no `repositories`.
-- **Undo on porelo-move:** with the fix on the host, the next follow takes off every repository named no longer. One
-  whose work has not reached its central repository stays `held`, and the project's own repository stays. Whether
-  removing a host repository also removes its read key on the central repository is to be read in porelo-host before
-  the estimate. doc/commands.md says the host deletes its own per-repository keys itself, and `org remove-read-key`
-  removes only the organization's key. If the host does not, the 16 keys are removed on the forge by hand.
+- `GitTreeOffline.project` writes `repositories` from the host's card, `OrganizationQuestions.Host.repositories()`: the
+  names it carries of that project. For a project carried whole the field is left out, which porelo-host-person
+  already reads as "all".
+- `OfflineFixture` gains `carrySome(admin, host, project, repositories)`, the host's admin narrowing the host's file to
+  some of a project's repositories; `GitTreeFixture` writes it as `{name, repositories}` in `host.yml`, the stand-in as
+  one more change on its line.
+- `OfflineContract` gains `aHostCarryingSomeRepositoriesIsToldWhichOnes`: before the narrowing the project's row names
+  no repositories, after it exactly the ones carried.
+- **Red first:** the new check against `GitTreeOffline` as it is, and a stand-in break (`OFFLINE_CARRIES_WHOLE`) that
+  `BrokenStandInsTest` must see caught by that check alone.
+
+## Acceptance
+
+- The offline contract passes for git-tree and the honest stand-in, and fails for git-tree before the fix and for the
+  stand-in that drops the field.
+- After the fix reaches a host, `porelo org host refresh <host>` on a card naming one repository of a project ends
+  with that repository and the project's own repository `taken`, and no other.
+
+## To be checked
+
+- Whether porelo-host deletes its read key on a central repository when it takes that repository off. doc/commands.md
+  says the host deletes its own per-repository keys itself; Agent Machines confirms it in porelo-host. If it does
+  not, the 16 keys of the trial move are removed on the forge by hand.
