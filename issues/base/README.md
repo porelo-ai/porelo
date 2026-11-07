@@ -144,6 +144,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b488"></a>[B488](B488-A-Repository-File-Signed-From-The-Checkouts-A-Person-Keeps.md) | - | - | A person signs a repository's `porelo.yml` anew from exactly the organization's, the project's and that repository's checkouts and their signing key, checked against the project's signers: one empty signed commit on the checkout's `main`, pushed fast-forward; no taken project, no clone, no `--base`. |
 | <a id="b396"></a>[B396](B396-Mutation-Testing-With-PIT.md) | - | - | A `pit` profile run by hand, not in CI and with no threshold, and a report sorting survivors into real gaps and harmless ones. |
 | <a id="b358"></a>[B358](B358-A-Task-Reviews-A-Pull-Request-On-The-Central-Forge.md) | - | [B172](README.md#b172) | A reviewer task also takes any existing pull request on the central forge by its URL, in a project or without one; read and commented with the person's own account, comments only, each released |
 | <a id="b355"></a>[B355](B355-No-Switch-That-Turns-Every-Check-Off.md) | S | - | No `--insecure` that turns every check off; instead an `unsigned`/`unverified` mark in `task list`, the interface and the gate's verdicts, for what already runs so |
@@ -161,7 +162,6 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
-| <a id="b488"></a>[B488](B488-A-Repository-File-Signed-From-The-Checkouts-A-Person-Keeps.md) | - | - | A person signs a repository's `porelo.yml` anew from exactly the organization's, the project's and that repository's checkouts and their signing key, checked against the project's signers: one empty signed commit on the checkout's `main`, pushed fast-forward; no taken project, no clone, no `--base`. The operator's direction, not yet Accepted. |
 | <a id="b487"></a>[B487](B487-The-Organization-Adapter-Apart-From-Porelo.md) | - | - | Everything about the organization and the source of its projects moves out of `porelo` into an organization adapter, an executable of its own asked across a process boundary; `porelo` keeps tasks, the machine, code repositories, a cache of project settings, and `default` and hand-written projects. |
 | <a id="b484"></a>[B484](B484-Working-On-A-Repository-Outside-The-Organizations-Projects.md) | - | - | How a repository of none of the organization's projects is worked on in the default project, alike on a laptop and on a host with or without its forge: first one of the person's own, pushed to; then someone else's, through a fork. Open question for the operator. |
 | <a id="b483"></a>[B483](B483-A-Waiting-Host-Approval-Outlives-Its-Tasks-Removal.md) | S | - | Work waiting at a host's gate can still be approved as its task after the task is removed, or the removal says it cannot and how else; the forge token's lifetime is decided first. |

@@ -1,6 +1,6 @@
 # [B488](README.md#b488) — A Repository File Signed From The Checkouts A Person Keeps
 
-**Status:** Idea. The operator's direction, not yet Accepted.
+**Status:** Accepted (operator, 2026-11-07).
 
 **What must be true.** Porelo needs exactly four things to sign a repository's `porelo.yml` anew, and nothing
 else:
