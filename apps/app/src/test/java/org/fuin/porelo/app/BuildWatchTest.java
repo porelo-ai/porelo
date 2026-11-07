@@ -432,6 +432,36 @@ class BuildWatchTest {
     }
 
     @Test
+    void aBuildsOnlyWatchHandsInVerdictsAndFailedLogsWithoutOpeningAPullRequest() {
+        // The guarded gate owns its pull request; the builds credential must only read.
+        pullRequest = OPENED;
+        head = "";
+        final BuildWatch watch = watch().withoutPullRequests();
+        watch.round();
+        head = FIRST;
+        forge.put(
+                FIRST,
+                new Build(
+                        Build.FAILURE,
+                        List.of(
+                                new Build.Job(
+                                        "unit",
+                                        "failure",
+                                        "failed\n".getBytes(StandardCharsets.UTF_8))),
+                        ""));
+
+        watch.round();
+
+        assertThat(opening)
+                .as(
+                        "a guarded watch must never spend the person's credential opening a pull request")
+                .isEmpty();
+        assertThat(files.keySet())
+                .as("the task may receive only its failed-job log and build verdict")
+                .containsExactly("build-111111111111-1.log", "build-111111111111.txt");
+    }
+
+    @Test
     void aReaderThatOpensNoPullRequestIsSaidOnceAndNotAskedAgain() throws IOException {
         pullRequest = null;
         head = "";

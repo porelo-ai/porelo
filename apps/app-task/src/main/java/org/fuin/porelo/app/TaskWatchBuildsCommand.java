@@ -20,15 +20,14 @@ import picocli.CommandLine.Parameters;
 import picocli.CommandLine.Spec;
 
 /**
- * The helper that tells an {@code online} task what the build of its push did. A task's launch
- * starts it; it asks the forge from the host, with the vault's credential, and hands each verdict
- * into the task.
+ * The helper that tells a task what the build of its push did. A task's launch starts it; it asks
+ * the forge from the host, with the vault's credential, and hands each verdict into the task.
  */
 @Command(
         name = "watch-builds",
         mixinStandardHelpOptions = true,
         description =
-                "Runs beside an online task: follows what it pushes and hands each build's verdict into"
+                "Runs beside a task: follows what it pushes and hands each build's verdict into"
                         + " /porelo/files. Started by the task's launch.")
 public class TaskWatchBuildsCommand implements Callable<Integer>, PoreloFactory.ContextAware {
 
@@ -49,7 +48,7 @@ public class TaskWatchBuildsCommand implements Callable<Integer>, PoreloFactory.
             names = "--upstream",
             paramLabel = "<url>",
             required = true,
-            description = "The repository it pushes to, as the project file names it.")
+            description = "The repository it pushes to, as reached on this machine.")
     private String upstream;
 
     @Option(
@@ -57,7 +56,7 @@ public class TaskWatchBuildsCommand implements Callable<Integer>, PoreloFactory.
             paramLabel = "<name>",
             required = true,
             description =
-                    "The build reader to ask, as the project file names it under builds.forge.")
+                    "The build reader to ask, as the project or host names it under builds.forge.")
     private String forge;
 
     @Option(
@@ -72,6 +71,11 @@ public class TaskWatchBuildsCommand implements Callable<Integer>, PoreloFactory.
             description =
                     "Which jobs' logs reach the task: failure (each failed one) or all. Default: ${DEFAULT-VALUE}")
     private String logs = "failure";
+
+    @Option(
+            names = "--builds-only",
+            description = "Reads builds alone; the guarded task's gate handles its pull request.")
+    private boolean buildsOnly;
 
     @Option(
             names = "--credential",
@@ -151,7 +155,8 @@ public class TaskWatchBuildsCommand implements Callable<Integer>, PoreloFactory.
                             return reader.openPullRequest(target(), name, null);
                         }
                     };
-            new BuildWatch(
+            final BuildWatch watch =
+                    new BuildWatch(
                             asked,
                             (name, file) -> handIns.give(container, name, file, HandIns.PORELO),
                             new TaskBuilds(paths),
@@ -176,8 +181,11 @@ public class TaskWatchBuildsCommand implements Callable<Integer>, PoreloFactory.
                                                 : "porelo: " + why);
                                 err.flush();
                                 said(paths, why);
-                            })
-                    .run(() -> Files.isDirectory(state));
+                            });
+            if (buildsOnly) {
+                watch.withoutPullRequests();
+            }
+            watch.run(() -> Files.isDirectory(state));
             return 0;
         } catch (InterruptedException ex) {
             Thread.currentThread().interrupt();

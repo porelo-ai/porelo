@@ -698,6 +698,306 @@ class TaskRunCommandTest {
         }
     }
 
+    @Test
+    void aGuardedHostTaskIsToldItsBuildsWithOnlyFailedJobLogs(@TempDir Path dir) throws Exception {
+        // Missing build failures leave the task unable to repair the work the host's forge judged.
+        final List<String> called = startWithBuilds(dir, "guarded", true, true, "");
+
+        assertThat(called)
+                .as("the host's builds helper must actually start for a guarded task")
+                .containsSequence("task", "watch-builds", "porelo-uc-shell")
+                .containsSequence("--forge", "host-forge")
+                .containsSequence("--api", "http://127.0.0.1:3000/api/v1")
+                .containsSequence("--credential", "host-builds")
+                .containsSequence("--branch", "porelo/shell")
+                .containsSequence("--upstream", "file://" + dir.resolve("upstream.git"))
+                .containsSequence("--logs", "failure")
+                .contains("--builds-only");
+    }
+
+    @ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource({"true,false", "false,true", "false,false"})
+    void aGuardedTaskWithoutBuildsFromItsHostStartsNoBuildsHelper(
+            boolean onHost, boolean hostBuilds, @TempDir Path dir) throws Exception {
+        // A file left on an ordinary machine must grant no new host-side forge access.
+        assertThat(startWithBuilds(dir, "guarded", onHost, hostBuilds, ""))
+                .as("both a host and its builds declaration are required")
+                .isEmpty();
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"guarded", "online"})
+    void aHostTaskWithoutItsBuildsCredentialStillStartsAndNamesTheHostCommand(
+            String securityClass, @TempDir Path dir) throws Exception {
+        // A missing host credential must not leave a useless helper or stop the task's work.
+        final List<String> called =
+                startWithBuilds(
+                        dir,
+                        securityClass,
+                        true,
+                        true,
+                        "",
+                        java.util.Map.of(
+                                "other-builds",
+                                new org.fuin.porelo.vault.VaultEntry(
+                                        "unrelated-fixture-secret", "api-key")));
+
+        assertThat(err.toString().lines().filter(line -> line.startsWith("porelo: the builds of ")))
+                .as("the start must name the missing entry and the command to make it on this host")
+                .containsExactly(
+                        "porelo: the builds of uc on this host are read with 'host-builds', which your vault does not hold; run porelo-host-forge-token on this host, then start the task again to be told its builds");
+        assertThat(called)
+                .as("a missing host builds credential must start no watch-builds helper")
+                .isEmpty();
+        assertThat(err.toString())
+                .as("the diagnostic must never reveal any credential value")
+                .doesNotContain("unrelated-fixture-secret");
+    }
+
+    @Test
+    void anOnlineProjectsOwnBuildsWinOverTheHosts(@TempDir Path dir) throws Exception {
+        final List<String> called =
+                startWithBuilds(
+                        dir,
+                        "online",
+                        true,
+                        true,
+                        """
+                        builds:
+                          forge: project-forge
+                          credential: project-builds
+                          api: https://forge.example/api
+                          logs: all
+                        """,
+                        java.util.Map.of());
+
+        assertThat(called)
+                .as("a host must not replace the project's chosen forge or credential")
+                .containsSequence("--forge", "project-forge")
+                .containsSequence("--credential", "project-builds")
+                .containsSequence("--api", "https://forge.example/api")
+                .containsSequence("--logs", "all")
+                .doesNotContain("host-forge", "host-builds", "--builds-only");
+    }
+
+    @Test
+    void aHostTaskWithoutAGateIsNotSentForATokenItsBuildsCouldNotUse(@TempDir Path dir)
+            throws Exception {
+        // A task with no branch at the forge is told no builds, so making the token would not help.
+        final List<String> called =
+                startWithBuilds(
+                        dir,
+                        "guarded",
+                        true,
+                        true,
+                        "",
+                        java.util.Map.of(
+                                "other-builds",
+                                new org.fuin.porelo.vault.VaultEntry(
+                                        "unrelated-fixture-secret", "api-key")),
+                        true);
+
+        assertThat(err.toString())
+                .as("only a task the forge builds may be sent to porelo-host-forge-token")
+                .doesNotContain("porelo-host-forge-token")
+                .contains("the task has no upstream branch");
+        assertThat(called).as("a task without a gate starts no watch-builds helper").isEmpty();
+    }
+
+    private List<String> startWithBuilds(
+            Path dir, String securityClass, boolean onHost, boolean hostBuilds, String ownBuilds)
+            throws Exception {
+        return startWithBuilds(
+                dir,
+                securityClass,
+                onHost,
+                hostBuilds,
+                ownBuilds,
+                java.util.Map.of(
+                        "host-builds",
+                        new org.fuin.porelo.vault.VaultEntry("fixture-forge-value", "api-key")));
+    }
+
+    private List<String> startWithBuilds(
+            Path dir,
+            String securityClass,
+            boolean onHost,
+            boolean hostBuilds,
+            String ownBuilds,
+            java.util.Map<String, org.fuin.porelo.vault.VaultEntry> stored)
+            throws Exception {
+        return startWithBuilds(dir, securityClass, onHost, hostBuilds, ownBuilds, stored, false);
+    }
+
+    private List<String> startWithBuilds(
+            Path dir,
+            String securityClass,
+            boolean onHost,
+            boolean hostBuilds,
+            String ownBuilds,
+            java.util.Map<String, org.fuin.porelo.vault.VaultEntry> stored,
+            boolean noGate)
+            throws Exception {
+        final PoreloContext context =
+                context(dir, true).asking(shown -> "test-passphrase".toCharArray());
+        context.vault().write(stored, "test-passphrase".toCharArray());
+        final Path upstream = dir.resolve("upstream.git");
+        git(dir, "init", "-q", "--bare", "--initial-branch=main", upstream.toString());
+        final Path seed = Files.createDirectory(dir.resolve("seed"));
+        git(seed, "init", "-q");
+        git(seed, "commit", "-q", "--allow-empty", "-m", "initial");
+        git(seed, "push", "-q", upstream.toString(), "HEAD:refs/heads/main");
+        final String file =
+                """
+                project:
+                  name: uc
+                  security_class: %s
+                  upstream: "file://%s"
+                image:
+                  from: ubuntu:24.04
+                """
+                                .formatted(securityClass, upstream)
+                        + ownBuilds;
+        final Path person = dir.resolve("person");
+        final Process keygen =
+                new ProcessBuilder(
+                                "ssh-keygen",
+                                "-q",
+                                "-t",
+                                "ed25519",
+                                "-N",
+                                "",
+                                "-f",
+                                person.toString())
+                        .start();
+        assertThat(keygen.waitFor()).as("the fixture creates its own certifier's key").isZero();
+        final String[] key = Files.readString(dir.resolve("person.pub")).strip().split(" ");
+        final Path projectFile =
+                PlacedFixture.place(
+                        context, "uc", file, PlacedFixture.key("alice", key[0] + " " + key[1]));
+        final Path hostFiles = Files.createDirectory(dir.resolve("hosted"));
+        final OrganizationProjects projects =
+                new OrganizationProjects(
+                        context.paths().projects().organizationProjects(), hostFiles);
+        final var document = new java.util.LinkedHashMap<String, Object>();
+        document.put("project", "uc");
+        document.put("revision", "host-revision");
+        document.put("address", "https://forge.example/uc.git");
+        document.put(
+                "signing_keys",
+                List.of(
+                        java.util.Map.of(
+                                "login", "alice",
+                                "role", "member",
+                                "key", key[0] + " " + key[1],
+                                "valid_from", "2000-01-01",
+                                "valid_until", "2999-01-01")));
+        document.put("host", "build");
+        if (hostBuilds) {
+            document.put(
+                    "builds",
+                    java.util.Map.of(
+                            "forge", "host-forge",
+                            "credential", "host-builds",
+                            "api", "http://127.0.0.1:3000/api/v1",
+                            "logs", "all"));
+        }
+        Files.writeString(hostFiles.resolve("uc.json"), org.fuin.porelo.wire.Json.write(document));
+        final Path hostHelper = dir.resolve("host-person");
+        if (onHost) {
+            Files.writeString(hostHelper, "");
+        }
+        final Path readers =
+                Files.createDirectories(context.paths().xdg().data().resolve("builds"));
+        for (final String forge : List.of("host-forge", "project-forge")) {
+            final Path reader = Files.writeString(readers.resolve(forge), "#!/bin/sh\nexit 0\n");
+            reader.toFile().setExecutable(true);
+        }
+        final Path called = dir.resolve("builds-called");
+        final String ownPorelo = System.getProperty(PoreloBinary.NAMED);
+        final Path recorder = dir.resolve("recording-porelo");
+        Files.writeString(
+                recorder,
+                """
+                #!/bin/sh
+                if [ "$1" = task ] && [ "$2" = watch-builds ]; then
+                  called=%s
+                  printf '%%s\\n' "$@" > "$called.staged"
+                  mv -- "$called.staged" "$called"
+                  exit 0
+                fi
+                exec %s "$@"
+                """
+                        .formatted(shellArgument(called.toString()), shellArgument(ownPorelo)));
+        recorder.toFile().setExecutable(true);
+        final Path socket = dir.resolve("person.sock");
+        try (TestSshAgent agents = new TestSshAgent()) {
+            agents.start(socket);
+            final ProcessBuilder add = new ProcessBuilder("ssh-add", "-q", person.toString());
+            add.environment().put("SSH_AUTH_SOCK", socket.toString());
+            assertThat(add.start().waitFor())
+                    .as("the fixture's agent holds its certifier")
+                    .isZero();
+            assertThat(context.openerAsking(false, new PrintWriter(err)))
+                    .as("the fixture unlocks only its own vault")
+                    .isPresent();
+            System.setProperty(PoreloBinary.NAMED, recorder.toString());
+            final java.util.concurrent.atomic.AtomicBoolean started =
+                    new java.util.concurrent.atomic.AtomicBoolean();
+            final int code =
+                    new TaskLaunch(
+                                    context,
+                                    new TaskLaunch.Request(
+                                            "shell",
+                                            projectFile,
+                                            null,
+                                            null,
+                                            null,
+                                            8,
+                                            null,
+                                            noGate,
+                                            false,
+                                            "deny",
+                                            true,
+                                            org.fuin.porelo.wire.TaskMode.SHELL,
+                                            null,
+                                            null,
+                                            null,
+                                            60,
+                                            "uc"),
+                                    new StartSteps(step -> {}),
+                                    new HostPerson(context, hostHelper),
+                                    socket,
+                                    projects)
+                            .launch(
+                                    new PrintWriter(out, true),
+                                    new PrintWriter(err, true),
+                                    running -> {
+                                        started.set(true);
+                                        return 0;
+                                    });
+            assertThat(code).as("the task must reach its helpers: %s", err).isZero();
+            assertThat(started)
+                    .as("missing build information must not prevent the task from starting")
+                    .isTrue();
+            // The launch records each helper it started before it returns; only then is the
+            // helper's own record of its arguments worth waiting for.
+            final boolean watching =
+                    TaskHelpers.readFrom(context.paths().tasks().containerState("porelo-uc-shell"))
+                            .helpers()
+                            .stream()
+                            .anyMatch(helper -> helper.command().contains("watch-builds"));
+            for (int attempt = 0; watching && attempt < 250 && !Files.exists(called); attempt++) {
+                Thread.sleep(20);
+            }
+            return watching ? Files.readAllLines(called) : List.of();
+        } finally {
+            TaskLifecycle.stopHelpers(context.paths().tasks().containerState("porelo-uc-shell"));
+            System.setProperty(PoreloBinary.NAMED, ownPorelo);
+            PoreloContext.forgetAsked();
+        }
+    }
+
     /**
      * Runs the CLI, naming the repository for a task start that did not name one itself.
      *

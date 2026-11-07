@@ -1,7 +1,7 @@
 # [B493](README.md#b493) — A Host Task Reads The Builds Its Host Names
 
-**Status:** Implementing; built on the operator's word that every finding of the trial move is fixed before the
-second move, with the design the operator chose: the host's file names the builds, and the project stays as it is.
+**Status:** Review; built on the operator's word that every finding of the trial move is fixed before the second
+move, with the design the operator chose: the host's file names the builds, and the project stays as it is.
 **Size:** M - a field read from the host's file, the start's builds wiring for a guarded project, `doc/reach.md`
 and their tests; the host's side is another repository's.
 
@@ -38,7 +38,19 @@ names no `builds:`. `project.yml` stays the same on every machine; nothing host-
 - The test above fails on today's start and passes after; the existing builds tests of an online project still pass.
 - `ReachDocumentTest` passes with the new row.
 
-## To be checked
+## Read while building
 
-- Which upstream and branch the helper watches for a host task: whether a host's taking makes the repository's
-  upstream the host's forge, so the helper asks the forge that holds the task's branch.
+- **What the helper watches on a host:** the task's settled branch, `porelo/<task>` by default, at the repository's
+  address as this machine reaches it, which on a host is its own forge (`HostForgeAddress`). A push approved onto
+  another branch is outside that watch.
+- **A missing credential:** with the host's builds and no entry of that name in the person's vault, the start says
+  so, names `porelo-host-forge-token`, starts the task, and starts no helper.
+- **A guarded task's helper runs with `--builds-only`** and opens no pull request; the gate's approval does that.
+
+## Declined in review
+
+- **A start with a locked vault is not told the host's command at once.** When nothing else in the start opens the
+  vault, the start cannot see whether it holds the entry, so the helper starts and waits for the vault; if the entry
+  is then missing, the helper's own record says to store it with `porelo vault put`. The start opens a shut vault
+  when its agent takes a credential from it (`TaskLaunch`, `declaredOrAdded`), as `claude` in both moves does, so
+  the case needs an agent that takes none on a host with a vault left locked; the task's work is unaffected, and the helper's words name the missing entry.

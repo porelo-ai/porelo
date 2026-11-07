@@ -1,6 +1,7 @@
 package org.fuin.porelo.app;
 
 import java.io.IOException;
+import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
@@ -13,7 +14,9 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Stream;
+import org.fuin.porelo.core.project.Builds;
 import org.fuin.porelo.core.project.Project;
+import org.fuin.porelo.core.project.ProjectException;
 import org.fuin.porelo.wire.Directories;
 import org.fuin.porelo.wire.Json;
 import org.jspecify.annotations.Nullable;
@@ -78,6 +81,7 @@ public final class OrganizationProjects {
      * @param host The host carrying it, named in a host's file, or {@code null}.
      * @param repositories The repositories the host carries of it, as its file names them; none for
      *     the whole project, or where no host says.
+     * @param builds The builds the host names for it, or {@code null}.
      */
     public record Placed(
             String project,
@@ -88,7 +92,44 @@ public final class OrganizationProjects {
             @Nullable String homeserver,
             @Nullable String room,
             @Nullable String host,
-            List<String> repositories) {
+            List<String> repositories,
+            @Nullable Builds builds) {
+
+        /**
+         * A project with no builds named by its host.
+         *
+         * @param project Its name.
+         * @param revision The project repository's revision placed.
+         * @param address The project repository.
+         * @param fetchFrom The host's forge for it, or {@code null}.
+         * @param keys Its members' keys.
+         * @param homeserver The host's homeserver, or {@code null}.
+         * @param room The room on it, or {@code null}.
+         * @param host The host carrying it, or {@code null}.
+         * @param repositories The repositories the host carries, or none for the whole project.
+         */
+        public Placed(
+                final String project,
+                final String revision,
+                final String address,
+                final @Nullable String fetchFrom,
+                final List<Key> keys,
+                final @Nullable String homeserver,
+                final @Nullable String room,
+                final @Nullable String host,
+                final List<String> repositories) {
+            this(
+                    project,
+                    revision,
+                    address,
+                    fetchFrom,
+                    keys,
+                    homeserver,
+                    room,
+                    host,
+                    repositories,
+                    null);
+        }
 
         /**
          * A project carried whole, or placed by a start.
@@ -244,7 +285,8 @@ public final class OrganizationProjects {
                         host.homeserver(),
                         host.room(),
                         host.host(),
-                        host.repositories());
+                        host.repositories(),
+                        host.builds());
     }
 
     /**
@@ -330,6 +372,16 @@ public final class OrganizationProjects {
         document.put("signing_keys", keys);
         document.put("homeserver", placed.homeserver());
         document.put("room", placed.room());
+        final Builds builds = placed.builds();
+        if (builds != null) {
+            document.put(
+                    "builds",
+                    Map.of(
+                            "forge", builds.forge(),
+                            "credential", builds.credential(),
+                            "api", builds.api(),
+                            "logs", builds.logs()));
+        }
         return document;
     }
 
@@ -363,10 +415,45 @@ public final class OrganizationProjects {
                     optional(document, "homeserver"),
                     optional(document, "room"),
                     optional(document, "host"),
-                    repositories(document, file));
+                    repositories(document, file),
+                    builds(document, file));
         } catch (final DateTimeParseException | IllegalArgumentException ex) {
             // What the parser says quotes the file.
             throw new IOException(file + " does not read", ex);
+        }
+    }
+
+    private static @Nullable Builds builds(final Map<?, ?> document, final Path file)
+            throws IOException {
+        if (document.get("builds") == null) {
+            return null;
+        }
+        if (!(document.get("builds") instanceof Map<?, ?> builds)) {
+            throw new IOException(file + " has no builds block");
+        }
+        for (final Object key : builds.keySet()) {
+            if (!List.of("forge", "api", "credential", "logs").contains(key)) {
+                throw new IOException(file + " names an unknown builds field");
+            }
+        }
+        try {
+            final Builds read =
+                    new Builds(
+                            text(builds, "forge", file),
+                            text(builds, "credential", file),
+                            builds.get("api") == null ? "" : text(builds, "api", file),
+                            builds.get("logs") == null
+                                    ? Builds.FAILURE
+                                    : text(builds, "logs", file));
+            final URI api = URI.create(read.api());
+            if ("http".equals(api.getScheme())
+                    && !List.of("127.0.0.1", "[::1]").contains(api.getHost())) {
+                throw new ProjectException(
+                        "'builds.api' must use a literal loopback address for http");
+            }
+            return read;
+        } catch (final ProjectException ex) {
+            throw new IOException(file + " has invalid builds: " + ex.getMessage(), ex);
         }
     }
 

@@ -588,6 +588,8 @@ public final class TaskLaunch {
 
     private final HostPerson host;
 
+    private final OrganizationProjects projects;
+
     private final @Nullable Path starterAgent;
 
     /** What to start. Replaced once, when a container name given as the task is taken apart. */
@@ -636,10 +638,22 @@ public final class TaskLaunch {
             StartSteps steps,
             HostPerson host,
             @Nullable Path starterAgent) {
+        this(context, request, steps, host, starterAgent, OrganizationProjects.of(context));
+    }
+
+    /** Creates a launch with the host's project files and helpers. */
+    TaskLaunch(
+            PoreloContext context,
+            Request request,
+            StartSteps steps,
+            HostPerson host,
+            @Nullable Path starterAgent,
+            OrganizationProjects projects) {
         this.context = context;
         this.request = request;
         this.steps = steps;
         this.host = host;
+        this.projects = projects;
         this.starterAgent = starterAgent;
     }
 
@@ -2451,7 +2465,14 @@ public final class TaskLaunch {
 
             clearance().startClearance(runner, project, container, out, err);
             new BuildsWiring(context, this::recordHelper)
-                    .start(project, repository, container, forgeBranch, out, err);
+                    .start(
+                            project,
+                            repository,
+                            container,
+                            forgeBranch,
+                            hostBuilds(project),
+                            out,
+                            err);
             writeResumeRecord(container, err);
             // What only this moment knows: which agent, how somebody is meant to be involved, what
             // it was asked to do, and which ref its work goes to. None of it can be recovered from
@@ -2786,6 +2807,18 @@ public final class TaskLaunch {
     private Project project(PrintWriter out, PrintWriter err) {
         // A key this Porelo does not know is refused by the reader, with its line.
         return ProjectReader.read(request.projectFile());
+    }
+
+    /** Only a host's current file may add builds when the project names none. */
+    private org.fuin.porelo.core.project.@Nullable Builds hostBuilds(final Project project)
+            throws java.io.IOException {
+        if (!host.present()
+                || project.builds() != null
+                || project.securityClass() == org.fuin.porelo.core.project.SecurityClass.OFFLINE) {
+            return null;
+        }
+        final OrganizationProjects.Placed hosted = projects.host(project.name());
+        return hosted == null ? null : hosted.builds();
     }
 
     /**

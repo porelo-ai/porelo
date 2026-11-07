@@ -20,9 +20,9 @@ import org.fuin.porelo.wire.Directories;
 import org.jspecify.annotations.Nullable;
 
 /**
- * Follows every commit an {@code online} task pushes to its branch and hands each build's verdict
- * into the task as it changes, and a failing job's log beside it. The task asks nothing and holds
- * no forge credential: this runs on the host, as a helper of the task's launch.
+ * Follows every commit a task pushes to its branch and hands each build's verdict into the task as
+ * it changes, and a failing job's log beside it. The task asks nothing and holds no forge
+ * credential: this runs on the host, as a helper of the task's launch.
  *
  * <p>A watch ends at a verdict that will not change, at {@link #DEADLINE}, or when the task stops.
  */
@@ -88,6 +88,8 @@ public final class BuildWatch {
      * again.
      */
     private boolean pullRequestSettled;
+
+    private boolean opensPullRequests = true;
 
     /** When a pull request the forge would not open may be asked for again. */
     private @Nullable Instant pullRequestAgain;
@@ -256,6 +258,16 @@ public final class BuildWatch {
     }
 
     /**
+     * Leaves pull requests to the guarded task's gate and delivers builds alone.
+     *
+     * @return This watch.
+     */
+    public BuildWatch withoutPullRequests() {
+        opensPullRequests = false;
+        return this;
+    }
+
+    /**
      * Watches until the task stops.
      *
      * @param running Whether the task still runs, asked before every round.
@@ -365,7 +377,8 @@ public final class BuildWatch {
      */
     private void pullRequest() {
         final Instant now = clock.instant();
-        if (!pushed
+        if (!opensPullRequests
+                || !pushed
                 || pullRequestSettled
                 || pullRequestAgain != null && now.isBefore(pullRequestAgain)) {
             return;

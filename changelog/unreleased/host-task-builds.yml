@@ -1,0 +1,2 @@
+title: "Guarded tasks on a host receive build verdicts and failed-job logs when the host names their builds, keeping the forge credential on the host"
+type: fixed
