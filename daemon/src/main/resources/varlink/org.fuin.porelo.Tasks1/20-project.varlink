@@ -408,10 +408,10 @@ type Repository (
   # names none. Start takes it when its own 'agent' is omitted. Whether it is installed here is
   # CanStart's question.
   agent: string,
-  # The one word the project file gives this repository's agent, or "" when it gives none.
+  # The nickname the project file gives this repository's agent, or "" when it gives none.
   nickname: string,
   # The name this repository's agent goes by in a conversation and on its commits: "Agent
-  # <nickname>", or "Agent <name>" without a nickname. Show it as it is; never build it.
+  # <nickname>", or "Agent <Name>", capitalized, without one. Show it as it is; never build it.
   goesBy: string
 )
 

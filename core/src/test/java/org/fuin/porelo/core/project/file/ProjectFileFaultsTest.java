@@ -161,7 +161,7 @@ class ProjectFileFaultsTest {
                                 "  security_class: guarded\n  nickname: 1st\n"),
                         4,
                         "project.nickname",
-                        "a nickname is one word"),
+                        "a letter first"),
                 refused(
                         BASE.replace(
                                 "  security_class: guarded\n",
@@ -680,6 +680,24 @@ class ProjectFileFaultsTest {
                 .hasSize(2)
                 .anySatisfy(fault -> assertThat(fault).startsWith("project.yml:2: "))
                 .anySatisfy(fault -> assertThat(fault).startsWith("project.yml:7: "));
+    }
+
+    @Test
+    void twoNicknamesAlikeOnceTheirSpacesAreCollapsedGoByOneName() {
+
+        // A reader that collapses spaces, as most displays do, would see one name for both.
+        final String yaml =
+                BASE
+                        + "repositories:\n  web:\n    nickname: Sea Lion\n  api:\n    nickname: sea  lion\n";
+
+        assertThat(faults(yaml))
+                .as("the double space refused, and both repositories said to go by one name")
+                .anySatisfy(fault -> assertThat(fault).contains("repositories.api.nickname"))
+                .anySatisfy(
+                        fault ->
+                                assertThat(fault)
+                                        .contains("'web' and 'api'")
+                                        .contains("would both go by"));
     }
 
     @Test

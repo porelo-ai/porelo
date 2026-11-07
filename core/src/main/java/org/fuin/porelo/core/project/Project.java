@@ -26,8 +26,8 @@ package org.fuin.porelo.core.project;
  *     for the project's image; it names the image apart, so two repositories' images never replace
  *     each other.
  * @param parameters The values a task of it may be started with.
- * @param nickname The one word the agent of its own repository goes by, or {@code null} for none,
- *     with the rules of {@link Repository#nickname()}.
+ * @param nickname The name the agent of its own repository goes by, or {@code null} for none, with
+ *     the rules of {@link Repository#nickname()}.
  * @param branch How a task's branch at the forge is named, for its own repository and every
  *     repository that names no scheme of its own; {@code null} when the file has no {@code branch}
  *     block, which names it {@code porelo/<task>}.
@@ -76,7 +76,7 @@ public record Project(
      * @param builds Where its builds are read, or {@code null}.
      * @param imageVariant The repository whose own image this is, or {@code null}.
      * @param parameters What a start may be given.
-     * @param nickname The one word its own repository's agent goes by, or {@code null}.
+     * @param nickname The name its own repository's agent goes by, or {@code null}.
      * @param branch How a task's branch at its forge is named, or {@code null}.
      * @param review Whether a merge in its own repository needs approval.
      */
@@ -140,7 +140,7 @@ public record Project(
      * @param builds Where its builds are read, or {@code null}.
      * @param imageVariant The repository whose own image this is, or {@code null}.
      * @param parameters What a start may be given.
-     * @param nickname The one word its own repository's agent goes by, or {@code null}.
+     * @param nickname The name its own repository's agent goes by, or {@code null}.
      * @param branch How a task's branch at its forge is named, or {@code null}.
      */
     public Project(
@@ -200,7 +200,7 @@ public record Project(
      * @param builds Where its builds are read, or {@code null}.
      * @param imageVariant The repository whose own image this is, or {@code null}.
      * @param parameters The values a task of it may be started with.
-     * @param nickname The one word the agent of its own repository goes by, or {@code null}.
+     * @param nickname The name the agent of its own repository goes by, or {@code null}.
      */
     public Project(
             String name,
@@ -783,8 +783,8 @@ public record Project(
             throw new ProjectException(
                     "'project.nickname' is '"
                             + nickname.replaceAll("\\p{Cntrl}", "?")
-                            + "'; a nickname is one word of at most 32 letters, digits or hyphens,"
-                            + " starting with a letter");
+                            + "'; "
+                            + Repository.NICKNAME_RULE);
         }
         if (name.isBlank()) {
             throw new ProjectException("The project name is required");

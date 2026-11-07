@@ -56,9 +56,9 @@ project:
   # Porelo only reads it; the host's forge enforces it.
   review: "required"
 
-  # Optional. The one word the agent of the project's own repository goes by: "Agent Planner" in
+  # Optional. The name the agent of the project's own repository goes by: "Agent Planner" in
   # a conversation and on its commits, with the rules of a repository's nickname below. Without
-  # one it goes by "Agent myproject".
+  # one it goes by "Agent Myproject".
   nickname: "Planner"
 
 # Optional. The repositories this project's agents change.
@@ -82,10 +82,13 @@ repositories:
     # Optional. The agent this repository is worked with, as 'porelo agents' lists it: a task
     # start without --agent takes it, and refuses when it is not installed here.
     agent: "claude"
-    # Optional. One word, a letter first, at most 32 letters, digits or hyphens: its agent goes by
-    # "Agent Payments" in a conversation and as the author of its task's commits. Without one it
-    # goes by "Agent backend". No two repositories, the project's own among them, may go by one
-    # name, whatever the case.
+    # Optional. Words of ASCII letters, digits and hyphens separated by single spaces, a letter
+    # first, at most 32 characters: its agent goes by "Agent Payments" in a conversation and as
+    # the author of its task's commits. A colon, a comma, a control or non-ASCII character, a
+    # double space and a space at either end are refused. Without one it goes by "Agent Backend",
+    # the name with its first letter capitalized and the rest as it is. No two repositories, the
+    # project's own among them, may go by one name, whatever the case or the spaces, nor one by
+    # another's followed by a space and more ("Agent Sea" beside "Agent Sea Lion").
     nickname: "Payments"
     # Optional. How far others can build on this repository, one of four words; any other is
     # refused. Porelo only checks the word and changes nothing by it.

@@ -17,7 +17,7 @@ import org.jspecify.annotations.Nullable;
  * @param description For people ({@code description}).
  * @param issues The issue prefixes it owns ({@code issues}), empty when it names none.
  * @param agent The agent it is worked with ({@code agent}).
- * @param nickname The one word its agent goes by ({@code nickname}).
+ * @param nickname The name its agent goes by ({@code nickname}).
  * @param maturity How far others can build on it ({@code maturity}).
  * @param branch How a task's branch at its forge is named ({@code branch}).
  */
@@ -41,7 +41,7 @@ public record RepositoryEntry(
      * @param description For people.
      * @param issues The issue prefixes it owns.
      * @param agent The agent it is worked with.
-     * @param nickname The one word its agent goes by.
+     * @param nickname The name its agent goes by.
      * @param maturity How far others can build on it.
      * @param branch How a task's branch is named.
      */

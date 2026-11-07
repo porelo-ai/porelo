@@ -453,7 +453,7 @@ class TaskWorkspaceTest {
                                   from: "ubuntu:24.04"
                                 repositories:
                                   backend:
-                                    nickname: "Ledger"
+                                    nickname: "Sea Lion"
                                 """),
                         "test");
         final Map<String, String> environment =
@@ -484,8 +484,8 @@ class TaskWorkspaceTest {
                         List.of("git", "commit", "-q", "-m", "work"), workspace, container, null));
 
         assertThat(git(workspace, "log", "-1", "--format=%an <%ae>"))
-                .as("the nickname's name, at the address every task commits from")
-                .isEqualTo("Agent Ledger <agent@localhost>");
+                .as("the whole nickname, spaces and all, at the task's address")
+                .isEqualTo("Agent Sea Lion <agent@localhost>");
     }
 
     @Test

@@ -232,8 +232,10 @@ final class ProjectSchema {
                     key(
                             "project",
                             "nickname",
-                            "The one word the agent of the project's own repository goes by, as"
-                                    + " Agent <nickname>; without one, Agent <project>.",
+                            "The name the agent of the project's own repository goes by, as"
+                                    + " Agent <nickname>, with the rules of a repository's"
+                                    + " nickname; without one, Agent and the project's name with"
+                                    + " its first letter capitalized.",
                             "string",
                             "",
                             false),
@@ -491,8 +493,13 @@ final class ProjectSchema {
                     key(
                             "repositories.<repository>",
                             "nickname",
-                            "The one word its agent goes by, as Agent <nickname>, in a conversation"
-                                    + " and on its commits; without one, Agent <repository>.",
+                            "The name its agent goes by, as Agent <nickname>, in a conversation"
+                                    + " and on its commits: words of ASCII letters, digits and"
+                                    + " hyphens separated by single spaces, a letter first, at"
+                                    + " most 32 characters; without one, Agent and the"
+                                    + " repository's name with its first letter capitalized. No"
+                                    + " two go by one name, whatever the case or the spaces, nor"
+                                    + " one by another's followed by a space and more.",
                             "string",
                             "",
                             false),

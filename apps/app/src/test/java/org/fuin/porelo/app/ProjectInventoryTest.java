@@ -574,14 +574,14 @@ class ProjectInventoryTest {
                 .containsEntry("nickname", "Ledger")
                 .containsEntry("goesBy", "Agent Ledger");
         assertThat(byName.get("site"))
-                .as("without a nickname, the repository's name")
+                .as("without a nickname, the repository's name, capitalized")
                 .containsEntry("agent", "worker")
                 .containsEntry("nickname", "")
-                .containsEntry("goesBy", "Agent site");
+                .containsEntry("goesBy", "Agent Site");
         assertThat(byName.get("uc"))
                 .as("the project's own repository names no agent and goes by the project's name")
                 .containsEntry("agent", "")
-                .containsEntry("goesBy", "Agent uc");
+                .containsEntry("goesBy", "Agent Uc");
     }
 
     /** A project this machine follows, with the file its verified clone holds. */

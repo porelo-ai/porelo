@@ -1,6 +1,6 @@
 Feature: A repository names the agent it is worked with
 
-    A project file may name, for each repository, the agent it is worked with and a one-word nickname.
+    A project file may name, for each repository, the agent it is worked with and a nickname.
     A start on that repository without --agent takes that agent and says so; the project's listing
     carries both with the name the agent goes by, and a task's commits are authored by that name.
 
@@ -36,7 +36,7 @@ Feature: A repository names the agent it is worked with
             rm -rf "$source" && git init -q -b main "$source"
             git -C "$source" -c user.name=T -c user.email=t@example.com commit -q --allow-empty -m first
             printf '%s\n' 'repositories:' '  tested:' "    upstream: \"file://$source\"" \
-                '    agent: "stub"' '    nickname: "Tester"' '  plain:' '    agent: "stub"' >> ~/named/project.yml
+                '    agent: "stub"' '    nickname: "Sea Tester"' '  plain:' '    agent: "stub"' >> ~/named/project.yml
             git -C ~/named add project.yml && git -C ~/named commit -q -m named
             timeout 600 porelo task start authored --project named --repository tested \
                 --attach shell --detach --clearance deny > /dev/null
@@ -45,4 +45,4 @@ Feature: A repository names the agent it is worked with
             porelo task remove porelo-named-authored --force > /dev/null
             """
         Then it exits zero
-        And its output contains "author Agent Tester <agent@localhost>"
+        And its output contains "author Agent Sea Tester <agent@localhost>"

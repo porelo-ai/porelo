@@ -1,5 +1,6 @@
 package org.fuin.porelo.core.project;
 
+import java.util.Locale;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -32,7 +33,7 @@ import org.jspecify.annotations.Nullable;
  * @param agent The agent this repository is worked with, by the name {@code porelo agents} lists,
  *     or {@code null} when the project file names none. Whether it is installed is the start's
  *     question: a followed project is read on machines without it.
- * @param nickname The one word its agent is addressed by, or {@code null} for none.
+ * @param nickname The name its agent is addressed by, or {@code null} for none.
  * @param branch How a task's branch at its forge is named, or {@code null} for the project's.
  * @param review Whether a merge on the host's forge needs another person's approval: {@link
  *     #REVIEW_REQUIRED} or {@link #REVIEW_OPTIONAL}.
@@ -59,11 +60,19 @@ public record Repository(
     public static final String AGENT_PATTERN = "[a-z0-9]+(?:-[a-z0-9]+)*";
 
     /**
-     * What a nickname looks like: one word, a letter first, at most 32 characters, so that {@code
-     * Agent } before it fits a transport's 64-character display name and nothing reads it as an
-     * address, a separator or an option.
+     * What a nickname looks like: ASCII words separated by single spaces, a letter first, at most
+     * 32 characters, so that {@code Agent } before it fits a transport's 64-character display name,
+     * no look-alike letter passes for another agent, and nothing reads it as an address, a list's
+     * separator or an option.
      */
-    public static final String NICKNAME_PATTERN = "[A-Za-z][A-Za-z0-9-]{0,31}";
+    public static final String NICKNAME_PATTERN =
+            "(?=.{1,32}$)[A-Za-z][A-Za-z0-9-]*(?: [A-Za-z0-9][A-Za-z0-9-]*)*";
+
+    /** The nickname's rule in words, for every refusal of one. */
+    public static final String NICKNAME_RULE =
+            "a nickname is at most 32 ASCII letters, digits and hyphens in words separated by single"
+                    + " spaces, a letter first; a colon, a comma, a control or non-ASCII character,"
+                    + " a double space and a space at either end are refused";
 
     /** What the name an agent goes by starts with. */
     private static final String AGENT_PREFIX = "Agent ";
@@ -87,7 +96,7 @@ public record Repository(
      * @param description What it is.
      * @param issues The issue prefixes it owns.
      * @param agent The agent it is worked with, or {@code null}.
-     * @param nickname The one word its agent is addressed by, or {@code null}.
+     * @param nickname The name its agent is addressed by, or {@code null}.
      */
     public Repository(
             String name,
@@ -171,8 +180,8 @@ public record Repository(
                             + name
                             + ".nickname' is '"
                             + nickname.replaceAll("\\p{Cntrl}", "?")
-                            + "'; a nickname is one word of at most 32 letters, digits or hyphens,"
-                            + " starting with a letter");
+                            + "'; "
+                            + NICKNAME_RULE);
         }
         for (final String prefix : issues) {
             if (!prefix.matches(ISSUES_PATTERN)) {
@@ -236,10 +245,38 @@ public record Repository(
      * Returns the name this repository's agent goes by where people and agents talk, and on its
      * commits.
      *
-     * @return {@code Agent <nickname>}, or {@code Agent <name>} without a nickname.
+     * @return {@code Agent <nickname>}, or {@code Agent <Name>} without a nickname.
      */
     public String goesBy() {
-        return AGENT_PREFIX + (nickname == null ? name : nickname);
+        return goesBy(nickname, name);
+    }
+
+    /**
+     * Returns the name an agent goes by: its nickname as written, or else the repository's or the
+     * project's name with its first letter capitalized and the rest as it is.
+     *
+     * @param nickname The nickname, or {@code null} for none.
+     * @param name The repository's key or the project's name.
+     * @return {@code Agent <nickname>}, or {@code Agent <Name>}.
+     */
+    public static String goesBy(final @Nullable String nickname, final String name) {
+        if (nickname != null) {
+            return AGENT_PREFIX + nickname;
+        }
+        return AGENT_PREFIX
+                + (name.isEmpty()
+                        ? name
+                        : name.substring(0, 1).toUpperCase(Locale.ROOT) + name.substring(1));
+    }
+
+    /**
+     * Returns a name as two names are compared: people tell neither case nor a run of spaces apart.
+     *
+     * @param goesBy A name an agent goes by.
+     * @return It in lower case, with each run of spaces one space.
+     */
+    public static String compared(final String goesBy) {
+        return goesBy.toLowerCase(Locale.ROOT).replaceAll(" +", " ");
     }
 
     /**

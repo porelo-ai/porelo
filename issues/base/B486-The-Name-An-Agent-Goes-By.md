@@ -1,6 +1,6 @@
 # [B486](README.md#b486) — The Name An Agent Goes By
 
-**Status:** Implementing.
+**Status:** Review.
 **Size:** S - the nickname's rule, the default name, the one check that two names differ, the schema and the docs.
 Estimate 75 minutes.
 
@@ -50,6 +50,28 @@ Estimate 75 minutes.
   `ENVELOPE/PEER_NAME_MALFORMED`. The name an agent goes by never reaches those fields: `goesBy()` is read only by
   `TaskWorkspace` and `ProjectInventory`, nothing in `app-messaging` reads it, and the window uses it only in the
   sentences it shows. A change that put it there would have to change the peer rule in both repositories.
+
+## Built
+
+- `Repository.NICKNAME_PATTERN` and `Repository.NICKNAME_RULE` are the one rule and its words; `Project` and
+  `ProjectFileCheck` use both. `Repository.goesBy(nickname, name)` forms the name, and `Repository.compared` is how two
+  are compared. `ProjectFileCheck.apart` refuses two names alike and one that another's starts with before a space.
+- Tests seen red, then green: `ProjectRepositoryAgentTest`, `ProjectFileFaultsTest`, and in `apps/app`
+  `TaskWorkspaceTest` (a commit authored as "Agent Sea Lion" by real git) and `ProjectInventoryTest`.
+  `task-repository-agent.feature` now commits as "Agent Sea Tester" in a task.
+
+## Reading
+
+One reading by another model. Its two test gaps were closed: the prefix refused when the longer name comes first, and
+the 32-character boundary. Each new test was seen red against a deliberate break. Declined:
+- **A trailing space or an empty nickname gives a second, oddly worded fault beside the rule's.** The file is refused
+  by the rule either way, so only a message reads wrong.
+- **`Project` does not repeat the check that two names differ.** Its one caller that replaces repositories,
+  `HostForgeAddress.placed`, keeps each row's nickname from a file already checked.
+- **A repository whose key is the project's name drops out of the comparison.** Such a file is refused by its own
+  check.
+- **The pattern is compiled per call, and the comparison is quadratic in the repositories.** A project has a handful
+  of repositories.
 
 ## Plan
 

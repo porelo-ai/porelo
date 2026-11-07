@@ -14,6 +14,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
 import org.fuin.porelo.core.project.ProjectException;
+import org.fuin.porelo.core.project.Repository;
 import org.fuin.porelo.core.project.SecurityClass;
 import org.fuin.porelo.core.project.SnippetFiles;
 import org.fuin.porelo.core.project.TaskVariables;
@@ -33,9 +34,6 @@ public final class ProjectFileCheck {
 
     /** What a repository's name looks like: it becomes a directory and part of an image's name. */
     public static final String REPOSITORY_NAME = "(?=.{1,63}$)[a-z0-9]+(?:(?:-+|\\.)[a-z0-9]+)*";
-
-    /** What a nickname looks like: one word, a letter first, at most 32 characters. */
-    public static final String NICKNAME = "[A-Za-z][A-Za-z0-9-]{0,31}";
 
     /** What an agent's name looks like. */
     private static final String AGENT = "[a-z0-9]+(?:-[a-z0-9]+)*";
@@ -832,10 +830,7 @@ public final class ProjectFileCheck {
         final Map<String, String> goesBy = new LinkedHashMap<>();
         final ProjectInfo info = file.project();
         if (info != null && info.name() != null) {
-            goesBy.put(
-                    (info.nickname() == null ? info.name() : info.nickname())
-                            .toLowerCase(Locale.ROOT),
-                    info.name());
+            goesBy.put(info.name(), Repository.goesBy(info.nickname(), info.name()));
         }
         file.repositories()
                 .forEach(
@@ -860,26 +855,51 @@ public final class ProjectFileCheck {
                                                     + "'; a prefix belongs to one repository");
                                 }
                             }
-                            // People do not tell Agent Pi from Agent PI apart in a room.
-                            final String goes = entry.nickname() == null ? name : entry.nickname();
-                            final String other =
-                                    goesBy.putIfAbsent(goes.toLowerCase(Locale.ROOT), name);
-                            if (other != null) {
-                                fault(
-                                        path,
-                                        "'"
-                                                + other
-                                                + "' and '"
-                                                + name
-                                                + "' in '"
-                                                + path
-                                                + "' would both go by 'Agent "
-                                                + shown(goes)
-                                                + "'; a nickname may not repeat another"
-                                                + " repository's nickname or name, whatever the"
-                                                + " case");
-                            }
+                            final String goes = Repository.goesBy(entry.nickname(), name);
+                            goesBy.forEach((other, its) -> apart(path, other, its, name, goes));
+                            goesBy.putIfAbsent(name, goes);
                         });
+    }
+
+    /** Refuses two names a reader would take for one; it reports at the later's path. */
+    private void apart(
+            final String path,
+            final String other,
+            final String its,
+            final String name,
+            final String goes) {
+        // People do not tell Agent Pi from Agent PI, or one space from two, apart in a room.
+        final String first = Repository.compared(its);
+        final String second = Repository.compared(goes);
+        if (first.equals(second)) {
+            fault(
+                    path,
+                    "'"
+                            + other
+                            + "' and '"
+                            + name
+                            + "' in '"
+                            + path
+                            + "' would both go by '"
+                            + shown(goes)
+                            + "'; a nickname may not repeat another repository's nickname or name,"
+                            + " whatever the case or the spaces");
+        } else if (second.startsWith(first + " ") || first.startsWith(second + " ")) {
+            // A reader matching a whole phrase from the left would take the shorter for the longer.
+            fault(
+                    path,
+                    "'"
+                            + name
+                            + "' in '"
+                            + path
+                            + "' goes by '"
+                            + shown(goes)
+                            + "' and '"
+                            + other
+                            + "' by '"
+                            + shown(its)
+                            + "'; a name may not be another's followed by a space and more");
+        }
     }
 
     private void repository(
@@ -992,15 +1012,8 @@ public final class ProjectFileCheck {
     }
 
     private void nickname(final @Nullable String nickname, final String path) {
-        if (nickname != null && !nickname.matches(NICKNAME)) {
-            fault(
-                    path,
-                    "'"
-                            + path
-                            + "' is '"
-                            + shown(nickname)
-                            + "'; a nickname is one word of at most 32 letters, digits or hyphens,"
-                            + " starting with a letter");
+        if (nickname != null && !nickname.matches(Repository.NICKNAME_PATTERN)) {
+            fault(path, "'" + path + "' is '" + shown(nickname) + "'; " + Repository.NICKNAME_RULE);
         }
     }
 
