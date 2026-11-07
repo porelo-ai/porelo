@@ -1,6 +1,6 @@
 # [B488](README.md#b488) — A Repository File Signed From The Checkouts A Person Keeps
 
-**Status:** Analyzed.
+**Status:** Analyzed; the operator's answers are in, and Estimated is proposed.
 **Size:** M - one contract change of a command, read and signing paths in `organization/git-tree` beside today's,
 docs and an acceptance step; one repository.
 
@@ -51,33 +51,61 @@ Read in today's code. Most of it exists and is reused:
 Steps:
 
 1. **Organization from (a).** `GitTreeStore` gets a read from a checkout: the same `TreeWalk` as `walk()`, on
-   `TreeRepository.standing(<a>/.git)` instead of `TreeRepository.fetch`. The kept record keeps its continuity
-   check: the checkout's `main` must continue the commit last trusted, or it is refused as today, as "an older state
-   served again, or a fork". What it answers is `signingKeys(project)` and the project repository's address.
-   Nothing is kept from it except the trusted record as today.
+   `TreeRepository.standing(<a's git directory>)` instead of `TreeRepository.fetch`. The kept record keeps its
+   continuity check: the checkout's `main` must continue the commit last trusted, or it is refused as "an older state
+   served again, or a fork". It answers `signingKeys(project)` and the project repository's address.
+   - The walk still asks the forge's public key list (`HttpForgeDirectory`), as today. A person's machine has no
+     pin: `TreeWalk.founding` anchors the founder in that list when no record is kept, and `listed` judges each
+     card the walk meets after the record. A walk from a checkout therefore makes this one network read, reading
+     only. It is the same read the taking makes today, and a forge that does not answer leaves cards undecided, as
+     today.
 2. **Project from (b).** The checkout's remote is not trusted. Its `main` holds `project.yml`, and
    `ProjectFile.standing` judges it with the keys from step 1. The memory in `organization/project-files` refuses an
    older revision than the one this machine accepted, as the taking does. The judged file gives the `upstream` of the
    repository (c) is named as.
 3. **Signing in (c).** This is a new `ProjectFile.signStanding(change, checkoutGitDir, upstream, keys)` beside
    `sign`:
-   - It opens a scratch bare repository whose `objects/info/alternates` names (c)'s object directory. Porelo then
-     reads and writes nothing in (c) except one ref, and the checkout's own config, hooks and `insteadOf` never
-     apply.
-   - Its `main` starts at (c)'s `main`. It checks that the acting key is an admin's or developer's key, valid today,
-     and that (c)'s `main` holds `porelo.yml`.
-   - It makes the empty signed commit, with `Porelo-Signs-Anew: porelo.yml` and `Porelo-Change-Id`, in the scratch
-     repository.
-   - It pushes `main:main` to `upstream`, fast-forward only.
-   - Only after the push is taken does it run `update-ref refs/heads/main <new> <old>` in (c). A refused push leaves
-     (c) as it was.
-   - A `main` that moved meanwhile makes `update-ref` fail. The answer then says the forge holds the signature and
-     a fetch brings it.
-4. **Command.** `porelo project sign-repository-file` gets the form from the open question below. Without `--yes`
-   it shows (c)'s `porelo.yml` at `main`, its newest change and its signer, as `lookRepositoryFile` does today but
-   in place. `--yes` signs that `main`. There is no `--base`: what is signed is the tip of the checkout the person
-   read. The `--id` retry stays.
-5. **Docs and contract.** Update the `doc/commands.md` row and `doc/roles.md`, and add a changelog entry.
+   - **Resolving the checkout.** (c)'s git directory is resolved with `git rev-parse --path-format=absolute
+     --git-common-dir`, which handles a `git worktree` checkout too: its `.git` is a file, and `main` and the
+     objects live in the common directory. A checkout owned by another account is refused, since Porelo signs only
+     this person's own checkouts.
+   - **Origin.** (c)'s `remote.origin.url` must name the judged `upstream`, or it is refused naming both.
+   - **Ahead of the forge.** One `ls-remote` of the upstream's `main` must equal (c)'s `main`. Otherwise it is
+     refused, naming the commits only (c) holds (`rev-list <forge>..main`), or saying that the forge's tip is not in
+     (c) and a fetch is needed.
+   - **The commit.** A scratch bare repository has `objects/info/alternates` naming (c)'s object directory. Its
+     `main` is set to (c)'s `main`, and the acting key is checked as an admin's or developer's key, valid today.
+     `TreeRepository.commit` makes the empty commit there, signed through the agent, with
+     `Porelo-Signs-Anew: porelo.yml` and `Porelo-Change-Id`.
+   - **The push.** It pushes `main:main` to `upstream` from the scratch repository, never forced. (c)'s config,
+     hooks and `insteadOf` never apply, because git runs on the scratch repository.
+   - **Into (c).** Only after the push is taken does Porelo fetch the one commit into (c) and move `main`. It runs
+     `git --git-dir=<c> -c core.hooksPath=/dev/null fetch --no-tags --no-write-fetch-head <scratch> <commit>`,
+     then `update-ref refs/heads/main <commit> <old>`. A refused push leaves (c) as it was.
+   - **A `main` that moved meanwhile** makes `update-ref` fail. The answer then says the forge holds the signature
+     and that a fetch brings it.
+   - **Measured 2026-11-07:**
+     - `update-ref` alone fails, because the commit object exists only in the scratch repository. The fetch puts it
+       into (c).
+     - With `core.hooksPath=/dev/null` a `reference-transaction` hook in (c) does not run. As a control, it runs
+       without that setting.
+     - An `insteadOf` in (c)'s config does not redirect the push.
+     - `git status` in (c) stays clean, and `refs/heads/main` is the only ref.
+4. **Command and settings.**
+   - `porelo setup --organization-checkout PATH` and `porelo setup --project-checkout PROJECT PATH` each record a
+     checkout once, in this machine's settings. They check that it is a git checkout of this account.
+   - `porelo project sign-repository-file [-C PATH] [--yes] [--id ID] [--json]` signs the checkout it runs in, or
+     the one at `-C`, and finds the repository by the judged `upstream` its `origin` names. With no `PROJECT
+     REPOSITORY` arguments it takes this form.
+   - Without `--yes` it shows (c)'s `porelo.yml` at `main`, its newest change and its signer, as `lookRepositoryFile`
+     does, but in place.
+   - `--yes` signs that `main`. There is no `--base`: what is signed is the tip of the checkout the person read.
+   - The old form `PROJECT REPOSITORY [--yes --base REVISION]` stays as it is, for a machine without checkouts.
+5. **Docs and contract.** Update the `doc/commands.md` row, the `porelo setup` row and `doc/roles.md`, and add a
+   changelog entry.
+6. **[B487](README.md#b487).** Reading the organization there belongs to the organization adapter, and
+   `sign-repository-file` stays in `porelo`; that contract would need a question "signing keys of a project, read
+   from a checkout at PATH". This is built here in today's modules and does not wait for that decision.
 
 The test that goes red first is in `ProjectFileTest`. Two bare "forge" repositories and a checkout of each are set
 up:
@@ -98,37 +126,7 @@ up:
   - (a) rewound behind the record last trusted is refused.
   - (b) with an older `project.yml` than the one accepted is refused.
   - (c) with an `insteadOf` pointing elsewhere still pushes to the project's `upstream`.
+  - (c) with a local commit the forge lacks is refused, naming that commit.
+  - (c) whose `origin` names another address is refused, naming both.
+- A `git worktree` checkout signs like a plain one.
 - An acceptance step on the VM runs this with a checkout prepared from the forge-on-VM repositories.
-
-## Open questions
-
-- **How the three checkouts are named.** The recommendation:
-  - (a) and (b) as settings of this machine, made once (`porelo setup --organization-checkout PATH`, and the
-    project's checkout per project).
-  - (c) as the directory the command runs in, or `-C PATH`.
-  - Alternatively, all three as options on each run.
-- **The old form.** Does `PROJECT REPOSITORY --yes --base` stay beside this for a machine without checkouts, such as
-  a host after its follow? The recommendation is to keep it: a host has no checkout, and removing it is a separate
-  decision.
-- **(c)'s `main` ahead of the forge.** With local commits not yet pushed, the fast-forward push would carry them
-  along under the signature. The recommendation is to refuse unless the forge's `main` (one `ls-remote` of the
-  upstream) is the parent of the signed commit, and to say which commits are only local. The alternative is to sign
-  and push them along on purpose.
-- **(c)'s remote.** The push always goes to the `upstream` the judged project file names, whatever (c)'s `origin`
-  says. A checkout whose `origin` names another address: the recommendation is to refuse, since it is then probably
-  not the repository the person thinks; the alternative is to sign anyway.
-
-## To be checked
-
-- `TreeWalk` on a person's machine takes whose keys are whose from the forge's public list (`HttpForgeDirectory`),
-  which is a network read. Does a walk from a checkout still ask it? Then the organization's forge must answer;
-  without it the founder's key is unanchored. Read whether the kept record alone carries a later walk, and say
-  which before Estimated.
-- Whether `alternates` from a scratch repository to a checkout another account owns works without
-  `safe.directory`, as `standing` does with an explicit git directory.
-- That `update-ref` in (c) runs no `reference-transaction` hook under `core.hooksPath=/dev/null`, measured.
-- A checkout made with `git worktree add` or as a submodule (`.git` a file): resolve it to its git directory, or
-  refuse it.
-- [B487](README.md#b487): reading the organization belongs to the organization adapter there, and
-  `sign-repository-file` stays in `porelo`. That contract would need a question "signing keys of a project, read from
-  a checkout at PATH". Built here in today's modules until that is decided.
