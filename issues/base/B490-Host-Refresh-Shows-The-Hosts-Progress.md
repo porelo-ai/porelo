@@ -1,7 +1,7 @@
 # [B490](README.md#b490) — Host Refresh Shows The Host's Progress
 
-**Status:** Implementing; built on the operator's word that every finding of the trial move is fixed before the
-second move.
+**Status:** Review; built on the operator's word that every finding of the trial move is fixed before the second
+move.
 **Size:** S - one command and its test; the host's words are passed on, not changed.
 
 **What must be true.** `porelo org host refresh <host>` says at once that it asks the host to follow the organization,

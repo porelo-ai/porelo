@@ -1,6 +1,7 @@
 package org.fuin.porelo.app;
 
 import java.io.IOException;
+import java.io.PrintWriter;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.LinkedHashMap;
@@ -65,11 +66,13 @@ public class OrgHostRefreshCommand implements Callable<Integer>, PoreloFactory.C
         return reading.answers().getHosts();
     }
 
+    /** Uses the machine whose organization and credential are being refreshed. */
     @Override
     public void setContext(PoreloContext context) {
         this.context = context;
     }
 
+    /** Hands over the credential and reports the host's safe answer. */
     @Override
     public Integer call() {
         final PoreloContext machine = Objects.requireNonNull(context, "picocli sets the context");
@@ -172,14 +175,23 @@ public class OrgHostRefreshCommand implements Callable<Integer>, PoreloFactory.C
         final byte[] input = token.getBytes(StandardCharsets.US_ASCII);
         try (final PinnedHostSsh ssh =
                 PinnedHostSsh.open(card.address(), card.sshPort(), "root", card.sshHostKey())) {
+            final PrintWriter err = spec.commandLine().getErr();
+            err.println(
+                    "asking "
+                            + host
+                            + " to follow the organization; this takes a while for many repositories");
+            err.flush();
             final CommandResult result =
                     machine.runner()
                             .run(
                                     ssh.command(
                                             List.of("porelo-host-person", "org", "refresh"),
                                             input,
-                                            machine.environment()));
-            final String diagnostic = safe(result.standardError(), token);
+                                            machine.environment()),
+                                    line -> {
+                                        err.println(host + ": " + safe(line, token));
+                                        err.flush();
+                                    });
             if (result.exitCode() != 0) {
                 final int exit =
                         switch (result.exitCode()) {
@@ -189,9 +201,9 @@ public class OrgHostRefreshCommand implements Callable<Integer>, PoreloFactory.C
                         };
                 return report(
                         exit,
-                        diagnostic.isBlank()
+                        result.standardError().isBlank()
                                 ? "the host refused refresh; check root SSH access and the host's organization settings, then retry"
-                                : diagnostic,
+                                : "",
                         null);
             }
             final Object parsed = Json.parse(result.standardOutput());
@@ -207,7 +219,7 @@ public class OrgHostRefreshCommand implements Callable<Integer>, PoreloFactory.C
                         "the host returned an invalid or unsafe refresh answer; check porelo-host-person on the host",
                         null);
             }
-            return report(0, diagnostic, answer);
+            return report(0, "", answer);
         } finally {
             Arrays.fill(input, (byte) 0);
         }

@@ -7,9 +7,11 @@ import java.io.StringWriter;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Consumer;
 import org.fuin.porelo.core.config.XdgPaths;
 import org.fuin.porelo.core.process.Command;
 import org.fuin.porelo.core.process.CommandResult;
@@ -37,6 +39,7 @@ class OrgHostRefreshCommandTest {
     private final StringWriter err = new StringWriter();
     private final AtomicReference<byte[]> sent = new AtomicReference<>();
     private final AtomicReference<String> known = new AtomicReference<>();
+    private final List<String> errorDuringRun = new ArrayList<>();
     private String key;
     private Organization.Card card;
     private List<OrganizationQuestions.Host> hosts;
@@ -47,6 +50,20 @@ class OrgHostRefreshCommandTest {
     private final byte[] share = new byte[32];
     private final FakeCommandRunner runner =
             new FakeCommandRunner() {
+                /** Hands stderr over before returning so delayed progress cannot pass. */
+                @Override
+                public CommandResult run(Command command, Consumer<String> lines) {
+                    final CommandResult result = run(command);
+                    result.standardError()
+                            .lines()
+                            .forEach(
+                                    line -> {
+                                        lines.accept(line);
+                                        errorDuringRun.add(err.toString());
+                                    });
+                    return result;
+                }
+
                 @Override
                 public CommandResult run(Command command) {
                     if (command.program().equals("ssh")) {
@@ -140,6 +157,53 @@ class OrgHostRefreshCommandTest {
         final var args = new java.util.ArrayList<>(List.of("org", "host", "refresh", "build"));
         args.addAll(List.of(options));
         return cli.execute(args.toArray(String[]::new));
+    }
+
+    @ParameterizedTest
+    @CsvSource({"false,false", "false,true", "true,false", "true,true"})
+    void showsProgressBeforeReturningWithoutExposingTheCredential(boolean json, boolean cleanedEcho)
+            throws Exception {
+        final String token = cleanedEcho ? TOKEN + "?tail" : TOKEN;
+        if (cleanedEcho) {
+            Files.delete(context.vault().path());
+            context.vault().write(Map.of("central", new VaultEntry(token, "token")), share);
+        }
+        final String echo = cleanedEcho ? TOKEN + "\u001btail" : token;
+        runner.answering(
+                "porelo-host-person org refresh",
+                STATUS,
+                "following\u001brepository alpha\n" + echo);
+
+        final int exit = run(json ? new String[] {"--json"} : new String[0]);
+
+        assertThat(errorDuringRun)
+                .as(
+                        "both host lines must reach stderr before SSH returns, with the credential withheld")
+                .hasSize(2);
+        assertThat(errorDuringRun.getFirst())
+                .as("the request and cleaned progress are visible while the host is still running")
+                .hasLineCount(2)
+                .endsWith("build: following?repository alpha" + System.lineSeparator());
+        assertThat(errorDuringRun.getLast())
+                .as("the credential echo adds one replacement line before SSH returns")
+                .startsWith(errorDuringRun.getFirst())
+                .hasLineCount(3);
+        assertThat(errorDuringRun.getLast().lines().toList().getLast())
+                .as("a raw or cleaned credential echo is replaced while the host is still running")
+                .startsWith("build: ")
+                .contains("withheld");
+        assertThat(err.toString())
+                .as("the completed run must not print streamed diagnostics again")
+                .isEqualTo(errorDuringRun.getLast());
+        assertThat(out + err.toString())
+                .as("neither output stream may disclose any of the credential")
+                .doesNotContain(TOKEN, token, echo);
+        assertThat(exit).as("progress does not change a successful handover").isZero();
+        if (json) {
+            assertThat((Map<?, ?>) Json.parse(out.toString()))
+                    .as("stdout remains the single JSON handover answer")
+                    .isEqualTo(Map.of("handedOver", true, "answer", Json.parse(STATUS)));
+        }
     }
 
     @Test
@@ -293,7 +357,9 @@ class OrgHostRefreshCommandTest {
         assertThat(((Map<?, ?>) Json.parse(out.toString())).get("handedOver"))
                 .as("no success claim")
                 .isEqualTo(false);
-        assertThat(err.toString()).as("safe host diagnostic").contains("setting is missing");
+        assertThat(err.toString())
+                .as("a failed refresh reports the safe host diagnostic only once")
+                .containsOnlyOnce("setting is missing");
     }
 
     @Test
