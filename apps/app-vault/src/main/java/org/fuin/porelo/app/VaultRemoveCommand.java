@@ -67,7 +67,6 @@ public class VaultRemoveCommand implements Callable<Integer>, PoreloFactory.Cont
             return 64;
         }
 
-        final String grantName = TaskSecrets.GRANT_PREFIX + name;
         final VaultEntry grant;
         final org.fuin.porelo.vault.VaultFile.Opener opener;
         try {
@@ -154,14 +153,7 @@ public class VaultRemoveCommand implements Callable<Integer>, PoreloFactory.Cont
                     .update(
                             opener,
                             entries -> {
-                                removed[0] = entries.remove(name) != null;
-                                removed[0] |= entries.remove(grantName) != null;
-                                removed[0] |=
-                                        entries.remove(TaskSecrets.CLIENT_SECRET_PREFIX + name)
-                                                != null;
-                                removed[0] |=
-                                        entries.remove(VaultNames.REGISTRATION_PREFIX + name)
-                                                != null;
+                                removed[0] = removeFrom(entries, name);
                                 return entries;
                             });
         } catch (VaultException ex) {
@@ -179,6 +171,42 @@ public class VaultRemoveCommand implements Callable<Integer>, PoreloFactory.Cont
         out.println("removed   " + name);
         out.flush();
         return 0;
+    }
+
+    /**
+     * Removes an entry with what was kept for it: its grant, a sign-in's client secret and the
+     * client registered for it.
+     *
+     * @param entries What the vault holds; changed in place.
+     * @param name The entry.
+     * @return Whether anything was there to remove.
+     */
+    static boolean removeFrom(final java.util.Map<String, VaultEntry> entries, final String name) {
+        boolean removed = entries.remove(name) != null;
+        removed |= entries.remove(TaskSecrets.GRANT_PREFIX + name) != null;
+        removed |= entries.remove(TaskSecrets.CLIENT_SECRET_PREFIX + name) != null;
+        removed |= entries.remove(VaultNames.REGISTRATION_PREFIX + name) != null;
+        return removed;
+    }
+
+    /**
+     * Says whether removing an entry first needs its service told, which only this command does: a
+     * grant a person gave, a token nothing here can revoke, or a client registered there.
+     *
+     * @param entries What the vault holds.
+     * @param name The entry.
+     * @return Whether a caller that cannot reach a person must leave the removal to this command.
+     */
+    static boolean needsTheService(
+            final java.util.Map<String, VaultEntry> entries, final String name) {
+        final VaultEntry grant = entries.get(TaskSecrets.GRANT_PREFIX + name);
+        // What renews an agent's own sign-in is only forgotten here, as the command does.
+        final boolean ownSignIn =
+                grant != null
+                        && LoginCredentials.REFRESH.equals(grant.type())
+                        && !grantedByAPerson(entries.get(name));
+        return (grant != null && !ownSignIn)
+                || entries.containsKey(VaultNames.REGISTRATION_PREFIX + name);
     }
 
     /**

@@ -1,0 +1,2 @@
+title: "A client of the daemon removes a vault entry with CredentialRemove and replaces its value with CredentialReplace, refused by name when the vault is shut, the entry is unknown or a running task borrows it"
+type: added

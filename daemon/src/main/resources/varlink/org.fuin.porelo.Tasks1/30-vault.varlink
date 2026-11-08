@@ -161,7 +161,7 @@ method CredentialDeclare(
 )
 
 # Forgets a credential record. The secret is NOT removed: a key in ~/.ssh is the person's, and a
-# vault entry is removed with 'porelo vault remove' by somebody at the machine.
+# vault entry is removed with CredentialRemove, or 'porelo vault remove' at the machine.
 method CredentialForget(
   # The record's 'match', exactly as Connection gives it.
   match: string
@@ -172,6 +172,39 @@ method CredentialForget(
   # secret is gone. "" when nothing does.
   leftBehind: string
 )
+
+# Removes a vault entry and its value - what 'porelo vault remove' does at the machine, from the same
+# code - with the client secret a sign-in left beside it.
+#
+# Only an entry Credentials lists. One whose grant or client registration has to be ended at its
+# service first is refused as GRANTED: that is 'porelo vault remove' at the machine, which can ask.
+method CredentialRemove(
+  # The entry, as Credentials names it.
+  name: string
+) -> ()
+
+# Replaces the value of a vault entry, keeping its kind and settings - what 'porelo vault put' does at
+# the machine, from the same code. The next task reads the new value. A replace never creates an entry.
+#
+# The value crosses this socket once, inbound: it is never logged, echoed or answered, and no
+# refusal carries any part of it.
+method CredentialReplace(
+  # The entry, as Credentials names it.
+  name: string,
+  # The new secret. A private key is kept as 'porelo vault put' keeps it, and read back first.
+  value: string
+) -> (
+  # Whether the vault was written; false when the entry already held exactly this.
+  changed: bool
+)
+
+# A vault entry was not removed or replaced, and nothing changed. Never carries any part of a value.
+#
+# reason is NO_VAULT, VAULT_LOCKED (the vault is shut: nothing held opens it, and the daemon has no
+# terminal to ask at), NO_SUCH_CREDENTIAL, RESERVED (a task's or a grant's own entry, which
+# Credentials never lists), GRANTED, BORROWED (a running task holds it until it stops; tasks names
+# them), NO_VALUE or VALUE_UNREADABLE (a private key this machine cannot sign with).
+error CredentialRefused(reason: string, name: string, tasks: []string)
 
 # One ssh key this account has, described without its value.
 type SshKey (

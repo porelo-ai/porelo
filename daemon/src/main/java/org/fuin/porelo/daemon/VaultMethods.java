@@ -116,6 +116,40 @@ final class VaultMethods {
     }
 
     /**
+     * Makes one change to a vault entry and answers it, a refusal as {@code CredentialRefused}.
+     *
+     * @param context The machine.
+     * @param inventory Which tasks run, asked only for an entry the vault holds.
+     * @param change The change, answering the reply.
+     * @param replies Where the answer goes.
+     * @throws java.io.IOException If the answer cannot be sent.
+     */
+    static void changing(
+            PoreloContext context,
+            TaskInventory inventory,
+            java.util.function.Function<org.fuin.porelo.app.CredentialChange, Map<String, Object>>
+                    change,
+            VarlinkServer.Replies replies)
+            throws java.io.IOException {
+        final Map<String, Object> answer;
+        try {
+            answer =
+                    change.apply(
+                            new org.fuin.porelo.app.CredentialChange(context, inventory::tasks));
+        } catch (org.fuin.porelo.app.CredentialChange.Refused ex) {
+            throw new VarlinkException(
+                    INTERFACE + ".CredentialRefused",
+                    Map.of("reason", ex.reason().name(), "name", ex.name(), "tasks", ex.tasks()));
+        } catch (org.fuin.porelo.vault.VaultException ex) {
+            // A damaged file or a wrong passphrase held: its message names the vault, never a
+            // value.
+            throw new VarlinkException(
+                    INTERFACE + ".Failed", Map.of("message", String.valueOf(ex.getMessage())));
+        }
+        replies.last(answer);
+    }
+
+    /**
      * Registers this area's methods.
      *
      * @param server Where.
@@ -566,6 +600,35 @@ final class VaultMethods {
                                     left != null,
                                     "leftBehind",
                                     left == null ? "" : left));
+                });
+
+        // The same change 'vault remove' and 'vault put' make; the value is in no reply or error.
+        server.method(
+                "CredentialRemove",
+                (parameters, replies) -> {
+                    changing(
+                            context,
+                            inventory,
+                            change -> {
+                                change.remove(text(parameters, "name"));
+                                return Map.of();
+                            },
+                            replies);
+                });
+
+        server.method(
+                "CredentialReplace",
+                (parameters, replies) -> {
+                    changing(
+                            context,
+                            inventory,
+                            change ->
+                                    Map.of(
+                                            "changed",
+                                            change.replace(
+                                                    text(parameters, "name"),
+                                                    text(parameters, "value"))),
+                            replies);
                 });
 
         server.method(
