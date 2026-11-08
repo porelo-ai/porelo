@@ -246,6 +246,17 @@ parameters:
 branch:
   template: "{type}/porelo/{task}"   # {task}, {project}, {repository} and the values above
   pattern: "^(feature|bugfix|hotfix|release)/porelo/[a-z0-9-]+$"   # required with a template
+
+# Optional. Gives each task of this project an MCP endpoint, through which it starts, lists and
+# stops tasks within these limits; without it a task gets none. See "A task's MCP endpoint" below.
+# mcp:
+#   methods: ["List", "Start", "Stop", "Events"]   # required
+#   agents:                        # optional; these are the defaults
+#     claude: ["opus", "sonnet"]   # an agent with a list is given one of its models
+#     codex:                       # one with nothing under it takes any model
+#     agy:
+#   tasks: 6                       # optional: the most it has running at once
+#   minutes: 240                   # optional: the longest run it may give one
 ```
 
 ## Starting branch
@@ -309,6 +320,32 @@ container is up, before its relay, gate and workspace, so a task that is not sta
 the workspace is written once the workspace is checked out, which refuses to overwrite a file its repository tracks. On
 a host, the task's forge token is taken last, once the task's key is kept, which is how `porelo task remove` ends the
 token; a start whose key cannot be kept takes none and is refused with exit code 65.
+
+## A task's MCP endpoint
+
+The `mcp` section lets a task of the project reach Porelo itself, through an MCP endpoint `porelod` serves it: the
+task starts tasks, lists them, reads their state and stops the ones it started, without a person's word, within the
+limits written here. A file without the section gives no task an endpoint. It is signed with the file, so a change is
+an administrator's commit like every other setting, and a repository's own `porelo.yml` cannot set it.
+
+- **`methods` is required**: the daemon's methods the endpoint carries, by name without the interface, such as
+  `Start`. The endpoint carries those alone, and its interface description is the daemon's cut down to them, so the
+  task is offered no other tool. A method the daemon never offers to MCP - one that stops every task, removes what
+  cannot be had back, or hands out a secret, as `McpMethods` lists under `never` - and a name the daemon does not
+  have are refused when the daemon reads the file, and by `CheckProjectFile`.
+- **`agents`** names the agents a started task may use, each to the models it may be asked for. An agent with
+  nothing under it takes any model; one with a list must be started naming one of them, since its own default is not
+  something the file can see. A start must name its agent. Left out, `claude` with `opus` or `sonnet`, `codex` and
+  `agy`.
+- **`tasks`**, 6 unless the file says otherwise, is the most tasks one task may have running through its endpoint
+  at once; a start past it is refused with `ChildLimitReached`.
+- **`minutes`**, 240 unless the file says otherwise, is the longest run a start through the endpoint may give;
+  `minutes` above it is refused with `RunTooLong`, and an agent or model not allowed with `AgentNotAllowed`.
+
+A task started through the endpoint records the task that started it as its parent, beside its branch and prompt, and
+the event log records a `started` event naming the parent. A stop through the endpoint stops only the task's own:
+one whose recorded parent is another task, or that records none, is refused with `NotItsOwn`. Stopping every task
+stays a person's act.
 
 ## Services on this host
 

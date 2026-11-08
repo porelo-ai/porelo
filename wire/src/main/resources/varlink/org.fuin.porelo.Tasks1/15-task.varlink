@@ -1231,6 +1231,23 @@ error BranchTaken(task: string, branch: string, detail: string)
 
 error NoSuchTask(task: string)
 
+# The four refusals of a task's MCP socket, the per-task socket porelod serves a task's porelo-mcp on
+# when its project's file has an 'mcp' section. Over that socket the caller is the socket's task, never
+# a field of the call; nothing was started or stopped.
+#
+# A Start would have the caller running more tasks at once than 'mcp.tasks' allows. 'running' counts
+# its tasks running or being started now, 'limit' is the file's.
+error ChildLimitReached(parent: string, running: int, limit: int)
+# A Start asked for a longer run than 'mcp.minutes' allows; 'minutes' is what it asked for, or the
+# default it would get.
+error RunTooLong(minutes: int, limit: int)
+# A Start named an agent, or a model of it, that 'mcp.agents' does not allow, or named no agent. 'model'
+# is "" for none; 'allowed' names each allowed agent, as agent:model where its models are listed.
+error AgentNotAllowed(agent: string, model: string, allowed: []string)
+# A Stop, or a Start bringing a task back, named a task the caller did not start. 'parent' is the task
+# that did, "" for one a person started.
+error NotItsOwn(task: string, parent: string)
+
 # The named log is not a file in that task's state directory.
 error NoSuchLog(task: string, log: string)
 

@@ -509,10 +509,13 @@ final class ProjectMethods {
         server.method(
                 "CheckProjectFile",
                 (parameters, replies) ->
+                        // Which methods an MCP endpoint may carry only the daemon knows.
                         replies.last(
-                                org.fuin.porelo.app.ProjectFileCheck.check(
-                                                context, text(parameters, "text"))
-                                        .asMap()));
+                                McpTaskSockets.checked(
+                                        org.fuin.porelo.app.ProjectFileCheck.check(
+                                                        context, text(parameters, "text"))
+                                                .asMap(),
+                                        text(parameters, "text"))));
     }
 
     private static String deployKeyHost(

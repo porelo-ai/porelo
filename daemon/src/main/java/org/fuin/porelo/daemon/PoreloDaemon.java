@@ -139,6 +139,24 @@ public final class PoreloDaemon {
         // still there. Sending to a closed connection used to be the only sign, so a stream with no
         // news ran for the daemon's life after its client had reconnected.
 
+        register(server, context, inventory, control);
+        return server;
+    }
+
+    /**
+     * Registers every area's methods on a server: the person's socket takes them all, a task's MCP
+     * socket only those its project's file allows ({@link McpTaskSockets}).
+     *
+     * @param server Where.
+     * @param context The machine.
+     * @param inventory The one task inventory.
+     * @param control The one task control.
+     */
+    static void register(
+            VarlinkServer server,
+            PoreloContext context,
+            TaskInventory inventory,
+            TaskControl control) {
         // Each area registers its own methods, from its own file.
         TaskMethods.register(server, context, inventory, control);
         ProjectMethods.register(server, context, inventory, control);
@@ -149,7 +167,6 @@ public final class PoreloDaemon {
         MessagingMethods.register(server, context, inventory, control);
         MachineMethods.register(server, context, inventory, control);
         EventMethods.register(server, context, inventory, control);
-        return server;
     }
 
     static PoreloContext ownedContext(PoreloContext context) {
@@ -796,7 +813,9 @@ public final class PoreloDaemon {
                 empty(parameters, "branch"),
                 // Absent leaves it to the project file, as at the command line.
                 subagents(parameters),
-                org.fuin.porelo.app.TaskBase.named(empty(parameters, "from")));
+                org.fuin.porelo.app.TaskBase.named(empty(parameters, "from")),
+                // The task whose MCP socket the call came over, never a field of the call.
+                McpTaskSockets.caller());
     }
 
     /**
@@ -1214,7 +1233,10 @@ public final class PoreloDaemon {
             final Path socket = owned.paths().daemonSocket();
             final var upstream = watches.upstream();
             final var mail = watches.mail();
-            try (VarlinkServer server = serving(owned, socket)) {
+            try (VarlinkServer server = serving(owned, socket);
+                    McpTaskSockets taskSockets = new McpTaskSockets(owned)) {
+                // A task's start asks for its MCP socket through this; nothing else installs one.
+                org.fuin.porelo.app.McpDaemonSockets.install(taskSockets);
                 // try-with-resources does not run for a signal, and a signal is how a daemon
                 // normally
                 // ends - systemctl stop, a kill, a terminal closing. Without this the socket file
@@ -1225,7 +1247,17 @@ public final class PoreloDaemon {
                 // still leaves it, and nothing can change that; the next start unlinks a socket it
                 // has
                 // proved nobody is listening on.
-                Runtime.getRuntime().addShutdownHook(new Thread(server::close, "porelod-shutdown"));
+                Runtime.getRuntime()
+                        .addShutdownHook(
+                                new Thread(
+                                        () -> {
+                                            try {
+                                                taskSockets.close();
+                                            } finally {
+                                                server.close();
+                                            }
+                                        },
+                                        "porelod-shutdown"));
                 upstream.start();
                 mail.start();
                 // Both: the watch answers at once where a message is already on this machine, and
