@@ -276,6 +276,38 @@ class McpWiringTest {
     }
 
     @Test
+    void aResumeThatStartsNothingSaysWhyInTheStatusLine() throws Exception {
+        stand(RUNS);
+        final PoreloContext context = context();
+        Files.createDirectories(context.paths().tasks().containerState(TASK));
+
+        McpWiring.resume(context, TASK, PROJECT, Optional::empty);
+        assertThat(McpWiring.statusLine(context, TASK))
+                .isEqualTo("absent - its key is not in the vault, which may be locked");
+
+        McpDaemonSockets.install(opening(Optional.empty()));
+        McpWiring.resume(context, TASK, PROJECT, Optional::empty);
+        assertThat(McpWiring.statusLine(context, TASK))
+                .isEqualTo("absent - its project allows it none now");
+
+        McpWiring.resume(context, TASK, null, Optional::empty);
+        assertThat(McpWiring.statusLine(context, TASK))
+                .isEqualTo("absent - its records name no project");
+    }
+
+    @Test
+    void anAbsentRecordThatSaysNoReasonPrintsNone() throws Exception {
+        final PoreloContext context = context();
+        final Path state = Files.createDirectories(context.paths().tasks().containerState(TASK));
+        Files.writeString(
+                state.resolve("mcp.json"),
+                "{\"state\":\"absent\",\"socket\":\"/x.sock\",\"code\":-1}",
+                StandardCharsets.UTF_8);
+
+        assertThat(McpWiring.statusLine(context, TASK)).isEqualTo("absent");
+    }
+
+    @Test
     void theStatusLineSaysWhyItIsAbsentWhenItsProcessIsGone() throws Exception {
         stand(RUNS);
         final PoreloContext context = context();

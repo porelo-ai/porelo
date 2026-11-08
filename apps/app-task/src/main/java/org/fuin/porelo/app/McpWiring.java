@@ -446,8 +446,7 @@ final class McpWiring {
         final Path state = context.paths().tasks().containerState(container);
         final Path socket = socket(context, container);
         if (project == null) {
-            write(state, socket, "absent", -1);
-            return "its MCP endpoint was not started: its records name no project";
+            return absent(state, socket, "its records name no project", "");
         }
         try {
             final Optional<Path> daemonSocket;
@@ -460,15 +459,16 @@ final class McpWiring {
                                 + ex.getMessage());
             }
             if (daemonSocket.isEmpty()) {
-                write(state, socket, "absent", -1);
-                return "its MCP endpoint was not started: its project allows it none now";
+                return absent(state, socket, "its project allows it none now", "");
             }
             final Optional<String> kept = key.get();
             if (kept.isEmpty()) {
                 McpDaemonSockets.current().close(container);
-                write(state, socket, "absent", -1);
-                return "its MCP endpoint was not started: its key is not in the vault, which"
-                        + " may be locked; 'porelo vault unlock' and start it again";
+                return absent(
+                        state,
+                        socket,
+                        "its key is not in the vault, which may be locked",
+                        "; 'porelo vault unlock' and start it again");
             }
             start(context, endpoint(context, container, daemonSocket.get(), kept.get()));
             return null;
@@ -543,7 +543,10 @@ final class McpWiring {
             case "stopped" -> "stopped";
             case "unreachable" -> "could not reach its daemon socket, exit " + code;
             case "failed" -> code < 0 ? "failed to start" : "failed, exit " + code;
-            default -> "absent - " + record.get("why");
+            default ->
+                    record.get("why") instanceof String why && !why.isBlank()
+                            ? "absent - " + why
+                            : "absent";
         };
     }
 
@@ -574,11 +577,25 @@ final class McpWiring {
         }
     }
 
+    /** Records the endpoint as absent for why, and returns the problem a resume says. */
+    private static String absent(Path state, Path socket, String why, String then) {
+        write(state, socket, "absent", -1, why);
+        return "its MCP endpoint was not started: " + why + then;
+    }
+
     private static void write(Path state, Path socket, String said, int code) {
+        write(state, socket, said, code, null);
+    }
+
+    private static void write(
+            Path state, Path socket, String said, int code, @Nullable String why) {
         final Map<String, Object> record = new LinkedHashMap<>();
         record.put("state", said);
         record.put("socket", socket.toString());
         record.put("code", code);
+        if (why != null) {
+            record.put("why", why);
+        }
         try {
             Files.writeString(state.resolve(RECORD), Json.write(record), StandardCharsets.UTF_8);
         } catch (IOException ex) {
