@@ -19,6 +19,7 @@ import org.fuin.porelo.core.project.Project;
 import org.fuin.porelo.testing.FakeCommandRunner;
 import org.fuin.porelo.vault.KernelKeyring;
 import org.fuin.porelo.vault.VaultEntry;
+import org.fuin.porelo.wire.Directories;
 import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
@@ -660,6 +661,188 @@ class MachineTransportsTest {
         assertThat(fromIn(review)).containsExactly("bob");
     }
 
+    @Test
+    void onTheHostsHomeserverAnAdmittedPersonIsTakenThoughTheTransportOffersNoMembers()
+            throws Exception {
+        // As the Matrix transport describes itself since the host keeps the room's persons: their
+        // words handed over, and no members verb (porelo-move-3, 2026-11-08).
+        final PoreloContext context = unlockedVault();
+        final Mailbox review = hostsRoom(context, null);
+        saidIn(context, "matrix", "t1--matrix-person-one.json", "@bob:hs", "bob");
+        saidIn(context, "matrix", "t2--matrix-person-two.json", "@eve:hs", "eve");
+
+        final TransportConversations.Outcome outcome =
+                conversations(context)
+                        .pass(
+                                List.of(
+                                        new TransportConversations.Member(
+                                                "porelo-p-review", review, "p", "matrix")));
+
+        assertThat(fromIn(review)).as("bob is admitted, eve is not").containsExactly("bob");
+        assertThat(outcome.failures())
+                .anySatisfy(
+                        each ->
+                                assertThat(each)
+                                        .contains("t2--matrix-person-two.json")
+                                        .contains("not in the project's conversation"));
+    }
+
+    @Test
+    void onAHomeserverTheProjectNamesNoPersonIsTakenByAccountWithoutMembers() throws Exception {
+        // There anybody with its registration token could make an account named bob.
+        final PoreloContext context = unlockedVault();
+        final Mailbox review = hostsRoom(context, "https://elsewhere.example");
+        saidIn(context, "matrix", "t1--matrix-person-one.json", "@bob:hs", "bob");
+
+        conversations(context)
+                .pass(
+                        List.of(
+                                new TransportConversations.Member(
+                                        "porelo-p-review", review, "p", "matrix")));
+
+        assertThat(fromIn(review)).isEmpty();
+    }
+
+    @Test
+    void aPlacedFileOnlyInTheAccountsOwnDirectoryTakesNoPerson() throws Exception {
+        // Scenario: the host no longer lets this account read its file, as after a lock-out, or
+        // never wrote one; the account's own record, which it may write itself, still names the
+        // host's homeserver and bob's key. Neither makes bob's line be taken by its account.
+        final PoreloContext context = unlockedVault();
+        final Mailbox review = hostsRoom(context, null, "matrix", false);
+        saidIn(context, "matrix", "t1--matrix-person-one.json", "@bob:hs", "bob");
+
+        final TransportConversations.Outcome outcome =
+                conversations(context)
+                        .pass(
+                                List.of(
+                                        new TransportConversations.Member(
+                                                "porelo-p-review", review, "p", "matrix")));
+
+        assertThat(fromIn(review)).as("only the host's file admits by account").isEmpty();
+        assertThat(outcome.failures())
+                .anySatisfy(
+                        each ->
+                                assertThat(each)
+                                        .contains("t1--matrix-person-one.json")
+                                        .contains("not in the project's conversation"));
+    }
+
+    @Test
+    void onATransportOtherThanMatrixTheHostsFileTakesNoPerson() throws Exception {
+        // Scenario: the host placed the project with its homeserver, but the room is on another
+        // transport that hands over persons' words without a members verb; the host keeps no room
+        // there, so nobody is taken by their account.
+        final PoreloContext context = unlockedVault();
+        final Mailbox review = hostsRoom(context, null, "room", true);
+        saidIn(context, "room", "t1--room-person-one.json", "@bob:hs", "bob");
+
+        conversations(context)
+                .pass(
+                        List.of(
+                                new TransportConversations.Member(
+                                        "porelo-p-review", review, "p", "room")));
+
+        assertThat(fromIn(review)).isEmpty();
+    }
+
+    /**
+     * A project placed by a host that runs its homeserver, with a matrix transport that hands over
+     * persons' words and offers no members verb; the project names a homeserver of its own when one
+     * is given.
+     */
+    private Mailbox hostsRoom(final PoreloContext context, final @Nullable String own)
+            throws Exception {
+        return hostsRoom(context, own, "matrix", true);
+    }
+
+    /**
+     * A project placed as {@link #hostsRoom(PoreloContext, String)}, on the transport {@code
+     * scheme}; the host's own file is written only where {@code hostWrote} says so, as for a person
+     * the host locked out, while this account's own record keeps what the last start placed.
+     */
+    private Mailbox hostsRoom(
+            final PoreloContext context,
+            final @Nullable String own,
+            final String scheme,
+            final boolean hostWrote)
+            throws Exception {
+        final Path adapters = Files.createDirectories(dir.resolve("data/porelo/transports"));
+        final Path adapter = adapters.resolve(TransportDirectory.PREFIX + scheme);
+        Files.writeString(adapter, "#!/bin/sh\n");
+        adapter.toFile().setExecutable(true);
+        runner.answering(
+                " describe",
+                "{\"scheme\":\""
+                        + scheme
+                        + "\",\"poll\":true,\"persons\":true,"
+                        + "\"lifecycle\":[\"setup\",\"settings\"],\"takes\":[\"login\"]}");
+        runner.answering(" settings", "{\"refused\":[],\"warnings\":[]}");
+        runner.answering(
+                " setup",
+                "{\"conversation\":\"!r\",\"room\":\"#p:hs\",\"login\":\"follower\","
+                        + "\"admitted\":true,\"secrets\":{\"POLLER\":\"p-1\"}}");
+        final OrganizationProjects.Placed placed =
+                new OrganizationProjects.Placed(
+                        "p",
+                        "c0",
+                        "https://forge.example/p.git",
+                        null,
+                        List.of(row("bob", BOB), row("alice", ALICE)),
+                        "unix:/run/porelo-matrix/client.sock",
+                        "!r",
+                        null);
+        OrganizationProjects.of(context).write(placed);
+        if (hostWrote) {
+            new OrganizationProjects(hostFiles(), hostFiles()).write(placed);
+        }
+        final Path clone = context.paths().projects().organizationClone("p");
+        Directories.create(clone);
+        Files.writeString(
+                clone.resolve("project.yml"),
+                "project:\n  name: \"p\"\n  security_class: \"guarded\"\n"
+                        + "image:\n  from: \"ubuntu:24.04\"\n"
+                        + "mail:\n  transports:\n    "
+                        + scheme
+                        + ": {"
+                        + (own == null ? "" : "homeserver: \"" + own + "\"")
+                        + "}\n"
+                        + "  peers:\n    people: {address: \""
+                        + scheme
+                        + ":\", trust: \"external\"}\n");
+        new TransportLifecycle(context, context.paths().messaging().transportDirectory())
+                .setup(scheme, "p", Map.of());
+        return new Mailbox(dir.resolve("review"));
+    }
+
+    /** Where the host's files are in these tests, in place of the host's directory under /etc. */
+    private Path hostFiles() throws IOException {
+        return Files.createDirectories(dir.resolve("host-files"));
+    }
+
+    /** A person's words as a transport left them in a project's inbound. */
+    private static void saidIn(
+            final PoreloContext context,
+            final String scheme,
+            final String name,
+            final String sender,
+            final String account)
+            throws IOException {
+        final Path inbound =
+                Files.createDirectories(
+                        context.paths()
+                                .xdg()
+                                .state()
+                                .resolve("transport/" + scheme + "/inbound/p"));
+        Files.writeString(
+                inbound.resolve(name),
+                "{\"sender\":\""
+                        + sender
+                        + "\",\"account\":\""
+                        + account
+                        + "\",\"body\":\"hi\",\"to\":[]}");
+    }
+
     /** A person's words in a direct chat with the review task, as the transport left them. */
     private static void saidDirectly(
             final PoreloContext context,
@@ -706,9 +889,12 @@ class MachineTransportsTest {
         return List.of(new TransportConversations.Member("porelo-p-review", review, "p", "room"));
     }
 
-    private static TransportConversations conversations(final PoreloContext context) {
+    /** The conversations as a pass sees them, with the host's files of these tests. */
+    private TransportConversations conversations(final PoreloContext context) {
         return new TransportConversations(
-                context, context.paths().messaging().transportDirectory());
+                context,
+                context.paths().messaging().transportDirectory(),
+                dir.resolve("host-files"));
     }
 
     /** A person's words as the transport left them, with the host account it names, if any. */

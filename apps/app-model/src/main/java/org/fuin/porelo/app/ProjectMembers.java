@@ -83,6 +83,53 @@ public final class ProjectMembers {
     }
 
     /**
+     * Returns the logins a host admits to a project whose room is on the host's own homeserver,
+     * which the host keeps.
+     *
+     * <p>There a person's own account is made only through the host's gate, by that login alone, so
+     * the account a transport names is the person's host login. On a homeserver elsewhere anybody
+     * holding its registration token could make one by that name.
+     *
+     * <p>Both the homeserver and the logins come from the host's file alone. This account's own
+     * record of the last start is not asked: the account may write it, and it keeps the homeserver
+     * and the keys of a person the host has since locked out.
+     *
+     * @param projects The organization's projects on this machine.
+     * @param project The project.
+     * @param scheme The transport.
+     * @return The logins with a current key in the host's file; none where the room is not on the
+     *     host's homeserver or the host's file does not read for this person.
+     * @throws Withheld When the host's file is there and does not read.
+     */
+    public static Set<String> admittedOnTheHostsHomeserver(
+            final OrganizationProjects projects, final Project project, final String scheme)
+            throws Withheld {
+        if (!MATRIX.equals(scheme)
+                || project.mail().transports().get(scheme) instanceof Map<?, ?> declared
+                        && declared.containsKey(HOMESERVER)) {
+            return Set.of();
+        }
+        final OrganizationProjects.Placed host;
+        try {
+            host = projects.host(project.name());
+        } catch (final IOException ex) {
+            throw new Withheld(
+                    "what the host placed of "
+                            + project.name()
+                            + " does not read: "
+                            + ex.getMessage());
+        }
+        if (host == null || host.homeserver() == null) {
+            return Set.of();
+        }
+        final Set<String> admitted = new LinkedHashSet<>();
+        for (final OrganizationProjects.Key key : host.holding(LocalDate.now(ZoneOffset.UTC))) {
+            admitted.add(key.login());
+        }
+        return admitted;
+    }
+
+    /**
      * Returns the logins with a current key in a project.
      *
      * @param context The machine.

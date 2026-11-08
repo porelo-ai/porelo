@@ -148,6 +148,9 @@ final class TransportLifecycle {
 
     private final TransportDirectory transports;
 
+    /** Where a host's files are; another place only in a test. */
+    private final Path hostFiles;
+
     /** From this length a value is withheld inside a word too. */
     private static final int WHOLE_ANYWHERE = 8;
 
@@ -165,8 +168,20 @@ final class TransportLifecycle {
      * @param transports Where the adapters are.
      */
     TransportLifecycle(PoreloContext context, TransportDirectory transports) {
+        this(context, transports, OrganizationProjects.HOST_FILES);
+    }
+
+    /**
+     * Constructor with the host's files elsewhere, for a test.
+     *
+     * @param context Where the vault and the state are, and how commands run.
+     * @param transports Where the adapters are.
+     * @param hostFiles Where a host's files are.
+     */
+    TransportLifecycle(PoreloContext context, TransportDirectory transports, Path hostFiles) {
         this.context = context;
         this.transports = transports;
+        this.hostFiles = hostFiles;
     }
 
     /**
@@ -349,14 +364,14 @@ final class TransportLifecycle {
     }
 
     /**
-     * Returns the members of an organization's project, where the transport keeps the room's
-     * persons and hands over their words: a project admin keeps them in the room by hand, so their
-     * words are taken without a join.
+     * Returns the members of an organization's project, where the transport hands over persons'
+     * words and they are kept in the room: by its members verb, or by the host on its own
+     * homeserver. Their words are then taken without a join.
      *
      * @param scheme The transport.
      * @param project The project.
-     * @return Their host accounts; empty where the transport keeps no persons, or nothing is
-     *     applied.
+     * @return Their host accounts; empty where the transport hands over no persons' words, or the
+     *     project is no organization's placed here.
      */
     java.util.Set<String> persons(String scheme, String project) {
         final Path adapter = transports.find(scheme);
@@ -364,11 +379,22 @@ final class TransportLifecycle {
             return java.util.Set.of();
         }
         final TransportDescription described = TransportDescription.of(context.runner(), adapter);
-        if (!described.offers("members") || !described.takes(TransportConversations.PERSONS)) {
+        if (!described.takes(TransportConversations.PERSONS)) {
             return java.util.Set.of();
         }
         try {
-            return ProjectMembers.admitted(context, project);
+            if (described.offers("members")) {
+                return ProjectMembers.admitted(context, project);
+            }
+            // Kept in the room by the host on its own homeserver, where the transport offers no
+            // members verb (porelo-message-matrix 4d8bb16): asking for one there heard nobody.
+            // Only the host's file says so, never this account's own record, which it may write
+            // and which a lock-out leaves behind.
+            return ProjectMembers.admittedOnTheHostsHomeserver(
+                    new OrganizationProjects(
+                            context.paths().projects().organizationProjects(), hostFiles),
+                    GateSupport.byName(context, project),
+                    scheme);
         } catch (ProjectMembers.Withheld | RuntimeException ex) {
             // An unreadable admission decision grants nobody access by their host account.
             return java.util.Set.of();

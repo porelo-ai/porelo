@@ -95,9 +95,21 @@ final class TransportConversations {
      * @param transports Where the adapters are.
      */
     TransportConversations(PoreloContext context, TransportDirectory transports) {
+        this(context, transports, OrganizationProjects.HOST_FILES);
+    }
+
+    /**
+     * Constructor with the host's files elsewhere, for a test.
+     *
+     * @param context Where the vault, the state and the commands are.
+     * @param transports Where the adapters are.
+     * @param hostFiles Where a host's files are.
+     */
+    TransportConversations(
+            PoreloContext context, TransportDirectory transports, java.nio.file.Path hostFiles) {
         this.context = context;
         this.transports = transports;
-        this.lifecycle = new TransportLifecycle(context, transports);
+        this.lifecycle = new TransportLifecycle(context, transports, hostFiles);
     }
 
     /**
