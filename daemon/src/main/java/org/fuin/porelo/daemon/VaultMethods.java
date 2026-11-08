@@ -388,7 +388,8 @@ final class VaultMethods {
                                         .unlock(
                                                 text(parameters, "share"),
                                                 parameters.get("minutes") instanceof Number minutes
-                                                        ? minutes.intValue()
+                                                        ? org.fuin.porelo.wire.varlink
+                                                                .VarlinkNumbers.intOf(minutes)
                                                         : null);
                     } catch (org.fuin.porelo.vault.NotAHostVaultException ex) {
                         throw new VarlinkException(INTERFACE + ".NotAHostVault", Map.of());

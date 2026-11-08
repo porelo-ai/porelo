@@ -120,8 +120,10 @@ public class VarlinkConnection implements AutoCloseable {
     @SuppressWarnings("unchecked")
     private static Map<String, Object> parse(String text) {
         // Exact numbers: read as doubles, an int arrives as 1024.0 and an int64 above 2^53 loses
-        // digits, for the daemon reading a call and for every client reading a reply.
-        if (!(Json.parseDecimals(text) instanceof Map<?, ?> map)) {
+        // digits, for the daemon reading a call and for every client reading a reply. A whole
+        // number is a Long; a reader wanting an int takes VarlinkNumbers.intOf, which saturates as
+        // a double did rather than keeping the low bits.
+        if (!(Json.parseExact(text) instanceof Map<?, ?> map)) {
             throw new VarlinkException("A varlink message must be a JSON object");
         }
         return (Map<String, Object>) map;

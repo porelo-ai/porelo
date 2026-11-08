@@ -54,6 +54,8 @@ public record AgentEnd(boolean finished, String error, String source, @Nullable 
                 finished,
                 map.get("error") instanceof String error ? error : "",
                 map.get("source") instanceof String source ? source : AGENT,
-                map.get("status") instanceof Number status ? status.intValue() : null);
+                map.get("status") instanceof Number status
+                        ? org.fuin.porelo.wire.varlink.VarlinkNumbers.intOf(status)
+                        : null);
     }
 }

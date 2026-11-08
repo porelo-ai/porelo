@@ -28,9 +28,17 @@ Read in the code on 2026-11-08:
 
 ## Plan
 
-- `VarlinkConnection.parse` reads with `Json.parseDecimals`.
-- Every reader of a number from a call or a reply is checked to take a `Number` and to refuse a fraction where it wants
-  a whole one, as `Wire.whole` does for the ecosystems.
+As built, after its reading on 2026-11-08:
+
+- `VarlinkConnection.parse` reads with `Json.parseExact`: a whole number within a long's range is a `Long`, exact;
+  anything else is a `Double`, as before, and refused where no double holds it. A number longer than 400 characters
+  is refused, so a message cannot make the reader spend its time on millions of digits.
+- A reader that wants an `int` takes `VarlinkNumbers.intOf`, which holds the value at the int's bounds as a double's
+  narrowing did. `Long.intValue` keeps the low 32 bits, so 2^32 would read as 0 and a far newer agent's protocol
+  version as one too old.
+- Not done here, and as before this change: a fraction where a whole number is wanted is truncated rather than refused, at
+  the readers the reading named (`Start`'s `minutes`, `maxTurns` and `tokenHours`, `Tail`'s and `Screen`'s `last`,
+  `HandIn`'s `bytes` and `offset`, `UnlockWithShare`'s `minutes`, and the agent and build plugins' fields).
 - **Red first:**
   - a client reading a reply of `{"n": 9007199254740993}` gets 9007199254740993;
   - a reply of `{"n": 1024}` passed through and written again is `1024`;

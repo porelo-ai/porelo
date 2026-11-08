@@ -51,6 +51,61 @@ public final class Json {
         return new Json(text, true).document();
     }
 
+    /**
+     * Parses with numbers as a varlink peer sent them.
+     *
+     * @param text The document.
+     * @return As {@link #parse}, with numbers as {@link Long} or {@link Double}.
+     * @throws JsonException If the text is not well-formed JSON.
+     */
+    public static @Nullable Object parseExact(String text) {
+        return exact(parseDecimals(text));
+    }
+
+    /** No field this code reads needs a number this long; a longer one costs only time to read. */
+    static final int LONGEST_DECIMAL = 400;
+
+    private static final java.math.BigDecimal LONG_MIN =
+            java.math.BigDecimal.valueOf(Long.MIN_VALUE);
+
+    private static final java.math.BigDecimal LONG_MAX =
+            java.math.BigDecimal.valueOf(Long.MAX_VALUE);
+
+    private static @Nullable Object exact(@Nullable Object value) {
+        return switch (value) {
+            case java.math.BigDecimal number -> exactNumber(number);
+            case Map<?, ?> map -> {
+                final Map<String, @Nullable Object> copy = new LinkedHashMap<>();
+                map.forEach((key, entry) -> copy.put((String) key, exact(entry)));
+                yield copy;
+            }
+            case List<?> list -> {
+                final List<@Nullable Object> copy = new ArrayList<>(list.size());
+                for (final Object entry : list) {
+                    copy.add(exact(entry));
+                }
+                yield copy;
+            }
+            case null -> null;
+            default -> value;
+        };
+    }
+
+    // A whole number in a long's range is a Long, exact; anything else is what a plain parse reads,
+    // a Double, refused where no double holds it.
+    private static Number exactNumber(java.math.BigDecimal number) {
+        if ((number.signum() == 0 || number.stripTrailingZeros().scale() <= 0)
+                && number.compareTo(LONG_MIN) >= 0
+                && number.compareTo(LONG_MAX) <= 0) {
+            return Long.valueOf(number.longValueExact());
+        }
+        final double floating = number.doubleValue();
+        if (Double.isInfinite(floating)) {
+            throw new JsonException("A number no double can hold: '" + number + "'");
+        }
+        return Double.valueOf(floating);
+    }
+
     private @Nullable Object document() {
         skipWhitespace();
         final Object value = readValue();
@@ -305,6 +360,7 @@ public final class Json {
         try {
             if (decimals) {
                 final String lexical = text.substring(start, position);
+                if (lexical.length() > LONGEST_DECIMAL) throw error("Number too long");
                 if (!lexical.matches("-?(0|[1-9][0-9]*)(\\.[0-9]+)?([eE][+-]?[0-9]+)?"))
                     throw error("Invalid number");
                 final java.math.BigDecimal number = new java.math.BigDecimal(lexical);

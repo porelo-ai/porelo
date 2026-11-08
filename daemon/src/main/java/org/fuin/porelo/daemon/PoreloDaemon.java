@@ -391,7 +391,11 @@ public final class PoreloDaemon {
                                                                         event.get("port")
                                                                                         instanceof
                                                                                         Number port
-                                                                                ? port.intValue()
+                                                                                ? org.fuin.porelo
+                                                                                        .wire
+                                                                                        .varlink
+                                                                                        .VarlinkNumbers
+                                                                                        .intOf(port)
                                                                                 : 0));
                                                         // Never waits: a client that stopped
                                                         // reading must not block the subscription,
@@ -784,7 +788,9 @@ public final class PoreloDaemon {
                 empty(parameters, "agent"),
                 empty(parameters, "provider"),
                 empty(parameters, "credentialType"),
-                parameters.get("tokenHours") instanceof Number hours ? hours.intValue() : 8,
+                parameters.get("tokenHours") instanceof Number hours
+                        ? org.fuin.porelo.wire.varlink.VarlinkNumbers.intOf(hours)
+                        : 8,
                 address(parameters, "upstream").isEmpty() ? null : address(parameters, "upstream"),
                 flag(parameters, "noGate"),
                 flag(parameters, "dryRun"),
@@ -803,9 +809,11 @@ public final class PoreloDaemon {
                                 : org.fuin.porelo.wire.TaskMode.UNATTENDED),
                 empty(parameters, "prompt"),
                 empty(parameters, "model"),
-                parameters.get("maxTurns") instanceof Number turns ? turns.intValue() : null,
+                parameters.get("maxTurns") instanceof Number turns
+                        ? org.fuin.porelo.wire.varlink.VarlinkNumbers.intOf(turns)
+                        : null,
                 parameters.get("minutes") instanceof Number minutes
-                        ? minutes.intValue()
+                        ? org.fuin.porelo.wire.varlink.VarlinkNumbers.intOf(minutes)
                         : TaskLaunch.DEFAULT_MINUTES,
                 // Not defaulted here. A project is a unit of work over one or more repositories,
                 // and a client that does not say which one the task is for gets the same refusal

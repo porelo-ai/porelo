@@ -448,7 +448,9 @@ final class TaskMethods {
                     // where its first line starts, for reading back.
                     long position =
                             parameters.get("last") instanceof Number last
-                                    ? startOfLast(log, last.intValue())
+                                    ? startOfLast(
+                                            log,
+                                            org.fuin.porelo.wire.varlink.VarlinkNumbers.intOf(last))
                                     : 0;
                     // Through the task's own agent when a client asks: its formatter reads one line
                     // at a time, so a console showing a log's end gets that end formatted, never
@@ -604,7 +606,8 @@ final class TaskMethods {
                                     .screen(
                                             task,
                                             parameters.get("last") instanceof Number last
-                                                    ? last.intValue()
+                                                    ? org.fuin.porelo.wire.varlink.VarlinkNumbers
+                                                            .intOf(last)
                                                     : 20,
                                             Boolean.TRUE.equals(parameters.get("escapes")));
                     replies.last(Map.of("lines", screen.lines(), "live", screen.live()));

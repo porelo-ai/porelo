@@ -275,6 +275,26 @@ class InstalledAgentTest {
     }
 
     @Test
+    void anAgentFarNewerThanAnIntIsReadAsNewerAndNotWrappedAround(
+            @org.junit.jupiter.api.io.TempDir Path dir) throws Exception {
+        // 2^32 read as an int by its low bits is 0, which is below the lowest and would send the
+        // person to upgrade an agent that is far newer.
+        final Path socket = dir.resolve("s.sock");
+        try (var server =
+                        describing(
+                                socket,
+                                java.util.Map.of(
+                                        "protocolVersion",
+                                        Long.valueOf(4_294_967_296L),
+                                        "definition",
+                                        definition()));
+                var client = new org.fuin.porelo.wire.varlink.VarlinkClient(socket)) {
+            assertThat(InstalledAgent.handshake(client, Path.of("/agent")).name())
+                    .isEqualTo("example");
+        }
+    }
+
+    @Test
     void anAgentNamingNoVersionIsNotToldToUpgrade(@org.junit.jupiter.api.io.TempDir Path dir)
             throws Exception {
         // A broken agent read as an old one sends the person to a package that does not help.

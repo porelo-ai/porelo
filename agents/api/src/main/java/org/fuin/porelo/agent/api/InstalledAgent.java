@@ -406,7 +406,8 @@ public class InstalledAgent implements AutoCloseable {
                             + " reported no agent protocol version, so it is broken rather than"
                             + " old. Reinstall the agent.");
         }
-        final String refused = refusal(executable, version.intValue());
+        final String refused =
+                refusal(executable, org.fuin.porelo.wire.varlink.VarlinkNumbers.intOf(version));
         if (refused != null) {
             throw new AgentException(refused);
         }

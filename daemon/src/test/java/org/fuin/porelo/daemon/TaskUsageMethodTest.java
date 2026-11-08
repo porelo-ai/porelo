@@ -55,7 +55,7 @@ class TaskUsageMethodTest {
                 assertThat(answer.get("usage"))
                         .as("the daemon reads retained records through the shared service")
                         .isEqualTo(
-                                Json.parseDecimals(
+                                Json.parseExact(
                                         Json.write(new TaskUsage(context).read(task).asMap())));
             }
         }

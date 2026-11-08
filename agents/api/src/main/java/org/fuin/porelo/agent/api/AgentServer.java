@@ -243,7 +243,7 @@ public class AgentServer implements AutoCloseable {
 
     private static @Nullable Integer integer(Map<String, Object> parameters, String key) {
         return parameters.get(key) instanceof Number value
-                ? Integer.valueOf(value.intValue())
+                ? Integer.valueOf(org.fuin.porelo.wire.varlink.VarlinkNumbers.intOf(value))
                 : null;
     }
 

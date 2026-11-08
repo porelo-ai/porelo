@@ -11,6 +11,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
 /** Tests for {@link Json}. */
+@SuppressWarnings("unchecked")
 class JsonTest {
 
     // Harm guarded: serialized keys and values must not inject terminal controls or forged lines.
@@ -157,6 +158,28 @@ class JsonTest {
                         () -> Json.parse("{\"a\":null,\"a\":\"x\"}"))
                 .isInstanceOf(JsonException.class);
         org.assertj.core.api.Assertions.assertThatThrownBy(() -> Json.parse("\"\\u-001\""))
+                .isInstanceOf(JsonException.class);
+    }
+
+    @Test
+    void anExactNumberIsAWholeLongOrADouble() {
+        final Object read = Json.parseExact("[9007199254740993, 1024, 1.5, 2.0]");
+
+        assertThat((java.util.List<Object>) read)
+                .containsExactly(
+                        Long.valueOf(9_007_199_254_740_993L),
+                        Long.valueOf(1024),
+                        Double.valueOf(1.5),
+                        Long.valueOf(2));
+    }
+
+    @Test
+    void anExactNumberOfMoreDigitsThanAnyFieldNeedsIsRefused() {
+        final String digits = "1".repeat(5_000);
+
+        assertThatThrownBy(() -> Json.parseExact(digits)).isInstanceOf(JsonException.class);
+        assertThatThrownBy(() -> Json.parseExact("1e400"))
+                .as("no double holds it, as a plain parse refuses it")
                 .isInstanceOf(JsonException.class);
     }
 }

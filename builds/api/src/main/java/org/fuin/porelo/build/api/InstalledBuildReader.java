@@ -231,7 +231,9 @@ public final class InstalledBuildReader implements AutoCloseable {
             final Map<String, Object> answer =
                     bounded(process, () -> describe(described), READY_SECONDS);
             final int version =
-                    answer.get("protocolVersion") instanceof Number number ? number.intValue() : -1;
+                    answer.get("protocolVersion") instanceof Number number
+                            ? org.fuin.porelo.wire.varlink.VarlinkNumbers.intOf(number)
+                            : -1;
             if (version != BuildProtocol.VERSION) {
                 throw new BuildReaderException(
                         executable
