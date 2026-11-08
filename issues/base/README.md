@@ -185,6 +185,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b514"></a>[B514](B514-Every-Task-Run-Kept-In-One-Timeline.md) | XL | - | Every task run kept in one timeline: lifecycle entries (who and when, the run's numbers) in the events chain, logs archived past stop, reboot and removal, readings over varlink, MCP and the CLI, one structured log stream for every Porelo process with the journal as its home, and an optional OTLP export; four steps, porelo-frontend's F436 reads it. |
 | <a id="b511"></a>[B511](B511-A-Fraction-Where-A-Whole-Number-Is-Wanted-Is-Refused.md) | S | - | A fraction or an out-of-range number sent where a varlink contract wants a whole number is refused by the method, never truncated, at each reader [B509](#b509)'s reading named. |
 | <a id="b508"></a>[B508](B508-The-Default-Task-Image-On-Ubuntu-26-04.md) | - | - | The default task image moves from `ubuntu:24.04` to `ubuntu:26.04`: every task image, the places porelo names the default, and porelo-ecosystems' list; after the trial moves. |
 | <a id="b498"></a>[B498](B498-The-Gate-Shows-A-Commits-Details.md) | - | - | The gate's review shows each commit's message, author, committer and trailers beside the diff. |
