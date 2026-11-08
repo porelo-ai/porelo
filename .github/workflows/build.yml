@@ -39,7 +39,7 @@ jobs:
         runs-on: ubuntu-24.04
         # About three times a normal run (20 min on 2026-10-31: 18 for the verify, then the FFM check): GitHub's
         # default is six hours, and a slow runner once took 14 times as long.
-        timeout-minutes: 60
+        timeout-minutes: 75
         # To cancel this run's legs when it fails, and nothing else.
         permissions:
             contents: read
@@ -114,7 +114,7 @@ jobs:
     proven:
         name: Proven legs
         runs-on: ubuntu-26.04
-        timeout-minutes: 10
+        timeout-minutes: 25
         if: github.server_url == 'https://github.com' && github.event_name == 'push' && github.ref == 'refs/heads/main'
         permissions:
             contents: read
@@ -147,7 +147,7 @@ jobs:
         runs-on: ubuntu-24.04
         # About three times a normal leg (17 min). The step that rents the machine stops sooner, so the clean-up below
         # still runs inside this limit and deletes what the run created.
-        timeout-minutes: 60
+        timeout-minutes: 75
         needs: [proven]
         # Not when a run already proved this tree: 'proven' is skipped on a tag and a dispatch, which always run.
         if: >-
@@ -211,7 +211,7 @@ jobs:
     native:
         name: Native binaries on the runner
         runs-on: ubuntu-24.04
-        timeout-minutes: 40
+        timeout-minutes: 55
         needs: [proven]
         if: needs.proven.outputs.proven == 'yes'
         steps:
@@ -253,7 +253,7 @@ jobs:
         # Pinned, not ubuntu-latest: the packages' C library floor is measured on what this builds.
         runs-on: ubuntu-24.04
         # Allow two three-minute Ubuntu attempts and ten minutes for Debian when apt archives are slow.
-        timeout-minutes: 30
+        timeout-minutes: 45
         needs: [build, proven, legs, native]
         # With the legs passed, or taken from a proof and the binaries built on the runner.
         # A forge that publishes no packages deploys jars after the Build alone.
