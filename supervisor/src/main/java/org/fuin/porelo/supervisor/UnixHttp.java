@@ -1,6 +1,7 @@
 package org.fuin.porelo.supervisor;
 
 import java.io.BufferedInputStream;
+import java.io.FilterInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -11,15 +12,20 @@ import java.net.http.HttpClient;
 import java.net.http.HttpHeaders;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.nio.channels.AsynchronousCloseException;
 import java.nio.channels.Channels;
 import java.nio.channels.SocketChannel;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.ScheduledThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import javax.net.ssl.SSLSession;
@@ -65,7 +71,95 @@ final class UnixHttp {
         }
     }
 
+    /**
+     * The longest silence between two bytes when the request names no timeout.
+     *
+     * <p>A limit between bytes, not on the whole answer: a stream of events stays open for hours.
+     * Ten minutes, the timeout the gateway gives any upstream's request, so a tool call that works
+     * longer without a byte ends as one on a provider does; an idle event stream cut off here is
+     * one its client opens again, which the streamable transport expects.
+     */
+    static final Duration IDLE = Duration.ofMinutes(10);
+
+    /** Closes a connection that stayed silent; its thread is a daemon and idle when nothing is. */
+    private static final ScheduledThreadPoolExecutor WATCHDOG = watchdog();
+
     private UnixHttp() {}
+
+    private static ScheduledThreadPoolExecutor watchdog() {
+        final ScheduledThreadPoolExecutor executor =
+                new ScheduledThreadPoolExecutor(
+                        1, Thread.ofPlatform().daemon().name("porelo-unix-http-idle").factory());
+        executor.setRemoveOnCancelPolicy(true);
+        return executor;
+    }
+
+    /**
+     * Closes the connection when one read or write waits longer than its limit, so a destination
+     * that stays silent cannot hold the gateway's thread: the read then fails as a broken chunk
+     * does, and the task sees a cut-off answer.
+     */
+    private static final class Watch {
+
+        private final SocketChannel channel;
+
+        private final long millis;
+
+        Watch(SocketChannel channel, Duration limit) {
+            this.channel = channel;
+            this.millis = Math.max(1, limit.toMillis());
+        }
+
+        private ScheduledFuture<?> arm() {
+            return WATCHDOG.schedule(
+                    () -> {
+                        try {
+                            channel.close();
+                        } catch (IOException ex) {
+                            // Closing is all there is to do; the waiting read fails either way.
+                        }
+                    },
+                    millis,
+                    TimeUnit.MILLISECONDS);
+        }
+
+        void write(OutputStream out, byte[] bytes) throws IOException {
+            final ScheduledFuture<?> armed = arm();
+            try {
+                out.write(bytes);
+                out.flush();
+            } finally {
+                armed.cancel(false);
+            }
+        }
+
+        InputStream reading(InputStream in) {
+            return new FilterInputStream(in) {
+                @Override
+                public int read() throws IOException {
+                    final ScheduledFuture<?> armed = arm();
+                    try {
+                        return super.read();
+                    } finally {
+                        armed.cancel(false);
+                    }
+                }
+
+                @Override
+                public int read(byte[] buffer, int offset, int length) throws IOException {
+                    final ScheduledFuture<?> armed = arm();
+                    try {
+                        return super.read(buffer, offset, length);
+                    } catch (AsynchronousCloseException ex) {
+                        throw new IOException(
+                                "the destination stayed silent for " + millis + " ms", ex);
+                    } finally {
+                        armed.cancel(false);
+                    }
+                }
+            };
+        }
+    }
 
     /**
      * Sends a request over a Unix socket and returns the answer, its body still to be read.
@@ -87,13 +181,14 @@ final class UnixHttp {
             throw new IOException(refused.getMessage(), refused);
         }
         final SocketChannel channel = SocketChannel.open(StandardProtocolFamily.UNIX);
+        final Watch watch = new Watch(channel, request.timeout().orElse(IDLE));
         try {
             channel.connect(UnixDomainSocketAddress.of(socket));
             final OutputStream out = Channels.newOutputStream(channel);
-            out.write(head(request, body.length));
-            out.write(body);
-            out.flush();
-            final InputStream in = new BufferedInputStream(Channels.newInputStream(channel));
+            watch.write(out, head(request, body.length));
+            watch.write(out, body);
+            final InputStream in =
+                    new BufferedInputStream(watch.reading(Channels.newInputStream(channel)));
             return answer(in, request, channel);
         } catch (IOException | RuntimeException ex) {
             channel.close();

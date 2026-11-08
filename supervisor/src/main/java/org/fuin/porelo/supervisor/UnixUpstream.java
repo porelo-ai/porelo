@@ -189,10 +189,29 @@ public final class UnixUpstream {
      * Returns the request target on the socket for what the task asked: {@link #PATH}, followed by
      * the task's own target, where a bare {@code /} names {@link #PATH} itself.
      *
+     * <p>A path with a {@code .} or {@code ..} segment, or an encoded dot, slash or backslash, is
+     * refused: a server that normalizes {@code /mcp/../other} reads {@code /other}, and the key
+     * travels with it to a route outside the endpoint.
+     *
      * @param target The task's request target, starting with {@code /}.
      * @return The target sent on the socket.
+     * @throws IllegalArgumentException If its path could leave {@link #PATH}.
      */
     public static String target(String target) {
+        final int query = target.indexOf('?');
+        final String path = query < 0 ? target : target.substring(0, query);
+        final String lower = path.toLowerCase(java.util.Locale.ROOT);
+        if (lower.contains("%2e")
+                || lower.contains("%2f")
+                || lower.contains("%5c")
+                || path.indexOf('\\') >= 0) {
+            throw new IllegalArgumentException("a request target with an encoded dot or slash");
+        }
+        for (final String segment : path.split("/", -1)) {
+            if (segment.equals(".") || segment.equals("..")) {
+                throw new IllegalArgumentException("a request target with a dot segment");
+            }
+        }
         return target.equals("/") || target.startsWith("/?")
                 ? PATH + target.substring(1)
                 : PATH + target;

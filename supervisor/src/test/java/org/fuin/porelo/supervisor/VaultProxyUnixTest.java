@@ -1,13 +1,18 @@
 package org.fuin.porelo.supervisor;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.StandardProtocolFamily;
+import java.net.URI;
 import java.net.UnixDomainSocketAddress;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 import java.nio.ByteBuffer;
 import java.nio.channels.Channels;
 import java.nio.channels.ServerSocketChannel;
@@ -15,6 +20,7 @@ import java.nio.channels.SocketChannel;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Duration;
 import java.util.Map;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
@@ -180,6 +186,116 @@ class VaultProxyUnixTest {
         assertThat(relayed).startsWith("HTTP/1.1 200").doesNotEndWith("0\r\n\r\n");
     }
 
+    @ParameterizedTest
+    @ValueSource(
+            strings = {
+                "/../other",
+                "/sse/../../other",
+                "/./other",
+                "/..",
+                "/%2e%2e/other",
+                "/%2E%2E/other",
+                "/%2e/other",
+                "/sse%2f..%2fother",
+                "/sse%2F..%2Fother",
+                "/..?session=1"
+            })
+    void refusesATargetThatLeavesTheEndpointsPathBeforeSendingAnything(
+            String target, @TempDir Path dir) throws Exception {
+        final String relayed;
+        try (Endpoint endpoint = endpoint(dir, out -> {});
+                VaultProxy proxy = proxy(dir, endpoint.socket)) {
+            relayed = send(proxy.socket(), request(target));
+        }
+
+        assertThat(relayed).startsWith("HTTP/1.1 400").doesNotContain(KEY);
+        assertThat(received.get()).isEmpty();
+    }
+
+    @Test
+    void givesUpOnAnEndpointThatStaysSilentBeforeItsHead(@TempDir Path dir) throws Exception {
+        final CountDownLatch released = new CountDownLatch(1);
+        try (Endpoint endpoint = endpoint(dir, out -> released.await(60, TimeUnit.SECONDS))) {
+            assertTimeoutPreemptively(
+                    Duration.ofSeconds(10),
+                    () ->
+                            assertThatThrownBy(
+                                            () ->
+                                                    UnixHttp.send(
+                                                            endpoint.socket,
+                                                            silentAfter(Duration.ofMillis(300)),
+                                                            new byte[0]))
+                                    .isInstanceOf(IOException.class));
+        } finally {
+            released.countDown();
+        }
+    }
+
+    @Test
+    void cutsOffAStreamThatFallsSilent(@TempDir Path dir) throws Exception {
+        final CountDownLatch released = new CountDownLatch(1);
+        try (Endpoint endpoint =
+                endpoint(
+                        dir,
+                        out -> {
+                            out.write(
+                                    ("HTTP/1.1 200 OK\r\nContent-Type: text/event-stream\r\n"
+                                                    + "Transfer-Encoding: chunked\r\n\r\n")
+                                            .getBytes(StandardCharsets.UTF_8));
+                            chunk(out, "data: {\"n\":1}\n\n");
+                            released.await(60, TimeUnit.SECONDS);
+                        })) {
+            final HttpResponse<InputStream> answer =
+                    UnixHttp.send(
+                            endpoint.socket, silentAfter(Duration.ofMillis(300)), new byte[0]);
+            final ByteArrayOutputStream body = new ByteArrayOutputStream();
+            assertTimeoutPreemptively(
+                    Duration.ofSeconds(10),
+                    () ->
+                            assertThatThrownBy(() -> answer.body().transferTo(body))
+                                    .isInstanceOf(IOException.class));
+            assertThat(body.toString(StandardCharsets.UTF_8)).isEqualTo("data: {\"n\":1}\n\n");
+        } finally {
+            released.countDown();
+        }
+    }
+
+    @Test
+    void keepsAStreamThatSpeaksMoreOftenThanItsLimitOpenLongerThanIt(@TempDir Path dir)
+            throws Exception {
+        try (Endpoint endpoint =
+                endpoint(
+                        dir,
+                        out -> {
+                            out.write(
+                                    ("HTTP/1.1 200 OK\r\nContent-Type: text/event-stream\r\n"
+                                                    + "Transfer-Encoding: chunked\r\n\r\n")
+                                            .getBytes(StandardCharsets.UTF_8));
+                            for (int i = 0; i < 10; i++) {
+                                chunk(out, "data: " + i + "\n\n");
+                                Thread.sleep(100);
+                            }
+                            out.write("0\r\n\r\n".getBytes(StandardCharsets.UTF_8));
+                            out.flush();
+                        })) {
+            final HttpResponse<InputStream> answer =
+                    UnixHttp.send(
+                            endpoint.socket, silentAfter(Duration.ofMillis(300)), new byte[0]);
+            try (InputStream body = answer.body()) {
+                assertThat(new String(body.readAllBytes(), StandardCharsets.UTF_8))
+                        .contains("data: 0", "data: 9");
+            }
+        }
+    }
+
+    /** A request whose timeout is the longest silence the endpoint is allowed. */
+    private static HttpRequest silentAfter(Duration idle) {
+        return HttpRequest.newBuilder(URI.create("http://localhost/mcp"))
+                .timeout(idle)
+                .GET()
+                .build();
+    }
+
     @Test
     void refusesASocketThatBecameALink(@TempDir Path dir) throws Exception {
         final String relayed;
@@ -199,7 +315,13 @@ class VaultProxyUnixTest {
     }
 
     private static String request() {
-        return "POST / HTTP/1.1\r\nHost: 127.0.0.1:9419\r\nAuthorization: Bearer "
+        return request("/");
+    }
+
+    private static String request(String target) {
+        return "POST "
+                + target
+                + " HTTP/1.1\r\nHost: 127.0.0.1:9419\r\nAuthorization: Bearer "
                 + PHANTOM
                 + "\r\nContent-Type: application/json\r\nAccept: application/json, text/event-stream\r\n"
                 + "Content-Length: "
