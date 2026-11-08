@@ -33,6 +33,16 @@ Found on 2026-11-08: not the listing order, as first thought, but the length of 
   `../../../../../../../../../tmp/junit-…/run` where `/tmp/junit-…/run` was expected.
 - `AgentChoiceTest` and `CredentialImportTest` pass from the 12-deep worktree where `AgentChoiceTest` failed.
 - `VarlinkServerSocketTest`'s relative path stays: it tests a relative socket path on purpose.
+- **The reading** (agy gemini-4-argon-high, once) found, and is fixed with red tests first:
+  - the shorter way was counted in characters, not in the bytes the limit counts
+    (`theShorterWayIsCountedInTheBytesASocketPathIsLimitedBy`);
+  - a working directory reached through a link climbed from the link's name, not from where it is
+    (`aWorkingDirectoryReachedThroughALinkClimbsFromWhereItReallyIs`).
+- **Held, not fixed:** with `java.io.tmpdir` itself long, a custom `TMPDIR` or one inside a deep checkout, neither way is
+  short enough. The same holds for the tests that bind under `@TempDir` directly: `McpTaskSocketsTest`,
+  `PoreloDaemonTest`, `InstalledAgentTest`, the `Follow*` tests and about ten more. Every checkout and CI here has
+  `java.io.tmpdir` at `/tmp`. A short directory of its own for sockets in every test would cover it, worth an issue
+  if a machine ever sets `TMPDIR` long.
 
 ## Plan (before it was built)
 

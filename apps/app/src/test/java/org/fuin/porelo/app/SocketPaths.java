@@ -18,7 +18,20 @@ final class SocketPaths {
     }
 
     static Path shortest(final Path workingDirectory, final Path directory) {
-        final Path relative = workingDirectory.relativize(directory);
-        return relative.toString().length() < directory.toString().length() ? relative : directory;
+        // ".." climbs from where the working directory really is, not from a link's name; the way
+        // down follows links as any path does.
+        Path from = workingDirectory;
+        try {
+            from = workingDirectory.toRealPath();
+        } catch (final java.io.IOException ex) {
+            // Not there, as in a test of the way alone: taken as written.
+        }
+        final Path relative = from.relativize(directory);
+        return bytes(relative) < bytes(directory) ? relative : directory;
+    }
+
+    /** The limit of a socket's path is in bytes of UTF-8, not in characters. */
+    private static int bytes(final Path path) {
+        return path.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8).length;
     }
 }
