@@ -361,15 +361,13 @@ class OrgWritingCommandsTest {
     void aChangeThatCouldNotBeJudgedWithTheVaultShutNamesTheVault() throws Exception {
         // A person told to check a token that sits in a shut vault cannot act; opening it is the
         // way on.
-        final PoreloContext machine = context();
-        Files.createDirectories(machine.vault().path().getParent());
-        new org.fuin.porelo.vault.VaultFile(machine.vault().path())
-                .write(Map.of(), "test passphrase".toCharArray());
+        shutVault();
         refusing =
                 new Refused(
                         Refused.CANNOT_SAY,
-                        "the forge could not say enough of its people's keys and owners to judge"
-                                + " this change: see whether this person's forge token is set",
+                        org.fuin.porelo.organization.gittree.GitTreeWrites.COULD_NOT_JUDGE
+                                + "judge this change: see whether this person's forge token is"
+                                + " set",
                         REVISION);
 
         assertThat(run("org", "owner", "add", "alice", "--json"))
@@ -380,6 +378,58 @@ class OrgWritingCommandsTest {
         assertThat(out.toString())
                 .as("the way on is to open the vault")
                 .contains("porelo vault unlock");
+    }
+
+    @Test
+    void anotherRefusalThatCannotSayKeepsItsWordsWithTheVaultShut() throws Exception {
+        // A half-made change names the id to ask again with; a shut vault must not take that away.
+        shutVault();
+        refusing =
+                new Refused(
+                        Refused.CANNOT_SAY,
+                        "project demo is added, and its repository is not: ask again with --id one",
+                        REVISION);
+
+        assertThat(run("org", "owner", "add", "alice", "--json")).isEqualTo(69);
+
+        assertThat(answer().get("reason")).as("not the vault's").isEqualTo("cannot-say");
+        assertThat(out.toString()).as("its way on is kept").contains("--id one");
+    }
+
+    @Test
+    void aChangeThatCouldNotBeJudgedWithTheVaultOpenKeepsItsReason() throws Exception {
+        // An open vault lent what it holds: opening it again is no way on.
+        final PoreloContext machine = shutVault();
+        assertThat(
+                        machine.asking(prompt -> "test passphrase".toCharArray())
+                                .openerAsking(false, new PrintWriter(err)))
+                .as("opened for this command, as a person who typed it")
+                .isPresent();
+        try {
+            refusing =
+                    new Refused(
+                            Refused.CANNOT_SAY,
+                            org.fuin.porelo.organization.gittree.GitTreeWrites.COULD_NOT_JUDGE
+                                    + "judge this change: see whether this person's forge token"
+                                    + " is set",
+                            REVISION);
+
+            assertThat(run("org", "owner", "add", "alice", "--json")).isEqualTo(69);
+
+            assertThat(answer().get("reason")).as("the forge's").isEqualTo("cannot-say");
+        } finally {
+            PoreloContext.forgetAsked();
+            new org.fuin.porelo.vault.KernelKeyring(machine.paths().vault().vaultKeyringKey())
+                    .forget();
+        }
+    }
+
+    private PoreloContext shutVault() throws IOException {
+        final PoreloContext machine = context();
+        Files.createDirectories(machine.vault().path().getParent());
+        new org.fuin.porelo.vault.VaultFile(machine.vault().path())
+                .write(Map.of(), "test passphrase".toCharArray());
+        return machine;
     }
 
     @Test

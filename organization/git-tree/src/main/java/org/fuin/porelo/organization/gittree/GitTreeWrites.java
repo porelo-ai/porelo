@@ -27,6 +27,24 @@ import org.jspecify.annotations.Nullable;
  */
 public final class GitTreeWrites implements OrganizationWrites {
 
+    /**
+     * How the two refusals begin that a forge's silence about its people gives: the ones a person's
+     * token decides, and a shut vault may be why it was not lent.
+     */
+    public static final String COULD_NOT_JUDGE =
+            "the forge could not say enough of its people's keys and owners to ";
+
+    /**
+     * Says whether a refusal is one the forge's silence about its people gave.
+     *
+     * @param refused The refusal.
+     * @return Whether it is.
+     */
+    public static boolean couldNotJudge(final Refused refused) {
+        return Refused.CANNOT_SAY.equals(refused.reason())
+                && String.valueOf(refused.getMessage()).startsWith(COULD_NOT_JUDGE);
+    }
+
     /** What a change does to the files, given what was accepted. */
     @FunctionalInterface
     private interface Edit {
@@ -1189,8 +1207,9 @@ public final class GitTreeWrites implements OrganizationWrites {
             if (!tip.equals(before.commit())) {
                 throw new Refused(
                         Refused.CANNOT_SAY,
-                        "the forge could not say enough of its people's keys and owners to read the organization to"
-                                + " its tip: see whether this person's forge token is set",
+                        COULD_NOT_JUDGE
+                                + "read the organization to its tip: see whether this person's forge"
+                                + " token is set",
                         before.commit());
             }
             final String base = change.base();
@@ -1260,8 +1279,8 @@ public final class GitTreeWrites implements OrganizationWrites {
         if (!commits.getLast().equals(after.commit())) {
             throw new Refused(
                     Refused.CANNOT_SAY,
-                    "the forge could not say enough of its people's keys and owners to judge this change: see"
-                            + " whether this person's forge token is set",
+                    COULD_NOT_JUDGE
+                            + "judge this change: see whether this person's forge token is set",
                     tip);
         }
     }

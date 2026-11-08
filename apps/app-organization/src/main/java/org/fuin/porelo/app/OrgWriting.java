@@ -123,11 +123,16 @@ public abstract class OrgWriting extends OrgReading {
 
     /**
      * A change the forge could not judge while the vault holding the person's token is shut is the
-     * shut vault's refusal: checking a token nobody can read is no way on, opening it is.
+     * shut vault's refusal: checking a token nobody can read is no way on, opening it is. Any other
+     * refusal, or one where a token was lent from elsewhere, keeps its own words.
      */
-    private static Refused shutVaultNamed(final PoreloContext machine, final Refused refused) {
-        if (!Refused.CANNOT_SAY.equals(refused.reason())
-                || machine.readableCredentials().isPresent()) {
+    private static Refused shutVaultNamed(final PoreloContext machine, final Refused refused)
+            throws IOException {
+        if (!GitTreeWrites.couldNotJudge(refused)
+                || machine.readableCredentials().isPresent()
+                || OrgAccess.repository(machine)
+                        .map(at -> OrganizationAccess.forgeToken(machine, ForgeAddress.of(at)))
+                        .isPresent()) {
             return refused;
         }
         return new Refused(
