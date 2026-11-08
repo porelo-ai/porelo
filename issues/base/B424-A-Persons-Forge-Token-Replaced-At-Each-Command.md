@@ -1,6 +1,7 @@
 # B424 — A Person's Forge Token Replaced At Each Command
 
-**Status:** Idea.
+**Status:** Accepted.
+**Size:** S - one lend per measuring round instead of one per repository, and its test.
 **Severity:** low for now: a retry works, and a failure refuses, but the person's own forge token can die under anything else holding it.
 
 **What must be true.** Nothing a person does with their forge token on a host fails because another command of theirs asked for one.
@@ -20,8 +21,20 @@ Measured on a test host, with a 200 MB branch:
 Read in the code, not run:
 
 - `porelo-host-push` asks for the token first, then waits on the terminal for the central token, then uses the first one. A person typing while a measure runs, or another command of theirs, stops that push. It pushes without force, so it can be run again.
-- It also stores the new token in the vault as `<forge>.person` "so their own tools keep one that works". Any later command makes that entry stale. Nothing in `porelo` or the window reads it.
+- It also stores the new token in the vault as `<forge>.person` "so their own tools keep one that wor**What HO146 and its switch already do** (on main since 2026-11-08), read in the code:
 
-**To be checked.**
+- `porelo-host-person forge-token --lend` makes a token for one command, named `porelo-host-lend-<UTC time>-<uuid>`. It
+  deletes only lends a day old, never the person's token and never a younger lend.
+- Both of porelo's callers ask for `--lend`: `HostForgeLending` for every gate git command, including `porelod`'s
+  measuring through `GateSupport`, and `HostForgeAccess` for taking a project at a task start.
+- So two commands at once no longer take each other's token. A clone between its opening request and its transfer
+  keeps its token. `porelo-host-push`'s token, and the `<forge>.person` entry it writes, stay valid while porelo asks.
 
-- Whether `forge-token` needs to take back earlier tokens at all, which is the host's to say, or whether `porelod` can measure on the host with no token of the person's.
+**What stays.** `porelod`'s measuring still asks for one lend per repository every 15 minutes, and a lend lives until
+the next lend after a day. With three mirrors that is about 290 tokens of the person's login on the forge at once, each
+able to do what the person's own token can.
+
+- **The change:** measuring takes one lend per round and uses it for every repository of that round, or none where no
+  repository is on the host's forge.
+- **Seen to fail first:** a round over three repositories on the host's forge asks `forge-token --lend` three times.
+- `porelo-host-push` waiting on the terminal after it took its token is porelo-host's, not this issue's.

@@ -1,6 +1,7 @@
 # B425 — What Only A Host Check Holds
 
-**Status:** Idea.
+**Status:** Accepted.
+**Size:** S - two unit tests on what `main` and the gate read from the host, and one line in a removal's answer.
 **Severity:** low: both were seen red and green on a test host, and nothing in the build would notice if they came undone.
 
 **What must be true.** The build fails if a host's rules stop reaching `porelod` or the gate.
@@ -13,7 +14,8 @@
 
 **To be checked.**
 
-- Whether `GateSupport.gate` can take the place of that file from its caller, as `HostForgeAddress`'s own tests do.
+- `GateSupport.gate` already takes the file from its caller (an overload with `forgeConf`), so a unit test can hold its
+  refusal. No test calls it with an upstream other than the host's forge yet.
 - Whether a stand-in `forge.conf` belongs in the suite, which would hold both. It would be a machine that is a host in that one way only.
 
 **Also found.** On a host, removing a task while the vault is shut does not run `task --end`, and says nothing of it: `TaskControl` asks only when the task's key can be read from the vault. Seen on a test host: the task's forge token stayed after the removal. The host's sweep drops it when the task's certificate has ended. The removal should say so.

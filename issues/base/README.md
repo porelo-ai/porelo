@@ -162,6 +162,8 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b425"></a>[B425](B425-What-Only-A-Host-Check-Holds.md) | S | - | A unit test holds what only a host check held: `porelod`'s host forge rule and the gate's refusal of another upstream; a removal with the vault shut says the task's forge token stays until the host's sweep. |
+| <a id="b424"></a>[B424](B424-A-Persons-Forge-Token-Replaced-At-Each-Command.md) | S | - | `porelod`'s measuring asks the host's forge for one lent token per round, not one per repository; HO146 and its switch already keep a lend from taking the person's or another lend's token. |
 | <a id="b396"></a>[B396](B396-Mutation-Testing-With-PIT.md) | - | - | A `pit` profile run by hand, not in CI and with no threshold, and a report sorting survivors into real gaps and harmless ones. |
 | <a id="b358"></a>[B358](B358-A-Task-Reviews-A-Pull-Request-On-The-Central-Forge.md) | - | [B172](README.md#b172) | A reviewer task also takes any existing pull request on the central forge by its URL, in a project or without one; read and commented with the person's own account, comments only, each released |
 | <a id="b355"></a>[B355](B355-No-Switch-That-Turns-Every-Check-Off.md) | S | - | No `--insecure` that turns every check off; instead an `unsigned`/`unverified` mark in `task list`, the interface and the gate's verdicts, for what already runs so |
@@ -179,6 +181,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b508"></a>[B508](B508-The-Default-Task-Image-On-Ubuntu-26-04.md) | - | - | The default task image moves from `ubuntu:24.04` to `ubuntu:26.04`: every task image, the places porelo names the default, and porelo-ecosystems' list; after the trial moves. |
 | <a id="b498"></a>[B498](B498-The-Gate-Shows-A-Commits-Details.md) | - | - | The gate's review shows each commit's message, author, committer and trailers beside the diff. |
 | <a id="b487"></a>[B487](B487-The-Organization-Adapter-Apart-From-Porelo.md) | - | - | Everything about the organization and the source of its projects moves out of `porelo` into an organization adapter, an executable of its own asked across a process boundary; `porelo` keeps tasks, the machine, code repositories, a cache of project settings, and `default` and hand-written projects. |
 | <a id="b484"></a>[B484](B484-Working-On-A-Repository-Outside-The-Organizations-Projects.md) | - | - | How a repository of none of the organization's projects is worked on in the default project, alike on a laptop and on a host with or without its forge: first one of the person's own, pushed to; then someone else's, through a fork. Open question for the operator. |
@@ -191,8 +194,6 @@ from its side, as *blocked by*.
 | <a id="b435"></a>[B435](B435-One-Line-Installs-Everything-On-Fedora-And-RHEL.md) | - | - | `dnf install 'porelo*'` installs all of Porelo on Fedora and RHEL, and the build says so when it stops working. |
 | <a id="b436"></a>[B436](B436-A-Published-Bom-Test-Runs-From-A-Clean-Tree.md) | - | - | `PublishedBomTest` needs a generated file, so a targeted test run in a clean tree fails. |
 | <a id="b427"></a>[B427](B427-Org-Create-Says-Why.md) | - | - | A failed `org create` says git's own reason and tells a refused push from an unreachable forge, with nothing the forge said passed on. |
-| <a id="b425"></a>[B425](B425-What-Only-A-Host-Check-Holds.md) | - | - | The build fails if a host's rules stop reaching `porelod` or the gate, which only a host check holds today; a removal with the vault shut says the task's token stays. |
-| <a id="b424"></a>[B424](B424-A-Persons-Forge-Token-Replaced-At-Each-Command.md) | - | - | Nothing a person does with their forge token on a host fails because another command, or `porelod` every 15 minutes, asked for a new one. |
 | <a id="b423"></a>[B423](B423-Small-Words-Found-In-A-Host-Rehearsal.md) | - | - | Five small wrong words noted in a rehearsal on a host: a lambda in a passphrase refusal, a probe's words, a missing `--json`, a `.tmp` warning, four characters of a token in `gate.log`. |
 | <a id="b422"></a>[B422](B422-A-Guarded-Project-On-A-Host.md) | - | - | A guarded project on a host has a way to hand its work to the host's forge, or is refused before a task starts: `gate approve` pushes to a protected `main` today. |
 | <a id="b416"></a>[B416](B416-A-Forge-That-Refuses-A-Hosts-Read-Key-Says-Why.md) | - | - | A forge's refusal of a host's read key says why, naming the organization's deploy key setting and its page; an organization at GitHub must allow deploy keys for a host to read it |
