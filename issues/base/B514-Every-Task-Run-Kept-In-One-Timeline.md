@@ -1,9 +1,9 @@
 # [B514](README.md#b514) — Every Task Run Kept, In One Timeline
 
 **Status:** Idea. Filed 2026-11-08 at the operator's word; not built until the operator says so.
-**Size:** XL - a lifecycle record in the events chain, an archive that outlives the task, readings over varlink, MCP
-and the CLI, and one structured log stream every Porelo process writes to, with an optional export. Built in the four
-steps of the plan, each one its own issue when it is taken.
+**Size:** L - mostly re-routing the existing log sources into one stream. Five pieces of new code beyond that: the
+lifecycle entries, the copy on stop with the archive on Remove, the `podman events` follower, the readings, and the
+OTLP export. Without the export, which could be its own issue, it is M.
 
 **What must be true.** A task's whole life can be read, in the CLI and (with F436 in porelo-frontend) in the window,
 for as long as the person keeps it, also after the task is stopped, the machine rebooted, or the task removed.
@@ -70,11 +70,11 @@ the clearance. What is new is that they are kept per run.
 1. **The journal as its home on Linux**, with structured fields (`PORELO_TASK`, `PORELO_RUN`, `PORELO_COMPONENT`),
    written over the journal's native socket. That needs no library. Where there is no journal (a container image, a
    Mac later), the same records go to one file per run under state, written by the same writer. The nine files
-   become views of the stream, not files, but **one component at a time**: each component keeps its file until the
-   view of it has been shown to answer the same, so nothing a person reads today goes dark at once.
+   become views of the stream, not files, switched over in one go, with a test per view that it answers as the file
+   did.
 2. **Bound what is unbounded first:** `failures.log` gets the size limit and rotation the stream has. That can come
    before everything else.
-3. **The export is its own step and its own decision.** OpenTelemetry logs over OTLP to a collector the organization
+3. **The export is its own decision.** OpenTelemetry logs over OTLP to a collector the organization
    names; off by default. What may leave is the person's choice per kind. The agent's own output (code, prompts) and
    anything the vault or the gate held never leaves unless chosen, and secrets are never in a record at all, as
    today.
@@ -85,7 +85,7 @@ read and the chain is the one to trust.
 
 ## Plan
 
-Four steps, each its own issue when the operator takes it:
+One issue, in this order:
 1. **The lifecycle (L):**
    - the `task-*` kinds with who and when;
    - porelod's journal line for each;
@@ -103,7 +103,7 @@ Four steps, each its own issue when the operator takes it:
    - a writer for every Porelo process;
    - the journal with structured fields, or the file where there is none;
    - `porelo logs [--task] [--component] [--since] [--follow]`;
-   - the nine files turned into views one component at a time;
+   - the nine files turned into views in one go, each with a test that it answers as before;
    - `failures.log` bounded at once.
 4. **The export (M):** OTLP to a named collector, off by default, with a choice per kind of what may leave.
    It is chosen by the CLI only; the window does not offer it (the operator, 2026-11-08 14:27Z).
@@ -116,7 +116,7 @@ Four steps, each its own issue when the operator takes it:
   `data` as it comes;
 - `failures.log`'s stack traces as records of level error, with the trace in `data`, bounded like the rest.
 
-**Plan reading** before each step: steps 1, 2 and 4 cross a trust boundary.
+**Plan reading** before it is built: the lifecycle, the archive and the export cross a trust boundary.
 
-**Frontend:** F436 in porelo-frontend reads steps 1 and 2 through `Lifecycle` and `ArchivedLog`, and step 3 through the
-stream's reading, which step 3 names.
+**Frontend:** F436 in porelo-frontend reads the lifecycle and the archive through `Lifecycle` and `ArchivedLog`, and the
+stream through `porelo logs`' reading.
