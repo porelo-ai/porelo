@@ -11,11 +11,17 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.fuin.porelo.app.PoreloContext;
 import org.fuin.porelo.app.PoreloPaths;
 import org.fuin.porelo.core.config.XdgPaths;
+import org.fuin.porelo.core.process.Command;
+import org.fuin.porelo.core.process.CommandResult;
 import org.fuin.porelo.testing.FakeCommandRunner;
 import org.fuin.porelo.wire.TaskMode;
 import org.fuin.porelo.wire.TaskProfile;
@@ -48,7 +54,34 @@ class McpTaskSocketsTest {
 
     @TempDir Path dir;
 
-    private final FakeCommandRunner runner = new FakeCommandRunner();
+    private final HeldRunner runner = new HeldRunner();
+
+    /** A fake runner that can hold each start at the machine's check, as a slow start waits. */
+    private static final class HeldRunner extends FakeCommandRunner {
+        private final CountDownLatch release = new CountDownLatch(1);
+        private final AtomicInteger held = new AtomicInteger();
+        private volatile boolean holding;
+
+        @Override
+        public CommandResult run(final Command command) {
+            if (holding && command.describe().startsWith("podman version")) {
+                held.incrementAndGet();
+                try {
+                    release.await(30, TimeUnit.SECONDS);
+                } catch (InterruptedException ex) {
+                    Thread.currentThread().interrupt();
+                }
+            }
+            synchronized (this) {
+                return super.run(command);
+            }
+        }
+
+        void letGo() {
+            holding = false;
+            release.countDown();
+        }
+    }
 
     private McpTaskSockets sockets;
 
@@ -88,10 +121,16 @@ class McpTaskSocketsTest {
 
     private void child(final PoreloContext context, final String task, final String parent)
             throws IOException {
-        final Path state = Files.createDirectories(context.paths().tasks().containerState(task));
+        made(context.paths().tasks().containerState(task), "alpha", null, parent);
+    }
+
+    /** Writes a task's record where it is kept, as a start that made it with an agent wrote it. */
+    private static void made(
+            final Path where, final String agent, final String model, final String parent)
+            throws IOException {
         new TaskProfile(
                         TaskProfile.VERSION,
-                        "alpha",
+                        agent,
                         TaskMode.UNATTENDED,
                         "work",
                         null,
@@ -99,11 +138,11 @@ class McpTaskSocketsTest {
                         "deny",
                         null,
                         null,
-                        null,
+                        model,
                         null,
                         0,
                         parent)
-                .writeTo(state);
+                .writeTo(Files.createDirectories(where));
     }
 
     private static Map<String, Object> call(
@@ -381,7 +420,7 @@ class McpTaskSocketsTest {
         refused(
                 socket,
                 "Start",
-                Map.of("project", "uc", "repository", "uc", "minutes", 30),
+                Map.of("project", "uc", "repository", "uc", "minutes", 30, "prompt", "go"),
                 "AgentNotAllowed",
                 Map.of("agent", ""));
     }
@@ -419,17 +458,344 @@ class McpTaskSocketsTest {
                 Map.of("task", "porelo-uc-theirs", "parent", "porelo-uc-other"));
     }
 
+    @Test
+    void aStartBringingBackATaskKeptOnlyInItsRecordIsRefusedUnlessItsOwn() throws IOException {
+        // After a reboot the runtime directory is empty; the kept record still says whose it is.
+        final Path socket = opened(HEAD + SECTION);
+        final PoreloContext context = sockets.context();
+        made(context.paths().tasks().taskRecord("porelo-uc-work"), "alpha", null, null);
+        made(
+                context.paths().tasks().taskRecord("porelo-uc-theirs"),
+                "alpha",
+                null,
+                "porelo-uc-other");
+
+        refused(
+                socket,
+                "Start",
+                named("work", start("alpha", null, 30)),
+                "NotItsOwn",
+                Map.of("task", "porelo-uc-work", "parent", ""));
+        refused(
+                socket,
+                "Start",
+                named("theirs", start("alpha", null, 30)),
+                "NotItsOwn",
+                Map.of("task", "porelo-uc-theirs", "parent", "porelo-uc-other"));
+        assertNothingStarted();
+    }
+
+    @Test
+    void aStartBringingBackItsOwnTaskTakesOnlyTheAgentAndModelItWasMadeWith() throws IOException {
+        final Path socket = opened(HEAD + SECTION);
+        final PoreloContext context = sockets.context();
+        made(context.paths().tasks().taskRecord("porelo-uc-small"), "beta", "small", LEAD);
+        made(context.paths().tasks().containerState("porelo-uc-plain"), "beta", null, LEAD);
+        made(context.paths().tasks().containerState("porelo-uc-gone"), "gamma", null, LEAD);
+
+        refused(
+                socket,
+                "Start",
+                named("small", start("alpha", null, 30)),
+                "MadeWithAnother",
+                Map.of("task", "porelo-uc-small", "agent", "beta", "model", "small"));
+        refused(
+                socket,
+                "Start",
+                named("small", start("beta", "large", 30)),
+                "MadeWithAnother",
+                Map.of("task", "porelo-uc-small", "agent", "beta", "model", "small"));
+        // Naming none, the task's own count, and the file must still allow them.
+        refused(
+                socket,
+                "Start",
+                named("plain", start(null, null, 30)),
+                "AgentNotAllowed",
+                Map.of("agent", "beta", "model", ""));
+        refused(
+                socket,
+                "Start",
+                named("gone", start(null, null, 30)),
+                "AgentNotAllowed",
+                Map.of("agent", "gamma", "model", ""));
+        assertNothingStarted();
+
+        made(context.paths().tasks().taskRecord("porelo-uc-own"), "beta", "small", LEAD);
+        assertThat(call(socket, "Start", named("own", start(null, null, 30))))
+                .as("its own agent and model, named by nothing")
+                .containsKey("exitCode");
+        assertThat(call(socket, "Start", named("own", start("beta", "small", 30))))
+                .as("its own agent and model, named")
+                .containsKey("exitCode");
+    }
+
+    @Test
+    void aStartRunsAPromptUnattendedForAtLeastAMinute() throws IOException {
+        final Path socket = opened(HEAD + SECTION);
+
+        final Map<String, Object> none = start("alpha", null, 30);
+        none.remove("prompt");
+        refused(socket, "Start", none, "PromptRequired", Map.of());
+        final Map<String, Object> blank = start("alpha", null, 30);
+        blank.put("prompt", "  ");
+        refused(socket, "Start", blank, "PromptRequired", Map.of());
+        for (final String mode : List.of("SHELL", "AGENT", "session", "")) {
+            final Map<String, Object> start = start("alpha", null, 30);
+            start.put("mode", mode);
+            refused(socket, "Start", start, "UnattendedOnly", Map.of("mode", mode));
+        }
+        for (final int minutes : new int[] {0, -1}) {
+            refused(
+                    socket,
+                    "Start",
+                    start("alpha", null, minutes),
+                    "RunTooShort",
+                    Map.of("minutes", (long) minutes));
+        }
+        assertNothingStarted();
+
+        final Map<String, Object> unattended = start("alpha", null, 30);
+        unattended.put("mode", "UNATTENDED");
+        assertThat(call(socket, "Start", unattended)).containsKey("exitCode");
+    }
+
+    @Test
+    void theDefaultRunMustFitTheFileToo() throws IOException {
+        final Path socket = opened(HEAD + SECTION.replace("minutes: 60", "minutes: 20"));
+        final Map<String, Object> start = start("alpha", null, 30);
+        start.remove("minutes");
+
+        refused(socket, "Start", start, "RunTooLong", Map.of("minutes", 30L, "limit", 20L));
+    }
+
+    @Test
+    void aStartIntoAnotherProjectIsRefused() throws IOException {
+        final Path socket = opened(HEAD + SECTION);
+        final Map<String, Object> other = start("alpha", null, 30);
+        other.put("project", "other");
+        final Map<String, Object> none = start("alpha", null, 30);
+        none.remove("project");
+
+        refused(
+                socket,
+                "Start",
+                other,
+                "ProjectNotItsOwn",
+                Map.of("project", "other", "own", "uc"));
+        refused(socket, "Start", none, "ProjectNotItsOwn", Map.of("project", "", "own", "uc"));
+        assertNothingStarted();
+    }
+
+    @Test
+    void twoUnnamedStartsAtOnceBothCountAgainstTheLimit() throws Exception {
+        final Path socket = opened(HEAD + SECTION);
+        final Map<String, Object> unnamed = start("alpha", null, 30);
+        unnamed.remove("task");
+        runner.holding = true;
+        final CompletableFuture<Object> first = attempt(socket, unnamed);
+        try {
+            until(() -> runner.held.get() == 1);
+            final CompletableFuture<Object> second = attempt(socket, unnamed);
+            until(() -> second.isDone() || runner.held.get() > 1);
+
+            assertThat(runner.held.get()).as("the second start was let through").isEqualTo(1);
+            assertRefused(second.get(), "ChildLimitReached", Map.of("running", 1L, "limit", 1L));
+        } finally {
+            runner.letGo();
+            first.get(30, TimeUnit.SECONDS);
+        }
+    }
+
+    @Test
+    void twoStartsOfOneNameAtOnceAreOneAndTheRefusedOneFreesNoPlace() throws Exception {
+        final Path socket = opened(HEAD + SECTION);
+        runner.holding = true;
+        final CompletableFuture<Object> first = attempt(socket, start("alpha", null, 30));
+        try {
+            until(() -> runner.held.get() == 1);
+            final CompletableFuture<Object> again = attempt(socket, start("alpha", null, 30));
+            until(() -> again.isDone() || runner.held.get() > 1);
+
+            assertThat(runner.held.get()).as("the second start was let through").isEqualTo(1);
+            assertRefused(again.get(), "AlreadyStarting", Map.of("task", "porelo-uc-child"));
+            refused(
+                    socket,
+                    "Start",
+                    named("other", start("alpha", null, 30)),
+                    "ChildLimitReached",
+                    Map.of("running", 1L, "limit", 1L));
+        } finally {
+            runner.letGo();
+            first.get(30, TimeUnit.SECONDS);
+        }
+    }
+
+    @Test
+    void aStartCarryingAParameterATaskMayNotSetIsRefusedNamingIt() throws IOException {
+        final Path socket = opened(HEAD + SECTION);
+        final Map<String, Object> refusedOnes = new java.util.LinkedHashMap<>();
+        refusedOnes.put("clearance", "off");
+        refusedOnes.put("noGate", true);
+        refusedOnes.put("credentials", Map.of("forge", "elsewhere"));
+        refusedOnes.put("upstream", "https://example.org/other.git");
+        refusedOnes.put("tokenHours", 10000);
+        refusedOnes.put("subagents", 50);
+        refusedOnes.put("provider", "other");
+        refusedOnes.put("credentialType", "api-key");
+        refusedOnes.put("rm", true);
+        refusedOnes.put("now", true);
+        refusedOnes.put("certify", true);
+        refusedOnes.put("parent", "porelo-uc-other");
+
+        refusedOnes.forEach(
+                (parameter, value) -> {
+                    final Map<String, Object> start = start("alpha", null, 30);
+                    start.put(parameter, value);
+                    refused(
+                            socket,
+                            "Start",
+                            start,
+                            "ParameterNotAllowed",
+                            Map.of("parameter", parameter));
+                });
+        assertNothingStarted();
+    }
+
+    @Test
+    void aStartWithOnlyWhatATaskMaySetGoesOn() throws IOException {
+        final Path socket = opened(HEAD + SECTION);
+        final Map<String, Object> start = start("beta", "small", 30);
+        start.put("branch", "porelo/child");
+        start.put("from", "main");
+        start.put("mode", "UNATTENDED");
+        start.put("maxTurns", 5);
+        start.put("dryRun", true);
+        start.put("steps", true);
+        start.put("parameters", Map.of());
+
+        assertThat(call(socket, "Start", start)).containsKey("exitCode");
+    }
+
+    @Test
+    void aSectionMayNameOnlyReadingMethodsStartAndStop() throws IOException {
+        assertThat(
+                        McpTaskSockets.refusals(
+                                List.of("Start", "Stop", "List", "Logs", "Label", "Approve")))
+                .hasSize(2)
+                .anySatisfy(each -> assertThat(each).contains("'Label'").contains("reading"))
+                .anySatisfy(each -> assertThat(each).contains("'Approve'").contains("reading"));
+        final String file =
+                HEAD + "mcp:\n  methods: [\"Start\", \"Label\"]\n  agents:\n    alpha:\n";
+        assertThat(McpTaskSockets.checked(Map.of(), file).get("refused"))
+                .asString()
+                .contains("'Label'");
+        context(file);
+
+        assertThatThrownBy(() -> sockets.open(LEAD, "uc"))
+                .isInstanceOf(IOException.class)
+                .hasMessageContaining("'Label'");
+    }
+
+    @Test
+    void aMethodTakingATaskActsOnlyOnTheCallerOrItsOwnChild() throws IOException {
+        final Path socket =
+                opened(HEAD + SECTION.replace("\"Stop\"]", "\"Stop\", \"Logs\", \"Held\"]"));
+        final PoreloContext context = sockets.context();
+        child(context, "porelo-uc-theirs", "porelo-uc-other");
+        child(context, "porelo-uc-person", null);
+        child(context, "porelo-uc-mine", LEAD);
+        assertThat(McpTaskSockets.takingATask())
+                .contains("Logs", "Tail", "Screen", "Usage", "HandIns", "Held", "Reach", "Peers")
+                .doesNotContain("List", "Watch", "Projects", "Events", "Prompts");
+
+        refused(
+                socket,
+                "Logs",
+                Map.of("task", "porelo-uc-theirs"),
+                "NotItsOwn",
+                Map.of("task", "porelo-uc-theirs", "parent", "porelo-uc-other"));
+        refused(
+                socket,
+                "Logs",
+                Map.of("task", "porelo-uc-person"),
+                "NotItsOwn",
+                Map.of("task", "porelo-uc-person", "parent", ""));
+        // Without one, every task's: not the caller's alone.
+        refused(socket, "Held", Map.of(), "NotItsOwn", Map.of("task", "", "parent", ""));
+        for (final String own : List.of(LEAD, "porelo-uc-mine")) {
+            final Object answer = attempt(socket, Map.of("task", own), "Logs").join();
+            if (answer instanceof VarlinkException ex) {
+                assertThat(ex.getErrorName()).as(own).doesNotEndWith(".NotItsOwn");
+            }
+        }
+    }
+
+    private void assertNothingStarted() {
+        assertThat(runner.lines())
+                .as("no start reached the machine's check")
+                .noneMatch(line -> line.startsWith("podman version"));
+    }
+
+    private static Map<String, Object> named(final String task, final Map<String, Object> start) {
+        start.put("task", task);
+        return start;
+    }
+
+    private static CompletableFuture<Object> attempt(
+            final Path socket, final Map<String, Object> parameters) {
+        return attempt(socket, parameters, "Start");
+    }
+
+    private static CompletableFuture<Object> attempt(
+            final Path socket, final Map<String, Object> parameters, final String method) {
+        return CompletableFuture.supplyAsync(
+                () -> {
+                    try {
+                        return call(socket, method, parameters);
+                    } catch (IOException | RuntimeException ex) {
+                        return ex;
+                    }
+                });
+    }
+
+    private static void assertRefused(
+            final Object answer, final String error, final Map<String, Object> said) {
+        assertThat(answer)
+                .isInstanceOfSatisfying(
+                        VarlinkException.class,
+                        ex -> {
+                            assertThat(ex.getErrorName())
+                                    .isEqualTo(PoreloDaemon.INTERFACE + "." + error);
+                            said.forEach(
+                                    (key, value) ->
+                                            assertThat(String.valueOf(ex.getParameters().get(key)))
+                                                    .as(key)
+                                                    .isEqualTo(String.valueOf(value)));
+                        });
+    }
+
+    private static void until(final java.util.function.BooleanSupplier condition)
+            throws InterruptedException {
+        final long end = System.nanoTime() + TimeUnit.SECONDS.toNanos(10);
+        while (!condition.getAsBoolean() && System.nanoTime() < end) {
+            Thread.sleep(20);
+        }
+    }
+
     private static Map<String, Object> start(
             final String agent, final String model, final int minutes) {
         final Map<String, Object> start = new java.util.HashMap<>();
         start.put("project", "uc");
         start.put("repository", "uc");
         start.put("task", "child");
-        start.put("agent", agent);
+        if (agent != null) {
+            start.put("agent", agent);
+        }
         if (model != null) {
             start.put("model", model);
         }
         start.put("minutes", minutes);
+        start.put("prompt", "go");
         return start;
     }
 }

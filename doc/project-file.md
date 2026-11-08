@@ -330,9 +330,10 @@ an administrator's commit like every other setting, and a repository's own `pore
 
 - **`methods` is required**: the daemon's methods the endpoint carries, by name without the interface, such as
   `Start`. The endpoint carries those alone, and its interface description is the daemon's cut down to them, so the
-  task is offered no other tool. A method the daemon never offers to MCP - one that stops every task, removes what
-  cannot be had back, or hands out a secret, as `McpMethods` lists under `never` - and a name the daemon does not
-  have are refused when the daemon reads the file, and by `CheckProjectFile`.
+  task is offered no other tool. Only the methods `McpMethods` lists under `reading`, `Start` and `Stop` may be
+  named: a method the daemon never offers to MCP - one that stops every task, removes what cannot be had back, or
+  hands out a secret, as `McpMethods` lists under `never` -, any other method, and a name the daemon does not have
+  are refused when the daemon reads the file, and by `CheckProjectFile`.
 - **`agents`** names the agents a started task may use, each to the models it may be asked for. An agent with
   nothing under it takes any model; one with a list must be started naming one of them, since its own default is not
   something the file can see. A start must name its agent. **Required**: Porelo names no agent itself, so no default
@@ -341,11 +342,23 @@ an administrator's commit like every other setting, and a repository's own `pore
 - **`tasks`**, 6 unless the file says otherwise, is the most tasks one task may have running through its endpoint
   at once; a start past it is refused with `ChildLimitReached`.
 - **`minutes`**, 240 unless the file says otherwise, is the longest run a start through the endpoint may give;
-  `minutes` above it is refused with `RunTooLong`, and an agent or model not allowed with `AgentNotAllowed`.
+  `minutes` above it, or a default of 30 above it, is refused with `RunTooLong`, below 1 with `RunTooShort`, and an
+  agent or model not allowed with `AgentNotAllowed`.
+
+A start through the endpoint runs a prompt unattended, in the task's own project: one without a prompt is refused
+with `PromptRequired`, another mode with `UnattendedOnly`, and another project with `ProjectNotItsOwn`. It may set
+the task's name, repository, branch, starting branch (`from`), prompt, agent, model, minutes, mode, turn limit
+(`maxTurns`), the file's declared `parameters`, `dryRun` and `steps`; any other parameter, such as `clearance`,
+`noGate`, `credentials`, `upstream`, `tokenHours`, `subagents`, `provider` or `rm`, is refused with
+`ParameterNotAllowed`. A start of a task another start is making now is refused with `AlreadyStarting`, and each
+start counts toward `tasks` until it returns.
 
 A task started through the endpoint records the task that started it as its parent, beside its branch and prompt, and
 the event log records a `started` event naming the parent. A stop through the endpoint stops only the task's own:
-one whose recorded parent is another task, or that records none, is refused with `NotItsOwn`. Stopping every task
+one whose recorded parent is another task, or that records none, is refused with `NotItsOwn`. A start bringing a task
+back, even one whose runtime directory a reboot emptied, is held the same way, and takes only the agent and model the
+task was made with (`MadeWithAnother` otherwise), which the file must still allow. Any other method naming a `task`
+acts only on the caller itself or its own; naming none, or another, is refused with `NotItsOwn`. Stopping every task
 stays a person's act.
 
 ## Services on this host

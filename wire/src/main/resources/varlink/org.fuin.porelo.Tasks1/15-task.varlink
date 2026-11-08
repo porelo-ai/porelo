@@ -1231,7 +1231,7 @@ error BranchTaken(task: string, branch: string, detail: string)
 
 error NoSuchTask(task: string)
 
-# The four refusals of a task's MCP socket, the per-task socket porelod serves a task's porelo-mcp on
+# The refusals of a task's MCP socket, the per-task socket porelod serves a task's porelo-mcp on
 # when its project's file has an 'mcp' section. Over that socket the caller is the socket's task, never
 # a field of the call; nothing was started or stopped.
 #
@@ -1244,9 +1244,27 @@ error RunTooLong(minutes: int, limit: int)
 # A Start named an agent, or a model of it, that 'mcp.agents' does not allow, or named no agent. 'model'
 # is "" for none; 'allowed' names each allowed agent, as agent:model where its models are listed.
 error AgentNotAllowed(agent: string, model: string, allowed: []string)
-# A Stop, or a Start bringing a task back, named a task the caller did not start. 'parent' is the task
-# that did, "" for one a person started.
+# A Stop, a Start bringing a task back, or another call naming a task, named a task the caller did not
+# start, or none; any call but Stop may also name the caller itself. 'parent' is the task that did, ""
+# for one a person started or none.
 error NotItsOwn(task: string, parent: string)
+# A Start carried a parameter a task may not set. It may set task, project, repository, branch, from,
+# prompt, agent, model, minutes, mode, maxTurns, parameters, dryRun and steps; whatever widens what the
+# started task may reach, hold or spend is the project file's or a person's.
+error ParameterNotAllowed(parameter: string)
+# A Start named another project than the caller's own, or none. 'own' is the caller's.
+error ProjectNotItsOwn(project: string, own: string)
+# A Start carried no prompt: a task starts another only to run one, unattended.
+error PromptRequired()
+# A Start asked for another mode than UNATTENDED; 'mode' is what it asked for.
+error UnattendedOnly(mode: string)
+# A Start asked for a run of less than a minute; 'minutes' is what it asked for.
+error RunTooShort(minutes: int)
+# A Start bringing a task back named another agent or model than the task was made with; 'agent' and
+# 'model' are the task's own, "" for the agent's default model.
+error MadeWithAnother(task: string, agent: string, model: string)
+# A Start named a task another Start is making or bringing back now.
+error AlreadyStarting(task: string)
 
 # The named log is not a file in that task's state directory.
 error NoSuchLog(task: string, log: string)

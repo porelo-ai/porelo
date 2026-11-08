@@ -22,6 +22,7 @@ import org.fuin.porelo.core.project.McpEndpoint;
 import org.fuin.porelo.core.project.ProjectException;
 import org.fuin.porelo.core.project.ProjectReader;
 import org.fuin.porelo.runtime.ContainerName;
+import org.fuin.porelo.wire.TaskMode;
 import org.fuin.porelo.wire.TaskProfile;
 import org.fuin.porelo.wire.varlink.VarlinkException;
 import org.fuin.porelo.wire.varlink.VarlinkServer;
@@ -40,7 +41,8 @@ import org.jspecify.annotations.Nullable;
  * mcp.methods} names and no other, so a method not named answers {@code MethodNotFound}; its
  * interface description is Tasks1 with every other method dropped, every type and error kept. A
  * {@code Start} on it is held to the file's limits and records the caller as the started task's
- * parent; a {@code Stop} on it takes only the caller's own.
+ * parent; a {@code Stop} on it takes only the caller's own, and any other call naming a task only
+ * the caller or its own.
  */
 final class McpTaskSockets implements McpDaemonSockets.Opener, AutoCloseable {
 
@@ -62,8 +64,40 @@ final class McpTaskSockets implements McpDaemonSockets.Opener, AutoCloseable {
     private final TaskControl control;
     private final Map<String, Served> open = new ConcurrentHashMap<>();
 
-    /** Containers each caller is starting now, so two starts at once both count. */
-    private final Map<String, Set<String>> starting = new ConcurrentHashMap<>();
+    /**
+     * The starts running now over the tasks' sockets, one entry per call under a token of its own,
+     * so two starts at once both count and one ending frees only its own place. Guarded by itself.
+     */
+    private final Map<Object, Starting> starting = new java.util.HashMap<>();
+
+    /** One start running now: who asked for it, and the container it is making or bringing back. */
+    private record Starting(String caller, String container) {}
+
+    /**
+     * The parameters a start over a task's socket may carry; any other is refused by name. What
+     * widens what the started task may reach, hold or spend is the file's or the person's: its
+     * clearance, gate, credentials, upstream, token, provider and subagents, and so are a removal,
+     * a certificate and a start that returns before its run.
+     */
+    static final Set<String> START_PARAMETERS =
+            Set.of(
+                    "task",
+                    "project",
+                    "repository",
+                    "branch",
+                    "from",
+                    "prompt",
+                    "agent",
+                    "model",
+                    "minutes",
+                    "mode",
+                    "maxTurns",
+                    "parameters",
+                    "dryRun",
+                    "steps");
+
+    /** The methods a task's endpoint may carry beside the reading ones. */
+    private static final Set<String> WRITING = Set.of("Start", "Stop");
 
     /** One socket, and the thread serving it. */
     private record Served(VarlinkServer server, Thread thread) {}
@@ -131,6 +165,12 @@ final class McpTaskSockets implements McpDaemonSockets.Opener, AutoCloseable {
                                 + "' is no method of "
                                 + INTERFACE
                                 + " this daemon has");
+            } else if (!McpMethods.READING.contains(method) && !WRITING.contains(method)) {
+                refused.add(
+                        "mcp.methods: '"
+                                + method
+                                + "' is not offered to a task: its endpoint carries only the"
+                                + " reading methods McpMethods names, Start and Stop");
             }
         }
         return List.copyOf(refused);
@@ -175,7 +215,7 @@ final class McpTaskSockets implements McpDaemonSockets.Opener, AutoCloseable {
         final Path socket = socketOf(task);
         final TaskSocket server;
         try {
-            server = new TaskSocket(socket, task, endpoint);
+            server = new TaskSocket(socket, task, project, endpoint, takingATask());
         } catch (VarlinkException ex) {
             throw new IOException(ex.getMessage(), ex);
         }
@@ -293,72 +333,218 @@ final class McpTaskSockets implements McpDaemonSockets.Opener, AutoCloseable {
 
     /**
      * Refuses a start the file's limits do not allow, and otherwise runs it while counting it as
-     * one of the caller's.
+     * one of the caller's: a prompt run unattended, in the caller's own project, with only the
+     * parameters a task may set, and a task brought back only when it is the caller's and with the
+     * agent and model it was made with.
      */
     private void start(
             final String caller,
+            final String project,
             final McpEndpoint endpoint,
             final Map<String, Object> parameters,
             final VarlinkServer.Replies replies,
             final VarlinkServer.Method start)
             throws IOException {
-        final String agent = PoreloDaemon.text(parameters, "agent");
-        final String model = PoreloDaemon.text(parameters, "model");
-        if (agent.isEmpty() || !endpoint.allows(agent, model.isEmpty() ? null : model)) {
-            throw new VarlinkException(
-                    INTERFACE + ".AgentNotAllowed",
-                    Map.of("agent", agent, "model", model, "allowed", endpoint.allowed()));
+        for (final String parameter : new java.util.TreeSet<>(parameters.keySet())) {
+            if (!START_PARAMETERS.contains(parameter)) {
+                throw new VarlinkException(
+                        INTERFACE + ".ParameterNotAllowed", Map.of("parameter", parameter));
+            }
         }
-        final int minutes =
-                parameters.get("minutes") instanceof Number given
-                        ? given.intValue()
-                        : TaskLaunch.DEFAULT_MINUTES;
+        final String asked = PoreloDaemon.text(parameters, "project");
+        if (!project.equals(asked)) {
+            throw new VarlinkException(
+                    INTERFACE + ".ProjectNotItsOwn", Map.of("project", asked, "own", project));
+        }
+        final Object mode = parameters.get("mode");
+        if (mode != null
+                && !(mode instanceof String named
+                        && TaskMode.parse(named, TaskMode.SHELL) == TaskMode.UNATTENDED)) {
+            throw new VarlinkException(
+                    INTERFACE + ".UnattendedOnly", Map.of("mode", String.valueOf(mode)));
+        }
+        if (PoreloDaemon.absent(parameters, "prompt") == null) {
+            // Without one the container stays up with no run to end it.
+            throw new VarlinkException(INTERFACE + ".PromptRequired", Map.of());
+        }
+        final Object given = parameters.get("minutes");
+        final int minutes;
+        if (given == null) {
+            minutes = TaskLaunch.DEFAULT_MINUTES;
+        } else if (given instanceof Number number) {
+            minutes = org.fuin.porelo.wire.varlink.VarlinkNumbers.intOf(number);
+        } else {
+            throw new VarlinkException(
+                    "org.varlink.service.InvalidParameter", Map.of("parameter", "minutes"));
+        }
+        if (minutes < 1) {
+            // Over before it began, the run would leave its container up.
+            throw new VarlinkException(INTERFACE + ".RunTooShort", Map.of("minutes", minutes));
+        }
         if (minutes > endpoint.minutes()) {
             throw new VarlinkException(
                     INTERFACE + ".RunTooLong",
                     Map.of("minutes", minutes, "limit", endpoint.minutes()));
         }
         final TaskLaunch.Request request = PoreloDaemon.request(parameters, context);
-        final String project = PoreloDaemon.text(parameters, "project");
-        // As the launch names it: a task given by its container name is the same task.
-        final String container =
-                ContainerName.PREFIX
-                        + project
-                        + "-"
-                        + ContainerName.taskFrom(project, request.task());
-        final TaskProfile existing =
-                TaskProfile.readFrom(context.paths().tasks().containerState(container));
-        if (existing != null && !caller.equals(existing.parent())) {
-            // Bringing back a task it did not start would run its own prompt in another's work.
-            throw notItsOwn(container, existing.parent());
-        }
-        final Set<String> mine =
-                starting.computeIfAbsent(caller, key -> ConcurrentHashMap.newKeySet());
-        synchronized (mine) {
-            final Set<String> counted = new HashSet<>(children(caller));
-            counted.addAll(mine);
-            counted.add(container);
-            if (counted.size() > endpoint.tasks()) {
-                counted.remove(container);
+        final boolean unnamed = PoreloDaemon.text(parameters, "task").isEmpty();
+        final String prefix = ContainerName.PREFIX + project + "-";
+        final Map<String, Object> held = new LinkedHashMap<>(parameters);
+        final Object token = new Object();
+        synchronized (starting) {
+            // As the launch names it: a task given by its container name is the same task.
+            final String picked = ContainerName.taskFrom(project, request.task());
+            String name = picked;
+            // Unnamed, past the name another start picked and has not made yet.
+            for (int at = 2;
+                    unnamed && (beingStarted(prefix + name) || recorded(prefix + name) != null);
+                    at++) {
+                name = picked + "-" + at;
+            }
+            final String container = prefix + name;
+            if (beingStarted(container)) {
+                throw new VarlinkException(
+                        INTERFACE + ".AlreadyStarting", Map.of("task", container));
+            }
+            // The name settled once: the start would otherwise pick an unnamed task's again, and
+            // another than the one counted here once a task of that name exists.
+            held.put("task", name);
+            final String agent = PoreloDaemon.text(parameters, "agent");
+            final String model = PoreloDaemon.text(parameters, "model");
+            String runs = agent;
+            @Nullable String asks = model.isEmpty() ? null : model;
+            final TaskProfile existing = recorded(container);
+            if (existing != null) {
+                if (!caller.equals(existing.parent())) {
+                    // Bringing back a task it did not start would run its prompt in another's work.
+                    throw notItsOwn(container, existing.parent());
+                }
+                final String made = existing.agent() == null ? "" : existing.agent();
+                if (!agent.isEmpty() && !agent.equals(made)
+                        || !model.isEmpty() && !model.equals(existing.model())) {
+                    throw new VarlinkException(
+                            INTERFACE + ".MadeWithAnother",
+                            Map.of(
+                                    "task",
+                                    container,
+                                    "agent",
+                                    made,
+                                    "model",
+                                    existing.model() == null ? "" : existing.model()));
+                }
+                runs = made;
+                asks = existing.model();
+            }
+            if (runs.isEmpty() || !endpoint.allows(runs, asks)) {
+                throw new VarlinkException(
+                        INTERFACE + ".AgentNotAllowed",
+                        Map.of(
+                                "agent",
+                                runs,
+                                "model",
+                                asks == null ? "" : asks,
+                                "allowed",
+                                endpoint.allowed()));
+            }
+            held.put("agent", runs);
+            if (asks != null) {
+                held.put("model", asks);
+            }
+            // Each start running counts once, and a running child once unless a start holds it.
+            int running = 0;
+            final Set<String> counted = new HashSet<>();
+            for (final Starting other : starting.values()) {
+                if (other.caller().equals(caller)) {
+                    running++;
+                    counted.add(other.container());
+                }
+            }
+            for (final String child : children(caller)) {
+                if (!counted.contains(child) && !child.equals(container)) {
+                    running++;
+                }
+            }
+            if (running + 1 > endpoint.tasks()) {
                 throw new VarlinkException(
                         INTERFACE + ".ChildLimitReached",
-                        Map.of(
-                                "parent",
-                                caller,
-                                "running",
-                                counted.size(),
-                                "limit",
-                                endpoint.tasks()));
+                        Map.of("parent", caller, "running", running, "limit", endpoint.tasks()));
             }
-            mine.add(container);
+            starting.put(token, new Starting(caller, container));
         }
         try {
-            start.call(parameters, replies);
+            start.call(held, replies);
         } finally {
-            synchronized (mine) {
-                mine.remove(container);
+            synchronized (starting) {
+                starting.remove(token);
             }
         }
+    }
+
+    /** Tells whether a start running now makes or brings back a container; under its lock. */
+    private boolean beingStarted(final String container) {
+        for (final Starting other : starting.values()) {
+            if (other.container().equals(container)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Returns a task's record: where the running task keeps it, or else where it is kept across a
+     * reboot, before a resume puts it back.
+     */
+    private @Nullable TaskProfile recorded(final String container) {
+        final TaskProfile profile =
+                TaskProfile.readFrom(context.paths().tasks().containerState(container));
+        return profile != null
+                ? profile
+                : TaskProfile.readFrom(context.paths().tasks().taskRecord(container));
+    }
+
+    /**
+     * Returns the methods that take a task, as the interface description declares their parameters:
+     * over a task's socket each acts on the caller or its own child alone.
+     *
+     * @return Their names, without the interface.
+     */
+    static Set<String> takingATask() {
+        final List<String> lines = PoreloDaemon.description().lines().toList();
+        final java.util.regex.Pattern method =
+                java.util.regex.Pattern.compile("^method\\s+([A-Za-z][A-Za-z0-9]*)\\s*\\(");
+        final java.util.regex.Pattern task = java.util.regex.Pattern.compile("(^|[,\\s])task\\s*:");
+        final Set<String> taking = new java.util.TreeSet<>();
+        for (int i = 0; i < lines.size(); i++) {
+            final java.util.regex.Matcher named = method.matcher(lines.get(i));
+            if (!named.find()) {
+                continue;
+            }
+            // Its parameters alone, at their own depth: a field of its reply or of a type is none.
+            final StringBuilder parameters = new StringBuilder();
+            int depth = 0;
+            boolean closed = false;
+            for (int j = i; j < lines.size() && !closed; j++) {
+                final String line = lines.get(j);
+                final int hash = line.indexOf('#');
+                final String code = hash < 0 ? line : line.substring(0, hash);
+                for (int c = 0; c < code.length() && !closed; c++) {
+                    final char ch = code.charAt(c);
+                    if (ch == '(') {
+                        depth++;
+                    } else if (ch == ')') {
+                        depth--;
+                        closed = depth == 0;
+                    } else if (depth == 1) {
+                        parameters.append(ch);
+                    }
+                }
+                parameters.append('\n');
+            }
+            if (task.matcher(parameters).find()) {
+                taking.add(named.group(1));
+            }
+        }
+        return taking;
     }
 
     /** The caller's tasks that are running, by container name. */
@@ -377,23 +563,26 @@ final class McpTaskSockets implements McpDaemonSockets.Opener, AutoCloseable {
         return children;
     }
 
-    /** Refuses a stop of a task the caller did not start, and otherwise runs it. */
-    private void stop(
-            final String caller,
-            final Map<String, Object> parameters,
-            final VarlinkServer.Replies replies,
-            final VarlinkServer.Method stop)
-            throws IOException {
+    /**
+     * Refuses a call naming a task that is not the caller's own: one whose recorded parent is
+     * another task or none, or, where the caller may name itself, not the caller either.
+     *
+     * @param caller The caller.
+     * @param parameters The call's parameters; a {@code task} left out names none.
+     * @param itself Whether the caller may name itself.
+     */
+    private void own(
+            final String caller, final Map<String, Object> parameters, final boolean itself) {
         final String task = PoreloDaemon.text(parameters, "task");
+        if (itself && task.equals(caller)) {
+            return;
+        }
         final TaskProfile profile =
-                task.isEmpty() || !TASK.matcher(task).matches()
-                        ? null
-                        : TaskProfile.readFrom(context.paths().tasks().containerState(task));
+                task.isEmpty() || !TASK.matcher(task).matches() ? null : recorded(task);
         final String parent = profile == null ? null : profile.parent();
         if (!caller.equals(parent)) {
             throw notItsOwn(task, parent);
         }
-        stop.call(parameters, replies);
     }
 
     private static VarlinkException notItsOwn(final String task, final @Nullable String parent) {
@@ -404,17 +593,27 @@ final class McpTaskSockets implements McpDaemonSockets.Opener, AutoCloseable {
 
     /**
      * One task's socket: a server that keeps only the methods its file allows, each run as the
-     * task, with a start and a stop held to the file.
+     * task, with a start held to the file, and a stop or any other call naming a task held to the
+     * task's own.
      */
     private final class TaskSocket extends VarlinkServer {
 
         private final String task;
+        private final String project;
         private final McpEndpoint endpoint;
+        private final Set<String> takingATask;
 
-        TaskSocket(final Path socket, final String task, final McpEndpoint endpoint) {
+        TaskSocket(
+                final Path socket,
+                final String task,
+                final String project,
+                final McpEndpoint endpoint,
+                final Set<String> takingATask) {
             super(socket, INTERFACE, org.fuin.porelo.core.process.SocketPeer::read);
             this.task = task;
+            this.project = project;
             this.endpoint = endpoint;
+            this.takingATask = Set.copyOf(takingATask);
         }
 
         @Override
@@ -422,15 +621,22 @@ final class McpTaskSockets implements McpDaemonSockets.Opener, AutoCloseable {
             if (!endpoint.methods().contains(name)) {
                 return this;
             }
-            final VarlinkServer.Method held =
-                    switch (name) {
-                        case "Start" ->
-                                (parameters, replies) ->
-                                        start(task, endpoint, parameters, replies, method);
-                        case "Stop" ->
-                                (parameters, replies) -> stop(task, parameters, replies, method);
-                        default -> method;
-                    };
+            final VarlinkServer.Method held;
+            if ("Start".equals(name)) {
+                held =
+                        (parameters, replies) ->
+                                start(task, project, endpoint, parameters, replies, method);
+            } else if ("Stop".equals(name) || takingATask.contains(name)) {
+                // A stop takes its children alone; any other call naming a task, the caller too.
+                final boolean itself = !"Stop".equals(name);
+                held =
+                        (parameters, replies) -> {
+                            own(task, parameters, itself);
+                            method.call(parameters, replies);
+                        };
+            } else {
+                held = method;
+            }
             return super.method(
                     name,
                     (parameters, replies) ->
