@@ -1,6 +1,7 @@
 # [B515](README.md#b515) — A Start That Did Not Stream Answers With The Run's Result
 
-**Status:** Idea. Filed 2026-11-08 from the local MCP test with a prompt.
+**Status:** Backlog. Filed 2026-11-08 from the local MCP test with a prompt; built first, before
+[B514](README.md#b514) (the operator, 15:23Z).
 **Size:** M - an optional `result` on `Start`'s final reply, read by the agent's plugin from its own run, a field in
 the agent API, and the plugins' part in their own repositories.
 

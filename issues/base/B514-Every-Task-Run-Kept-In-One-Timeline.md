@@ -1,9 +1,9 @@
 # [B514](README.md#b514) — Every Task Run Kept, In One Timeline
 
-**Status:** Idea. Filed 2026-11-08 at the operator's word; not built until the operator says so.
-**Size:** L - mostly re-routing the existing log sources into one stream. Five pieces of new code beyond that: the
-lifecycle entries, the copy on stop with the archive on Remove, the `podman events` follower, the readings, and the
-OTLP export. Without the export, which could be its own issue, it is M.
+**Status:** Backlog. Filed 2026-11-08 at the operator's word; to be built after [B515](README.md#b515) (the operator,
+15:23Z). The OTLP export is split off as [B516](README.md#b516).
+**Size:** M - mostly re-routing the existing log sources into one stream. Four pieces of new code beyond that: the
+lifecycle entries, the copy on stop with the archive on Remove, the `podman events` follower, and the readings.
 
 **What must be true.** A task's whole life can be read, in the CLI and (with F436 in porelo-frontend) in the window,
 for as long as the person keeps it, also after the task is stopped, the machine rebooted, or the task removed.
@@ -74,10 +74,7 @@ the clearance. What is new is that they are kept per run.
    did.
 2. **Bound what is unbounded first:** `failures.log` gets the size limit and rotation the stream has. That can come
    before everything else.
-3. **The export is its own decision.** OpenTelemetry logs over OTLP to a collector the organization
-   names; off by default. What may leave is the person's choice per kind. The agent's own output (code, prompts) and
-   anything the vault or the gate held never leaves unless chosen, and secrets are never in a record at all, as
-   today.
+3. **The export is its own issue,** [B516](README.md#b516).
 
 **The audit records** (events: approvals, clearances, credentials and now the lifecycle) stay the hash-chained subset
 whose trust does not depend on the stream. They are mirrored into the stream, so the stream is the one timeline to
@@ -105,8 +102,6 @@ One issue, in this order:
    - `porelo logs [--task] [--component] [--since] [--follow]`;
    - the nine files turned into views in one go, each with a test that it answers as before;
    - `failures.log` bounded at once.
-4. **The export (M):** OTLP to a named collector, off by default, with a choice per kind of what may leave.
-   It is chosen by the CLI only; the window does not offer it (the operator, 2026-11-08 14:27Z).
 
 **For every reading** (Agent Frontend, 14:24Z; F436's size holds only with them):
 - lifecycle entries and stream records by filter (project, task, run, component, level, since), in pages with a
@@ -116,7 +111,7 @@ One issue, in this order:
   `data` as it comes;
 - `failures.log`'s stack traces as records of level error, with the trace in `data`, bounded like the rest.
 
-**Plan reading** before it is built: the lifecycle, the archive and the export cross a trust boundary.
+**Plan reading** before it is built: the lifecycle and the archive cross a trust boundary.
 
 **Frontend:** F436 in porelo-frontend reads the lifecycle and the archive through `Lifecycle` and `ArchivedLog`, and the
 stream through `porelo logs`' reading.
