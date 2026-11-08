@@ -37,7 +37,6 @@ answered in turn. The card says only "the people in your project's conversation"
     Before, `["people"]` still reached every task.
   - Only in a task's own signed message (`ROLE_AGENT`, with its signature). A person's words to `people`, through
     `talk say`, reach the tasks as a person's do. An unsigned message is handed on to be held, not taken away.
-  - `MailboxGuideTest` pins the guide's and the card's new words.
   - Left to [B527](README.md#b527): a task's room answer to a person by name still reaches every other task.
   - Test: `EveryoneReadsTheRoomTest.peopleIsKnownInEveryFormADispatchTakesAndOnlyInATasksOwnSignedMessage`, seen
     red before the fix.
