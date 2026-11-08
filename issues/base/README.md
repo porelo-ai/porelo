@@ -121,6 +121,9 @@ from its side, as *blocked by*.
 | <a id="b14"></a>[B14](B14-Talking-Between-Tasks.md) | XL | `porelo` [B86](README.md#b86) | Talking between tasks, built on one machine; splits into groups (M), trust confirmed once with fingerprints (M), two machines on one homeserver (L). |
 | <a id="b193"></a>[B193](B193-A-Dependency-Cache-Shared-Across-Tasks.md) | XL | - | Downloaded dependencies cached once for a project's tasks and handed in read-only; what a task installs stays its own; analyzed: filled only from reviewed work, mounted `:ro,z`, read through `maven.repo.local.tail`, filled by `dependency:go-offline` on request and when the default branch moved, Maven first |
 | <a id="b371"></a>[B371](B371-A-History-Judged-Under-The-Rules-Of-Its-Time.md) | M | - | A history mode of `porelo commit verify`: each commit judged by the keys and certificates in force at its own time, for a migrated history before the hook is armed |
+| <a id="b520"></a>[B520](B520-A-Build-Verdict-Final-Only-When-Every-Workflow-Is.md) | S | - | A commit's build verdict reaches the task as final only once every workflow of it is, and a later run of the same commit, started by hand, is followed again and its file replaced. |
+| <a id="b521"></a>[B521](B521-The-Gate-Is-Also-The-Tasks-Origin.md) | S | - | A task's workspace has `origin` beside `porelo`, both the gate, so `origin/main` works in every check; pushes still reach only the gate. |
+| <a id="b522"></a>[B522](B522-An-Online-Task-On-A-Host-Pushes-Its-Amend.md) | S | - | An online task on a host pushes its amended commit to `porelo/<task>` with a lease on what the gate last pushed there. |
 
 ## Analyzed
 
