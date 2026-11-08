@@ -45,3 +45,24 @@ project's room a task appears as its agent's name (`Agent Pi`), so a line headed
 
 - Which room heads the transport matches against the display today (the head's match is the transport's), with the
   room's other repository.
+
+## After the plan reading
+
+The build takes these answers; each harm gets a test seen red first.
+
+- **One task owns "Agent Pi".** Choosing the display and enrolling happen under the addresses file's lock; a display
+  held by an enrolled task of the project, running or stopped, is never handed to another until that task is removed.
+  The second task of the agent is "Agent Pi (<short>)", its short part cut so the whole stays within 64.
+- **No person takes an agent's display:** `talk join` and the transport's join refuse a display or person name that
+  begins with "Agent " or "agent-", in any case.
+- **Every resume path enrolls with the display** (`task resume`, `attach`, `start --restarted`, the daemon's
+  `Start` of a kept task), not only `TaskLaunch.startExisting`; where the profile has no agent (a task from before, a
+  shell task), the display is "Agent " + its short name.
+- **`named` is the caller's word:** `TaskLaunch.Request` carries it only where the start was given a name (the CLI's
+  positional, the daemon's `task` parameter before the MCP endpoint fills it in); `withLabel` and `withClearance` keep it.
+- **The row:** `short: ?string`, `named: ?string`, `display: string` = `named`, else `short`, else the container name.
+  `porelo task list` renders `display` (it renders `TaskInventory.Task` itself, not `asMap`), `task status` shows the
+  container among the details; two tasks of one display in two projects are told apart by their project in the list,
+  and `TaskTarget` matches this checkout's project first.
+- The room's match of "Agent Pi (fix):" and of "Agent Pi:" against that display is the transport's; agreed with the
+  transport's agent before building.
