@@ -46,7 +46,7 @@ change.
 
 **Who did it** is known where the call comes in, never from a field:
 - the person's socket means the person (CLI or GUI);
-- a task's MCP socket means that task, from B507's `CALLER`. The MCP client's name and session are known only to
+- a task's MCP socket means that task, from [B507](README.md#b507)'s `CALLER`. The MCP client's name and session are known only to
   porelo-mcp, and they need a field in the binding with Agent MCP, marked as the client's word, not proven;
 - porelod's own acts (expiry, prune, a failed start, a reboot found at start) name porelod.
 
@@ -106,6 +106,14 @@ Four steps, each its own issue when the operator takes it:
    - the nine files turned into views one component at a time;
    - `failures.log` bounded at once.
 4. **The export (M):** OTLP to a named collector, off by default, with a choice per kind of what may leave.
+
+**For every reading** (Agent Frontend, 14:24Z; F436's size holds only with them):
+- lifecycle entries and stream records by filter (project, task, run, component, level, since), in pages with a
+  cursor, so a reconnect resumes with no gap and no double;
+- a follow that pushes new records and ends with the run;
+- secrets kept out at the source: the vault proxy, the gate and the hooks never write a value, since a reader shows
+  `data` as it comes;
+- `failures.log`'s stack traces as records of level error, with the trace in `data`, bounded like the rest.
 
 **Plan reading** before each step: steps 1, 2 and 4 cross a trust boundary.
 
