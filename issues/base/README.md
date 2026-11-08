@@ -116,6 +116,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b527"></a>[B527](B527-A-Tasks-Message-Reaches-The-Task-It-Names.md) | M | - | A task's message reaches only the task it names, in place of every agent reading every message. |
 | <a id="b525"></a>[B525](B525-Each-Workflow-Run-Of-A-Build-By-Name.md) | M | - | A build names each workflow run of the commit with its own state, also while it runs. |
 | <a id="b514"></a>[B514](B514-Every-Task-Run-Kept-In-One-Timeline.md) | M | - | Every task run kept in one timeline: lifecycle entries (who and when, the run's numbers) in the events chain, logs archived past stop, reboot and removal, readings over varlink, MCP and the CLI, one structured log stream for every Porelo process with the journal as its home; porelo-frontend's F436 reads it. |
 | <a id="b118"></a>[B118](B118-An-Attached-Agent-Said-At-Rest-Or-Working.md) | M | - | A new `AT_REST` activity, judged from the screen reads the listing already makes with the wake's two-look rule; the stub agent gets an `at_rest`. | - |
