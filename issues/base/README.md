@@ -120,6 +120,7 @@ from its side, as *blocked by*.
 | <a id="b14"></a>[B14](B14-Talking-Between-Tasks.md) | XL | `porelo` [B86](README.md#b86) | Talking between tasks, built on one machine; splits into groups (M), trust confirmed once with fingerprints (M), two machines on one homeserver (L). |
 | <a id="b193"></a>[B193](B193-A-Dependency-Cache-Shared-Across-Tasks.md) | XL | - | Downloaded dependencies cached once for a project's tasks and handed in read-only; what a task installs stays its own; analyzed: filled only from reviewed work, mounted `:ro,z`, read through `maven.repo.local.tail`, filled by `dependency:go-offline` on request and when the default branch moved, Maven first |
 | <a id="b371"></a>[B371](B371-A-History-Judged-Under-The-Rules-Of-Its-Time.md) | M | - | A history mode of `porelo commit verify`: each commit judged by the keys and certificates in force at its own time, for a migrated history before the hook is armed |
+| <a id="b519"></a>[B519](B519-A-Persons-Line-On-A-Host-Reaches-The-Tasks.md) | S | - | On a host, an admitted person's line in the project's room reaches the tasks and wakes the one it mentions: `TransportLifecycle.persons` no longer waits for the lifecycle verb `members`, which the Matrix transport dropped. |
 
 ## Analyzed
 
