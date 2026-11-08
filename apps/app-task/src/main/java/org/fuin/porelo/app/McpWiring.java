@@ -268,12 +268,11 @@ final class McpWiring {
     /**
      * Returns the destination the gateway reaches the endpoint as, keyed with its token.
      *
-     * <p>{@code unix:<socket>}, with the agent's requests going to {@link #PATH} on it. Refused by
-     * {@link Destination} until it takes the {@code unix:} kind.
+     * <p>{@code unix:<socket>}, with the agent's requests going to {@link #PATH} on it.
      *
      * @param socket The endpoint's socket.
      * @return The destination.
-     * @throws Refused While the gateway takes no {@code unix:} destination.
+     * @throws Refused When {@link Destination} refuses the socket's address.
      */
     static Destination destination(Path socket) {
         try {
