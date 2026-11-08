@@ -78,6 +78,27 @@ class StubReaderTest {
     }
 
     @Test
+    void namesEachRunAtEveryAnswerAlsoWhileTheBuildRuns() throws IOException {
+        final StubReader stub =
+                new StubReader(
+                        answers(
+                                """
+                {"builds": {"%s": {"verdict": "running", "runs": [
+                  {"name": "Build", "result": "in_progress"},
+                  {"name": "Shared rules check", "result": "success"}]}}}
+                """
+                                        .formatted(SHA)));
+
+        final Build build = stub.build(TARGET, SHA, Build.Logs.FAILURE);
+
+        assertThat(build.jobs()).isEmpty();
+        assertThat(build.runs())
+                .containsExactly(
+                        new Build.Run("Build", "in_progress"),
+                        new Build.Run("Shared rules check", "success"));
+    }
+
+    @Test
     void acceptsOnlyTheTokenItsFileNames() throws IOException {
         final StubReader stub =
                 new StubReader(

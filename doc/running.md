@@ -279,12 +279,18 @@ builds:
 - **Only in `online`**: in `guarded` the forge builds nothing until a person approves the work at the gate, and in
   `offline` there is no build. A project of either class with a `builds` section is refused when it is read.
 - **What arrives in `/porelo/files`**, with `by` "porelo": `build-<first 12 of commit>.txt`, the verdict - one of
-  `queued`, `running`, `success`, `failure`, `cancelled`, `unknown` - and, once it is `failure` or final, one line per
-  job with its result and its log's file; and `build-<first 12 of commit>-<n>.log`, the last 64 KiB of a job's log
+  `queued`, `running`, `success`, `failure`, `cancelled`, `unknown` - one line per workflow run with its state, and,
+  once it is `failure` or final, one line per job with its result and its log's file; and `build-<first 12 of commit>-<n>.log`, the last 64 KiB of a job's log
   as text - less when more than 32 logs share 2 MiB - for each failed job, or for every job with `logs: all`. `<n>` is
   the job's place in that list, so the failed job's log is the file its `job:` line names, not `-1.log`. The file is
   replaced as the verdict changes.
-- **A wait ends**: at a verdict that will not change, after two hours of a commit's build, or when the task stops.
+- **A verdict is final only when every workflow is**: one that finishes first, a Shared rules check, is not the
+  Build. A final commit is still asked every two minutes, so a workflow started later, by hand too, is followed and
+  replaces `build-<commit>.txt`. A run's change of state alone does not replace the file, so it does not wake the
+  agent: it is written down for the window, which shows one line per run. A failure while
+  another run still goes on keeps the build asked every 20 seconds.
+- **A wait ends**: two hours after the last change of a finished commit's verdict, after two hours of a build without
+  a verdict, or when the task stops.
   A rate limit, a credential the forge refused, a repository it does not show and a shut vault are each said in the
   verdict's detail, never as a failed build.
 - **Porelo keeps no copy of a log.** What it writes down is which builds it delivered - commit, verdict, each job's
@@ -384,11 +390,14 @@ Where the project follows its builds, Porelo watches what the forge builds for e
 push to the task's branch, and hands in what it did:
 
 - `build-<commit>.txt`, `<commit>` the first 12 characters of the commit: lines of
-  `key: value` - `commit`, `verdict`, one `job` line per job, `since`, and `detail` when
-  there is more to say.
+  `key: value` - `commit`, `verdict`, one `run` line per workflow run, one `job` line per
+  job, `since`, and `detail` when there is more to say.
 - `verdict` is `queued` or `running` while the build goes on, then `success`, `failure` or
   `cancelled`. It is `unknown` when there is no build or Porelo cannot read it, and `detail`
   says why.
+- A `run` line names a workflow of the commit and its state when the file was written:
+  `queued` or `in_progress` while it goes on, then what became of it. Not every forge names
+  its runs.
 - A `job` line names the job and what became of it, and the file holding the end of its log
   when one was handed in: `build-<commit>-<n>.log`. A failed job's log always is, when the
   forge has one.

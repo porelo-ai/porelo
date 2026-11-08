@@ -58,6 +58,27 @@ public final class TaskBuilds {
     }
 
     /**
+     * One run of a workflow for the commit, as the reader named it.
+     *
+     * @param name As the forge spells it.
+     * @param result What became of it, or its state while it is not finished.
+     */
+    public record Run(String name, String result) {
+
+        /**
+         * Returns it as the daemon sends it.
+         *
+         * @return Its fields.
+         */
+        public Map<String, Object> asMap() {
+            final Map<String, Object> map = new LinkedHashMap<>();
+            map.put("name", name);
+            map.put("result", result);
+            return map;
+        }
+    }
+
+    /**
      * One verdict for one commit, as it was handed into the task.
      *
      * @param commit The full sha the task pushed.
@@ -66,6 +87,7 @@ public final class TaskBuilds {
      * @param since UTC, when the verdict last changed.
      * @param detail Why it is unknown, or what more the forge said; "" otherwise.
      * @param run The container id of the task it went to.
+     * @param runs Each run of the commit's workflows the reader named, in its order.
      */
     public record Seen(
             String commit,
@@ -73,7 +95,34 @@ public final class TaskBuilds {
             List<Job> jobs,
             String since,
             String detail,
-            String run) {
+            String run,
+            List<Run> runs) {
+
+        /** Kept a copy. */
+        public Seen {
+            jobs = List.copyOf(jobs);
+            runs = List.copyOf(runs);
+        }
+
+        /**
+         * Constructor for a verdict that names no run, as a record line from before reads.
+         *
+         * @param commit The full sha the task pushed.
+         * @param verdict The verdict.
+         * @param jobs The jobs.
+         * @param since When the verdict last changed.
+         * @param detail More.
+         * @param run The container id of the task it went to.
+         */
+        public Seen(
+                final String commit,
+                final String verdict,
+                final List<Job> jobs,
+                final String since,
+                final String detail,
+                final String run) {
+            this(commit, verdict, jobs, since, detail, run, List.of());
+        }
 
         /**
          * Returns it as the daemon sends it, the agreed contract.
@@ -87,6 +136,8 @@ public final class TaskBuilds {
             map.put("jobs", jobs.stream().map(Job::asMap).toList());
             map.put("since", since);
             map.put("detail", detail);
+            // Always: Tasks1's Build.runs is not optional.
+            map.put("runs", runs.stream().map(Run::asMap).toList());
             return map;
         }
 
@@ -235,6 +286,14 @@ public final class TaskBuilds {
                         }
                     }
                 }
+                final List<Run> runs = new ArrayList<>();
+                if (map.get("runs") instanceof List<?> named) {
+                    for (final Object entry : named) {
+                        if (entry instanceof Map<?, ?> each) {
+                            runs.add(new Run(text(each.get("name")), text(each.get("result"))));
+                        }
+                    }
+                }
                 seen.add(
                         new Seen(
                                 text(map.get("commit")),
@@ -242,7 +301,8 @@ public final class TaskBuilds {
                                 jobs,
                                 text(map.get("since")),
                                 text(map.get("detail")),
-                                text(map.get("run"))));
+                                text(map.get("run")),
+                                runs));
             }
         }
         return seen;

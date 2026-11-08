@@ -24,7 +24,11 @@ import org.jspecify.annotations.Nullable;
  * it changes, and a failing job's log beside it. The task asks nothing and holds no forge
  * credential: this runs on the host, as a helper of the task's launch.
  *
- * <p>A watch ends at a verdict that will not change, at {@link #DEADLINE}, or when the task stops.
+ * <p>A verdict is final only once no workflow of the commit runs or waits, and even then the commit
+ * stays watched: a workflow that starts later, such as a Build started by hand after a check that
+ * finished first, is followed again and replaces the file. A finished commit is asked every {@link
+ * #SETTLED} and left alone {@link #DEADLINE} after its last change; an unfinished one at the
+ * deadline, said; every one when the task stops.
  */
 public final class BuildWatch {
 
@@ -36,6 +40,11 @@ public final class BuildWatch {
 
     /** How long one commit's build is waited for. */
     static final Duration DEADLINE = Duration.ofHours(2);
+
+    /**
+     * How often a commit whose verdict is final is asked again, for a workflow that starts later.
+     */
+    static final Duration SETTLED = Duration.ofMinutes(2);
 
     /**
      * How long a forge may take to show a build of a commit just pushed before "no build" is said.
@@ -213,9 +222,23 @@ public final class BuildWatch {
 
         private Instant since;
 
+        /** Since when its build has waited for a verdict: its push, or the run that reopened it. */
+        private Instant opened;
+
+        /** When it was last asked while final, or {@code null} while it is not. */
+        private @Nullable Instant settled;
+
+        /** When what the task was told of it last changed. */
+        private Instant changed;
+
+        /** What was last written down of it, so a change of its runs alone is recorded on it. */
+        private TaskBuilds.@Nullable Seen seen;
+
         Watched(final Instant pushed) {
             this.pushed = pushed;
             this.since = pushed;
+            this.opened = pushed;
+            this.changed = pushed;
         }
     }
 
@@ -342,10 +365,14 @@ public final class BuildWatch {
                                 seen.jobs().stream()
                                         .map(job -> new Build.Job(job.name(), job.result()))
                                         .toList(),
-                                seen.detail());
-                if (seen.finished()) {
-                    watched.remove(seen.commit());
-                }
+                                seen.detail(),
+                                seen.runs().stream()
+                                        .map(each2 -> new Build.Run(each2.name(), each2.result()))
+                                        .toList());
+                each.seen = seen;
+                // Still followed: a workflow may start later, and its verdict is the task's. Its
+                // last line decides: a commit that ran again after a final verdict is not settled.
+                each.settled = seen.finished() && !anyRunning(seen.runs()) ? clock.instant() : null;
             }
         } catch (IOException ex) {
             // Nothing to take up: the watch starts from where the branch points now.
@@ -420,29 +447,65 @@ public final class BuildWatch {
     }
 
     private void build(final String commit, final Watched each) {
-        final Build build = forge.build(commit);
         final Instant now = clock.instant();
+        if (each.settled != null) {
+            if (now.isAfter(each.changed.plus(DEADLINE))) {
+                watched.remove(commit);
+                return;
+            }
+            if (now.isBefore(each.settled.plus(SETTLED))) {
+                return;
+            }
+        }
+        final Build build = forge.build(commit);
         if (Build.UNKNOWN.equals(build.verdict()) && now.isBefore(each.pushed.plus(GRACE))) {
             return;
         }
-        if (!build.finished() && now.isAfter(each.pushed.plus(DEADLINE))) {
-            tell(
-                    commit,
-                    each,
-                    Build.unknown(
-                            "no verdict within "
-                                    + DEADLINE.toHours()
-                                    + " hours; Porelo stopped"
-                                    + " waiting for this build (last: "
-                                    + build.verdict()
-                                    + ")"));
+        if (Build.UNKNOWN.equals(build.verdict()) && each.settled != null) {
+            // A forge that shows no build of a final commit any more has not started one: the
+            // task keeps the verdict it has, asked again at the next settled round.
+            each.settled = now;
+            return;
+        }
+        // A failure while another workflow still runs is not final either: its rounds stay at 20 s
+        // until the deadline.
+        final boolean pending = !build.finished() || running(build);
+        if (pending && each.settled != null) {
+            // A workflow started after the verdict was final: followed like a new push.
+            each.opened = now;
+        }
+        if (pending && now.isAfter(each.opened.plus(DEADLINE))) {
+            if (!build.finished()) {
+                tell(
+                        commit,
+                        each,
+                        Build.unknown(
+                                "no verdict within "
+                                        + DEADLINE.toHours()
+                                        + " hours; Porelo stopped"
+                                        + " waiting for this build (last: "
+                                        + build.verdict()
+                                        + ")"));
+            }
+            // A final verdict stands: only the workflow beside it is no longer followed.
             watched.remove(commit);
             return;
         }
-        tell(commit, each, build);
-        if (build.finished()) {
-            watched.remove(commit);
-        }
+        final boolean told = tell(commit, each, build);
+        // Nor is a verdict the task was not told final: the next round hands it in again.
+        each.settled = told && !pending ? now : null;
+    }
+
+    /** What a run's result is while it is not finished, as the forges spell it. */
+    static final java.util.Set<String> NOT_FINISHED =
+            java.util.Set.of("queued", "waiting", "pending", "requested", "in_progress", "running");
+
+    private static boolean anyRunning(final List<TaskBuilds.Run> runs) {
+        return runs.stream().anyMatch(run -> NOT_FINISHED.contains(run.result()));
+    }
+
+    private static boolean running(final Build build) {
+        return build.runs().stream().anyMatch(run -> NOT_FINISHED.contains(run.result()));
     }
 
     private Duration refused(final BuildRefused ex) {
@@ -468,20 +531,59 @@ public final class BuildWatch {
 
     private void tellAll(final Build build) {
         for (final Map.Entry<String, Watched> each : List.copyOf(watched.entrySet())) {
-            tell(each.getKey(), each.getValue(), build);
+            // A final verdict stands: why the forge cannot be asked now does not undo it.
+            if (each.getValue().settled == null) {
+                tell(each.getKey(), each.getValue(), build);
+            }
         }
     }
 
     /**
      * Hands a verdict in when it differs from the one the task has; the logs first, so the verdict
      * names files.
+     *
+     * @return Whether the task now has this build: unchanged, or handed in.
      */
-    private void tell(final String commit, final Watched each, final Build build) {
+    private boolean tell(final String commit, final Watched each, final Build build) {
         if (each.told != null
                 && each.told.verdict().equals(build.verdict())
                 && same(each.told.jobs(), build.jobs())
                 && each.told.detail().equals(build.detail())) {
-            return;
+            if (each.told.runs().equals(build.runs())) {
+                return true;
+            }
+            if (running(build) || !running(each.told)) {
+                // Only its runs changed: written down for the tile, never handed in, so the
+                // agent is not woken for a workflow moving from queued to running.
+                final TaskBuilds.Seen seen = each.seen;
+                if (seen == null) {
+                    return true;
+                }
+                final TaskBuilds.Seen moved =
+                        new TaskBuilds.Seen(
+                                seen.commit(),
+                                seen.verdict(),
+                                seen.jobs(),
+                                seen.since(),
+                                seen.detail(),
+                                seen.run(),
+                                runs(build));
+                try {
+                    builds.write(container, moved);
+                    each.seen = moved;
+                    each.told =
+                            new Build(
+                                    each.told.verdict(),
+                                    each.told.jobs(),
+                                    each.told.detail(),
+                                    build.runs());
+                } catch (IOException ex) {
+                    // Written down at the next round.
+                }
+                return true;
+            }
+            // The last run the task was told is running ended: handed in, so the task's file does
+            // not keep it running, and the commit settles only once the task has it.
         }
         final Instant now = clock.instant().truncatedTo(ChronoUnit.SECONDS);
         if (each.told == null || !each.told.verdict().equals(build.verdict())) {
@@ -508,12 +610,17 @@ public final class BuildWatch {
                             jobs,
                             each.since.toString(),
                             build.detail(),
-                            run);
+                            run,
+                            runs(build));
             handIn(base + ".txt", text(seen).getBytes(StandardCharsets.UTF_8));
             builds.write(container, seen);
+            each.seen = seen;
             each.told = build;
+            each.changed = clock.instant();
+            return true;
         } catch (IOException | HandIns.Refused ex) {
             // Not told: the next round tries again, since 'told' still holds what the task has.
+            return false;
         }
     }
 
@@ -523,9 +630,15 @@ public final class BuildWatch {
      */
     private static boolean same(final List<Build.Job> told, final List<Build.Job> now) {
         return told.stream()
-                .map(job -> job.name() + "\u0000" + job.result())
+                .map(job -> List.of(job.name(), job.result()))
                 .toList()
-                .equals(now.stream().map(job -> job.name() + "\u0000" + job.result()).toList());
+                .equals(now.stream().map(job -> List.of(job.name(), job.result())).toList());
+    }
+
+    private static List<TaskBuilds.Run> runs(final Build build) {
+        return build.runs().stream()
+                .map(run -> new TaskBuilds.Run(run.name(), run.result()))
+                .toList();
     }
 
     /**
@@ -552,6 +665,13 @@ public final class BuildWatch {
         final StringBuilder text = new StringBuilder();
         text.append("commit: ").append(seen.commit()).append('\n');
         text.append("verdict: ").append(seen.verdict()).append('\n');
+        for (final TaskBuilds.Run each : seen.runs()) {
+            text.append("run: ")
+                    .append(each.name())
+                    .append(" - ")
+                    .append(each.result())
+                    .append('\n');
+        }
         for (final TaskBuilds.Job job : seen.jobs()) {
             text.append("job: ").append(job.name()).append(" - ").append(job.result());
             if (job.log() != null) {

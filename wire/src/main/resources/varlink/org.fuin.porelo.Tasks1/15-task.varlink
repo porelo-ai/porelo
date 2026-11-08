@@ -299,7 +299,18 @@ type Build (
   since: string,
   # Why "unknown" - a rate limit, a credential the forge refused, the vault shut, no build for that commit, no
   # verdict within the deadline - or what more the forge said; empty otherwise.
-  detail: string
+  detail: string,
+  # Each run of a workflow for the commit, with its own state, at every answer of the reader - also while queued or
+  # running, one line each on a tile. Empty when the reader names none. At most 50.
+  runs: []BuildRun
+)
+
+# One run of a workflow for a commit.
+type BuildRun (
+  # As the forge spells it, one line of printable text.
+  name: string,
+  # What became of it, lower case, or its state while it is not finished: "queued" | "in_progress" | ...
+  result: string
 )
 
 # One job of a build.

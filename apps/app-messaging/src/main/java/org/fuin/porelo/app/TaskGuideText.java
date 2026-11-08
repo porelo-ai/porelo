@@ -79,11 +79,14 @@ public final class TaskGuideText {
                 push to the task's branch, and hands in what it did:
 
                 - `build-<commit>.txt`, `<commit>` the first 12 characters of the commit: lines of
-                  `key: value` - `commit`, `verdict`, one `job` line per job, `since`, and `detail` when
-                  there is more to say.
+                  `key: value` - `commit`, `verdict`, one `run` line per workflow run, one `job` line per
+                  job, `since`, and `detail` when there is more to say.
                 - `verdict` is `queued` or `running` while the build goes on, then `success`, `failure` or
                   `cancelled`. It is `unknown` when there is no build or Porelo cannot read it, and `detail`
                   says why.
+                - A `run` line names a workflow of the commit and its state when the file was written:
+                  `queued` or `in_progress` while it goes on, then what became of it. Not every forge names
+                  its runs.
                 - A `job` line names the job and what became of it, and the file holding the end of its log
                   when one was handed in: `build-<commit>-<n>.log`. A failed job's log always is, when the
                   forge has one.

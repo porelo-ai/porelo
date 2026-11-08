@@ -6,6 +6,7 @@ import java.util.Arrays;
 import java.util.Base64;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import org.jspecify.annotations.Nullable;
 
@@ -18,7 +19,78 @@ import org.jspecify.annotations.Nullable;
  *     #MOST_LOG_BYTES}; {@link Logs} decides which carry a log.
  * @param detail Why the verdict is {@link #UNKNOWN}, or what more the forge said; "" otherwise.
  */
-public record Build(String verdict, List<Job> jobs, String detail) {
+public record Build(String verdict, List<Job> jobs, String detail, List<Run> runs) {
+
+    /** The most runs one build names, so a forge cannot flood a task or a reply. */
+    public static final int MOST_RUNS = 50;
+
+    /** The most code points of a job's or a run's name or result. */
+    public static final int MOST_TEXT = 200;
+
+    /**
+     * One run of a workflow or pipeline for the commit, and what became of it or its state while it
+     * is not finished.
+     *
+     * @param name As the forge spells it, one line of printable text.
+     * @param result Lower case: the conclusion once finished, else "queued", "in_progress", ...
+     */
+    public record Run(String name, String result) {
+
+        /**
+         * Constructor keeping each text one line of printable text, the result in lower case.
+         *
+         * @param name Its name.
+         * @param result What became of it.
+         */
+        public Run {
+            name = line(name);
+            result = line(result).toLowerCase(Locale.ROOT);
+        }
+    }
+
+    /**
+     * Returns a reader's text as one line Porelo may write: control and format characters, line
+     * breaks among them, become a space; stripped and cut at {@link #MOST_TEXT} code points.
+     *
+     * <p>The name is the repository's to write: a workflow named {@code x\nverdict: success} wrote
+     * a forged line into the file a task reads.
+     *
+     * @param text What the reader said.
+     * @return It as one line.
+     */
+    static String line(final @Nullable String text) {
+        final String stripped = flat(text);
+        return stripped.codePointCount(0, stripped.length()) <= MOST_TEXT
+                ? stripped
+                : stripped.substring(0, stripped.offsetByCodePoints(0, MOST_TEXT));
+    }
+
+    /**
+     * Returns a text as one line, uncut: control and format characters, line breaks among them,
+     * become a space.
+     *
+     * @param text What the reader said.
+     * @return It as one line, stripped.
+     */
+    static String flat(final @Nullable String text) {
+        if (text == null) {
+            return "";
+        }
+        final StringBuilder kept = new StringBuilder(Math.min(text.length(), MOST_TEXT * 2));
+        text.codePoints()
+                .map(
+                        point ->
+                                Character.isISOControl(point)
+                                                || Character.getType(point) == Character.FORMAT
+                                                || Character.getType(point)
+                                                        == Character.LINE_SEPARATOR
+                                                || Character.getType(point)
+                                                        == Character.PARAGRAPH_SEPARATOR
+                                        ? ' '
+                                        : point)
+                .forEach(kept::appendCodePoint);
+        return kept.toString().strip();
+    }
 
     /** Not started yet. */
     public static final String QUEUED = "queued";
@@ -122,6 +194,8 @@ public record Build(String verdict, List<Job> jobs, String detail) {
          * @param log Its log, or {@code null}.
          */
         public Job {
+            name = line(name);
+            result = line(result);
             if (log != null) {
                 log =
                         log.length > TAIL
@@ -185,13 +259,32 @@ public record Build(String verdict, List<Job> jobs, String detail) {
      * @param verdict The verdict.
      * @param jobs The jobs with their logs.
      * @param detail More.
+     * @param runs Each run of the commit, newest first as the forges list them; at most {@link
+     *     #MOST_RUNS} are kept.
      */
     public Build {
         if (!VERDICTS.contains(verdict)) {
             throw new IllegalArgumentException(
                     "Not a verdict: '" + verdict + "', expected one of " + VERDICTS);
         }
+        // A reader's detail is one line of the task's file: a line break in it wrote a line of its
+        // own, such as a verdict.
+        detail = flat(detail);
         jobs = sharingTheLogs(jobs.size() > MOST_JOBS ? jobs.subList(0, MOST_JOBS) : jobs);
+        // Every run as the reader gives it: two workflows may share a name, and the forges list a
+        // rerun once, at its latest attempt.
+        runs = List.copyOf(runs.size() > MOST_RUNS ? runs.subList(0, MOST_RUNS) : runs);
+    }
+
+    /**
+     * Constructor for a build that names no run, as a reader from before answers.
+     *
+     * @param verdict The verdict.
+     * @param jobs The jobs with their logs.
+     * @param detail More.
+     */
+    public Build(final String verdict, final List<Job> jobs, final String detail) {
+        this(verdict, jobs, detail, List.of());
     }
 
     /**
@@ -276,6 +369,16 @@ public record Build(String verdict, List<Job> jobs, String detail) {
         map.put("verdict", verdict);
         map.put("jobs", carried);
         map.put("detail", detail);
+        if (!runs.isEmpty()) {
+            map.put(
+                    "runs",
+                    runs.stream()
+                            .map(
+                                    run ->
+                                            Map.<String, Object>of(
+                                                    "name", run.name(), "result", run.result()))
+                            .toList());
+        }
         return map;
     }
 
@@ -301,7 +404,17 @@ public record Build(String verdict, List<Job> jobs, String detail) {
                 }
             }
         }
-        return new Build(text(map.get("verdict")), jobs, text(map.get("detail")));
+        final List<Run> runs = new ArrayList<>();
+        if (map.get("runs") instanceof List<?> named) {
+            for (final Object each : named) {
+                if (each instanceof Map<?, ?> run
+                        && run.get("name") instanceof String name
+                        && run.get("result") instanceof String result) {
+                    runs.add(new Run(name, result));
+                }
+            }
+        }
+        return new Build(text(map.get("verdict")), jobs, text(map.get("detail")), runs);
     }
 
     private static String text(final @Nullable Object value) {

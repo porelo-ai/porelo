@@ -17,12 +17,18 @@ method Head(upstream: string, api: string, token: string, branch: string) -> (co
 # steps in their order, one header line each, before it takes the end.
 type Job (name: string, result: string, log: ?string)
 
-# What the build of one commit did. jobs is every job the forge reports for the commit, in its order, once the
+# One run of a workflow or pipeline for the commit: its name as the forge spells it, and what became of it in lower
+# case, or its state while it is not finished ("queued" | "waiting" | "in_progress" | ...). One line of printable
+# text each, at most 200 characters; Porelo makes it so. A rerun replaces its run; at most 50, in the forge's order.
+type Run (name: string, result: string)
+
+# What the build of one commit did. runs names each run of the commit at every answer, also while queued or
+# running; absent from a reader from before, which Porelo hears as none. jobs is every job the forge reports for the commit, in its order, once the
 # verdict is "failure" or final - empty while queued or running, and for "unknown" - at most 50. logs says which of
 # them carry their log: "none" downloads no log, "failure" each failed job's, "all" every job's once the verdict
 # is final; absent, "failure".
 method Build(upstream: string, api: string, token: string, commit: string, logs: ?string)
-    -> (verdict: string, jobs: []Job, detail: string)
+    -> (verdict: string, jobs: []Job, detail: string, runs: ?[]Run)
 
 # Opens a pull request from a branch into the repository's default branch, or answers the one already open from it:
 # url is where a person reads it, opened whether this call opened it. Absent, the title is the subject of the

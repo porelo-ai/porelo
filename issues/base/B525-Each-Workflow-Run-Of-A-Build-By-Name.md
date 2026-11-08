@@ -1,6 +1,6 @@
 # [B525](README.md#b525) — Each Workflow Run Of A Build By Name
 
-**Status:** Backlog. Filed 2026-11-08 from move 3's finding 16; the operator decided one line per workflow on the tile.
+**Status:** Review. Filed 2026-11-08 from move 3's finding 16; the operator decided one line per workflow on the tile.
 **Size:** M - Build2 and Tasks1 each gain a list, BuildWatch carries it; the readers fill it (Agent Adapters).
 
 **What must be true.** A build's answer names each workflow run of the commit with its own state at every answer,
@@ -29,8 +29,9 @@ Revised after the plan reading (agy gemini-4-argon-high, 2026-11-08); each findi
 1. `builds/api` `Build` becomes `(verdict, jobs, detail, runs)` with `record Run(String name, String result)` and
    `MOST_RUNS` = 50. The three-argument constructor stays, with `runs` empty. The compact constructor cleans each
    run: control and format characters (line breaks included) become a space, the text is stripped and cut at 200
-   code points. A run with an empty name or result is dropped, a later run of the same name replaces an earlier one,
-   and the list is cut at 50. **A job's name and result are cleaned the same way.** They are not today, so a
+   code points. Every run the reader gives is kept, in its order (newest first, as the forges list them), whether or not
+   its name repeats or is empty: two workflows may share a name, and the forges list a rerun once. The list stops
+   at 50. **A job's name and result are cleaned the same way.** They are not today, so a
    workflow named `x\nverdict: success` writes a forged line into `build-<12>.txt` (BuildWatch.text).
    `asMap` writes `runs` only when non-empty. `of(Map)` reads it only as a list (`null` or anything else is none).
 2. `org.fuin.porelo.Build2.varlink`: `type Run (name: string, result: string)`, and `Build(...)` answers
@@ -67,3 +68,22 @@ the jobs' `<workflow> / <job>` names.
 
 - Red first: a running build with two runs, one finished, reaches Tasks1 with both runs and their states.
 - A reader that answers without `runs` still gives a build, with `runs` empty.
+
+## As built
+
+As the revised plan says, steps 1 to 8. In addition:
+- `BuildWatch.same` compares names and results as lists, not joined by NUL.
+- `resume` settles a commit only when its last recorded runs are finished.
+- Tasks1 `Build.runs: []BuildRun` (`name`, `result`) is filled from the record and is empty when the reader named
+  none. The task's guide (`TaskGuideText`, doc/running.md) describes the `run` line.
+- Tests seen red before the change:
+  - `BuildTest.eachRunOfTheCommitTravelsWithItsStateAndAReaderFromBeforeGivesNone` and
+    `aRunsAndAJobsTextIsOneLineOfPrintableTextBoundedAndARunIsNamedOnce` (they did not compile without `Run`);
+  - `StubReaderTest.namesEachRunAtEveryAnswerAlsoWhileTheBuildRuns`;
+  - `BuildWatchTest.eachRunIsWrittenDownAsItMovesButOnlyAChangedVerdictIsHandedIn`,
+    `aFailureWhileAnotherWorkflowRunsIsAskedAgainAtTheNextRound` and
+    `aRecordLineFromBeforeTheRunsIsNotHandedInAgainWhenTheReaderNamesThem`.
+  `aJobNamedWithALineBreakIsOneLineOfTheFile` is held by `Build`'s cleaning.
+- For Agent Adapters: the forgejo and github readers fill `runs`. Porelo cleans what they send, so a reader passes
+  the forge's names as they come.
+

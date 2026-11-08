@@ -443,7 +443,7 @@ class BuildStatusCommandTest {
                 .isFalse();
         assertThat(out.toString())
                 .as("controls escaped, newline and tab kept")
-                .contains("\\x1b[2J", "\\x0d\\x00\\x7f\\x9b\n\tend", "detail\\x1b]title\\x07")
+                .contains("\\x1b[2J", "\\x0d\\x00\\x7f\\x9b\n\tend", "detail: detail ]title")
                 .doesNotContain("\u001b", "\r", "\u0000", "\u007f", "\u009b");
     }
 

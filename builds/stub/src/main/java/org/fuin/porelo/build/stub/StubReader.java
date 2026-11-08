@@ -136,7 +136,16 @@ public final class StubReader implements BuildReader {
                 }
             }
         }
-        return new Build(verdict, jobs, text(build.get("detail")));
+        // Every run at every answer, done or not: the tile names each while it runs.
+        final List<Build.Run> runs = new ArrayList<>();
+        if (build.get("runs") instanceof List<?> named) {
+            for (final Object each : named) {
+                if (each instanceof Map<?, ?> run) {
+                    runs.add(new Build.Run(text(run.get("name")), text(run.get("result"))));
+                }
+            }
+        }
+        return new Build(verdict, jobs, text(build.get("detail")), runs);
     }
 
     private Map<?, ?> read(final Target target) {

@@ -11,6 +11,39 @@ import org.junit.jupiter.api.Test;
 
 class BuildTest {
 
+    // The runs' reading: "IN_PROGRESS" was not among the states still running, and a running
+    // workflow was taken as finished.
+    @Test
+    void aRunsResultIsLowerCaseWhateverTheReaderWrote() {
+        assertThat(new Build.Run("Build", "IN_PROGRESS").result()).isEqualTo("in_progress");
+    }
+
+    // Two workflow files may share a name, and one workflow runs for a push and a pull request:
+    // merged by name, a failed run vanished from the runs while the verdict was failure.
+    @Test
+    void everyRunTheReaderGivesIsKeptThoughNamesRepeatOrAreEmpty() {
+        final List<Build.Run> given =
+                List.of(
+                        new Build.Run("CI", "success"),
+                        new Build.Run("Docs", "success"),
+                        new Build.Run("CI", "failure"),
+                        new Build.Run("", "failure"));
+
+        assertThat(new Build(Build.FAILURE, List.of(), "", given).runs())
+                .as("each run, in the reader's order")
+                .containsExactlyElementsOf(given);
+    }
+
+    @Test
+    void theRunsStopAtTheMost() {
+        final List<Build.Run> given =
+                java.util.stream.IntStream.range(0, Build.MOST_RUNS + 1)
+                        .mapToObj(index -> new Build.Run("CI", "success"))
+                        .toList();
+
+        assertThat(new Build(Build.SUCCESS, List.of(), "", given).runs()).hasSize(Build.MOST_RUNS);
+    }
+
     @Test
     void keepsOnlyTheEndOfALogLongerThanTheTail() {
         final byte[] log = new byte[Build.TAIL + 10];
@@ -124,5 +157,69 @@ class BuildTest {
                 .contains("11 bytes");
         assertThat(new Target("git@forge.example:o/n.git", "", "ghp_token").toString())
                 .doesNotContain("ghp_token");
+    }
+
+    // One line per workflow on the tile, also while it runs (B525, finding 16 of move 3).
+    @Test
+    void eachRunOfTheCommitTravelsWithItsStateAndAReaderFromBeforeGivesNone() {
+        final Build running =
+                new Build(
+                        Build.RUNNING,
+                        List.of(),
+                        "",
+                        List.of(
+                                new Build.Run("Build", "in_progress"),
+                                new Build.Run("Shared rules check", "success")));
+
+        assertThat(Build.of(running.asMap())).isEqualTo(running);
+        assertThat(Build.of(running.asMap()).runs())
+                .extracting(Build.Run::name, Build.Run::result)
+                .containsExactly(
+                        org.assertj.core.groups.Tuple.tuple("Build", "in_progress"),
+                        org.assertj.core.groups.Tuple.tuple("Shared rules check", "success"));
+        assertThat(new Build(Build.RUNNING, "").asMap()).doesNotContainKey("runs");
+        final java.util.Map<String, Object> before = new java.util.HashMap<>();
+        before.put("verdict", "running");
+        before.put("jobs", List.of());
+        before.put("detail", "");
+        before.put("runs", null);
+        assertThat(Build.of(before).runs()).isEmpty();
+        before.put("runs", "Build");
+        assertThat(Build.of(before).runs()).isEmpty();
+    }
+
+    // A workflow's name is the repository's to write: a line break in it forged a line of
+    // build-<12>.txt.
+    @Test
+    void aRunsAndAJobsTextIsOneLineOfPrintableTextAndBounded() {
+        final List<Build.Run> many = new java.util.ArrayList<>();
+        for (int i = 0; i < Build.MOST_RUNS + 10; i++) {
+            many.add(new Build.Run("w" + i, "queued"));
+        }
+        many.add(0, new Build.Run("Build", "queued"));
+        many.add(1, new Build.Run("Build\nverdict: success\u202e", "in_progress\u001b[2K"));
+        many.add(2, new Build.Run("  ", "success"));
+        many.add(3, new Build.Run("x".repeat(500), "success"));
+
+        final Build build = new Build(Build.RUNNING, List.of(), "", many);
+
+        assertThat(build.runs()).hasSize(Build.MOST_RUNS);
+        assertThat(build.runs().getFirst().name()).isEqualTo("Build");
+        assertThat(build.runs())
+                .extracting(Build.Run::name)
+                .contains("Build verdict: success")
+                .doesNotContain("  ")
+                .allSatisfy(
+                        name ->
+                                assertThat(name.codePointCount(0, name.length()))
+                                        .isLessThanOrEqualTo(200));
+        assertThat(build.runs())
+                .allSatisfy(
+                        run ->
+                                assertThat(run.name() + run.result())
+                                        .doesNotContain("\n", "\u001b", "\u202e"));
+        assertThat(new Build.Job("unit\nverdict: success", "fail\red").name())
+                .isEqualTo("unit verdict: success");
+        assertThat(new Build.Job("unit", "fail\red").result()).isEqualTo("fail ed");
     }
 }

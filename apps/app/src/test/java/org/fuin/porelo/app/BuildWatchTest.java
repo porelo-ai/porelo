@@ -81,6 +81,9 @@ class BuildWatchTest {
 
     private final Map<String, String> files = new LinkedHashMap<>();
 
+    /** Whether the next hand-in fails, as a full or gone task's does. */
+    private boolean handInFails;
+
     @BeforeEach
     void aRunningTask() throws IOException {
         final XdgPaths xdg =
@@ -133,6 +136,9 @@ class BuildWatchTest {
                     }
                 },
                 (name, file) -> {
+                    if (handInFails) {
+                        throw new IOException("the task's files are full");
+                    }
                     final byte[] content = Files.readAllBytes(file);
                     final String text = new String(content, StandardCharsets.UTF_8);
                     handed.add(Map.entry(name, text));
@@ -192,7 +198,7 @@ class BuildWatchTest {
                 .contains("verdict: success")
                 .contains("since: 2026-10-06T12:00:20Z");
         assertThat(looked)
-                .as("asked while running, twice, and at success; never after it is finished")
+                .as("asked while running, twice, and at success; a finished one not every round")
                 .hasSize(3);
         assertThat(builds.current(TASK))
                 .singleElement()
@@ -201,6 +207,350 @@ class BuildWatchTest {
                             assertThat(seen.verdict()).isEqualTo(Build.SUCCESS);
                             assertThat(seen.run()).isEqualTo(RUN);
                         });
+    }
+
+    @Test
+    void aWorkflowThatStartsAfterAFinalVerdictIsFollowedAndReplacesTheFile() throws IOException {
+        // On porelo-move-3 the Shared rules check passed first, and the Build started by hand
+        // later was never told (findings 16 and 20).
+        final BuildWatch watch = watch();
+        watch.round();
+        head = FIRST;
+        forge.put(
+                FIRST,
+                new Build(
+                        Build.SUCCESS,
+                        List.of(new Build.Job("Shared rules check", Build.SUCCESS)),
+                        ""));
+        watch.round();
+        later(BuildWatch.SETTLED);
+        forge.put(
+                FIRST,
+                new Build(
+                        Build.RUNNING,
+                        List.of(
+                                new Build.Job("Shared rules check", Build.SUCCESS),
+                                new Build.Job("Build and unit tests", Build.RUNNING)),
+                        ""));
+        watch.round();
+        forge.put(
+                FIRST,
+                new Build(
+                        Build.SUCCESS,
+                        List.of(
+                                new Build.Job("Shared rules check", Build.SUCCESS),
+                                new Build.Job("Build and unit tests", Build.SUCCESS)),
+                        ""));
+        watch.round();
+
+        assertThat(handed)
+                .extracting(Map.Entry::getValue)
+                .extracting(text -> text.lines().filter(l -> l.startsWith("verdict:")).findFirst())
+                .as("success, running again, success again")
+                .containsExactly(
+                        java.util.Optional.of("verdict: success"),
+                        java.util.Optional.of("verdict: running"),
+                        java.util.Optional.of("verdict: success"));
+        assertThat(files.get("build-111111111111.txt"))
+                .contains("job: Build and unit tests - success");
+    }
+
+    // One line per workflow on the tile (move 3, finding 16). A run moving from queued to running
+    // is no news for the agent: a rewritten file wakes it.
+    @Test
+    void eachRunIsWrittenDownAsItMovesButOnlyAChangedVerdictIsHandedIn() throws IOException {
+        final BuildWatch watch = watch();
+        watch.round();
+        head = FIRST;
+        forge.put(
+                FIRST,
+                new Build(
+                        Build.RUNNING,
+                        List.of(),
+                        "",
+                        List.of(
+                                new Build.Run("Build", "queued"),
+                                new Build.Run("Shared rules check", "queued"))));
+        watch.round();
+        forge.put(
+                FIRST,
+                new Build(
+                        Build.RUNNING,
+                        List.of(),
+                        "",
+                        List.of(
+                                new Build.Run("Build", "in_progress"),
+                                new Build.Run("Shared rules check", "success"))));
+        watch.round();
+
+        assertThat(handed).as("handed in once, at the first verdict").hasSize(1);
+        assertThat(files.get("build-111111111111.txt"))
+                .contains("run: Build - queued", "run: Shared rules check - queued");
+        assertThat(builds.current(TASK))
+                .singleElement()
+                .satisfies(
+                        seen -> {
+                            assertThat(seen.runs())
+                                    .containsExactly(
+                                            new TaskBuilds.Run("Build", "in_progress"),
+                                            new TaskBuilds.Run("Shared rules check", "success"));
+                            assertThat(seen.asMap()).containsKey("runs");
+                        });
+    }
+
+    // On porelo-move-3 the Shared rules check could fail while the Build still ran.
+    @Test
+    void aFailureWhileAnotherWorkflowRunsIsAskedAgainAtTheNextRound() throws IOException {
+        final BuildWatch watch = watch();
+        watch.round();
+        head = FIRST;
+        forge.put(
+                FIRST,
+                new Build(
+                        Build.FAILURE,
+                        List.of(new Build.Job("Shared rules check / check", "failure")),
+                        "",
+                        List.of(
+                                new Build.Run("Shared rules check", "failure"),
+                                new Build.Run("Build", "in_progress"))));
+        watch.round();
+        looked.clear();
+
+        watch.round();
+
+        assertThat(looked).as("not settled while a run is in progress").containsExactly(FIRST);
+    }
+
+    @Test
+    void aRecordLineFromBeforeTheRunsIsNotHandedInAgainWhenTheReaderNamesThem() throws Exception {
+        final BuildWatch before = watch();
+        before.round();
+        head = FIRST;
+        forge.put(FIRST, new Build(Build.SUCCESS, ""));
+        before.round();
+        handed.clear();
+
+        final BuildWatch after = watch();
+        final int[] rounds = {0};
+        after.run(() -> rounds[0]++ < 1);
+        later(BuildWatch.SETTLED);
+        forge.put(
+                FIRST,
+                new Build(
+                        Build.SUCCESS, List.of(), "", List.of(new Build.Run("Build", "success"))));
+        after.round();
+
+        assertThat(handed).as("nothing new for the agent").isEmpty();
+        assertThat(builds.current(TASK).getFirst().runs())
+                .containsExactly(new TaskBuilds.Run("Build", "success"));
+    }
+
+    @Test
+    void aJobNamedWithALineBreakIsOneLineOfTheFile() throws IOException {
+        final BuildWatch watch = watch();
+        watch.round();
+        head = FIRST;
+        forge.put(
+                FIRST,
+                new Build(
+                        Build.FAILURE,
+                        List.of(new Build.Job("x\nverdict: success", "failure")),
+                        ""));
+        watch.round();
+
+        assertThat(files.get("build-111111111111.txt").lines())
+                .filteredOn(line -> line.startsWith("verdict:"))
+                .containsExactly("verdict: failure");
+    }
+
+    // The verdict rule's reading: a resumed watch kept a commit settled whose last line was
+    // running.
+    @Test
+    void aResumedWatchAsksAgainEveryRoundForACommitWhoseLastLineIsRunning() throws Exception {
+        final BuildWatch before = watch();
+        before.round();
+        head = FIRST;
+        forge.put(FIRST, new Build(Build.SUCCESS, ""));
+        before.round();
+        later(BuildWatch.SETTLED);
+        forge.put(FIRST, new Build(Build.RUNNING, ""));
+        before.round();
+
+        final BuildWatch after = watch();
+        final int[] rounds = {0};
+        after.run(() -> rounds[0]++ < 1);
+        looked.clear();
+        after.round();
+
+        assertThat(looked).as("not settled: it runs").contains(FIRST);
+    }
+
+    // The verdict rule's reading: a final verdict whose hand-in failed was settled all the same,
+    // and
+    // could be dropped at the deadline without the task ever being told.
+    @Test
+    void aFinalVerdictWhoseHandInFailedIsAskedAndHandedInAgainAtTheNextRound() throws IOException {
+        final BuildWatch watch = watch();
+        watch.round();
+        head = FIRST;
+        forge.put(FIRST, new Build(Build.RUNNING, ""));
+        watch.round();
+        forge.put(FIRST, new Build(Build.SUCCESS, ""));
+        handInFails = true;
+        watch.round();
+        handInFails = false;
+        looked.clear();
+
+        watch.round();
+
+        assertThat(looked).containsExactly(FIRST);
+        assertThat(files.get("build-111111111111.txt")).contains("verdict: success");
+    }
+
+    // The verdict rule's reading: a forge that shows no build of a final commit any more is not a
+    // workflow that started.
+    @Test
+    void aForgeThatLaterKnowsNoBuildLeavesAFinalVerdictAsItWas() throws IOException {
+        final BuildWatch watch = watch();
+        watch.round();
+        head = FIRST;
+        forge.put(FIRST, new Build(Build.SUCCESS, ""));
+        watch.round();
+        later(BuildWatch.SETTLED.plus(BuildWatch.GRACE));
+        forge.put(FIRST, Build.unknown("no build of it"));
+
+        watch.round();
+
+        assertThat(files.get("build-111111111111.txt")).contains("verdict: success");
+    }
+
+    @Test
+    void aFinishedCommitIsLeftAloneOnlyAtTheDeadlineAfterItsLastChange() throws IOException {
+        final BuildWatch watch = watch();
+        watch.round();
+        head = FIRST;
+        forge.put(FIRST, new Build(Build.SUCCESS, ""));
+        watch.round();
+        later(BuildWatch.DEADLINE.minus(BuildWatch.SETTLED));
+        looked.clear();
+        watch.round();
+        assertThat(looked).as("still asked within the deadline").containsExactly(FIRST);
+
+        later(BuildWatch.SETTLED.multipliedBy(2));
+        watch.round();
+        looked.clear();
+        watch.round();
+        later(BuildWatch.SETTLED);
+        watch.round();
+        assertThat(looked).as("past the deadline after its last change").isEmpty();
+    }
+
+    // The runs' reading: a failure beside a workflow that never ends was asked every 20 s for the
+    // task's whole life, the deadline never reached.
+    @Test
+    void aFailureBesideARunThatNeverEndsIsLeftAtTheDeadline() throws IOException {
+        final BuildWatch watch = watch();
+        watch.round();
+        head = FIRST;
+        forge.put(
+                FIRST,
+                new Build(
+                        Build.FAILURE,
+                        List.of(),
+                        "",
+                        List.of(
+                                new Build.Run("Shared rules check", "failure"),
+                                new Build.Run("Build", "in_progress"))));
+        watch.round();
+        later(BuildWatch.DEADLINE.plus(BuildWatch.POLL));
+        watch.round();
+        looked.clear();
+
+        watch.round();
+
+        assertThat(looked).isEmpty();
+        assertThat(files.get("build-111111111111.txt")).contains("verdict: failure");
+    }
+
+    // The runs' reading: the task's file kept "Build - in_progress" for good once only the runs
+    // changed; the last run's end is handed in.
+    @Test
+    void theLastRunsEndIsHandedInThoughTheVerdictStaysTheSame() throws IOException {
+        final BuildWatch watch = watch();
+        watch.round();
+        head = FIRST;
+        forge.put(
+                FIRST,
+                new Build(
+                        Build.FAILURE,
+                        List.of(),
+                        "",
+                        List.of(
+                                new Build.Run("Shared rules check", "failure"),
+                                new Build.Run("Build", "in_progress"))));
+        watch.round();
+        forge.put(
+                FIRST,
+                new Build(
+                        Build.FAILURE,
+                        List.of(),
+                        "",
+                        List.of(
+                                new Build.Run("Shared rules check", "failure"),
+                                new Build.Run("Build", "success"))));
+
+        watch.round();
+
+        assertThat(files.get("build-111111111111.txt"))
+                .contains("run: Build - success")
+                .doesNotContain("in_progress");
+    }
+
+    // The runs' reading: a reader's detail wrote a line of its own into the task's file.
+    @Test
+    void aDetailCannotWriteALineOfItsOwnIntoTheTasksFile() throws IOException {
+        final BuildWatch watch = watch();
+        watch.round();
+        head = FIRST;
+        forge.put(FIRST, new Build(Build.FAILURE, "x\nverdict: success\rrun: Build - success"));
+
+        watch.round();
+
+        assertThat(files.get("build-111111111111.txt").lines())
+                .doesNotContain("verdict: success", "run: Build - success");
+    }
+
+    @Test
+    void aRefusalLeavesAFinalVerdictAsItWas() throws IOException {
+        final BuildWatch watch = watch();
+        watch.round();
+        head = FIRST;
+        forge.put(FIRST, new Build(Build.SUCCESS, ""));
+        watch.round();
+        later(BuildWatch.SETTLED);
+        refusal = new BuildRefused(BuildRefused.Reason.UNREACHABLE, "down", 0);
+        watch.round();
+
+        assertThat(files.get("build-111111111111.txt")).contains("verdict: success");
+    }
+
+    @Test
+    void aResumedWatchTakesUpAFinishedCommitToo() throws Exception {
+        final BuildWatch before = watch();
+        before.round();
+        head = FIRST;
+        forge.put(FIRST, new Build(Build.SUCCESS, ""));
+        before.round();
+        handed.clear();
+
+        final BuildWatch after = watch();
+        final int[] rounds = {0};
+        after.run(() -> rounds[0]++ < 1);
+        later(BuildWatch.SETTLED);
+        forge.put(FIRST, new Build(Build.RUNNING, ""));
+        after.round();
+
+        assertThat(files.get("build-111111111111.txt")).contains("verdict: running");
     }
 
     @Test
