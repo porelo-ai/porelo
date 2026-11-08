@@ -154,7 +154,8 @@ public record TransportDescription(
                                 TransportConversations.PERSONS,
                                 TransportConversations.DIRECT,
                                 TransportSend.MENTION,
-                                TransportConversations.WAITS)) {
+                                TransportConversations.WAITS,
+                                TransportLifecycle.DISPLAY)) {
                     if (Boolean.TRUE.equals(said.get(flag))) {
                         takes.add(flag);
                     }

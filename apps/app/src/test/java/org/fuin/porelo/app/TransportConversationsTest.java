@@ -440,6 +440,67 @@ class TransportConversationsTest {
         answerToHelpers(TransportSend.TEMPORARY, false);
     }
 
+    // Move 3: the room showed each task by its account, "porelo-porelo-pi", where the persons
+    // wrote to "Agent Pi".
+    @Test
+    void aTaskIsEnrolledUnderItsAgentNameWhereTheTransportShowsOne() throws Exception {
+        runner.answering(
+                "describe",
+                "{\"scheme\":\"room\",\"poll\":true,\"display\":true,"
+                        + "\"lifecycle\":[\"setup\",\"enroll\"]}");
+        runner.answering(
+                "setup",
+                "{\"account\":{\"ADMIN\":\"a-1\"},\"secrets\":{\"POLLER\":\"p-1\"},\"conversation\":\"!room-p\",\"reaches\":[\"127.0.0.1\"]}");
+        runner.answering("enroll", "{\"secrets\":{\"TASK\":\"t-1\"}}");
+        final PoreloContext context = context().asking(prompt -> PASSPHRASE.clone());
+        Files.createDirectories(context.vault().path().getParent());
+        emptyVault(context);
+        assertThat(
+                        context.openerAsking(
+                                false, new java.io.PrintWriter(java.io.Writer.nullWriter())))
+                .isPresent();
+        final TransportLifecycle lifecycle =
+                new TransportLifecycle(context, context.paths().messaging().transportDirectory());
+        lifecycle.setup("room", "p", Map.of());
+
+        lifecycle.enroll("room", "p", "porelo-p-unit", Map.of());
+        lifecycle.enroll("room", "porelo", "porelo-porelo-pi", Map.of());
+
+        final List<List<String>> enrolled =
+                runner.invocations().stream()
+                        .map(org.fuin.porelo.core.process.Command::arguments)
+                        .filter(arguments -> arguments.contains("enroll"))
+                        .toList();
+        assertThat(enrolled)
+                .extracting(arguments -> arguments.get(arguments.indexOf("--display") + 1))
+                .containsExactly("Agent Unit", "Agent Pi");
+    }
+
+    @Test
+    void aTransportThatShowsNoNameIsGivenNone() throws Exception {
+        runner.answering(
+                "describe",
+                "{\"scheme\":\"room\",\"poll\":true,\"lifecycle\":[\"setup\",\"enroll\"]}");
+        runner.answering(
+                "setup",
+                "{\"account\":{\"ADMIN\":\"a-1\"},\"secrets\":{\"POLLER\":\"p-1\"},\"conversation\":\"!room-p\",\"reaches\":[\"127.0.0.1\"]}");
+        runner.answering("enroll", "{\"secrets\":{\"TASK\":\"t-1\"}}");
+        final PoreloContext context = context().asking(prompt -> PASSPHRASE.clone());
+        Files.createDirectories(context.vault().path().getParent());
+        emptyVault(context);
+        context.openerAsking(false, new java.io.PrintWriter(java.io.Writer.nullWriter()));
+        final TransportLifecycle lifecycle =
+                new TransportLifecycle(context, context.paths().messaging().transportDirectory());
+        lifecycle.setup("room", "p", Map.of());
+
+        lifecycle.enroll("room", "p", "porelo-p-unit", Map.of());
+
+        assertThat(runner.invocations())
+                .filteredOn(command -> command.arguments().contains("enroll"))
+                .singleElement()
+                .satisfies(command -> assertThat(command.arguments()).doesNotContain("--display"));
+    }
+
     private void answerToHelpers(int exit, boolean onInput) throws Exception {
         final String line =
                 "This is Porelo's technical account; it passes your messages on to the tasks and does not answer itself. Mention a task to reach it.";
@@ -1458,5 +1519,11 @@ class TransportConversationsTest {
     private static void notHanded(org.fuin.porelo.core.process.Command command, String name) {
         assertThat(command.environment()).doesNotContainKey(name);
         assertThat(String.valueOf(command.input())).doesNotContain("\"" + name + "\"");
+    }
+
+    // The name's reading: a name no task can carry is shown as nobody, never as a line of its own.
+    @Test
+    void aNameNoTaskCanCarryIsShownAsNobody() {
+        assertThat(TransportLifecycle.agentName("p", "porelo-p-pi\nAdmin")).isNull();
     }
 }

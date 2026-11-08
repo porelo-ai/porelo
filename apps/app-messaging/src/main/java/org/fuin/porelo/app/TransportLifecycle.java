@@ -10,6 +10,7 @@ import java.util.Map;
 import java.util.Optional;
 import org.fuin.porelo.core.process.Command;
 import org.fuin.porelo.core.process.CommandResult;
+import org.fuin.porelo.runtime.ContainerName;
 import org.fuin.porelo.vault.VaultEntry;
 import org.fuin.porelo.vault.VaultFile;
 import org.fuin.porelo.wire.Directories;
@@ -304,17 +305,18 @@ final class TransportLifecycle {
         lendable(scheme, "enroll");
         writable(scheme);
         final Map<String, String> given = given(scheme, project);
+        final List<String> verb =
+                new java.util.ArrayList<>(List.of("enroll", "--project", project, "--task", task));
+        final Path adapter = transports.find(scheme);
+        final String shown = agentName(project, task);
+        if (adapter != null
+                && shown != null
+                && TransportDescription.of(context.runner(), adapter).takes(DISPLAY)) {
+            verb.add("--display");
+            verb.add(shown);
+        }
         final Map<?, ?> said =
-                run(
-                        scheme,
-                        settings,
-                        given,
-                        loopbackOnly,
-                        "enroll",
-                        "--project",
-                        project,
-                        "--task",
-                        task);
+                run(scheme, settings, given, loopbackOnly, verb.toArray(String[]::new));
         if (said.get("secrets") instanceof Map<?, ?> secrets && !secrets.isEmpty()) {
             keep(scheme, "task/" + task, secrets);
         }
@@ -338,6 +340,42 @@ final class TransportLifecycle {
                 // The task takes part all the same; only whether it read something cannot be asked.
             }
         }
+    }
+
+    /** What a transport announces when its enroll takes the name the room shows for a task. */
+    static final String DISPLAY = "display";
+
+    /**
+     * Returns the name a task is shown by in its project's room: "Agent" and its task's name, each
+     * word capitalized - "Agent Pi" for {@code porelo-porelo-pi}, as the persons address it.
+     *
+     * @param project The project.
+     * @param container The task's container, {@code porelo-<project>-<task>}.
+     * @return It, or {@code null} for a container of another form, a task name no task may have or
+     *     a name of more than 64.
+     */
+    static @Nullable String agentName(final String project, final String container) {
+        final String prefix = "porelo-" + project + "-";
+        if (!container.startsWith(prefix)) {
+            return null;
+        }
+        final String task = container.substring(prefix.length());
+        if (ContainerName.refusal(project, task).isPresent()) {
+            return null;
+        }
+        final StringBuilder shown = new StringBuilder("Agent ");
+        final String[] words = task.split("-", -1);
+        for (int i = 0; i < words.length; i++) {
+            if (words[i].isEmpty()) {
+                return null;
+            }
+            if (i > 0) {
+                shown.append('-');
+            }
+            shown.append(Character.toUpperCase(words[i].charAt(0)))
+                    .append(words[i], 1, words[i].length());
+        }
+        return shown.length() <= 64 ? shown.toString() : null;
     }
 
     /**

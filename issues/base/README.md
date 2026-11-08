@@ -20,6 +20,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b526"></a>[B526](B526-A-Task-Is-Shown-By-Its-Agent-Name.md) | S | - | A task is enrolled into its room under "Agent <Name>" where the transport takes `--display`. |
 | <a id="b524"></a>[B524](B524-The-Makers-Of-A-Push-In-Review.md) | S | - | `PendingPush` and `Review` carry each commit's author, committer and trailers. |
 | <a id="b523"></a>[B523](B523-A-Message-To-People-Reaches-Persons-Only.md) | S | - | A task's message to `people` reaches the persons only, no other task; the card names the room and the admitted persons. |
 | <a id="b522"></a>[B522](B522-An-Online-Task-On-A-Host-Pushes-Its-Amend.md) | S | - | An online task on a host pushes its amended commit to `porelo/<task>` with a lease on what the gate last pushed there. |
