@@ -401,7 +401,9 @@ public class TaskRunCommand implements Callable<Integer>, PoreloFactory.ContextA
         final java.nio.file.Path agent = RemoteStart.agent(context);
         if (agent == null) {
             err.println(
-                    "porelo: --host certifies the task's key with your agent, and none is running");
+                    "porelo: --host certifies the task's key with your agent: run it on your own"
+                            + " computer, where your card's key is in your ssh-agent; none is"
+                            + " running here");
             err.flush();
             return 64;
         }

@@ -684,8 +684,8 @@ public final class TaskLaunch {
                             + ImageChoice.FILE
                             + " of "
                             + repository.name()
-                            + " changed with the fetch; this task runs under what it held"
-                            + " before, the next start takes the new settings");
+                            + " changed with the fetch; this task keeps the egress and the other"
+                            + " settings it held before, and the next start takes the new ones");
             out.flush();
         }
     }
@@ -1580,7 +1580,14 @@ public final class TaskLaunch {
             return 64;
         }
         project = image.applyTo(settled, repository);
-        out.println("base image     " + project.baseImage() + "  (from " + image.baseFrom() + ")");
+        out.println(
+                "base image     "
+                        + project.baseImage()
+                        + "  (from "
+                        + image.baseFrom()
+                        // The fetch may bring another: then a second line names the one it runs on.
+                        + (gated ? ", as it stands before the fetch" : "")
+                        + ")");
         if (image.snippetFrom() != null) {
             out.println("image lines    from " + image.snippetFrom());
         }
