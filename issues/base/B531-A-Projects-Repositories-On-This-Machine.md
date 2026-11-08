@@ -34,11 +34,6 @@ here, without asking anything else or reaching the network.
 - `Projects()` on a host names per repository carried here or not, ahead and behind once measured, and its running
   tasks; off a host `carriedHere` is absent. Seen in a daemon test and once against a VM host.
 
-## To be checked
-
-- That `UpstreamDistance.measure` can count ahead in the same fetch (`git rev-list --count central..main`) without a
-  second network call.
-
 ## After the plan reading
 
 The build takes these answers; each harm gets a test seen red first.

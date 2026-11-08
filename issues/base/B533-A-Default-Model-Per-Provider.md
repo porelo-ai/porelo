@@ -40,3 +40,25 @@ and while it runs. A provider the file names no model for runs on the agent's ow
 - With the window's design reading: where New work shows the model and how a change is offered; whether a batch needs
   anything beyond each repository's default.
 - How the terminal header is made to name the model (the agent's own title today) - possibly the window's header alone.
+
+## After the plan reading
+
+The build takes these answers; each harm gets a test seen red first.
+
+- **The MCP allow-list holds for the settled model.** An MCP start checks the model it ends up with against
+  `mcp.agents.<agent>`, whatever source chose it; a repository's porelo.yml cannot bring a model outside that list.
+- **Every model and label is checked before it is used:** a model id is one word (no blank, no leading `-`, no
+  whitespace or control character, `ProjectFileCheck.refuseAsOption`), a label one line of printable text; the same for
+  `Start.model` and `--model`. The file's binder reads them as a word and as text.
+- **The settled model reaches the agent on every start:** settled right after the provider (`SelectedProvider.choose`),
+  carried on `TaskLaunch.Running`, passed in the attended first start and in the unattended run; a resumed task keeps
+  its recorded `TaskProfile.model`, never a newly read file. An agent with no `modelFlag` and a settled model is refused
+  before anything is made (`launchSteps` and `StartCheck`), not first by `AgentDefinition.attendedCommand`'s throw.
+- **Where the file is checked:** `core`'s `ProjectFileCheck` checks the shape of `providers.<provider>` keys (the
+  provider name's own pattern); whether the machine knows the provider is checked at start (`TaskLaunch`, `StartCheck`)
+  and by `project check`, which have the providers. `ProjectSchema` (`ProjectFileSchema`) grows with `Sections`.
+- **porelo.yml** names a model under the same trust as its other settings (`RepositoryOwnSettings`: signed in an
+  organization project, allowed by the operator in `default`); a porelo.yml model without a label takes no label from
+  the project's. `ImageChoice` ignores the new keys.
+- **The row:** `model`, `modelLabel` and `modelFrom` are strings, "" when unknown; a task recorded before reads
+  `modelFrom` as `start` where it has a model, `agent` where it has none.
