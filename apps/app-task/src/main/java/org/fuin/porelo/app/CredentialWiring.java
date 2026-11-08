@@ -279,7 +279,7 @@ final class CredentialWiring {
             String container,
             PrintWriter out,
             PrintWriter err) {
-        return startVault(agent, container, java.util.Map.of(), out, err);
+        return startVault(agent, container, java.util.Map.of(), null, out, err);
     }
 
     /**
@@ -294,6 +294,7 @@ final class CredentialWiring {
      * @param agent The agent, or {@code null} when the task has none.
      * @param container The container.
      * @param extras Other credentials, by vault entry name, each with the destination it is for.
+     * @param mcp The route to the task's porelo-mcp, or {@code null} for a task without one.
      * @param out Where progress is reported.
      * @param err Where problems are reported.
      * @return What the container is given, or {@code null} when nothing is brokered.
@@ -302,6 +303,7 @@ final class CredentialWiring {
             org.fuin.porelo.agent.api.@Nullable InstalledAgent agent,
             String container,
             java.util.Map<String, Destination> extras,
+            @Nullable McpRoute mcp,
             PrintWriter out,
             PrintWriter err) {
 
@@ -317,6 +319,11 @@ final class CredentialWiring {
                         served.put(name, destination);
                     }
                 });
+        if (mcp != null) {
+            // Its key is the task's own, not a stored credential, so the vault is not asked here;
+            // the broker reads it from the entry it is told.
+            served.put(mcp.destination().name(), mcp.destination());
+        }
         if (own == null && served.isEmpty()) {
             return null;
         }
@@ -390,6 +397,9 @@ final class CredentialWiring {
                                 command.add("--credential-header");
                                 command.add(header + "=" + setting);
                             });
+        }
+        if (mcp != null) {
+            command.addAll(mcp.arguments());
         }
         if (!routes.isEmpty()) {
             command.add("--route-tokens");
@@ -476,7 +486,7 @@ final class CredentialWiring {
                     "credential "
                             + name
                             + " -> "
-                            + credential.getValue().host()
+                            + where(credential.getValue())
                             + " as PORELO_TOKEN_"
                             + suffix
                             + ", PORELO_URL_"
@@ -485,7 +495,7 @@ final class CredentialWiring {
         out.flush();
         return new CredentialPlumbing(
                 socket,
-                own != null ? own.route().upstreamHost() : primary.host(),
+                own != null ? own.route().upstreamHost() : where(primary),
                 environment,
                 !served.isEmpty());
     }
@@ -535,6 +545,39 @@ final class CredentialWiring {
      * @param name The credential's name.
      * @return The suffix.
      */
+    /**
+     * The route to a task's porelo-mcp: a destination whose key is no credential a person stored,
+     * but the task's own vault entry, which the broker reads itself.
+     *
+     * @param destination Where the gateway sends the route's requests, {@code unix:<socket>}.
+     * @param keyEntry The task's own vault entry holding the key.
+     */
+    record McpRoute(Destination destination, String keyEntry) {
+
+        /**
+         * Returns what the broker is told beside the route: which entry holds its key, never the
+         * key.
+         *
+         * @return The arguments.
+         */
+        java.util.List<String> arguments() {
+            return java.util.List.of("--task-key", destination.name() + "=" + keyEntry);
+        }
+    }
+
+    /**
+     * Returns where a destination is, for a line: its host, or the socket of a {@code unix:} one,
+     * which has no host.
+     *
+     * @param destination The destination.
+     * @return The host or the socket.
+     */
+    static String where(Destination destination) {
+        return destination.upstream().startsWith("unix:")
+                ? destination.upstream()
+                : destination.host();
+    }
+
     static String variableSuffix(String name) {
         return name.toUpperCase(java.util.Locale.ROOT).replace('-', '_');
     }

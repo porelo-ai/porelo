@@ -2323,8 +2323,29 @@ public final class TaskLaunch {
             final java.util.Map<String, String> origins =
                     new java.util.LinkedHashMap<>(reachable.origins());
 
+            // Whether the project's file allows the task an MCP endpoint is the daemon's to say;
+            // when it does, the gateway is told the route before the broker starts, with its key
+            // kept where the broker reads it.
+            final McpWiring.Endpoint mcp =
+                    McpWiring.open(context, container, project.name()).orElse(null);
+            CredentialWiring.McpRoute mcpRoute = null;
+            if (mcp != null) {
+                mcpRoute =
+                        new CredentialWiring.McpRoute(
+                                McpWiring.destination(mcp.socket()),
+                                TaskSecrets.mcpKeyEntry(container));
+                final String unkept = new TaskSecrets(context).keepMcpKey(container, mcp.token());
+                if (!unkept.isEmpty()) {
+                    throw new McpWiring.Refused(McpWiring.Refusal.KEY_NOT_KEPT, unkept);
+                }
+            }
             final CredentialWiring.CredentialPlumbing plumbing =
-                    wiring().startVault(selected, container, this.extras, out, err);
+                    wiring().startVault(selected, container, this.extras, mcpRoute, out, err);
+            if (mcp != null && plumbing == null) {
+                throw new McpWiring.Refused(
+                        McpWiring.Refusal.NO_GATEWAY,
+                        "the gateway did not come up, so this task's MCP endpoint is unreachable");
+            }
             if (!values.isEmpty()) {
                 // With each value's origin, so a branch named from one can be traced back; fixed
                 // for the task's life, as its environment is.
@@ -2522,6 +2543,17 @@ public final class TaskLaunch {
                     return cleanUp(runner, container, 70, false, out, err);
                 }
             }
+            if (mcp != null) {
+                // Where the gate starts, and as it does; the task counts as started with it only
+                // once it said 'ready'.
+                recordHelper(
+                        McpWiring.HELPER,
+                        McpWiring.start(context, mcp),
+                        java.util.Map.of(),
+                        TaskHelpers.AFTER);
+                out.println("mcp       " + mcp.socket() + McpWiring.PATH);
+                out.flush();
+            }
             if (!placeWorkspaceFiles(runner, selected, container, inWorkspace, out, err)) {
                 return cleanUp(runner, container, 70, false, out, err);
             }
@@ -2561,6 +2593,15 @@ public final class TaskLaunch {
                                     () -> existingTasks(container));
             if (!unkept.isEmpty()) {
                 out.println("reboot    " + unkept);
+            }
+            if (mcp != null) {
+                // Again, now that its container exists: a start beside this one that kept its
+                // tokens before then pruned the key as a gone task's.
+                final String mcpUnkept =
+                        new TaskSecrets(context).keepMcpKey(container, mcp.token());
+                if (!mcpUnkept.isEmpty()) {
+                    out.println("mcp       " + mcpUnkept);
+                }
             }
             if (issued != null) {
                 // Without its key in the vault the gate cannot sign: say so, as for the tokens.
@@ -2640,6 +2681,11 @@ public final class TaskLaunch {
             err.println("porelo: " + ex.getMessage());
             err.flush();
             return cleanUp(runner, container, 70, handedOver && request.keep(), out, err);
+        } catch (McpWiring.Refused ex) {
+            steps.refusal(String.valueOf(ex.getMessage()));
+            err.println("porelo: " + ex.getMessage());
+            err.flush();
+            return cleanUp(runner, container, ex.code(), handedOver && request.keep(), out, err);
         } catch (CommandException ex) {
             steps.dependencyFailed(ex.standardError());
             err.println("porelo: " + ex.getMessage());
@@ -4210,6 +4256,9 @@ public final class TaskLaunch {
         if (recorded == null) {
             // Nothing it made runs, whatever of that name does: its helpers are all that is left.
             TaskLifecycle.stopHelpers(context.paths().tasks().containerState(container));
+            // And the daemon socket opened for its MCP endpoint, which no stop of a container
+            // closes when there is none.
+            McpWiring.stop(context, container);
         } else {
             // Only reaps when no container is running: a start that failed fires no poststop hook.
             runner.reapOrphans(container);

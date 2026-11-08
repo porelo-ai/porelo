@@ -7,6 +7,7 @@ import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 import org.fuin.porelo.core.config.XdgPaths;
 import org.fuin.porelo.wire.Sidecar;
@@ -922,6 +923,49 @@ class TaskLifecycleCommandsTest {
     }
 
     @Test
+    void stoppingEndsItsPoreloMcpAndClosesBothItsSockets(@TempDir Path dir) throws Exception {
+        final PoreloContext context = context(dir);
+        final java.util.List<String> closed = new java.util.ArrayList<>();
+        final McpDaemonSockets.Opener before =
+                McpDaemonSockets.install(
+                        new McpDaemonSockets.Opener() {
+                            @Override
+                            public Optional<Path> open(String task, String project) {
+                                return Optional.of(dir.resolve("daemon.sock"));
+                            }
+
+                            @Override
+                            public void close(String task) {
+                                closed.add(task);
+                            }
+                        });
+        mcpStandIn(dir);
+        try {
+            runner.answering("ps", "porelo-uc-shell-1\tUp 4 minutes\n");
+            final Path state = stateOf("porelo-uc-shell-1");
+            final McpWiring.Endpoint endpoint =
+                    McpWiring.open(context, "porelo-uc-shell-1", "uc").orElseThrow();
+            McpWiring.start(context, endpoint);
+            // What porelo-mcp binds, which the stand-in does not.
+            Files.writeString(endpoint.socket(), "");
+            final ProcessHandle process =
+                    org.fuin.porelo.wire.HelperPid.verified(
+                                    state.resolve(McpWiring.HELPER + ".pid"))
+                            .orElseThrow();
+
+            assertThat(execute(context, "task", "stop", "porelo-uc-shell-1")).isZero();
+
+            process.onExit().get(10, TimeUnit.SECONDS);
+            assertThat(closed).containsExactly("porelo-uc-shell-1");
+            assertThat(endpoint.socket()).doesNotExist();
+            assertThat(McpWiring.statusLine(context, "porelo-uc-shell-1")).isEqualTo("stopped");
+        } finally {
+            McpDaemonSockets.install(before);
+            System.clearProperty(McpWiring.BINARY_PROPERTY);
+        }
+    }
+
+    @Test
     void stoppingKeepsTheContainerSoTheTaskCanBeStartedAgain(@TempDir Path dir) throws IOException {
 
         // Measured: removing it instead threw away the workspace and made resume impossible, while
@@ -1102,6 +1146,117 @@ class TaskLifecycleCommandsTest {
         assertThat(out.toString())
                 .as("said, as 'task refresh' says it")
                 .contains("source    moved main -> " + moved.substring(0, 12));
+    }
+
+    @Test
+    void aResumeStartsItsPoreloMcpAgainOnAnOpenedSocketWithItsKeptKey(@TempDir Path dir)
+            throws Exception {
+        org.junit.jupiter.api.Assumptions.assumeTrue(
+                org.fuin.porelo.vault.KernelKeyring.available(), "no kernel keyring here");
+        final PoreloContext context = context(dir);
+        final char[] passphrase = "correct horse battery staple".toCharArray();
+        final org.fuin.porelo.vault.KernelKeyring keyring =
+                new org.fuin.porelo.vault.KernelKeyring(context.paths().vault().vaultKeyringKey());
+        final Path daemonSocket = dir.resolve("daemon-again.sock");
+        final McpDaemonSockets.Opener before =
+                McpDaemonSockets.install(opening(Optional.of(daemonSocket)));
+        final Path stand = mcpStandIn(dir);
+        try {
+            Files.createDirectories(context.vault().path().getParent());
+            context.vault()
+                    .write(
+                            java.util.Map.of(
+                                    TaskSecrets.mcpKeyEntry("porelo-uc-shell-1"),
+                                    org.fuin.porelo.vault.VaultEntry.of("d".repeat(64))),
+                            passphrase);
+            keyring.store(passphrase);
+            runner.answering("container inspect", "4711");
+            final Path state = stateOf("porelo-uc-shell-1");
+            // The recorded command is not what runs: its daemon socket was the last run's.
+            new TaskHelpers(
+                            java.util.List.of(
+                                    new TaskHelpers.Helper(
+                                            McpWiring.HELPER,
+                                            java.util.List.of("/bin/false"),
+                                            java.util.Map.of(),
+                                            TaskHelpers.AFTER)))
+                    .writeTo(state);
+
+            resume(context, "porelo-uc-shell-1");
+
+            assertThat(Files.readAllLines(stand.resolveSibling("args")))
+                    .as(out + "\n" + err)
+                    .contains("porelo-uc-shell-1", daemonSocket.toString());
+            assertThat(Files.readString(stand.resolveSibling("token")))
+                    .isEqualTo("d".repeat(64) + "\n");
+            assertThat(McpWiring.statusLine(context, "porelo-uc-shell-1")).startsWith("running");
+        } finally {
+            McpWiring.stop(context, "porelo-uc-shell-1");
+            McpDaemonSockets.install(before);
+            System.clearProperty(McpWiring.BINARY_PROPERTY);
+            keyring.forget();
+        }
+    }
+
+    @Test
+    void aResumeWhoseMcpKeyCannotBeReadSaysSoAndStartsNoMcp(@TempDir Path dir) throws Exception {
+        final PoreloContext context = context(dir);
+        final McpDaemonSockets.Opener before =
+                McpDaemonSockets.install(opening(Optional.of(dir.resolve("daemon.sock"))));
+        final Path stand = mcpStandIn(dir);
+        try {
+            runner.answering("container inspect", "4711");
+            new TaskHelpers(
+                            java.util.List.of(
+                                    new TaskHelpers.Helper(
+                                            McpWiring.HELPER,
+                                            java.util.List.of("/bin/true"),
+                                            java.util.Map.of(),
+                                            TaskHelpers.AFTER)))
+                    .writeTo(stateOf("porelo-uc-shell-1"));
+
+            resume(context, "porelo-uc-shell-1");
+
+            assertThat(out + "\n" + err).contains("its key is not in the vault");
+            assertThat(stand.resolveSibling("args")).doesNotExist();
+        } finally {
+            McpDaemonSockets.install(before);
+            System.clearProperty(McpWiring.BINARY_PROPERTY);
+        }
+    }
+
+    private static McpDaemonSockets.Opener opening(Optional<Path> answer) {
+        return new McpDaemonSockets.Opener() {
+            @Override
+            public Optional<Path> open(String task, String project) {
+                return answer;
+            }
+
+            @Override
+            public void close(String task) {
+                // Nothing to close in a test.
+            }
+        };
+    }
+
+    /** A porelo-mcp that writes down what it was given, says ready and runs until stopped. */
+    private static Path mcpStandIn(Path dir) throws IOException {
+        final Path binary = dir.resolve("mcp-bin/porelo-mcp");
+        Files.createDirectories(binary.getParent());
+        Files.writeString(
+                binary,
+                "#!/bin/bash\n"
+                        + "printf '%s\\n' \"$@\" > '"
+                        + binary.resolveSibling("args")
+                        + "'\n"
+                        + "IFS= read -r line; printf '%s\\n' \"$line\" > '"
+                        + binary.resolveSibling("token")
+                        + "'\n"
+                        + "trap 'exit 0' TERM; echo ready; sleep 30 & wait $!\n");
+        Files.setPosixFilePermissions(
+                binary, java.nio.file.attribute.PosixFilePermissions.fromString("rwx------"));
+        System.setProperty(McpWiring.BINARY_PROPERTY, binary.toString());
+        return binary;
     }
 
     @Test

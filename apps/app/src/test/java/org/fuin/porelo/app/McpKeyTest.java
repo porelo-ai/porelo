@@ -93,6 +93,27 @@ class McpKeyTest {
         assertThat(refused).contains("porelo-mcp");
     }
 
+    @Test
+    void theBrokerIsToldTheRouteAndWhichEntryHoldsItsKeyAndNeverTheKey() {
+        // An https stand-in for the destination: the route's form is the same for unix:, which
+        // Destination takes once the gateway speaks HTTP over a socket.
+        final Destination destination =
+                new Destination(
+                        McpWiring.DESTINATION,
+                        "stand-in",
+                        "https://mcp.example",
+                        "Authorization",
+                        "Bearer ",
+                        null);
+
+        final CredentialWiring.McpRoute route =
+                new CredentialWiring.McpRoute(destination, TaskSecrets.mcpKeyEntry(TASK));
+
+        assertThat(route.arguments())
+                .containsExactly("--task-key", "porelo-mcp=" + TaskSecrets.mcpKeyEntry(TASK));
+        assertThat(CredentialWiring.where(destination)).isEqualTo("mcp.example");
+    }
+
     private PoreloContext context() {
         final XdgPaths xdg =
                 XdgPaths.of(

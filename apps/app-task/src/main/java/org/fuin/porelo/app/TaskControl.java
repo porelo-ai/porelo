@@ -457,6 +457,9 @@ public final class TaskControl {
         // Taken again: a helper may have started another process while the container went.
         if (force) helpers.stream().flatMap(ProcessHandle::descendants).forEach(started::add);
         TaskLifecycle.stopHelpers(state);
+        // Its porelo-mcp went with the helpers; the daemon socket opened for it and the socket it
+        // bound go here, which no hook knows of.
+        McpWiring.stop(context, container);
 
         if (!known) {
             return new Stopped(
@@ -994,6 +997,23 @@ public final class TaskControl {
             // about to report.
             if (TaskLifecycle.alive(state.resolve(helper.name() + ".pid"))) {
                 started++;
+                continue;
+            }
+            if (McpWiring.HELPER.equals(helper.name())) {
+                // Not from its recorded command: its daemon socket is opened again, which the
+                // project's file may now refuse, and its key goes on its standard input.
+                final String container = state.getFileName().toString();
+                final String problem =
+                        McpWiring.resume(
+                                context,
+                                container,
+                                projectOf(container),
+                                () -> new TaskSecrets(context).mcpKey(container));
+                if (problem == null) {
+                    started++;
+                } else {
+                    problems.add(problem);
+                }
                 continue;
             }
             List<String> command = helper.command();
