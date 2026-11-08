@@ -61,6 +61,8 @@ public final class TaskLaunch {
      * @param base The caller's starting branch, or null for the project and mirror default.
      * @param subagents Value of {@code --subagents}: the most subagents the agent may run at the
      *     same time, or {@code null} for what the project file says, and none when it says nothing.
+     * @param parent The task whose MCP endpoint asked for this start, by container name, or {@code
+     *     null} for a person's start. The daemon takes it from the socket the start came over.
      */
     public record Request(
             String task,
@@ -84,7 +86,59 @@ public final class TaskLaunch {
             java.util.Map<String, org.fuin.porelo.core.project.Parameters.Given> parameters,
             @Nullable String branch,
             @Nullable Integer subagents,
-            @Nullable TaskBase base) {
+            @Nullable TaskBase base,
+            @Nullable String parent) {
+
+        /** Constructor for a start a person asked for. */
+        public Request(
+                String task,
+                Path projectFile,
+                @Nullable String agentName,
+                @Nullable String providerName,
+                @Nullable String credentialType,
+                int tokenHours,
+                @Nullable String upstream,
+                boolean noGate,
+                boolean dryRun,
+                String clearance,
+                boolean keep,
+                org.fuin.porelo.wire.TaskMode mode,
+                @Nullable String prompt,
+                @Nullable String model,
+                @Nullable Integer maxTurns,
+                int minutes,
+                @Nullable String repository,
+                java.util.Map<String, String> credentials,
+                java.util.Map<String, org.fuin.porelo.core.project.Parameters.Given> parameters,
+                @Nullable String branch,
+                @Nullable Integer subagents,
+                @Nullable TaskBase base) {
+            this(
+                    task,
+                    projectFile,
+                    agentName,
+                    providerName,
+                    credentialType,
+                    tokenHours,
+                    upstream,
+                    noGate,
+                    dryRun,
+                    clearance,
+                    keep,
+                    mode,
+                    prompt,
+                    model,
+                    maxTurns,
+                    minutes,
+                    repository,
+                    credentials,
+                    parameters,
+                    branch,
+                    subagents,
+                    base,
+                    null);
+        }
+
         /** Constructor leaving the starting branch to the project and mirror. */
         public Request(
                 String task,
@@ -524,7 +578,8 @@ public final class TaskLaunch {
                     parameters,
                     branch,
                     subagents,
-                    base);
+                    base,
+                    parent);
         }
     }
 
@@ -1136,7 +1191,8 @@ public final class TaskLaunch {
                             request.parameters(),
                             request.branch(),
                             request.subagents(),
-                            request.base());
+                            request.base(),
+                            request.parent());
         }
         return null;
     }
@@ -2486,7 +2542,12 @@ public final class TaskLaunch {
             // What only this moment knows: which agent, how somebody is meant to be involved, what
             // it was asked to do, and which ref its work goes to. None of it can be recovered from
             // a running container afterwards.
-            writeProfile(container, selected, environmentCache.get("PORELO_TASK_REF"), err);
+            writeProfile(
+                    container,
+                    project.name(),
+                    selected,
+                    environmentCache.get("PORELO_TASK_REF"),
+                    err);
             // What brings it back after a reboot: its description and records saved where a reboot
             // does not reach, and its two tokens in the vault. A task that cannot keep them runs,
             // and says so.
@@ -2761,13 +2822,18 @@ public final class TaskLaunch {
      * <p>Never fails the run. A task that cannot describe itself is worse than one that can, and
      * far better than one that did not start.
      *
+     * <p>A task another task started records its parent, and the event log a {@code started} event
+     * naming it.
+     *
      * @param container Container name.
+     * @param projectName Its project, for the event log.
      * @param selected The agent, or {@code null} when the task has none.
      * @param branch Ref the work goes to, or {@code null}.
      * @param err Where a failure to record is reported.
      */
     private void writeProfile(
             String container,
+            String projectName,
             @Nullable InstalledAgent selected,
             @Nullable String branch,
             PrintWriter err) {
@@ -2784,11 +2850,23 @@ public final class TaskLaunch {
                             servingName,
                             request.model(),
                             forgeBranch,
-                            subagents)
+                            subagents,
+                            request.parent())
                     .writeTo(context.paths().tasks().containerState(container));
         } catch (java.io.IOException ex) {
             err.println("porelo: could not record what this task is: " + ex.getMessage());
             err.flush();
+        }
+        final String parent = request.parent();
+        if (parent != null) {
+            // Who started what, where a person reads the log: a task its parent stops is one the
+            // log shows it started.
+            EventLog.record(
+                    context,
+                    EventLog.STARTED,
+                    projectName,
+                    container,
+                    "started by " + parent + " through its MCP endpoint");
         }
     }
 

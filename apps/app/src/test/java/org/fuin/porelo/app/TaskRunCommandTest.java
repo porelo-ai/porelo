@@ -2251,6 +2251,90 @@ class TaskRunCommandTest {
     }
 
     @Test
+    void aTaskStartedByAnotherRecordsItsParentAndTheLogSaysWhoStartedIt(@TempDir Path dir)
+            throws IOException {
+
+        // A start through a task's MCP endpoint names that task: its stop takes only its own, and
+        // the event log shows who started what.
+        final PoreloContext context = countingContext(dir);
+        projectFile(dir, MINIMAL);
+        final PrintWriter said = new PrintWriter(err, true);
+
+        final int code =
+                new TaskLaunch(
+                                context,
+                                new TaskLaunch.Request(
+                                        "shell",
+                                        dir.resolve("project.yml"),
+                                        "preview",
+                                        null,
+                                        null,
+                                        8,
+                                        null,
+                                        true,
+                                        false,
+                                        "prompt",
+                                        true,
+                                        org.fuin.porelo.wire.TaskMode.SHELL,
+                                        null,
+                                        null,
+                                        null,
+                                        60,
+                                        null,
+                                        java.util.Map.of(),
+                                        java.util.Map.of(),
+                                        null,
+                                        null,
+                                        null,
+                                        "porelo-uc-lead"),
+                                new StartSteps(step -> {}, said))
+                        .launch(new PrintWriter(out, true), said, running -> 0);
+
+        assertThat(code).as("started: %s", err).isZero();
+        assertThat(
+                        org.fuin.porelo.wire.TaskProfile.readFrom(
+                                        context.paths().tasks().containerState("porelo-uc-shell"))
+                                .parent())
+                .as("its record names the task that started it")
+                .isEqualTo("porelo-uc-lead");
+        assertThat(EventLog.of(context).entries(null))
+                .as("the log says who started it")
+                .anySatisfy(
+                        event -> {
+                            assertThat(event.get("kind")).isEqualTo(EventLog.STARTED);
+                            assertThat(event.get("task")).isEqualTo("porelo-uc-shell");
+                            assertThat(event.get("project")).isEqualTo("uc");
+                            assertThat(String.valueOf(event.get("detail")))
+                                    .contains("porelo-uc-lead");
+                        });
+    }
+
+    @Test
+    void aTaskAPersonStartsRecordsNoParentAndNoStartedEvent(@TempDir Path dir) throws IOException {
+        final PoreloContext context = countingContext(dir);
+
+        final int started =
+                execute(
+                        context,
+                        "task",
+                        "start",
+                        "-p",
+                        projectFile(dir, MINIMAL),
+                        "--agent",
+                        "preview",
+                        "--no-gate");
+
+        assertThat(started).as("started: %s", err).isZero();
+        assertThat(
+                        org.fuin.porelo.wire.TaskProfile.readFrom(
+                                        context.paths().tasks().containerState("porelo-uc-shell"))
+                                .parent())
+                .isNull();
+        assertThat(EventLog.of(context).entries(null))
+                .noneSatisfy(event -> assertThat(event.get("kind")).isEqualTo(EventLog.STARTED));
+    }
+
+    @Test
     void anAttendedTaskWhoseAgentSetupFailsIsNotStarted(@TempDir Path dir) throws IOException {
 
         // Attended, its agent hears its number only from its setup: run without it, it would start

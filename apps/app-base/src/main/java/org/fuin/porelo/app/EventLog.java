@@ -49,6 +49,9 @@ public final class EventLog {
     /** A project file applied to this machine. */
     public static final String PROJECT_APPLIED = "project-applied";
 
+    /** A task started by another task, through that task's MCP endpoint; the detail names it. */
+    public static final String STARTED = "started";
+
     /** Every task of the account stopped at once. */
     public static final String STOPPED_ALL = "stopped-all";
 

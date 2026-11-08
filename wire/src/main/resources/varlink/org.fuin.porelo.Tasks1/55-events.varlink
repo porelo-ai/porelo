@@ -12,8 +12,9 @@ method Events(
 type Event (
   # When it was recorded, ISO-8601.
   at: string,
-  # approved, rejected, clearance, hand-in, credential, project-applied or stopped-all; unreadable for
-  # a line that cannot be read, its other fields "".
+  # approved, rejected, clearance, hand-in, credential, project-applied, stopped-all, arrived or
+  # started; unreadable for a line that cannot be read, its other fields "". started is a task another
+  # task started through its MCP endpoint: task is the one started, detail names the parent.
   kind: string,
   # The project, or "".
   project: string,

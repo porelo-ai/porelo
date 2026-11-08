@@ -50,6 +50,9 @@ import org.jspecify.annotations.Nullable;
  * @param subagents The most subagents the task's agent may run at the same time, as its start
  *     settled it; a continuation hands its agent this number again. 0 in a profile from before it
  *     was recorded, which is what the agent was told then.
+ * @param parent The task that started this one through its MCP endpoint, by container name, or
+ *     {@code null} for a task a person started. Taken from the socket the start came over, never
+ *     from what the start said; a stop over that socket takes only a task naming its caller here.
  */
 public record TaskProfile(
         int version,
@@ -63,7 +66,53 @@ public record TaskProfile(
         @Nullable String provider,
         @Nullable String model,
         @Nullable String forgeBranch,
-        int subagents) {
+        int subagents,
+        @Nullable String parent) {
+
+    /**
+     * Constructor for a task a person started.
+     *
+     * @param version Schema version.
+     * @param agent Agent running in the task, or {@code null}.
+     * @param mode How a person is meant to be involved.
+     * @param prompt What an unattended task was asked to do, or {@code null}.
+     * @param branch Ref the work goes to, or {@code null}.
+     * @param startedAt When it started, ISO-8601.
+     * @param clearance What it does with a blocked connection.
+     * @param label Its caption, or {@code null}.
+     * @param provider Its model provider, or {@code null}.
+     * @param model Model requested at start, or {@code null}.
+     * @param forgeBranch The branch beyond the gate, or {@code null}.
+     * @param subagents The most subagents at the same time.
+     */
+    public TaskProfile(
+            int version,
+            @Nullable String agent,
+            TaskMode mode,
+            @Nullable String prompt,
+            @Nullable String branch,
+            String startedAt,
+            @Nullable String clearance,
+            @Nullable String label,
+            @Nullable String provider,
+            @Nullable String model,
+            @Nullable String forgeBranch,
+            int subagents) {
+        this(
+                version,
+                agent,
+                mode,
+                prompt,
+                branch,
+                startedAt,
+                clearance,
+                label,
+                provider,
+                model,
+                forgeBranch,
+                subagents,
+                null);
+    }
 
     /**
      * Constructor for a task whose agent may run no subagents.
@@ -230,7 +279,8 @@ public record TaskProfile(
                 provider,
                 model,
                 forgeBranch,
-                subagents);
+                subagents,
+                parent);
     }
 
     /**
@@ -256,7 +306,8 @@ public record TaskProfile(
                 provider,
                 model,
                 forgeBranch,
-                subagents);
+                subagents,
+                parent);
     }
 
     /**
@@ -276,7 +327,7 @@ public record TaskProfile(
     }
 
     /** Current schema version. */
-    public static final int VERSION = 7;
+    public static final int VERSION = 8;
 
     /** Name of the file in a task's state directory. */
     public static final String FILE = "task.json";
@@ -301,6 +352,7 @@ public record TaskProfile(
         document.put("model", model == null ? "" : model);
         document.put("forgeBranch", forgeBranch == null ? "" : forgeBranch);
         document.put("subagents", subagents);
+        document.put("parent", parent == null ? "" : parent);
         final Path file = stateDirectory.resolve(FILE);
         Files.writeString(file, Json.write(document), StandardCharsets.UTF_8);
         // A prompt is the operator's own words and may name anything they were working on; the same
@@ -346,7 +398,9 @@ public record TaskProfile(
                     // A task started before it was recorded reads as porelo/<task>, its name then.
                     text(document, "forgeBranch"),
                     // A task started before it was recorded was told none.
-                    subagents(document));
+                    subagents(document),
+                    // A task started before it was recorded was started by a person.
+                    text(document, "parent"));
         } catch (IOException | RuntimeException ex) {
             // A half-written file from a start that was killed. A task nobody can describe is still
             // a task somebody may need to stop.
