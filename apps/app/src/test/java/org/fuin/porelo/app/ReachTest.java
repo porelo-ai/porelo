@@ -173,6 +173,38 @@ class ReachTest {
     }
 
     @Test
+    void aStoppedTaskWhoseRuntimeStateARebootEmptiedAnswersFromItsSavedRecord(@TempDir Path dir)
+            throws IOException {
+        final PoreloContext context = context(dir);
+        runner.answering("ps", TASK + "\tExited (0) 2 minutes ago\t1788500000\t1788500100\n");
+        final Path record = context.paths().tasks().taskRecord(TASK);
+        Files.createDirectories(record);
+        new TaskProfile(
+                        TaskProfile.VERSION,
+                        "example",
+                        TaskMode.AGENT,
+                        null,
+                        "porelo/work",
+                        "2026-09-08T06:00:00Z",
+                        "prompt")
+                .writeTo(record);
+        org.fuin.porelo.wire.GrantedNames.add(record, "docs.example.test");
+        Files.writeString(record.resolve(TaskCertificates.FILE), "pem");
+        assertThat(context.paths().tasks().containerState(TASK))
+                .as("the fixture's runtime directory is gone, as after a reboot")
+                .doesNotExist();
+
+        final List<Reach.Row> rows = rowsOf(context);
+
+        assertThat(row(rows, "A declared host").task())
+                .as("the saved grant still holds for the task's next start")
+                .contains("docs.example.test");
+        assertThat(row(rows, "Additional TLS trust").task())
+                .as("the saved authority is copied back in at the next start")
+                .contains(TaskCertificates.FILE);
+    }
+
+    @Test
     void anUnknownTaskIsNoAnswerRatherThanTheMachines(@TempDir Path dir) {
         assertThat(new Reach(context(dir)).of("porelo-uc-shell-9"))
                 .as("a task that does not exist must not be answered as if it held nothing")

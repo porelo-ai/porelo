@@ -130,7 +130,15 @@ public final class Reach {
         if (task == null) {
             return Optional.empty();
         }
-        final Path state = context.paths().tasks().containerState(container);
+        final Path runtime = context.paths().tasks().containerState(container);
+        // The saved copy when a restart emptied the runtime directory: its grants and its authority
+        // are put back at the next start, as TaskInventory reads its agent and mode.
+        final Path state =
+                !task.running()
+                                && !Files.isDirectory(runtime)
+                                && new TaskState(context).saved(container)
+                        ? context.paths().tasks().taskRecord(container)
+                        : runtime;
         // What WidenTask granted and NarrowTask has not taken back: the run's own, never the
         // file's.
         final List<String> granted = GrantedNames.all(state);
