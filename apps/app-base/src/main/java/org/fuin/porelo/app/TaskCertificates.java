@@ -48,8 +48,37 @@ public final class TaskCertificates {
             Pattern.compile(
                     "(?:\\s*-----BEGIN CERTIFICATE-----\\s+[A-Za-z0-9+/=\\s]+-----END CERTIFICATE-----\\s*)+");
 
+    /** What a start makes of the configured file, before it reads the certificates in it. */
+    public enum Standing {
+        /** A regular file owned by this account and accessible only to it. */
+        ACCEPTED,
+        /** A link, a directory or anything else that is not a regular file. */
+        NOT_REGULAR,
+        /** Owned by another account, or open to anybody but its owner. */
+        NOT_OWNER_ONLY
+    }
+
     private TaskCertificates() {
         throw new UnsupportedOperationException("Utility class");
+    }
+
+    /**
+     * Tells whether a start accepts the configured file, the one rule a start and a report share.
+     *
+     * @param attributes The file's own attributes, read without following a link.
+     * @return What a start makes of it.
+     * @throws IOException If this account's owner cannot be read.
+     */
+    public static Standing standing(PosixFileAttributes attributes) throws IOException {
+        if (!attributes.isRegularFile()) {
+            return Standing.NOT_REGULAR;
+        }
+        if (!attributes.owner().equals(Files.getOwner(Path.of("/proc/self")))
+                || attributes.permissions().stream()
+                        .anyMatch(permission -> !permission.name().startsWith("OWNER_"))) {
+            return Standing.NOT_OWNER_ONLY;
+        }
+        return Standing.ACCEPTED;
     }
 
     /**
@@ -80,19 +109,20 @@ public final class TaskCertificates {
                 }
                 return null;
             }
-            if (!attributes.isRegularFile()) {
-                throw new Refused(
-                        file
-                                + " must be a regular file owned by this account; replace it with the host authority's PEM certificates and run chmod 600 "
-                                + file);
-            }
-            if (!attributes.owner().equals(Files.getOwner(Path.of("/proc/self")))
-                    || attributes.permissions().stream()
-                            .anyMatch(permission -> !permission.name().startsWith("OWNER_"))) {
-                throw new Refused(
-                        file
-                                + " must be owned by this account and accessible only to it; restore its ownership and run chmod 600 "
-                                + file);
+            switch (standing(attributes)) {
+                case NOT_REGULAR ->
+                        throw new Refused(
+                                file
+                                        + " must be a regular file owned by this account; replace it with the host authority's PEM certificates and run chmod 600 "
+                                        + file);
+                case NOT_OWNER_ONLY ->
+                        throw new Refused(
+                                file
+                                        + " must be owned by this account and accessible only to it; restore its ownership and run chmod 600 "
+                                        + file);
+                case ACCEPTED -> {
+                    // Its contents are checked once copied.
+                }
             }
             Directories.create(state);
             Files.setPosixFilePermissions(state, PosixFilePermissions.fromString("rwx------"));

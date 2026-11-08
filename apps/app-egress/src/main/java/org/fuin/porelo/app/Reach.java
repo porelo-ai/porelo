@@ -1,7 +1,11 @@
 package org.fuin.porelo.app;
 
+import java.io.IOException;
 import java.nio.file.Files;
+import java.nio.file.LinkOption;
+import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
+import java.nio.file.attribute.PosixFileAttributes;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -100,18 +104,44 @@ public final class Reach {
      * @return The rows, in the page's order: its tables' rows, then the paths it leaves open.
      */
     public List<Row> machine() {
+        final String authority = authority();
         final List<Row> rows = new ArrayList<>();
         for (final Row row : rows()) {
-            rows.add(
-                    TRUST.equals(row.subject()) && Files.isRegularFile(authority())
-                            ? row.withMachine(
-                                    "This machine's `"
-                                            + TaskCertificates.FILE
-                                            + "` holds an authority, copied into each task it"
-                                            + " starts")
-                            : row);
+            rows.add(TRUST.equals(row.subject()) ? row.withMachine(authority) : row);
         }
         return List.copyOf(rows);
+    }
+
+    /**
+     * Returns what this machine's authority file adds, by the rule a start applies to it.
+     *
+     * @return The machine's value of the trust row, or {@code null} without a file.
+     */
+    private @Nullable String authority() {
+        final Path file = context.paths().taskCaCertificates();
+        boolean accepted;
+        try {
+            accepted =
+                    TaskCertificates.standing(
+                                    Files.readAttributes(
+                                            file,
+                                            PosixFileAttributes.class,
+                                            LinkOption.NOFOLLOW_LINKS))
+                            == TaskCertificates.Standing.ACCEPTED;
+        } catch (NoSuchFileException ex) {
+            return null;
+        } catch (IOException ex) {
+            // A start cannot read it either, and refuses.
+            accepted = false;
+        }
+        return accepted
+                ? "This machine's `"
+                        + TaskCertificates.FILE
+                        + "` holds an authority, copied into each task it starts"
+                : "This machine's `"
+                        + TaskCertificates.FILE
+                        + "` is there, but a task start is refused until it is a regular file"
+                        + " owned by this account alone, mode 600";
     }
 
     /**
@@ -195,10 +225,6 @@ public final class Reach {
                             + " watcher";
             default -> null;
         };
-    }
-
-    private Path authority() {
-        return context.paths().taskCaCertificates();
     }
 
     /** The page's rows with the code's numbers; a change here changes {@code doc/reach.md}. */

@@ -1,0 +1,2 @@
+title: "The daemon's `Reach` says a task start is refused while `task-ca-certificates.pem` is a link, is owned by another account or is open to anybody but its owner, where it said the file's authority was copied into each task"
+type: fixed

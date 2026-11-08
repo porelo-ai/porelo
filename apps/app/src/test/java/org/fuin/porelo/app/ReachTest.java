@@ -6,6 +6,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.attribute.PosixFilePermissions;
 import java.util.List;
 import org.fuin.porelo.core.config.XdgPaths;
 import org.fuin.porelo.shield.DnsPolicy;
@@ -202,6 +203,51 @@ class ReachTest {
         assertThat(row(rows, "Additional TLS trust").task())
                 .as("the saved authority is copied back in at the next start")
                 .contains(TaskCertificates.FILE);
+    }
+
+    @Test
+    void anOwnerOnlyAuthorityIsAnsweredAsCopiedIntoEachTask(@TempDir Path dir) throws IOException {
+        final PoreloContext context = context(dir);
+        final Path file = context.paths().taskCaCertificates();
+        Files.createDirectories(file.getParent());
+        Files.writeString(file, "pem");
+        Files.setPosixFilePermissions(file, PosixFilePermissions.fromString("rw-------"));
+
+        assertThat(row(new Reach(context).machine(), "Additional TLS trust").machine())
+                .as("a file a start accepts is copied into each task")
+                .contains("copied into each task");
+    }
+
+    @Test
+    void anAuthorityOthersCanReadIsAnsweredAsRefusedNotAsCopied(@TempDir Path dir)
+            throws IOException {
+        final PoreloContext context = context(dir);
+        final Path file = context.paths().taskCaCertificates();
+        Files.createDirectories(file.getParent());
+        Files.writeString(file, "pem");
+        Files.setPosixFilePermissions(file, PosixFilePermissions.fromString("rw-r--r--"));
+
+        assertThat(row(new Reach(context).machine(), "Additional TLS trust").machine())
+                .as("a start refuses a file others can read, so no task holds it")
+                .contains("refused")
+                .contains("600")
+                .doesNotContain("copied into each task");
+    }
+
+    @Test
+    void anAuthorityThatIsALinkIsAnsweredAsRefusedNotAsCopied(@TempDir Path dir)
+            throws IOException {
+        final PoreloContext context = context(dir);
+        final Path file = context.paths().taskCaCertificates();
+        Files.createDirectories(file.getParent());
+        final Path target = Files.writeString(dir.resolve("elsewhere.pem"), "pem");
+        Files.setPosixFilePermissions(target, PosixFilePermissions.fromString("rw-------"));
+        Files.createSymbolicLink(file, target);
+
+        assertThat(row(new Reach(context).machine(), "Additional TLS trust").machine())
+                .as("a start refuses a link, even to an owner-only file")
+                .contains("refused")
+                .doesNotContain("copied into each task");
     }
 
     @Test
