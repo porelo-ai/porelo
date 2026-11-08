@@ -119,7 +119,7 @@ from its side, as *blocked by*.
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
 | <a id="b530"></a>[B530](B530-One-Sign-In-Per-Agent-That-Starts-Wait-On.md) | L | - | One sign-in per agent and machine, run as a login task over the daemon; a start that needs it waits on it instead of opening a second, and the sweep spares a running login. |
-| <a id="b531"></a>[B531](B531-A-Projects-Repositories-On-This-Machine.md) | M | - | Each repository of a project says whether this machine carries it, how far its mirror is ahead and behind the central forge, and how many of its tasks run here. |
+| <a id="b531"></a>[B531](B531-A-Projects-Repositories-On-This-Machine.md) | L | - | Each repository of a project says whether this machine carries it, how far its mirror is ahead and behind the central forge, and how many of its tasks run here. |
 | <a id="b532"></a>[B532](B532-A-Task-Shown-By-Its-Name-Not-Its-Container.md) | M | - | A task is shown by the name given at its start or its short name from the repository, the container name only in its details, and in the room by its agent's name. |
 | <a id="b533"></a>[B533](B533-A-Default-Model-Per-Provider.md) | M | - | The project file names a default model per provider, a start takes it unless another is chosen, and the task row says which model and from where. |
 | <a id="b527"></a>[B527](B527-A-Tasks-Message-Reaches-The-Task-It-Names.md) | M | - | A task's message reaches only the task it names, in place of every agent reading every message. |
