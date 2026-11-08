@@ -1,7 +1,9 @@
 package org.fuin.porelo.app;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.nio.charset.StandardCharsets;
@@ -82,6 +84,12 @@ class BuildStatusCommandTest {
         Files.createDirectories(context.vault().path().getParent());
         Files.copy(sealedVault, context.vault().path());
         project(true);
+    }
+
+    /** This machine as a host: its helper is there. */
+    private HostPerson onAHost() throws IOException {
+        return new HostPerson(
+                context, Files.writeString(directory.resolve("porelo-host-person"), "#!/bin/sh\n"));
     }
 
     @AfterEach
@@ -176,6 +184,90 @@ class BuildStatusCommandTest {
                 .contains("acme", "no builds:", "security_class: online", "doc/project-file.md");
     }
 
+    /** A host's file naming builds for acme. */
+    private OrganizationProjects hostNamingBuilds() throws IOException {
+        final Path hostFiles = directory.resolve("host-files");
+        final OrganizationProjects host = new OrganizationProjects(hostFiles, hostFiles);
+        host.write(
+                new OrganizationProjects.Placed(
+                        "acme",
+                        COMMIT,
+                        UPSTREAM,
+                        null,
+                        List.of(),
+                        null,
+                        null,
+                        "host",
+                        List.of(),
+                        new org.fuin.porelo.core.project.Builds(
+                                "test-forge",
+                                "forge-token",
+                                "",
+                                org.fuin.porelo.core.project.Builds.ALL)));
+        return host;
+    }
+
+    @Test
+    void aMachineThatIsNoHostTakesNoBuildsFromAHostsFile() throws Exception {
+        // A task's start reads a host's file only on a host; a query must not reach further.
+        project(false);
+        final OrganizationProjects host = hostNamingBuilds();
+
+        assertThatThrownBy(
+                        () ->
+                                BuildStatus.read(
+                                        context,
+                                        new BuildStatus.Request(
+                                                "acme", null, "main", null, "failure"),
+                                        (machine, forge, socket) -> {
+                                            starts++;
+                                            return reader;
+                                        },
+                                        new PrintWriter(err),
+                                        new HostPerson(context, directory.resolve("no-helper")),
+                                        host))
+                .as("refused as unconfigured, and no forge is asked")
+                .isInstanceOfSatisfying(
+                        BuildStatus.Refused.class,
+                        refused -> assertThat(refused.code()).isEqualTo(78));
+        assertThat(starts).as("no reader started").isZero();
+    }
+
+    @Test
+    void anOfflineProjectTakesNoBuildsFromItsHost() throws Exception {
+        // An offline project has no address, which refuses too; the guard keeps the start's rule.
+        final Path file = directory.resolve("project.yml");
+        Files.writeString(
+                file,
+                """
+                project:
+                  name: acme
+                  security_class: offline
+                image:
+                  from: ubuntu:24.04
+                """);
+        final OrganizationProjects host = hostNamingBuilds();
+
+        assertThatThrownBy(
+                        () ->
+                                BuildStatus.read(
+                                        context,
+                                        new BuildStatus.Request(
+                                                "acme", null, "main", null, "failure"),
+                                        (machine, forge, socket) -> {
+                                            starts++;
+                                            return reader;
+                                        },
+                                        new PrintWriter(err),
+                                        onAHost(),
+                                        host))
+                .as("an offline project reaches no forge")
+                .isInstanceOfSatisfying(
+                        BuildStatus.Refused.class,
+                        refused -> assertThat(refused.code()).isEqualTo(78));
+        assertThat(starts).as("no reader started").isZero();
+    }
+
     @Test
     void theBuildsAHostNamesAnswerWhereTheProjectFileNamesNone() throws Exception {
         // On a host, a person's build query must reach the builds the task's watch reads, not
@@ -208,6 +300,7 @@ class BuildStatusCommandTest {
                             new BuildStatus.Request("acme", null, "main", null, "failure"),
                             (machine, forge, socket) -> reader,
                             new PrintWriter(err),
+                            onAHost(),
                             host);
         } finally {
             new KernelKeyring(context.paths().vault().vaultKeyringKey()).forget();
@@ -253,6 +346,7 @@ class BuildStatusCommandTest {
                         return reader;
                     },
                     new PrintWriter(err),
+                    onAHost(),
                     host);
         } finally {
             new KernelKeyring(context.paths().vault().vaultKeyringKey()).forget();

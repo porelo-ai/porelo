@@ -1586,7 +1586,9 @@ public final class TaskLaunch {
                         + "  (from "
                         + image.baseFrom()
                         // The fetch may bring another: then a second line names the one it runs on.
-                        + (gated ? ", as it stands before the fetch" : "")
+                        + (fetches(gated, settled, repository)
+                                ? ", as it stands before the fetch"
+                                : "")
                         + ")");
         if (image.snippetFrom() != null) {
             out.println("image lines    from " + image.snippetFrom());
@@ -2814,6 +2816,16 @@ public final class TaskLaunch {
     private Project project(PrintWriter out, PrintWriter err) {
         // A key this Porelo does not know is refused by the reader, with its line.
         return ProjectReader.read(request.projectFile());
+    }
+
+    /** Whether a start fetches before its task runs: a gated start of a project that connects. */
+    private boolean fetches(
+            final boolean gated,
+            final Project project,
+            final org.fuin.porelo.core.project.Repository repository) {
+        return gated
+                && project.securityClass() != org.fuin.porelo.core.project.SecurityClass.OFFLINE
+                && (repository.upstream() != null || request.upstream() != null);
     }
 
     /** Only a host's current file may add builds when the project names none. */

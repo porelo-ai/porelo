@@ -104,15 +104,24 @@ public record BuildStatus(
             final BuildStatusCommand.Factory factory,
             final PrintWriter err)
             throws IOException {
-        return read(context, request, factory, err, OrganizationProjects.of(context));
+        return read(
+                context,
+                request,
+                factory,
+                err,
+                new HostPerson(context),
+                OrganizationProjects.of(context));
     }
 
     /**
-     * The builds a host's file names, as a task's start takes them where the project names none.
+     * The builds a host's file names, as a task's start takes them where the project names none:
+     * only on a host, and never for an offline project.
      */
     private static org.fuin.porelo.core.project.@Nullable Builds hostBuilds(
-            final OrganizationProjects projects, final Project project) throws IOException {
-        if (project.securityClass() == org.fuin.porelo.core.project.SecurityClass.OFFLINE) {
+            final @Nullable OrganizationProjects projects, final Project project)
+            throws IOException {
+        if (projects == null
+                || project.securityClass() == org.fuin.porelo.core.project.SecurityClass.OFFLINE) {
             return null;
         }
         final OrganizationProjects.Placed hosted = projects.host(project.name());
@@ -124,8 +133,11 @@ public record BuildStatus(
             final Request request,
             final BuildStatusCommand.Factory factory,
             final PrintWriter err,
-            final OrganizationProjects projects)
+            final HostPerson host,
+            final OrganizationProjects hosted)
             throws IOException {
+        // Only a host's file may add builds, as at a task's start.
+        final @Nullable OrganizationProjects projects = host.present() ? hosted : null;
         if (request.commit() != null
                 && !request.commit().matches("(?i)([0-9a-f]{40}|[0-9a-f]{64})")) {
             throw new Refused(
@@ -158,17 +170,17 @@ public record BuildStatus(
             throw noBuilds(project.name());
         }
         final Repository repository = repository(project, request.repository(), checkout);
+        // As a task's start does: a repository without its own address is the project's.
+        final String upstream =
+                repository.upstream() != null ? repository.upstream() : project.upstream();
+        if (upstream == null) {
+            throw noBuilds(project.name());
+        }
         final Build.Logs logs = Build.Logs.of(request.logs());
         context.openIfShut(true, true, err);
         final Target target;
         try {
-            target =
-                    BuildTarget.of(
-                            context,
-                            Objects.requireNonNull(
-                                    repository.upstream(), "an online repository has an upstream"),
-                            builds.api(),
-                            builds.credential());
+            target = BuildTarget.of(context, upstream, builds.api(), builds.credential());
         } catch (BuildWatch.NotNow ex) {
             throw new Refused(
                     Reason.CREDENTIAL_UNAVAILABLE,
