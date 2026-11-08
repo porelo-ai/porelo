@@ -106,6 +106,7 @@ Four steps, each its own issue when the operator takes it:
    - the nine files turned into views one component at a time;
    - `failures.log` bounded at once.
 4. **The export (M):** OTLP to a named collector, off by default, with a choice per kind of what may leave.
+   It is chosen by the CLI only; the window does not offer it (the operator, 2026-11-08 14:27Z).
 
 **For every reading** (Agent Frontend, 14:24Z; F436's size holds only with them):
 - lifecycle entries and stream records by filter (project, task, run, component, level, since), in pages with a
