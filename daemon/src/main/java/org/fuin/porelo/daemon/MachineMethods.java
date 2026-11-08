@@ -2,10 +2,13 @@ package org.fuin.porelo.daemon;
 
 import static org.fuin.porelo.daemon.PoreloDaemon.*;
 
+import java.io.IOException;
 import java.util.Map;
 import org.fuin.porelo.app.PoreloContext;
 import org.fuin.porelo.app.TaskControl;
 import org.fuin.porelo.app.TaskInventory;
+import org.fuin.porelo.app.Tightening;
+import org.fuin.porelo.wire.varlink.VarlinkException;
 import org.fuin.porelo.wire.varlink.VarlinkServer;
 
 /**
@@ -86,6 +89,55 @@ final class MachineMethods {
                                     ProcessHandle.current().pid(),
                                     "executable",
                                     executable()));
+                });
+
+        registerTighten(server, context);
+    }
+
+    /**
+     * Registers {@code Tighten}, answered by what {@code porelo tighten} runs.
+     *
+     * @param server Where.
+     * @param context The machine.
+     */
+    private static void registerTighten(final VarlinkServer server, final PoreloContext context) {
+        server.method(
+                "Tighten",
+                (parameters, replies) -> {
+                    final Tightening.Outcome outcome;
+                    try {
+                        outcome = Tightening.of(context.paths().xdg(), flag(parameters, "dryRun"));
+                    } catch (final IOException ex) {
+                        throw new VarlinkException(
+                                INTERFACE + ".Failed",
+                                Map.of("message", "cannot look through it: " + ex.getMessage()));
+                    }
+                    replies.last(
+                            Map.of(
+                                    "found",
+                                    outcome.found(),
+                                    "changes",
+                                    outcome.changes().stream()
+                                            .map(
+                                                    change ->
+                                                            Map.of(
+                                                                    "path",
+                                                                    change.path().toString(),
+                                                                    "from",
+                                                                    change.from(),
+                                                                    "to",
+                                                                    change.to()))
+                                            .toList(),
+                                    "left",
+                                    outcome.left().stream()
+                                            .map(
+                                                    left ->
+                                                            Map.of(
+                                                                    "path",
+                                                                    left.path().toString(),
+                                                                    "reason",
+                                                                    left.reason().name()))
+                                            .toList()));
                 });
     }
 

@@ -7,11 +7,8 @@ import java.nio.file.LinkOption;
 import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
 import java.nio.file.SimpleFileVisitor;
-import java.nio.file.StandardCopyOption;
 import java.nio.file.attribute.BasicFileAttributes;
-import java.nio.file.attribute.PosixFileAttributeView;
 import java.nio.file.attribute.PosixFilePermission;
-import java.nio.file.attribute.PosixFilePermissions;
 import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.List;
@@ -33,7 +30,8 @@ import org.fuin.porelo.core.config.XdgPaths;
  */
 final class LooseFiles {
 
-    private static final Set<PosixFilePermission> OTHERS =
+    /** Every bit of a mode that is not this account's own. */
+    static final Set<PosixFilePermission> OTHERS =
             EnumSet.of(
                     PosixFilePermission.GROUP_READ,
                     PosixFilePermission.GROUP_WRITE,
@@ -76,63 +74,16 @@ final class LooseFiles {
     }
 
     /**
-     * Takes from each what anyone else had of it, parents first as {@link #found()} gives them: a
-     * directory tightened first is one nobody else can then swap a child in, and a directory that
-     * was not loose is one nobody else could. A path that is a link by now is left and said: the
-     * JDK's chmod follows a link even through a view asked not to.
-     *
-     * <p>A file with a second name, as an object of a mirror hard-linked from a person's own clone
-     * is, gets an inode of its own first: the mode belongs to the inode, and the person's clone is
-     * not this command's to change.
+     * Takes from each what anyone else had of it, as {@link Tightening} says.
      *
      * @param loose What {@link #found()} found.
      * @return The paths that could not be changed; a file another uid owns is one.
      */
     static List<Path> tighten(final List<Path> loose) {
-        final List<Path> left = new ArrayList<>();
-        for (final Path path : loose) {
-            if (Files.isSymbolicLink(path)) {
-                left.add(path);
-                continue;
-            }
-            try {
-                if (Files.isRegularFile(path, LinkOption.NOFOLLOW_LINKS)
-                        && (int) Files.getAttribute(path, "unix:nlink", LinkOption.NOFOLLOW_LINKS)
-                                > 1) {
-                    aloneUnderItsName(path);
-                }
-                final PosixFileAttributeView view =
-                        Files.getFileAttributeView(
-                                path, PosixFileAttributeView.class, LinkOption.NOFOLLOW_LINKS);
-                final Set<PosixFilePermission> mode = view.readAttributes().permissions();
-                mode.removeAll(OTHERS);
-                view.setPermissions(mode);
-            } catch (final NoSuchFileException ex) {
-                // Gone since it was found, which leaves nothing to read.
-                continue;
-            } catch (final IOException | UnsupportedOperationException ex) {
-                left.add(path);
-            }
-        }
-        return List.copyOf(left);
-    }
-
-    private static void aloneUnderItsName(final Path file) throws IOException {
-        final Path copy =
-                Files.createTempFile(
-                        file.getParent(),
-                        ".tighten",
-                        ".tmp",
-                        PosixFilePermissions.asFileAttribute(
-                                PosixFilePermissions.fromString("rw-------")));
-        try {
-            Files.copy(file, copy, StandardCopyOption.REPLACE_EXISTING);
-            Files.setPosixFilePermissions(
-                    copy, Files.getPosixFilePermissions(file, LinkOption.NOFOLLOW_LINKS));
-            Files.move(copy, file, StandardCopyOption.ATOMIC_MOVE);
-        } finally {
-            Files.deleteIfExists(copy);
-        }
+        return Tightening.of(loose, false).left().stream()
+                .filter(left -> left.reason() != Tightening.Reason.GONE)
+                .map(Tightening.Left::path)
+                .toList();
     }
 
     /**

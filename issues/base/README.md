@@ -20,6 +20,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b500"></a>[B500](B500-Tighten-Over-The-Socket.md) | S | - | `Tighten` with a dry run answers what `porelo tighten` changes, over the socket. |
 | <a id="b499"></a>[B499](B499-A-Vault-Entry-Removed-And-Replaced-Over-The-Socket.md) | M | - | `CredentialRemove` and `CredentialReplace` remove an entry's secret and replace its value over the socket, the value never logged or answered. |
 | <a id="b493"></a>[B493](B493-A-Host-Task-Reads-The-Builds-Its-Host-Names.md) | M | - | A guarded project's task on a host is told its builds on the host's forge when the host's file names them; `project.yml` stays unchanged. |
 | <a id="b492"></a>[B492](B492-A-Host-Refuses-An-Uncertifiable-Start-At-Once.md) | S | - | A start on a host that nothing could certify is refused before its broker or image, with the words the late refusal gives. |
@@ -83,7 +84,6 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
-| <a id="b500"></a>[B500](B500-Tighten-Over-The-Socket.md) | S | - | `Tighten` with a dry run answers what `porelo tighten` changes, over the socket. |
 | <a id="b502"></a>[B502](B502-What-A-Machine-Lets-A-Task-Reach.md) | M | - | `Reach` answers `doc/reach.md`'s rows with this machine's values, and per task where it was widened or narrowed. |
 | <a id="b494"></a>[B494](B494-Build-Status-Reads-The-Builds-A-Host-Names.md) | S | - | `build status` on a host answers from the builds the host names when `project.yml` names none, as the task's watch does. |
 | <a id="b496"></a>[B496](B496-A-Shut-Vault-Is-Named-When-An-Organization-Change-Is-Refused.md) | S | - | An organization change refused because no forge token could be lent says `vault-shut` when the vault is shut. |

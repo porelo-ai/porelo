@@ -50,25 +50,30 @@ public class TightenCommand implements Callable<Integer>, PoreloFactory.ContextA
      * @return 0 when nothing is left readable by anyone else, else 1.
      */
     static int tighten(final LooseFiles looseFiles, final PrintWriter out, final PrintWriter err) {
-        final List<Path> loose;
+        final Tightening.Outcome outcome;
         try {
-            loose = looseFiles.found();
+            outcome = Tightening.of(looseFiles, false);
         } catch (final IOException ex) {
             err.println("porelo tighten: cannot look through it: " + ex.getMessage());
             return 1;
         }
-        if (loose.isEmpty()) {
+        if (outcome.found() == 0) {
             out.println("nothing to tighten: all of it is this account's alone");
             return 0;
         }
-        final List<Path> left = LooseFiles.tighten(loose);
+        // One gone since it was found leaves nothing to read, so it counts as tightened.
+        final List<Path> left =
+                outcome.left().stream()
+                        .filter(path -> path.reason() != Tightening.Reason.GONE)
+                        .map(Tightening.Left::path)
+                        .toList();
         out.println(
                 "tightened "
-                        + (loose.size() - left.size())
+                        + (outcome.found() - left.size())
                         + " of "
-                        + loose.size()
+                        + outcome.found()
                         + ", at or below:");
-        LooseFiles.topmost(loose).forEach(path -> out.println("  " + path));
+        outcome.topmost().forEach(path -> out.println("  " + path));
         left.forEach(path -> err.println("could not tighten " + path));
         return left.isEmpty() ? 0 : 1;
     }

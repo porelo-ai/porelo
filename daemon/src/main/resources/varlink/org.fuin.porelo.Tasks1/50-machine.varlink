@@ -52,3 +52,36 @@ method Process() -> (
   # Where /proc/self/exe points. Ends in " (deleted)" once the file it started from was replaced.
   executable: string
 )
+
+# What porelo tighten changes, or would: everything Porelo left under the data and state
+# directories and ~/porelo/reviews that anyone but this account can read, write or enter. What a
+# task reads through a mount, and what a build copies into an image, is open on purpose and never
+# listed. A person decides this; nothing calls it for them.
+#
+# A dry run changes nothing and lists the same changes the run makes, except one the file system
+# refuses only when asked, which the run then lists in left. Refused with Failed when a directory
+# cannot be looked through.
+method Tighten(dryRun: bool) -> (
+  # How many paths were found loose.
+  found: int,
+  # Each path tightened, or to be in a dry run, parents first.
+  changes: []TightenedPath,
+  # Each path found loose and not changed, or that would not be. Never left out in silence.
+  left: []LeftLoose
+)
+
+# One path and its mode before and after, as rw-r--r--.
+type TightenedPath (
+  path: string,
+  from: string,
+  to: string
+)
+
+# One path tighten did not change.
+type LeftLoose (
+  path: string,
+  # LINK      it is a link by now, and changing it would follow the link
+  # REFUSED   the file system refused, as for a file another uid owns
+  # GONE      it went away after it was found, which leaves nothing to read
+  reason: string
+)

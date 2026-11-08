@@ -3403,6 +3403,61 @@ class PoreloDaemonTest {
     }
 
     @Test
+    void tightenListsInADryRunWhatTheRunThenChanges(@TempDir Path dir) throws Exception {
+        serving(
+                dir,
+                socket -> {
+                    // The data root is XDG_DATA_HOME/porelo.
+                    final Path registry = dir.resolve("data/porelo/projects/one");
+                    Files.createDirectories(registry.getParent());
+                    Files.writeString(registry, "x");
+                    Files.setPosixFilePermissions(
+                            registry,
+                            java.nio.file.attribute.PosixFilePermissions.fromString("rw-rw-r--"));
+                    final Map<String, Object> change =
+                            Map.of(
+                                    "path",
+                                    registry.toString(),
+                                    "from",
+                                    "rw-rw-r--",
+                                    "to",
+                                    "rw-------");
+                    try (VarlinkClient client = new VarlinkClient(socket)) {
+                        final Map<String, Object> dry =
+                                client.call(
+                                        PoreloDaemon.INTERFACE + ".Tighten",
+                                        Map.of("dryRun", true));
+
+                        assertThat(dry.get("changes"))
+                                .as(
+                                        "the dry run names the file, from its mode to the tightened one")
+                                .asInstanceOf(org.assertj.core.api.InstanceOfAssertFactories.LIST)
+                                .contains(change);
+                        assertThat(Files.getPosixFilePermissions(registry))
+                                .as("a dry run changes no mode")
+                                .contains(PosixFilePermission.OTHERS_READ);
+
+                        final Map<String, Object> run =
+                                client.call(
+                                        PoreloDaemon.INTERFACE + ".Tighten",
+                                        Map.of("dryRun", false));
+
+                        assertThat(run.get("changes"))
+                                .as("the run changes what the dry run listed")
+                                .isEqualTo(dry.get("changes"));
+                        assertThat(run.get("left"))
+                                .as("nothing it could not change")
+                                .isEqualTo(List.of());
+                        assertThat(Files.getPosixFilePermissions(registry))
+                                .as("the run takes what others had")
+                                .containsExactlyInAnyOrder(
+                                        PosixFilePermission.OWNER_READ,
+                                        PosixFilePermission.OWNER_WRITE);
+                    }
+                });
+    }
+
+    @Test
     void nodeAnswersTheSameIdentityToEveryCaller(@TempDir Path dir) throws Exception {
 
         // Two clients reaching one node by different routes have to be able to tell that it is one

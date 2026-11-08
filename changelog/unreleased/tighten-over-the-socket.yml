@@ -1,0 +1,2 @@
+title: "The daemon's `Tighten(dryRun)` answers what `porelo tighten` would change or changed: each path from its mode to the tightened one, and each path it left with why (`LINK`, `REFUSED`, `GONE`)"
+type: added
