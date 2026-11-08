@@ -54,9 +54,10 @@ jobs:
             - name: The pinned GraalVM
               uses: ./.github/actions/pinned-jdk
 
-            # -s settings.xml so a developer's own ~/.m2/settings.xml cannot be what makes a build work here.
+            # -s settings.xml so a developer's own ~/.m2/settings.xml cannot be what makes a build work here; -Pwhole runs the
+            # tests tagged slow too.
             - name: Build and unit tests
-              run: ./mvnw -B verify -s settings.xml
+              run: ./mvnw -B verify -s settings.xml -Pwhole
 
             # A direct push to main never meets the pull request's check, so the push's own range is read here, by the
             # rule this commit carries. A tag checks the commit it names. A new branch or a branch pushed over has no start

@@ -26,6 +26,7 @@ import org.fuin.porelo.vault.PersonCard;
 import org.fuin.porelo.vault.SigningKey;
 import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -34,6 +35,8 @@ import org.junit.jupiter.api.io.TempDir;
  * a member who is one only because somebody with write access to the repository wrote so. Every key
  * is made in the run, and the attacker plays raw commits.
  */
+// Thousands of git and ssh-keygen processes a case, as every read verifies the history again.
+@Tag("slow")
 class GitTreeStoreTest {
 
     private static final String ORGANISATION = "acme";

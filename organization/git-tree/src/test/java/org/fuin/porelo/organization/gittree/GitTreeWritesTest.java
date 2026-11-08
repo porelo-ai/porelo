@@ -30,6 +30,7 @@ import org.fuin.porelo.vault.OpenSshPrivateKey;
 import org.fuin.porelo.vault.PersonCard;
 import org.fuin.porelo.vault.SigningKey;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -40,6 +41,8 @@ import org.junit.jupiter.params.provider.MethodSource;
  * made but that every reader refuses, a change asked for again made twice, or one person's id
  * answered by another's commit.
  */
+// Thousands of git and ssh-keygen processes a case, as every read verifies the history again.
+@Tag("slow")
 class GitTreeWritesTest {
 
     @TempDir Path dir;

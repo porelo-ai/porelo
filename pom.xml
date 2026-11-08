@@ -92,6 +92,8 @@
         <porelo.ffm.skip>true</porelo.ffm.skip>
         <!-- The CPU check runs only in a native profile, which names its images here and turns it on. -->
         <porelo.cpu.skip>true</porelo.cpu.skip>
+        <!-- The tests too slow for a run of the touched modules; the whole suite turns the profile 'whole' on, which runs them. -->
+        <porelo.tests.excluded>slow</porelo.tests.excluded>
         <porelo.cpu.images></porelo.cpu.images>
         <picocli.version>4.7.7</picocli.version>
         <!-- picocli injects these fields, so NullAway takes them as initialised; added to porelo-parent's NullAway. -->
@@ -487,6 +489,7 @@
                         <!-- Panama downcalls are a restricted operation and will be blocked
                              outright in a future release without this. -->
                         <argLine>@{argLine} --enable-native-access=ALL-UNNAMED</argLine>
+                        <excludedGroups>${porelo.tests.excluded}</excludedGroups>
                         <!-- A unit test runs what it starts as it is, on every machine: with a
                              systemd user manager, task processes would otherwise go into scopes of
                              their own here and not on a CI runner, and a test would pass on one. -->
@@ -908,6 +911,13 @@
             </activation>
             <properties>
                 <porelo.snapshot.suffix>+local.${maven.build.timestamp}</porelo.snapshot.suffix>
+            </properties>
+        </profile>
+        <profile>
+            <!-- The whole suite, before a hand-over and in CI: the tests tagged slow as well. -->
+            <id>whole</id>
+            <properties>
+                <porelo.tests.excluded></porelo.tests.excluded>
             </properties>
         </profile>
         <profile>
