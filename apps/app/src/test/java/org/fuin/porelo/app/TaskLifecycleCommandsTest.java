@@ -492,6 +492,28 @@ class TaskLifecycleCommandsTest {
     }
 
     @Test
+    void saysWhatBecameOfItsMcpEndpointAndNothingForATaskWithout(@TempDir Path dir)
+            throws IOException {
+
+        // As the gate is shown: running and where, or why it is absent.
+        final PoreloContext context = context(dir);
+        runner.answering("ps", "porelo-uc-shell-1\tUp 4 minutes\t1700000000\t0\tuc\tguarded\n");
+        final Path state = stateOf("porelo-uc-shell-1");
+        workspaceReports(dir, "0 0");
+
+        assertThat(execute(context, "task", "status", "porelo-uc-shell-1")).isZero();
+        assertThat(out.toString()).as("no endpoint, no line").doesNotContain("mcp ");
+
+        out.getBuffer().setLength(0);
+        Files.writeString(
+                state.resolve(McpWiring.RECORD),
+                "{\"state\":\"unreachable\",\"socket\":\"/run/x.sock\",\"code\":3}");
+
+        assertThat(execute(context, "task", "status", "porelo-uc-shell-1")).isZero();
+        assertThat(out.toString()).contains("mcp        could not reach its daemon socket, exit 3");
+    }
+
+    @Test
     void saysTheValuesATaskWasStartedWithAndWhereEachCameFrom(@TempDir Path dir)
             throws IOException {
 

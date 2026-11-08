@@ -171,6 +171,9 @@ public class TaskStatusCommand implements Callable<Integer>, PoreloFactory.Conte
                                 + " ago"
                                 + (task.since().isBlank() ? "" : "  (" + task.since() + ")"));
         line(out, "helpers", String.valueOf(task.helpers()));
+        // Its porelo-mcp, as the gate is: running and where, or why not. None for a task whose
+        // project allows it no endpoint.
+        line(out, "mcp", McpWiring.statusLine(context, task.name()));
         // 'off' is the one clearance value that has to be visible wherever a task is: nothing asks
         // and nothing is refused. It is the other thing on this page worth a colour.
         line(
