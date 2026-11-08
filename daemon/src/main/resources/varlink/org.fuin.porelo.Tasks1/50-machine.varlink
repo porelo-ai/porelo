@@ -85,3 +85,18 @@ type LeftLoose (
   # GONE      it went away after it was found, which leaves nothing to read
   reason: string
 )
+
+# Which methods an MCP client may be offered as tools, as porelo-mcp asks for them. Each name is a
+# method's name without the interface, as a tool is named.
+#
+# reading, never and judgement are Porelo's, named one by one and never guessed from a name.
+# writing is the person's own list in $XDG_CONFIG_HOME/porelo/mcp-writing, one method per line
+# with '#' starting a comment, less any name in never or reading and any this interface lacks.
+# A client offers reading and writing; it refuses never itself as well, so a fault on one side
+# alone opens nothing. A judgement method is offered only from the list, and the client says so.
+method McpMethods() -> (
+  reading: []string,
+  writing: []string,
+  never: []string,
+  judgement: []string
+)

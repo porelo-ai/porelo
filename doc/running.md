@@ -479,3 +479,30 @@ need both:
 - if it really must reach out while the agent works (a package registry is the usual case), name the host
   in the project's `egress` section, where the grant is reviewed like any other change. See
   [what a task can reach](reach.md) and [the project file](project-file.md).
+
+## Porelo in your own MCP client
+
+`porelo-mcp stdio` offers Porelo's API as MCP tools to an MCP client you run on this machine, such as Claude Code, over
+your own daemon socket. Which methods it offers comes from the daemon (`McpMethods`):
+
+- **Reading methods** are offered by default. They change nothing and hand out no secret, such as `List`, `Tail` or
+  `Events`.
+- **A method that changes something** is offered only when you name it in `$XDG_CONFIG_HOME/porelo/mcp-writing`.
+  - One method per line, by its name alone, such as `Start`. A full name such as `org.fuin.porelo.Tasks1.Start`
+    matches nothing.
+  - `#` starts a comment.
+  - A name the interface does not have is left out.
+  - `porelo-mcp` reads the list when it starts.
+- **A method that stands for your own judgement**, such as `Approve` or `Decide`, may be on that list. `porelo-mcp` then
+  says at its start which of them the client may call.
+- **Never offered**, whatever the list says: a method that stops every task (`Panic`), removes what cannot be had back
+  (`Clear`, `VaultClear`, `Prune`, `RemoveProject`, `Remove`, `DeleteBackup`, `RestoreBackup`, `CredentialRemove`,
+  `CredentialReplace`, `RevokeKeyslot`), or hands out a secret (`ReadHostVaultShare`).
+
+A list that lets the client start and stop tasks:
+
+```
+# what my own client may do
+Start
+Stop
+```
