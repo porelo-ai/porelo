@@ -38,6 +38,9 @@ public final class ProjectFileCheck {
     /** What an agent's name looks like. */
     private static final String AGENT = "[a-z0-9]+(?:-[a-z0-9]+)*";
 
+    /** What a varlink method's name looks like, without its interface. */
+    private static final Pattern METHOD = Pattern.compile("[A-Z][A-Za-z0-9]*");
+
     /** What an issue prefix looks like. */
     private static final String ISSUES = "[A-Z]+";
 
@@ -207,6 +210,62 @@ public final class ProjectFileCheck {
         }
         credentials(file.credentials(), label, securityClass);
         repositories(file, label, securityClass);
+        if (file.mcp() != null) {
+            mcp(file.mcp());
+        }
+    }
+
+    /**
+     * Checks the {@code mcp} section's shape. Whether each method is one the daemon has, and may
+     * offer, is the daemon's to say: only it knows its interface.
+     */
+    private void mcp(final Mcp mcp) {
+        final List<String> methods = mcp.methods();
+        if (methods == null || methods.isEmpty()) {
+            fault(
+                    "mcp.methods",
+                    "'mcp.methods' is required: the methods a task's endpoint carries, such as"
+                            + " [\"List\", \"Start\", \"Stop\"]");
+        } else {
+            for (final String method : methods) {
+                if (!METHOD.matcher(method).matches()) {
+                    fault(
+                            "mcp.methods",
+                            "'mcp.methods' names a method by its name without the interface,"
+                                    + " such as 'Start', not '"
+                                    + shown(method)
+                                    + "'");
+                }
+            }
+        }
+        final Map<String, @Nullable List<String>> agents = mcp.agents();
+        if (agents != null) {
+            agents.forEach(
+                    (agent, models) -> {
+                        final String path = Binding.join("mcp.agents", agent);
+                        if (!agent.matches(AGENT)) {
+                            fault(path, "'" + path + "' is not an agent's name");
+                        }
+                        if (models != null && models.isEmpty()) {
+                            fault(
+                                    path,
+                                    "'"
+                                            + path
+                                            + "' lists no model; name the models it may use, or"
+                                            + " leave it empty for any");
+                        }
+                    });
+        }
+        if (mcp.tasks() != null && mcp.tasks() < 1) {
+            fault(
+                    "mcp.tasks",
+                    "'mcp.tasks' is at least 1, not "
+                            + mcp.tasks()
+                            + "; leave out the section to allow no endpoint");
+        }
+        if (mcp.minutes() != null && mcp.minutes() < 1) {
+            fault("mcp.minutes", "'mcp.minutes' is at least 1, not " + mcp.minutes());
+        }
     }
 
     private @Nullable SecurityClass projectInfo(final ProjectInfo info) {

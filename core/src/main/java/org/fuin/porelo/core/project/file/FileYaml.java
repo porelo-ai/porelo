@@ -110,6 +110,19 @@ final class FileYaml {
         if (file.baseBranch() != null) {
             top.put("base_branch", file.baseBranch());
         }
+        final Mcp mcp = file.mcp();
+        if (mcp != null) {
+            final Map<String, Object> section = new LinkedHashMap<>();
+            put(section, "methods", mcp.methods());
+            if (mcp.agents() != null) {
+                // Kept when empty, which allows no agent, unlike leaving it out; a name with
+                // nothing under it is written so, and read back as taking any model.
+                section.put("agents", new LinkedHashMap<>(mcp.agents()));
+            }
+            put(section, "tasks", mcp.tasks());
+            put(section, "minutes", mcp.minutes());
+            top.put("mcp", section);
+        }
         return top;
     }
 

@@ -62,7 +62,8 @@ final class FileBinder {
                 branch(b, top.get("branch"), "branch"),
                 credentials,
                 repositories,
-                b.word(top.get("base_branch"), "base_branch"));
+                b.word(top.get("base_branch"), "base_branch"),
+                mcp(b, top.get("mcp")));
     }
 
     /**
@@ -240,6 +241,32 @@ final class FileBinder {
                 b.text(s.get("credential"), "builds.credential"),
                 b.text(s.get("api"), "builds.api"),
                 b.text(s.get("logs"), "builds.logs"));
+    }
+
+    private static @Nullable Mcp mcp(final Binding b, final @Nullable Node node) {
+        final Map<String, Node> s = b.section(node, "mcp", "mcp");
+        if (s == null) {
+            return null;
+        }
+        final Node listed = s.get("agents");
+        Map<String, @Nullable List<String>> agents = null;
+        // 'agents:' with nothing under it is left out, as any other key written so.
+        if (listed != null && !org.yaml.snakeyaml.nodes.Tag.NULL.equals(listed.getTag())) {
+            final Map<String, @Nullable List<String>> named = new LinkedHashMap<>();
+            // A name with nothing under it takes any model; a list names the models it may use.
+            b.named(listed, "mcp.agents")
+                    .forEach(
+                            (name, models) ->
+                                    named.put(
+                                            name,
+                                            b.names(models, Binding.join("mcp.agents", name))));
+            agents = named;
+        }
+        return new Mcp(
+                b.names(s.get("methods"), "mcp.methods"),
+                agents,
+                b.number(s.get("tasks"), "mcp.tasks"),
+                b.number(s.get("minutes"), "mcp.minutes"));
     }
 
     private static @Nullable Parameter parameter(

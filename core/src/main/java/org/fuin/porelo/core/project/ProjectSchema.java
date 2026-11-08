@@ -511,9 +511,62 @@ final class ProjectSchema {
                             "string",
                             MATURITIES,
                             "",
+                            false),
+                    key(
+                            "",
+                            "mcp",
+                            "Allows each task of the project an MCP endpoint, through which it starts,"
+                                    + " lists and stops tasks within these limits; without it a task"
+                                    + " gets none.",
+                            "map",
+                            "",
+                            false),
+                    key(
+                            "mcp",
+                            "methods",
+                            "The daemon's methods the endpoint carries, by name without the"
+                                    + " interface, such as Start; one never offered to MCP, or one"
+                                    + " the daemon lacks, is refused.",
+                            "list",
+                            "",
+                            true),
+                    key(
+                            "mcp",
+                            "agents",
+                            "The agents a task started through it may use, each to the models it"
+                                    + " may be asked for; an agent with nothing under it takes any"
+                                    + " model, one with a list must be given one of them.",
+                            "map",
+                            agentsShown(),
+                            false),
+                    key(
+                            "mcp",
+                            "tasks",
+                            "The most tasks one task may have running through it at once.",
+                            "integer",
+                            String.valueOf(McpEndpoint.DEFAULT_TASKS),
+                            false),
+                    key(
+                            "mcp",
+                            "minutes",
+                            "The longest run a task started through it may be given, in minutes.",
+                            "integer",
+                            String.valueOf(McpEndpoint.DEFAULT_MINUTES),
                             false));
 
     private ProjectSchema() {}
+
+    /** The default agents as a file would write them, such as {@code a: [x, y], b}. */
+    private static String agentsShown() {
+        final List<String> shown = new java.util.ArrayList<>();
+        McpEndpoint.DEFAULT_AGENTS.forEach(
+                (agent, models) ->
+                        shown.add(
+                                models.isEmpty()
+                                        ? agent
+                                        : agent + ": [" + String.join(", ", models) + "]"));
+        return String.join(", ", shown);
+    }
 
     private static ProjectKey key(
             String section,

@@ -30,6 +30,9 @@ final class Sections {
      */
     static final Sections REPOSITORY_SETTINGS = new Sections(PROJECT);
 
+    /** The section that allows a task an MCP endpoint: the project file's alone. */
+    private static final String MCP = "mcp";
+
     /** Keys of the image a file written before this model used, each with the one it became. */
     private static final Map<String, String> RENAMED =
             Map.of("base_image", "from", "snippet", "run", "snippet_file", "run_file");
@@ -42,8 +45,11 @@ final class Sections {
         keys.putAll(project.keys);
         keys.put(
                 TOP,
-                project.keys(TOP).stream().filter(key -> !"repositories".equals(key)).toList());
+                project.keys(TOP).stream()
+                        .filter(key -> !"repositories".equals(key) && !MCP.equals(key))
+                        .toList());
         keys.remove("repositories.<name>");
+        keys.remove(MCP);
     }
 
     private Sections(final boolean repositoryFile) {
@@ -67,7 +73,8 @@ final class Sections {
                         "builds",
                         "parameters",
                         "branch",
-                        "base_branch"));
+                        "base_branch",
+                        MCP));
         keys.put(
                 "project",
                 List.of(
@@ -102,6 +109,7 @@ final class Sections {
                 "parameters.<name>",
                 List.of("description", "values", "pattern", "default", "required", "env"));
         keys.put("branch", List.of("template", "pattern"));
+        keys.put(MCP, List.of("methods", "agents", "tasks", "minutes"));
     }
 
     /**
@@ -142,6 +150,12 @@ final class Sections {
                             + where
                             + "' cannot be set here; only from, env, run and run_file may be set"
                             + " under image";
+        }
+        if (TOP.equals(section) && MCP.equals(key)) {
+            return "'"
+                    + where
+                    + "' cannot be set here; what a task may do through its MCP endpoint is the"
+                    + " project file's alone";
         }
         if ("repositories.<name>".equals(section) && "image".equals(key)) {
             return "'"

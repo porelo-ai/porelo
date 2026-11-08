@@ -89,6 +89,54 @@ public final class ProjectReader {
     }
 
     /**
+     * Reads what a project's file allows a task's MCP endpoint.
+     *
+     * @param reader Source of the YAML.
+     * @param origin Name used in error messages.
+     * @return The endpoint's methods and limits, or empty when the file has no {@code mcp} section.
+     * @throws ProjectException If the file is not usable.
+     */
+    public static java.util.Optional<McpEndpoint> endpoint(
+            final Reader reader, final String origin) {
+        return java.util.Optional.ofNullable(
+                endpoint(ProjectFileReader.read(reader, origin).mcp()));
+    }
+
+    /**
+     * Reads what a project's file on this machine allows a task's MCP endpoint.
+     *
+     * @param file Path to {@code project.yml}.
+     * @return The endpoint's methods and limits, or empty when the file has no {@code mcp} section.
+     * @throws ProjectException If the file cannot be read or is not usable.
+     */
+    public static java.util.Optional<McpEndpoint> endpoint(final Path file) {
+        return java.util.Optional.ofNullable(endpoint(ProjectFileReader.read(file).mcp()));
+    }
+
+    private static @Nullable McpEndpoint endpoint(
+            final org.fuin.porelo.core.project.file.@Nullable Mcp mcp) {
+        if (mcp == null) {
+            return null;
+        }
+        final Map<String, List<String>> agents;
+        final Map<String, @Nullable List<String>> named = mcp.agents();
+        if (named == null) {
+            agents = McpEndpoint.DEFAULT_AGENTS;
+        } else {
+            agents = new LinkedHashMap<>();
+            named.forEach(
+                    (agent, models) -> agents.put(agent, models == null ? List.of() : models));
+        }
+        final Integer tasks = mcp.tasks();
+        final Integer minutes = mcp.minutes();
+        return new McpEndpoint(
+                Objects.requireNonNull(mcp.methods(), "checked: mcp.methods"),
+                agents,
+                tasks == null ? McpEndpoint.DEFAULT_TASKS : tasks,
+                minutes == null ? McpEndpoint.DEFAULT_MINUTES : minutes);
+    }
+
+    /**
      * Returns the keys each section of a project file may hold, as this Porelo knows them.
      *
      * @return Section to its keys, sorted; {@code ""} is the top level, and a name the file chooses
@@ -118,13 +166,14 @@ public final class ProjectReader {
 
     /**
      * Returns the places where a project file holds what is not Porelo's to know: the project's own
-     * names ({@code credentials}, {@code repositories}) and each transport's settings ({@code
-     * mail.transports.<scheme>}).
+     * names ({@code credentials}, {@code repositories}), each transport's settings ({@code
+     * mail.transports.<scheme>}) and the agents an MCP endpoint may start ({@code mcp.agents}), by
+     * the names this machine's agents go by.
      *
      * @return Their paths.
      */
     public static List<String> openSections() {
-        return List.of("credentials", "repositories", "mail.transports.<scheme>");
+        return List.of("credentials", "repositories", "mail.transports.<scheme>", "mcp.agents");
     }
 
     /**
