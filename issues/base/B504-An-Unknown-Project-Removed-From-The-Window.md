@@ -1,7 +1,7 @@
 # [B504](README.md#b504) — An Unknown Project Removed From The Window
 
-**Status:** Backlog.
-**Size:** M - `RemoveProject` in the project contract part (`20-project`), `ProjectMethods`, and their tests.
+**Status:** Review.
+**Size:** XS - two tests; the code already does it.
 
 **What must be true.** A project the machine lists but has no file for can be previewed and removed over the socket:
 `RemoveProject` with `dryRun` answers `PREVIEWED` with what it removes, keeps and what of it is unreviewed, and the
@@ -9,9 +9,13 @@ refusals any other project gets, instead of `NoSuchProject`.
 
 ## Plan
 
-- `RemoveProject` resolves a listed name without a file as the CLI's removal does, on the one implementation both
-  render.
-- Red first: a unit test with a listed project whose file is gone, which answers `NoSuchProject` today.
+- Read in the code on 2026-11-08: `RemoveProject` (`ProjectMethods`) and `projects delete` both go through
+  `ProjectDeletion`, which finds a project in `ProjectInventory`, the list `Projects` answers. A project listed from
+  its mirror and registry entry with its file gone is therefore previewed as `PREVIEWED` today. The `NoSuchProject`
+  the window met was the `Unfollow` of an earlier version.
+- Two tests hold it: `ProjectDeletionTest.aProjectListedWhoseFileIsGoneIsPreviewedAsAnyOther` and
+  `PoreloDaemonTest.aListedProjectWhoseFileIsGoneIsPreviewedOverTheSocket`. The daemon test was seen red with the
+  lookup made to skip a project whose file is gone.
 
 ## Acceptance
 

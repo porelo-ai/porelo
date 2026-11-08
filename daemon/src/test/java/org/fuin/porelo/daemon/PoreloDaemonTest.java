@@ -4514,6 +4514,40 @@ class PoreloDaemonTest {
                 });
     }
 
+    @Test
+    void aListedProjectWhoseFileIsGoneIsPreviewedOverTheSocket(@TempDir Path dir) throws Exception {
+        // A window offers removal for what Projects lists, and a blind force is not an answer.
+        Files.createDirectories(dir.resolve("data/porelo/mirrors/left.git/objects"));
+        Files.createDirectories(dir.resolve("data/porelo/projects"));
+        Files.writeString(dir.resolve("data/porelo/projects/left"), dir.resolve("gone.yml") + "\n");
+        runner.answering("for-each-ref", "");
+
+        serving(
+                dir,
+                socket -> {
+                    try (VarlinkClient client = new VarlinkClient(socket)) {
+                        final Map<String, Object> listed =
+                                client.call(PoreloDaemon.INTERFACE + ".Projects", Map.of());
+                        assertThat(String.valueOf(listed.get("projects")))
+                                .as("the machine lists it")
+                                .contains("left");
+
+                        final Map<String, Object> reply =
+                                client.call(
+                                        PoreloDaemon.INTERFACE + ".RemoveProject",
+                                        Map.of("name", "left", "dryRun", true));
+
+                        assertThat(reply)
+                                .as("previewed with what it takes, not NoSuchProject")
+                                .containsEntry("outcome", "PREVIEWED")
+                                .containsKeys("removes", "keeps", "unreviewed");
+                        assertThat(Files.isDirectory(dir.resolve("data/porelo/mirrors/left.git")))
+                                .as("a preview removes nothing")
+                                .isTrue();
+                    }
+                });
+    }
+
     /** A client has no path to send: by name it was refused as no such project. */
     @Test
     void prepareResolvesAProjectByName(@TempDir Path dir) throws Exception {

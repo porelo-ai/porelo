@@ -205,6 +205,31 @@ class ProjectDeletionTest {
     }
 
     @Test
+    void aProjectListedWhoseFileIsGoneIsPreviewedAsAnyOther(@TempDir Path dir) throws IOException {
+        // A window offers removal for what the machine lists; a preview it cannot get is a blind
+        // force, and what that takes includes pushes nobody reviewed.
+        final PoreloContext context = context(dir);
+        Files.delete(project("left"));
+        runner.answering("for-each-ref", "");
+
+        assertThat(new ProjectInventory(context).projects())
+                .as("the machine still lists it")
+                .extracting(ProjectInventory.Summary::name)
+                .contains("left");
+
+        final ProjectDeletion.Result result =
+                new ProjectDeletion(context).delete("left", true, false);
+
+        assertThat(result.outcome())
+                .as("previewed, not unknown")
+                .isEqualTo(ProjectDeletion.Outcome.PREVIEWED);
+        assertThat(result.removes())
+                .as("what it would take is named")
+                .extracting(ProjectDeletion.Removal::kind)
+                .contains("MIRROR", "REGISTRY");
+    }
+
+    @Test
     void aProjectNothingKnowsIsAnOutcomeRatherThanAnError(@TempDir Path dir) {
 
         assertThat(
