@@ -10,9 +10,15 @@ judged from outside, and never as waiting by guess.
 
 ## Plan
 
-- An agent definition field naming how its waiting is seen, beside the at-rest judgment of the attached screen;
-  `TaskInventory` answers a `WAITING_ON_PERSON` activity, additive under `Tasks1`.
-- Red first: a unit test with the stub agent declaring it.
+Read in the code on 2026-11-08: most of this is on the wire already.
+
+- An attached agent's own declaration is answered in `Task.screen` (`ScreenState`: `WAITING`, `NOT_WAITING`,
+  `UNDECLARED`, `UNSEEN`) in `15-task.varlink`, read from the screen against the rules the agent's package declares.
+- An unattended run's last message and whether it asked are in `Task.lastMessage` and `Task.asked` (`ASKED`,
+  `DID_NOT_ASK`, `CANNOT_SAY`).
+- What is missing is working and quiet for an attached task, observed from outside: that is
+  [B118](README.md#b118). This issue adds nothing beside it unless the window needs more than `screen`, `asked` and
+  its `AT_REST`.
 
 ## Acceptance
 
