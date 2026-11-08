@@ -23,6 +23,8 @@ The operator decided on 2026-11-08, replacing the OAuth App decided before:
 
 - **A public GitHub App, used through the device flow and user access tokens.** It is registered for `porelo-ai` by
   the operator, after a trial with a test app. Both come after the trial moves. Its client id ships with Porelo.
+- **A person's or company's own app:** they may name their own app's client id in the vault entry, which then takes
+  the place of Porelo's (the operator, 2026-11-08).
 - **What a user access token is, as GitHub documents it** (to be measured in the trial, not taken as read):
   - it acts only where the app is installed, and only with what both the app's permissions and the person allow;
   - it expires after eight hours and comes with a refresh token;
@@ -41,7 +43,5 @@ The operator decided on 2026-11-08, replacing the OAuth App decided before:
 
 - In the trial with the test app: the device flow, the token's lifetime, a renewal, and a push into a repository where
   the app is not installed, with the words GitHub answers.
-- Whether a person or company may still name their own app's client id in the vault entry, as was decided for the
-  OAuth App. The operator's word of 2026-11-08 does not say.
 - The accepted risk to write into `doc/decisions.md` when this is built. It is narrower than the OAuth App's (only where
   the app is installed, eight hours), but a refresh token in each machine's vault still renews it.
