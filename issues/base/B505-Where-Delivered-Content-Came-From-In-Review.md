@@ -22,6 +22,8 @@ the agent's own and carries no mark. Build logs, verdicts and room messages are 
    `origin` per `ReviewFile`; additive under `Tasks1`.
 2. Placed files: a first start records what each plugin placed (path, sha256, plugin name, version) beside the task,
    as hand-ins are recorded; the version comes with [B503](README.md#b503). `Review` matches them the same way.
+   Nothing places such files yet: no code calls an adapter's `Configure` until [B467](README.md#b467), so this step
+   waits on it.
 - Red first: a unit test where a pushed file equals a handed-in file's content at another path, and one where the
   handed-in path changed.
 

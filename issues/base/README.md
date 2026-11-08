@@ -89,7 +89,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
-| <a id="b505"></a>[B505](B505-Where-Delivered-Content-Came-From-In-Review.md) | M | - | `Review` names where each file Porelo delivered into the task came from. |
+| <a id="b505"></a>[B505](B505-Where-Delivered-Content-Came-From-In-Review.md) | M | [B467](#b467) | `Review` names where each file Porelo delivered into the task came from. |
 | <a id="b494"></a>[B494](B494-Build-Status-Reads-The-Builds-A-Host-Names.md) | S | - | `build status` on a host answers from the builds the host names when `project.yml` names none, as the task's watch does. |
 | <a id="b496"></a>[B496](B496-A-Shut-Vault-Is-Named-When-An-Organization-Change-Is-Refused.md) | S | - | An organization change refused because no forge token could be lent says `vault-shut` when the vault is shut. |
 | <a id="b495"></a>[B495](B495-A-Start-Says-Which-Image-And-Where-To-Run-Host.md) | XS | - | A start's protocol says which base image the task runs on, what the changed settings keep, and that `--host` runs on the person's own computer. |
