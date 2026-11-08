@@ -108,6 +108,14 @@ public class VaultServeCommand implements Callable<Integer>, PoreloFactory.Conte
     private Map<String, String> routeSpecs = new java.util.LinkedHashMap<>();
 
     @Option(
+            names = "--task-key",
+            paramLabel = "<credential>=<entry>",
+            description =
+                    "A route's key read from the task's own vault entry, not from a credential a person"
+                            + " stored: the key of a task's porelo-mcp. Repeatable.")
+    private Map<String, String> taskKeys = new java.util.LinkedHashMap<>();
+
+    @Option(
             names = "--credential-header",
             paramLabel = "<header>=<setting>",
             description =
@@ -262,6 +270,24 @@ public class VaultServeCommand implements Callable<Integer>, PoreloFactory.Conte
         try {
             final Map<String, org.fuin.porelo.vault.VaultEntry> entries = context.credentials();
             entries.forEach((key, entry) -> credentials.put(key, entry.value()));
+            if (!taskKeys.isEmpty()) {
+                // A task's own entries are hidden from the credentials, so read apart, and only
+                // when a route names one.
+                final org.fuin.porelo.vault.VaultFile.Opener opener =
+                        context.opener()
+                                .orElseThrow(
+                                        () ->
+                                                new VaultException(
+                                                        "the vault is locked, so a task's own key"
+                                                                + " cannot be read"));
+                final String unkeyed =
+                        taskKeys(taskKeys, context.vault().read(opener), credentials);
+                if (unkeyed != null) {
+                    err.println("porelo: " + unkeyed);
+                    err.flush();
+                    return 2;
+                }
+            }
             final String lacking = headerValues(entries.get(credential), headers);
             if (lacking != null) {
                 err.println("porelo: credential '" + credential + "' " + lacking);
@@ -604,6 +630,37 @@ public class VaultServeCommand implements Callable<Integer>, PoreloFactory.Conte
      * @throws IllegalArgumentException If it is not four fields with an https destination and a
      *     header.
      */
+    /**
+     * Puts each {@code --task-key} route's key among the credentials, from the task's own entry it
+     * names.
+     *
+     * @param wanted Route to entry, as given.
+     * @param all Everything the vault holds, a task's own entries included.
+     * @param credentials Filled with each route's key.
+     * @return {@code null} when every key is there, otherwise what is wrong.
+     */
+    static @Nullable String taskKeys(
+            Map<String, String> wanted,
+            Map<String, org.fuin.porelo.vault.VaultEntry> all,
+            Map<String, String> credentials) {
+        for (final Map.Entry<String, String> key : wanted.entrySet()) {
+            // Only a task's own: a person's credential named here would be handed to any route.
+            if (!key.getValue().startsWith(VaultNames.TASK_PREFIX)) {
+                return "--task-key "
+                        + key.getKey()
+                        + " names '"
+                        + key.getValue()
+                        + "', which is no task's own entry";
+            }
+            final org.fuin.porelo.vault.VaultEntry entry = all.get(key.getValue());
+            if (entry == null) {
+                return "the vault holds no key for the route '" + key.getKey() + "'";
+            }
+            credentials.put(key.getKey(), entry.value());
+        }
+        return null;
+    }
+
     static VaultProxy.Route route(String name, String spec) {
         final String[] fields = spec.split("\\|", -1);
         if (fields.length != 4 || fields[0].isBlank() || fields[1].isBlank()) {

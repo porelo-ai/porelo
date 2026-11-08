@@ -319,6 +319,69 @@ public final class TaskSecrets {
         }
     }
 
+    /** The key the gateway adds toward the task's porelo-mcp, after the task's container name. */
+    static final String MCP_KEY = "/mcp-key";
+
+    /**
+     * Returns the vault entry a task's porelo-mcp key is kept under, which the broker is told.
+     *
+     * @param container The task's container.
+     * @return The entry's name.
+     */
+    public static String mcpKeyEntry(String container) {
+        return PREFIX + container + MCP_KEY;
+    }
+
+    /**
+     * Keeps the key the gateway adds toward a task's porelo-mcp, where its broker reads it and a
+     * resume finds it again.
+     *
+     * @param container The task's container.
+     * @param key The key.
+     * @return "" when it is kept, otherwise why not.
+     */
+    public String keepMcpKey(String container, String key) {
+        final Optional<VaultFile.Opener> opener = context.opener();
+        if (!context.vault().exists() || opener.isEmpty()) {
+            return "the vault is "
+                    + (context.vault().exists() ? "locked" : "not there")
+                    + ", so the key of this task's MCP endpoint could not be kept";
+        }
+        try {
+            context.vault()
+                    .update(
+                            opener.get(),
+                            entries -> {
+                                final Map<String, VaultEntry> updated =
+                                        new LinkedHashMap<>(entries);
+                                put(updated, container + MCP_KEY, key);
+                                return updated;
+                            });
+            return "";
+        } catch (VaultException ex) {
+            return "the vault could not be written (" + ex.getMessage() + ")";
+        }
+    }
+
+    /**
+     * Reads the key kept for a task's porelo-mcp.
+     *
+     * @param container The task's container.
+     * @return It, or empty when there is none or the vault cannot be read.
+     */
+    public Optional<String> mcpKey(String container) {
+        final Optional<VaultFile.Opener> opener = context.opener();
+        if (!context.vault().exists() || opener.isEmpty()) {
+            return Optional.empty();
+        }
+        try {
+            return Optional.ofNullable(
+                    value(context.vault().read(opener.get()).get(mcpKeyEntry(container))));
+        } catch (VaultException ex) {
+            return Optional.empty();
+        }
+    }
+
     /**
      * Reads the forge token a host made for a task.
      *
