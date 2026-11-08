@@ -145,6 +145,35 @@ class InstalledEcosystemsTest {
                 .isEqualTo("1.0 [2J");
     }
 
+    @Test
+    void aVersionOfOnlyUnprintableCharactersIsNoVersion() throws IOException {
+        described(
+                "escape",
+                "{\"protocolVersion\":2,\"ecosystem\":\"escape\",\"version\":\"\\u001b\"}");
+        described(
+                "zerowidth",
+                "{\"protocolVersion\":2,\"ecosystem\":\"zerowidth\",\"version\":\"\\u200b\"}");
+
+        assertThat(InstalledEcosystems.all(locations()))
+                .as("a version that shows as nothing once made plain is no version, never a blank")
+                .extracting(InstalledEcosystems.Description::version)
+                .containsExactly(null, null);
+    }
+
+    @Test
+    void aLongVersionIsCutToTheLengthItIsShownWith() throws IOException {
+        described(
+                "long",
+                "{\"protocolVersion\":2,\"ecosystem\":\"long\",\"version\":\""
+                        + "1".repeat(200)
+                        + "\"}");
+
+        assertThat(InstalledEcosystems.all(locations()).getFirst().version())
+                .as("a plugin cannot fill a listing with a version of any length")
+                .hasSizeLessThanOrEqualTo(128)
+                .startsWith("1111");
+    }
+
     /** A plugin whose description is exactly this text, untouched by the shell's printf. */
     private Path described(final String name, final String description) throws IOException {
         return executable("user", name, "printf '%s' '" + description + "'");

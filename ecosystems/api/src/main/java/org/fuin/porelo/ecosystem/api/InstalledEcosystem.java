@@ -423,9 +423,13 @@ public final class InstalledEcosystem implements AutoCloseable {
         return new Described(
                 // A newer plugin than any int names still speaks every version this one knows.
                 (int) Math.min(spoken, Integer.MAX_VALUE),
-                said instanceof String text && !text.isBlank()
-                        ? Wire.plain(text, VERSION_LENGTH)
-                        : null);
+                said instanceof String text ? shown(text) : null);
+    }
+
+    /** A version as it is shown, or null when nothing of it would show. */
+    private static @Nullable String shown(final String version) {
+        final String plain = Wire.plain(version, VERSION_LENGTH);
+        return plain.isBlank() ? null : plain;
     }
 
     /**
