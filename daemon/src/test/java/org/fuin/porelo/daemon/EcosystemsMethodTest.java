@@ -206,4 +206,71 @@ class EcosystemsMethodTest {
                                                                 PoreloDaemon.INTERFACE
                                                                         + ".FirstStartRefused")));
     }
+
+    @Test
+    void refusesACheckoutThatNamesNoPathAsNoCheckout() throws Exception {
+        serving(
+                client ->
+                        assertThatThrownBy(
+                                        () ->
+                                                client.call(
+                                                        PoreloDaemon.INTERFACE + ".Ecosystems",
+                                                        Map.of("checkout", "/work\u0000shop")))
+                                .as("a name no file system takes is no checkout, never a failure")
+                                .isInstanceOfSatisfying(
+                                        VarlinkException.class,
+                                        refused -> {
+                                            assertThat(refused.getErrorName())
+                                                    .isEqualTo(
+                                                            PoreloDaemon.INTERFACE
+                                                                    + ".FirstStartRefused");
+                                            assertThat(refused.getParameters())
+                                                    .containsEntry("reason", "NOT_A_CHECKOUT");
+                                        }));
+    }
+
+    @Test
+    void aPluginDirectoryThatCannotBeListedIsNamedPrintably() throws Exception {
+        final Path data = dir.resolve("da\u001b[2Jta");
+        final XdgPaths xdg =
+                XdgPaths.of(
+                        name ->
+                                switch (name) {
+                                    case "XDG_STATE_HOME" -> dir.resolve("state").toString();
+                                    case "XDG_DATA_HOME" -> data.toString();
+                                    case "XDG_CONFIG_HOME" -> dir.resolve("config").toString();
+                                    case "XDG_RUNTIME_DIR" -> dir.resolve("run").toString();
+                                    default -> null;
+                                },
+                        dir);
+        context = new PoreloContext(runner, new PoreloPaths(xdg, dir.resolve("bin")), args -> 0);
+        // A file where the directory belongs: listing it fails for any account, root too.
+        final Path plugins = context.paths().ecosystemDirectories().getFirst();
+        Files.createDirectories(plugins.getParent());
+        Files.writeString(plugins, "no directory");
+        serving(
+                client ->
+                        assertThatThrownBy(
+                                        () ->
+                                                client.call(
+                                                        PoreloDaemon.INTERFACE + ".Ecosystems",
+                                                        Map.of()))
+                                .isInstanceOfSatisfying(
+                                        VarlinkException.class,
+                                        refused -> {
+                                            assertThat(refused.getErrorName())
+                                                    .isEqualTo(
+                                                            PoreloDaemon.INTERFACE
+                                                                    + ".EcosystemsNotListed");
+                                            assertThat(
+                                                            String.valueOf(
+                                                                    refused.getParameters()
+                                                                            .get("detail")))
+                                                    .as(
+                                                            "a path from the account never steers"
+                                                                    + " the terminal that shows it")
+                                                    .contains("ecosystems")
+                                                    .doesNotContain("\u001b");
+                                        }));
+    }
 }

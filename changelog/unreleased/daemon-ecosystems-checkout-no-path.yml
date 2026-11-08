@@ -1,0 +1,2 @@
+title: The daemon refuses a checkout whose name no file system can hold as no checkout, where it answered a generic failure, and a plugin directory it cannot list is named with its unprintable characters replaced
+type: fixed

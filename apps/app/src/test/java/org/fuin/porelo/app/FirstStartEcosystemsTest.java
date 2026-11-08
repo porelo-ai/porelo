@@ -209,6 +209,77 @@ class FirstStartEcosystemsTest {
     }
 
     @Test
+    void asksAboutTheCheckoutALinkLeadsToAndNeverTheLink() throws Exception {
+        plugin("maven");
+        final Path link = Files.createSymbolicLink(root.resolve("shortcut"), checkout);
+
+        firstStart().ecosystems(link);
+
+        assertThat(asked)
+                .as("the plugin reads the directory a first start reads, wherever a link points")
+                .containsExactly("maven " + checkout + " " + context.paths().xdg().home());
+    }
+
+    @Test
+    void refusesADirectoryThatDoesNotExist() throws Exception {
+        plugin("maven");
+        final Path missing = root.resolve("work/gone");
+
+        assertThatThrownBy(() -> firstStart().ecosystems(missing))
+                .as("a path to nothing is no checkout")
+                .isInstanceOfSatisfying(
+                        FirstStart.Refused.class,
+                        refused ->
+                                assertThat(refused.reason())
+                                        .isEqualTo(FirstStart.Reason.NOT_A_CHECKOUT));
+        assertThat(asked).as("no plugin is asked about it").isEmpty();
+    }
+
+    @Test
+    void aFindingsAndAFilesWordsAreMadePrintable() {
+        final FirstStart.Placing placing =
+                new FirstStart.Placing(
+                        new InstalledEcosystems.Description(
+                                "maven", root.resolve("maven"), null, "1.4.0", 2),
+                        FirstStart.Asking.DETECTED,
+                        new Detection(
+                                List.of(
+                                        new Finding(
+                                                Finding.Part.TOOLS,
+                                                "java.version",
+                                                "25\u001b[2J",
+                                                "pom.xml",
+                                                14,
+                                                Finding.Origin.CHECKOUT,
+                                                false,
+                                                "read\u0007here")),
+                                List.of()),
+                        // A control character is refused by File itself; a bidirectional
+                        // override is not.
+                        List.of(new File(".m2/‮settings.xml", "", true)),
+                        "");
+
+        final Map<String, Object> wire = placing.asMap();
+
+        assertThat(wire.get("findings"))
+                .as("a finding's value and note never steer the terminal that shows them")
+                .isEqualTo(
+                        List.of(
+                                Map.of(
+                                        "part", "TOOLS",
+                                        "key", "java.version",
+                                        "value", "25?[2J",
+                                        "file", "pom.xml",
+                                        "line", 14,
+                                        "origin", "CHECKOUT",
+                                        "unknown", false,
+                                        "note", "read?here")));
+        assertThat(wire.get("files"))
+                .as("a file's path never reorders what shows it")
+                .isEqualTo(List.of(Map.of("path", ".m2/?settings.xml", "ownerOnly", true)));
+    }
+
+    @Test
     void aPlacedFilesContentNeverAppearsInTheAnswer() {
         final FirstStart.Placing placing =
                 new FirstStart.Placing(

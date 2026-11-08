@@ -127,7 +127,10 @@ final class AgentMethods {
                     } catch (org.fuin.porelo.ecosystem.api.EcosystemException ex) {
                         throw new org.fuin.porelo.wire.varlink.VarlinkException(
                                 INTERFACE + ".EcosystemsNotListed",
-                                Map.of("detail", String.valueOf(ex.getMessage())));
+                                Map.of(
+                                        "detail",
+                                        org.fuin.porelo.vault.RegistryText.printable(
+                                                String.valueOf(ex.getMessage()))));
                     }
                 });
 

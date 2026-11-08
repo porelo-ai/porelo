@@ -47,7 +47,14 @@ final class TaskMethods {
     /** A daemon has a directory of its own: a relative path would name something else. */
     static Path checkout(final Map<String, Object> parameters)
             throws org.fuin.porelo.app.FirstStart.Refused {
-        final Path checkout = Path.of(text(parameters, "checkout"));
+        final Path checkout;
+        try {
+            checkout = Path.of(text(parameters, "checkout"));
+        } catch (java.nio.file.InvalidPathException ex) {
+            throw new org.fuin.porelo.app.FirstStart.Refused(
+                    org.fuin.porelo.app.FirstStart.Reason.NOT_A_CHECKOUT,
+                    "a checkout is named by a path this machine can hold");
+        }
         if (!checkout.isAbsolute()) {
             throw new org.fuin.porelo.app.FirstStart.Refused(
                     org.fuin.porelo.app.FirstStart.Reason.NOT_A_CHECKOUT,
