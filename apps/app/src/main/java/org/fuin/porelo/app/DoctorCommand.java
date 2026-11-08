@@ -208,6 +208,140 @@ public class DoctorCommand implements Callable<Integer>, PoreloFactory.ContextAw
     }
 
     /**
+     * Reports whether this machine can carry its projects' messages: the transport each project's
+     * conversation names is installed and answers {@code describe}, and a server it runs on this
+     * machine, where its setup said the conversation reaches loopback alone, answers there.
+     *
+     * <p>Beside {@code transports}, which asks every installed adapter: this asks what the projects
+     * need. A machine whose projects name no transport needs none, which is fine. A server
+     * elsewhere is not asked, so this line never reaches beyond the machine.
+     *
+     * @param context The machine.
+     * @param answers Whether something listens at a {@code host:port} a conversation reaches.
+     * @return The probe.
+     */
+    static Probe messages(
+            final PoreloContext context, final java.util.function.Predicate<String> answers) {
+        final String name = "messages";
+        final java.util.List<ProjectInventory.Summary> projects;
+        try {
+            projects = new ProjectInventory(context).projects();
+        } catch (final RuntimeException ex) {
+            return Probe.unknown(
+                    name, "the projects cannot be listed: " + ex.getMessage(), "porelo projects");
+        }
+        final TransportDirectory directory = context.paths().messaging().transportDirectory();
+        final java.util.Map<String, Boolean> describes = new java.util.HashMap<>();
+        final java.util.List<String> carried = new java.util.ArrayList<>();
+        final java.util.List<String> problems = new java.util.ArrayList<>();
+        final java.util.List<String> unread = new java.util.ArrayList<>();
+        String action = null;
+        for (final ProjectInventory.Summary summary : projects) {
+            final String file = summary.file();
+            // A task of 'default' talks to nobody, whatever its file says.
+            if (file == null || DefaultProject.is(summary.name())) {
+                continue;
+            }
+            final org.fuin.porelo.core.project.Project project;
+            try {
+                project =
+                        org.fuin.porelo.core.project.ProjectReader.read(
+                                java.nio.file.Path.of(file));
+            } catch (final RuntimeException ex) {
+                unread.add(summary.name());
+                continue;
+            }
+            final java.util.Map<String, Object> row = Conversations.row(context, project);
+            if (row == null) {
+                continue;
+            }
+            final String scheme = String.valueOf(row.get("transport"));
+            final java.nio.file.Path adapter = directory.find(scheme);
+            if (adapter == null) {
+                problems.add(project.name() + " names " + scheme + ", which is not installed here");
+                action = action != null ? action : "install the transport " + scheme;
+                continue;
+            }
+            if (!describes.computeIfAbsent(
+                    scheme,
+                    any ->
+                            TransportDescription.of(context.runner(), adapter)
+                                    != TransportDescription.UNKNOWN)) {
+                problems.add(project.name() + "'s " + scheme + " did not answer 'describe'");
+                action =
+                        action != null ? action : "run " + adapter + " describe by hand to see why";
+                continue;
+            }
+            final java.util.List<String> reaches =
+                    row.get("reaches") instanceof java.util.List<?> listed
+                            ? listed.stream().map(String::valueOf).toList()
+                            : java.util.List.of();
+            // Loopback alone is a server of this account's own; one elsewhere is not asked.
+            final java.util.List<String> silent =
+                    !reaches.isEmpty() && reaches.stream().allMatch(TaskConversations::loopback)
+                            ? reaches.stream().filter(reach -> !answers.test(reach)).toList()
+                            : java.util.List.of();
+            if (!silent.isEmpty()) {
+                problems.add(
+                        project.name()
+                                + "'s "
+                                + scheme
+                                + " server on this machine does not answer at "
+                                + String.join(", ", silent));
+                action =
+                        action != null
+                                ? action
+                                : "start a task of "
+                                        + project.name()
+                                        + " ('porelo task start --project "
+                                        + project.name()
+                                        + "'): its start sets the conversation up, which starts"
+                                        + " the server";
+                continue;
+            }
+            carried.add(project.name() + " by " + scheme);
+        }
+        if (action != null) {
+            return Probe.degraded(name, String.join("; ", problems), action);
+        }
+        if (!unread.isEmpty()) {
+            return Probe.unknown(
+                    name,
+                    "cannot tell for " + String.join(", ", unread) + ": its file does not read",
+                    "porelo projects");
+        }
+        if (carried.isEmpty()) {
+            return Probe.ok(name, "no project names a transport, so this machine needs none");
+        }
+        return Probe.ok(name, String.join(", ", carried));
+    }
+
+    /**
+     * Says whether something accepts a connection at a {@code host:port} on this machine, within a
+     * second.
+     *
+     * @param reach Where, as a transport's {@code reaches} names it.
+     * @return Whether it answered.
+     */
+    static boolean answersAt(final String reach) {
+        final int colon = reach.lastIndexOf(':');
+        if (colon < 0) {
+            return false;
+        }
+        final String host = reach.substring(0, colon).replace("[", "").replace("]", "");
+        try (java.net.Socket socket = new java.net.Socket()) {
+            socket.connect(
+                    new java.net.InetSocketAddress(
+                            "localhost".equals(host) ? "127.0.0.1" : host,
+                            Integer.parseInt(reach.substring(colon + 1))),
+                    1000);
+            return true;
+        } catch (final java.io.IOException | RuntimeException ex) {
+            return false;
+        }
+    }
+
+    /**
      * Whether a transport's {@code describe} says it keeps a conversation - only such a transport
      * is handed secrets - and does not say it takes them on its input.
      */
@@ -865,6 +999,7 @@ public class DoctorCommand implements Callable<Integer>, PoreloFactory.ContextAw
                 binary("git", "git", "the gate has no mirror to serve and no push can be reviewed"),
                 openSsh(),
                 transports(),
+                messages(context, DoctorCommand::answersAt),
                 messageFilter(),
                 projects(),
                 leftovers(),

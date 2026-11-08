@@ -20,6 +20,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b501"></a>[B501](B501-Matrix-In-Doctor.md) | S | - | `doctor` says whether the machine can carry its projects' messages: the transport installed, a local homeserver answering. |
 | <a id="b500"></a>[B500](B500-Tighten-Over-The-Socket.md) | S | - | `Tighten` with a dry run answers what `porelo tighten` changes, over the socket. |
 | <a id="b499"></a>[B499](B499-A-Vault-Entry-Removed-And-Replaced-Over-The-Socket.md) | M | - | `CredentialRemove` and `CredentialReplace` remove an entry's secret and replace its value over the socket, the value never logged or answered. |
 | <a id="b493"></a>[B493](B493-A-Host-Task-Reads-The-Builds-Its-Host-Names.md) | M | - | A guarded project's task on a host is told its builds on the host's forge when the host's file names them; `project.yml` stays unchanged. |
@@ -99,7 +100,6 @@ from its side, as *blocked by*.
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
 | <a id="b497"></a>[B497](B497-A-Forge-Token-Lent-For-One-Command.md) | XS | - | The gate and a start ask the host's helper for a token lent for one command, leaving the person's token valid; waits on a helper that takes `--lend`. |
-| <a id="b501"></a>[B501](B501-Matrix-In-Doctor.md) | S | - | `doctor` says whether the machine can carry its projects' messages: the transport installed, a local homeserver answering. |
 | <a id="b503"></a>[B503](B503-The-Ecosystems-A-Machine-Has.md) | M | - | `Ecosystems` lists the installed ecosystem plugins and what each places for a repository; its shape agreed with the ecosystems' repository first. |
 | <a id="b504"></a>[B504](B504-An-Unknown-Project-Removed-From-The-Window.md) | M | - | `RemoveProject` previews and removes a project the machine lists but has no file for, instead of `NoSuchProject`. |
 | <a id="b505"></a>[B505](B505-Where-Delivered-Content-Came-From-In-Review.md) | M | - | `Review` names where each file Porelo delivered into the task came from. |
