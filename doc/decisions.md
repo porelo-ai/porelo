@@ -1048,8 +1048,10 @@ root in a `RUN` is root in the build's user namespace, not the machine's. A `RUN
 environment, only what the Containerfile copies in. What it can do is fetch and send over the network, and leave what it
 fetched in the image, which the running task then holds behind its firewall. **Why it stays:**
 a person who can write to the repository is one the project gave that access, and signing every file a project file
-names has no end. The operator took this on 2026-11-02, told of the exposure. **What would change the answer:** building the image within the project's egress and trusted package
-sources.
+names has no end. The operator took this on 2026-11-02, told of the exposure. **Not to be changed:** building the image
+within the project's egress was weighed and rejected on 2026-11-08. What a person
+builds into their image is their own risk, which Porelo neither can nor wants to take from them, and a person may bring
+their own base image at any time, which Porelo does not see anyway.
 
 ## Several attempts share one credential
 

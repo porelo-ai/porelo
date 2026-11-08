@@ -325,5 +325,12 @@ same user can bind in between. The sequence is not race-free. Closing it needs a
 and an atomic rename, which is deliberately not built. The risk is availability, a process left
 unreachable; no credential travels this path.
 
+**What an image is built from is the person's own risk.** The lines of `image.run`, and of the file `image.run_file`
+names, run while the image is built, with the account's network, outside the project's `egress`. A change to that file
+needs no admin's signature. Podman runs rootless, so a `RUN` is root only in the build's user namespace, and it is given
+none of the account's files or environment. Whatever it fetched stays in the image, which the task then holds behind its
+firewall. Porelo does not limit the build: a person may bring their own base image at any time, which Porelo does not
+see anyway ([decision](decisions.md#a-projects-own-file-is-judged-by-its-newest-change-alone)).
+
 The DNS gap above is the other open item on this page. What the credential proxy accepts is on
 [Credentials](credentials.md#what-the-proxy-withholds).

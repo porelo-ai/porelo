@@ -1,6 +1,8 @@
 # B207 — An Image Built Within The Project's Egress
 
-**Status:** Backlog; its plan written, two questions open.
+**Status:** Rejected, by the operator on 2026-11-08. What a person builds into their image is their own risk: Porelo
+neither can nor wants to take it from them. A person may also bring their own base image at any time, which Porelo
+does not see anyway. The plan below is kept as it was written.
 **Size:** L - the image build moves into a network Porelo controls, the project's egress applied to it through the
 firewall or a proxy, with a package source the build may reach without being named; a design to decide first.
 

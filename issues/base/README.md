@@ -112,7 +112,6 @@ from its side, as *blocked by*.
 | <a id="b437"></a>[B437](B437-Reading-The-Organization-Costs-A-Whole-Fetch.md) | - | - | A question that only shows the organization or a project answers without waiting on a whole fetch of its repository, and a decision still fetches. |
 | <a id="b14"></a>[B14](B14-Talking-Between-Tasks.md) | XL | `porelo` [B86](README.md#b86) | Talking between tasks, built on one machine; splits into groups (M), trust confirmed once with fingerprints (M), two machines on one homeserver (L). |
 | <a id="b193"></a>[B193](B193-A-Dependency-Cache-Shared-Across-Tasks.md) | XL | - | Downloaded dependencies cached once for a project's tasks and handed in read-only; what a task installs stays its own; analyzed: filled only from reviewed work, mounted `:ro,z`, read through `maven.repo.local.tail`, filled by `dependency:go-offline` on request and when the default branch moved, Maven first |
-| <a id="b207"></a>[B207](B207-An-Image-Built-Within-The-Projects-Egress.md) | L | - | An image's build reaches only the project's egress and its trusted package sources, run in a guard container behind the task's own firewall (measured to hold), so a snippet - a project's or a repository's `porelo.yml` - cannot fetch from anywhere while the image is made.; plan written, two questions for the operator |
 | <a id="b371"></a>[B371](B371-A-History-Judged-Under-The-Rules-Of-Its-Time.md) | M | - | A history mode of `porelo commit verify`: each commit judged by the keys and certificates in force at its own time, for a migrated history before the hook is armed |
 
 ## Analyzed
@@ -174,7 +173,7 @@ from its side, as *blocked by*.
 | <a id="b202"></a>[B202](B202-Credential-Names-In-A-Project-File-Checked.md) | - | - | A credential's name in a project file is checked when read, since it becomes a token file's and a variable's name; what an existing file does is decided. |
 | <a id="b198"></a>[B198](B198-Settings-Inherited-Down-An-Organisations-Tree.md) | - | - | Teams, settings and locks as new paths in the organization's signed tree pass settings down to projects; `fixed` and `narrow-only` locks nothing below can undo, `project show --resolved`; an organisation's allowed providers are one locked setting of it. |
 | <a id="b199"></a>[B199](B199-A-Transport-Reaches-Only-What-It-Names.md) | - | - | A transport's adapter reaches only the hosts its `reaches` names, as `doc/transports.md` promises; today nothing builds a rule from them. |
-| <a id="b223"></a>[B223](B223-The-Image-Build-Reads-A-Private-Package-Repository.md) | - | `porelo` [B219](README.md#b219) | An image's `snippet` fetches from a declared private repository during the build, the credential in no layer; with [B207](README.md#b207). |
+| <a id="b223"></a>[B223](B223-The-Image-Build-Reads-A-Private-Package-Repository.md) | - | `porelo` [B219](README.md#b219) | An image's `snippet` fetches from a declared private repository during the build, the credential in no layer. |
 
 ## Idea
 
@@ -463,6 +462,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b207"></a>[B207](B207-An-Image-Built-Within-The-Projects-Egress.md) | L | - | An image built within the project's egress is not built: what a person builds into their image is their own risk, and a person may bring their own base image at any time, which Porelo does not see (the operator, 2026-11-08). |
 | <a id="b453"></a>B453 | S | - | A draft replacing a repository's own image is not built on its own: under [B462](#b462) one image source is taken whole, and the repository's `porelo.yml` stands before the project's `image`. |
 | <a id="b461"></a>B461 | S | - | A generated project file saying `base_image` once is not built on its own: the target structure of [B462](#b462) has no image, egress or limits on a repository, and writes only from its model. |
 | <a id="b387"></a>B387 | S | - | A project followed before its access file exists is gone: following by hand and `project access init` went with the cut, and `project open` makes a project's first commit. |
