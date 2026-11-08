@@ -487,6 +487,82 @@ final class McpWiring {
      */
     static void stop(PoreloContext context, String container) {
         final Path state = context.paths().tasks().containerState(container);
+        endProcess(state);
+        McpDaemonSockets.current().close(container);
+        final Path socket = socket(context, container);
+        try {
+            // porelo-mcp removes the path it bound when it stops; this is what one that could not
+            // left, which the next start would otherwise be refused for.
+            Files.deleteIfExists(socket);
+        } catch (IOException ex) {
+            // The next start removes it.
+        }
+        if (Files.isRegularFile(state.resolve(RECORD), LinkOption.NOFOLLOW_LINKS)) {
+            write(state, socket, "stopped", 0);
+        }
+    }
+
+    /**
+     * Opens a running task's daemon socket again, as a restarted {@code porelod} does: its
+     * porelo-mcp still runs and connects to the same path at its next call. One that may no longer
+     * have it is stopped and recorded as absent, so no process is left pointing at nothing.
+     *
+     * @param context Where the paths come from.
+     * @param container The task.
+     * @param project Its project, or {@code null} when its records name none.
+     * @param opener Opens the socket, with the daemon's checks.
+     * @return {@code null} when the task has no porelo-mcp running, otherwise what was done.
+     */
+    static @Nullable String reopen(
+            PoreloContext context,
+            String container,
+            @Nullable String project,
+            McpDaemonSockets.Opener opener) {
+        final Path state = context.paths().tasks().containerState(container);
+        final Map<?, ?> record = record(state);
+        if (record == null
+                || !"running".equals(record.get("state"))
+                || HelperPid.verified(state.resolve(HELPER + ".pid")).isEmpty()) {
+            return null;
+        }
+        final String why;
+        if (project == null) {
+            why = "its records name no project";
+        } else {
+            final Optional<Path> opened;
+            try {
+                opened = opener.open(container, project);
+            } catch (IOException | RuntimeException ex) {
+                opener.close(container);
+                return ended(
+                        context,
+                        container,
+                        "its daemon socket could not be opened again: " + ex.getMessage());
+            }
+            if (opened.isPresent()) {
+                return "its MCP daemon socket is open again at " + opened.get();
+            }
+            why = "its project allows it none now";
+        }
+        return ended(context, container, why);
+    }
+
+    /** Stops a task's porelo-mcp, records it as absent for why, and says so. */
+    private static String ended(PoreloContext context, String container, String why) {
+        final Path state = context.paths().tasks().containerState(container);
+        final Path socket = socket(context, container);
+        endProcess(state);
+        try {
+            Files.deleteIfExists(socket);
+        } catch (IOException ex) {
+            // The next start removes it.
+        }
+        absent(state, socket, why, "");
+        return "its MCP endpoint was stopped: " + why;
+    }
+
+    /** Stops a task's porelo-mcp, when its pid file still names it, and removes that file. */
+    private static void endProcess(Path state) {
         final Path pidFile = state.resolve(HELPER + ".pid");
         final Optional<ProcessHandle> process = HelperPid.verified(pidFile);
         process.ifPresent(HelperPid::stop);
@@ -505,18 +581,6 @@ final class McpWiring {
             Files.deleteIfExists(pidFile);
         } catch (IOException ex) {
             // A pid file left names a process that is stopped; it is verified before any signal.
-        }
-        McpDaemonSockets.current().close(container);
-        final Path socket = socket(context, container);
-        try {
-            // porelo-mcp removes the path it bound when it stops; this is what one that could not
-            // left, which the next start would otherwise be refused for.
-            Files.deleteIfExists(socket);
-        } catch (IOException ex) {
-            // The next start removes it.
-        }
-        if (Files.isRegularFile(state.resolve(RECORD), LinkOption.NOFOLLOW_LINKS)) {
-            write(state, socket, "stopped", 0);
         }
     }
 

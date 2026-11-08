@@ -201,6 +201,29 @@ public final class PoreloDaemon {
     }
 
     /**
+     * Opens again the per-task socket of every task whose porelo-mcp still runs, which the daemon
+     * before this one closed and unlinked when it ended. One task that cannot have its socket back
+     * is said here and keeps nothing else from starting.
+     *
+     * @param taskSockets The sockets, installed already.
+     * @param log Where each task acted on is said, one line each.
+     */
+    static void reopenTaskSockets(final McpTaskSockets taskSockets, final java.io.PrintStream log) {
+        final List<String> lines;
+        try {
+            lines =
+                    new org.fuin.porelo.app.TaskControl(taskSockets.context())
+                            .reopenMcpSockets(taskSockets);
+        } catch (RuntimeException ex) {
+            log.println(
+                    "porelod: the tasks' MCP sockets were not opened again: " + ex.getMessage());
+            return;
+        }
+        lines.forEach(line -> log.println("porelod: " + line));
+        log.flush();
+    }
+
+    /**
      * Returns the interface description, read from porelo-wire, which carries it for clients too.
      *
      * <p>A resource rather than a string in this file, so that the contract is a document an
@@ -1237,6 +1260,9 @@ public final class PoreloDaemon {
                     McpTaskSockets taskSockets = new McpTaskSockets(owned)) {
                 // A task's start asks for its MCP socket through this; nothing else installs one.
                 org.fuin.porelo.app.McpDaemonSockets.install(taskSockets);
+                // A task still running keeps its porelo-mcp, pointed at a socket the daemon before
+                // this one unlinked: each gets it back at the same path, or is ended.
+                reopenTaskSockets(taskSockets, System.out);
                 // try-with-resources does not run for a signal, and a signal is how a daemon
                 // normally
                 // ends - systemctl stop, a kill, a terminal closing. Without this the socket file

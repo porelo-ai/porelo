@@ -1102,6 +1102,50 @@ public final class TaskControl {
     }
 
     /**
+     * Opens again the MCP daemon socket of every task whose porelo-mcp still runs, as a restarted
+     * {@code porelod} must: the one before closed them all, and each porelo-mcp connects to the
+     * same path at its next call. One whose project allows it none now, or whose socket cannot be
+     * opened, has its porelo-mcp stopped and its endpoint recorded as absent. One task's failure
+     * leaves the others to be opened.
+     *
+     * @param opener Opens a socket, with the daemon's checks.
+     * @return One line per task acted on, its name first.
+     */
+    public List<String> reopenMcpSockets(McpDaemonSockets.Opener opener) {
+        final List<Path> states;
+        try (java.util.stream.Stream<Path> listed = Files.list(context.paths().xdg().runtime())) {
+            states =
+                    listed.filter(
+                                    state ->
+                                            Files.isRegularFile(
+                                                    state.resolve(McpWiring.RECORD),
+                                                    java.nio.file.LinkOption.NOFOLLOW_LINKS))
+                            .sorted()
+                            .toList();
+        } catch (IOException ex) {
+            // No runtime directory: no task runs.
+            return List.of();
+        }
+        final List<String> lines = new ArrayList<>();
+        for (final Path state : states) {
+            final String container = state.getFileName().toString();
+            try {
+                final String line =
+                        McpWiring.reopen(context, container, projectOf(container), opener);
+                if (line != null) {
+                    lines.add(container + ": " + line);
+                }
+            } catch (RuntimeException ex) {
+                lines.add(
+                        container
+                                + ": its MCP daemon socket was not opened again: "
+                                + ex.getMessage());
+            }
+        }
+        return List.copyOf(lines);
+    }
+
+    /**
      * Returns the project a task was started for, as its own records say, or {@code null} when none
      * is left.
      *
