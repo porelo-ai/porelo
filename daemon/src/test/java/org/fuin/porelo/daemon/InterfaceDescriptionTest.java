@@ -364,6 +364,50 @@ class InterfaceDescriptionTest {
     }
 
     @Test
+    void repositoryRowsCarryExactlyTheFieldsTheContractDeclares() {
+        // A field sent and not declared is one no client knows it is sent; declared and not sent,
+        // one a client waits for in vain.
+        final Matcher repositoryType =
+                Pattern.compile("(?ms)^type Repository \\(\\n(.*?)^\\)")
+                        .matcher(PoreloDaemon.description());
+        assertThat(repositoryType.find()).as("the contract declares Repository").isTrue();
+        final org.fuin.porelo.app.ProjectInventory.RepositorySummary every =
+                new org.fuin.porelo.app.ProjectInventory.RepositorySummary(
+                        "backend",
+                        false,
+                        "",
+                        "",
+                        0,
+                        new org.fuin.porelo.gate.UpstreamDistance.Distance(
+                                0,
+                                java.time.Instant.parse("2026-11-09T10:00:00Z"),
+                                org.fuin.porelo.gate.UpstreamDistance.Reason.MEASURED,
+                                null,
+                                List.of(),
+                                new org.fuin.porelo.gate.UpstreamDistance.Central(
+                                        "cannot-say",
+                                        1,
+                                        java.time.Instant.parse("2026-11-09T10:00:00Z"),
+                                        "unreachable")),
+                        List.of(),
+                        new org.fuin.porelo.app.ProjectInventory.ResolvedLimits(
+                                "", "", 0, "", "", ""),
+                        "",
+                        "",
+                        "Agent Backend",
+                        true,
+                        0,
+                        0);
+
+        assertThat(
+                        names(
+                                Pattern.compile("(?m)^\\s*([a-z][A-Za-z0-9]*)\\s*:"),
+                                repositoryType.group(1)))
+                .as("Repository versus a row with every optional field present")
+                .isEqualTo(every.asMap().keySet());
+    }
+
+    @Test
     void namesItselfWithAVersionAndReportsTheBuildItIs(@TempDir Path dir) throws Exception {
         // Two different versions, deliberately. The digit on the interface name is the
         // compatibility promise a client picks by; the build version is what it shows a person.

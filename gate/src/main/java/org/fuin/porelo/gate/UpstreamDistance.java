@@ -59,13 +59,53 @@ public final class UpstreamDistance {
      *     Somebody pushed that work by hand, so it is not waiting for anything - and the gate would
      *     otherwise list it as waiting for ever, because only {@code approve} deletes the ref and a
      *     hand push does not.
+     * @param central How the upstream stands against the central forge as a host last said, or
+     *     {@code null} where nothing asked: off a host, or before its first answer.
      */
     public record Distance(
             int behind,
             @Nullable Instant measured,
             Reason reason,
             @Nullable String detail,
-            List<String> alreadyUpstream) {
+            List<String> alreadyUpstream,
+            @Nullable Central central) {
+
+        /**
+         * Constructor for a measurement that did not measure how far ahead.
+         *
+         * @param behind Commits the upstream has that the mirror does not.
+         * @param measured When, or {@code null}.
+         * @param reason Why the number is what it is.
+         * @param detail What went wrong, or {@code null}.
+         * @param alreadyUpstream Incoming refs the upstream already has.
+         */
+        public Distance(
+                int behind,
+                @Nullable Instant measured,
+                Reason reason,
+                @Nullable String detail,
+                List<String> alreadyUpstream) {
+            this(behind, measured, reason, detail, alreadyUpstream, null);
+        }
+
+        /**
+         * Returns how far ahead of central the upstream was last said to be.
+         *
+         * @return The commits, or {@code null} where no answer gave a number.
+         */
+        public @Nullable Integer ahead() {
+            return central == null ? null : central.ahead();
+        }
+
+        /**
+         * Returns this distance with another answer from central.
+         *
+         * @param answer What central's answer is now, or {@code null}.
+         * @return A copy.
+         */
+        public Distance withCentral(@Nullable Central answer) {
+            return new Distance(behind, measured, reason, detail, alreadyUpstream, answer);
+        }
 
         /**
          * Constructor for a measurement that looked at no refs.
@@ -94,6 +134,22 @@ public final class UpstreamDistance {
             return new Distance(0, null, Reason.NEVER_CHECKED, null);
         }
     }
+
+    /**
+     * How a host's forge copy stands against the central forge, as the host said.
+     *
+     * @param state {@code up-to-date}, {@code ahead}, {@code moved-on}, {@code cannot-say} or
+     *     {@code no-central}.
+     * @param ahead Commits the copy has that central lacks, or {@code null} where no answer gave
+     *     one; never 0 for "not known", since 0 says nothing waits to reach central.
+     * @param aheadMeasured When {@code ahead} was answered, or {@code null} with it.
+     * @param why Why it cannot say, or {@code null}.
+     */
+    public record Central(
+            String state,
+            @Nullable Integer ahead,
+            @Nullable Instant aheadMeasured,
+            @Nullable String why) {}
 
     private UpstreamDistance() {
         throw new UnsupportedOperationException("Utility class");

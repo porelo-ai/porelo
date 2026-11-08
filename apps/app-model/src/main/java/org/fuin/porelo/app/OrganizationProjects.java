@@ -200,6 +200,19 @@ public final class OrganizationProjects {
      * @throws IOException When a file that is there does not read.
      */
     public @Nullable Placed host(final String name) throws IOException {
+        return host(hostFiles, name);
+    }
+
+    /**
+     * Returns what a host's files say of a project, with no account's records to read.
+     *
+     * @param hostFiles Where a host's files are.
+     * @param name The project's name.
+     * @return It, or {@code null} when this machine is no host of it for this person.
+     * @throws IOException When a file that is there does not read.
+     */
+    public static @Nullable Placed host(final Path hostFiles, final String name)
+            throws IOException {
         final Path file = hostFiles.resolve(name + ".json");
         // Root takes a locked member's read off: that is absence, not a failure.
         return Files.isReadable(file) ? read(file) : null;
@@ -219,6 +232,7 @@ public final class OrganizationProjects {
         names.addAll(named(account));
         final List<Placed> hosted = new ArrayList<>();
         for (final String name : names) {
+            // A file that does not read is said, never passed over as not carried.
             final Placed placed = host(name);
             if (placed != null) {
                 hosted.add(placed);
@@ -417,7 +431,9 @@ public final class OrganizationProjects {
                     optional(document, "host"),
                     repositories(document, file),
                     builds(document, file));
-        } catch (final DateTimeParseException | IllegalArgumentException ex) {
+        } catch (final DateTimeParseException
+                | IllegalArgumentException
+                | org.fuin.porelo.wire.JsonException ex) {
             // What the parser says quotes the file.
             throw new IOException(file + " does not read", ex);
         }

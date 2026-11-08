@@ -344,8 +344,12 @@ public final class ProjectDeletion {
             OrganizationProjects.of(context).forget(project);
             removeWritten(project);
             Files.deleteIfExists(context.paths().projects().projectRegistry().resolve(project));
+            // Each under its lock and after the mirror and file it was measured from, so a measure
+            // still running writes nothing back.
+            final UpstreamRecords records =
+                    new UpstreamRecords(context.paths().projects().upstreamRecords());
             for (final Path record : upstreamRecordsOf(project)) {
-                Files.deleteIfExists(record);
+                records.remove(record.getFileName().toString());
             }
         } catch (IOException | RuntimeException ex) {
             return new Result(

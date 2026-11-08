@@ -368,9 +368,10 @@ public final class ProjectInventory {
 
         // Read first, because a placed project is in this list from its first start on, whatever
         // else exists of it.
+        final OrganizationProjects organization = organization();
         final List<String> placed = new java.util.ArrayList<>();
         try {
-            placed.addAll(OrganizationProjects.of(context).names());
+            placed.addAll(organization.names());
         } catch (final java.io.IOException ex) {
             // A listing is not the place to fail over a directory.
             placed.clear();
@@ -399,7 +400,7 @@ public final class ProjectInventory {
         for (final String name : placed) {
             found.put(name, new Summary(name, null, fileOf(name), null, pendingIn(name), 0, 0));
         }
-        final java.util.Set<String> untaken = hosted();
+        final java.util.Set<String> untaken = hosted(organization);
         untaken.removeAll(placed);
         for (final String name : untaken) {
             found.putIfAbsent(name, new Summary(name, null, null, null, 0, 0, 0));
@@ -416,10 +417,12 @@ public final class ProjectInventory {
                             0,
                             0));
         }
+        final Map<String, Map<String, int[]>> perRepository = new java.util.HashMap<>();
         for (final TaskInventory.Task task : new TaskInventory(context).tasks()) {
             if (task.project() == null) {
                 continue;
             }
+            count(perRepository, task);
             final Summary known = found.get(task.project());
             // A class recorded by a task wins over nothing, and the task count grows per task.
             found.put(
@@ -480,7 +483,13 @@ public final class ProjectInventory {
                                                             : java.nio.file.Path.of(summary.file()),
                                                     built))
                                     .behind(upstream.get(summary.name()))
-                                    .repositories(repositoriesOf(summary, upstream))
+                                    .repositories(
+                                            repositoriesOf(
+                                                    summary,
+                                                    upstream,
+                                                    hostOf(organization, summary.name()),
+                                                    perRepository.getOrDefault(
+                                                            summary.name(), Map.of())))
                                     .lastUsed(
                                             used.containsKey(summary.name())
                                                     ? used.get(summary.name()).toString()
@@ -493,19 +502,57 @@ public final class ProjectInventory {
      * The projects a host carries for this person, before a first start too. A listing is not the
      * place to fail over a file, and reading them fetches nothing.
      */
-    private java.util.Set<String> hosted() {
+    private java.util.Set<String> hosted(final OrganizationProjects organization) {
         final java.util.Set<String> names = new java.util.LinkedHashSet<>();
         try {
             for (final OrganizationProjects.Placed each :
-                    new OrganizationProjects(
-                                    context.paths().projects().organizationProjects(), hostFiles)
-                            .hosted(System.getProperty("user.name"))) {
+                    organization.hosted(System.getProperty("user.name"))) {
                 names.add(each.project());
             }
         } catch (final java.io.IOException ex) {
             names.clear();
         }
         return names;
+    }
+
+    /** This account's projects, with the host's files read from where this inventory reads them. */
+    private OrganizationProjects organization() {
+        return new OrganizationProjects(
+                context.paths().projects().organizationProjects(), hostFiles);
+    }
+
+    /**
+     * What the host's file says of a project, or {@code null} where it says nothing: no host of it
+     * for this person, or a file that does not read, which a listing does not fail over.
+     */
+    private static OrganizationProjects.@Nullable Placed hostOf(
+            final OrganizationProjects organization, final String project) {
+        try {
+            return organization.host(project);
+        } catch (final IOException ex) {
+            return null;
+        }
+    }
+
+    /**
+     * Counts a task on its repository; one that names none works on the project's own, as a task
+     * started before repositories were labelled did.
+     */
+    private static void count(
+            final Map<String, Map<String, int[]>> perRepository, final TaskInventory.Task task) {
+        final String project = java.util.Objects.requireNonNull(task.project(), "a task's project");
+        final String repository =
+                task.repository() == null || task.repository().isBlank()
+                        ? project
+                        : task.repository();
+        final int[] counted =
+                perRepository
+                        .computeIfAbsent(project, ignored -> new java.util.HashMap<>())
+                        .computeIfAbsent(repository, ignored -> new int[2]);
+        counted[0]++;
+        if (task.running()) {
+            counted[1]++;
+        }
     }
 
     /** Reads durable use without asking containers. */
@@ -591,6 +638,10 @@ public final class ProjectInventory {
      * @param agent The agent the project file names for it, or "" when it names none.
      * @param nickname The nickname the project file gives its agent, or "" when it gives none.
      * @param goesBy The name its agent goes by, filled here so a client derives nothing.
+     * @param carriedHere Whether this host carries it, or {@code null} on a machine that is no host
+     *     of the project, or whose host file does not read.
+     * @param tasks How many tasks of the project work on it, running or stopped.
+     * @param running How many of those are up.
      */
     public record RepositorySummary(
             String name,
@@ -603,7 +654,10 @@ public final class ProjectInventory {
             ResolvedLimits limits,
             String agent,
             String nickname,
-            String goesBy) {
+            String goesBy,
+            @Nullable Boolean carriedHere,
+            int tasks,
+            int running) {
 
         /**
          * Constructor for a repository reported before its egress and limits were.
@@ -633,7 +687,10 @@ public final class ProjectInventory {
                     new ResolvedLimits("", "", 0, "", "", ""),
                     "",
                     "",
-                    new org.fuin.porelo.core.project.Repository(name, null).goesBy());
+                    new org.fuin.porelo.core.project.Repository(name, null).goesBy(),
+                    null,
+                    0,
+                    0);
         }
 
         /**
@@ -656,6 +713,27 @@ public final class ProjectInventory {
                     behind.measured() == null ? "" : behind.measured().toString());
             map.put("behindReason", behind.reason().name());
             map.put("behindDetail", behind.detail() == null ? "" : behind.detail());
+            // Left out, never 0, where no host answered: 0 says nothing waits to reach central. And
+            // left out where this host keeps no copy now, whatever it said while it did.
+            final org.fuin.porelo.gate.UpstreamDistance.Central central = behind.central();
+            if (central != null && Boolean.TRUE.equals(carriedHere)) {
+                if (central.ahead() != null) {
+                    map.put("ahead", central.ahead());
+                }
+                if (central.ahead() != null && central.aheadMeasured() != null) {
+                    map.put("aheadMeasured", central.aheadMeasured().toString());
+                }
+                map.put("central", central.state());
+                if (central.why() != null) {
+                    map.put("centralWhy", central.why());
+                }
+            }
+            // Left out off a host, where carrying has no meaning.
+            if (carriedHere != null) {
+                map.put("carriedHere", carriedHere);
+            }
+            map.put("tasks", tasks);
+            map.put("running", running);
             map.put("egress", egress.stream().map(Grant::asMap).toList());
             map.put("limits", limits.asMap());
             map.put("agent", agent);
@@ -673,9 +751,16 @@ public final class ProjectInventory {
      *     with one repository, and is why an unreadable file yields nothing rather than a guess at
      *     the project's own name.
      */
-    private List<RepositorySummary> repositoriesOf(Summary summary, UpstreamRecords upstream) {
+    private List<RepositorySummary> repositoriesOf(
+            final Summary summary,
+            final UpstreamRecords upstream,
+            final OrganizationProjects.@Nullable Placed host,
+            final Map<String, int[]> counts) {
         if (summary.file() == null) {
-            return List.of();
+            // A taken project whose file is gone lists none: empty says the file does not read.
+            return summary.carried() && host != null
+                    ? carriedBeforeTaken(summary.name(), host, counts)
+                    : List.of();
         }
         final org.fuin.porelo.core.project.Project project;
         try {
@@ -692,6 +777,7 @@ public final class ProjectInventory {
                 continue;
             }
             final Path mirror = GateSupport.mirror(context, project, repository);
+            final int[] counted = counts.getOrDefault(repository.name(), new int[2]);
             found.add(
                     new RepositorySummary(
                             repository.name(),
@@ -704,9 +790,65 @@ public final class ProjectInventory {
                             limitsOf(project, repository),
                             repository.agent() == null ? "" : repository.agent(),
                             repository.nickname() == null ? "" : repository.nickname(),
-                            repository.goesBy()));
+                            repository.goesBy(),
+                            carriedHere(project, repository, host),
+                            counted[0],
+                            counted[1]));
         }
         return List.copyOf(found);
+    }
+
+    /**
+     * Says whether this host carries a repository: the project carried, the repository named or the
+     * carry whole, and a copy its forge keeps. The project's own goes with the project.
+     *
+     * @return The answer, or {@code null} where the host's file says nothing of the project.
+     */
+    private static @Nullable Boolean carriedHere(
+            final org.fuin.porelo.core.project.Project project,
+            final org.fuin.porelo.core.project.Repository repository,
+            final OrganizationProjects.@Nullable Placed host) {
+        if (host == null) {
+            return null;
+        }
+        if (repository.name().equals(project.name())) {
+            return true;
+        }
+        return (host.repositories().isEmpty() || host.repositories().contains(repository.name()))
+                && HostForgeAddress.copyOf(project.name(), repository.central()) != null;
+    }
+
+    /**
+     * Returns the repositories a host's file names of a project not taken here yet: there is no
+     * file to read them from, and nothing of them has been mirrored.
+     */
+    private static List<RepositorySummary> carriedBeforeTaken(
+            final String project,
+            final OrganizationProjects.Placed host,
+            final Map<String, int[]> counts) {
+        final List<RepositorySummary> rows = new java.util.ArrayList<>();
+        for (final String name : host.repositories()) {
+            final int[] counted = counts.getOrDefault(name, new int[2]);
+            rows.add(
+                    new RepositorySummary(
+                            name,
+                            name.equals(project),
+                            "",
+                            "",
+                            0,
+                            // Nothing is measured or asked before a take; a record there is
+                            // an earlier take's, of a mirror that is gone.
+                            org.fuin.porelo.gate.UpstreamDistance.Distance.neverChecked(),
+                            List.of(),
+                            new ResolvedLimits("", "", 0, "", "", ""),
+                            "",
+                            "",
+                            new org.fuin.porelo.core.project.Repository(name, null).goesBy(),
+                            true,
+                            counted[0],
+                            counted[1]));
+        }
+        return List.copyOf(rows);
     }
 
     /**

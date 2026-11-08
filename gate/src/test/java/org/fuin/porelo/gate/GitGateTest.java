@@ -1197,6 +1197,64 @@ class GitGateTest {
     }
 
     @Test
+    void aGateRefusingToForwardPassesNothingOnAndApprovesNothing() throws IOException {
+        // A host that does not carry the repository has no copy of it on its forge for the work.
+        final Path upstream = upstreamWithMain();
+        final String main = git(upstream, "rev-parse", "main").standardOutput().strip();
+        final GitGate online = gate(GateMode.ONLINE, upstream.toString());
+        online.refusingForward("not carried here");
+
+        assertThat(online.passOn("porelo/task-1", main)).as("passed on refused").isNotNull();
+        assertThat(git(upstream, "branch", "--list", "porelo/task-1").standardOutput())
+                .as("nothing reached the upstream")
+                .isBlank();
+
+        // With a key to sign with, so only the refusal stops a signed approval.
+        final Path key = root.resolve("signing");
+        runner.runOrFail(
+                Command.of(
+                        "ssh-keygen",
+                        "-q",
+                        "-t",
+                        "ed25519",
+                        "-N",
+                        "",
+                        "-C",
+                        "person",
+                        "-f",
+                        key.toString()));
+        final Path config =
+                Files.writeString(
+                        root.resolve("gitconfig"),
+                        "[user]\n\tname = Person\n"
+                                + "\temail = person@example.org\n\tsigningkey = "
+                                + key
+                                + ".pub\n[gpg]\n\tformat = ssh\n");
+        final GitGate gatekeeping =
+                new GitGate(
+                        withGitConfig(config), mirror, GateMode.GATEKEEPING, upstream.toString());
+        gatekeeping.refusingForward("not carried here");
+        pendingEnrolment(gatekeeping);
+
+        assertThatThrownBy(() -> gatekeeping.approve("enroll-second", "main", null))
+                .as("approval refused")
+                .isInstanceOf(GateException.class);
+        assertThatThrownBy(
+                        () ->
+                                gatekeeping.approveSigned(
+                                        "enroll-second", "porelo/signed", root.resolve("merge")))
+                .as("signed approval refused")
+                .isInstanceOf(GateException.class);
+        assertThat(git(upstream, "rev-parse", "main").standardOutput().strip())
+                .as("the upstream's main is where it was")
+                .isEqualTo(main);
+        assertThat(git(upstream, "branch", "--list", "porelo/signed").standardOutput())
+                .as("no signed merge reached the upstream")
+                .isBlank();
+        assertThat(gatekeeping.pending()).as("the work still waits").contains("enroll-second");
+    }
+
+    @Test
     void approvingSignedMergesTheWorkAsACommitSignedByThePersonsOwnKey() throws IOException {
 
         // What a machine's enrolment needs: every machine accepts a configuration only signed, and

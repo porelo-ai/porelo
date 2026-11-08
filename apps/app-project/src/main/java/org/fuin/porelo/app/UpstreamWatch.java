@@ -37,6 +37,15 @@ public final class UpstreamWatch implements AutoCloseable {
 
     private volatile boolean running = true;
 
+    /** Where a host's files are; another place only in a test. */
+    Path hostFiles = OrganizationProjects.HOST_FILES;
+
+    /** The host's program that answers of central; another only in a test. */
+    Path helper = HostCentral.PROGRAM;
+
+    /** Checks that program before it runs; another only in a test, where root owns nothing. */
+    java.util.function.UnaryOperator<Path> taken = org.fuin.porelo.wire.SystemProgram::at;
+
     /**
      * Constructor.
      *
@@ -85,10 +94,13 @@ public final class UpstreamWatch implements AutoCloseable {
 
         final UpstreamRecords records =
                 new UpstreamRecords(context.paths().projects().upstreamRecords());
-        final List<ProjectInventory.Summary> projects = new ProjectInventory(context).projects();
+        final ProjectInventory inventory = new ProjectInventory(context);
+        inventory.hostFiles = hostFiles;
+        final List<ProjectInventory.Summary> projects = inventory.projects();
         int looked = 0;
 
         for (final ProjectInventory.Summary summary : projects) {
+            recordCentral(records, summary);
             if (summary.file() == null) {
                 // Nothing to read a security class from. Left as it was rather than recorded as a
                 // failure: it is not something anybody has to fix.
@@ -105,14 +117,15 @@ public final class UpstreamWatch implements AutoCloseable {
                     // reporting the first one's as the project's would be reporting a number that
                     // is right about one repository and shown against all of them.
                     final Project project = GateSupport.project(Path.of(summary.file()));
-                    records.put(
+                    records.putMeasured(
                             UpstreamRecords.key(summary.name(), repository.name()),
                             UpstreamDistance.measure(
                                     new ProcessCommandRunner(),
                                     Path.of(repository.mirror()),
                                     GateMode.of(project.securityClass()),
                                     GateSupport.credentials(
-                                            context, summary.name(), repository.name())));
+                                            context, summary.name(), repository.name())),
+                            Path.of(repository.mirror()));
                     looked++;
                 } catch (RuntimeException ex) {
                     // An unreadable project file, or a record that cannot be written. The next pass
@@ -122,6 +135,76 @@ public final class UpstreamWatch implements AutoCloseable {
             }
         }
         return looked;
+    }
+
+    /**
+     * Asks the host once how its copies of a project stand against central, and records each
+     * carried repository's answer. Off a host, or where the host's or the project's file does not
+     * read, nothing is asked.
+     */
+    private void recordCentral(
+            final UpstreamRecords records, final ProjectInventory.Summary summary) {
+        final String file = summary.file();
+        if (file == null) {
+            return;
+        }
+        final OrganizationProjects.Placed host;
+        final Project project;
+        try {
+            host = OrganizationProjects.host(hostFiles, summary.name());
+            if (host == null) {
+                return;
+            }
+            project = GateSupport.project(Path.of(file));
+        } catch (final java.io.IOException | RuntimeException ex) {
+            return;
+        }
+        // Every row with a central address, so an answer naming a copy the host's forge still
+        // keeps after its file stopped naming it is no answer of a stranger; only the carried are
+        // recorded. Not the project's own repository: it is no row with a central address.
+        final java.util.Map<String, @org.jspecify.annotations.Nullable String> rows =
+                new java.util.LinkedHashMap<>();
+        final java.util.Set<String> carried = new java.util.HashSet<>();
+        for (final org.fuin.porelo.core.project.Repository row : project.repositories()) {
+            rows.put(row.name(), HostCentral.copyName(project.name(), row.central()));
+            if (host.repositories().isEmpty() || host.repositories().contains(row.name())) {
+                carried.add(row.name());
+            }
+        }
+        if (carried.isEmpty()) {
+            return;
+        }
+        for (final java.util.Map.Entry<String, HostCentral.Answer> each :
+                new HostCentral(context, helper, taken).ask(summary.name(), rows).entrySet()) {
+            if (!carried.contains(each.getKey())) {
+                continue;
+            }
+            final String key = UpstreamRecords.key(summary.name(), each.getKey());
+            final HostCentral.Answer answer = each.getValue();
+            try {
+                final UpstreamDistance.Central earlier = records.get(key).central();
+                records.putCentral(
+                        key,
+                        answer.keepsEarlier()
+                                // Refused or not had: how far ahead stays what it was, with its
+                                // age.
+                                ? new UpstreamDistance.Central(
+                                        answer.state(),
+                                        earlier == null ? null : earlier.ahead(),
+                                        earlier == null ? null : earlier.aheadMeasured(),
+                                        answer.why())
+                                // The follow's own reading time, not this call's.
+                                : new UpstreamDistance.Central(
+                                        answer.state(),
+                                        answer.ahead(),
+                                        answer.readAt(),
+                                        answer.why()),
+                        Path.of(file));
+            } catch (RuntimeException ex) {
+                // A record that cannot be written; the next pass asks again.
+                continue;
+            }
+        }
     }
 
     /**

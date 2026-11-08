@@ -484,6 +484,11 @@ public final class Prune {
             final List<Item> keeps) {
         final Path upstream = context.paths().projects().upstreamRecords();
         for (final String file : names(upstream)) {
+            if (file.startsWith(".")) {
+                // A record's lock or a write in flight: unlinked under its holder, two writers lock
+                // two files.
+                continue;
+            }
             // '<project>' or '<project>.<repository>'; a project's name has no dot.
             final String project = file.contains(".") ? file.substring(0, file.indexOf('.')) : file;
             if (!remaining.contains(project)

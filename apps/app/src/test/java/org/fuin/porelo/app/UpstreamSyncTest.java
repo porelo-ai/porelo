@@ -87,4 +87,48 @@ class UpstreamSyncTest {
         assertThat(result.behind()).isZero();
         assertThat(result.measured()).isFalse();
     }
+
+    @Test
+    void aProjectRemovedWhileItsUpstreamIsFetchedGetsNoRecordBack(@TempDir Path dir)
+            throws Exception {
+        // Its removal deletes the mirror, then the records; a measure written after that is a
+        // record of nothing, which doctor reports as left over.
+        project(dir);
+        final Path mirror =
+                Files.createDirectories(
+                                context(dir)
+                                        .paths()
+                                        .xdg()
+                                        .data()
+                                        .resolve("mirrors/demo.git/objects"))
+                        .getParent();
+        final Path record = context(dir).paths().projects().upstreamRecords().resolve("demo");
+        final FakeCommandRunner removing =
+                new FakeCommandRunner() {
+                    @Override
+                    public org.fuin.porelo.core.process.CommandResult run(
+                            final org.fuin.porelo.core.process.Command command) {
+                        if (command.arguments().contains("fetch")) {
+                            try (var walk = Files.walk(mirror)) {
+                                for (final Path each :
+                                        walk.sorted(java.util.Comparator.reverseOrder()).toList()) {
+                                    Files.delete(each);
+                                }
+                                Files.deleteIfExists(record);
+                            } catch (java.io.IOException ex) {
+                                throw new java.io.UncheckedIOException(ex);
+                            }
+                        }
+                        return super.run(command);
+                    }
+                }.answering("remote.origin.url", "https://example.org/demo.git")
+                        .answering("rev-list", "3");
+        final PoreloContext context =
+                new PoreloContext(removing, context(dir).paths(), command -> 0);
+
+        UpstreamSync.sync(context, "demo");
+
+        assertThat(mirror).as("the fixture removed the mirror during the fetch").doesNotExist();
+        assertThat(record).as("no record comes back for the removed project").doesNotExist();
+    }
 }

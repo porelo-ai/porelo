@@ -98,8 +98,10 @@ class GateHostApprovalTest {
                 repositories:
                   repo:
                     upstream: "%s/acme/repo.git"
+                    central: "git@central.example:acme/repo.git"
                 """
                         .formatted(url));
+        carried("\"repo\"");
         Files.createDirectories(context.paths().xdg().data().resolve("projects"));
         Files.writeString(context.paths().xdg().data().resolve("projects/demo"), project + "\n");
         mirror = context.paths().xdg().data().resolve("mirrors/demo/repo.git");
@@ -113,6 +115,32 @@ class GateHostApprovalTest {
     void closeTheForgeAndVault() {
         if (forge != null) forge.stop(0);
         owner.close();
+    }
+
+    /** Writes this host's file of the project, beside its forge's, as root does. */
+    private void carried(final String repositories) throws Exception {
+        final Path files = Files.createDirectories(dir.resolve("organization/projects"));
+        Files.writeString(
+                files.resolve("demo.json"),
+                """
+                {"project": "demo", "revision": "56420b3", "address": "git@central.example:acme/demo.git",
+                 "fetch_from": null, "signing_keys": [], "homeserver": null, "room": null,
+                 "repositories": [%s]}
+                """
+                        .formatted(repositories));
+    }
+
+    // Work on a repository the host does not carry has no copy on its forge and no push judge.
+    @Test
+    void approvalOfARepositoryThisHostNoLongerCarriesForwardsNothing() throws Exception {
+        carried("\"other\"");
+
+        final Run result = approve();
+
+        assertThat(result.code()).as("the approval is refused").isNotZero();
+        assertThat(remote("porelo/fix")).as("nothing reached the forge").isEmpty();
+        assertThat(created).as("no review was opened").isEmpty();
+        assertThat(pending()).as("the push still waits").contains("fix");
     }
 
     // A direct push to main bypasses the host's required pull-request review.

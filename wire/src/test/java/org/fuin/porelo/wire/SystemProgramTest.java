@@ -187,4 +187,14 @@ class SystemProgramTest {
                 .isInstanceOf(IOException.class)
                 .hasMessageContaining("not owned by root");
     }
+
+    @Test
+    void aProgramTakenByItsPathIsRefusedWhenAnotherAccountOwnsIt() throws Exception {
+        // The test's own account owns the file, as anyone but root would on a host.
+        final Path program = executable();
+
+        assertThatThrownBy(() -> SystemProgram.at(program))
+                .as("a program another account may replace is not run by its path either")
+                .isInstanceOf(java.io.UncheckedIOException.class);
+    }
 }

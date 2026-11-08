@@ -41,6 +41,9 @@ type Project (
   # means the file could not be read, which is NOT the same as a project with one repository - do
   # not render it as one.
   #
+  # A project 'carried' and not taken here yet has no file: its rows are the repositories the
+  # host's file names, each carriedHere and nothing measured; none where the host carries it whole.
+  #
   # Objects rather than parallel lists of names, mirrors and counts: lists indexed together drift
   # the moment one is built from a different source, and the drift is silent.
   repositories: []Repository,
@@ -399,6 +402,33 @@ type Repository (
   # Why 'behind' is what it is. Same values as the project's.
   behindReason: string,
   behindDetail: string,
+  # Commits the host forge's copy of this repository has that its central forge lacks, as the
+  # host last answered: the commits for 'central' ahead, 0 for up-to-date. Absent where no answer
+  # gave a number, which is NOT 0: 0 says nothing waits to reach central. Absent off a host.
+  ahead: ?int,
+  # When 'ahead' was answered, RFC 3339; absent with it. A later answer that was refused keeps
+  # both as they were.
+  aheadMeasured: ?string,
+  # How the host forge's copy stands against central, as the host last said: up-to-date, ahead,
+  # moved-on (central has commits the copy lacks), cannot-say or no-central. cannot-say is also
+  # what Porelo records when the host's answer was refused or could not be asked. New values may
+  # appear. Absent off a host, before the host's first answer, and where carriedHere is not
+  # true; ahead, aheadMeasured and centralWhy with it.
+  central: ?string,
+  # Why 'central' is cannot-say, one line: the host's own (no-read-key, unreachable,
+  # no-central-main, local) or Porelo's (host-answer-refused, host-command-failed). Absent
+  # otherwise.
+  centralWhy: ?string,
+  # Whether this machine, a host of the project, carries this repository: the host's file names
+  # it or carries the project whole, and its forge keeps a copy. A start on one it does not carry
+  # is refused. Absent on a machine that is no host of the project.
+  carriedHere: ?bool,
+  # The project's tasks on this repository, running or stopped; a task naming no repository counts
+  # on the project's own. A task of a repository the file no longer names counts on the project
+  # alone.
+  tasks: int,
+  # How many of those are up.
+  running: int,
   # Everything a task on this repository may reach, each saying which block granted it: always the
   # project's, since what a task may reach is the project's alone.
   egress: []Grant,

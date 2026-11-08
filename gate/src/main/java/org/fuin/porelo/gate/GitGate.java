@@ -137,8 +137,22 @@ public class GitGate {
      * @param scheme How the project names its tasks' branches; {@code porelo/<task>} by default.
      * @return This gate.
      */
+    private @Nullable String forwardRefused;
+
     public GitGate taskBranches(final BranchScheme scheme) {
         this.taskBranches = scheme;
+        return this;
+    }
+
+    /**
+     * Returns this gate refusing to forward anything, for the given reason; what stays on this
+     * machine still works.
+     *
+     * @param why Why nothing may go upstream from here.
+     * @return This gate.
+     */
+    public GitGate refusingForward(final String why) {
+        this.forwardRefused = why;
         return this;
     }
 
@@ -1292,6 +1306,9 @@ public class GitGate {
                     "This project's security class is offline, so nothing is"
                             + " forwarded upstream");
         }
+        if (forwardRefused != null) {
+            throw new GateException(forwardRefused);
+        }
         if (upstreamUrl == null) {
             throw new GateException("No upstream is configured for this project");
         }
@@ -1519,6 +1536,9 @@ public class GitGate {
         if (mode != GateMode.ONLINE) {
             return "this project's security class does not pass a push on; it waits for approval";
         }
+        if (forwardRefused != null) {
+            return forwardRefused;
+        }
         if (upstreamUrl == null) {
             return "no upstream is configured for this project";
         }
@@ -1621,6 +1641,9 @@ public class GitGate {
             throw new GateException(
                     "This project's security class is offline, so nothing is"
                             + " forwarded upstream");
+        }
+        if (forwardRefused != null) {
+            throw new GateException(forwardRefused);
         }
         if (upstreamUrl == null) {
             throw new GateException("No upstream is configured for this project");

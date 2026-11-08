@@ -25,6 +25,8 @@ public final class HostForgeAddress {
 
     private final Path forgeConf;
 
+    private final Path hostFiles;
+
     /** Has every project read in this process reached as this machine reaches it. */
     public static void install() {
         org.fuin.porelo.core.project.ProjectReader.placedBy(new HostForgeAddress()::placed);
@@ -41,7 +43,18 @@ public final class HostForgeAddress {
      * @param forgeConf Where the host names its forge's port.
      */
     HostForgeAddress(final Path forgeConf) {
+        this(forgeConf, OrganizationProjects.HOST_FILES);
+    }
+
+    /**
+     * Constructor.
+     *
+     * @param forgeConf Where the host names its forge's port.
+     * @param hostFiles Where the host's files of its projects are.
+     */
+    HostForgeAddress(final Path forgeConf, final Path hostFiles) {
         this.forgeConf = forgeConf;
+        this.hostFiles = hostFiles;
     }
 
     /**
@@ -87,6 +100,10 @@ public final class HostForgeAddress {
         if (row == null) {
             return null;
         }
+        final String uncarried = uncarried(project, repository);
+        if (uncarried != null) {
+            return uncarried;
+        }
         final String address = address(project.name(), row.central(), port);
         if (address == null) {
             return "repository '"
@@ -100,6 +117,41 @@ public final class HostForgeAddress {
                     + ", and --upstream names another address";
         }
         return null;
+    }
+
+    /**
+     * Says why this host does not carry a repository of a project, as its file names them: work on
+     * one it does not carry has no copy on its forge to go to.
+     */
+    private @Nullable String uncarried(final Project project, final String repository) {
+        final OrganizationProjects.Placed host;
+        try {
+            host = OrganizationProjects.host(hostFiles, project.name());
+        } catch (final IOException ex) {
+            return "this host's file of project '"
+                    + project.name()
+                    + "' does not read, so it cannot say whether it carries '"
+                    + repository
+                    + "'";
+        }
+        if (host == null) {
+            // No file this person may read: none written, or root took the read off a locked
+            // member. Either way the forge keeps no copy of it for them.
+            return "this host carries no project '"
+                    + project.name()
+                    + "' for you, so its forge keeps no copy of '"
+                    + repository
+                    + "'";
+        }
+        if (host.repositories().isEmpty() || host.repositories().contains(repository)) {
+            return null;
+        }
+        return "this host does not carry repository '"
+                + repository
+                + "' of '"
+                + project.name()
+                + "'; it carries "
+                + String.join(", ", host.repositories());
     }
 
     private static @Nullable String address(

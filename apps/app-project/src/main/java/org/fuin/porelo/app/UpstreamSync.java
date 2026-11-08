@@ -141,9 +141,13 @@ public final class UpstreamSync {
                             GateMode.of(read.securityClass()),
                             GateSupport.credentials(context, project, wanted));
             // Written where every listing reads it, so a triggered measurement and a timed one
-            // leave the same trace and a listing shows the newer of the two without asking.
+            // leave the same trace and a listing shows the newer of the two without asking; what
+            // the host last said of central is not this measure's to replace.
             new UpstreamRecords(context.paths().projects().upstreamRecords())
-                    .put(GateSupport.recordKey(project, wanted), distance);
+                    .putMeasured(
+                            GateSupport.recordKey(project, wanted),
+                            distance,
+                            Path.of(chosen.mirror()));
             return new Result(
                     Outcome.MEASURED,
                     distance.behind(),

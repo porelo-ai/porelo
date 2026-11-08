@@ -855,4 +855,307 @@ class ProjectInventoryTest {
                 .containsExactly(DefaultProject.NAME);
         assertThat(inventory.projects()).noneMatch(ProjectInventory.Summary::carried);
     }
+
+    /** A project of four repositories, each but one with a copy the host's forge can keep. */
+    private static final String FOUR =
+            """
+            project:
+              name: "quad"
+              security_class: "guarded"
+            image:
+              from: "ubuntu:24.04"
+            repositories:
+              backend:
+                upstream: "git@github.com:acme/backend.git"
+                central: "git@github.com:acme/backend.git"
+              frontend:
+                upstream: "git@github.com:acme/frontend.git"
+                central: "git@github.com:acme/frontend.git"
+              docs:
+                upstream: "git@github.com:acme/docs.git"
+                central: "git@github.com:acme/docs.git"
+              site:
+                upstream: "git@github.com:acme/site.git"
+            """;
+
+    /** A host's files carrying some repositories of a project, as root writes them. */
+    private Path hostFiles(Path dir, String project, String... repositories) throws IOException {
+        final Path files = hostFiles(dir, project);
+        final String named =
+                java.util.Arrays.stream(repositories)
+                        .map(each -> "\"" + each + "\"")
+                        .collect(java.util.stream.Collectors.joining(", "));
+        final Path file = files.resolve(project + ".json");
+        final String written = Files.readString(file);
+        Files.writeString(
+                file,
+                written.replace(
+                        "\"homeserver\": null",
+                        "\"repositories\": [" + named + "], \"homeserver\": null"));
+        return files;
+    }
+
+    private static Map<String, Map<String, Object>> byName(ProjectInventory.Summary row) {
+        final Map<String, Map<String, Object>> found = new java.util.HashMap<>();
+        for (final ProjectInventory.RepositorySummary each : row.repositories()) {
+            found.put(each.name(), each.asMap());
+        }
+        return found;
+    }
+
+    @Test
+    void aRepositoryTheHostsFileDoesNotCarryIsNotCarriedHere(@TempDir Path dir) throws IOException {
+        // A client offering a start on a repository this host does not carry sends work past the
+        // host's push judge, or to nowhere.
+        final PoreloContext context = context(dir);
+        final ProjectInventory inventory = new ProjectInventory(context);
+        inventory.hostFiles = hostFiles(dir, "quad", "backend", "frontend", "site");
+        placed(context, "quad", FOUR);
+
+        final Map<String, Map<String, Object>> rows = byName(row(inventory, "quad"));
+
+        assertThat(rows.get("backend"))
+                .as("named by the host's file, with a copy on its forge")
+                .containsEntry("carriedHere", true);
+        assertThat(rows.get("frontend"))
+                .as("named by the host's file, with a copy on its forge")
+                .containsEntry("carriedHere", true);
+        assertThat(rows.get("docs"))
+                .as("the host's file does not name it")
+                .containsEntry("carriedHere", false);
+        assertThat(rows.get("site"))
+                .as("named, but with no central the host's forge keeps no copy of it")
+                .containsEntry("carriedHere", false);
+        assertThat(rows.get("quad"))
+                .as("the project's own repository goes with the project the host carries")
+                .containsEntry("carriedHere", true);
+    }
+
+    @Test
+    void centralIsSaidOnlyOfARepositoryThisHostCarries(@TempDir Path dir) throws IOException {
+        // Recorded while it was carried, an answer shown after the host dropped it, or off a host,
+        // tells a person their work is at central through a copy nobody keeps.
+        final PoreloContext context = context(dir);
+        final ProjectInventory inventory = new ProjectInventory(context);
+        inventory.hostFiles = hostFiles(dir, "quad", "backend");
+        placed(context, "quad", FOUR);
+        final UpstreamRecords records =
+                new UpstreamRecords(context.paths().projects().upstreamRecords());
+        for (final String each : java.util.List.of("quad.backend", "quad.docs")) {
+            records.putCentral(
+                    each,
+                    new org.fuin.porelo.gate.UpstreamDistance.Central(
+                            "ahead", 2, java.time.Instant.parse("2026-11-09T10:00:00Z"), null),
+                    dir);
+        }
+
+        final Map<String, Map<String, Object>> rows = byName(row(inventory, "quad"));
+
+        assertThat(rows.get("backend"))
+                .as("carried here: what the host said of it")
+                .containsEntry("central", "ahead")
+                .containsEntry("ahead", 2);
+        assertThat(rows.get("docs"))
+                .as("no longer carried: nothing of central")
+                .doesNotContainKeys("central", "ahead", "aheadMeasured", "centralWhy");
+
+        inventory.hostFiles = dir.resolve("no-such-host/projects");
+        assertThat(row(inventory, "quad").repositories())
+                .as("off a host: nothing of central")
+                .allSatisfy(
+                        each ->
+                                assertThat(each.asMap())
+                                        .doesNotContainKeys(
+                                                "central", "ahead", "aheadMeasured", "centralWhy"));
+    }
+
+    @Test
+    void aProjectCarriedWholeCarriesEveryRepositoryWithACopy(@TempDir Path dir) throws IOException {
+        final PoreloContext context = context(dir);
+        final ProjectInventory inventory = new ProjectInventory(context);
+        inventory.hostFiles = hostFiles(dir, "quad");
+        placed(context, "quad", FOUR);
+
+        final Map<String, Map<String, Object>> rows = byName(row(inventory, "quad"));
+
+        assertThat(rows.get("docs"))
+                .as("a host file naming no repository carries the whole project")
+                .containsEntry("carriedHere", true);
+        assertThat(rows.get("site"))
+                .as("no central, so no copy on the host's forge")
+                .containsEntry("carriedHere", false);
+    }
+
+    @Test
+    void offAHostNoRepositoryIsSaidToBeCarriedOrNot(@TempDir Path dir) throws IOException {
+        final PoreloContext context = context(dir);
+        final ProjectInventory inventory = new ProjectInventory(context);
+        inventory.hostFiles = dir.resolve("no-such-host/projects");
+        placed(context, "quad", FOUR);
+
+        assertThat(row(inventory, "quad").repositories())
+                .as("a machine that is no host of the project has nothing to say of carrying")
+                .isNotEmpty()
+                .allSatisfy(each -> assertThat(each.asMap()).doesNotContainKey("carriedHere"));
+    }
+
+    @Test
+    void aHostFileThatDoesNotReadSaysNothingOfCarrying(@TempDir Path dir) throws IOException {
+        final PoreloContext context = context(dir);
+        final ProjectInventory inventory = new ProjectInventory(context);
+        inventory.hostFiles = hostFiles(dir, "quad");
+        Files.writeString(inventory.hostFiles.resolve("quad.json"), "{not json");
+        placed(context, "quad", FOUR);
+
+        assertThat(row(inventory, "quad").repositories())
+                .as("a file that does not read is no answer, neither carried nor not")
+                .isNotEmpty()
+                .allSatisfy(each -> assertThat(each.asMap()).doesNotContainKey("carriedHere"));
+    }
+
+    @Test
+    void eachRepositoryCountsItsOwnTasks(@TempDir Path dir) throws IOException {
+        // Counted against the wrong repository, a client tells a person a repository is idle while
+        // its task still holds work.
+        final PoreloContext context = context(dir);
+        placed(context, "quad", FOUR);
+        runner.answering(
+                "ps",
+                String.join(
+                                "\n",
+                                "porelo-quad-one-1\tUp 4 minutes\t\t\tquad\tguarded\tbackend\t",
+                                "porelo-quad-two-2\tExited (0) 1 hour ago\t\t\tquad\tguarded\tbackend\t",
+                                "porelo-quad-three-3\tUp 2 minutes\t\t\tquad\tguarded\t\t",
+                                "porelo-quad-four-4\tUp 1 minute\t\t\tquad\tguarded\tgone\t")
+                        + "\n");
+        for (final String each :
+                java.util.List.of(
+                        "porelo-quad-one-1",
+                        "porelo-quad-two-2",
+                        "porelo-quad-three-3",
+                        "porelo-quad-four-4")) {
+            task(each, "quad");
+        }
+        final ProjectInventory inventory = new ProjectInventory(context);
+        inventory.hostFiles = dir.resolve("no-such-host/projects");
+
+        final ProjectInventory.Summary project = row(inventory, "quad");
+        final Map<String, Map<String, Object>> rows = byName(project);
+
+        assertThat(rows.get("backend"))
+                .as("two tasks on it, one of them up")
+                .containsEntry("tasks", 2)
+                .containsEntry("running", 1);
+        assertThat(rows.get("quad"))
+                .as("a task naming no repository works on the project's own")
+                .containsEntry("tasks", 1)
+                .containsEntry("running", 1);
+        assertThat(rows.get("frontend"))
+                .as("no task on it")
+                .containsEntry("tasks", 0)
+                .containsEntry("running", 0);
+        assertThat(project.tasks())
+                .as("a task of a repository the file no longer names stays on the project")
+                .isEqualTo(4);
+    }
+
+    @Test
+    void aCarriedProjectShowsTheRepositoriesItsHostCarriesBeforeItIsTaken(@TempDir Path dir)
+            throws IOException {
+        // Before a take there is no file, so without the host's own list a host's page shows a
+        // project of no repositories at all.
+        final ProjectInventory inventory = new ProjectInventory(context(dir));
+        inventory.hostFiles = hostFiles(dir, "carried", "backend", "frontend");
+
+        final ProjectInventory.Summary row = row(inventory, "carried");
+
+        assertThat(row.carried()).as("not taken here yet").isTrue();
+        assertThat(row.repositories())
+                .extracting(ProjectInventory.RepositorySummary::name)
+                .as("what the host's file names")
+                .containsExactlyInAnyOrder("backend", "frontend");
+        assertThat(row.repositories())
+                .as("carried here, and nothing measured or mirrored before a take")
+                .allSatisfy(
+                        each ->
+                                assertThat(each.asMap())
+                                        .containsEntry("carriedHere", true)
+                                        .containsEntry("mirror", "")
+                                        .containsEntry("behindReason", "NEVER_CHECKED")
+                                        .doesNotContainKey("ahead"));
+        assertThat(runner.lines())
+                .as("a listing fetches nothing")
+                .noneMatch(line -> line.contains("git ") || line.contains("sudo"));
+    }
+
+    @Test
+    void aTakenProjectWhoseFileIsGoneListsNoRepository(@TempDir Path dir) throws IOException {
+        // Empty says the file could not be read; the host's list in its place hides that.
+        final PoreloContext context = context(dir);
+        final ProjectInventory inventory = new ProjectInventory(context);
+        inventory.hostFiles = hostFiles(dir, "quad", "backend");
+        placed(context, "quad", FOUR);
+        Files.delete(context.paths().projects().organizationClone("quad").resolve("project.yml"));
+
+        final ProjectInventory.Summary row = row(inventory, "quad");
+
+        assertThat(row.carried()).as("taken here").isFalse();
+        assertThat(row.repositories()).as("its file does not read").isEmpty();
+    }
+
+    @Test
+    void aCarriedProjectNotTakenYetShowsNothingMeasuredWhateverIsRecorded(@TempDir Path dir)
+            throws IOException {
+        // A record left by an earlier take is of a mirror and an answer that are gone.
+        final PoreloContext context = context(dir);
+        final ProjectInventory inventory = new ProjectInventory(context);
+        inventory.hostFiles = hostFiles(dir, "carried", "backend");
+        final Path records = context.paths().projects().upstreamRecords();
+        Files.createDirectories(records);
+        Files.writeString(
+                records.resolve(UpstreamRecords.key("carried", "backend")),
+                "MEASURED\t2\t2026-11-09T10:00:00Z\t\t\t1\t2026-11-09T10:05:00Z\tahead\t\n");
+
+        assertThat(row(inventory, "carried").repositories())
+                .as("nothing measured before a take")
+                .singleElement()
+                .satisfies(
+                        each ->
+                                assertThat(each.asMap())
+                                        .containsEntry("behindReason", "NEVER_CHECKED")
+                                        .doesNotContainKeys("ahead", "central"));
+    }
+
+    @Test
+    void aRepositoryReadsHowFarAheadItWasLastMeasured(@TempDir Path dir) throws IOException {
+        // Ahead absent and ahead 0 are different sentences: 0 says nothing waits to reach central.
+        final PoreloContext context = context(dir);
+        placed(context, "quad", FOUR);
+        final Path records = context.paths().projects().upstreamRecords();
+        Files.createDirectories(records);
+        Files.writeString(
+                records.resolve(UpstreamRecords.key("quad", "backend")),
+                "MEASURED\t2\t2026-11-09T10:00:00Z\t\t\t1\t2026-11-09T10:05:00Z\tahead\t\n");
+        Files.writeString(
+                records.resolve(UpstreamRecords.key("quad", "frontend")),
+                "MEASURED\t0\t2026-11-09T10:00:00Z\t\t\n");
+        final ProjectInventory inventory = new ProjectInventory(context);
+        // A host carrying the whole project; off one nothing of central is said.
+        inventory.hostFiles = hostFiles(dir, "quad");
+
+        final Map<String, Map<String, Object>> rows = byName(row(inventory, "quad"));
+
+        assertThat(rows.get("backend"))
+                .as("the record's sixth column, with the moment it was measured")
+                .containsEntry("ahead", 1)
+                .containsEntry("aheadMeasured", "2026-11-09T10:05:00Z")
+                .containsEntry("central", "ahead")
+                .containsEntry("behind", 2);
+        assertThat(rows.get("frontend"))
+                .as("a record of five columns measured no ahead, which is not 0")
+                .doesNotContainKeys("ahead", "aheadMeasured", "central", "centralWhy");
+        assertThat(rows.get("docs"))
+                .as("nothing measured")
+                .doesNotContainKeys("ahead", "aheadMeasured");
+    }
 }

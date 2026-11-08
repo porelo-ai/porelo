@@ -53,6 +53,31 @@ class PruneTest {
     }
 
     @Test
+    void theLockOfALiveProjectsUpstreamRecordIsNoLeftover() throws IOException {
+        // Unlinked while a writer holds it, a second writer locks a new file and both write.
+        final PoreloContext context = context();
+        final Path mirror =
+                Files.createDirectories(
+                        context.paths().xdg().data().resolve("mirrors").resolve("kept.git"));
+        new UpstreamRecords(context.paths().projects().upstreamRecords())
+                .putCentral(
+                        "kept",
+                        new org.fuin.porelo.gate.UpstreamDistance.Central(
+                                "up-to-date", 0, null, null),
+                        mirror);
+        final Path lock = context.paths().projects().upstreamRecords().resolve(".kept.lock");
+        assertThat(lock).as("the fixture writes the lock the record is merged under").exists();
+
+        final Prune.Result result = new Prune(context).run(true, false);
+
+        assertThat(result.removes())
+                .extracting(Prune.Item::name)
+                .as("a live project's record lock is not offered for removal")
+                .doesNotContain(lock.toString());
+        assertThat(lock).as("and stays").exists();
+    }
+
+    @Test
     void aProjectWhoseFileIsGoneIsShownAndRemovedOnlyWithYes() throws IOException {
         final PoreloContext context = context();
         final Path mirror = leftOver(context, "gatedemo");

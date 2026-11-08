@@ -53,6 +53,65 @@ final class UpstreamRecords {
     }
 
     /**
+     * Records what the mirror's own measure found, keeping what central's last answer said.
+     *
+     * @param key The repository's key.
+     * @param distance What was measured, whose own central part is not read.
+     * @param measured The mirror it was measured in; once removed, nothing is recorded.
+     */
+    void putMeasured(String key, UpstreamDistance.Distance distance, Path measured) {
+        merging(key, measured, () -> put(key, distance.withCentral(get(key).central())));
+    }
+
+    /**
+     * Records what central's answer says, keeping what the mirror's own measure found.
+     *
+     * @param key The repository's key.
+     * @param central What the host answered of it.
+     * @param read The project's file it was asked for; once removed, nothing is recorded.
+     */
+    void putCentral(String key, UpstreamDistance.Central central, Path read) {
+        merging(key, read, () -> put(key, get(key).withCentral(central)));
+    }
+
+    /**
+     * Removes a record under its lock, so a half being written now does not bring it back.
+     *
+     * @param key The repository's key.
+     * @throws IOException If it cannot be removed.
+     */
+    void remove(String key) throws IOException {
+        if (!Files.isDirectory(directory)) {
+            return;
+        }
+        FileLocks.holding(
+                directory.resolve("." + key + ".lock"),
+                () -> Files.deleteIfExists(directory.resolve(key)));
+    }
+
+    /**
+     * Writes one half of a record under its lock: the timer and SyncUpstream write the two halves
+     * from two threads, and a half read before the other's write would drop it. A project removed
+     * while it was measured is removed before its record, under this lock; its record is not
+     * written back.
+     */
+    private void merging(final String key, final Path stillThere, final Runnable write) {
+        try {
+            Directories.create(directory);
+            FileLocks.holding(
+                    directory.resolve("." + key + ".lock"),
+                    () -> {
+                        if (Files.exists(stillThere)) {
+                            write.run();
+                        }
+                        return Boolean.TRUE;
+                    });
+        } catch (IOException ex) {
+            throw new UncheckedIOException("Cannot record the upstream distance of " + key, ex);
+        }
+    }
+
+    /**
      * Records what was measured for one project.
      *
      * @param project Project name.
@@ -111,8 +170,35 @@ final class UpstreamRecords {
                         distance.detail() == null ? "" : distance.detail().replace('\t', ' '),
                         // Comma-separated in a tab-separated line: a ref name cannot contain
                         // either, so neither separator can be produced by the content.
-                        String.join(",", distance.alreadyUpstream()))
+                        String.join(",", distance.alreadyUpstream()),
+                        centralColumns(distance.central()))
                 + "\n";
+    }
+
+    /** Four columns, all empty where no host answered: a reader must not take that for 0. */
+    private static String centralColumns(UpstreamDistance.@Nullable Central central) {
+        if (central == null) {
+            return "\t\t\t";
+        }
+        return String.join(
+                "\t",
+                central.ahead() == null ? "" : String.valueOf(central.ahead()),
+                central.aheadMeasured() == null ? "" : central.aheadMeasured().toString(),
+                central.state(),
+                central.why() == null ? "" : central.why().replace('\t', ' '));
+    }
+
+    /** The answer central's columns hold, or {@code null} for a record that has none. */
+    private static UpstreamDistance.@Nullable Central central(String[] parts) {
+        if (parts.length <= 7 || parts[7].isEmpty()) {
+            // Five or six columns: written before a host's answer was recorded, which is no answer.
+            return null;
+        }
+        return new UpstreamDistance.Central(
+                parts[7],
+                parts[5].isEmpty() ? null : Integer.valueOf(parts[5]),
+                instant(parts[6]),
+                parts.length > 8 && !parts[8].isEmpty() ? parts[8] : null);
     }
 
     private static UpstreamDistance.Distance parse(String text) {
@@ -128,7 +214,8 @@ final class UpstreamRecords {
                 // safe direction.
                 parts.length > 4 && !parts[4].isEmpty()
                         ? java.util.List.of(parts[4].split(","))
-                        : java.util.List.of());
+                        : java.util.List.of(),
+                central(parts));
     }
 
     @Nullable

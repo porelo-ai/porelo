@@ -1,6 +1,6 @@
 # [B531](README.md#b531) — A Project's Repositories On This Machine
 
-**Status:** Backlog. Filed 2026-11-08 from the third move's finding 5 (the operator's decision: a machine's project
+**Status:** Review. Filed 2026-11-08 from the third move's finding 5 (the operator's decision: a machine's project
 page shows the project's repositories on that machine).
 **Size:** L - three fields on a contract type, a second measure on a host (its forge's copy against central), the
 upstream record grown by a column; no new method.
@@ -27,7 +27,39 @@ here, without asking anything else or reaching the network.
     project's are counted (`ProjectInventory` 419-437).
 - "Held" is `pending > 0` (work at the gate not yet passed on), which the row already has; no new field.
 - Red first: `ProjectInventoryTest` with a host file carrying two of three repositories: the third reads
-  `carriedHere: false`; a mirror one commit ahead reads `ahead: 1` after a measure and `ahead` absent before.
+  `carriedHere: false`; a record one commit ahead reads `ahead: 1` and a record of five columns `ahead` absent (no
+  measure fills `ahead` yet, see below).
+- **Found in the build:** a host file that is no JSON threw `JsonException` out of `OrganizationProjects.read`, which
+  caught only `IllegalArgumentException` and `DateTimeParseException`, so one such file failed the whole `Projects()`
+  listing; it now reads as "does not read" (`IOException`). `projects()` already read the host's files through
+  `hostFiles` for `hosted()`; `names()` never touches them. The plan's "a start refuses" check is
+  `HostForgeAddress.refusal`, and with it `CanStart` (`StartCheck`) and a gate command naming `--upstream` refuse alike;
+  a host file that does not read refuses the start.
+- **Found in the code reading:** a host file this person may not read, or none, refuses a start too (a locked
+  member's read is taken off; no file means no copy on the forge). Every gate command builds its gate through
+  `GateSupport.gate`, which now reads the same refusal without `--upstream` too: the gate then forwards nothing
+  (approve, signed approve, an online pass-on), while what stays on the machine (review, reject, forget) still works
+  for a task started before the host stopped carrying it. `SyncUpstream` and the timer only fetch, so they need none.
+  A removed project's records are removed under their lock after its mirror and file, and a measure or answer is
+  written only while its mirror or file is still there. `central`, `ahead` and the rest show only where `carriedHere`
+  is true; rows of a project not taken yet show nothing measured; a taken project whose file is gone lists none. The
+  host is asked about every row with `central` and only the carried are recorded; the project's own repository is
+  not asked about. A host failure leaves rows with no `central` `no-central`. A host file that does not read still
+  fails the listing, said rather than passed over as not carried (an earlier decision, OrgReadingCommandsTest); the
+  reading's wish that it hide no other project is left. Readers of the record directory skip its dot files (locks and writes in flight).
+- **After the build: the host's central measure.** The person's account holds no credential for `central` on a host,
+  so the timer reads the host's follow's last answer instead: `/usr/local/sbin/porelo-host-push --central <project>`,
+  taken by that path through `SystemProgram.at` (root's, in directories only root writes), run in the person's account
+  through the context's runner, no sudo. One JSON object, `project`, `read_at` (UTC) and `repositories`; each entry's
+  `repository` is the forge copy's name, matched without case to the row's `central` last part. Per carried
+  repository the record keeps `ahead` (commits for `ahead`, 0 for `up-to-date`), `aheadMeasured` (`read_at`),
+  `central` and `centralWhy` in four columns after the gate's five; `behind` stays the gate's measure, and the gate's
+  measure (timer and `SyncUpstream`) and the host's answer each write only their own half. A row without `central` is
+  `no-central`; an unlisted one `cannot-say`/`unreachable`; `repositories: []` `cannot-say` for each. Anything the
+  program may not print refuses the whole answer, and a failed call (any non-zero exit, 69 and 64 included, timeout,
+  no program, a program others could write) records `cannot-say` with `host-answer-refused` or `host-command-failed`
+  and keeps the earlier `ahead`. A project not taken here yet is not asked: its centrals are in the file a take
+  brings.
 
 ## Acceptance
 

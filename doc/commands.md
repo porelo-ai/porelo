@@ -786,6 +786,23 @@ porelo project default [list | add ADDRESS [--name=NAME] | remove NAME]
   They also name a project the host carries for this person before a first start there, with `carried` true and `file`
   empty, having fetched nothing. `TakeProject(project)` brings its file, when the person acts on that row: it answers `file`,
   or `reason` and `words`; on a host it replaces the person's forge token, so no list calls it.
+  Each of a project's `repositories` names its own `tasks` and `running`, a task naming no repository counted on the
+  project's own. On a host of the project, `carriedHere` says whether this host carries the repository: the host's file
+  names it or carries the project whole, and the repository's `central` gives its forge a copy; the project's own goes
+  with the project. A start on a repository the host's file does not carry, or of a project whose host file this
+  person cannot read, is refused, and a gate command forwards nothing of it. Off a host `carriedHere` is
+  absent. Before a carried project is taken, its rows are the repositories the host's file names, nothing measured.
+  On a host, the upstream timer reads once per carried project what the host's follow last found of central, from
+  `/usr/local/sbin/porelo-host-push --central <project>` in the person's own account (no sudo, and only while root alone
+  can write the program and its directories), and a listing reads what it recorded: `central` is `up-to-date`, `ahead`,
+  `moved-on` (central has commits the copy lacks), `cannot-say` or `no-central` (the row names no `central`, so the
+  host keeps no copy), and `centralWhy` says why it cannot say: the host's reason (`no-read-key`, `unreachable`,
+  `no-central-main`, `local`; `unreachable` too for a repository the host did not list), or Porelo's own,
+  `host-answer-refused` for an answer that is not what the program may print and `host-command-failed` where it could
+  not be run or exited non-zero. `ahead` is the commits for `ahead` and 0 for `up-to-date`, with `aheadMeasured` the
+  time the follow read it; otherwise absent, never 0 in its place, and a refused or failed answer keeps the earlier
+  `ahead`. `behind` stays the gate's own measure. Off a host, or where `carriedHere` is not true, none of them is
+  present.
   A project's conversation carries `messages.waitsOn` (`"vault"` while the vault is shut, or `""` otherwise)
   beside `messages.waits`, and `messages.vault`, the path of the vault file this daemon checked when
   `messages.waitsOn` is `"vault"`, or `""` otherwise; it identifies this account's vault on this machine.

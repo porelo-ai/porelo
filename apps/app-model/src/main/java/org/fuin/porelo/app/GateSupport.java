@@ -204,12 +204,12 @@ public final class GateSupport {
             @Nullable String upstream,
             @Nullable String seed,
             Path forgeConf) {
-        if (upstream != null) {
-            final String offHost =
-                    new HostForgeAddress(forgeConf).refusal(project, repository.name(), upstream);
-            if (offHost != null) {
-                throw new org.fuin.porelo.core.project.ProjectException(offHost);
-            }
+        // The host's files of its projects sit beside its forge's.
+        final String offHost =
+                new HostForgeAddress(forgeConf, forgeConf.resolveSibling("organization/projects"))
+                        .refusal(project, repository.name(), upstream);
+        if (offHost != null && upstream != null) {
+            throw new org.fuin.porelo.core.project.ProjectException(offHost);
         }
         final String forwardTo = upstream != null ? upstream : repository.upstream();
         // The mode follows the project's security class, so an offline project cannot be talked
@@ -233,6 +233,11 @@ public final class GateSupport {
                                                 context, project.name() + "-" + repository.name()),
                                         forgeConf))
                         .taskBranches(project.branchScheme(repository.name()));
+        if (offHost != null) {
+            // A task started before the host stopped carrying it can still be looked at, rejected
+            // and removed; only its forwarding is refused.
+            gate.refusingForward(offHost);
+        }
         if (forwardTo != null && HostForgeLending.onTheForge(forwardTo, forgeConf)) {
             gate.pullRequests(
                     new HostPullRequests(

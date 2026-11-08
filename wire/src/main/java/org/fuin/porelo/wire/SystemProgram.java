@@ -32,13 +32,33 @@ public final class SystemProgram {
      *     cannot be read.
      */
     public static Path find(String name) {
+        return found(name, DIRECTORIES);
+    }
+
+    /**
+     * Returns a root's program at the one absolute path it is installed at, checked as {@link
+     * #find(String)} checks a distribution's.
+     *
+     * @param program The program's absolute path.
+     * @return Root-owned executable in a root-owned directory.
+     * @throws UncheckedIOException If the program is absent or unsafe.
+     */
+    public static Path at(Path program) {
+        final Path directory = program.getParent();
+        if (!program.isAbsolute() || directory == null || program.getFileName() == null) {
+            throw new IllegalArgumentException("Expected an absolute program path: " + program);
+        }
+        return found(program.getFileName().toString(), List.of(directory));
+    }
+
+    private static Path found(String name, List<Path> directories) {
         try {
             final int root =
                     rootAsSeenHere(
                             proc("/proc/self/uid_map"),
                             Integer.parseInt(proc("/proc/sys/kernel/overflowuid").strip()));
             return find(
-                    name, DIRECTORIES, path -> Files.readAttributes(path, "unix:uid,mode"), root);
+                    name, directories, path -> Files.readAttributes(path, "unix:uid,mode"), root);
         } catch (IOException ex) {
             throw new UncheckedIOException(ex.getMessage(), ex);
         }
