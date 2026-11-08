@@ -14,6 +14,7 @@ import java.util.Map;
 import java.util.stream.Stream;
 import org.fuin.porelo.agent.api.AgentDefinition;
 import org.fuin.porelo.agent.api.ProviderDefinition;
+import org.fuin.porelo.supervisor.UnixUpstream;
 import org.fuin.porelo.wire.Directories;
 import org.jspecify.annotations.Nullable;
 import org.yaml.snakeyaml.LoaderOptions;
@@ -35,7 +36,8 @@ import org.yaml.snakeyaml.constructor.SafeConstructor;
  *
  * @param name Short name, and the key a project and a run name it by.
  * @param label Human-readable name.
- * @param upstream Where requests go, https.
+ * @param upstream Where requests go: https, or {@code unix:<path>} for an endpoint on this host
+ *     that the gateway reaches over its socket - see {@link UnixUpstream}.
  * @param authHeader The header the key goes in.
  * @param authPrefix Text before the key in that header, for example {@code "Bearer "}.
  * @param authQuery The URL parameter the key goes in instead, or {@code null} for the header.
@@ -69,8 +71,11 @@ public record Destination(
                             + name
                             + "', expected lower-case letters, digits and hyphens");
         }
-        final URI uri = parsed(name, upstream);
-        if (uri.getHost() == null || !"https".equals(uri.getScheme())) {
+        if (UnixUpstream.is(upstream)) {
+            // Its form wherever it is read; where it is, against the person's runtime directory,
+            // in reachableUnder, since a declaration is read without one.
+            named(name, () -> UnixUpstream.path(upstream));
+        } else if (!isHttps(parsed(name, upstream))) {
             // A key sent in the clear is a key given away, whatever the broker does before it.
             throw new IllegalArgumentException(
                     "Destination '"
@@ -85,6 +90,45 @@ public record Destination(
         }
     }
 
+    /**
+     * Returns the socket an endpoint on this host is reached over.
+     *
+     * @return The socket, or {@code null} for an https destination.
+     */
+    public @Nullable Path socket() {
+        return UnixUpstream.is(upstream) ? UnixUpstream.path(upstream) : null;
+    }
+
+    /**
+     * Refuses a {@code unix:} destination whose socket is not directly in the person's own {@code
+     * $XDG_RUNTIME_DIR/porelo/mcp}, or passes a symbolic link; an https destination is taken as it
+     * is.
+     *
+     * @param runtime The person's runtime directory, {@code $XDG_RUNTIME_DIR/porelo}.
+     * @return This destination.
+     * @throws UnixUpstream.Refused If it is refused, with the reason.
+     */
+    public Destination reachableUnder(Path runtime) {
+        if (UnixUpstream.is(upstream)) {
+            named(name, () -> UnixUpstream.checked(upstream, runtime));
+        }
+        return this;
+    }
+
+    /** Runs a check, naming the destination in its refusal. */
+    private static void named(String name, java.util.function.Supplier<Path> check) {
+        try {
+            check.get();
+        } catch (UnixUpstream.Refused refused) {
+            throw new UnixUpstream.Refused(
+                    refused.reason(), "Destination '" + name + "': " + refused.getMessage());
+        }
+    }
+
+    private static boolean isHttps(URI uri) {
+        return uri.getHost() != null && "https".equals(uri.getScheme());
+    }
+
     private static URI parsed(String name, String upstream) {
         try {
             return URI.create(upstream);
@@ -95,11 +139,15 @@ public record Destination(
     }
 
     /**
-     * Returns the host the broker talks to.
+     * Returns the host the broker talks to, or the socket of an endpoint on this host.
      *
-     * @return The host.
+     * @return The host, or the socket's path.
      */
     public String host() {
+        final Path socket = socket();
+        if (socket != null) {
+            return socket.toString();
+        }
         return java.util.Objects.requireNonNull(URI.create(upstream).getHost());
     }
 
@@ -157,6 +205,9 @@ public record Destination(
                     header == null ? "Authorization" : header,
                     prefix == null ? "" : prefix,
                     text(root, "auth_query"));
+        } catch (UnixUpstream.Refused refused) {
+            // Kept named, so a reader can tell why without parsing the sentence.
+            throw new UnixUpstream.Refused(refused.reason(), origin + ": " + refused.getMessage());
         } catch (IllegalArgumentException ex) {
             throw new IllegalArgumentException(origin + ": " + ex.getMessage(), ex);
         }

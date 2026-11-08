@@ -444,7 +444,9 @@ method Destination(name: string) -> (destination: Destination)
 # Declares a destination in the user's own directory, taking the place of a packaged one of the same name.
 #
 # With dryRun, nothing is written and the answer says what would be: the destination as it would be read
-# back, or the refusal - a name that is not one, an upstream that is not https, no header.
+# back, or the refusal - a name that is not one, an upstream that is not https, no header. An upstream may
+# also be 'unix:<path>', an endpoint on this host, taken only for a socket directly in
+# $XDG_RUNTIME_DIR/porelo/mcp with no symbolic link on its path.
 method WriteDestination(
   name: string,
   label: ?string,

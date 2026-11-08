@@ -8,6 +8,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Map;
 import org.fuin.porelo.agent.api.ProviderDefinition;
+import org.fuin.porelo.supervisor.UnixUpstream;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -84,5 +85,75 @@ class DestinationTest {
         assertThat(resolved.authHeader()).isEqualTo("x-api-key");
         assertThat(Destination.resolve("nobody", Map.of(), Map.of("anthropic", anthropic), null))
                 .isNull();
+    }
+
+    @Test
+    void anEndpointOnThisHostIsASocketInTheRuntimeDirectory(@TempDir Path dir) {
+        final Path runtime = dir.resolve("porelo");
+        final Destination mcp =
+                Destination.parse(
+                        "name: porelo-mcp\nupstream: unix:"
+                                + runtime
+                                + "/mcp/task-1.sock\nauth_prefix: \"Bearer \"\n");
+
+        assertThat(mcp.socket()).isEqualTo(runtime.resolve("mcp/task-1.sock"));
+        assertThat(mcp.host()).isEqualTo(runtime.resolve("mcp/task-1.sock").toString());
+        assertThat(mcp.reachableUnder(runtime)).isSameAs(mcp);
+        assertThat(Destination.parse(mcp.yaml())).isEqualTo(mcp);
+        assertThat(Destination.parse(SEARCH).socket()).isNull();
+    }
+
+    @Test
+    void refusesASocketByItsFormWhereverItIsRead() {
+        assertRefused("unix:porelo/mcp/task-1.sock", UnixUpstream.Refusal.RELATIVE);
+        assertRefused("unix:/run/user/1000/porelo/mcp/../task-1.sock", UnixUpstream.Refusal.PARENT);
+    }
+
+    @Test
+    void refusesASocketOutsideTheRuntimeDirectory(@TempDir Path dir) throws IOException {
+        final Path runtime = dir.resolve("porelo");
+        Files.createDirectories(runtime);
+        Files.createSymbolicLink(
+                runtime.resolve("mcp"), Files.createDirectories(dir.resolve("elsewhere")));
+
+        assertThatThrownBy(
+                        () ->
+                                Destination.parse(
+                                                "name: mcp\nupstream: unix:"
+                                                        + dir
+                                                        + "/elsewhere/task-1.sock\n")
+                                        .reachableUnder(runtime))
+                .isInstanceOfSatisfying(
+                        UnixUpstream.Refused.class,
+                        refused -> {
+                            assertThat(refused.reason()).isEqualTo(UnixUpstream.Refusal.OUTSIDE);
+                            assertThat(refused).hasMessageStartingWith("Destination 'mcp'");
+                        });
+        assertThatThrownBy(
+                        () ->
+                                Destination.parse(
+                                                "name: mcp\nupstream: unix:"
+                                                        + runtime
+                                                        + "/mcp/task-1.sock\n")
+                                        .reachableUnder(runtime))
+                .isInstanceOfSatisfying(
+                        UnixUpstream.Refused.class,
+                        refused ->
+                                assertThat(refused.reason()).isEqualTo(UnixUpstream.Refusal.LINK));
+    }
+
+    @Test
+    void anAddressIsStillHttpsAlone() {
+        assertThatThrownBy(() -> Destination.parse("name: f\nupstream: file:/run/x.sock\n"))
+                .hasMessageContaining("over https");
+        assertThatThrownBy(() -> Destination.parse("name: u\nupstream: unixx:/run/x.sock\n"))
+                .hasMessageContaining("over https");
+    }
+
+    private static void assertRefused(String upstream, UnixUpstream.Refusal reason) {
+        assertThatThrownBy(() -> Destination.parse("name: mcp\nupstream: " + upstream + "\n"))
+                .isInstanceOfSatisfying(
+                        UnixUpstream.Refused.class,
+                        refused -> assertThat(refused.reason()).isEqualTo(reason));
     }
 }

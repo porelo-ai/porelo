@@ -2463,6 +2463,42 @@ class PoreloDaemonTest {
     }
 
     @Test
+    void anEndpointOnThisHostIsTakenOnlyInThePersonsRuntimeDirectory(@TempDir Path dir)
+            throws Exception {
+        final String inside = "unix:" + dir.resolve("run/porelo/mcp/task-1.sock");
+        final String outside = "unix:" + dir.resolve("elsewhere/task-1.sock");
+        serving(
+                dir,
+                socket -> {
+                    try (VarlinkClient client = new VarlinkClient(socket)) {
+                        assertThat(
+                                        client.call(
+                                                PoreloDaemon.INTERFACE + ".WriteDestination",
+                                                Map.of(
+                                                        "name",
+                                                        "porelo-mcp",
+                                                        "upstream",
+                                                        inside,
+                                                        "authPrefix",
+                                                        "Bearer ")))
+                                .containsEntry("written", true);
+                        assertThatThrownBy(
+                                        () ->
+                                                client.call(
+                                                        PoreloDaemon.INTERFACE
+                                                                + ".WriteDestination",
+                                                        Map.of(
+                                                                "name",
+                                                                "elsewhere",
+                                                                "upstream",
+                                                                outside)))
+                                .isInstanceOf(VarlinkException.class)
+                                .hasMessageContaining("DestinationRefused");
+                    }
+                });
+    }
+
+    @Test
     void anUnlockedVaultHoldingNothingIsNotReportedAsLocked(@TempDir Path dir) throws Exception {
 
         // The whole reason 'readable' exists, and it used to answer this case wrongly: the field

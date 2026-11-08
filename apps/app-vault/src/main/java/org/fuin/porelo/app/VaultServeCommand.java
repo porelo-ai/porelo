@@ -233,10 +233,16 @@ public class VaultServeCommand implements Callable<Integer>, PoreloFactory.Conte
         final Map<String, VaultProxy.Route> routes = new java.util.LinkedHashMap<>();
         final Map<String, PhantomToken> routeTokenValues = new java.util.LinkedHashMap<>();
         final Map<String, String> headers = new java.util.LinkedHashMap<>();
+        final Path runtime = context.paths().xdg().runtime();
         try {
+            // The agent's own destination may be an endpoint on this host too, when a task holds
+            // no agent credential: held to the same directory as a route.
+            if (org.fuin.porelo.supervisor.UnixUpstream.is(upstream)) {
+                org.fuin.porelo.supervisor.UnixUpstream.checked(upstream, runtime);
+            }
             routeSpecs.forEach(
                     (name, spec) -> {
-                        final VaultProxy.Route destination = route(name, spec);
+                        final VaultProxy.Route destination = route(name, spec, runtime);
                         final String provider = providers.get(name);
                         routes.put(
                                 name,
@@ -621,16 +627,6 @@ public class VaultServeCommand implements Callable<Integer>, PoreloFactory.Conte
     }
 
     /**
-     * Reads one {@code --route}: {@code <upstream>|<header>|<prefix>|<query>}, the last two
-     * possibly empty.
-     *
-     * @param name The credential.
-     * @param spec What was given for it.
-     * @return The route.
-     * @throws IllegalArgumentException If it is not four fields with an https destination and a
-     *     header.
-     */
-    /**
      * Puts each {@code --task-key} route's key among the credentials, from the task's own entry it
      * names.
      *
@@ -661,7 +657,19 @@ public class VaultServeCommand implements Callable<Integer>, PoreloFactory.Conte
         return null;
     }
 
-    static VaultProxy.Route route(String name, String spec) {
+    /**
+     * Reads one {@code --route}: {@code <upstream>|<header>|<prefix>|<query>}, the last two
+     * possibly empty.
+     *
+     * @param name The credential.
+     * @param spec What was given for it.
+     * @param runtime The person's runtime directory, {@code $XDG_RUNTIME_DIR/porelo}, the only
+     *     place a {@code unix:} destination may be.
+     * @return The route.
+     * @throws IllegalArgumentException If it is not four fields with an https destination, or a
+     *     {@code unix:} one in the runtime directory, and a header.
+     */
+    static VaultProxy.Route route(String name, String spec, Path runtime) {
         final String[] fields = spec.split("\\|", -1);
         if (fields.length != 4 || fields[0].isBlank() || fields[1].isBlank()) {
             throw new IllegalArgumentException(
@@ -671,7 +679,10 @@ public class VaultServeCommand implements Callable<Integer>, PoreloFactory.Conte
                             + spec
                             + "'");
         }
-        if (!fields[0].startsWith("https://")) {
+        if (org.fuin.porelo.supervisor.UnixUpstream.is(fields[0])) {
+            // An endpoint on this host: only a socket in the person's own runtime directory.
+            org.fuin.porelo.supervisor.UnixUpstream.checked(fields[0], runtime);
+        } else if (!fields[0].startsWith("https://")) {
             throw new IllegalArgumentException(
                     "--route " + name + ": the destination must be https, not '" + fields[0] + "'");
         }

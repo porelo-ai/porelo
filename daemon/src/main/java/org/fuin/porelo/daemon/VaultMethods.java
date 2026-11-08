@@ -888,6 +888,9 @@ final class VaultMethods {
                                                 : text(parameters, "authHeader"),
                                         text(parameters, "authPrefix"),
                                         empty(parameters, "authQuery"));
+                        // An endpoint on this host is taken only as a socket in the person's own
+                        // runtime directory; the gateway holds a route to the same rule.
+                        destination.reachableUnder(context.paths().xdg().runtime());
                     } catch (IllegalArgumentException ex) {
                         throw new VarlinkException(
                                 INTERFACE + ".DestinationRefused",
