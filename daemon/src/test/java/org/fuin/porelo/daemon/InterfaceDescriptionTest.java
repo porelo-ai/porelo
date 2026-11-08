@@ -301,9 +301,13 @@ class InterfaceDescriptionTest {
                                     assertThat(((Map<?, ?>) task).get("lastWrote"))
                                             .as("no log has no write time")
                                             .isEqualTo("");
-                                    assertThat(((Map<?, ?>) task).get("inboxWaiting"))
+                                    assertThat(
+                                                    ((Number)
+                                                                    ((Map<?, ?>) task)
+                                                                            .get("inboxWaiting"))
+                                                            .longValue())
                                             .as("no mailbox has no waiting messages")
-                                            .isEqualTo(0.0);
+                                            .isEqualTo(0L);
                                 });
             }
         }

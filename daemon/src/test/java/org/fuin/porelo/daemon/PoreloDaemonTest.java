@@ -2642,9 +2642,8 @@ class PoreloDaemonTest {
                                 client.call(PoreloDaemon.INTERFACE + ".Lock", Map.of());
 
                         assertThat(reply).containsKeys("keyring", "wasCached", "holding");
-                        // Compared as a number, not by type: the reader turns every JSON number
-                        // into a Double by design, so the wire's "1" arrives as 1.0 for every int
-                        // in this contract.
+                        // Compared as a number, not by type: a client reads a number exactly but
+                        // need not know which Java type carries it.
                         assertThat(((Number) reply.get("holding")).longValue()).isEqualTo(1L);
                         // Nothing was ever cached for this temporary vault, so locking it changed
                         // nothing
@@ -3901,22 +3900,26 @@ class PoreloDaemonTest {
                                     path.equals("binary.dat")
                                             ? -1
                                             : path.equals("pure.txt") ? 0 : 1;
-                            softly.assertThat(row.get("addedIgnoringLineEndings"))
+                            softly.assertThat(
+                                            ((Number) row.get("addedIgnoringLineEndings"))
+                                                    .longValue())
                                     .as("%s normalized additions", path)
-                                    .isEqualTo((double) count);
-                            softly.assertThat(row.get("removedIgnoringLineEndings"))
+                                    .isEqualTo((long) count);
+                            softly.assertThat(
+                                            ((Number) row.get("removedIgnoringLineEndings"))
+                                                    .longValue())
                                     .as("%s normalized removals", path)
-                                    .isEqualTo((double) count);
+                                    .isEqualTo((long) count);
                             final int rawCount =
                                     path.equals("mixed.txt")
                                             ? 3
                                             : path.equals("binary.dat") ? -1 : 1;
-                            softly.assertThat(row.get("added"))
+                            softly.assertThat(((Number) row.get("added")).longValue())
                                     .as("%s raw additions", path)
-                                    .isEqualTo((double) rawCount);
-                            softly.assertThat(row.get("removed"))
+                                    .isEqualTo((long) rawCount);
+                            softly.assertThat(((Number) row.get("removed")).longValue())
                                     .as("%s raw removals", path)
-                                    .isEqualTo((double) rawCount);
+                                    .isEqualTo((long) rawCount);
                         }
                         softly.assertAll();
                     }

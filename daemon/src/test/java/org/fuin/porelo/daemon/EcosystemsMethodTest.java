@@ -144,7 +144,7 @@ class EcosystemsMethodTest {
                             .containsEntry("version", "1.4.0")
                             .containsEntry(
                                     "protocolVersion",
-                                    Double.valueOf(
+                                    java.math.BigDecimal.valueOf(
                                             org.fuin.porelo.ecosystem.api.EcosystemProtocol
                                                     .VERSION))
                             .doesNotContainKey("refusal");
@@ -175,7 +175,7 @@ class EcosystemsMethodTest {
                                                     "file",
                                                     "Dockerfile",
                                                     "line",
-                                                    3.0,
+                                                    java.math.BigDecimal.valueOf(3),
                                                     "note",
                                                     "a container is built here")))
                             .containsEntry("files", List.of());

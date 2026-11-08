@@ -55,7 +55,8 @@ class TaskUsageMethodTest {
                 assertThat(answer.get("usage"))
                         .as("the daemon reads retained records through the shared service")
                         .isEqualTo(
-                                Json.parse(Json.write(new TaskUsage(context).read(task).asMap())));
+                                Json.parseDecimals(
+                                        Json.write(new TaskUsage(context).read(task).asMap())));
             }
         }
         assertThat(PoreloDaemon.description())
