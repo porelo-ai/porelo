@@ -81,7 +81,7 @@ type TightenedPath (
 type LeftLoose (
   path: string,
   # LINK      it is a link by now, and changing it would follow the link
-  # REFUSED   the file system refused, as for a file another uid owns
+  # REFUSED   another uid owns it, or the file system refused
   # GONE      it went away after it was found, which leaves nothing to read
   reason: string
 )

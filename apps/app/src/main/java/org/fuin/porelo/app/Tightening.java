@@ -1,6 +1,9 @@
 package org.fuin.porelo.app;
 
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.NoSuchFileException;
@@ -25,7 +28,7 @@ public final class Tightening {
     public enum Reason {
         /** It is a link by now, and a chmod would follow it. */
         LINK,
-        /** The file system refused, as for a file another uid owns. */
+        /** Another uid owns it, or the file system refused. */
         REFUSED,
         /** It went away after it was found, which leaves nothing to read. */
         GONE
@@ -84,14 +87,27 @@ public final class Tightening {
      * is, gets an inode of its own first: the mode belongs to the inode, and the person's clone is
      * not this command's to change.
      *
-     * <p>A dry run reads each mode and lists the same change; only a refusal the file system makes
-     * when asked to change, as for a file another uid owns, it cannot foresee.
+     * <p>A file another uid owns is left as refused, in a dry run too: with a second name it would
+     * otherwise be copied and become this account's. A dry run reads each mode and lists the same
+     * change; only a refusal the file system makes when asked to change it cannot foresee.
      *
      * @param loose What {@link LooseFiles#found()} found.
      * @param dryRun True to change nothing.
      * @return What changed, or would.
      */
     static Outcome of(final List<Path> loose, final boolean dryRun) {
+        return of(loose, dryRun, ownUid());
+    }
+
+    private static int ownUid() {
+        try {
+            return (Integer) Files.getAttribute(Path.of("/proc/self"), "unix:uid");
+        } catch (final IOException ex) {
+            throw new UncheckedIOException("Cannot read this process's uid", ex);
+        }
+    }
+
+    static Outcome of(final List<Path> loose, final boolean dryRun, final int ownUid) {
         final List<Change> changes = new ArrayList<>();
         final List<Left> left = new ArrayList<>();
         for (final Path path : loose) {
@@ -100,6 +116,11 @@ public final class Tightening {
                 continue;
             }
             try {
+                if ((int) Files.getAttribute(path, "unix:uid", LinkOption.NOFOLLOW_LINKS)
+                        != ownUid) {
+                    left.add(new Left(path, Reason.REFUSED));
+                    continue;
+                }
                 final PosixFileAttributeView view =
                         Files.getFileAttributeView(
                                 path, PosixFileAttributeView.class, LinkOption.NOFOLLOW_LINKS);
@@ -112,7 +133,7 @@ public final class Tightening {
                                             Files.getAttribute(
                                                     path, "unix:nlink", LinkOption.NOFOLLOW_LINKS)
                                     > 1) {
-                        aloneUnderItsName(path);
+                        aloneUnderItsName(path, mode);
                     }
                     view.setPermissions(mode);
                 }
@@ -127,7 +148,8 @@ public final class Tightening {
                 loose.size(), List.copyOf(changes), List.copyOf(left), LooseFiles.topmost(loose));
     }
 
-    private static void aloneUnderItsName(final Path file) throws IOException {
+    static void aloneUnderItsName(final Path file, final Set<PosixFilePermission> mode)
+            throws IOException {
         final Path copy =
                 Files.createTempFile(
                         file.getParent(),
@@ -136,9 +158,12 @@ public final class Tightening {
                         PosixFilePermissions.asFileAttribute(
                                 PosixFilePermissions.fromString("rw-------")));
         try {
-            Files.copy(file, copy, StandardCopyOption.REPLACE_EXISTING);
-            Files.setPosixFilePermissions(
-                    copy, Files.getPosixFilePermissions(file, LinkOption.NOFOLLOW_LINKS));
+            // Into the copy made rw-------, so the new inode is never looser than the mode it gets.
+            try (InputStream in = Files.newInputStream(file, LinkOption.NOFOLLOW_LINKS);
+                    OutputStream out = Files.newOutputStream(copy)) {
+                in.transferTo(out);
+            }
+            Files.setPosixFilePermissions(copy, mode);
             Files.move(copy, file, StandardCopyOption.ATOMIC_MOVE);
         } finally {
             Files.deleteIfExists(copy);

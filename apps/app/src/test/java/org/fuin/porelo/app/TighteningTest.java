@@ -111,6 +111,62 @@ class TighteningTest {
     }
 
     @Test
+    void aFileAnotherUidOwnsIsLeftAsRefusedInTheDryRunAndTheRunEvenWithASecondName()
+            throws Exception {
+        final Path object = file(data.resolve("mirrors/one.git/objects/ab/cd"), "rw-r--r--");
+        final Path clone = dir.resolve("clone-object");
+        Files.createLink(clone, object);
+        final int owner = (Integer) Files.getAttribute(object, "unix:uid");
+        final java.util.List<Path> found = java.util.List.of(object);
+
+        final Tightening.Outcome dry = Tightening.of(found, true, owner + 1);
+        final Tightening.Outcome run = Tightening.of(found, false, owner + 1);
+
+        assertThat(dry.left())
+                .as("a file another uid owns is refused before anything is asked of it")
+                .containsExactly(new Tightening.Left(object, Tightening.Reason.REFUSED));
+        assertThat(dry.changes()).as("nothing the dry run would change").isEmpty();
+        assertThat(run.left()).as("the run agrees with the dry run").isEqualTo(dry.left());
+        assertThat(run.changes()).as("nothing the run changed").isEmpty();
+        assertThat(Files.isSameFile(object, clone))
+                .as("the file keeps its inode, so it never becomes this account's")
+                .isTrue();
+        assertThat(mode(object)).as("its mode is not changed").isEqualTo("rw-r--r--");
+    }
+
+    @Test
+    void aFileWithASecondNameGetsAnInodeOfItsOwnThatIsNeverLoose() throws Exception {
+        final Path object = file(data.resolve("mirrors/one.git/objects/ab/cd"), "rw-r--r--");
+        final Path clone = dir.resolve("clone-object");
+        Files.createLink(clone, object);
+
+        Tightening.aloneUnderItsName(object, PosixFilePermissions.fromString("rw-------"));
+
+        assertThat(mode(object))
+                .as("the new inode carries the tightened mode from before it has the name")
+                .isEqualTo("rw-------");
+        assertThat(Files.isSameFile(object, clone)).as("an inode of its own").isFalse();
+        assertThat(mode(clone)).as("the other name keeps its mode").isEqualTo("rw-r--r--");
+        assertThat(Files.readString(object)).as("the content is copied").isEqualTo("x");
+    }
+
+    @Test
+    void aSecondNameThatIsALinkByNowIsNeitherFollowedNorReplaced() throws Exception {
+        final Path outside = file(dir.resolve("outside/mine"), "rw-r--r--");
+        final Path swapped = data.resolve("swapped");
+        Files.createSymbolicLink(swapped, outside);
+
+        org.assertj.core.api.Assertions.assertThatThrownBy(
+                        () ->
+                                Tightening.aloneUnderItsName(
+                                        swapped, PosixFilePermissions.fromString("rw-------")))
+                .as("a link is refused, never copied through")
+                .isInstanceOf(java.io.IOException.class);
+        assertThat(Files.isSymbolicLink(swapped)).as("the link is not replaced").isTrue();
+        assertThat(mode(outside)).as("what it points at is untouched").isEqualTo("rw-r--r--");
+    }
+
+    @Test
     void aMachineOfThisAccountAloneHasNothingToTighten() throws Exception {
         file(data.resolve("projects/one"), "rw-------");
 

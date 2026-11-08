@@ -1,0 +1,2 @@
+title: "`porelo tighten` leaves a file another uid owns as refused, in a dry run too, where before one with a second name was copied over and became this account's; the copy that gives a file with a second name an inode of its own no longer follows a link and carries the tightened mode before it takes the name"
+type: fixed
