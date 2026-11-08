@@ -36,6 +36,74 @@ class PersonsWordsTest {
                 .isEqualTo("@alice");
     }
 
+    // Matrix's MX86 marks a line headed "All agents:" so; it reaches every task, marked for each.
+    @Test
+    void aLineToAllAgentsIsMarkedSoForEveryTaskAndOnlyInTheRoom(@TempDir Path dir)
+            throws IOException {
+        final List<TransportConversations.Member> members = members(dir);
+        final Path room = dir.resolve("room.json");
+        Files.writeString(
+                room,
+                "{\"sender\":\"@alice\",\"account\":\"alice\",\"body\":\"All agents: stop\",\"to\":[],"
+                        + "\"all\":true}");
+        final Path direct = dir.resolve("direct.json");
+        Files.writeString(
+                direct,
+                "{\"sender\":\"@alice\",\"account\":\"alice\",\"body\":\"All agents: stop\",\"to\":[],"
+                        + "\"all\":true,\"direct\":true}");
+
+        final PersonsWords inRoom =
+                PersonsWords.read(room, members, Map.of(), Map.of(), Set.of("alice"));
+        final PersonsWords inDirect =
+                PersonsWords.read(direct, members, Map.of(), Map.of(), Set.of("alice"));
+
+        assertThat(inRoom.readers()).containsExactlyElementsOf(members);
+        assertThat(new String(inRoom.message(), java.nio.charset.StandardCharsets.UTF_8))
+                .contains("\"all\":true");
+        assertThat(new String(inDirect.message(), java.nio.charset.StandardCharsets.UTF_8))
+                .as("a direct chat is with one task")
+                .doesNotContain("\"all\"");
+    }
+
+    // Waking every task costs each agent a turn: only a person the project admitted, named by the
+    // host account the transport gives, may ask it of all of them.
+    @Test
+    void aLineToAllAgentsIsForAllOnlyFromAPersonTheProjectAdmitted(@TempDir Path dir)
+            throws IOException {
+        final List<TransportConversations.Member> members = members(dir);
+        final Path noAccount = dir.resolve("no-account.json");
+        Files.writeString(
+                noAccount,
+                "{\"sender\":\"@alice\",\"body\":\"All agents: stop\",\"to\":[],\"all\":true}");
+        final Path notAdmitted = dir.resolve("not-admitted.json");
+        Files.writeString(
+                notAdmitted,
+                "{\"sender\":\"@carol\",\"account\":\"carol\",\"body\":\"All agents: stop\","
+                        + "\"to\":[],\"all\":true}");
+
+        final PersonsWords joined =
+                PersonsWords.read(
+                        noAccount,
+                        members,
+                        Map.of(),
+                        Map.of("alice", "@alice", "carol", "@carol"),
+                        Set.of("alice"));
+        final PersonsWords joinedOnly =
+                PersonsWords.read(
+                        notAdmitted,
+                        members,
+                        Map.of(),
+                        Map.of("alice", "@alice", "carol", "@carol"),
+                        Set.of("alice"));
+
+        assertThat(new String(joined.message(), java.nio.charset.StandardCharsets.UTF_8))
+                .as("no host account named")
+                .doesNotContain("\"all\"");
+        assertThat(new String(joinedOnly.message(), java.nio.charset.StandardCharsets.UTF_8))
+                .as("joined, but not admitted by the project")
+                .doesNotContain("\"all\"");
+    }
+
     @Test
     void aPersonLetInByTheRoomsMakerIsTakenByTheirHostAccount(@TempDir Path dir)
             throws IOException {

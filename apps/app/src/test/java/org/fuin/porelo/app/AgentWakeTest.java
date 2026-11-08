@@ -171,7 +171,8 @@ class AgentWakeTest {
                 Files.writeString(dir.resolve("b.json"), "{\"metadata\":{\"to\":[\"review\"]}}");
         final Path direct =
                 Files.writeString(
-                        dir.resolve("c.json"), "{\"metadata\":{\"to\":[],\"direct\":true}}");
+                        dir.resolve("c.json"),
+                        "{\"role\":\"ROLE_USER\",\"metadata\":{\"to\":[],\"direct\":true}}");
         final Path single =
                 Files.writeString(dir.resolve("d.json"), "{\"metadata\":{\"to\":\"writer\"}}");
 
@@ -191,7 +192,7 @@ class AgentWakeTest {
         final Path everyone =
                 Files.writeString(
                         dir.resolve("e.json"),
-                        "{\"metadata\":{\"from\":\"michael\",\"to\":[],\"via\":\"room\"}}");
+                        "{\"role\":\"ROLE_USER\",\"metadata\":{\"from\":\"michael\",\"to\":[],\"via\":\"room\"}}");
         final Path another =
                 Files.writeString(
                         dir.resolve("f.json"),
@@ -209,6 +210,44 @@ class AgentWakeTest {
         assertThat(AgentWake.namesIt(aTasks, "porelo-p-writer", "p"))
                 .as("a task's word to nobody")
                 .isFalse();
+    }
+
+    // The operator, 2026-11-08: a person's line headed "All agents:" wakes every task, whomever
+    // else it names. A task cannot: its messages are never a person's.
+    @Test
+    void aPersonsLineToAllAgentsWakesEveryTaskAndATasksDoesNot() throws IOException {
+        final Path all =
+                Files.writeString(
+                        dir.resolve("all.json"),
+                        "{\"role\":\"ROLE_USER\",\"metadata\":{\"from\":\"michael\",\"to\":[\"review\"],"
+                                + "\"via\":\"room\",\"all\":true}}");
+        final Path aTasks =
+                Files.writeString(
+                        dir.resolve("all-task.json"),
+                        "{\"role\":\"ROLE_AGENT\",\"metadata\":{\"from\":\"review\",\"to\":[\"review\"],"
+                                + "\"via\":\"room\",\"all\":true}}");
+
+        assertThat(AgentWake.namesIt(all, "porelo-p-writer", "p")).isTrue();
+        assertThat(AgentWake.namesIt(aTasks, "porelo-p-writer", "p")).isFalse();
+    }
+
+    // The wake's reading: a task's room message marked direct, or to nobody in the room, woke
+    // every other task. Only a person's message is direct or for everybody.
+    @Test
+    void aTasksMessageMarkedDirectOrToNobodyInTheRoomWakesNoOtherTask() throws IOException {
+        final Path direct =
+                Files.writeString(
+                        dir.resolve("t-direct.json"),
+                        "{\"role\":\"ROLE_AGENT\",\"metadata\":{\"from\":\"review\",\"to\":[\"review\"],"
+                                + "\"direct\":true,\"via\":\"direct\"}}");
+        final Path room =
+                Files.writeString(
+                        dir.resolve("t-room.json"),
+                        "{\"role\":\"ROLE_AGENT\",\"metadata\":{\"from\":\"review\",\"to\":[],"
+                                + "\"via\":\"room\"}}");
+
+        assertThat(AgentWake.namesIt(direct, "porelo-p-writer", "p")).isFalse();
+        assertThat(AgentWake.namesIt(room, "porelo-p-writer", "p")).isFalse();
     }
 
     @Test
@@ -251,7 +290,8 @@ class AgentWakeTest {
         final Mailbox mailbox = new Mailbox(dir.resolve("mail").resolve("porelo-p-writer"));
         mailbox.create();
         Files.writeString(
-                mailbox.inboxNew().resolve("m-1.json"), "{\"metadata\":{\"via\":\"direct\"}}");
+                mailbox.inboxNew().resolve("m-1.json"),
+                "{\"role\":\"ROLE_USER\",\"metadata\":{\"via\":\"direct\"}}");
         final Path state = dir.resolve("run").resolve("porelo").resolve("porelo-p-writer");
         final PoreloContext context = context();
         Files.createDirectories(context.paths().tasks().containerState("porelo-p-writer"));
@@ -369,7 +409,8 @@ class AgentWakeTest {
                 .as("mkfifo made the pipe")
                 .isZero();
         Files.writeString(
-                mailbox.inboxNew().resolve("m-1.json"), "{\"metadata\":{\"via\":\"direct\"}}");
+                mailbox.inboxNew().resolve("m-1.json"),
+                "{\"role\":\"ROLE_USER\",\"metadata\":{\"via\":\"direct\"}}");
         final AgentWake waker = new AgentWake(context());
         final java.util.concurrent.atomic.AtomicBoolean announced =
                 new java.util.concurrent.atomic.AtomicBoolean();
@@ -405,7 +446,8 @@ class AgentWakeTest {
         final Mailbox mailbox = new Mailbox(dir.resolve("mail").resolve("porelo-p-writer"));
         mailbox.create();
         Files.writeString(
-                mailbox.inboxNew().resolve("m-1.json"), "{\"metadata\":{\"via\":\"direct\"}}");
+                mailbox.inboxNew().resolve("m-1.json"),
+                "{\"role\":\"ROLE_USER\",\"metadata\":{\"via\":\"direct\"}}");
         final AgentWake waker = new AgentWake(context());
         final java.util.concurrent.atomic.AtomicInteger typed =
                 new java.util.concurrent.atomic.AtomicInteger();
@@ -432,7 +474,8 @@ class AgentWakeTest {
             path.join(java.time.Duration.ofSeconds(10));
         }
         Files.writeString(
-                mailbox.inboxNew().resolve("m-2.json"), "{\"metadata\":{\"via\":\"direct\"}}");
+                mailbox.inboxNew().resolve("m-2.json"),
+                "{\"role\":\"ROLE_USER\",\"metadata\":{\"via\":\"direct\"}}");
 
         assertThat(waker.announce(mailbox, "porelo-p-writer", "p", atRest))
                 .as("within the quiet")

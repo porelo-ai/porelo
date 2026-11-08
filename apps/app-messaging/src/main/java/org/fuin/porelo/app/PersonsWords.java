@@ -185,6 +185,14 @@ record PersonsWords(
         metadata.put("via", direct ? VIA_DIRECT : VIA_ROOM);
         if (direct) {
             metadata.put("direct", true);
+        } else if (Boolean.TRUE.equals(said.get(ALL))
+                && said.get("account") instanceof String account
+                && account.equals(person)
+                && persons.contains(account)) {
+            // A line headed "All agents:", as the transport marks it: every task is to answer
+            // (the operator, 2026-11-08). Waking each costs a turn, so only a person the project
+            // admitted, by the host account the transport names, asks it of all.
+            metadata.put(ALL, true);
         }
         final Map<String, Object> message = new LinkedHashMap<>();
         message.put(
@@ -208,6 +216,9 @@ record PersonsWords(
                 null,
                 learned);
     }
+
+    /** How a transport marks a person's line meant for every agent in the room. */
+    static final String ALL = "all";
 
     /** Said in the project's conversation, where everybody reads it. */
     static final String VIA_ROOM = "room";

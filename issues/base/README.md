@@ -20,6 +20,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b528"></a>[B528](B528-A-Persons-Line-To-All-Agents-Wakes-Every-Task.md) | S | - | A person's line headed "All agents:" reaches and wakes every task; a task's cannot. |
 | <a id="b525"></a>[B525](B525-Each-Workflow-Run-Of-A-Build-By-Name.md) | M | - | A build names each workflow run of the commit with its own state, also while it runs. |
 | <a id="b526"></a>[B526](B526-A-Task-Is-Shown-By-Its-Agent-Name.md) | S | - | A task is enrolled into its room under "Agent <Name>" where the transport takes `--display`. |
 | <a id="b524"></a>[B524](B524-The-Makers-Of-A-Push-In-Review.md) | S | - | `PendingPush` and `Review` carry each commit's author, committer and trailers. |

@@ -132,8 +132,12 @@ public final class AgentWake {
                     || !(document.get("metadata") instanceof Map<?, ?> metadata)) {
                 return false;
             }
-            if (Boolean.TRUE.equals(metadata.get("direct"))
-                    || "direct".equals(metadata.get("via"))) {
+            // Only a person writes a direct chat or to everybody in the room: a task cannot write a
+            // person's role, so its message marked so wakes nobody it does not name.
+            final boolean person = MessageSay.ROLE.equals(document.get("role"));
+            if (person
+                    && (Boolean.TRUE.equals(metadata.get("direct"))
+                            || "direct".equals(metadata.get("via")))) {
                 return true;
             }
             if (metadata.get("inReplyToMessageId") != null || decided(document)) {
@@ -142,11 +146,18 @@ public final class AgentWake {
                 // an id the detectors flagged is not repeated in the answer.
                 return refused(document);
             }
+            if (person
+                    && Boolean.TRUE.equals(metadata.get(PersonsWords.ALL))
+                    && PersonsWords.VIA_ROOM.equals(metadata.get("via"))) {
+                // A person's line to all agents wakes every task. Only a person's: a task cannot
+                // write a person's role, so it cannot wake them all.
+                return true;
+            }
             final String task = org.fuin.porelo.runtime.ContainerName.taskIn(project, container);
             final Object to = metadata.get("to");
             final List<?> named =
                     to instanceof List<?> list ? list : to == null ? List.of() : List.of(to);
-            if (named.isEmpty() && PersonsWords.VIA_ROOM.equals(metadata.get("via"))) {
+            if (person && named.isEmpty() && PersonsWords.VIA_ROOM.equals(metadata.get("via"))) {
                 // A person asking the room without naming anybody asks every task in it (the
                 // operator, walk 10: "Wer ist da?" and nobody answered). A task's word to nobody
                 // stays the room's talk.

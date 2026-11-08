@@ -58,7 +58,8 @@ public final class MailboxGuide {
                 - **A message meant for you names you** in `metadata.to`: a person writes `@` and your task's
                   name, or answers a message of yours. Act on what names you.
                 - **A person's message in the room that names nobody is meant for every agent in the room:
-                  answer it in the room.** It has `"via": "room"` and an empty `metadata.to`.
+                  answer it in the room.** It has `"via": "room"` and an empty `metadata.to`. So is one that
+                  begins "All agents:", whomever else it names: it has `"all": true` in its `metadata`.
                 - A message that names another is not yours to answer, and another task's message that names
                   nobody is the conversation around you, there to know.
                 - **A person can also write to you directly**, in a chat with you alone. Such a message has
