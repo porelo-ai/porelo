@@ -133,7 +133,7 @@ out - a `baseurl` pinned in the project's `image.snippet` - goes into `doc/proje
 Red first: the listing of `os-packages-fedora` without `complete: false`.
 
 Contract: `Sets()` and `Egress` grow optional fields in
-`daemon/src/main/resources/varlink/org.fuin.porelo.Tasks1/25-egress.varlink`, which only ever grows;
+`wire/src/main/resources/varlink/org.fuin.porelo.Tasks1/25-egress.varlink`, which only ever grows;
 `InterfaceDescriptionTest` holds them to the registration. The interface reads them (porelo-frontend).
 
 ## Acceptance

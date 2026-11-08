@@ -26,7 +26,7 @@ Read in the code on 2026-11-04.
 **What is there.** The messaging lives in `apps/app-messaging/src/main/java/org/fuin/porelo/app/`:
 `MessageIntake`, `MessageFiltering`, `MessageDispatch`, `MessageDelivery`, `Moderation`, `MessageSigners`;
 the daemon's methods are `daemon/src/main/java/org/fuin/porelo/daemon/MessagingMethods.java` with
-`daemon/src/main/resources/varlink/org.fuin.porelo.Tasks1/45-messaging.varlink`.
+`wire/src/main/resources/varlink/org.fuin.porelo.Tasks1/45-messaging.varlink`.
 `MessageDispatch.addressees` already reads `metadata.to` as a string or a list, and a list of more than one is refused.
 `Moderation` holds or releases one peer for the whole project (`Moderate(project, name, held)`); the mode is set
 in `project.yml` (`mail.rules`, a peer's `mode`). The project file has `mail.peers.<peer>`

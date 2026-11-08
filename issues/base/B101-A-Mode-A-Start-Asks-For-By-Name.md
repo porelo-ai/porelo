@@ -26,7 +26,7 @@ Read in the code on 2026-11-04: an agent's `headless:` section is read by `Agent
 `AgentDefinitionJson`, and assembled by `HeadlessCommandBuilder` from a `RunRequest`
 (`model`, `maxTurns`, `subagents`).
 `TaskRunCommand` takes `--model`, `--max-turns` and `--subagents`; `Start` in
-`daemon/src/main/resources/varlink/org.fuin.porelo.Tasks1/15-task.varlink` takes `model`, `maxTurns` and `subagents`.
+`wire/src/main/resources/varlink/org.fuin.porelo.Tasks1/15-task.varlink` takes `model`, `maxTurns` and `subagents`.
 Named agent modes and thinking levels are not implemented.
 **`Start` already has a `mode`** - `shell`, `agent` or `unattended` (`TaskMode`) - so the agent's named mode
 needs another name on the wire.

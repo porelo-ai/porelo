@@ -12,7 +12,7 @@ Until that release, porelo-mcp keeps its copy at a named porelo commit (`a1f237b
 
 Read in the code on 2026-11-08:
 
-- The files lie in `daemon/src/main/resources/varlink/org.fuin.porelo.Tasks1/`, and `daemon` is not published.
+- The files lay in `daemon/src/main/resources/varlink/org.fuin.porelo.Tasks1/`, and `daemon` is not published.
 - `PoreloDaemon.description()` reads each part by an absolute path on the classpath,
   `/varlink/org.fuin.porelo.Tasks1/<part>.varlink`, in the fixed order of `PARTS`. A file that moves to another jar on
   the classpath is still found by the same path.
@@ -29,8 +29,15 @@ Read in the code on 2026-11-08:
   path, and in porelo-wire's own metadata it would put them into every native image built on porelo-wire.
 - Offer the part order beside them (a list file), so a reader outside the daemon puts the parts together as the daemon
   does. `PoreloDaemon.PARTS` reads that list too, so there is one order.
+- As built after the reading, `porelo-wire` also reads them: `TasksContract.description()` and `parts()`, which the
+  daemon serves and a client outside porelo calls. It takes a comment after a name on the list, refuses a name listed
+  twice and a contract found twice on the class path (an older porelo-wire, or parts left in a module's classes), and
+  ends each part's last line. The class path is read when the description is asked for, no longer when the daemon's
+  class loads.
 - **Red first:**
-  - a test on the built `porelo-wire` jar finds every part the list names;
+  - a test on porelo-wire's classes (`TasksContractTest`, before the jar is built) finds every part the list names,
+    every carried part named once on the list, and each ending its last line;
   - the daemon's interface description is unchanged, byte for byte, from before the move. As built, checked once at
     the move (sha256 `b5e6efb5…` before and after) rather than held by a test, since the contract grows;
-  - the native daemon answers `GetInterfaceDescription` (the existing dist check).
+  - the native daemon: no dist check calls `GetInterfaceDescription`. `porelod` reads the description when it starts
+    serving (`describedBy`), so a native `porelod` without it does not start, and the acceptance suite starts it.

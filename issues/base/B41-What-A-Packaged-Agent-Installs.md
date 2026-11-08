@@ -31,7 +31,7 @@ Read in the code on 2026-11-04. `AgentsCommand`
 (`apps/app-agents/src/main/java/org/fuin/porelo/app/AgentsCommand.java`) prints
 `installs:` from `definition.version()` and each `InstallArtifact`; the daemon's `AgentMethods`
 (`daemon/src/main/java/org/fuin/porelo/daemon/AgentMethods.java`) maps the same artifacts into the `Agent` type of
-`daemon/src/main/resources/varlink/org.fuin.porelo.Tasks1/40-agent.varlink`. A packaged agent's binary is
+`wire/src/main/resources/varlink/org.fuin.porelo.Tasks1/40-agent.varlink`. A packaged agent's binary is
 `/usr/lib/<package>/<agent>`, named by `/usr/share/porelo/agents.d/<agent>.yaml`, and its bill is
 `/usr/share/porelo/sbom/<package>.cdx.json` - `agents/pom.xml` uses `${project.artifactId}` for the package directory
 and `${agent.name}` for the executable. The bill's path follows from the package directory, not the executable

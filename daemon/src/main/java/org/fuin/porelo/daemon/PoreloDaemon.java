@@ -15,6 +15,7 @@ import org.fuin.porelo.clearance.ClearanceService;
 import org.fuin.porelo.core.project.Project;
 import org.fuin.porelo.gate.GitGate;
 import org.fuin.porelo.runtime.ContainerName;
+import org.fuin.porelo.wire.varlink.TasksContract;
 import org.fuin.porelo.wire.varlink.VarlinkClient;
 import org.fuin.porelo.wire.varlink.VarlinkException;
 import org.fuin.porelo.wire.varlink.VarlinkServer;
@@ -57,7 +58,7 @@ public final class PoreloDaemon {
      * an older daemon does not have answers {@code MethodNotFound}, which lets an interface disable
      * one feature instead of refusing to connect.
      */
-    public static final String INTERFACE = "org.fuin.porelo.Tasks1";
+    public static final String INTERFACE = TasksContract.INTERFACE;
 
     /** Name of the socket inside Porelo's runtime directory. */
     public static final String SOCKET = "porelod.sock";
@@ -183,7 +184,7 @@ public final class PoreloDaemon {
     }
 
     /**
-     * Returns the interface description, read from the jar.
+     * Returns the interface description, read from porelo-wire, which carries it for clients too.
      *
      * <p>A resource rather than a string in this file, so that the contract is a document an
      * interface author can read, diff and be handed - and so that {@link PoreloDaemonTest} can hold
@@ -195,46 +196,8 @@ public final class PoreloDaemon {
     public static String description() {
         // One interface on the wire, written in parts: each area's methods, types and errors in a
         // file of its own, so a change to one area's contract is a change to its own file. The
-        // order is fixed here, not found.
-        final StringBuilder description = new StringBuilder();
-        for (final String part : PARTS) {
-            final String name = "/varlink/" + INTERFACE + "/" + part + ".varlink";
-            try (java.io.InputStream in = PoreloDaemon.class.getResourceAsStream(name)) {
-                if (in == null) {
-                    throw new IllegalStateException(
-                            "The interface description is not on the classpath: " + name);
-                }
-                description.append(
-                        new String(in.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8));
-            } catch (java.io.IOException ex) {
-                throw new IllegalStateException("Cannot read the interface description", ex);
-            }
-        }
-        return description.toString();
-    }
-
-    /**
-     * The parts of the interface description, in the order they are served: the header first. Read
-     * from the list porelo-wire carries beside them, so a client outside porelo puts them together
-     * in the same order.
-     */
-    static final List<String> PARTS = parts();
-
-    private static List<String> parts() {
-        final String name = "/varlink/" + INTERFACE + "/parts";
-        try (java.io.InputStream in = PoreloDaemon.class.getResourceAsStream(name)) {
-            if (in == null) {
-                throw new IllegalStateException(
-                        "The interface's parts are not on the classpath: " + name);
-            }
-            return new String(in.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8)
-                    .lines()
-                    .map(String::strip)
-                    .filter(line -> !line.isEmpty() && !line.startsWith("#"))
-                    .toList();
-        } catch (java.io.IOException ex) {
-            throw new IllegalStateException("Cannot read the interface's parts", ex);
-        }
+        // order is the list's porelo-wire carries beside them.
+        return TasksContract.description();
     }
 
     /**

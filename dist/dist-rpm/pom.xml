@@ -258,7 +258,7 @@ exit 0
                                     <group>root</group>
                                     <license>true</license>
                                 </entry>
-                                <!-- The classes of porelo-wire in the executables are under this one. -->
+                                <!-- The classes of porelo-wire in the executables, and its contract files in porelod, are under this one. -->
                                 <entry>
                                     <name>/usr/share/licenses/${package.name}/LICENSE.Apache-2.0</name>
                                     <file>${project.basedir}/../../wire/LICENSE</file>

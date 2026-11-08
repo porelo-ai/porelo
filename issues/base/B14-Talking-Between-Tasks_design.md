@@ -373,7 +373,7 @@ answer:** tasks living for months, or a `rejected/` too large for anybody to rea
 
 Additions to `org.fuin.porelo.Tasks1`, which only ever grows.
 The proposed interface below includes groups and key confirmation, which are not built.
-The current contract is `daemon/src/main/resources/varlink/org.fuin.porelo.Tasks1/45-messaging.varlink`;
+The current contract is `wire/src/main/resources/varlink/org.fuin.porelo.Tasks1/45-messaging.varlink`;
 `InterfaceDescriptionTest` checks it against `daemon/src/main/java/org/fuin/porelo/daemon/MessagingMethods.java`.
 `Peers` takes `task` and `project`; `Say` takes `task`, `peer`, `kind`, `text` and optional `context`.
 `Release` takes `task`, `id`, optional `refuse` and `reason`, with no `trustKey`; `Moderate` takes `project`,

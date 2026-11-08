@@ -72,7 +72,7 @@ unbuilt. Following projects by hand is gone; projects are placed from the organi
    `.git/info/exclude` for a `CHECKOUT` entry, else to `$XDG_CONFIG_HOME/porelo/projects/default/<repository>/.porelo.yml`
    (computed beside `ProjectPaths.defaultProjectFile`) - and record `ASKED`; `NONE` records `ASKED` only.
    [B192](README.md#b192)'s order for a `REMOTE` entry of `default` gains that file as its first source.
-7. **The daemon**: `daemon/src/main/resources/varlink/org.fuin.porelo.Tasks1/20-project.varlink` gains the two methods,
+7. **The daemon**: `wire/src/main/resources/varlink/org.fuin.porelo.Tasks1/20-project.varlink` gains the two methods,
    the types `Proposal`, `ProposedValue` and
    `Disagreement`, and `DefaultRepository.proposal`; `ProjectMethods` registers them; `InterfaceDescriptionTest`
    holds the part.

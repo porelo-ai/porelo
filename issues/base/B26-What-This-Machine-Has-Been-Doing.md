@@ -119,7 +119,7 @@ Steps:
    and `ShieldWatchCommand`), a
    credential brokered for a task (the broker, once per credential per task rather than per request), and
    `failures.log`'s writer.
-4. Add `after: ?string` to `Events` in `daemon/src/main/resources/varlink/org.fuin.porelo.Tasks1/55-events.varlink`,
+4. Add `after: ?string` to `Events` in `wire/src/main/resources/varlink/org.fuin.porelo.Tasks1/55-events.varlink`,
    keeping `since`, and streaming with `more`; add `--follow` to `porelo events`, reading the same file through
    the same reader, so both show the same order. `InterfaceDescriptionTest` holds them.
 5. An acceptance scenario: events recorded, the runtime directory cleared and the task removed, the journal still

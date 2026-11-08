@@ -12,8 +12,9 @@ Files: usr/bin/porelo
 Copyright: 2026 Michael Schnell <michael@fuin.org>
 License: GPL-3.0-or-later and Apache-2.0
 Comment: These executables are compiled whole from the program and the classes of
- porelo-wire (org.fuin.porelo.wire). Those classes are under Apache-2.0, and the
- rest of each executable under GPL-3.0-or-later.
+ porelo-wire (org.fuin.porelo.wire); porelod also carries porelo-wire's contract
+ files (varlink/org.fuin.porelo.Tasks1). Those classes and files are under
+ Apache-2.0, and the rest of each executable under GPL-3.0-or-later.
 
 License: GPL-3.0-or-later
  This program is free software: you can redistribute it and/or modify it under

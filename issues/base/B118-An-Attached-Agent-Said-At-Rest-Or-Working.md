@@ -30,7 +30,7 @@ about an instant between a prompt and the agent's working line.
 Read in the code on 2026-11-04:
 
 - **Today `activity` has no value for rest.** `TaskInventory.Activity` and the varlink type `Activity`
-  (`daemon/src/main/resources/varlink/org.fuin.porelo.Tasks1/15-task.varlink`) hold `DEAD`, `WAITING`, `WORKING`,
+  (`wire/src/main/resources/varlink/org.fuin.porelo.Tasks1/15-task.varlink`) hold `DEAD`, `WAITING`, `WORKING`,
   `IDLE`, `ENDED` and `UNKNOWN`. `TaskInventory.activityOf` answers `UNKNOWN` for a running task without `task.log`
   when it is not waiting; attached rest classification is not implemented.
 - **`AT_REST` becomes a value of its own**, after `IDLE` in both. `IDLE` is inferred from a log that stayed quiet;
