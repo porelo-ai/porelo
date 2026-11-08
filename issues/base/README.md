@@ -20,6 +20,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b507"></a>[B507](B507-A-Task-That-Starts-Tasks-Through-An-MCP-Endpoint.md) | L | - | A task the signed project file allows reaches Porelo's API as MCP through the gateway: porelod runs a `porelo-mcp` process per task on a 0600 Unix socket, the file sets its methods and limits, it stops only its own children, and the event log names the parent | 0 |
 | <a id="b510"></a>[B510](B510-The-Tasks-Contract-In-Porelo-Wire.md) | S | - | The published `porelo-wire` jar carries the `Tasks1` interface files and their order, so a client such as porelo-mcp reads the real contract; the daemon reads them from there as before. |
 | <a id="b509"></a>[B509](B509-A-Varlink-Number-Read-Exactly.md) | S | - | A number in a varlink call or reply reaches its reader as sent: `VarlinkConnection` reads with `Json.parseDecimals`, so an int is no double and an int64 above 2^53 keeps its digits. |
 | <a id="b503"></a>[B503](B503-The-Ecosystems-A-Machine-Has.md) | M | - | `Ecosystems` lists the installed ecosystem plugins and what each places for a repository; its shape agreed with the ecosystems' repository first. |
@@ -120,7 +121,6 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers | Open questions |
 |---|---|---|---|---|
-| <a id="b507"></a>[B507](B507-A-Task-That-Starts-Tasks-Through-An-MCP-Endpoint.md) | L | - | A task the signed project file allows reaches Porelo's API as MCP through the gateway: porelod runs a `porelo-mcp` process per task on a 0600 Unix socket, the file sets its methods and limits, it stops only its own children, and the event log names the parent | 0 |
 | <a id="b308"></a>[B308](B308-A-Guide-For-Adding-A-Provider-Or-An-Agent.md) | L | - | One guide in `doc/` to the checks that prove a new provider or agent safe, with scripts beside the acceptance kit: recording a provider's answers through the broker, the walk script's shared shape; the agents' part kept by their repositories | 0 |
 | <a id="b136"></a>[B136](B136-An-Approve-Bound-To-What-Was-Reviewed.md) | M | - | Capture one reviewed commit for patch/log and every approval path; confirmations and signatures use that key; SARIF never authorizes forwarding. | 0 |
 | <a id="b150"></a>[B150](B150-The-Whole-Diff-In-Review.md) | M | - | Bound serialized review replies with explicit file-boundary cuts; retain complete file inventory or refuse by name; full-diff risk and SARIF completeness stay independent. | 0 |

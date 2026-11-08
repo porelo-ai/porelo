@@ -1,6 +1,6 @@
 # [B507](README.md#b507) — A Task That Starts Tasks Through An MCP Endpoint
 
-**Status:** Analyzed.
+**Status:** Review. Built on 2026-11-08 at the operator's word, before the third trial move.
 **Size:** L - `porelod` runs one `porelo-mcp` process per allowed task and serves it a per-task socket with the
 allowed methods alone, started, resumed and stopped as `gate serve`
 is; a `unix:` destination the gateway connects to; a project-file section with the methods and limits allowed; a stop
@@ -81,3 +81,36 @@ and where the per-task daemon socket lies.
   methods the file allows.
 - Whether the token reaches `porelo-mcp` through its environment, a file of mode 0600, or its standard input. A
   command line is ruled out, since others can read it.
+
+## As built
+
+Built on branch `b507` on 2026-11-08, with one reading (agy gemini-4-argon-high) and its findings fixed, each with a
+test seen red first.
+
+- **The section** is `mcp` in the signed project file. `methods` and `agents` are required. Porelo names no agent
+  itself, so no default stands in. `tasks` (6) and `minutes` (240) are optional. A section may name only the methods
+  `McpMethods` lists as reading, plus `Start` and `Stop`. The daemon refuses any other when it reads the file, at
+  `CheckProjectFile` and when it opens the socket. The check in core reads only the shape, since only the daemon
+  knows its interface.
+- **The per-task socket** (`McpTaskSockets`) takes the caller from the socket alone.
+  - A start over it:
+    - carries a prompt;
+    - runs unattended for 1 to `minutes` minutes;
+    - is in the caller's own project;
+    - takes only the parameters a task may set. `clearance`, `noGate`, `credentials`, `upstream`, `tokenHours`,
+      `subagents`, `provider` and `rm` are refused by name.
+    - counts against `tasks` by a reservation per call, so concurrent starts are counted too.
+  - A start bringing back a task, from its runtime state or its kept record, works only for the caller's own child,
+    with the agent and model it was made with.
+  - A method that takes a `task` acts only on the caller or its own child. The new refusals are in
+    `15-task.varlink`.
+- **The gateway's `unix:` route** refuses a target with a dot segment, encoded or not, before anything is sent. It
+  closes a socket silent for longer than the request's limit (10 minutes) between two bytes.
+- **The process:**
+  - a failed start closes its per-task socket and stops porelo-mcp;
+  - `task status` says why an endpoint is absent;
+  - porelod reopens the sockets of running tasks when it starts again.
+- **Left open:**
+  - Methods taking a `project`, such as `Pending`, are not limited to the caller's project. They are readings, and a
+    section names them only on purpose.
+  - Nothing closes a task's socket when its container ends by itself rather than by a stop.
