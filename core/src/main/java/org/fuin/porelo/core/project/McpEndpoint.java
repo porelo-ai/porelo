@@ -28,13 +28,6 @@ public record McpEndpoint(
     public static final int DEFAULT_MINUTES = 240;
 
     /**
-     * The agents and models allowed when the file does not say, as the operator decided on
-     * 2026-11-08: the first with its two larger models, the others with any. Data the file
-     * replaces, never a branch: Porelo itself treats every agent alike.
-     */
-    public static final Map<String, List<String>> DEFAULT_AGENTS = defaultAgents();
-
-    /**
      * Constructor.
      *
      * @param methods The methods.
@@ -47,14 +40,6 @@ public record McpEndpoint(
         final Map<String, List<String>> copied = new LinkedHashMap<>();
         agents.forEach((agent, models) -> copied.put(agent, List.copyOf(models)));
         agents = Collections.unmodifiableMap(copied);
-    }
-
-    private static Map<String, List<String>> defaultAgents() {
-        final Map<String, List<String>> agents = new LinkedHashMap<>();
-        agents.put("claude", List.of("opus", "sonnet"));
-        agents.put("codex", List.of());
-        agents.put("agy", List.of());
-        return Collections.unmodifiableMap(agents);
     }
 
     /**

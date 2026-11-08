@@ -239,7 +239,13 @@ public final class ProjectFileCheck {
             }
         }
         final Map<String, @Nullable List<String>> agents = mcp.agents();
-        if (agents != null) {
+        if (agents == null || agents.isEmpty()) {
+            // Porelo names no agent itself, so no default stands in for the file's word.
+            fault(
+                    "mcp.agents",
+                    "'mcp.agents' is required: the agents a task started through the endpoint may"
+                            + " use, each to the models it may be given");
+        } else {
             agents.forEach(
                     (agent, models) -> {
                         final String path = Binding.join("mcp.agents", agent);

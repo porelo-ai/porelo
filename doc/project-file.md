@@ -251,7 +251,7 @@ branch:
 # stops tasks within these limits; without it a task gets none. See "A task's MCP endpoint" below.
 # mcp:
 #   methods: ["List", "Start", "Stop", "Events"]   # required
-#   agents:                        # optional; these are the defaults
+#   agents:                        # required; the operator's own start
 #     claude: ["opus", "sonnet"]   # an agent with a list is given one of its models
 #     codex:                       # one with nothing under it takes any model
 #     agy:
@@ -335,7 +335,8 @@ an administrator's commit like every other setting, and a repository's own `pore
   have are refused when the daemon reads the file, and by `CheckProjectFile`.
 - **`agents`** names the agents a started task may use, each to the models it may be asked for. An agent with
   nothing under it takes any model; one with a list must be started naming one of them, since its own default is not
-  something the file can see. A start must name its agent. Left out, `claude` with `opus` or `sonnet`, `codex` and
+  something the file can see. A start must name its agent. **Required**: Porelo names no agent itself, so no default
+  stands in. The operator's own start, written in the example below, is `claude` with `opus` or `sonnet`, `codex` and
   `agy`.
 - **`tasks`**, 6 unless the file says otherwise, is the most tasks one task may have running through its endpoint
   at once; a start past it is refused with `ChildLimitReached`.

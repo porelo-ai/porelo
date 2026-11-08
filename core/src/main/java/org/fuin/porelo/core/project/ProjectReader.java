@@ -118,15 +118,9 @@ public final class ProjectReader {
         if (mcp == null) {
             return null;
         }
-        final Map<String, List<String>> agents;
-        final Map<String, @Nullable List<String>> named = mcp.agents();
-        if (named == null) {
-            agents = McpEndpoint.DEFAULT_AGENTS;
-        } else {
-            agents = new LinkedHashMap<>();
-            named.forEach(
-                    (agent, models) -> agents.put(agent, models == null ? List.of() : models));
-        }
+        final Map<String, List<String>> agents = new LinkedHashMap<>();
+        Objects.requireNonNull(mcp.agents(), "checked: mcp.agents")
+                .forEach((agent, models) -> agents.put(agent, models == null ? List.of() : models));
         final Integer tasks = mcp.tasks();
         final Integer minutes = mcp.minutes();
         return new McpEndpoint(

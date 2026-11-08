@@ -537,8 +537,8 @@ final class ProjectSchema {
                                     + " may be asked for; an agent with nothing under it takes any"
                                     + " model, one with a list must be given one of them.",
                             "map",
-                            agentsShown(),
-                            false),
+                            "",
+                            true),
                     key(
                             "mcp",
                             "tasks",
@@ -555,18 +555,6 @@ final class ProjectSchema {
                             false));
 
     private ProjectSchema() {}
-
-    /** The default agents as a file would write them, such as {@code a: [x, y], b}. */
-    private static String agentsShown() {
-        final List<String> shown = new java.util.ArrayList<>();
-        McpEndpoint.DEFAULT_AGENTS.forEach(
-                (agent, models) ->
-                        shown.add(
-                                models.isEmpty()
-                                        ? agent
-                                        : agent + ": [" + String.join(", ", models) + "]"));
-        return String.join(", ", shown);
-    }
 
     private static ProjectKey key(
             String section,

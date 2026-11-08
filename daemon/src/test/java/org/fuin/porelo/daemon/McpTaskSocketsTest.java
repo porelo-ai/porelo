@@ -230,7 +230,9 @@ class McpTaskSocketsTest {
 
     @Test
     void aSectionNamingAMethodNeverOfferedOrUnknownIsRefusedWhenRead() throws IOException {
-        context(HEAD + "mcp:\n  methods: [\"Start\", \"Panic\", \"Teleport\"]\n");
+        context(
+                HEAD
+                        + "mcp:\n  methods: [\"Start\", \"Panic\", \"Teleport\"]\n  agents:\n    alpha:\n");
 
         assertThatThrownBy(() -> sockets.open(LEAD, "uc"))
                 .isInstanceOf(IOException.class)
@@ -254,7 +256,10 @@ class McpTaskSocketsTest {
                         call(
                                 socket,
                                 "CheckProjectFile",
-                                Map.of("text", HEAD + "mcp:\n  methods: [\"Start\", \"Panic\"]\n"));
+                                Map.of(
+                                        "text",
+                                        HEAD
+                                                + "mcp:\n  methods: [\"Start\", \"Panic\"]\n  agents:\n    alpha:\n"));
                 assertThat(checked.get("refused")).asString().contains("'Panic'");
             } finally {
                 server.close();

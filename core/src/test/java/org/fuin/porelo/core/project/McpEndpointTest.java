@@ -26,32 +26,40 @@ class McpEndpointTest {
     }
 
     @Test
-    void aSectionNamingItsMethodsAloneTakesTheDefaults() {
+    void aSectionNamingItsMethodsAndAgentsTakesTheDefaultLimits() {
         final McpEndpoint endpoint =
-                read("mcp:\n  methods: [\"List\", \"Start\", \"Stop\"]\n").orElseThrow();
+                read("mcp:\n  methods: [\"List\", \"Start\", \"Stop\"]\n  agents:\n    alpha:\n")
+                        .orElseThrow();
 
         assertThat(endpoint.methods()).containsExactly("List", "Start", "Stop");
         assertThat(endpoint.tasks()).isEqualTo(6);
         assertThat(endpoint.minutes()).isEqualTo(240);
-        assertThat(endpoint.agents()).isEqualTo(McpEndpoint.DEFAULT_AGENTS);
-        assertThat(endpoint.agents().keySet()).hasSize(3);
+        assertThat(endpoint.agents()).isEqualTo(Map.of("alpha", List.of()));
+    }
+
+    @Test
+    void aSectionNamingNoAgentIsRefused() {
+        // Which agents a started task may use is the file's to say: Porelo names no agent itself.
+        assertThatThrownBy(() -> read("mcp:\n  methods: [\"Start\"]\n"))
+                .isInstanceOf(ProjectException.class)
+                .hasMessageContaining("'mcp.agents' is required");
     }
 
     @Test
     void eachLimitIsTheFilesWhenItSaysOne() {
         final McpEndpoint endpoint =
                 read("mcp:\n  methods: [\"Start\"]\n  tasks: 2\n  minutes: 30\n"
-                                + "  agents:\n    stub:\n    other: [\"small\", \"large\"]\n")
+                                + "  agents:\n    alpha:\n    other: [\"small\", \"large\"]\n")
                         .orElseThrow();
 
         assertThat(endpoint.tasks()).isEqualTo(2);
         assertThat(endpoint.minutes()).isEqualTo(30);
         assertThat(endpoint.agents())
-                .isEqualTo(Map.of("stub", List.of(), "other", List.of("small", "large")));
-        assertThat(endpoint.allows("stub", null))
+                .isEqualTo(Map.of("alpha", List.of(), "other", List.of("small", "large")));
+        assertThat(endpoint.allows("alpha", null))
                 .as("an agent named alone takes any model")
                 .isTrue();
-        assertThat(endpoint.allows("stub", "whatever")).isTrue();
+        assertThat(endpoint.allows("alpha", "whatever")).isTrue();
         assertThat(endpoint.allows("other", "small")).isTrue();
         assertThat(endpoint.allows("other", "medium")).isFalse();
         assertThat(endpoint.allows("other", null))
@@ -82,10 +90,10 @@ class McpEndpointTest {
                 .isInstanceOf(ProjectException.class)
                 .hasMessageContaining("'mcp.methods'")
                 .hasMessageContaining("without the interface");
-        assertThatThrownBy(() -> read("mcp:\n  methods: [\"Start\"]\n  agents:\n    stub: []\n"))
+        assertThatThrownBy(() -> read("mcp:\n  methods: [\"Start\"]\n  agents:\n    alpha: []\n"))
                 .as("an empty list of models would allow the agent nothing")
                 .isInstanceOf(ProjectException.class)
-                .hasMessageContaining("'mcp.agents.stub'");
+                .hasMessageContaining("'mcp.agents.alpha'");
         assertThatThrownBy(
                         () -> read("mcp:\n  methods: [\"Start\"]\n  agents:\n    Not_An_Agent:\n"))
                 .isInstanceOf(ProjectException.class)
@@ -131,7 +139,7 @@ class McpEndpointTest {
     void theSectionIsWrittenBackAsItWasRead() {
         final String text =
                 HEAD
-                        + "mcp:\n  methods: [\"Start\"]\n  agents:\n    stub:\n"
+                        + "mcp:\n  methods: [\"Start\"]\n  agents:\n    alpha:\n"
                         + "    other: [\"small\"]\n  tasks: 2\n";
         final var file =
                 org.fuin.porelo.core.project.file.ProjectFileReader.read(
