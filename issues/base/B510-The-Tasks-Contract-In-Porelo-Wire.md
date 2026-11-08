@@ -1,0 +1,35 @@
+# [B510](README.md#b510) — The Tasks Contract In Porelo-Wire
+
+**Status:** Backlog. Built after the third trial move, or sooner if porelo-mcp's MC02 needs it; the coordinator's word
+of 2026-11-08.
+**Size:** S - the interface files move into `porelo-wire`'s resources, where the daemon reads them as before, with the
+native image's resource entry and a test of the published jar.
+
+**What must be true.** The published `porelo-wire` jar carries `org.fuin.porelo.Tasks1/*.varlink` from the next release
+on. A client outside porelo, such as porelo-mcp's stand-in daemon, reads the real contract from it, never from a copy.
+Until that release, porelo-mcp keeps its copy at a named porelo commit (`a1f237b1c`).
+
+## Analysis
+
+Read in the code on 2026-11-08:
+
+- The files lie in `daemon/src/main/resources/varlink/org.fuin.porelo.Tasks1/`, and `daemon` is not published.
+- `PoreloDaemon.description()` reads each part by an absolute path on the classpath,
+  `/varlink/org.fuin.porelo.Tasks1/<part>.varlink`, in the fixed order of `PARTS`. A file that moves to another jar on
+  the classpath is still found by the same path.
+- The native image takes them through
+  `daemon/src/main/resources/META-INF/native-image/org.fuin.porelo/porelo-daemon/reachability-metadata.json` (glob
+  `varlink/org.fuin.porelo.Tasks1/*.varlink`). The entry moves with the files, into `porelo-wire`'s own metadata.
+- `porelo-wire` is Apache-2.0 and holds the varlink code already. Within Tasks1 the contract only grows, so a client
+  built against one release's files reads a later daemon.
+
+## Plan
+
+- Move the files to `wire/src/main/resources/varlink/org.fuin.porelo.Tasks1/`, and the native image's resource entry
+  with them.
+- Offer the part order beside them (a list file), so a reader outside the daemon puts the parts together as the daemon
+  does. `PoreloDaemon.PARTS` reads that list too, so there is one order.
+- **Red first:**
+  - a test on the built `porelo-wire` jar finds every part the list names;
+  - the daemon's interface description is unchanged, byte for byte, from before the move;
+  - the native daemon answers `GetInterfaceDescription` (the existing dist check).

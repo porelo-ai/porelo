@@ -103,6 +103,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b510"></a>[B510](B510-The-Tasks-Contract-In-Porelo-Wire.md) | S | - | The published `porelo-wire` jar carries the `Tasks1` interface files and their order, so a client such as porelo-mcp reads the real contract; the daemon reads them from there as before. |
 | <a id="b509"></a>[B509](B509-A-Varlink-Number-Read-Exactly.md) | S | - | A number in a varlink call or reply reaches its reader as sent: `VarlinkConnection` reads with `Json.parseDecimals`, so an int is no double and an int64 above 2^53 keeps its digits. |
 | <a id="b118"></a>[B118](B118-An-Attached-Agent-Said-At-Rest-Or-Working.md) | M | - | A new `AT_REST` activity, judged from the screen reads the listing already makes with the wake's two-look rule; the stub agent gets an `at_rest`. | - |
 | <a id="b506"></a>[B506](B506-An-Agent-Waiting-On-A-Person.md) | XS | [B118](#b118) | A task's listing says when its agent waits on a person for its own question, where the agent declares how that is seen. |
