@@ -51,3 +51,36 @@ one after another, and only then starts its tasks.
 - How a LOGIN task's terminal is attached through the daemon today (the login runs `--interactive --tty` in the
   caller's terminal); the plan reading decides whether the login runs under tmux like a task.
 - Whether the vault being locked during the wait (the person locks it) ends the wait as `stored: false`.
+
+## After the plan reading
+
+The build takes these answers; each harm gets a test seen red first.
+
+- **The login is no task.** There is no LOGIN mode, and a login container runs `--network host` with the real
+  credential in it: it stays out of `isTask`, `List`, `Watch`, `Screen` and tmux. `AgentSignInStart` runs it detached
+  (`podman run -d -i -t`, the agent's login as PID 1, no shell), the window attaches to PID 1 (`podman attach`), and the
+  container is removed when PID 1 ends. `AgentSignInStart`, `AgentSignInWait` are in `McpMethods.NEVER`,
+  `AgentSignIns` in `READING`; `waitForSignIn` stays out of a task's MCP start parameters, where a missing credential
+  answers as today.
+- **The vault's opener is taken once, at the start of the login**, and used to store: a `vault lock` during a running
+  sign-in no longer drops the credential the person just made.
+- **The provider:** the sign-in stores under the provider the agent's extractor names (`value.provider()`), never a
+  hard-coded default; an agent with no default provider is answered, not thrown at. A start waits only when the
+  missing credential is the one the agent's sign-in makes.
+- **The lock:** `<state>/logins/<agent>.lock` is taken before the sweep; it records the login's container name as soon
+  as it is chosen. `FileLocks.free` answers free for a lock file that is not there (and is reachable from the daemon).
+  The sweep removes a `porelo-login-*` container that has no agent label or whose agent's lock is free. A second
+  `vault login` of a held agent does not queue behind it: it says that one runs, and after taking the lock it checks
+  the vault again.
+- **The wait:** `porelod` keeps each agent's last sign-in result, so `AgentSignInWait` after a sign-in that ended
+  answers at once with its result; a wait that finds none running and nothing stored answers `stored: false` at once;
+  a sign-in started by `porelo vault login` in a terminal is waited on through its lock file, not an in-memory future.
+  The wait has its own limit (30 minutes), not a run's `minutes`.
+- **The start:** the credential check and the wait come before anything with side effects (hooks, the agents'
+  processes, the upstream probe, a purchase), and a resumed task (`startExisting`) is checked too. A locked vault
+  answers `NEEDS_VAULT` / `VaultLocked`, never `SignInNeeded` (`CredentialWiring` answers three states, not a sentence).
+- **`AgentSignInStart` takes `force: ?bool`** and answers `ALREADY_SIGNED_IN` where the machine's own agent directory
+  holds a sign-in, so the window offers its import first. A loopback login is refused for a remote client.
+- **`AgentLogin.store`** removes a stale `grant/<credential>` when the new credential has no refresh token, and clears
+  the open authorization question for it.
+- Size: L, at its top end; if the build shows it larger, it splits at the start's wait (a second issue).
