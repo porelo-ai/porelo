@@ -104,6 +104,20 @@ public final class HostForgeAddress {
 
     private static @Nullable String address(
             final String project, final @Nullable String central, final String port) {
+        final String copy = copyOf(project, central);
+        return copy == null ? null : "http://127.0.0.1:" + port + "/" + copy + ".git";
+    }
+
+    /**
+     * Returns the copy a host's forge keeps of a repository, {@code <project>/<name>}: the name is
+     * the last part of its central address (or of the address it was placed at, which ends the
+     * same), as the host's follow names the copy it makes.
+     *
+     * @param project The project's name.
+     * @param central The repository's central address, or {@code null}.
+     * @return The copy, or {@code null} when the address names no usable repository.
+     */
+    public static @Nullable String copyOf(final String project, final @Nullable String central) {
         if (central == null) {
             return null;
         }
@@ -111,9 +125,7 @@ public final class HostForgeAddress {
         final String name =
                 stripped.substring(
                         Math.max(stripped.lastIndexOf('/'), stripped.lastIndexOf(':')) + 1);
-        return name.matches(SEGMENT)
-                ? "http://127.0.0.1:" + port + "/" + project + "/" + name + ".git"
-                : null;
+        return name.matches(SEGMENT) ? project + "/" + name : null;
     }
 
     /**

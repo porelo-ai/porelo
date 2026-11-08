@@ -2532,7 +2532,7 @@ public final class TaskLaunch {
                                         : certifiedGate(
                                                 container,
                                                 issued,
-                                                project.name() + "/" + repository.name()),
+                                                hostPushRepository(project, repository)),
                                 out,
                                 err);
                 final boolean prepared =
@@ -4096,6 +4096,27 @@ public final class TaskLaunch {
             err.flush();
             return code == 0 ? 70 : code;
         }
+    }
+
+    /**
+     * Returns where a host's forge keeps the copy an online task's push goes to: the repository
+     * part of its placed address, {@code <project>/<central's last part>}, as the host's follow
+     * made it, never the row's name.
+     *
+     * @param project The project, as the host placed it.
+     * @param repository The task's repository.
+     * @return {@code <project>/<repo>}.
+     */
+    static String hostPushRepository(
+            Project project, org.fuin.porelo.core.project.Repository repository) {
+        // Before a certified gate is made the start refused a row without a central on a host.
+        final String copy =
+                HostForgeAddress.copyOf(
+                        project.name(),
+                        repository.central() != null
+                                ? repository.central()
+                                : repository.upstream());
+        return copy != null ? copy : project.name() + "/" + repository.name();
     }
 
     /**
