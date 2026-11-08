@@ -657,6 +657,23 @@ class GitGateTest {
     }
 
     @Test
+    void forgettingATaskAlsoForgetsWhatItsHostPushLastPushed() throws IOException {
+        // A new task named like a removed one leased its first push on the removed task's commit,
+        // refused as stale for good once the forge branch was deleted.
+        final GitGate gate = gate(GateMode.ONLINE, upstreamWithMain().toString());
+        final Path pushed = mirror.resolve(GitGate.HOST_PUSHED);
+        Files.createDirectories(pushed);
+        Files.writeString(pushed.resolve("task-1"), "a".repeat(40) + "\n");
+        Files.writeString(pushed.resolve("task-2"), "b".repeat(40) + "\n");
+
+        gate.forget("task-1");
+        gate.forget("task-3");
+
+        assertThat(pushed.resolve("task-1")).doesNotExist();
+        assertThat(pushed.resolve("task-2")).as("another task's record").exists();
+    }
+
+    @Test
     void readsTheRefsAPushWouldUpdateAndRefusesWhatItCannotRead() {
         final String commands =
                 pkt(

@@ -7,6 +7,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Optional;
 import org.fuin.porelo.core.config.XdgPaths;
+import org.fuin.porelo.gate.GitGate;
 import org.fuin.porelo.testing.FakeCommandRunner;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -54,7 +55,7 @@ class HostPushTest {
                         mirror.toString(),
                         "push",
                         "http://127.0.0.1:3001/acme/demo.git",
-                        "refs/heads/porelo/fix:refs/heads/porelo/fix")
+                        COMMIT + ":refs/heads/porelo/fix")
                 .doesNotContain("--force", "sudo")
                 .anySatisfy(
                         argument ->
@@ -74,6 +75,68 @@ class HostPushTest {
                 .doesNotContainKeys("http_proxy", "GIT_TRACE_CURL");
         assertThat(pushed.input()).isNull();
         assertThat(pushed.describe()).doesNotContain("t0ken");
+    }
+
+    // An online task that amends after a reading rewrites its branch; without force the forge
+    // refused it as non-fast-forward, and move 4's "work every result off" stopped there.
+    @Test
+    void anAmendReplacesOnlyWhatTheGateItselfLastPushedThere() throws IOException {
+        final Path mirror = dir.resolve("mirror.git");
+        final Path conf = conf("git_port=3001\n");
+        final String amended = "fedcba9876543210fedcba9876543210fedcba98";
+
+        assertThat(push(mirror, conf, TOKEN).passOn(COMMIT)).isNull();
+        assertThat(runner.invocations().getLast().arguments())
+                .as("the first push leases nothing: it replaces nothing")
+                .contains("--no-force-with-lease")
+                .noneMatch(argument -> argument.startsWith("--force"));
+
+        assertThat(push(mirror, conf, TOKEN).passOn(amended)).isNull();
+        assertThat(runner.invocations().getLast().arguments())
+                .contains("--force-with-lease=refs/heads/porelo/fix:" + COMMIT)
+                .doesNotContain("--force", "+refs/heads/porelo/fix:refs/heads/porelo/fix");
+
+        runner.failing("push", 1, "! [rejected] porelo/fix (stale info)\n");
+        assertThat(push(mirror, conf, TOKEN).passOn(COMMIT)).contains("stale info");
+        runner.answering("push", "");
+        push(mirror, conf, TOKEN).passOn(COMMIT);
+        assertThat(runner.invocations().getLast().arguments())
+                .as("a push the forge refused is not what the next one leases on")
+                .contains("--force-with-lease=refs/heads/porelo/fix:" + amended);
+    }
+
+    // Two pushes of one task at once: a refspec of the mirror's branch sent whatever the other
+    // push had set there, and recorded this push's commit as what the forge holds.
+    @Test
+    void thePushSendsTheCommitItWasGivenNotWhatTheMirrorsBranchHolds() throws IOException {
+        final Path mirror = dir.resolve("mirror.git");
+
+        assertThat(push(mirror, conf("git_port=3001\n"), TOKEN).passOn(COMMIT)).isNull();
+
+        assertThat(runner.invocations().getLast().arguments())
+                .endsWith(COMMIT + ":refs/heads/porelo/fix")
+                .doesNotContain("refs/heads/porelo/fix:refs/heads/porelo/fix");
+    }
+
+    // A record cut short or written by hand must not become a lease: leasing on garbage either
+    // fails every push or, worse, names a commit the gate never pushed.
+    @Test
+    void aRecordThatIsNoCommitLeasesNothing() throws IOException {
+        final Path mirror = dir.resolve("mirror.git");
+        final Path conf = conf("git_port=3001\n");
+        final Path record = mirror.resolve(GitGate.HOST_PUSHED).resolve("fix");
+        Files.createDirectories(record.getParent());
+        for (final String kept :
+                java.util.List.of("0123456789abcdef", "-d\n", COMMIT.toUpperCase(), COMMIT + "0")) {
+            Files.writeString(record, kept);
+
+            assertThat(push(mirror, conf, TOKEN).passOn(COMMIT)).isNull();
+
+            assertThat(runner.invocations().getLast().arguments())
+                    .as(kept)
+                    .contains("--no-force-with-lease")
+                    .noneMatch(argument -> argument.startsWith("--force-with-lease"));
+        }
     }
 
     // A refusal must be said; with no token or no port, nothing may reach the forge.

@@ -9,16 +9,22 @@ import java.util.function.Supplier;
 import org.fuin.porelo.core.process.Command;
 import org.fuin.porelo.core.process.CommandException;
 import org.fuin.porelo.core.process.CommandResult;
+import org.fuin.porelo.gate.GitGate;
 import org.jspecify.annotations.Nullable;
 
 /**
  * Passes a task's branch on to its host's forge, with the forge token the host made for the task.
  *
  * <p>On a host, a task's gate sets {@code refs/heads/porelo/<task>} in its mirror and pushes that
- * one branch, without force, to the forge on the host's loopback, {@code
- * http://127.0.0.1:<git_port>}. The name is {@code porelo/<task>} on a host whatever the project's
- * branch scheme says, since that is what the host checks against the task. The forge checks the
- * token and its scopes itself; nothing here runs as another account.
+ * one branch to the forge on the host's loopback, {@code http://127.0.0.1:<git_port>}. The name is
+ * {@code porelo/<task>} on a host whatever the project's branch scheme says, since that is what the
+ * host checks against the task. The forge checks the token and its scopes itself; nothing here runs
+ * as another account.
+ *
+ * <p><strong>An amend replaces only what the gate pushed.</strong> A task that rewrites its commit
+ * after a reading pushes with {@code --force-with-lease} on the commit this gate last pushed there,
+ * kept beside the mirror once the forge took it: never another branch, never work it did not push.
+ * Before its first push nothing is leased, so nothing is replaced.
  *
  * <p><strong>The token reaches git through its credential protocol.</strong> It is in the push's
  * environment, which only this account and root can read, and {@code porelo vault credential}
@@ -118,70 +124,118 @@ final class HostPush {
         }
         final String base = "http://127.0.0.1:" + port;
         final String branch = "refs/heads/porelo/" + task;
+        final Path record = mirror.resolve(GitGate.HOST_PUSHED).resolve(task);
         try {
-            final CommandResult set =
-                    context.runner()
-                            .run(
-                                    Command.of(
-                                                    "git",
-                                                    "-c",
-                                                    "core.hooksPath=/dev/null",
-                                                    "--git-dir",
-                                                    mirror.toString(),
-                                                    "update-ref",
-                                                    branch,
-                                                    commit)
-                                            .withChosenEnvironment(gitEnvironment()));
-            if (!set.successful()) {
-                return "the gate could not set porelo/"
-                        + task
-                        + ": "
-                        + printable(set.standardError().strip());
-            }
-            final CommandResult pushed =
-                    context.runner()
-                            .run(
-                                    Command.of(
-                                                    "git",
-                                                    // No config but this: no hooks, no proxy, no
-                                                    // transport but http, no helper but ours.
-                                                    "-c",
-                                                    "core.hooksPath=/dev/null",
-                                                    "-c",
-                                                    "protocol.allow=never",
-                                                    "-c",
-                                                    "protocol.http.allow=always",
-                                                    "-c",
-                                                    "http.proxy=",
-                                                    "-c",
-                                                    "credential.helper=",
-                                                    "-c",
-                                                    "credential."
-                                                            + base
-                                                            + ".helper=!"
-                                                            + word(PoreloBinary.path().toString())
-                                                            + " vault credential --env "
-                                                            + TOKEN_VARIABLE,
-                                                    "--git-dir",
-                                                    mirror.toString(),
-                                                    "push",
-                                                    "--no-verify",
-                                                    base + "/" + repository + ".git",
-                                                    branch + ":" + branch)
-                                            .withEnvironment(Map.of(TOKEN_VARIABLE, secret))
-                                            .withChosenEnvironment(gitEnvironment()));
-            if (!pushed.successful()) {
-                return "the host's forge did not take porelo/"
-                        + task
-                        + " (exit "
-                        + pushed.exitCode()
-                        + "): "
-                        + printable(masked(pushed.standardError().strip(), secret));
-            }
-            return null;
+            // Two pushes of one task at once read the same lease, and one's record named a commit
+            // the other had put on the forge: the lease, the push and the record go together.
+            return FileLocks.holding(
+                            record.resolveSibling("." + task + ".lock"),
+                            () ->
+                                    Optional.ofNullable(
+                                            pushHeld(commit, secret, base, branch, record)))
+                    .orElse(null);
+        } catch (IOException ex) {
+            return "the gate could not lock porelo/"
+                    + task
+                    + ": "
+                    + printable(String.valueOf(ex.getMessage()));
         } catch (CommandException ex) {
             return "the push to the host's forge could not be run: "
                     + printable(masked(String.valueOf(ex.getMessage()), secret));
+        }
+    }
+
+    /** Sets, pushes and records the task's branch, while its lock is held. */
+    private @Nullable String pushHeld(
+            final String commit,
+            final String secret,
+            final String base,
+            final String branch,
+            final Path record) {
+        final String leased = lastPushed(record);
+        final CommandResult set =
+                context.runner()
+                        .run(
+                                Command.of(
+                                                "git",
+                                                "-c",
+                                                "core.hooksPath=/dev/null",
+                                                "--git-dir",
+                                                mirror.toString(),
+                                                "update-ref",
+                                                branch,
+                                                commit)
+                                        .withChosenEnvironment(gitEnvironment()));
+        if (!set.successful()) {
+            return "the gate could not set porelo/"
+                    + task
+                    + ": "
+                    + printable(set.standardError().strip());
+        }
+        final CommandResult pushed =
+                context.runner()
+                        .run(
+                                Command.of(
+                                                "git",
+                                                // No config but this: no hooks, no proxy, no
+                                                // transport but http, no helper but ours.
+                                                "-c",
+                                                "core.hooksPath=/dev/null",
+                                                "-c",
+                                                "protocol.allow=never",
+                                                "-c",
+                                                "protocol.http.allow=always",
+                                                "-c",
+                                                "http.proxy=",
+                                                "-c",
+                                                "credential.helper=",
+                                                "-c",
+                                                "credential."
+                                                        + base
+                                                        + ".helper=!"
+                                                        + word(PoreloBinary.path().toString())
+                                                        + " vault credential --env "
+                                                        + TOKEN_VARIABLE,
+                                                "--git-dir",
+                                                mirror.toString(),
+                                                "push",
+                                                "--no-verify",
+                                                leased == null
+                                                        ? "--no-force-with-lease"
+                                                        : "--force-with-lease="
+                                                                + branch
+                                                                + ":"
+                                                                + leased,
+                                                base + "/" + repository + ".git",
+                                                // The commit the record will name; the mirror's
+                                                // branch may hold another push's by now.
+                                                commit + ":" + branch)
+                                        .withEnvironment(Map.of(TOKEN_VARIABLE, secret))
+                                        .withChosenEnvironment(gitEnvironment()));
+        if (!pushed.successful()) {
+            return "the host's forge did not take porelo/"
+                    + task
+                    + " (exit "
+                    + pushed.exitCode()
+                    + "): "
+                    + printable(masked(pushed.standardError().strip(), secret));
+        }
+        try {
+            Files.createDirectories(record.getParent());
+            Files.writeString(record, commit + "\n");
+        } catch (IOException ex) {
+            // Pushed all the same; the next amend is then refused as stale and says so.
+        }
+        return null;
+    }
+
+    /** The commit last pushed, or {@code null} before the first push or for a record not one. */
+    private static @Nullable String lastPushed(final Path record) {
+        try {
+            final String kept = Files.readString(record).strip();
+            return kept.matches("[0-9a-f]{40}|[0-9a-f]{64}") ? kept : null;
+        } catch (IOException ex) {
+            return null;
         }
     }
 

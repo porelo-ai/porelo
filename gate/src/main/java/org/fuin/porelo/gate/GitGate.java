@@ -42,6 +42,12 @@ public class GitGate {
      */
     public static final String RESCUED = "-rescued";
 
+    /**
+     * Beside the mirror's refs, never served: a directory holding, per task, the commit a host's
+     * pass-on last pushed to the host's forge, which the next push of that task leases on.
+     */
+    public static final String HOST_PUSHED = "porelo-host-pushed";
+
     private final CommandRunner runner;
 
     private final Path mirror;
@@ -1248,11 +1254,28 @@ public class GitGate {
      * its plain push was refused with git's "fetch first", and an agent that followed the hint
      * pulled a removed task's work into its own.
      *
+     * <p>What a host's pass-on last pushed for the name goes with it: a new task of the name would
+     * otherwise lease its first push on the removed task's commit, refused as stale for good once
+     * the forge's branch was deleted.
+     *
      * @param name The task's name, without the namespace prefix.
      */
     public void forget(String name) {
         if (resolves(INCOMING + name)) {
             gitIn("update-ref", "-d", INCOMING + name);
+        }
+        final Path pushed = mirror.resolve(HOST_PUSHED);
+        final Path record = pushed.resolve(name).normalize();
+        if (!pushed.normalize().equals(record.getParent())) {
+            // A name that is not one path segment names no record of a task.
+            return;
+        }
+        try {
+            Files.deleteIfExists(record);
+        } catch (IOException ex) {
+            throw new GateException(
+                    "Could not forget what was last pushed for " + name + ": " + ex.getMessage(),
+                    ex);
         }
     }
 
