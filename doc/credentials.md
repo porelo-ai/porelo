@@ -428,6 +428,32 @@ Inside the task each appears as `PORELO_TOKEN_<NAME>` and `PORELO_URL_<NAME>`:
 curl -H "X-Subscription-Token: $PORELO_TOKEN_SEARCH" "$PORELO_URL_SEARCH/res/v1/web/search?q=porelo"
 ```
 
+**An endpoint on this host is a socket, `unix:<path>`.** An MCP server Porelo runs for a task, such as
+`porelo-mcp`, listens on a Unix socket and has no port. Its destination names the socket instead of an address:
+
+```
+name: porelo-mcp-task-1
+upstream: unix:/run/user/1000/porelo/mcp/task-1.sock
+auth_header: Authorization
+auth_prefix: "Bearer "
+```
+
+- **Only directly in `$XDG_RUNTIME_DIR/porelo/mcp`**, the person's own runtime directory. Anything else is refused,
+  each with its own reason (`UnixUpstream.Refusal`): a relative path (`RELATIVE`), a `..` (`PARENT`), an empty or `.`
+  segment or a trailing slash (`NOT_NORMALIZED`), a character other than letters, digits and `. _ - /`
+  (`CHARACTER`), another directory or one below it (`OUTSIDE`), and a path any part of which is a symbolic link
+  (`LINK`). The form is checked wherever a declaration is read; the directory and the links when it is written
+  (`WriteDestination`, a `DestinationRefused`), when the gateway starts with it, and the links again before every
+  connection.
+- **The gateway speaks HTTP/1.1 over the socket**, one request per connection, to the path `/mcp`: the task's request
+  to `$PORELO_URL_<NAME>` arrives there as `/mcp`, one to `$PORELO_URL_<NAME>/x` as `/mcp/x`. The key goes in the
+  header the destination names, `Authorization: Bearer <key>` for `porelo-mcp`; the task holds only its own token.
+- **A streamed answer (`text/event-stream`) is passed on event by event**, as from an https destination. An answer
+  framed by neither `Content-Length` nor chunks, by both, by a transfer coding other than chunked, or with a head that
+  is not HTTP/1.1 is refused with `502` before anything reaches the task; one that breaks its chunks later is cut off.
+- **No firewall rule is involved**: the task reaches only the gateway's own socket, and the gateway reaches this one
+  on the host, with no address on either side.
+
 **The token decides where a request goes, never the request.** A key held for one service cannot be
 attached to a request for another. A tool whose address is compiled in and cannot be pointed at
 `PORELO_URL_<NAME>` cannot use this.
