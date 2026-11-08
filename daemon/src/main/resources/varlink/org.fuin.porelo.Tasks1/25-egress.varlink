@@ -272,6 +272,59 @@ method WidenTask(
   detail: string
 )
 
+# Which of the four questions a ReachRow answers.
+type ReachPart (
+  # What a task can connect to.
+  REACH,
+  # What a task has in its hands.
+  HOLD,
+  # What a task can use up.
+  SPEND,
+  # What a task can leave behind.
+  PRODUCE
+)
+
+# What kind of guard a ReachRow is.
+type ReachKind (
+  # Holds even against an agent that tries to get round it.
+  CONTROL,
+  # Stops the ordinary mistake and nothing more. Never render it as containment.
+  ACCIDENT_CATCHER,
+  # A path left open on purpose or by nature, named so nobody counts it as closed.
+  NOT_BOUNDED
+)
+
+# One thing a task can reach, hold, spend or produce, and what bounds it.
+type ReachRow (
+  part: ReachPart,
+  # What is bounded, as the page "How far a task can get" names it. Markdown.
+  subject: string,
+  # The bound, in the page's words, with every number read off the code that enforces it. Markdown.
+  bound: string,
+  kind: ReachKind,
+  # What this machine's own setting adds to the bound. Absent where nothing on the machine decides.
+  machine: ?string,
+  # With a task asked about, its own bound where its run was widened or narrowed, or its clearance
+  # mode answers differently. Absent where the task has the machine's bound.
+  task: ?string
+)
+
+# What a task on this machine can reach, hold, spend and produce, and what bounds each.
+#
+# The rows are the page "How far a task can get", in its order: its tables' rows, then the paths it
+# says are not bounded. A test holds the two together, so an interface showing this shows what an
+# operator reading the page is told.
+#
+# With a task, every row is answered for that task: the names its run was granted and not taken
+# back, what its clearance mode does with an undeclared reach, and an authority it was handed.
+method Reach(
+  # Container name, from Task.name. Default: this machine, for no task in particular. A task that
+  # does not exist is NoSuchTask.
+  task: ?string
+) -> (
+  rows: []ReachRow
+)
+
 # ---------------------------------------------------------------------------- clearance
 
 # Blocked connections from every running task, as they happen.

@@ -34,6 +34,27 @@ final class EgressMethods {
     private EgressMethods() {}
 
     /**
+     * Returns one row as {@code ReachRow} carries it, an absent value left out.
+     *
+     * @param row The row.
+     * @return Its fields.
+     */
+    private static Map<String, Object> row(org.fuin.porelo.app.Reach.Row row) {
+        final Map<String, Object> fields = new LinkedHashMap<>();
+        fields.put("part", row.part().name());
+        fields.put("subject", row.subject());
+        fields.put("bound", row.bound());
+        fields.put("kind", row.kind().name());
+        if (row.machine() != null) {
+            fields.put("machine", row.machine());
+        }
+        if (row.task() != null) {
+            fields.put("task", row.task());
+        }
+        return fields;
+    }
+
+    /**
      * Registers this area's methods.
      *
      * @param server Where.
@@ -203,6 +224,25 @@ final class EgressMethods {
                     answer.put("persisted", effect.persisted());
                     answer.put("detail", effect.detail() == null ? "" : effect.detail());
                     replies.last(answer);
+                });
+
+        server.method(
+                "Reach",
+                (parameters, replies) -> {
+                    final String task = text(parameters, "task");
+                    final org.fuin.porelo.app.Reach reach = new org.fuin.porelo.app.Reach(context);
+                    // A task that is not there is refused: answering the machine's rows for it
+                    // would claim it holds nothing beyond them.
+                    final List<org.fuin.porelo.app.Reach.Row> rows =
+                            task.isEmpty()
+                                    ? reach.machine()
+                                    : reach.of(task)
+                                            .orElseThrow(
+                                                    () ->
+                                                            new VarlinkException(
+                                                                    INTERFACE + ".NoSuchTask",
+                                                                    Map.of("task", task)));
+                    replies.last(Map.of("rows", rows.stream().map(EgressMethods::row).toList()));
                 });
 
         server.method(

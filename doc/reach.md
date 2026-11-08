@@ -44,7 +44,7 @@ See [the firewall](security.md) and [DNS](security.md) for how this is enforced.
 |---|---|---|
 | The host vault share | Kept by the daemon in locked native memory until lock, daemon exit or reboot; never mounted into a task. Host helpers request temporary copies over the account's owner-only socket | control |
 | The provider credential | Never in the container. The vault holds it; the task gets a phantom token, worthless anywhere else, that dies with the task | control |
-| Credential headers from the task | `authorization`, `x-api-key`, `private-token` and `proxy-authorization` are dropped before anything is forwarded | control |
+| Credential headers from the task | `authorization`, `private-token`, `proxy-authorization` and `x-api-key` are dropped before anything is forwarded | control |
 | A credential in the provider's answer | The first 8 KB of every answer are examined for `access_token`, `refresh_token` and `id_token` as JSON fields, before any of it is handed over; the rest is examined as it streams, and an answer that carries one later is cut off there. An answer with no type passes only as JSON or as events whose every line is a field and whose every `data:` is JSON, and is withheld or cut off otherwise; a withheld answer is a `400` naming the provider's status, which a client does not retry, or a `502` when the provider itself answered `5xx` or `429` | control |
 | A request for a token of its own | A `refresh_token` or `client_credentials` grant is refused, in the query and in the whole body decoded - gzip, deflate or zstd - and a body coded otherwise, coded twice, beyond the limit or not decoding is refused rather than forwarded unread | control |
 | A key for the upstream | Never in the container, nor a socket that answers with it, in any class: the host lends it to the gate | control |
@@ -70,7 +70,7 @@ This is observation, with no ceiling on what a task can spend. See [credentials]
 | | Bound | What it is |
 |---|---|---|
 | A task's CPU | **4 CPUs** by default, replaced by `limits.cpus` or removed by `none`; the quota throttles CPU time. `OMP_NUM_THREADS` hints the limit to `nproc`, rounded down to at least one unless the image or project sets it. Image builds pass the same hint as a build argument to their `RUN` steps; `getconf` and `sysconf` still read the host's cores | control |
-| Its gate on the host | Four requests at once, `503` beyond; a push spooled to disk, never held; the gate and its `git` in a scope of 1 GiB memory, 256 tasks and half the default CPU weight | control |
+| Its gate on the host | 4 requests at once, `503` beyond; a push spooled to disk, never held; the gate and its `git` in a scope of 1 GiB memory, 256 tasks and half the default CPU weight | control |
 
 ## Produce: what a task can leave behind
 

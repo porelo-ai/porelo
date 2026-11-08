@@ -1,6 +1,7 @@
 package org.fuin.porelo.daemon;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -304,6 +305,56 @@ class InterfaceDescriptionTest {
                                             .as("no mailbox has no waiting messages")
                                             .isEqualTo(0.0);
                                 });
+            }
+        }
+    }
+
+    @Test
+    void reachRowsCarryExactlyTheFieldsTheContractAndTheRecordDeclare(@TempDir Path dir)
+            throws Exception {
+        // A row field in the record and not the contract is a value no client knows it is sent.
+        final Matcher rowType =
+                Pattern.compile("(?ms)^type ReachRow \\(\\n(.*?)^\\)")
+                        .matcher(PoreloDaemon.description());
+        assertThat(rowType.find()).as("the contract declares ReachRow").isTrue();
+        final Set<String> declared =
+                names(Pattern.compile("(?m)^\\s*([a-z][A-Za-z0-9]*)\\s*:"), rowType.group(1));
+        assertThat(declared)
+                .as("ReachRow versus the record the daemon answers it from")
+                .isEqualTo(
+                        java.util.Arrays.stream(
+                                        org.fuin.porelo.app.Reach.Row.class.getRecordComponents())
+                                .map(java.lang.reflect.RecordComponent::getName)
+                                .collect(java.util.stream.Collectors.toSet()));
+        final PoreloContext context = context(dir);
+        try (VarlinkServer server = PoreloDaemon.serving(context, dir.resolve("porelod.sock"))) {
+            Thread.ofVirtual().start(server);
+            try (VarlinkClient client = new VarlinkClient(server.socketPath())) {
+                final List<?> rows =
+                        (List<?>)
+                                client.call(PoreloDaemon.INTERFACE + ".Reach", Map.of())
+                                        .get("rows");
+                assertThat(rows)
+                        .as("every row the machine has goes over the wire")
+                        .hasSize(new org.fuin.porelo.app.Reach(context).machine().size())
+                        .allSatisfy(
+                                row ->
+                                        assertThat(new TreeSet<Object>(((Map<?, ?>) row).keySet()))
+                                                .as("a machine row's fields")
+                                                .containsAll(
+                                                        List.of("part", "subject", "bound", "kind"))
+                                                .isSubsetOf(declared));
+                assertThatThrownBy(
+                                () ->
+                                        client.call(
+                                                PoreloDaemon.INTERFACE + ".Reach",
+                                                Map.of("task", "porelo-uc-shell-9")))
+                        .as("a task that does not exist is refused, not answered as the machine")
+                        .isInstanceOfSatisfying(
+                                org.fuin.porelo.wire.varlink.VarlinkException.class,
+                                ex ->
+                                        assertThat(ex.getErrorName())
+                                                .isEqualTo(PoreloDaemon.INTERFACE + ".NoSuchTask"));
             }
         }
     }
