@@ -104,6 +104,28 @@ public record BuildStatus(
             final BuildStatusCommand.Factory factory,
             final PrintWriter err)
             throws IOException {
+        return read(context, request, factory, err, OrganizationProjects.of(context));
+    }
+
+    /**
+     * The builds a host's file names, as a task's start takes them where the project names none.
+     */
+    private static org.fuin.porelo.core.project.@Nullable Builds hostBuilds(
+            final OrganizationProjects projects, final Project project) throws IOException {
+        if (project.securityClass() == org.fuin.porelo.core.project.SecurityClass.OFFLINE) {
+            return null;
+        }
+        final OrganizationProjects.Placed hosted = projects.host(project.name());
+        return hosted == null ? null : hosted.builds();
+    }
+
+    static BuildStatus read(
+            final PoreloContext context,
+            final Request request,
+            final BuildStatusCommand.Factory factory,
+            final PrintWriter err,
+            final OrganizationProjects projects)
+            throws IOException {
         if (request.commit() != null
                 && !request.commit().matches("(?i)([0-9a-f]{40}|[0-9a-f]{64})")) {
             throw new Refused(
@@ -130,7 +152,8 @@ public record BuildStatus(
                     String.valueOf(ex.getMessage())
                             + ". Use -p <project> from 'porelo project list'.");
         }
-        final var builds = project.builds();
+        final var builds =
+                project.builds() == null ? hostBuilds(projects, project) : project.builds();
         if (builds == null) {
             throw noBuilds(project.name());
         }

@@ -177,6 +177,93 @@ class BuildStatusCommandTest {
     }
 
     @Test
+    void theBuildsAHostNamesAnswerWhereTheProjectFileNamesNone() throws Exception {
+        // On a host, a person's build query must reach the builds the task's watch reads, not
+        // refuse them as unconfigured.
+        project(false);
+        final Path hostFiles = directory.resolve("host-files");
+        final OrganizationProjects host = new OrganizationProjects(hostFiles, hostFiles);
+        host.write(
+                new OrganizationProjects.Placed(
+                        "acme",
+                        COMMIT,
+                        UPSTREAM,
+                        null,
+                        List.of(),
+                        null,
+                        null,
+                        "host",
+                        List.of(),
+                        new org.fuin.porelo.core.project.Builds(
+                                "test-forge",
+                                "forge-token",
+                                "",
+                                org.fuin.porelo.core.project.Builds.ALL)));
+
+        final BuildStatus answer;
+        try {
+            answer =
+                    BuildStatus.read(
+                            context,
+                            new BuildStatus.Request("acme", null, "main", null, "failure"),
+                            (machine, forge, socket) -> reader,
+                            new PrintWriter(err),
+                            host);
+        } finally {
+            new KernelKeyring(context.paths().vault().vaultKeyringKey()).forget();
+        }
+
+        assertThat(answer.exitCode())
+                .as("the host's builds are asked, and the failed build answers as one")
+                .isEqualTo(1);
+        assertThat(reader.target)
+                .as("the forge is asked with the credential the host names")
+                .isEqualTo(new Target(UPSTREAM, "", token));
+    }
+
+    @Test
+    void aProjectFilesOwnBuildsWinOverTheHosts() throws Exception {
+        // A person's own builds: block must not be replaced by what a host says.
+        final Path hostFiles = directory.resolve("host-files");
+        final OrganizationProjects host = new OrganizationProjects(hostFiles, hostFiles);
+        host.write(
+                new OrganizationProjects.Placed(
+                        "acme",
+                        COMMIT,
+                        UPSTREAM,
+                        null,
+                        List.of(),
+                        null,
+                        null,
+                        "host",
+                        List.of(),
+                        new org.fuin.porelo.core.project.Builds(
+                                "another-forge",
+                                "another-token",
+                                "",
+                                org.fuin.porelo.core.project.Builds.ALL)));
+        final java.util.List<String> forges = new java.util.ArrayList<>();
+
+        try {
+            BuildStatus.read(
+                    context,
+                    new BuildStatus.Request("acme", null, "main", null, "failure"),
+                    (machine, forge, socket) -> {
+                        forges.add(forge);
+                        return reader;
+                    },
+                    new PrintWriter(err),
+                    host);
+        } finally {
+            new KernelKeyring(context.paths().vault().vaultKeyringKey()).forget();
+        }
+
+        assertThat(forges)
+                .as("the project file's forge is asked, not the host's")
+                .containsExactly("test-forge");
+    }
+
+    @Test
     void aPlacedCheckoutResolvesWithoutWritingADefaultEntry() throws Exception {
         // Asking about a checkout must never add it to default or change the project registry.
         final Path clone = context.paths().projects().organizationClone("acme");
