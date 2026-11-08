@@ -503,6 +503,67 @@ final class McpTaskSockets implements McpDaemonSockets.Opener, AutoCloseable {
     }
 
     /**
+     * The methods answering with every task of the person, which a task sees cut to its project.
+     */
+    static final Set<String> TASK_LISTS = Set.of("List", "Watch");
+
+    /**
+     * Returns replies that keep, of a list of tasks, those of one project alone.
+     *
+     * @param project The caller's project.
+     * @param replies Where the cut replies go.
+     * @return The replies to answer through.
+     */
+    static VarlinkServer.Replies ownProject(
+            final String project, final VarlinkServer.Replies replies) {
+        return new VarlinkServer.Replies() {
+            @Override
+            public void more(final Map<String, Object> parameters) throws IOException {
+                replies.more(cut(parameters));
+            }
+
+            @Override
+            public void last(final Map<String, Object> parameters) throws IOException {
+                replies.last(cut(parameters));
+            }
+
+            @Override
+            public boolean streaming() {
+                return replies.streaming();
+            }
+
+            @Override
+            public boolean open() {
+                return replies.open();
+            }
+
+            private Map<String, Object> cut(final Map<String, Object> parameters) {
+                final Map<String, Object> answer = new LinkedHashMap<>(parameters);
+                if (parameters.get("tasks") instanceof List<?> tasks) {
+                    answer.put(
+                            "tasks",
+                            tasks.stream()
+                                    .filter(
+                                            task ->
+                                                    task instanceof Map<?, ?> each
+                                                            && project.equals(each.get("project")))
+                                    .toList());
+                }
+                if (parameters.get("unrecognized") instanceof List<?> names) {
+                    // A container no task could be read from still names its project.
+                    final String prefix = "porelo-" + project + "-";
+                    answer.put(
+                            "unrecognized",
+                            names.stream()
+                                    .filter(each -> String.valueOf(each).startsWith(prefix))
+                                    .toList());
+                }
+                return answer;
+            }
+        };
+    }
+
+    /**
      * Returns the methods that take a task, as the interface description declares their parameters:
      * over a task's socket each acts on the caller or its own child alone.
      *
@@ -634,6 +695,12 @@ final class McpTaskSockets implements McpDaemonSockets.Opener, AutoCloseable {
                             own(task, parameters, itself);
                             method.call(parameters, replies);
                         };
+            } else if (TASK_LISTS.contains(name)) {
+                // The person's every task is theirs to read; a task's agent reads its own
+                // project's.
+                held =
+                        (parameters, replies) ->
+                                method.call(parameters, ownProject(project, replies));
             } else {
                 held = method;
             }

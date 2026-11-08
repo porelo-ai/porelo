@@ -448,6 +448,8 @@ auth_prefix: "Bearer "
 - **The gateway speaks HTTP/1.1 over the socket**, one request per connection, to the path `/mcp`: the task's request
   to `$PORELO_URL_<NAME>` arrives there as `/mcp`, one to `$PORELO_URL_<NAME>/x` as `/mcp/x`. The key goes in the
   header the destination names, `Authorization: Bearer <key>` for `porelo-mcp`; the task holds only its own token.
+  So a task sends MCP to `$PORELO_URL_PORELO_MCP` as it stands: `$PORELO_URL_PORELO_MCP/mcp` arrives as `/mcp/mcp`,
+  which `porelo-mcp` answers with `404`.
 - **A streamed answer (`text/event-stream`) is passed on event by event**, as from an https destination. An answer
   framed by neither `Content-Length` nor chunks, by both, by a transfer coding other than chunked, or with a head that
   is not HTTP/1.1 is refused with `502` before anything reaches the task; one that breaks its chunks later is cut off.

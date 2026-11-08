@@ -79,6 +79,58 @@ class McpWiringTest {
     }
 
     @Test
+    void aStartOutsidePorelodWhoseProjectAllowsAnEndpointIsRefusedNotRunWithout() throws Exception {
+        // Only porelod can open a task's daemon socket. A start in a command's own process that
+        // went on without the endpoint its project allows would look like a project allowing none.
+        McpDaemonSockets.install(McpDaemonSockets.NONE);
+        final PoreloContext context = context();
+        final Path file = context.paths().projects().defaultProjectFile(PROJECT);
+        Files.createDirectories(file.getParent());
+        Files.writeString(
+                file,
+                """
+                project:
+                  name: p
+                  security_class: guarded
+                repositories:
+                  r:
+                    central: /nowhere/r
+                image:
+                  from: ubuntu:24.04
+                mcp:
+                  methods: ["List"]
+                  agents:
+                    alpha:
+                """);
+
+        assertThatThrownBy(() -> McpWiring.open(context, TASK, PROJECT))
+                .isInstanceOf(McpWiring.Refused.class)
+                .hasMessageContaining("porelod");
+    }
+
+    @Test
+    void aStartOutsidePorelodWhoseProjectAllowsNoneGoesOnWithout() throws Exception {
+        McpDaemonSockets.install(McpDaemonSockets.NONE);
+        final PoreloContext context = context();
+        final Path file = context.paths().projects().defaultProjectFile(PROJECT);
+        Files.createDirectories(file.getParent());
+        Files.writeString(
+                file,
+                """
+                project:
+                  name: p
+                  security_class: guarded
+                repositories:
+                  r:
+                    central: /nowhere/r
+                image:
+                  from: ubuntu:24.04
+                """);
+
+        assertThat(McpWiring.open(context, TASK, PROJECT)).isEmpty();
+    }
+
+    @Test
     void theCommandNamesTheTaskItsSocketAndTheDaemonSocketAndNoToken() throws Exception {
         stand(RUNS);
         final PoreloContext context = context();

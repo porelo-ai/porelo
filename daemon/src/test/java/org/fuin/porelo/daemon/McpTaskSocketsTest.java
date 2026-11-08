@@ -730,6 +730,70 @@ class McpTaskSocketsTest {
         }
     }
 
+    @Test
+    void aListShowsOnlyTheTasksOfTheCallersOwnProject() throws IOException {
+        final Path socket = opened(HEAD + SECTION.replace("\"Stop\"]", "\"Stop\", \"List\"]"));
+        runner.answering(
+                "podman ps",
+                "porelo-uc-lead\tUp 4 minutes\t1700000000\t0\tuc\tguarded\n"
+                        + "porelo-other-x\tUp 4 minutes\t1700000000\t0\tother\tguarded\n");
+
+        final Map<String, Object> answer = call(socket, "List", Map.of());
+
+        assertThat((List<?>) answer.get("tasks"))
+                .as("a task's agent reads its own project's tasks, not the person's every one")
+                .isNotEmpty()
+                .allSatisfy(task -> assertThat(((Map<?, ?>) task).get("project")).isEqualTo("uc"));
+    }
+
+    @Test
+    void aWatchShowsOnlyTheTasksOfTheCallersOwnProjectInEveryReply() throws IOException {
+        final List<Map<String, Object>> sent = new java.util.ArrayList<>();
+        final org.fuin.porelo.wire.varlink.VarlinkServer.Replies replies =
+                McpTaskSockets.ownProject(
+                        "uc",
+                        new org.fuin.porelo.wire.varlink.VarlinkServer.Replies() {
+                            @Override
+                            public void more(final Map<String, Object> parameters) {
+                                sent.add(parameters);
+                            }
+
+                            @Override
+                            public void last(final Map<String, Object> parameters) {
+                                sent.add(parameters);
+                            }
+
+                            @Override
+                            public boolean streaming() {
+                                return true;
+                            }
+
+                            @Override
+                            public boolean open() {
+                                return true;
+                            }
+                        });
+        final Map<String, Object> both =
+                Map.of(
+                        "tasks",
+                        List.of(Map.of("project", "uc"), Map.of("project", "other")),
+                        "unrecognized",
+                        List.of("porelo-uc-a", "porelo-other-b", "porelo-uc2-c"));
+
+        replies.more(both);
+        replies.last(both);
+
+        assertThat(McpTaskSockets.TASK_LISTS).containsExactlyInAnyOrder("List", "Watch");
+        assertThat(sent)
+                .hasSize(2)
+                .allSatisfy(
+                        reply -> {
+                            assertThat(reply.get("tasks"))
+                                    .isEqualTo(List.of(Map.of("project", "uc")));
+                            assertThat(reply.get("unrecognized")).isEqualTo(List.of("porelo-uc-a"));
+                        });
+    }
+
     private void assertNothingStarted() {
         assertThat(runner.lines())
                 .as("no start reached the machine's check")

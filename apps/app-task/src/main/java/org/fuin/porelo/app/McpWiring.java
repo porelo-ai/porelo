@@ -152,6 +152,15 @@ final class McpWiring {
      * @throws Refused When it is allowed one and this machine cannot give it.
      */
     static Optional<Endpoint> open(PoreloContext context, String container, String project) {
+        if (McpDaemonSockets.current() == McpDaemonSockets.NONE && allowsOne(context, project)) {
+            // Only porelod opens a task's daemon socket. Going on without it would look like a
+            // project that allows none.
+            throw new Refused(
+                    Refusal.NOT_OPENED,
+                    "this task's project allows it an MCP endpoint, which only porelod can give:"
+                            + " start it through porelod (its socket, the window or MCP), not in"
+                            + " this command's own process");
+        }
         final Optional<Path> daemonSocket;
         try {
             daemonSocket = McpDaemonSockets.current().open(container, project);
@@ -165,6 +174,18 @@ final class McpWiring {
             return Optional.empty();
         }
         return Optional.of(endpoint(context, container, daemonSocket.get(), token()));
+    }
+
+    /** Whether the project's file allows its tasks an endpoint; a file that cannot be read, not. */
+    private static boolean allowsOne(PoreloContext context, String project) {
+        try {
+            return org.fuin.porelo.core.project.ProjectReader.endpoint(
+                            ProjectSource.require(context, project))
+                    .isPresent();
+        } catch (RuntimeException ex) {
+            // The start reads the file itself and says what is wrong with it.
+            return false;
+        }
     }
 
     private static Endpoint endpoint(

@@ -110,6 +110,13 @@ test seen red first.
   - a failed start closes its per-task socket and stops porelo-mcp;
   - `task status` says why an endpoint is absent;
   - porelod reopens the sockets of running tasks when it starts again.
+  - a start outside porelod, such as `porelo task start`, whose project allows an endpoint is refused and told to
+    start through porelod, which alone opens the daemon socket. Found in test 5 on 2026-11-08: it ran without one,
+    as if the project allowed none.
+- **`List` and `Watch`** over a task's socket answer the caller's own project's tasks alone, and only its project's
+  containers among those not read. Found in test 5: a task's agent read the person's every task.
+- **The `default` project** cannot hold an `mcp` section: its file is written anew each time it is read. A test of the
+  endpoint uses a project file of its own.
 - **Left open:**
   - Methods taking a `project`, such as `Pending`, are not limited to the caller's project. They are readings, and a
     section names them only on purpose.
