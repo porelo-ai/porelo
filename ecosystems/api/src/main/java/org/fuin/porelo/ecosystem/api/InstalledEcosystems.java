@@ -38,8 +38,28 @@ public final class InstalledEcosystems {
      * @param name Its file's name.
      * @param executable Where it is installed.
      * @param refusal Why it cannot be used, or null when its description was accepted.
+     * @param version The plugin's own version, made plain; null when it is refused or says none.
+     * @param protocolVersion The version of the contract it speaks; null when it is refused.
      */
-    public record Description(String name, Path executable, @Nullable String refusal) {}
+    public record Description(
+            String name,
+            Path executable,
+            @Nullable String refusal,
+            @Nullable String version,
+            @Nullable Integer protocolVersion) {
+
+        /**
+         * A plugin described without its versions, as a caller built before them names one.
+         *
+         * @param name Its file's name.
+         * @param executable Where it is installed.
+         * @param refusal Why it cannot be used, or null when its description was accepted.
+         */
+        public Description(
+                final String name, final Path executable, final @Nullable String refusal) {
+            this(name, executable, refusal, null, null);
+        }
+    }
 
     /**
      * Lists plugins in directory order, sorted within each directory, asking each to describe
@@ -113,8 +133,14 @@ public final class InstalledEcosystems {
                 if (!(answer instanceof Map<?, ?> map)) {
                     throw new EcosystemException("description is not an object");
                 }
-                InstalledEcosystem.handshake(executable, map);
-                return new Description(name, executable, null);
+                final InstalledEcosystem.Described described =
+                        InstalledEcosystem.handshake(executable, map);
+                return new Description(
+                        name,
+                        executable,
+                        null,
+                        described.version(),
+                        Integer.valueOf(described.protocolVersion()));
             } finally {
                 process.destroyForcibly();
                 reader.shutdownNow();

@@ -30,14 +30,7 @@ public class EcosystemServer implements AutoCloseable {
 
         this.server = new VarlinkServer(socket, EcosystemProtocol.INTERFACE).describedBy(idl());
 
-        server.method(
-                "Describe",
-                (parameters, replies) -> {
-                    final Map<String, Object> answer = new LinkedHashMap<>();
-                    answer.put("protocolVersion", Integer.valueOf(EcosystemProtocol.VERSION));
-                    answer.put("ecosystem", ecosystem.ecosystem());
-                    replies.last(answer);
-                });
+        server.method("Describe", (parameters, replies) -> replies.last(description(ecosystem)));
 
         server.method(
                 "Detect",
@@ -105,6 +98,24 @@ public class EcosystemServer implements AutoCloseable {
     @Override
     public void close() {
         server.close();
+    }
+
+    /**
+     * Returns what {@code Describe} answers, which {@code describe} on the command line prints too.
+     *
+     * @param ecosystem The plugin.
+     * @return The contract's version, the ecosystem, and the plugin's own version when it says one.
+     */
+    static Map<String, Object> description(final Ecosystem ecosystem) {
+        final Map<String, Object> answer = new LinkedHashMap<>();
+        answer.put("protocolVersion", Integer.valueOf(EcosystemProtocol.VERSION));
+        answer.put("ecosystem", ecosystem.ecosystem());
+        final String version = ecosystem.version();
+        // Absent rather than "", so that a reader never shows a version nobody said.
+        if (!version.isBlank()) {
+            answer.put("version", version);
+        }
+        return answer;
     }
 
     /**

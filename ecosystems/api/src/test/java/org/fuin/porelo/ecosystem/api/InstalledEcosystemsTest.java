@@ -23,7 +23,9 @@ class InstalledEcosystemsTest {
 
         assertThat(InstalledEcosystems.all(locations()))
                 .as("the first directory supplies the executable for each name")
-                .containsExactly(new InstalledEcosystems.Description("example", user, null));
+                .containsExactly(
+                        new InstalledEcosystems.Description(
+                                "example", user, null, null, EcosystemProtocol.VERSION));
     }
 
     @Test
@@ -40,7 +42,9 @@ class InstalledEcosystemsTest {
                 .contains(liar.toString(), "another", "example");
         assertThat(found.getLast())
                 .as("a lying plugin does not stop discovery")
-                .isEqualTo(new InstalledEcosystems.Description("healthy", healthy, null));
+                .isEqualTo(
+                        new InstalledEcosystems.Description(
+                                "healthy", healthy, null, null, EcosystemProtocol.VERSION));
     }
 
     @Test
@@ -98,6 +102,52 @@ class InstalledEcosystemsTest {
                                 assertThat(description.refusal())
                                         .as("each malformed description is refused")
                                         .isNotNull());
+    }
+
+    @Test
+    void eachAcceptedPluginIsDescribedWithItsOwnVersionAndTheContractVersionItSpeaks()
+            throws IOException {
+        final Path versioned =
+                described(
+                        "versioned",
+                        "{\"protocolVersion\":2,\"ecosystem\":\"versioned\",\"version\":\"1.4.0\"}");
+        final Path silent = described("silent", "{\"protocolVersion\":1,\"ecosystem\":\"silent\"}");
+
+        assertThat(InstalledEcosystems.all(locations()))
+                .as("a version said is kept, none said is null, and the contract version is read")
+                .containsExactly(
+                        new InstalledEcosystems.Description(
+                                "silent", silent, null, null, Integer.valueOf(1)),
+                        new InstalledEcosystems.Description(
+                                "versioned", versioned, null, "1.4.0", Integer.valueOf(2)));
+    }
+
+    @Test
+    void aVersionThatIsNoTextRefusesThePlugin() throws IOException {
+        final Path numeric =
+                described(
+                        "numeric",
+                        "{\"protocolVersion\":2,\"ecosystem\":\"numeric\",\"version\":3}");
+
+        assertThat(InstalledEcosystems.all(locations()).getFirst().refusal())
+                .as("a field of another type is refused, never read as no version")
+                .contains(numeric.toString(), "version");
+    }
+
+    @Test
+    void aVersionIsMadePlainBeforeAnybodyShowsIt() throws IOException {
+        described(
+                "steering",
+                "{\"protocolVersion\":2,\"ecosystem\":\"steering\",\"version\":\"1.0\\u001b[2J\"}");
+
+        assertThat(InstalledEcosystems.all(locations()).getFirst().version())
+                .as("a plugin's words never steer the terminal that shows them")
+                .isEqualTo("1.0 [2J");
+    }
+
+    /** A plugin whose description is exactly this text, untouched by the shell's printf. */
+    private Path described(final String name, final String description) throws IOException {
+        return executable("user", name, "printf '%s' '" + description + "'");
     }
 
     @Test

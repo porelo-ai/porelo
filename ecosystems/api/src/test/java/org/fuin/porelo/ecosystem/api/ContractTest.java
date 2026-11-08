@@ -44,7 +44,9 @@ class ContractTest {
 
         assertThat(declared)
                 .contains("interface " + EcosystemProtocol.INTERFACE)
-                .contains("method Describe() -> (protocolVersion: int, ecosystem: string)")
+                .contains(
+                        "method Describe() -> (protocolVersion: int, ecosystem: string,"
+                                + " version: ?string)")
                 .contains(
                         "type Finding (part: (TOOLS, RULES), key: string, value: string,"
                                 + " file: string, line: int, origin: (YOURS, CHECKOUT, MACHINE),"

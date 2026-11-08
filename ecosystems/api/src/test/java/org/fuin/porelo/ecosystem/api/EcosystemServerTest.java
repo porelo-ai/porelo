@@ -60,6 +60,9 @@ class EcosystemServerTest {
                 assertThat(((Number) described.get("protocolVersion")).intValue())
                         .isEqualTo(EcosystemProtocol.VERSION);
                 assertThat(described).containsEntry("ecosystem", "fake");
+                assertThat(described)
+                        .as("Describe over the socket says the plugin's own version too")
+                        .containsEntry("version", FakeEcosystem.VERSION);
 
                 final Map<String, Object> detected =
                         client.call(

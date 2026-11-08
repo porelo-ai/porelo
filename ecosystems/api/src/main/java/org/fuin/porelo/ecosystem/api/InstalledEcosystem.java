@@ -44,6 +44,9 @@ public final class InstalledEcosystem implements AutoCloseable {
     /** The longest diagnostic that holds a plugin's words. */
     static final int MESSAGE = 2048;
 
+    /** The longest version of its own a plugin is shown with. */
+    static final int VERSION_LENGTH = 128;
+
     private static final byte[] READY = "ready ".getBytes(StandardCharsets.US_ASCII);
 
     private static final String METHOD_NOT_FOUND = "org.varlink.service.MethodNotFound";
@@ -386,14 +389,23 @@ public final class InstalledEcosystem implements AutoCloseable {
         }
     }
 
-    static void handshake(final Path executable, final Map<?, ?> answer) {
-        final String refused =
-                refusal(
-                        executable,
-                        Wire.whole(answer.get("protocolVersion")).orElse(-1),
-                        EcosystemProtocol.LOWEST);
+    /**
+     * What an accepted plugin said of itself.
+     *
+     * @param protocolVersion The version of the contract it speaks.
+     * @param version Its own version, made plain, or null when it says none.
+     */
+    record Described(int protocolVersion, @Nullable String version) {}
+
+    static Described handshake(final Path executable, final Map<?, ?> answer) {
+        final long spoken = Wire.whole(answer.get("protocolVersion")).orElse(-1);
+        final String refused = refusal(executable, spoken, EcosystemProtocol.LOWEST);
         if (refused != null) {
             throw fault(refused);
+        }
+        final Object said = answer.get("version");
+        if (said != null && !(said instanceof String)) {
+            throw fault(executable + " describes a version that is no string");
         }
         if (!(answer.get("ecosystem") instanceof String says)) {
             throw fault(executable + " describes no string ecosystem");
@@ -408,6 +420,12 @@ public final class InstalledEcosystem implements AutoCloseable {
                             + ecosystem
                             + "'");
         }
+        return new Described(
+                // A newer plugin than any int names still speaks every version this one knows.
+                (int) Math.min(spoken, Integer.MAX_VALUE),
+                said instanceof String text && !text.isBlank()
+                        ? Wire.plain(text, VERSION_LENGTH)
+                        : null);
     }
 
     /**

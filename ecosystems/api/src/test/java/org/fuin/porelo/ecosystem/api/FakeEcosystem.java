@@ -33,6 +33,14 @@ public final class FakeEcosystem implements Ecosystem {
     }
 
     @Override
+    public String version() {
+        return VERSION;
+    }
+
+    /** The version the fake says it is. */
+    static final String VERSION = "0.7.1";
+
+    @Override
     public Detection detect(final Path directory, final Path home) {
         final Path name = directory.getFileName();
         final String named = name == null ? "" : name.toString();

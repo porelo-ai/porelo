@@ -6,7 +6,9 @@
 interface org.fuin.porelo.Ecosystem1
 
 # Which ecosystem, the name its executable is installed under, and the version of this contract it was built against.
-method Describe() -> (protocolVersion: int, ecosystem: string)
+# version is the adapter's own release, shown beside its name, and absent when it says none; one of another type is
+# refused.
+method Describe() -> (protocolVersion: int, ecosystem: string, version: ?string)
 
 # One value an adapter recognized. part says what it belongs to; file and line where it is set, line 0 when the file has
 # no line for it. origin says who wrote it: YOURS the person, file relative to the home; CHECKOUT the checkout, file

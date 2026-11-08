@@ -24,6 +24,16 @@ public interface Ecosystem {
     String ecosystem();
 
     /**
+     * Returns this plugin's own version, which Porelo shows beside its name.
+     *
+     * @return Its version, or "" when it says none, which {@code Describe} then leaves out; ""
+     *     unless a plugin overrides it.
+     */
+    default String version() {
+        return "";
+    }
+
+    /**
      * Says what this plugin recognizes of its tool in a directory, writing nothing.
      *
      * @param directory The directory to read.

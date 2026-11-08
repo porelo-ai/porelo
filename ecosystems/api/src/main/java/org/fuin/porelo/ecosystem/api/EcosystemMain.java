@@ -2,8 +2,6 @@ package org.fuin.porelo.ecosystem.api;
 
 import java.io.PrintStream;
 import java.nio.file.Path;
-import java.util.LinkedHashMap;
-import java.util.Map;
 import org.fuin.porelo.wire.Json;
 
 /**
@@ -45,10 +43,7 @@ public final class EcosystemMain {
         try {
             switch (mode) {
                 case "describe" -> {
-                    final Map<String, Object> answer = new LinkedHashMap<>();
-                    answer.put("protocolVersion", Integer.valueOf(EcosystemProtocol.VERSION));
-                    answer.put("ecosystem", ecosystem.ecosystem());
-                    out.println(Json.write(answer));
+                    out.println(Json.write(EcosystemServer.description(ecosystem)));
                     return 0;
                 }
                 case "serve" -> {

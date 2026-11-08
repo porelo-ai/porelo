@@ -1,0 +1,2 @@
+title: "An ecosystem adapter says its own release in `Describe` as `version` (`Ecosystem.version()`, empty and left out by default), and `InstalledEcosystems` describes each accepted adapter with that version and the contract version it speaks"
+type: added

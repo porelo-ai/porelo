@@ -25,8 +25,9 @@ name and the reason it was refused; the other adapters are still checked. Remove
 copy to use the packaged copy of that name.
 
 Discovery calls each executable with `describe`. Its standard output is a JSON object containing
-`protocolVersion` and `ecosystem`. The ecosystem must equal the executable's file name. A description has
-ten seconds to finish and may contain at most 64 KB. A protocol version below `EcosystemProtocol.LOWEST`
+`protocolVersion` and `ecosystem`, and `version`, the adapter's own release, unless `Ecosystem.version()` answers
+its default `""`; a `version` that is no string is refused. The ecosystem must equal the executable's file name. A
+description has ten seconds to finish and may contain at most 64 KB. A protocol version below `EcosystemProtocol.LOWEST`
 is refused; a newer version is accepted because Porelo asks only methods it knows.
 
 `porelo ecosystems --json` lists discovery as `ecosystems`, each with `name`, `path`, and `refusal`,
@@ -96,8 +97,8 @@ method. That supplies `describe` and `serve <socket>`. Build the executable with
 [published interface](https://github.com/porelo-ai/porelo/blob/main/ecosystems/api/src/main/resources/org/fuin/porelo/ecosystem/api/org.fuin.porelo.Ecosystem1.varlink)
 is the wire contract; the API's server and client implement it together.
 
-`Describe()` returns the protocol version and ecosystem. Both discovery and the running client's handshake
-check them. The interface only grows: optional additions let older adapters keep working, and a method
+`Describe()` returns the protocol version, the ecosystem and, when it has one, the adapter's own version. Both
+discovery and the running client's handshake check them. The interface only grows: optional additions let older adapters keep working, and a method
 missing from an older adapter means it cannot say, never that it found nothing. A breaking change raises
 the lowest accepted version.
 

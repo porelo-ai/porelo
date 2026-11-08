@@ -25,7 +25,7 @@ public final class EcosystemProtocol {
      *
      * <p>Raised with every addition, so that a plugin says how much of the contract it knows.
      */
-    public static final int VERSION = 2;
+    public static final int VERSION = 3;
 
     /**
      * The lowest version this Porelo needs.
