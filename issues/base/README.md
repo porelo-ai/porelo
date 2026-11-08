@@ -103,6 +103,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b118"></a>[B118](B118-An-Attached-Agent-Said-At-Rest-Or-Working.md) | M | - | A new `AT_REST` activity, judged from the screen reads the listing already makes with the wake's two-look rule; the stub agent gets an `at_rest`. | - |
 | <a id="b506"></a>[B506](B506-An-Agent-Waiting-On-A-Person.md) | XS | [B118](#b118) | A task's listing says when its agent waits on a person for its own question, where the agent declares how that is seen. |
 | <a id="b474"></a>[B474](B474-A-Task-Fetches-Its-Projects-Snapshots-Through-Its-Broker.md) | M | [B470](#b470), [B467](#b467) | A package route in the task's broker: GET/HEAD below its own organization's maven path, refused before upstream otherwise; Maven's answers there alone; the task's host token read narrowly and made before the broker; settings through porelo.yml and Configure | Whether removal ends the token at once; the shared snapshot rule |
 | <a id="b467"></a>[B467](B467-A-Task-Reaches-Its-Tools-Repositories-Through-Their-Settings.md) | M | [B468](#b468) | A project declares its build tool's repositories in `project.yml`, and a task start calls the ecosystem adapter's `Configure` and places the settings files it returns. |
@@ -137,7 +138,6 @@ from its side, as *blocked by*.
 | <a id="b121"></a>[B121](B121-A-Message-Record-Without-A-Chain.md) | M | `porelo` [B154](README.md#b154) | Drop `previous` and `hash` from `MessageRecord`, remove `porelo talk verify`, its rows and scenario, and update the docs and the decision. | - |
 | <a id="b191"></a>[B191](B191-What-A-Task-Cost-At-List-Prices.md) | L | `porelo` [B148](README.md#b148) | Price files per provider with their date, a task, agent and model priced at list prices, unpriced requests counted, a declared subscription and what it saved, in `task status`, `porelo usage` and `Cost`. | - |
 | <a id="b108"></a>[B108](B108-The-Narrowed-Message-Schema-Enforced.md) | M | - | One JSON Schema the filter enforces and the guide and docs are made from; the host does not check the shape again. | - |
-| <a id="b118"></a>[B118](B118-An-Attached-Agent-Said-At-Rest-Or-Working.md) | M | - | A new `AT_REST` activity, judged from the screen reads the listing already makes with the wake's two-look rule; the stub agent gets an `at_rest`. | - |
 | <a id="b119"></a>[B119](B119-A-Loop-Seen-In-An-Unattended-Tasks-Log.md) | S | - | The kit's `LoopWatch` also counts a declared failure marker in each task's `task.log`, from a per-step baseline. | - |
 | <a id="b10"></a>[B10](B10-What-An-Egress-Set-Can-Express.md) | L | - | Egress addresses in `project.yml`, refused lookups shown, set fingerprints, `complete: false` for sets; four commits, and `Sets()` grows. | - |
 | <a id="b34"></a>[B34](B34-What-The-Resolver-Can-Actually-Do.md) | S | - | The resolver's boolean becomes a named capability of two values with its path, shown in doctor, its JSON and setup's refusal. | - |

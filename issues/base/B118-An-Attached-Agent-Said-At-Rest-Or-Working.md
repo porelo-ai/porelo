@@ -1,11 +1,12 @@
 # B118 — An Attached Agent Said At Rest Or Working
 
-**Status:** Analyzed.
+**Status:** Backlog.
 **Size:** M - a contract change (a new `Activity` value), `app-model`, the stub agent's declaration and a scenario.
 
 **What must be true.** `porelo task status` and `porelo task list` say whether the agent of an attached session is
 `at rest` or `working`, read from its screen against the `session.at_rest` its definition declares, as `waiting`
-is read today. A task whose agent declares no `at_rest` keeps saying `unknown`.
+is read today. A task whose agent declares no `at_rest` keeps saying `unknown`. `task status` also says when the last
+request brokered to the provider began, and "not known" where nothing passed the broker.
 
 ## Why
 
@@ -67,24 +68,25 @@ today.
   Seen to fail: a task waiting for a clearance answer said `at rest`.
 - An agent without `at_rest`, and an unattended task, read as they do today. Seen to fail: either changes its
   activity.
+- `task status` names when the last finished brokered request began. A task whose provider was never reached through
+  the broker says "not known". Seen to fail: a task with one brokered request says "not known", or one with none
+  names a time.
 
 ## To be checked
 
 - How `porelo-frontend` draws `AT_REST` beside `IDLE` and `UNKNOWN`.
 
-## Question For The Operator
+## Decided
 
-Could `porelo task status` also say when a task last reached its provider, as a plain fact beside `at rest` and not as an
-inference from silence? Read in the code, not run:
+The operator decided on 2026-11-08 that `porelo task status` also says when the last brokered request to the provider
+began. It is a plain fact beside `at rest`, and "not known" otherwise, never "no contact". It is read in the code, not
+yet run:
 
 - **What passes the broker:** only a credential it brokers. A login the agent keeps inside the task, or a key the task
-  holds itself, reaches the provider without it, and says nothing here. So the fact can be absent, and absence must then
-  say "not known" and never "no contact".
+  holds itself, reaches the provider without it and leaves no fact here.
 - **What it records:** one line per generation request, by path. Counting, model listings and other paths write none, and
   WebSocket answers are not observed.
 - **When:** the line is written when the answer ends, so a long stream shows nothing until it finishes. The `time` in it
-  is taken when its reading is made, near the request's start, not at its end.
+  is taken near the request's start, which is what the status names.
 
-So the record can honestly say when the last finished request through the broker began. Saying when it ended would need
-another field, and saying that a stream is running now would need the broker to answer about its open requests, which it
-holds but does not offer today.
+Saying when a request ended, or that a stream is running now, is not part of this.
