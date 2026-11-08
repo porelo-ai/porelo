@@ -8,6 +8,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.nio.file.StandardOpenOption;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
@@ -16,6 +17,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import org.fuin.porelo.core.config.XdgPaths;
+import org.fuin.porelo.gate.GitGate;
 import org.fuin.porelo.runtime.Podman;
 import org.fuin.porelo.wire.Sidecar;
 import org.jspecify.annotations.Nullable;
@@ -487,6 +489,58 @@ class HandInsTest {
                                             "sha256",
                                             "96c18f0297e38d01f4b2dacddea4259aea6b2961eb0822bd2c0c3f6029030045");
                         });
+    }
+
+    @Test
+    void aLineOfTheRecordThatDoesNotReadLeavesTheOthersDelivered() throws IOException {
+        handIns.give(TASK, "h.txt", Files.writeString(dir.resolve("h.txt"), "hi\n"), "alice");
+        Files.writeString(recordFile(), "{\"event\":\"giv\n", StandardOpenOption.APPEND);
+
+        assertThat(handIns.delivered(TASK))
+                .as("the delivery before the broken line")
+                .singleElement()
+                .satisfies(delivered -> assertThat(delivered.file().name()).isEqualTo("h.txt"));
+    }
+
+    @Test
+    void anEmptyFileNamesNoDelivery() throws IOException {
+        // Its content is in every push that holds an empty file.
+        handIns.give(
+                TASK, "empty.log", Files.write(dir.resolve("empty.log"), new byte[0]), "alice");
+
+        assertThat(handIns.delivered(TASK)).as("nothing to match by").isEmpty();
+    }
+
+    @Test
+    void aRescuedPushTakesTheDeliveriesOfItsTask() throws IOException {
+        handIns.give(TASK, "h.txt", Files.writeString(dir.resolve("h.txt"), "hi\n"), "alice");
+        // TASK is the container of push "shell-1" in project "demo".
+        final String project = "demo";
+        final String push = "shell-1";
+
+        assertThat(handIns.deliveredForPush(project, push + GitGate.RESCUED))
+                .as("what the task never handed back came from the same task")
+                .hasSize(1);
+        assertThat(handIns.deliveredForPush(project, push)).as("its own push").hasSize(1);
+    }
+
+    @Test
+    void aFileThatDoesNotHoldTheBytesItSaidGetsNoBlobId() throws IOException {
+        final Path file = Files.writeString(dir.resolve("h.txt"), "hi\n");
+
+        assertThat(HandIns.digestsOf(file, 3).blobs())
+                .as("the ids of the bytes read")
+                .containsEntry("sha1", "45b983be36b73c0788dc9cbcb76cbb80fc7bb057");
+        assertThat(HandIns.digestsOf(file, 2).blobs())
+                .as("git's id counts the bytes first: a file that changed while read has none")
+                .isEmpty();
+        assertThat(HandIns.digestsOf(file, 2).sha256())
+                .as("its own hash is of what was read")
+                .isEqualTo(HandIns.sha256Of(file));
+    }
+
+    private Path recordFile() {
+        return paths.paths().xdg().state().resolve("hand-ins").resolve(TASK + ".jsonl");
     }
 
     @Test

@@ -19,6 +19,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Pattern;
+import org.fuin.porelo.gate.GitGate;
 import org.fuin.porelo.runtime.Containerfile;
 import org.fuin.porelo.wire.Directories;
 import org.fuin.porelo.wire.Json;
@@ -363,7 +364,8 @@ public final class HandIns {
             if (received < bytes) {
                 return new Progress(received, null);
             }
-            final String actual = sha256Of(data);
+            final Digests digests = digestsOf(data, bytes);
+            final String actual = digests.sha256();
             if (!actual.equals(sha256)) {
                 drop(data, meta);
                 throw new Refused(
@@ -372,7 +374,8 @@ public final class HandIns {
                         name + " does not hash to what was said");
             }
             try {
-                return new Progress(received, place(container, name, bytes, sha256, data, by));
+                return new Progress(
+                        received, place(container, name, bytes, sha256, data, by, digests.blobs()));
             } finally {
                 drop(data, meta);
             }
@@ -403,7 +406,9 @@ public final class HandIns {
                     name + " has " + bytes + " bytes; this task takes at most " + limit);
         }
         synchronized (LOCKS.computeIfAbsent(container, any -> new Object())) {
-            return place(container, name, bytes, sha256Of(source), source, by);
+            // Hashed in one read: the ids a review matches by are of the bytes that were hashed.
+            final Digests digests = digestsOf(source, bytes);
+            return place(container, name, bytes, digests.sha256(), source, by, digests.blobs());
         }
     }
 
@@ -484,6 +489,40 @@ public final class HandIns {
      * @return The deliveries, empty when nothing was handed in or the record cannot be read.
      */
     public List<Delivered> delivered(final String container) {
+        return deliveredInto(container);
+    }
+
+    /**
+     * Returns what was handed into the task a push in a project's gate came from: a push's name is
+     * its task's, and a rescued one's is that with {@link GitGate#RESCUED} after it.
+     *
+     * @param project The project's name.
+     * @param push The push's name, as the gate holds it.
+     * @return The deliveries, oldest first.
+     */
+    public List<Delivered> deliveredForPush(final String project, final String push) {
+        final List<Delivered> own = delivered(ReviewText.container(project, push));
+        if (own.isEmpty() && push.endsWith(GitGate.RESCUED)) {
+            return delivered(
+                    ReviewText.container(
+                            project, push.substring(0, push.length() - GitGate.RESCUED.length())));
+        }
+        return own;
+    }
+
+    /** One line of a record, or {@code null} where it does not read: the rest still does. */
+    private static @Nullable Map<?, ?> entryOf(final String line) {
+        if (line.isBlank()) {
+            return null;
+        }
+        try {
+            return Json.parse(line) instanceof Map<?, ?> map ? map : null;
+        } catch (final RuntimeException ex) {
+            return null;
+        }
+    }
+
+    private List<Delivered> deliveredInto(final String container) {
         final Path file = recordOf(container);
         final List<Delivered> delivered = new ArrayList<>();
         try {
@@ -491,11 +530,15 @@ public final class HandIns {
                 return delivered;
             }
             for (final String line : Files.readAllLines(file, StandardCharsets.UTF_8)) {
-                if (line.isBlank() || !(Json.parse(line) instanceof Map<?, ?> map)) {
+                final Map<?, ?> map = entryOf(line);
+                if (map == null) {
                     continue;
                 }
                 final String event = String.valueOf(map.get("event"));
-                if (!GIVEN.equals(event) && !REPLACED.equals(event)) {
+                // An empty file's content is in every push that holds an empty file: it names
+                // nothing.
+                if ((!GIVEN.equals(event) && !REPLACED.equals(event))
+                        || number(map.get("bytes")) == 0) {
                     continue;
                 }
                 final Map<String, String> blobs = new LinkedHashMap<>();
@@ -582,7 +625,8 @@ public final class HandIns {
             final long bytes,
             final String sha256,
             final Path source,
-            final String by)
+            final String by,
+            final Map<String, String> blobs)
             throws IOException {
         final String incoming = Containerfile.HAND_IN_INCOMING + "/" + name;
         final String target = Containerfile.HAND_IN_FILES + "/" + name;
@@ -604,7 +648,7 @@ public final class HandIns {
                 null,
                 "Could not move " + name + " into place in " + container);
         final HandedFile file = new HandedFile(name, bytes, sha256, now(), by, run(container));
-        append(container, replaced ? REPLACED : GIVEN, file, blobsOf(source));
+        append(container, replaced ? REPLACED : GIVEN, file, blobs);
         return file;
     }
 
@@ -737,26 +781,51 @@ public final class HandIns {
         return clock.instant().truncatedTo(java.time.temporal.ChronoUnit.SECONDS).toString();
     }
 
-    /** The ids git gives a file's content, in both object formats, read once. */
-    static Map<String, String> blobsOf(final Path file) throws IOException {
+    /**
+     * A file's content hash and the ids git gives that content.
+     *
+     * @param sha256 The content's own hash.
+     * @param blobs The blob id by object format; empty when the file did not hold the bytes it said
+     *     while it was read, since git's id counts them first.
+     */
+    record Digests(String sha256, Map<String, String> blobs) {}
+
+    /**
+     * Hashes a file once, for its own hash and for the ids git gives its content.
+     *
+     * @param file The file.
+     * @param bytes How many bytes it holds, as was said before it was read.
+     * @return Its digests.
+     * @throws IOException If it cannot be read.
+     */
+    static Digests digestsOf(final Path file, final long bytes) throws IOException {
         try (InputStream in = Files.newInputStream(file)) {
+            final MessageDigest content = MessageDigest.getInstance("SHA-256");
             final MessageDigest sha1 = MessageDigest.getInstance("SHA-1");
             final MessageDigest sha256 = MessageDigest.getInstance("SHA-256");
-            final byte[] header =
-                    ("blob " + Files.size(file) + "\0").getBytes(StandardCharsets.US_ASCII);
+            final byte[] header = ("blob " + bytes + "\0").getBytes(StandardCharsets.US_ASCII);
             sha1.update(header);
             sha256.update(header);
             final byte[] buffer = new byte[64 * 1024];
+            long seen = 0;
             int read;
             while ((read = in.read(buffer)) > 0) {
+                content.update(buffer, 0, read);
                 sha1.update(buffer, 0, read);
                 sha256.update(buffer, 0, read);
+                seen += read;
             }
-            return Map.of(
-                    "sha1",
-                    HexFormat.of().formatHex(sha1.digest()),
-                    "sha256",
-                    HexFormat.of().formatHex(sha256.digest()));
+            final String hash = HexFormat.of().formatHex(content.digest());
+            if (seen != bytes) {
+                return new Digests(hash, Map.of());
+            }
+            return new Digests(
+                    hash,
+                    Map.of(
+                            "sha1",
+                            HexFormat.of().formatHex(sha1.digest()),
+                            "sha256",
+                            HexFormat.of().formatHex(sha256.digest())));
         } catch (NoSuchAlgorithmException ex) {
             throw new IllegalStateException("every Java has SHA-1 and SHA-256", ex);
         }

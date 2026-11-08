@@ -818,17 +818,23 @@ public class GitGate {
         if (paths.isEmpty()) {
             return new Blobs(format, byPath);
         }
-        final List<String> command =
-                new ArrayList<>(
-                        List.of("ls-tree", "-r", "-z", "--full-tree", INCOMING + name, "--"));
-        command.addAll(paths);
+        // The whole tree, matched here: a path given to git is a pathspec, where a leading ':' is
+        // magic, and a push of many files would not fit on one command line.
+        final java.util.Set<String> wanted = new java.util.HashSet<>(paths);
         // Read with -z, as the review's counts are: a quoted path would match no delivery.
         for (final String entry :
-                gitIn(command.toArray(String[]::new)).standardOutput().split("\0")) {
+                gitIn("ls-tree", "-r", "-z", "--full-tree", INCOMING + name)
+                        .standardOutput()
+                        .split("\0")) {
             final int tab = entry.indexOf('\t');
             final String[] head = tab < 0 ? new String[0] : entry.substring(0, tab).split(" ");
-            if (head.length == 3 && "blob".equals(head[1])) {
-                byPath.put(entry.substring(tab + 1), head[2]);
+            final String path = tab < 0 ? "" : entry.substring(tab + 1);
+            // A regular file alone: a link's blob is its target's name, which no delivery is.
+            if (head.length == 3
+                    && ("100644".equals(head[0]) || "100755".equals(head[0]))
+                    && "blob".equals(head[1])
+                    && wanted.contains(path)) {
+                byPath.put(path, head[2]);
             }
         }
         return new Blobs(format, byPath);

@@ -236,6 +236,26 @@ class GitGateTest {
     }
 
     @Test
+    void aPathGitWouldReadAsMagicAndALinkAreAnsweredAsTheyAre() throws IOException {
+        // A pushed path is a name, never a pathspec; a link's blob is its target's name.
+        final GitGate gate = gate(GateMode.GATEKEEPING, null);
+        git(root, "init", "-b", "main", work.toString());
+        Files.writeString(work.resolve(":magic.txt"), "hi\n");
+        Files.createSymbolicLink(work.resolve("link"), Path.of("hi\n"));
+        git(work, "add", ".");
+        git(work, "commit", "-m", "a magic name and a link");
+        git(work, "push", mirror.toString(), "HEAD:" + GitGate.INCOMING + "blobs");
+
+        final GitGate.Blobs blobs = gate.blobs("blobs", List.of(":magic.txt", "link"));
+
+        assertThat(blobs.byPath())
+                .as("the file by its own name, and nothing for the link")
+                .containsExactly(
+                        java.util.Map.entry(
+                                ":magic.txt", "45b983be36b73c0788dc9cbcb76cbb80fc7bb057"));
+    }
+
+    @Test
     void lineEndingNoiseDoesNotHideRealChangesInTheReview() throws IOException {
         // Guards the review contract: filtering noise must leave every real edit available.
         final GitGate gate = gate(GateMode.GATEKEEPING, null);

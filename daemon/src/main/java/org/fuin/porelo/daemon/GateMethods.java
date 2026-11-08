@@ -145,14 +145,12 @@ final class GateMethods {
                     final Map<String, org.fuin.porelo.app.DeliveredOrigins.Origin> origins =
                             org.fuin.porelo.app.DeliveredOrigins.of(
                                     org.fuin.porelo.app.HandIns.of(context)
-                                            .delivered(
-                                                    org.fuin.porelo.app.ReviewText.container(
-                                                            GateSupport.project(
-                                                                            projectFile(
-                                                                                    parameters,
-                                                                                    context))
-                                                                    .name(),
-                                                            name)),
+                                            .deliveredForPush(
+                                                    GateSupport.project(
+                                                                    projectFile(
+                                                                            parameters, context))
+                                                            .name(),
+                                                    name),
                                     gate.blobs(
                                             name,
                                             review.files().stream()
