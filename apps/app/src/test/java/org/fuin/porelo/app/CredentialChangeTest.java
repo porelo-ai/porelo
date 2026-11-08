@@ -74,6 +74,136 @@ class CredentialChangeTest {
                 credentials);
     }
 
+    /** The same task, its provider named. */
+    private static TaskInventory.Task withProvider(
+            final TaskInventory.Task t, final String provider) {
+        return new TaskInventory.Task(
+                t.name(),
+                t.project(),
+                t.securityClass(),
+                t.state(),
+                t.running(),
+                t.helpers(),
+                t.agent(),
+                t.mode(),
+                t.prompt(),
+                t.branch(),
+                t.since(),
+                t.activity(),
+                t.waitingFor(),
+                t.clearance(),
+                t.label(),
+                t.waiting(),
+                t.startAction(),
+                t.startDetail(),
+                t.repository(),
+                t.commit(),
+                t.derived(),
+                t.credentials(),
+                t.grants(),
+                provider,
+                t.agentEnded(),
+                t.handIns(),
+                t.builds(),
+                t.parameters(),
+                t.phase(),
+                t.lastWrote(),
+                t.inboxWaiting(),
+                t.forgeBranch(),
+                t.certified(),
+                t.certifiedUntil());
+    }
+
+    @Test
+    void anEntryUnderTheAgentsNameIsBorrowedWhenItsProviderIsNamedToo() {
+        // The provider's credential falls back to the agent's name when only that is stored.
+        openVault(Map.of("example", VaultEntry.of(VALUE)));
+        final CredentialChange change =
+                new CredentialChange(
+                        context,
+                        () ->
+                                List.of(
+                                        withProvider(
+                                                task(
+                                                        "porelo-uc-shell-1",
+                                                        true,
+                                                        "example",
+                                                        Map.of()),
+                                                "anthropic")));
+
+        final CredentialChange.Refused refused =
+                catchThrowableOfType(
+                        CredentialChange.Refused.class, () -> change.remove("example"));
+
+        assertThat(refused)
+                .as("a remove of what a running task borrows is refused")
+                .isNotNull()
+                .extracting(CredentialChange.Refused::reason)
+                .isEqualTo(CredentialChange.Reason.BORROWED);
+        assertThat(context.vault().read(PASSPHRASE)).as("the entry stays").containsKey("example");
+    }
+
+    @Test
+    void aBlankValueIsRefusedForAnEntryWithAGrantsKind() {
+        // A grant's entry reads "-" for "no secret"; a blank replace must not quietly become that.
+        openVault(Map.of("svc", new VaultEntry(VALUE, "oauth-code")));
+        final CredentialChange change = new CredentialChange(context, List::of);
+
+        final CredentialChange.Refused refused =
+                catchThrowableOfType(
+                        CredentialChange.Refused.class, () -> change.replace("svc", "  \n"));
+
+        assertThat(refused)
+                .as("refused as no value")
+                .isNotNull()
+                .extracting(CredentialChange.Refused::reason)
+                .isEqualTo(CredentialChange.Reason.NO_VALUE);
+        assertThat(context.vault().read(PASSPHRASE).get("svc").value())
+                .as("the client secret stays")
+                .isEqualTo(VALUE);
+    }
+
+    @Test
+    void aShutVaultIsRefusedWithoutAskingAnybody() {
+        context =
+                new PoreloContext(
+                                new FakeCommandRunner(),
+                                new PoreloPaths(XdgPaths.of(name -> null, dir), dir.resolve("bin")),
+                                arguments -> 0)
+                        .asking(
+                                prompt -> {
+                                    throw new AssertionError("a daemon has nobody to ask");
+                                });
+        context.vault().write(Map.of("forge", VaultEntry.of(VALUE)), PASSPHRASE);
+        final CredentialChange change = new CredentialChange(context, List::of);
+
+        assertThat(
+                        catchThrowableOfType(
+                                        CredentialChange.Refused.class,
+                                        () -> change.remove("forge"))
+                                .reason())
+                .as("shut, and said so")
+                .isEqualTo(CredentialChange.Reason.VAULT_LOCKED);
+    }
+
+    @Test
+    void noVaultIsSaid() {
+        context =
+                new PoreloContext(
+                        new FakeCommandRunner(),
+                        new PoreloPaths(XdgPaths.of(name -> null, dir), dir.resolve("bin")),
+                        arguments -> 0);
+        final CredentialChange change = new CredentialChange(context, List::of);
+
+        assertThat(
+                        catchThrowableOfType(
+                                        CredentialChange.Refused.class,
+                                        () -> change.replace("forge", "x"))
+                                .reason())
+                .as("nothing to change")
+                .isEqualTo(CredentialChange.Reason.NO_VAULT);
+    }
+
     @Test
     void anEntryARunningTaskBorrowsIsRefusedAndNamesTheTask() {
         openVault(Map.of("forge", VaultEntry.of(VALUE)));

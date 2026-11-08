@@ -125,6 +125,10 @@ public final class CredentialChange {
                             // Checked again under the vault's lock: another process may have
                             // removed it since.
                             requireCredential(entries, name);
+                            // A grant made since the first read must be ended at its service too.
+                            if (VaultRemoveCommand.needsTheService(entries, name)) {
+                                throw new Refused(Reason.GRANTED, name);
+                            }
                             VaultRemoveCommand.removeFrom(entries, name);
                             return entries;
                         });
@@ -142,21 +146,29 @@ public final class CredentialChange {
      */
     public boolean replace(final String name, final String value) {
         final VaultFile.Opener opener = opener(name);
-        final VaultEntry before = requireCredential(context.vault().read(opener), name);
-        final VaultEntry entry = entry(name, value, before);
+        // Refused before a task is asked about, and built again under the lock below.
+        entry(name, value, requireCredential(context.vault().read(opener), name));
         requireNotBorrowed(name);
         return context.vault()
                 .update(
                         opener,
-                        entries -> {
-                            requireCredential(entries, name);
-                            return VaultPutCommand.replace(entries, name, entry);
-                        });
+                        entries ->
+                                VaultPutCommand.replace(
+                                        entries,
+                                        name,
+                                        // From the entry as it stands under the lock: its kind and
+                                        // settings may have changed since the first read.
+                                        entry(name, value, requireCredential(entries, name))));
     }
 
     /** Reads the value as {@code vault put} reads a file's, and keeps the entry's kind. */
     private static VaultEntry entry(
             final String name, final String given, final VaultEntry before) {
+        if (given.isBlank()) {
+            // Before the file's form: a grant's kind reads blank as "no secret", which a replace
+            // must not quietly write.
+            throw new Refused(Reason.NO_VALUE, name);
+        }
         String value = VaultPutCommand.fileValue(given, before.type());
         String type = before.type();
         if (org.fuin.porelo.vault.OpenSshPrivateKey.looksLikeAnyPrivateKey(value)) {
@@ -216,9 +228,11 @@ public final class CredentialChange {
                 .filter(TaskInventory.Task::running)
                 .filter(
                         task ->
+                                // The provider's entry falls back to the agent's name when
+                                // only that is stored, so either name may be what it borrows.
                                 task.credentials().containsKey(name)
                                         || name.equals(task.provider())
-                                        || (task.provider() == null && name.equals(task.agent())))
+                                        || name.equals(task.agent()))
                 .map(TaskInventory.Task::name)
                 .toList();
     }
