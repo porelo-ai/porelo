@@ -204,13 +204,13 @@ class TaskRunCommandTest {
     private PoreloContext previewContext(Path dir, boolean hooksInstalled) throws IOException {
         final PoreloContext context = context(dir, hooksInstalled);
         final XdgPaths xdg = context.paths().xdg();
-        // Relative socket paths fit the Unix limit even when the checkout's path is long.
+        // The shorter way to the sockets, so they fit the Unix limit wherever the checkout lies.
         final XdgPaths shortSockets =
                 new XdgPaths(
                         xdg.config(),
                         xdg.data(),
                         xdg.state(),
-                        Path.of("").toAbsolutePath().relativize(xdg.runtime()),
+                        SocketPaths.shortest(xdg.runtime()),
                         xdg.home());
         return new PoreloContext(
                 context.runner(),

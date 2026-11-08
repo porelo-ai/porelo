@@ -96,7 +96,7 @@ class AgentChoiceTest {
                                     default -> null;
                                 },
                         dir);
-        // Relative socket paths fit the Unix limit even when the checkout's path is long.
+        // The shorter way to the sockets, so they fit the Unix limit wherever the checkout lies.
         return new PoreloContext(
                 new FakeCommandRunner(),
                 new PoreloPaths(
@@ -104,7 +104,7 @@ class AgentChoiceTest {
                                 xdg.config(),
                                 xdg.data(),
                                 xdg.state(),
-                                Path.of("").toAbsolutePath().relativize(xdg.runtime()),
+                                SocketPaths.shortest(xdg.runtime()),
                                 xdg.home()),
                         dir.resolve("bin")),
                 command -> 0);

@@ -20,6 +20,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b513"></a>[B513](B513-Agent-Choice-Test-Independent-Of-Listing-Order.md) | S | [B507](#b507) | `AgentChoiceTest`'s dropped-provider case passes in every checkout, sub-agents' worktrees included, since a test's socket path takes the shorter of the relative and the absolute way. |
 | <a id="b507"></a>[B507](B507-A-Task-That-Starts-Tasks-Through-An-MCP-Endpoint.md) | L | - | A task the signed project file allows reaches Porelo's API as MCP through the gateway: porelod runs a `porelo-mcp` process per task on a 0600 Unix socket, the file sets its methods and limits, it stops only its own children, and the event log names the parent | 0 |
 | <a id="b510"></a>[B510](B510-The-Tasks-Contract-In-Porelo-Wire.md) | S | - | The published `porelo-wire` jar carries the `Tasks1` interface files and their order, so a client such as porelo-mcp reads the real contract; the daemon reads them from there as before. |
 | <a id="b509"></a>[B509](B509-A-Varlink-Number-Read-Exactly.md) | S | - | A number in a varlink call or reply reaches its reader as sent: `VarlinkConnection` reads with `Json.parseDecimals`, so an int is no double and an int64 above 2^53 keeps its digits. |
@@ -107,7 +108,6 @@ from its side, as *blocked by*.
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
 | <a id="b512"></a>[B512](B512-The-Slow-Git-Tree-Tests-Run-Once-Per-Hand-Over.md) | S | [B507](#b507) | Organization Git Tree's slow tests (4:17 of the whole suite's 13:48 on 2026-11-08) run in a profile the hand-over's suite and CI turn on, so a run of the touched modules skips them unless `organization/` changed. |
-| <a id="b513"></a>[B513](B513-Agent-Choice-Test-Independent-Of-Listing-Order.md) | S | [B507](#b507) | `AgentChoiceTest`'s dropped-provider case passes in every checkout, sub-agents' worktrees included, since a tie between agents never falls to the file system's listing order. |
 | <a id="b118"></a>[B118](B118-An-Attached-Agent-Said-At-Rest-Or-Working.md) | M | - | A new `AT_REST` activity, judged from the screen reads the listing already makes with the wake's two-look rule; the stub agent gets an `at_rest`. | - |
 | <a id="b506"></a>[B506](B506-An-Agent-Waiting-On-A-Person.md) | XS | [B118](#b118) | A task's listing says when its agent waits on a person for its own question, where the agent declares how that is seen. |
 | <a id="b474"></a>[B474](B474-A-Task-Fetches-Its-Projects-Snapshots-Through-Its-Broker.md) | M | [B470](#b470), [B467](#b467) | A package route in the task's broker: GET/HEAD below its own organization's maven path, refused before upstream otherwise; Maven's answers there alone; the task's host token read narrowly and made before the broker; settings through porelo.yml and Configure | Whether removal ends the token at once; the shared snapshot rule |
