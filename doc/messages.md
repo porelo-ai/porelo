@@ -2,7 +2,7 @@
 
 A task's agent exchanges messages with the other tasks of its project and with the people in the
 project's conversation, through a mailbox in the task. Every agent reads everything said in the
-conversation; a person names the one meant with `@` and its task's name, or writes to it in a direct
+conversation but what another task sends to the persons alone; a person names the one meant with `@` and its task's name, or writes to it in a direct
 chat. What a person writes is not filtered; what an agent sends is. Every task that has a mailbox starts with its
 agent told how it works: Porelo writes the text below to `/run/porelo/mail/README.md`, and an agent that
 declares how it takes standing instructions gets it at every start, after the part on `/porelo/files` in the guide
@@ -122,7 +122,8 @@ reach them.
 ### Who reads what
 
 - **Everything said in the project's conversation reaches every task of the project**, you
-  included: what people write there and what other tasks send. You read all of it.
+  included: what people write there and what other tasks send to a task. You read all of it.
+  A task's message to `people` is for the persons alone: it reaches no task.
 - **A message meant for you names you** in `metadata.to`: a person writes `@` and your task's
   name, or answers a message of yours. Act on what names you.
 - **A person's message in the room that names nobody is meant for every agent in the room:
@@ -145,7 +146,7 @@ reach them.
 
 `/run/porelo/mail/agent-card.json` lists whom you can reach right now, by name. **Read it before you write**: it changes
 while you work, as other tasks start and stop.
-- `people` is everybody in your project's conversation.
+- `people` is the persons in your project's room. No other task reads what you send there.
 - A person's own name (as `metadata.from` shows it on their messages) reaches them: in the
   room, mentioned, or with `"via": "direct"` in your direct chat with them. Write to them
   directly only to answer a direct message, or when you are asked to.

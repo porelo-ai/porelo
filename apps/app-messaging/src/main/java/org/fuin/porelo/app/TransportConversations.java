@@ -538,10 +538,12 @@ final class TransportConversations {
      *
      * <p><strong>Every agent reads every message in the room</strong> (2026-10-04): a task's
      * message goes to every other task, whomever its {@code metadata.to} names, and never back to
-     * the task that posted it; {@code metadata.to} says whom it is meant for, not who reads it. A
-     * person's words in the room go to every task, and in a direct chat to the one task it is with.
-     * They are a person's, so they are not filtered (2026-10-04) - and taken only from somebody who
-     * joined the project's conversation.
+     * the task that posted it; {@code metadata.to} says whom it is meant for, not who reads it. One
+     * to {@code people} is for the persons alone and goes to no task (2026-11-08, move 3: each
+     * agent's answer to them woke every other one, who answered in turn). A person's words in the
+     * room go to every task, and in a direct chat to the one task it is with. They are a person's,
+     * so they are not filtered (2026-10-04) - and taken only from somebody who joined the project's
+     * conversation.
      *
      * @param inbound Where the transport put them.
      * @param members The project's tasks on this machine.
@@ -649,6 +651,13 @@ final class TransportConversations {
                 readers = words.readers();
                 person = words.person();
                 bytes = words.message();
+            } else if (Files.isRegularFile(signature) && forPeopleAlone(message)) {
+                // Meant for the persons, who read it in the room: handed to another task, each
+                // agent's answer to them woke every other one, who answered in turn.
+                Files.deleteIfExists(message);
+                Files.deleteIfExists(signature);
+                Files.deleteIfExists(sender);
+                continue;
             } else {
                 final String posted =
                         Files.isRegularFile(sender)
@@ -943,6 +952,36 @@ final class TransportConversations {
      */
     static String reference(String name) {
         return name.endsWith(".json") ? name.substring(0, name.length() - ".json".length()) : name;
+    }
+
+    /**
+     * Whether a task's own signed message is for the persons alone: its one recipient, in any form
+     * a dispatch takes - a word with spaces, a list of one beside blanks - is {@code people}. A
+     * person's words to {@code people} are not: they reach the tasks as a person's always do.
+     */
+    private static boolean forPeopleAlone(final Path message) {
+        try {
+            if (!MessageIntake.AGENT.equals(MessageFile.role(message))
+                    || !(org.fuin.porelo.wire.Json.parse(
+                                    Files.readString(message, StandardCharsets.UTF_8))
+                            instanceof Map<?, ?> document)
+                    || !(document.get("metadata") instanceof Map<?, ?> metadata)) {
+                return false;
+            }
+            final List<String> named =
+                    switch (metadata.get("to")) {
+                        case String one -> List.of(one.strip());
+                        case List<?> many ->
+                                many.stream()
+                                        .map(each -> String.valueOf(each).strip())
+                                        .filter(each -> !each.isEmpty())
+                                        .toList();
+                        case null, default -> List.of();
+                    };
+            return named.equals(List.of(org.fuin.porelo.core.project.Mail.PEOPLE));
+        } catch (IOException | RuntimeException ex) {
+            return false;
+        }
     }
 
     private static @Nullable String recipient(Path message) {

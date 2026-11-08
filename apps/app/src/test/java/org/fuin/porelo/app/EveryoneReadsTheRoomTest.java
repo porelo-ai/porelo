@@ -135,14 +135,29 @@ class EveryoneReadsTheRoomTest {
                 .contains("not in the project's conversation");
     }
 
+    // The reading of B523: "to" as a list or with spaces still reached every task; a person's own
+    // words to people, and a message without a signature, must not vanish.
     @Test
-    void aTasksMessageInTheRoomReachesEveryOtherTaskButNotItsSender() throws IOException {
+    void peopleIsKnownInEveryFormADispatchTakesAndOnlyInATasksOwnSignedMessage()
+            throws IOException {
         final Mailbox writer = mailbox("porelo-p-writer");
         final Mailbox review = mailbox("porelo-p-review");
         final Path inbound = Files.createDirectories(dir.resolve("inbound"));
-        Files.writeString(inbound.resolve("$m.json"), "{\"metadata\":{\"to\":\"people\"}}");
-        Files.writeString(inbound.resolve("$m.json.sig"), "sig");
-        Files.writeString(inbound.resolve("$m.json.sender"), "@porelo-p-writer:localhost");
+        final String agent = "\"role\":\"ROLE_AGENT\",";
+        Files.writeString(
+                inbound.resolve("$a.json"),
+                "{" + agent + "\"metadata\":{\"to\":[\"people\", \"\"]}}");
+        Files.writeString(
+                inbound.resolve("$b.json"), "{" + agent + "\"metadata\":{\"to\":\" people \"}}");
+        Files.writeString(
+                inbound.resolve("$c.json"),
+                "{\"role\":\"ROLE_USER\",\"metadata\":{\"to\":\"people\"}}");
+        for (final String name : List.of("$a.json", "$b.json", "$c.json")) {
+            Files.writeString(inbound.resolve(name + ".sig"), "sig");
+            Files.writeString(inbound.resolve(name + ".sender"), "@porelo-p-writer:localhost");
+        }
+        Files.writeString(
+                inbound.resolve("$d.json"), "{" + agent + "\"metadata\":{\"to\":\"people\"}}");
 
         TransportConversations.handOut(
                 inbound,
@@ -152,9 +167,50 @@ class EveryoneReadsTheRoomTest {
                 new LinkedHashMap<>(),
                 new java.util.ArrayList<>());
 
-        assertThat(review.inbound().resolve("$m.json")).exists();
-        assertThat(review.inbound().resolve("$m.json.sig")).exists();
-        assertThat(writer.inbound().resolve("$m.json")).as("its own, back").doesNotExist();
+        assertThat(review.inbound().resolve("$a.json")).as("a list of one").doesNotExist();
+        assertThat(review.inbound().resolve("$b.json")).as("with spaces").doesNotExist();
+        assertThat(review.inbound().resolve("$c.json"))
+                .as("a person's words through talk say reach the tasks as before")
+                .exists();
+        assertThat(review.inbound().resolve("$d.json"))
+                .as("unsigned: handed on to be held there, not taken away")
+                .exists();
+    }
+
+    // In move 3 each agent's answer to the persons woke every other agent, who answered in turn.
+    @Test
+    void aTasksMessageToPeopleReachesNoTaskAndOneToATaskReachesTheOthersButNotItsSender()
+            throws IOException {
+        final Mailbox writer = mailbox("porelo-p-writer");
+        final Mailbox review = mailbox("porelo-p-review");
+        final Path inbound = Files.createDirectories(dir.resolve("inbound"));
+        Files.writeString(
+                inbound.resolve("$m.json"),
+                "{\"role\":\"ROLE_AGENT\",\"metadata\":{\"to\":\"people\"}}");
+        Files.writeString(inbound.resolve("$m.json.sig"), "sig");
+        Files.writeString(inbound.resolve("$m.json.sender"), "@porelo-p-writer:localhost");
+        Files.writeString(
+                inbound.resolve("$n.json"), "{\"metadata\":{\"to\":\"porelo-p-review\"}}");
+        Files.writeString(inbound.resolve("$n.json.sig"), "sig");
+        Files.writeString(inbound.resolve("$n.json.sender"), "@porelo-p-writer:localhost");
+        final List<String> said = new java.util.ArrayList<>();
+
+        final int dropped =
+                TransportConversations.handOut(
+                        inbound,
+                        members(writer, review),
+                        ACCOUNTS,
+                        PEOPLE,
+                        new LinkedHashMap<>(),
+                        said);
+
+        assertThat(review.inbound().resolve("$m.json")).as("meant for the persons").doesNotExist();
+        assertThat(inbound.resolve("$m.json")).as("taken, not left").doesNotExist();
+        assertThat(review.inbound().resolve("$n.json")).exists();
+        assertThat(review.inbound().resolve("$n.json.sig")).exists();
+        assertThat(writer.inbound().resolve("$n.json")).as("its own, back").doesNotExist();
+        assertThat(dropped).as("the room has it; nothing was lost").isZero();
+        assertThat(said).noneMatch(line -> line.startsWith("dropped"));
     }
 
     @Test

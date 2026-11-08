@@ -103,4 +103,26 @@ class MailboxGuideTest {
                     .contains(line.startsWith("#") ? "#" + line : line);
         }
     }
+
+    @Test
+    void theGuideAndTheCardSayAMessageToPeopleReachesNoTask(@TempDir final Path dir)
+            throws IOException {
+        assertThat(MailboxGuide.text())
+                .contains(
+                        "A task's message to `people` is for the persons alone: it reaches no task.")
+                .contains("No other task reads what you send there.");
+        final java.nio.file.Path root = java.nio.file.Files.createTempDirectory(dir, "box");
+        final Mailbox mailbox = new Mailbox(root);
+        mailbox.create();
+        final java.util.Map<String, Object> transports =
+                java.util.Map.of("matrix", java.util.Map.of());
+        // As MessageWatch.withSiblings adds it.
+        final org.fuin.porelo.core.project.Mail.Peer people =
+                java.util.Objects.requireNonNull(
+                        new org.fuin.porelo.core.project.Mail(List.of(), transports).people());
+        MailboxGuide.write(
+                mailbox, new org.fuin.porelo.core.project.Mail(List.of(people), transports));
+        assertThat(java.nio.file.Files.readString(mailbox.card()))
+                .contains("the persons in your project's room; no other task reads it");
+    }
 }

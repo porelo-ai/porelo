@@ -53,7 +53,8 @@ public final class MailboxGuide {
                 ## Who reads what
 
                 - **Everything said in the project's conversation reaches every task of the project**, you
-                  included: what people write there and what other tasks send. You read all of it.
+                  included: what people write there and what other tasks send to a task. You read all of it.
+                  A task's message to `@PEOPLE@` is for the persons alone: it reaches no task.
                 - **A message meant for you names you** in `metadata.to`: a person writes `@` and your task's
                   name, or answers a message of yours. Act on what names you.
                 - **A person's message in the room that names nobody is meant for every agent in the room:
@@ -76,7 +77,7 @@ public final class MailboxGuide {
 
                 `@CARD@` lists whom you can reach right now, by name. **Read it before you write**: it changes
                 while you work, as other tasks start and stop.
-                - `@PEOPLE@` is everybody in your project's conversation.
+                - `@PEOPLE@` is the persons in your project's room. No other task reads what you send there.
                 - A person's own name (as `metadata.from` shows it on their messages) reaches them: in the
                   room, mentioned, or with `"via": "direct"` in your direct chat with them. Write to them
                   directly only to answer a direct message, or when you are asked to.
@@ -153,7 +154,7 @@ public final class MailboxGuide {
             each.put(
                     "is",
                     Mail.PEOPLE.equals(peer.name()) && peer.conversation()
-                            ? "the people in your project's conversation"
+                            ? "the persons in your project's room; no other task reads it"
                             : Mail.Peer.VOUCHED.equals(peer.trust()) && peer.conversation()
                                     ? "another task of your project"
                                     : peer.destination().startsWith("@")
