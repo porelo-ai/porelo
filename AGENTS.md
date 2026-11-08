@@ -67,7 +67,7 @@ The command line and the daemon's logic are modules by area, `app-<area>`, submo
   (measured), and only `AgentIsolationTest` failed. `porelo-release check-readmes` holds every
   module's `README.md`; the documentation site shows `doc/` only, so a README is read in the repository.
 - **Each area registers its daemon methods in its `<Area>Methods` and describes them in its own contract file** under
-  `daemon/src/main/resources/varlink/org.fuin.porelo.Tasks1/`; `InterfaceDescriptionTest` holds each to its part.
+  `wire/src/main/resources/varlink/org.fuin.porelo.Tasks1/`; `InterfaceDescriptionTest` holds each to its part.
 - **File locations are per area** (`context.paths().messaging().mailbox(...)`); `PoreloPaths` keeps the roots.
 - **The tests stay in `app`**, which shares the package with every area.
 - **`vault clear` belongs to the `vault` command group but lives in the clearing area's module**, added where the

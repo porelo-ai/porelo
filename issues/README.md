@@ -12,7 +12,7 @@ one rarely need to rank it against another.
 An `A` number cited here - an agent that has no repository yet - is `porelo-project`'s, and an `F` number is
 `porelo-frontend`'s, in
 [its own index](https://github.com/porelo-ai/porelo-frontend/blob/main/issues/README.md); what connects the two
-repositories is the daemon's contract, `daemon/src/main/resources/varlink/org.fuin.porelo.Tasks1/`.
+repositories is the daemon's contract, `wire/src/main/resources/varlink/org.fuin.porelo.Tasks1/`.
 
 ## How to read one
 

@@ -4,5 +4,5 @@ The command line's and the daemon's area for the vault, credentials and grants, 
 layer of the `porelo` executable, which [app](../app/README.md) assembles; it is not a program of its own.
 
 - Daemon methods: `VaultMethods`; their contract is `30-vault` in
-  `daemon/src/main/resources/varlink/org.fuin.porelo.Tasks1/`. File locations: `VaultPaths`.
+  `wire/src/main/resources/varlink/org.fuin.porelo.Tasks1/`. File locations: `VaultPaths`.
 - Depends on `app-base` and `app-model`, never on `app-messaging` or `app-egress`, as AGENTS.md's area table sets out.

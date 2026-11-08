@@ -4,5 +4,5 @@ The command line's and the daemon's area for projects, following, backups and cl
 layer of the `porelo` executable, which [app](../app/README.md) assembles; it is not a program of its own.
 
 - Daemon methods: `ProjectMethods`; their contract is `20-project` in
-  `daemon/src/main/resources/varlink/org.fuin.porelo.Tasks1/`. File locations: `ProjectPaths`.
+  `wire/src/main/resources/varlink/org.fuin.porelo.Tasks1/`. File locations: `ProjectPaths`.
 - Depends on `app-task` and `app-messaging`, as AGENTS.md's area table sets out.

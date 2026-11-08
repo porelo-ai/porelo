@@ -1,7 +1,6 @@
 # [B510](README.md#b510) — The Tasks Contract In Porelo-Wire
 
-**Status:** Backlog. Built after the third trial move, or sooner if porelo-mcp's MC02 needs it; the coordinator's word
-of 2026-11-08.
+**Status:** Review. Built on 2026-11-08 at the operator's word, before the third trial move.
 **Size:** S - the interface files move into `porelo-wire`'s resources, where the daemon reads them as before, with the
 native image's resource entry and a test of the published jar.
 
@@ -25,11 +24,13 @@ Read in the code on 2026-11-08:
 
 ## Plan
 
-- Move the files to `wire/src/main/resources/varlink/org.fuin.porelo.Tasks1/`, and the native image's resource entry
-  with them.
+- Move the files to `wire/src/main/resources/varlink/org.fuin.porelo.Tasks1/`. As built, the native image's resource
+  entry stays in the daemon's metadata, with the list added: a glob there matches the files in any jar on the class
+  path, and in porelo-wire's own metadata it would put them into every native image built on porelo-wire.
 - Offer the part order beside them (a list file), so a reader outside the daemon puts the parts together as the daemon
   does. `PoreloDaemon.PARTS` reads that list too, so there is one order.
 - **Red first:**
   - a test on the built `porelo-wire` jar finds every part the list names;
-  - the daemon's interface description is unchanged, byte for byte, from before the move;
+  - the daemon's interface description is unchanged, byte for byte, from before the move. As built, checked once at
+    the move (sha256 `b5e6efb5…` before and after) rather than held by a test, since the contract grows;
   - the native daemon answers `GetInterfaceDescription` (the existing dist check).

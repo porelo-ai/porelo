@@ -1,0 +1,13 @@
+# The parts of org.fuin.porelo.Tasks1, in the order the daemon serves them as one interface
+# description: the header first. A client outside porelo puts the parts together in this order.
+00-header
+10-common
+15-task
+20-project
+25-egress
+30-vault
+35-gate
+40-agent
+45-messaging
+50-machine
+55-events

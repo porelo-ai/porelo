@@ -4,5 +4,5 @@ The command line's and the daemon's area for the gate and review, in the package
 layer of the `porelo` executable, which [app](../app/README.md) assembles; it is not a program of its own.
 
 - Daemon methods: `GateMethods`; their contract is `35-gate` in
-  `daemon/src/main/resources/varlink/org.fuin.porelo.Tasks1/`. File locations: `GatePaths`.
+  `wire/src/main/resources/varlink/org.fuin.porelo.Tasks1/`. File locations: `GatePaths`.
 - Depends on `app-messaging`, as AGENTS.md's area table sets out.

@@ -213,20 +213,29 @@ public final class PoreloDaemon {
         return description.toString();
     }
 
-    /** The parts of the interface description, in the order they are served: the header first. */
-    static final List<String> PARTS =
-            List.of(
-                    "00-header",
-                    "10-common",
-                    "15-task",
-                    "20-project",
-                    "25-egress",
-                    "30-vault",
-                    "35-gate",
-                    "40-agent",
-                    "45-messaging",
-                    "50-machine",
-                    "55-events");
+    /**
+     * The parts of the interface description, in the order they are served: the header first. Read
+     * from the list porelo-wire carries beside them, so a client outside porelo puts them together
+     * in the same order.
+     */
+    static final List<String> PARTS = parts();
+
+    private static List<String> parts() {
+        final String name = "/varlink/" + INTERFACE + "/parts";
+        try (java.io.InputStream in = PoreloDaemon.class.getResourceAsStream(name)) {
+            if (in == null) {
+                throw new IllegalStateException(
+                        "The interface's parts are not on the classpath: " + name);
+            }
+            return new String(in.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8)
+                    .lines()
+                    .map(String::strip)
+                    .filter(line -> !line.isEmpty() && !line.startsWith("#"))
+                    .toList();
+        } catch (java.io.IOException ex) {
+            throw new IllegalStateException("Cannot read the interface's parts", ex);
+        }
+    }
 
     /**
      * Returns hosts and their origins as a client reads them.

@@ -4,5 +4,5 @@ The command line's and the daemon's area for egress, the shield and clearance, i
 layer of the `porelo` executable, which [app](../app/README.md) assembles; it is not a program of its own.
 
 - Daemon methods: `EgressMethods`; their contract is `25-egress` in
-  `daemon/src/main/resources/varlink/org.fuin.porelo.Tasks1/`. File locations: `EgressPaths`.
+  `wire/src/main/resources/varlink/org.fuin.porelo.Tasks1/`. File locations: `EgressPaths`.
 - Depends on `app-base`, `app-model` and `app-agents`, never on `app-vault` or `app-messaging`, as AGENTS.md's area table sets out.
