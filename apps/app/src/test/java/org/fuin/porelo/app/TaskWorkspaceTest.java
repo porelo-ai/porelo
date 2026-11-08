@@ -74,6 +74,50 @@ class TaskWorkspaceTest {
     }
 
     @Test
+    void theGateIsAlsoTheWorkspacesOriginAndAPushThereGoesToTheTasksRef(@TempDir Path root)
+            throws IOException {
+        // Agent Pi on porelo-move-3 had no origin, and checked against porelo/main instead.
+        final Path mirror = seededMirror(root, "main");
+        final Path workspace = Files.createDirectories(root.resolve("workspace"));
+
+        runCloneScript(workspace, mirror, "refs/porelo/incoming/fix");
+
+        assertThat(git(workspace, "remote", "get-url", "origin")).isEqualTo(mirror.toString());
+        assertThat(git(workspace, "rev-parse", "origin/main"))
+                .as("origin/main is there for every check that names it")
+                .isEqualTo(git(workspace, "rev-parse", "porelo/main"));
+        assertThat(git(workspace, "config", "remote.origin.push"))
+                .as("a push to origin goes where a push to porelo goes")
+                .isEqualTo("HEAD:refs/porelo/incoming/fix");
+        assertThat(git(workspace, "config", "remote.pushDefault")).isEqualTo("porelo");
+    }
+
+    // The reading of B521: work pushed to origin still counted as unpushed, and held the task's
+    // removal; an origin the agent had pointed elsewhere was kept.
+    @Test
+    void aPushToOriginIsHandedInAsOneToPoreloAndOriginIsAlwaysTheGate(@TempDir Path root)
+            throws IOException {
+        final Path mirror = seededMirror(root, "main");
+        final Path workspace = Files.createDirectories(root.resolve("workspace"));
+        runCloneScript(workspace, mirror, "refs/porelo/incoming/fix");
+        git(workspace, "remote", "set-url", "origin", root.resolve("elsewhere.git").toString());
+        runCloneScript(workspace, mirror, "refs/porelo/incoming/fix");
+        assertThat(git(workspace, "remote", "get-url", "origin")).isEqualTo(mirror.toString());
+        Files.writeString(workspace.resolve("work.txt"), "work\n");
+        git(workspace, "add", "work.txt");
+        git(workspace, "commit", "-q", "-m", "work");
+
+        git(workspace, "push", "-q", "origin");
+
+        assertThat(git(workspace, "log", "--oneline", "--branches", "--not", "--remotes"))
+                .as("handed in, as UnhandedWork counts it")
+                .isEmpty();
+        assertThat(git(workspace, "config", "checkout.defaultRemote"))
+                .as("a branch both remotes have is checked out from the gate's name")
+                .isEqualTo("porelo");
+    }
+
+    @Test
     void aNamedStartingBranchDoesNotSilentlyCheckOutTheDefaultBranch(@TempDir Path root)
             throws IOException {
         // Starting on the wrong branch makes the agent change the wrong line of development.

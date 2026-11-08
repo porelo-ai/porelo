@@ -332,14 +332,23 @@ public class TaskWorkspace {
                 + "; "
                 + "if [ ! -d .git ]; then git init -q -b main .; "
                 + "git remote add porelo \"$PORELO_REMOTE_URL\"; fi; "
+                // The gate is the origin too, so a check that names origin/main finds it; a push
+                // there goes where one to porelo goes, set below. Added to a workspace from before,
+                // and set again where it named something else: the task reaches nothing else, and
+                // a fetch of it failed the whole fetch. A branch both remotes have is checked out
+                // under the gate's name.
+                + "if git remote get-url origin >/dev/null 2>&1;"
+                + " then git remote set-url origin \"$PORELO_REMOTE_URL\";"
+                + " else git remote add origin \"$PORELO_REMOTE_URL\"; fi; "
+                + "git config checkout.defaultRemote porelo; "
                 // Within a limit, where the image has 'timeout': a remote that never answers - an
                 // ssh port dropped on the way - held the launch for its whole time, with nothing
                 // said. What became of it is printed for the launch to report; the task starts
                 // without the remote either way.
                 + "if command -v timeout >/dev/null 2>&1; then timeout "
                 + fetchSeconds
-                + " git fetch -q porelo; "
-                + "else git fetch -q porelo; fi >/dev/null 2>.git/porelo-fetch.err && fetched=1 || { echo \""
+                + " git fetch -q --multiple porelo origin; "
+                + "else git fetch -q --multiple porelo origin; fi >/dev/null 2>.git/porelo-fetch.err && fetched=1 || { echo \""
                 + FETCH_FAILED
                 + " $?\"; tail -n 5 .git/porelo-fetch.err | sed 's/^/"
                 + FETCH_SAID
@@ -373,6 +382,7 @@ public class TaskWorkspace {
                 + "\"; fi; "
                 + "if [ -n \"$PORELO_TASK_REF\" ]; then "
                 + "  git config remote.porelo.push \"HEAD:$PORELO_TASK_REF\"; "
+                + "  git config remote.origin.push \"HEAD:$PORELO_TASK_REF\"; "
                 + "  git config remote.pushDefault porelo; "
                 // A push goes to the task's own ref, a pull comes from the branch the task started
                 // from. The gate advertises its branches and never an incoming ref, so a branch
@@ -383,7 +393,9 @@ public class TaskWorkspace {
                 + "  case \"$PORELO_TASK_REF\" in refs/porelo/incoming/*) "
                 + "    tracked=\"refs/remotes/porelo/incoming/${PORELO_TASK_REF#refs/porelo/incoming/}\"; "
                 + "    spec=\"+$PORELO_TASK_REF*:$tracked*\"; "
-                + "    git config --get-all remote.porelo.fetch | grep -qxF -- \"$spec\" || git config --add remote.porelo.fetch \"$spec\";; "
+                + "    git config --get-all remote.porelo.fetch | grep -qxF -- \"$spec\" || git config --add remote.porelo.fetch \"$spec\"; "
+                // And for a push to origin, so what it hands in is counted as handed in.
+                + "    git config --get-all remote.origin.fetch | grep -qxF -- \"$spec\" || git config --add remote.origin.fetch \"$spec\";; "
                 + "  refs/heads/*) tracked=\"refs/remotes/porelo/${PORELO_TASK_REF#refs/heads/}\";; "
                 + "  *) tracked=;; esac; "
                 + "  branch=$(git symbolic-ref -q --short HEAD || true); "

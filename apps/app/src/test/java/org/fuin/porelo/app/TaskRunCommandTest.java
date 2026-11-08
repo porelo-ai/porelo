@@ -653,7 +653,7 @@ class TaskRunCommandTest {
         final Path workspacePodman = dir.resolve("workspace-podman");
         Files.writeString(
                 workspacePodman,
-                "#!/bin/sh\ncase \"$*\" in *'git fetch -q porelo'*) exit 0 ;; esac\nexit 125\n");
+                "#!/bin/sh\ncase \"$*\" in *'git fetch -q --multiple porelo origin'*) exit 0 ;; esac\nexit 125\n");
         workspacePodman.toFile().setExecutable(true);
         System.setProperty(org.fuin.porelo.runtime.Podman.NAMED, workspacePodman.toString());
         final var git = new org.fuin.porelo.core.process.ProcessCommandRunner();

@@ -20,6 +20,8 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b521"></a>[B521](B521-The-Gate-Is-Also-The-Tasks-Origin.md) | S | - | A task's workspace has `origin` beside `porelo`, both the gate, so `origin/main` works in every check; pushes still reach only the gate. |
+| <a id="b520"></a>[B520](B520-A-Build-Verdict-Final-Only-When-Every-Workflow-Is.md) | S | - | A commit's build verdict reaches the task as final only once every workflow of it is, and a later run of the same commit, started by hand, is followed again and its file replaced. |
 | <a id="b519"></a>[B519](B519-A-Persons-Line-On-A-Host-Reaches-The-Tasks.md) | S | - | On a host, an admitted person's line in the project's room reaches the tasks and wakes the one it mentions: on the host's own homeserver `TransportLifecycle.persons` no longer waits for the lifecycle verb `members`, which the Matrix transport dropped. |
 | <a id="b515"></a>[B515](B515-A-Start-That-Did-Not-Stream-Answers-With-The-Runs-Result.md) | M | - | A `Start` with a prompt that did not stream answers with the run's result in its final reply, the record its agent declares as its last message or else its last lines, so an MCP caller sees what the run answered; a streamed start also streams the run's own lines. |
 | <a id="b513"></a>[B513](B513-Agent-Choice-Test-Independent-Of-Listing-Order.md) | S | - | `AgentChoiceTest`'s dropped-provider case passes in every checkout, sub-agents' worktrees included, since a test's socket path takes the shorter of the relative and the absolute way. |
@@ -121,8 +123,6 @@ from its side, as *blocked by*.
 | <a id="b14"></a>[B14](B14-Talking-Between-Tasks.md) | XL | `porelo` [B86](README.md#b86) | Talking between tasks, built on one machine; splits into groups (M), trust confirmed once with fingerprints (M), two machines on one homeserver (L). |
 | <a id="b193"></a>[B193](B193-A-Dependency-Cache-Shared-Across-Tasks.md) | XL | - | Downloaded dependencies cached once for a project's tasks and handed in read-only; what a task installs stays its own; analyzed: filled only from reviewed work, mounted `:ro,z`, read through `maven.repo.local.tail`, filled by `dependency:go-offline` on request and when the default branch moved, Maven first |
 | <a id="b371"></a>[B371](B371-A-History-Judged-Under-The-Rules-Of-Its-Time.md) | M | - | A history mode of `porelo commit verify`: each commit judged by the keys and certificates in force at its own time, for a migrated history before the hook is armed |
-| <a id="b520"></a>[B520](B520-A-Build-Verdict-Final-Only-When-Every-Workflow-Is.md) | S | - | A commit's build verdict reaches the task as final only once every workflow of it is, and a later run of the same commit, started by hand, is followed again and its file replaced. |
-| <a id="b521"></a>[B521](B521-The-Gate-Is-Also-The-Tasks-Origin.md) | S | - | A task's workspace has `origin` beside `porelo`, both the gate, so `origin/main` works in every check; pushes still reach only the gate. |
 | <a id="b522"></a>[B522](B522-An-Online-Task-On-A-Host-Pushes-Its-Amend.md) | S | - | An online task on a host pushes its amended commit to `porelo/<task>` with a lease on what the gate last pushed there. |
 
 ## Analyzed
