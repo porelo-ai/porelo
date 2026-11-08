@@ -79,18 +79,27 @@ public record RunResult(String text, Kind kind, boolean cut) {
                 return bounded(said, Kind.ANSWER);
             }
         }
-        List<@Nullable String> shown;
-        try {
-            shown = formatting.apply(lines);
-        } catch (RuntimeException ex) {
-            // A formatter that fails leaves the lines worth reading as they are.
-            shown = new ArrayList<>(lines);
-        }
+        // The last lines alone are formatted, in parts, so no call nears a Varlink message's limit.
+        final List<String> recent =
+                lines.subList(Math.max(0, lines.size() - LAST_LINES * 10), lines.size());
         final List<String> kept = new ArrayList<>();
-        for (final String line : shown) {
-            if (line != null) {
-                kept.add(line);
+        for (final List<String> part : RunFollower.parts(recent)) {
+            final List<@Nullable String> shown;
+            try {
+                shown = formatting.apply(part);
+            } catch (RuntimeException ex) {
+                // A formatter that fails shows nothing it would have hidden.
+                continue;
             }
+            for (final String line : shown) {
+                if (line != null) {
+                    kept.add(line);
+                }
+            }
+        }
+        if (kept.isEmpty()) {
+            // A run that showed nothing answered nothing.
+            return null;
         }
         final List<String> last = kept.subList(Math.max(0, kept.size() - LAST_LINES), kept.size());
         return bounded(String.join("\n", last), Kind.LAST_LINES);

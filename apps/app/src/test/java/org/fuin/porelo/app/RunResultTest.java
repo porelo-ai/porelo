@@ -108,4 +108,14 @@ class RunResultTest {
         assertThat(RunResult.of(log, DECLARED, RunResultTest::formatted))
                 .isEqualTo(new RunResult("done", RunResult.Kind.ANSWER, false));
     }
+
+    @Test
+    void aRunThatShowedNothingAnswersNothing(@TempDir final Path dir) throws Exception {
+        final Path empty = Files.writeString(dir.resolve("task.log"), "");
+        final Path hidden =
+                Files.writeString(dir.resolve("hidden.log"), "{\"kind\":\"session\"}\n");
+
+        assertThat(RunResult.of(empty, null, RunResultTest::formatted)).isNull();
+        assertThat(RunResult.of(hidden, null, RunResultTest::formatted)).isNull();
+    }
 }

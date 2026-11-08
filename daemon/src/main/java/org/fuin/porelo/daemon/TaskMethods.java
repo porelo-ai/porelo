@@ -1044,10 +1044,11 @@ final class TaskMethods {
                         reply.put("resultCut", result.cut());
                     }
                     if (replies.streaming() && launch.runLinesDropped() > 0) {
+                        // Of the run, so it goes where the run's lines go and nowhere else.
                         progress.stream()
                                 .send(
                                         Map.of(
-                                                "line",
+                                                "runLine",
                                                 "porelo: "
                                                         + launch.runLinesDropped()
                                                         + " of the run's lines were not sent,"

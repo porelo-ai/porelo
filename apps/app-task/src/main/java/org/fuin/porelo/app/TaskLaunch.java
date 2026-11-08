@@ -2786,6 +2786,9 @@ public final class TaskLaunch {
             java.util.Map<String, String> environment,
             PrintWriter out,
             PrintWriter err) {
+        // What a run of this call says, never what an earlier call's did.
+        runResult = null;
+        runLinesDropped = 0;
         if (selected == null) {
             err.println("porelo: a prompt needs an agent, and none is installed");
             err.flush();
@@ -2800,13 +2803,25 @@ public final class TaskLaunch {
         }
         final Path log = context.paths().tasks().containerState(container).resolve("task.log");
         // This run's log alone: a resumed task's last run must not answer for this one, nor stream
-        // as if it were.
-        runResult = null;
+        // as if it were. Emptied in place, so a reader never finds it missing; a link is removed,
+        // never followed.
         try {
-            java.nio.file.Files.deleteIfExists(log);
+            if (java.nio.file.Files.isSymbolicLink(log)) {
+                java.nio.file.Files.delete(log);
+            }
+            java.nio.file.Files.newOutputStream(
+                            log,
+                            java.nio.file.StandardOpenOption.CREATE,
+                            java.nio.file.StandardOpenOption.TRUNCATE_EXISTING,
+                            java.nio.file.StandardOpenOption.WRITE,
+                            java.nio.file.LinkOption.NOFOLLOW_LINKS)
+                    .close();
         } catch (java.io.IOException ex) {
-            err.println("porelo: could not empty the run's log: " + ex.getMessage());
+            err.println(
+                    "porelo: the run's log could not be emptied, so nothing was run: "
+                            + ex.getMessage());
             err.flush();
+            return 70;
         }
         // Continuing is what starting a task that has a session does - not a verb of its own - and
         // only where the agent says how to name one: nothing is guessed, and a fresh session says
@@ -2842,25 +2857,37 @@ public final class TaskLaunch {
                         : RunFollower.start(
                                 log, selected::format, following, java.time.Duration.ofMillis(250));
         try {
-            return runner.runAgent(
-                    selected,
-                    container,
-                    agentRequest,
-                    environment,
-                    log,
-                    java.time.Duration.ofMinutes(request.minutes()));
-        } catch (org.fuin.porelo.runtime.ContainerException ex) {
-            // Whatever the agent managed to say before it was killed is the most useful thing there
-            // is at this point. Throwing here would discard it, which is the opposite of what
-            // someone diagnosing a stuck run needs.
-            err.println("porelo: " + ex.getMessage());
-            err.flush();
-            return 124;
-        } finally {
-            if (follower != null) {
-                follower.close();
-                runLinesDropped = follower.dropped();
+            int code;
+            org.fuin.porelo.runtime.ContainerException killed = null;
+            try {
+                code =
+                        runner.runAgent(
+                                selected,
+                                container,
+                                agentRequest,
+                                environment,
+                                log,
+                                java.time.Duration.ofMinutes(request.minutes()));
+            } catch (org.fuin.porelo.runtime.ContainerException ex) {
+                killed = ex;
+                code = 124;
+            } finally {
+                // Before anything else is written to the caller: while it runs, the follower is
+                // the only one writing there.
+                if (follower != null) {
+                    follower.close();
+                    runLinesDropped = follower.dropped();
+                }
             }
+            if (killed != null) {
+                // Whatever the agent managed to say before it was killed is the most useful thing
+                // there is at this point. Throwing here would discard it, which is the opposite of
+                // what someone diagnosing a stuck run needs.
+                err.println("porelo: " + killed.getMessage());
+                err.flush();
+            }
+            return code;
+        } finally {
             final org.fuin.porelo.agent.api.Waiting waiting = selected.definition().waiting();
             runResult =
                     RunResult.of(

@@ -126,4 +126,84 @@ class RunFollowerTest {
 
         assertThat(sent).isEmpty();
     }
+
+    @Test
+    void noThreadIsInterruptedSoNeitherTheAgentsNorTheCallersSocketIsClosed(@TempDir final Path dir)
+            throws Exception {
+        // An interrupted thread entering a socket channel's write closes that channel: the agent's,
+        // which formats, or the caller's, which still waits for the final reply.
+        final Path log = dir.resolve("task.log");
+        final List<String> interrupted = new CopyOnWriteArrayList<>();
+        final List<String> sent = new CopyOnWriteArrayList<>();
+
+        final RunFollower follower =
+                RunFollower.start(
+                        log,
+                        lines -> {
+                            if (Thread.currentThread().isInterrupted()) {
+                                interrupted.add("format");
+                            }
+                            return formatted(lines);
+                        },
+                        line -> {
+                            if (Thread.currentThread().isInterrupted()) {
+                                interrupted.add("send " + line);
+                            }
+                            sent.add(line);
+                        },
+                        Duration.ofMillis(200));
+        Thread.sleep(50);
+        // Written while the reader sleeps, so only the read after the end finds it.
+        append(log, "last\n");
+        follower.close();
+
+        assertThat(interrupted).isEmpty();
+        assertThat(sent).containsExactly("> last");
+    }
+
+    @Test
+    void nothingIsSentOnceItClosed(@TempDir final Path dir) throws Exception {
+        final Path log = dir.resolve("task.log");
+        final List<String> sent = new CopyOnWriteArrayList<>();
+        final StringBuilder many = new StringBuilder();
+        for (int i = 0; i < 200; i++) {
+            many.append("line ").append(i).append('\n');
+        }
+        append(log, many.toString());
+
+        final RunFollower follower =
+                RunFollower.start(
+                        log,
+                        RunFollowerTest::formatted,
+                        line -> {
+                            try {
+                                Thread.sleep(5);
+                            } catch (InterruptedException ex) {
+                                Thread.currentThread().interrupt();
+                            }
+                            sent.add(line);
+                        },
+                        Duration.ofMillis(10));
+        follower.close();
+        final int atClose = sent.size();
+        Thread.sleep(200);
+
+        assertThat(sent).as("the start writes alone after the close").hasSize(atClose);
+        assertThat(atClose + follower.dropped()).isEqualTo(200);
+    }
+
+    @Test
+    void aLongLineIsCutAtACodePoint(@TempDir final Path dir) throws Exception {
+        final Path log = dir.resolve("task.log");
+        final List<String> sent = new CopyOnWriteArrayList<>();
+
+        try (RunFollower follower =
+                RunFollower.start(log, ArrayList::new, sent::add, Duration.ofMillis(10))) {
+            // The three bytes of the last character straddle the bound.
+            append(log, "a".repeat(RunFollower.MOST_LINE - 1) + "語b\n");
+        }
+
+        assertThat(String.join("", sent)).isEqualTo("a".repeat(RunFollower.MOST_LINE - 1) + "語b");
+        assertThat(sent).noneMatch(line -> line.contains("\uFFFD"));
+    }
 }

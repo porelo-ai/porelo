@@ -576,7 +576,7 @@ method Start(
   imageDrift: ?string,
   # One line the run itself wrote, as its agent shows it, on a streamed reply while a start with a
   # prompt runs. Apart from line, which is Porelo's own. A caller that reads too slowly loses lines
-  # rather than holding the run; a line then says how many, and Logs has them all.
+  # rather than holding the run; a last runLine then says how many, and Logs has them all.
   runLine: ?string,
   # What this start's own run answered, on the final reply of a start with a prompt that ran its
   # agent, streamed or not: the record its agent declares as its last message, or else the run's

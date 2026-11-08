@@ -474,11 +474,7 @@ final class McpTaskSockets implements McpDaemonSockets.Opener, AutoCloseable {
         try {
             // The run's lines and answer are what Logs and Tail read: a section that allows neither
             // gets neither through Start.
-            start.call(
-                    held,
-                    endpoint.methods().contains("Logs") || endpoint.methods().contains("Tail")
-                            ? replies
-                            : withoutTheRun(replies));
+            start.call(held, readsTheRun(endpoint) ? replies : withoutTheRun(replies));
         } finally {
             synchronized (starting) {
                 starting.remove(token);
@@ -512,6 +508,15 @@ final class McpTaskSockets implements McpDaemonSockets.Opener, AutoCloseable {
      * The methods answering with every task of the person, which a task sees cut to its project.
      */
     static final Set<String> TASK_LISTS = Set.of("List", "Watch");
+
+    /** What a listed task carries of what its run said, which Logs and Tail read. */
+    static final Set<String> WHAT_IT_SAID = Set.of("lastMessage", "agentEnded");
+
+    private static Object withoutWhatItSaid(final Object task) {
+        final Map<Object, Object> kept = new LinkedHashMap<>((Map<?, ?>) task);
+        kept.keySet().removeAll(WHAT_IT_SAID);
+        return kept;
+    }
 
     /** What a start's replies carry of its run, which Logs and Tail read. */
     static final Set<String> THE_RUN = Set.of("runLine", "result", "resultKind", "resultCut");
@@ -564,6 +569,30 @@ final class McpTaskSockets implements McpDaemonSockets.Opener, AutoCloseable {
      */
     static VarlinkServer.Replies ownProject(
             final String project, final VarlinkServer.Replies replies) {
+        return ownProject(project, true, replies);
+    }
+
+    /**
+     * Whether a section allows what Logs and Tail read: a run's lines and what it answered.
+     *
+     * @param endpoint The section.
+     * @return Whether it names either.
+     */
+    static boolean readsTheRun(final McpEndpoint endpoint) {
+        return endpoint.methods().contains("Logs") || endpoint.methods().contains("Tail");
+    }
+
+    /**
+     * Returns replies that keep, of a list of tasks, those of one project alone, and without what a
+     * run said where the section allows no reading of it.
+     *
+     * @param project The caller's project.
+     * @param readsTheRun Whether the section allows Logs or Tail.
+     * @param replies Where the cut replies go.
+     * @return The replies to answer through.
+     */
+    static VarlinkServer.Replies ownProject(
+            final String project, final boolean readsTheRun, final VarlinkServer.Replies replies) {
         return new VarlinkServer.Replies() {
             @Override
             public void more(final Map<String, Object> parameters) throws IOException {
@@ -595,6 +624,7 @@ final class McpTaskSockets implements McpDaemonSockets.Opener, AutoCloseable {
                                             task ->
                                                     task instanceof Map<?, ?> each
                                                             && project.equals(each.get("project")))
+                                    .map(task -> readsTheRun ? task : withoutWhatItSaid(task))
                                     .toList());
                 }
                 if (parameters.get("unrecognized") instanceof List<?> names) {
@@ -748,7 +778,9 @@ final class McpTaskSockets implements McpDaemonSockets.Opener, AutoCloseable {
                 // project's.
                 held =
                         (parameters, replies) ->
-                                method.call(parameters, ownProject(project, replies));
+                                method.call(
+                                        parameters,
+                                        ownProject(project, readsTheRun(endpoint), replies));
             } else {
                 held = method;
             }

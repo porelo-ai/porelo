@@ -20,6 +20,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b515"></a>[B515](B515-A-Start-That-Did-Not-Stream-Answers-With-The-Runs-Result.md) | M | - | A `Start` with a prompt that did not stream answers with the run's result in its final reply, the record its agent declares as its last message or else its last lines, so an MCP caller sees what the run answered; a streamed start also streams the run's own lines. |
 | <a id="b513"></a>[B513](B513-Agent-Choice-Test-Independent-Of-Listing-Order.md) | S | - | `AgentChoiceTest`'s dropped-provider case passes in every checkout, sub-agents' worktrees included, since a test's socket path takes the shorter of the relative and the absolute way. |
 | <a id="b512"></a>[B512](B512-The-Slow-Git-Tree-Tests-Run-Once-Per-Hand-Over.md) | S | - | Organization Git Tree's three slow classes are tagged `slow` and run only under `-Pwhole`, which the hand-over's suite, CI's build and the documented whole-suite commands name; `WholeSuiteProfileTest` holds the pom and CI to it. |
 | <a id="b507"></a>[B507](B507-A-Task-That-Starts-Tasks-Through-An-MCP-Endpoint.md) | L | - | A task the signed project file allows reaches Porelo's API as MCP through the gateway: porelod runs a `porelo-mcp` process per task on a 0600 Unix socket, the file sets its methods and limits, it stops only its own children, and the event log names the parent | 0 |
@@ -108,7 +109,6 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
-| <a id="b515"></a>[B515](B515-A-Start-That-Did-Not-Stream-Answers-With-The-Runs-Result.md) | M | - | A `Start` with a prompt that did not stream answers with the run's result in its final reply, read by the agent's plugin through the agent API, or with its last lines, so an MCP caller sees what the run answered; a streamed start also streams the run's own lines. |
 | <a id="b514"></a>[B514](B514-Every-Task-Run-Kept-In-One-Timeline.md) | M | - | Every task run kept in one timeline: lifecycle entries (who and when, the run's numbers) in the events chain, logs archived past stop, reboot and removal, readings over varlink, MCP and the CLI, one structured log stream for every Porelo process with the journal as its home; porelo-frontend's F436 reads it. |
 | <a id="b118"></a>[B118](B118-An-Attached-Agent-Said-At-Rest-Or-Working.md) | M | - | A new `AT_REST` activity, judged from the screen reads the listing already makes with the wake's two-look rule; the stub agent gets an `at_rest`. | - |
 | <a id="b506"></a>[B506](B506-An-Agent-Waiting-On-A-Person.md) | XS | [B118](#b118) | A task's listing says when its agent waits on a person for its own question, where the agent declares how that is seen. |

@@ -1,6 +1,6 @@
 # [B515](README.md#b515) — A Start That Did Not Stream Answers With The Run's Result
 
-**Status:** Backlog. Filed 2026-11-08 from the local MCP test with a prompt; built first, before
+**Status:** Review. Filed 2026-11-08 from the local MCP test with a prompt; built the same day, before
 [B514](README.md#b514) (the operator, 15:23Z).
 **Size:** M - an optional `result` on `Start`'s final reply, read with what the agent API already declares, and the
 run's own lines on a streamed start; no new reading in the agent API and nothing in the plugins' repositories.
@@ -62,3 +62,33 @@ Read on 2026-11-08, and again in the plan reading (agy gemini-4-argon-high), whi
   - a streamed start whose lines include the stub agent's own, and a caller that never reads, whose run still ends at
     its timeout;
   - over a task's socket, a `Start` without `Logs` or `Tail` in the section that carries no result.
+
+## As built
+
+Built on 2026-11-08 on the plan above, with one plan reading and one code reading (agy gemini-4-argon-high), each
+finding fixed with a test seen red first.
+
+- **`RunResult`** reads the run's answer at its end from the last 2 MiB of `task.log`, never through a link: the record
+  the agent's `last_message` names (`ANSWER`), or else its last 40 lines as the agent shows them (`LAST_LINES`). It
+  formats only the log's last lines, in parts far below a Varlink message's limit. A run that showed nothing answers
+  nothing. At most 16 KiB of UTF-8, cut at a code point.
+- **`RunFollower`** sends the run's lines while it lasts, on a reader and a sender thread with a bounded queue: a caller
+  that stops reading loses lines, counted and said in a last `runLine`, and never holds the run.
+  - No thread is interrupted, since an interrupted thread entering a socket's write closes it: the agent's, which
+    formats the lines, or the caller's, which still waits for the final reply.
+  - Its close waits for the sender, so the start writes nothing to the caller while the sender does.
+  - It reads in batches of 512 KiB, also at the end, and cuts a line longer than 16 KiB at a code point.
+- **`TaskLaunch.runAgentSteps`** forgets an earlier call's result first, empties `task.log` in place (a link is removed,
+  never followed) and refuses to run when it cannot, follows the run when the caller streams, and closes the follower
+  before it writes anything else.
+- **`Start`** carries `result`, `resultKind` and `resultCut` on its final reply in both modes, and streams `runLine`.
+- **Over a task's MCP socket** whose section names neither `Logs` nor `Tail`, `Start` carries none of the four, and
+  `List` and `Watch` leave out each task's `lastMessage` and `agentEnded`, which are read from the same log.
+- **Acceptance:** `task-unattended`'s daemon start checks `"result":"stub: finished"` and `ANSWER`.
+- **Held, from the code reading:**
+  - A caller that never reads still holds the start's final reply, and with it a task's place among its children at
+    once, as every streamed reply did before; the run itself ends at its time.
+  - `Tail` across a resumed run, and `AgentEnding`'s cache by size, read a log emptied and grown again as before:
+    emptying it in place is what `podman exec` already did.
+  - The follower still runs for a caller whose section strips its lines: a cost, not a leak.
+

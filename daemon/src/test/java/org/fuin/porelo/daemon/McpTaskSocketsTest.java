@@ -841,6 +841,55 @@ class McpTaskSocketsTest {
         assertThat(last).containsExactly(Map.of("container", "porelo-uc-child", "exitCode", 0));
     }
 
+    @Test
+    void aListWithoutLogsOrTailCarriesNothingOfWhatARunSaid() throws IOException {
+        final List<Map<String, Object>> sent = new java.util.ArrayList<>();
+        final org.fuin.porelo.wire.varlink.VarlinkServer.Replies replies =
+                McpTaskSockets.ownProject(
+                        "uc",
+                        false,
+                        new org.fuin.porelo.wire.varlink.VarlinkServer.Replies() {
+                            @Override
+                            public void more(final Map<String, Object> parameters) {
+                                sent.add(parameters);
+                            }
+
+                            @Override
+                            public void last(final Map<String, Object> parameters) {
+                                sent.add(parameters);
+                            }
+
+                            @Override
+                            public boolean streaming() {
+                                return false;
+                            }
+
+                            @Override
+                            public boolean open() {
+                                return true;
+                            }
+                        });
+
+        replies.last(
+                Map.of(
+                        "tasks",
+                        List.of(
+                                Map.of(
+                                        "project",
+                                        "uc",
+                                        "name",
+                                        "porelo-uc-child",
+                                        "lastMessage",
+                                        "the child's answer",
+                                        "agentEnded",
+                                        Map.of("error", "what it printed"))),
+                        "unrecognized",
+                        List.of()));
+
+        assertThat((List<Object>) sent.getFirst().get("tasks"))
+                .containsExactly(Map.of("project", "uc", "name", "porelo-uc-child"));
+    }
+
     private void assertNothingStarted() {
         assertThat(runner.lines())
                 .as("no start reached the machine's check")
