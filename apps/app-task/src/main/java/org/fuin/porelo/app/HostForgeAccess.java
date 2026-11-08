@@ -59,6 +59,13 @@ final class HostForgeAccess implements FetchAccess {
         return address.equals(fetchFrom) && GATE.matcher(address).matches();
     }
 
+    /**
+     * The forge's own root, {@code http://127.0.0.1:<port>/}, of an address {@link #GATE} takes.
+     */
+    private static String forge(final String address) {
+        return address.substring(0, address.indexOf('/', "http://".length()) + 1);
+    }
+
     @Override
     public Lease lend(final String address) {
         if (!asksFor(address)) {
@@ -75,7 +82,9 @@ final class HostForgeAccess implements FetchAccess {
             public Map<String, String> environment() {
                 return Map.of(
                         "GIT_CONFIG_COUNT", "2",
-                        "GIT_CONFIG_KEY_0", "http.extraHeader",
+                        // Named for this forge alone: git's settings can rewrite an address
+                        // after it was checked here, and the header must not follow it.
+                        "GIT_CONFIG_KEY_0", "http." + forge(address) + ".extraHeader",
                         "GIT_CONFIG_VALUE_0", header,
                         "GIT_CONFIG_KEY_1", "http.followRedirects",
                         "GIT_CONFIG_VALUE_1", "false",

@@ -78,7 +78,8 @@ class HostForgeAccessTest {
         try (FetchAccess.Lease lease = access(GATE, answering(0, TOKEN + "\n")).lend(GATE)) {
             assertThat(lease.environment())
                     .containsEntry("GIT_CONFIG_COUNT", "2")
-                    .containsEntry("GIT_CONFIG_KEY_0", "http.extraHeader")
+                    .as("named for the host's forge alone, so a rewritten address does not take it")
+                    .containsEntry("GIT_CONFIG_KEY_0", "http.http://127.0.0.1:3000/.extraHeader")
                     .containsEntry(
                             "GIT_CONFIG_VALUE_0",
                             "Authorization: Basic "
