@@ -43,12 +43,42 @@ class DoctorMessagesTest {
     }
 
     private void project(final PoreloContext context, final String transports) throws Exception {
-        final Path file = dir.resolve("project.yml");
+        project(context, "p", transports);
+    }
+
+    private void project(final PoreloContext context, final String name, final String transports)
+            throws Exception {
+        final Path file = dir.resolve(name + ".yml");
         Files.writeString(
                 file,
-                "project:\n  name: p\n  security_class: guarded\nimage:\n  from: ubuntu:24.04\n"
+                "project:\n  name: "
+                        + name
+                        + "\n  security_class: guarded\nimage:\n  from: ubuntu:24.04\n"
+                        + "repositories:\n  frontend:\n"
                         + transports);
-        new ProjectRegistry(context.paths().projects().projectRegistry()).remember("p", file);
+        new ProjectRegistry(context.paths().projects().projectRegistry()).remember(name, file);
+    }
+
+    /** A project followed whose file no longer reads. */
+    private Path unreadable(final PoreloContext context, final String name) throws Exception {
+        final Path file = dir.resolve(name + ".yml");
+        Files.writeString(file, "project: [no\n");
+        new ProjectRegistry(context.paths().projects().projectRegistry()).remember(name, file);
+        return file;
+    }
+
+    /** A task of the project that runs, as podman lists it. */
+    private void taskRuns(final String project) throws Exception {
+        final String container = "porelo-" + project + "-shell-1";
+        org.fuin.porelo.wire.Sidecar.recordId(
+                Files.createDirectories(dir.resolve("run/porelo").resolve(container)),
+                "111111111111");
+        runner.answering(
+                "ps",
+                container
+                        + "\tUp 4 minutes\t2026-01-01T00:00:00Z\t\t"
+                        + project
+                        + "\tguarded\t\t\t111111111111\n");
     }
 
     private void installed(final PoreloContext context) throws Exception {
@@ -171,6 +201,51 @@ class DoctorMessagesTest {
 
         assertThat(asked).as("a server elsewhere is not asked").isEmpty();
         assertThat(probe.state()).as("the transport answers").isEqualTo(Probe.State.OK);
+    }
+
+    @Test
+    void aProjectNothingOwnsAnyMoreIsNotAskedAbout() throws Exception {
+        final PoreloContext context = context();
+        unreadable(context, "gone");
+
+        final Probe probe = probe(context, false);
+
+        assertThat(probe.state())
+                .as("what nothing owns has its own line under projects, not this one")
+                .isEqualTo(Probe.State.OK);
+        assertThat(probe.detail()).as("it is not named").doesNotContain("gone");
+    }
+
+    @Test
+    void aProjectWhoseFileDoesNotReadIsNamedBesideAnotherThatDegrades() throws Exception {
+        final PoreloContext context = context();
+        project(context, "mail:\n  transports:\n    room: {}\n");
+        unreadable(context, "q");
+        taskRuns("q");
+
+        final Probe probe = probe(context, true);
+
+        assertThat(probe.state()).as("the transport not installed").isEqualTo(Probe.State.DEGRADED);
+        assertThat(probe.detail())
+                .as("the project it cannot tell for is said too, never dropped")
+                .contains(SCHEME, "q", "does not read");
+    }
+
+    @Test
+    void aReachIsAskedOnlyAtThisMachinesLoopback() throws Exception {
+        try (java.net.ServerSocket listening =
+                new java.net.ServerSocket(0, 1, java.net.InetAddress.getLoopbackAddress())) {
+            final int port = listening.getLocalPort();
+            assertThat(DoctorCommand.answersAt("127.0.0.[1]:" + port))
+                    .as("a name that is loopback only once its brackets are stripped is not asked")
+                    .isFalse();
+            assertThat(DoctorCommand.answersAt("[127.0.0.1]x:" + port))
+                    .as("nothing may stand between the bracket and the port")
+                    .isFalse();
+            assertThat(DoctorCommand.answersAt("localhost:" + port))
+                    .as("localhost is asked at the loopback")
+                    .isTrue();
+        }
     }
 
     @Test

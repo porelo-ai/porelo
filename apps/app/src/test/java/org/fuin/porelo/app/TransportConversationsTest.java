@@ -1238,6 +1238,21 @@ class TransportConversationsTest {
     }
 
     @Test
+    void aBracketedHostIsLoopbackOnlyWhenNothingButAPortFollowsIt() {
+        assertThat(TaskConversations.loopback("[::1]")).as("a bracketed loopback alone").isTrue();
+        assertThat(TaskConversations.loopback("[localhost].example.org:8008"))
+                .as("a name that only starts with a bracketed loopback is another host")
+                .isFalse();
+        assertThat(TaskConversations.loopback("[::1]x:8008"))
+                .as("anything between the bracket and the port makes it another host")
+                .isFalse();
+        assertThat(TaskConversations.loopback("[::1]:"))
+                .as("a colon with no port after the bracket")
+                .isFalse();
+        assertThat(TaskConversations.loopback("[::1")).as("a bracket never closed").isFalse();
+    }
+
+    @Test
     void aTaskWhoseAccountCannotBeReadHereIsNotSentAsNobody() throws Exception {
 
         // Its conversation is there, its account is not readable - a locked vault, or a daemon that

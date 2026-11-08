@@ -575,12 +575,33 @@ final class TaskConversations {
      *     without a port.
      */
     static boolean loopback(String host) {
-        final String bare =
-                host.startsWith("[")
-                        ? host.substring(1, Math.max(1, host.indexOf(']')))
-                        : host.contains(":") && host.indexOf(':') == host.lastIndexOf(':')
-                                ? host.substring(0, host.indexOf(':'))
-                                : host;
-        return "127.0.0.1".equals(bare) || "::1".equals(bare) || "localhost".equals(bare);
+        return loopbackHost(host) != null;
+    }
+
+    /**
+     * Returns the loopback host a reach names, without its brackets and port.
+     *
+     * @param reach As the transport said it.
+     * @return {@code 127.0.0.1}, {@code ::1} or {@code localhost}; {@code null} for any other host,
+     *     and for a bracketed one followed by anything but a port.
+     */
+    static @Nullable String loopbackHost(String reach) {
+        final String bare;
+        if (reach.startsWith("[")) {
+            final int close = reach.indexOf(']');
+            // "[localhost].example.org" is another host: only a port may follow the bracket.
+            if (close < 0 || !reach.substring(close + 1).matches("(:[0-9]+)?")) {
+                return null;
+            }
+            bare = reach.substring(1, close);
+        } else {
+            bare =
+                    reach.contains(":") && reach.indexOf(':') == reach.lastIndexOf(':')
+                            ? reach.substring(0, reach.indexOf(':'))
+                            : reach;
+        }
+        return "127.0.0.1".equals(bare) || "::1".equals(bare) || "localhost".equals(bare)
+                ? bare
+                : null;
     }
 }

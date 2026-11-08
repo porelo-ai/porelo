@@ -236,7 +236,18 @@ public class DoctorCommand implements Callable<Integer>, PoreloFactory.ContextAw
         final java.util.List<String> problems = new java.util.ArrayList<>();
         final java.util.List<String> unread = new java.util.ArrayList<>();
         String action = null;
+        java.util.Set<String> running;
+        try {
+            running = runningProjects(context);
+        } catch (final RuntimeException ex) {
+            // Unsure what runs, nothing is taken for orphaned: each project is still asked about.
+            running = null;
+        }
         for (final ProjectInventory.Summary summary : projects) {
+            // What nothing owns any more has its own line under projects.
+            if (running != null && Prune.orphaned(summary, running)) {
+                continue;
+            }
             final String file = summary.file();
             // A task of 'default' talks to nobody, whatever its file says.
             if (file == null || DefaultProject.is(summary.name())) {
@@ -301,14 +312,16 @@ public class DoctorCommand implements Callable<Integer>, PoreloFactory.ContextAw
             }
             carried.add(project.name() + " by " + scheme);
         }
+        final String cannotTell =
+                "cannot tell for " + String.join(", ", unread) + ": its file does not read";
         if (action != null) {
+            if (!unread.isEmpty()) {
+                problems.add(cannotTell);
+            }
             return Probe.degraded(name, String.join("; ", problems), action);
         }
         if (!unread.isEmpty()) {
-            return Probe.unknown(
-                    name,
-                    "cannot tell for " + String.join(", ", unread) + ": its file does not read",
-                    "porelo projects");
+            return Probe.unknown(name, cannotTell, "porelo projects");
         }
         if (carried.isEmpty()) {
             return Probe.ok(name, "no project names a transport, so this machine needs none");
@@ -325,10 +338,10 @@ public class DoctorCommand implements Callable<Integer>, PoreloFactory.ContextAw
      */
     static boolean answersAt(final String reach) {
         final int colon = reach.lastIndexOf(':');
-        if (colon < 0) {
+        final String host = TaskConversations.loopbackHost(reach);
+        if (colon < 0 || host == null) {
             return false;
         }
-        final String host = reach.substring(0, colon).replace("[", "").replace("]", "");
         try (java.net.Socket socket = new java.net.Socket()) {
             socket.connect(
                     new java.net.InetSocketAddress(
@@ -399,13 +412,7 @@ public class DoctorCommand implements Callable<Integer>, PoreloFactory.ContextAw
         }
         // What nothing owns any more is not listed here as a project with an unreadable file: it
         // has its own line.
-        final java.util.Set<String> running = new java.util.HashSet<>();
-        new TaskInventory(context)
-                .tasks().stream()
-                        .filter(TaskInventory.Task::running)
-                        .map(TaskInventory.Task::project)
-                        .filter(java.util.Objects::nonNull)
-                        .forEach(running::add);
+        final java.util.Set<String> running = runningProjects(context);
         final java.util.List<ProjectInventory.Summary> owned =
                 projects.stream().filter(project -> !Prune.orphaned(project, running)).toList();
         if (owned.isEmpty()) {
@@ -420,6 +427,18 @@ public class DoctorCommand implements Callable<Integer>, PoreloFactory.ContextAw
             said.add(project.name() + " " + repositories(project));
         }
         return Probe.ok(name, String.join(", ", said));
+    }
+
+    /** The projects a task runs for: one of them is not orphaned, whatever its file says. */
+    private static java.util.Set<String> runningProjects(final PoreloContext context) {
+        final java.util.Set<String> running = new java.util.HashSet<>();
+        new TaskInventory(context)
+                .tasks().stream()
+                        .filter(TaskInventory.Task::running)
+                        .map(TaskInventory.Task::project)
+                        .filter(java.util.Objects::nonNull)
+                        .forEach(running::add);
+        return running;
     }
 
     /** What a project holds, as this probe says it. */
