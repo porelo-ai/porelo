@@ -4562,8 +4562,12 @@ class PoreloDaemonTest {
                     try (VarlinkClient client = new VarlinkClient(socket)) {
                         final Map<String, Object> listed =
                                 client.call(PoreloDaemon.INTERFACE + ".Projects", Map.of());
-                        assertThat(String.valueOf(listed.get("projects")))
-                                .as("the machine lists it")
+                        @SuppressWarnings("unchecked")
+                        final List<Map<String, Object>> projects =
+                                (List<Map<String, Object>>) listed.get("projects");
+                        assertThat(projects)
+                                .as("the machine lists it by its name")
+                                .extracting(project -> project.get("name"))
                                 .contains("left");
 
                         final Map<String, Object> reply =
@@ -4575,6 +4579,24 @@ class PoreloDaemonTest {
                                 .as("previewed with what it takes, not NoSuchProject")
                                 .containsEntry("outcome", "PREVIEWED")
                                 .containsKeys("removes", "keeps", "unreviewed");
+                        @SuppressWarnings("unchecked")
+                        final List<Map<String, Object>> removes =
+                                (List<Map<String, Object>>) reply.get("removes");
+                        assertThat(removes)
+                                .as("what it would take is named: its mirror and its entry")
+                                .contains(
+                                        Map.<String, Object>of(
+                                                "kind",
+                                                "MIRROR",
+                                                "what",
+                                                dir.resolve("data/porelo/mirrors/left.git")
+                                                        .toString()),
+                                        Map.<String, Object>of(
+                                                "kind",
+                                                "REGISTRY",
+                                                "what",
+                                                dir.resolve("data/porelo/projects/left")
+                                                        .toString()));
                         assertThat(Files.isDirectory(dir.resolve("data/porelo/mirrors/left.git")))
                                 .as("a preview removes nothing")
                                 .isTrue();
