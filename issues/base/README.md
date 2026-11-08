@@ -185,7 +185,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
-| <a id="b515"></a>[B515](B515-A-Start-That-Did-Not-Stream-Answers-With-The-Runs-Result.md) | M | - | A `Start` with a prompt that did not stream answers with the run's result in its final reply, read by the agent's plugin through the agent API, or with its last lines, so an MCP caller sees what the run answered. |
+| <a id="b515"></a>[B515](B515-A-Start-That-Did-Not-Stream-Answers-With-The-Runs-Result.md) | M | - | A `Start` with a prompt that did not stream answers with the run's result in its final reply, read by the agent's plugin through the agent API, or with its last lines, so an MCP caller sees what the run answered; a streamed start also streams the run's own lines. |
 | <a id="b514"></a>[B514](B514-Every-Task-Run-Kept-In-One-Timeline.md) | L | - | Every task run kept in one timeline: lifecycle entries (who and when, the run's numbers) in the events chain, logs archived past stop, reboot and removal, readings over varlink, MCP and the CLI, one structured log stream for every Porelo process with the journal as its home, and an optional OTLP export (M without it); porelo-frontend's F436 reads it. |
 | <a id="b511"></a>[B511](B511-A-Fraction-Where-A-Whole-Number-Is-Wanted-Is-Refused.md) | S | - | A fraction or an out-of-range number sent where a varlink contract wants a whole number is refused by the method, never truncated, at each reader [B509](#b509)'s reading named. |
 | <a id="b508"></a>[B508](B508-The-Default-Task-Image-On-Ubuntu-26-04.md) | - | - | The default task image moves from `ubuntu:24.04` to `ubuntu:26.04`: every task image, the places porelo names the default, and porelo-ecosystems' list; after the trial moves. |
