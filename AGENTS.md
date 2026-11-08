@@ -135,8 +135,11 @@ The command line and the daemon's logic are modules by area, `app-<area>`, submo
     ./mvnw -s settings.xml -Pnative,dist clean verify    # + .deb and .rpm
 
 - **The tests tagged `slow` run only under `-Pwhole`**, which the whole suite before a hand-over and CI turn on; a run
-  of the touched modules (`-pl <changed> -amd`) leaves them out, and `WholeSuiteProfileTest` fails when the profile no
-  longer runs them or CI's build no longer names it.
+  of the touched modules (`-pl <changed> -amd`) leaves them out, so **a change in `organization/` names `-Pwhole`**,
+  as do the native and package builds above when their tests are to count. Only Organization Git Tree's three store
+  classes carry the tag. `WholeSuiteProfileTest`, tagged `documents` so the shared rules check runs it on a change to
+  `.github/` alone, fails when the profile no longer runs them, CI's build no longer names it, another class is
+  tagged, or a module chooses tests by tag of its own.
 - **Packaging binds to `verify`**, after native-image binds to `package`: `-Pnative,dist package` produces no package,
   or an older one beside a newer binary, which `./mvnw -pl dist/package-check compile exec:java@package-check` catches.
 - **`agent.package.skip` is on by default and each agent turns it off**, since `dist` lives in `agents/pom.xml` and

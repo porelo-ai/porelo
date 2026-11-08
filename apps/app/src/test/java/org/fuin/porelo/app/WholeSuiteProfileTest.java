@@ -33,6 +33,7 @@ import org.w3c.dom.Node;
  * the exclusion, or CI stop naming it, those tests would run nowhere and every build would stay
  * green.
  */
+@org.junit.jupiter.api.Tag("documents")
 class WholeSuiteProfileTest {
 
     private static final Path ROOT = Path.of("..", "..");
@@ -43,7 +44,14 @@ class WholeSuiteProfileTest {
 
     private static final Pattern PROPERTY = Pattern.compile("\\$\\{([^}]+)}");
 
-    private static final Pattern SLOW_TAG = Pattern.compile("@Tag\\(\"" + SLOW + "\"\\)");
+    /**
+     * The tag on the class itself, not on one method, nor in a comment: only annotations between.
+     */
+    private static final Pattern SLOW_TAG =
+            Pattern.compile(
+                    "(?m)^@Tag\\(\""
+                            + SLOW
+                            + "\"\\)\\s*\\n(?:@[^\\n]*\\n)*(?:public\\s+|final\\s+)*class\\s");
 
     private static Element pom() throws Exception {
         final DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
@@ -182,7 +190,9 @@ class WholeSuiteProfileTest {
                                 .filter(path -> SLOW_TAG.matcher(read(path)).find())
                                 .map(path -> path.getFileName().toString()))
                 .as("test classes tagged %s", SLOW)
-                .contains(
+                // Elsewhere a slow test would be skipped by every run without the profile, the FFM
+                // check's among them.
+                .containsExactlyInAnyOrder(
                         "GitTreeWritesContractTest.java",
                         "GitTreeWritesTest.java",
                         "GitTreeStoreTest.java");
@@ -202,6 +212,33 @@ class WholeSuiteProfileTest {
         assertThat(child(whole, "build"))
                 .as("a surefire configuration of the profile's own, which this test does not read")
                 .isEmpty();
+    }
+
+    @Test
+    void noModuleChoosesTestsByTagOfItsOwn() throws IOException {
+        // A module's own groups or excludedGroups would take the place of the root's, and the
+        // profile would no longer reach it.
+        final List<String> choosing;
+        try (Stream<Path> paths = Files.walk(ROOT)) {
+            choosing =
+                    paths.filter(path -> path.getFileName().toString().equals("pom.xml"))
+                            .filter(
+                                    path ->
+                                            !path.normalize()
+                                                    .equals(ROOT.resolve("pom.xml").normalize()))
+                            .filter(path -> !path.toString().contains("/target/"))
+                            .filter(path -> !path.toString().contains("/.claude/"))
+                            .filter(
+                                    path -> {
+                                        final String text = read(path);
+                                        return text.contains("<groups>")
+                                                || text.contains("<excludedGroups>");
+                                    })
+                            .map(path -> ROOT.relativize(path).toString())
+                            .toList();
+        }
+
+        assertThat(choosing).as("modules that choose tests by tag themselves").isEmpty();
     }
 
     @Test

@@ -58,3 +58,19 @@ modules built on what it changed, and the whole suite once before a hand-over. I
   Tree 5.2 s; with `-Pwhole` 8:24 min and 5,926 tests, Git Tree 3:06 min. The 391 tests between them are the three
   classes' 204, 108 and 79. Both runs had the one `AgentChoiceTest` failure that depends on the listing order, and ran
   with `-Dmaven.test.failure.ignore=true` so the daemon's tests were timed too.
+
+**The reading** (agy gemini-4-argon-high, once) found, and is fixed:
+- **Where the profile must be named:** a change in `organization/`, and the native and package builds, would have left
+  the slow tests out without saying so. `AGENTS.md` and `doc/build.md` now say to name `-Pwhole`.
+- **Only Git Tree's three classes may carry the tag.** Elsewhere the FFM check's run would skip a slow test.
+- **The tag must be on the class**, not on a method or in a comment.
+- **A module's own `groups` or `excludedGroups` is refused**, since it would take the profile's place. Red first: a
+  module pom with `<groups>` made `noModuleChoosesTestsByTagOfItsOwn` fail naming it.
+- **The guard is tagged `documents`,** so the shared rules check runs it on a change to `.github/` alone, which starts no
+  Build.
+
+**Held, not fixed:**
+- surefire 3.5.5 needs a JUnit 5 engine in every module once `excludedGroups` is set. Every module has `junit-jupiter`
+  from the root pom.
+- CI's runs are read line by line from `build.yml`, not parsed as YAML.
+

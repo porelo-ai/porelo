@@ -24,7 +24,8 @@ hands them at container-create time.
 ```
 
 `-Pwhole` runs the tests tagged `slow` as well, which a build without it leaves out: the whole suite before a
-hand-over and CI turn it on, and a run of only the touched modules (`-pl <changed> -amd`) leaves it off.
+hand-over and CI turn it on, and a run of only the touched modules (`-pl <changed> -amd`) leaves it off. A change in
+`organization/` names it, and so do the native and package builds below when their tests are to count.
 
 Requires JDK 25 or later. Byte Buddy is pinned to 1.17.8 via `org.fuin:bom`,
 because earlier versions reject class-file major version 69.
