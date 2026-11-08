@@ -92,7 +92,7 @@ class TaskWorkspaceTest {
         assertThat(git(workspace, "config", "remote.pushDefault")).isEqualTo("porelo");
     }
 
-    // The reading of B521: work pushed to origin still counted as unpushed, and held the task's
+    // The origin's reading: work pushed to origin still counted as unpushed, and held the task's
     // removal; an origin the agent had pointed elsewhere was kept.
     @Test
     void aPushToOriginIsHandedInAsOneToPoreloAndOriginIsAlwaysTheGate(@TempDir Path root)

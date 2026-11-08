@@ -38,5 +38,5 @@ one.
   - Tests, each seen red: `BuildWatchTest.aResumedWatchAsksAgainEveryRoundForACommitWhoseLastLineIsRunning`,
     `aFinalVerdictWhoseHandInFailedIsAskedAndHandedInAgainAtTheNextRound` and
     `aForgeThatLaterKnowsNoBuildLeavesAFinalVerdictAsItWas`.
-  - Left as it was: `resume` takes the head from the last record line (from 2026-10-08, not B520's).
+  - Left as it was: `resume` takes the head from the last record line (from 2026-10-08, not [B520](README.md#b520)'s).
 

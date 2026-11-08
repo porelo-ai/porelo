@@ -12,7 +12,7 @@ still shows every message to the persons.
 
 - **Which names count.** `metadata.to` names a task by its container (`porelo-p-review`, as the card lists it) and,
   in `TransportConversationsTest.whatArrivesGoesToEveryTaskOfThatProjectWhomeverItNamesAndNothingIsKept`, by its
-  short name (`review`). Both must reach it, and B526's "Agent Review" may become a third.
+  short name (`review`). Both must reach it, and [B526](README.md#b526)'s "Agent Review" may become a third.
 - **A peer on another machine.** A message naming somebody not on this machine was handed to every task here. Under
   the decision it reaches none. Say so to the sender, or keep it silent as the room shows it anyway?
 - **TalkPassProjectTest's removed siblings**: `aRemovedSiblingWhoseNameFitsTwoProjectsKeepsWhatItsRoomHeldForIt`

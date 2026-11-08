@@ -27,7 +27,7 @@ answered in turn. The card says only "the people in your project's conversation"
 - The guide (`MailboxGuide`, doc/messages.md) says a message to `people` reaches no task. The card's `people` entry
   reads "the persons in your project's room; no other task reads it". The persons it lists one by one are
   `Conversations.members`: the joins and the admitted persons taken by their host account. On a host's own
-  homeserver that is B519's admitted logins.
+  homeserver that is [B519](README.md#b519)'s admitted logins.
 - Test: `EveryoneReadsTheRoomTest.aTasksMessageToPeopleReachesNoTaskAndOneToATaskReachesTheOthersButNotItsSender`.
   It replaces the test that pinned the old rule and was seen red against it.
 - Not built: the room's own name on the card. The card is written from the project file, which names the transport

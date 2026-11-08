@@ -36,7 +36,7 @@ class PersonsWordsTest {
                 .isEqualTo("@alice");
     }
 
-    // Matrix's MX86 marks a line headed "All agents:" so; it reaches every task, marked for each.
+    // The transport marks a line headed "All agents:" so; it reaches every task, marked for each.
     @Test
     void aLineToAllAgentsIsMarkedSoForEveryTaskAndOnlyInTheRoom(@TempDir Path dir)
             throws IOException {

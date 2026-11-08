@@ -135,7 +135,8 @@ class EveryoneReadsTheRoomTest {
                 .contains("not in the project's conversation");
     }
 
-    // The reading of B523: "to" as a list or with spaces still reached every task; a person's own
+    // The people rule's reading: "to" as a list or with spaces still reached every task; a person's
+    // own
     // words to people, and a message without a signature, must not vanish.
     @Test
     void peopleIsKnownInEveryFormADispatchTakesAndOnlyInATasksOwnSignedMessage()
