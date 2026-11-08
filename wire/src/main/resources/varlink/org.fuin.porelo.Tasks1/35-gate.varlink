@@ -18,7 +18,34 @@ type PendingPush (
   fetch: string,
   # Whether the upstream already has this work: somebody pushed it there by hand, past the gate, as the last
   # measurement of the upstream found. Reject refuses it without 'force'. Absent from a daemon before this field.
-  alreadyUpstream: ?bool
+  alreadyUpstream: ?bool,
+  # Who made the head commit, "name <email>" as git has them, and its message's trailer lines, unfolded, as git
+  # reads them ("Assisted-by: ..."). Shown as they come, never judged here. Absent from a daemon before these
+  # fields, for a ref that is not a commit, and when the ref has moved past `commit`. Each is cut at 1000 code
+  # points, and at most 50 trailers are given.
+  author: ?string,
+  committer: ?string,
+  trailers: ?[]string,
+  # The head commit's whole message, cut at 16384 code points: a Co-Authored-By outside git's trailer block is
+  # in no trailer line, and is here. Absent where author is, and when git's answer could not be matched to
+  # the commit.
+  message: ?string
+)
+
+# One commit of a pending push, with who made it.
+type ReviewCommit (
+  # In full.
+  commit: string,
+  # First line of the message.
+  subject: string,
+  # "name <email>", as git has them.
+  author: string,
+  committer: string,
+  # The message's trailer lines, unfolded, as git reads them; empty when it has none. Subject, author, committer
+  # and each trailer are cut at 1000 code points, and at most 50 trailers are given.
+  trailers: []string,
+  # The whole message, cut at 16384 code points; "" when git's answer could not be matched to each commit.
+  message: string
 )
 
 # One file a pending push changes, as a person should meet it in a review.
@@ -114,6 +141,8 @@ method Review(
   diff: string,
   # Commit log over the same range.
   log: string,
+  # The same commits, newest first, each with who made it. Absent from a daemon before this field.
+  commits: ?[]ReviewCommit,
   # What the push changes, ranked; the diff shows them in this order.
   files: []ReviewFile,
   # What the task that pushed this was asked, to show before the files - never compared with them.

@@ -987,6 +987,190 @@ public class GitGate {
     }
 
     /**
+     * Who made a commit and what its message says of its help.
+     *
+     * <p>Every field is the agent's own bytes, so each is cut to a length a Pending reply can carry
+     * for every task at once: {@value #LONGEST_FIELD} code points for the subject, a maker and each
+     * trailer, {@value #MOST_TRAILERS} trailers, {@value #LONGEST_MESSAGE} code points of message.
+     *
+     * @param commit In full.
+     * @param subject The message's first line.
+     * @param author {@code name <email>}, as git has it.
+     * @param committer {@code name <email>}, as git has it.
+     * @param trailers The message's trailer lines, unfolded, as git reads them.
+     * @param message The whole message, or {@code null} when git's answer could not be matched to
+     *     the commits one by one.
+     */
+    public record Made(
+            String commit,
+            String subject,
+            String author,
+            String committer,
+            List<String> trailers,
+            @Nullable String message) {
+
+        /** Kept a copy. */
+        public Made {
+            trailers = List.copyOf(trailers);
+        }
+    }
+
+    /** The most code points kept of a subject, a maker or one trailer. */
+    public static final int LONGEST_FIELD = 1000;
+
+    /** The most trailers kept of one commit. */
+    public static final int MOST_TRAILERS = 50;
+
+    /** The most code points kept of one commit's message. */
+    public static final int LONGEST_MESSAGE = 16 * 1024;
+
+    private static final java.util.regex.Pattern COMMIT_ID =
+            java.util.regex.Pattern.compile("[0-9a-f]{40}|[0-9a-f]{64}");
+
+    /**
+     * Returns each commit of a pending push with its makers, newest first, over the range {@link
+     * #log} shows.
+     *
+     * @param name Incoming ref name, without the namespace prefix.
+     * @param against Ref to compare against, or {@code null} for the whole history of the ref.
+     * @return One per commit.
+     * @throws GateException If git's answer does not have the shape it guarantees, rather than a
+     *     list that could miss a commit or name the wrong maker.
+     */
+    public List<Made> made(String name, @Nullable String against) {
+        requirePending(name);
+        final String range =
+                against == null || against.isBlank() || !resolves(against)
+                        ? INCOMING + name
+                        : against + ".." + INCOMING + name;
+        return made(range, -1);
+    }
+
+    /**
+     * Returns the head commit of a pending push with its makers.
+     *
+     * @param name Incoming ref name, without the namespace prefix.
+     * @return It, or {@code null} when the ref is not a commit or git's answer cannot be trusted.
+     */
+    public @Nullable Made madeHead(String name) {
+        try {
+            // 'git log' peels an annotated tag, and would name the makers of a commit the ref
+            // does not hold.
+            if (!"commit".equals(gitIn("cat-file", "-t", INCOMING + name).trimmedOutput())) {
+                return null;
+            }
+            final List<Made> head = made(INCOMING + name, 1);
+            return head.isEmpty() ? null : head.getFirst();
+        } catch (GateException ex) {
+            // A blob an agent pushed, or an answer of the wrong shape: listed all the same, with
+            // nobody named.
+            return null;
+        }
+    }
+
+    private List<Made> made(String range, int most) {
+        // No separator byte cuts the agent's bytes apart: an agent can write any of them into its
+        // commit. What git guarantees is that an ident and a subject hold no newline, so each
+        // commit is exactly four lines, its id first.
+        final String output =
+                logged(range, most, false, "%H%n%an <%ae>%n%cn <%ce>%n%s").standardOutput();
+        if (!output.isEmpty() && !output.endsWith("\n")) {
+            throw new GateException("git log gave the makers of '" + range + "' cut short");
+        }
+        // On '\n' alone: a '\r' is the agent's, and splitting on it too would shift the lines.
+        final String[] lines =
+                output.isEmpty()
+                        ? new String[0]
+                        : output.substring(0, output.length() - 1).split("\n", -1);
+        if (lines.length % 4 != 0) {
+            throw new GateException("git log gave the makers of '" + range + "' out of shape");
+        }
+        final List<String> commits = new ArrayList<>();
+        for (int index = 0; index < lines.length; index += 4) {
+            if (!COMMIT_ID.matcher(lines[index]).matches()) {
+                throw new GateException("git log gave the makers of '" + range + "' out of shape");
+            }
+            commits.add(lines[index]);
+        }
+        // Trailers from git's own reading of the whole message, in one more call for all commits
+        // rather than an interpret-trailers per commit: a long push stays three processes, and the
+        // trailers are those of the message, not of the cut copy below.
+        final List<String> messages = byCommit(range, most, "%B", commits);
+        final List<String> trailers = byCommit(range, most, "%(trailers:only,unfold)", commits);
+        final List<Made> made = new ArrayList<>();
+        for (int index = 0; index < commits.size(); index++) {
+            made.add(
+                    new Made(
+                            commits.get(index),
+                            cut(lines[4 * index + 3], LONGEST_FIELD),
+                            cut(lines[4 * index + 1], LONGEST_FIELD),
+                            cut(lines[4 * index + 2], LONGEST_FIELD),
+                            trailers == null
+                                    ? List.of()
+                                    : java.util.Arrays.stream(trailers.get(index).split("\n"))
+                                            .filter(line -> !line.isBlank())
+                                            .limit(MOST_TRAILERS)
+                                            .map(line -> cut(line, LONGEST_FIELD))
+                                            .toList(),
+                            messages == null ? null : cut(messages.get(index), LONGEST_MESSAGE)));
+        }
+        return List.copyOf(made);
+    }
+
+    /**
+     * Reads one field of each commit with NUL between commits, and keeps it only when the records
+     * are exactly the given commits in order, each led by its own id: a message holds any line, so
+     * nothing else shows where one commit's ends.
+     */
+    private @Nullable List<String> byCommit(
+            String range, int most, String format, List<String> commits) {
+        final String output = logged(range, most, true, "%H%n" + format).standardOutput();
+        if (!output.isEmpty() && !output.endsWith("\0")) {
+            return null;
+        }
+        final String[] records =
+                output.isEmpty()
+                        ? new String[0]
+                        : output.substring(0, output.length() - 1).split("\0", -1);
+        if (records.length != commits.size()) {
+            return null;
+        }
+        final List<String> fields = new ArrayList<>();
+        for (int index = 0; index < records.length; index++) {
+            final String lead = commits.get(index) + "\n";
+            if (!records[index].startsWith(lead)) {
+                return null;
+            }
+            fields.add(records[index].substring(lead.length()));
+        }
+        return fields;
+    }
+
+    private CommandResult logged(String range, int most, boolean nulls, String format) {
+        final List<String> arguments = new ArrayList<>(List.of("log"));
+        if (most > 0) {
+            arguments.add("-" + most);
+        }
+        if (nulls) {
+            arguments.add("-z");
+        }
+        // A person's log.showSignature would add lines of its own and fail every review.
+        arguments.add("--no-show-signature");
+        arguments.add("--format=" + format);
+        arguments.add(range);
+        arguments.add("--");
+        return gitIn(arguments.toArray(String[]::new));
+    }
+
+    /** At most so many code points, so the cut never parts a surrogate pair. */
+    private static String cut(String text, int most) {
+        if (text.length() <= most || text.codePointCount(0, text.length()) <= most) {
+            return text;
+        }
+        return text.substring(0, text.offsetByCodePoints(0, most));
+    }
+
+    /**
      * Returns the commits an incoming ref adds.
      *
      * @param name Incoming ref name, without the namespace prefix.

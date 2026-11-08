@@ -3684,6 +3684,35 @@ class PoreloDaemonTest {
         reviewWithBase(dir, true);
     }
 
+    // The window checks one Assisted-by and no Co-Authored-By, and shows who made each commit.
+    @Test
+    @SuppressWarnings("unchecked")
+    void aReviewAndAPendingPushNameEachCommitsMakersAndTrailers(@TempDir Path dir)
+            throws Exception {
+        final Map<String, Object> review = reviewWithBase(dir, false);
+
+        assertThat((java.util.List<Map<String, Object>>) review.get("commits"))
+                .extracting(commit -> commit.get("subject"), commit -> commit.get("author"))
+                .containsExactly(
+                        org.assertj.core.groups.Tuple.tuple("second.txt", "T <t@example.com>"),
+                        org.assertj.core.groups.Tuple.tuple("first.txt", "T <t@example.com>"));
+        assertThat((java.util.List<Map<String, Object>>) review.get("commits"))
+                .allSatisfy(
+                        commit -> {
+                            assertThat(commit.get("committer")).isEqualTo("T <t@example.com>");
+                            assertThat(commit.get("trailers")).isEqualTo(java.util.List.of());
+                        });
+        // The whole message too: a Co-Authored-By outside the trailer block is only there.
+        assertThat((java.util.List<Map<String, Object>>) review.get("commits"))
+                .extracting(commit -> commit.get("message"))
+                .containsExactly("second.txt\n", "first.txt\n");
+        assertThat((Map<String, Object>) review.get("pendingForTest"))
+                .containsEntry("author", "T <t@example.com>")
+                .containsEntry("committer", "T <t@example.com>")
+                .containsEntry("trailers", java.util.List.of())
+                .containsEntry("message", "second.txt\n");
+    }
+
     private Map<String, Object> reviewWithBase(Path dir, boolean develop) throws Exception {
         // The contract says "Default: the upstream's default branch"; the daemon showed the push's
         // last commit alone, and a client saw half of the work.
@@ -3755,15 +3784,16 @@ class PoreloDaemonTest {
                 socket -> {
                     try (VarlinkClient client = new VarlinkClient(socket)) {
                         final Map<String, Object> review =
-                                client.call(
-                                        PoreloDaemon.INTERFACE + ".Review",
-                                        Map.of(
-                                                "project",
-                                                "default",
-                                                "repository",
-                                                "app",
-                                                "name",
-                                                "t"));
+                                new java.util.LinkedHashMap<>(
+                                        client.call(
+                                                PoreloDaemon.INTERFACE + ".Review",
+                                                Map.of(
+                                                        "project",
+                                                        "default",
+                                                        "repository",
+                                                        "app",
+                                                        "name",
+                                                        "t")));
                         answered.set(review);
                         assertThat(
                                         ((java.util.List<?>) review.get("files"))
@@ -3779,6 +3809,13 @@ class PoreloDaemonTest {
                         assertThat(String.valueOf(review.get("log")))
                                 .contains("first.txt")
                                 .contains("second.txt");
+                        final Map<String, Object> pending =
+                                client.call(
+                                        PoreloDaemon.INTERFACE + ".Pending",
+                                        Map.of("project", "default", "repository", "app"));
+                        review.put(
+                                "pendingForTest",
+                                ((java.util.List<?>) pending.get("pending")).getFirst());
                     }
                 });
         return answered.get();

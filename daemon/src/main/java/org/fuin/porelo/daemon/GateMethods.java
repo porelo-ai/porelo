@@ -111,6 +111,20 @@ final class GateMethods {
                                                 row.put(
                                                         "alreadyUpstream",
                                                         upstreamHas.contains(push.name()));
+                                                // Who made its head, for the reviewer to judge;
+                                                // only of the commit this row names, as a push
+                                                // in between moves the ref.
+                                                final org.fuin.porelo.gate.GitGate.Made head =
+                                                        gate.madeHead(push.name());
+                                                if (head != null
+                                                        && head.commit().equals(push.commit())) {
+                                                    row.put("author", head.author());
+                                                    row.put("committer", head.committer());
+                                                    row.put("trailers", head.trailers());
+                                                    if (head.message() != null) {
+                                                        row.put("message", head.message());
+                                                    }
+                                                }
                                                 return row;
                                             })
                                     .toList();
@@ -160,6 +174,26 @@ final class GateMethods {
                     final Map<String, Object> reply = new LinkedHashMap<>();
                     reply.put("diff", review.patch());
                     reply.put("log", gate.log(name, against));
+                    reply.put(
+                            "commits",
+                            gate.made(name, against).stream()
+                                    .map(
+                                            made -> {
+                                                final Map<String, Object> row =
+                                                        new LinkedHashMap<>();
+                                                row.put("commit", made.commit());
+                                                row.put("subject", made.subject());
+                                                row.put("author", made.author());
+                                                row.put("committer", made.committer());
+                                                row.put("trailers", made.trailers());
+                                                row.put(
+                                                        "message",
+                                                        made.message() == null
+                                                                ? ""
+                                                                : made.message());
+                                                return row;
+                                            })
+                                    .toList());
                     reply.put(
                             "files",
                             review.files().stream()

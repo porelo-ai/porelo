@@ -170,6 +170,201 @@ class GitGateTest {
                 .startsWith(git(work, "rev-parse", "HEAD").standardOutput().strip() + " ");
     }
 
+    // A reviewer judges a commit also by who made it and what it says of its help: the window
+    // checks one Assisted-by and no Co-Authored-By, and could not without them.
+    @Test
+    void theReviewNamesEachCommitsAuthorCommitterAndTrailers() throws IOException {
+        final GitGate gate = gate(GateMode.GATEKEEPING, null);
+        final TaskToken token = TaskToken.mint();
+        try (GitHttpServer server = serve(token)) {
+            git(root, "init", work.toString());
+            git(work, "config", "http.extraHeader", "Authorization: " + token.basicAuthorization());
+            makeCommit("agent.txt", "written by the agent");
+            git(
+                    work,
+                    "commit",
+                    "--amend",
+                    "--author=Ann Agent <ann@example.org>",
+                    "-m",
+                    "add agent.txt\n\nWhy it was added.\n\nAssisted-by: Some Tool\n"
+                            + "Co-Authored-By: Bob <bob@example.org>");
+            git(work, "push", url(server), "HEAD:" + GitGate.INCOMING + "task-1");
+        }
+        final String head = git(work, "rev-parse", "HEAD").standardOutput().strip();
+        final String committer =
+                git(work, "log", "-1", "--format=%cn <%ce>").standardOutput().strip();
+
+        final List<GitGate.Made> made = gate.made("task-1", null);
+
+        assertThat(made).hasSize(1);
+        assertThat(made.getFirst().commit()).isEqualTo(head);
+        assertThat(made.getFirst().subject()).isEqualTo("add agent.txt");
+        assertThat(made.getFirst().author()).isEqualTo("Ann Agent <ann@example.org>");
+        assertThat(made.getFirst().committer()).isEqualTo(committer);
+        assertThat(made.getFirst().trailers())
+                .containsExactly("Assisted-by: Some Tool", "Co-Authored-By: Bob <bob@example.org>");
+    }
+
+    // The agent writes every byte of its commit. A unit or record separator in its subject or its
+    // name must neither put another author and an Assisted-by it does not have on its commit, nor
+    // drop an earlier commit of the push from the list the reviewer judges.
+    @Test
+    void separatorBytesInASubjectAndAnAuthorNameCannotForgeOrHide() {
+        final GitGate gate = gate(GateMode.GATEKEEPING, null);
+        final String tree = object("tree", "");
+        final String hidden =
+                object(
+                        "commit",
+                        "tree "
+                                + tree
+                                + "\nauthor Hid\u001eden <hidden@example.org> 1 +0000"
+                                + "\ncommitter C <c@example.org> 1 +0000"
+                                + "\n\nthe earlier one\n");
+        final String subject =
+                "real\u001fMallory <m@example.org>\u001fMallory <m@example.org>"
+                        + "\u001fAssisted-by: Forged\u001e";
+        final String forging =
+                object(
+                        "commit",
+                        "tree "
+                                + tree
+                                + "\nparent "
+                                + hidden
+                                + "\nauthor Eve <eve@example.org> 1 +0000"
+                                + "\ncommitter C <c@example.org> 1 +0000"
+                                + "\n\n"
+                                + subject
+                                + "\n");
+        incoming("task-1", forging);
+
+        final List<GitGate.Made> made = gate.made("task-1", null);
+
+        assertThat(made)
+                .extracting(GitGate.Made::commit, GitGate.Made::author, GitGate.Made::trailers)
+                .containsExactly(
+                        org.assertj.core.groups.Tuple.tuple(
+                                forging, "Eve <eve@example.org>", List.of()),
+                        org.assertj.core.groups.Tuple.tuple(
+                                hidden, "Hid\u001eden <hidden@example.org>", List.of()));
+        assertThat(made.getFirst().subject()).isEqualTo(subject);
+    }
+
+    // An annotated tag pushed to the incoming ref is peeled by 'git log', which would name the
+    // makers of a commit the ref does not hold.
+    @Test
+    void anIncomingRefThatIsATagNamesNoMakers() {
+        final GitGate gate = gate(GateMode.GATEKEEPING, null);
+        final String commit =
+                object(
+                        "commit",
+                        "tree "
+                                + object("tree", "")
+                                + "\nauthor Ann <ann@example.org> 1 +0000"
+                                + "\ncommitter C <c@example.org> 1 +0000"
+                                + "\n\nthe commit\n");
+        final String tag =
+                object(
+                        "tag",
+                        "object "
+                                + commit
+                                + "\ntype commit\ntag t\ntagger T <t@example.org> 1 +0000\n\nm\n");
+        incoming("task-1", tag);
+
+        assertThat(gate.madeHead("task-1")).isNull();
+    }
+
+    // One huge subject, name or trailer block made the Pending reply outgrow what varlink carries,
+    // and Pending then failed for every task, not just the one that pushed it.
+    @Test
+    void aHugeSubjectNameAndTrailerBlockAreCapped() {
+        final GitGate gate = gate(GateMode.GATEKEEPING, null);
+        final StringBuilder trailers = new StringBuilder();
+        trailers.append("Assisted-by: ").append("t".repeat(5000)).append('\n');
+        for (int index = 0; index < 60; index++) {
+            trailers.append("Assisted-by: Tool ").append(index).append('\n');
+        }
+        final String commit =
+                object(
+                        "commit",
+                        "tree "
+                                + object("tree", "")
+                                + "\nauthor "
+                                + "a".repeat(5000)
+                                + " <a@example.org> 1 +0000"
+                                + "\ncommitter C <c@example.org> 1 +0000"
+                                + "\n\n"
+                                // A pair of surrogates each: a cut between the two is no text.
+                                + "x"
+                                + "😀".repeat(100_000)
+                                + "\n\n"
+                                + "body ".repeat(10_000)
+                                + "\n\n"
+                                + trailers);
+        incoming("task-1", commit);
+
+        final GitGate.Made head = gate.madeHead("task-1");
+
+        assertThat(head).isNotNull();
+        assertThat(head.subject()).isEqualTo("x" + "😀".repeat(999));
+        assertThat(head.author()).isEqualTo("a".repeat(1000));
+        assertThat(head.trailers())
+                .hasSize(50)
+                .allSatisfy(trailer -> assertThat(trailer).hasSizeLessThanOrEqualTo(1000));
+        assertThat(head.trailers().getFirst())
+                .isEqualTo(("Assisted-by: " + "t".repeat(5000)).substring(0, 1000));
+        assertThat(head.message()).isNotNull();
+        assertThat(head.message().codePointCount(0, head.message().length())).isEqualTo(16 * 1024);
+    }
+
+    // git reads only the last paragraph as trailers, so a Co-Authored-By above it is in no trailer
+    // list; the reviewer's window still has to see it.
+    @Test
+    void theMessageCarriesACoAuthoredByOutsideTheTrailers() {
+        final GitGate gate = gate(GateMode.GATEKEEPING, null);
+        final String message =
+                "add it\n\nCo-Authored-By: Bob <bob@example.org>\n\nWhy it was added.\n\n"
+                        + "Assisted-by: Some Tool\n";
+        final String commit =
+                object(
+                        "commit",
+                        "tree "
+                                + object("tree", "")
+                                + "\nauthor Ann <ann@example.org> 1 +0000"
+                                + "\ncommitter C <c@example.org> 1 +0000"
+                                + "\n\n"
+                                + message);
+        incoming("task-1", commit);
+
+        final GitGate.Made head = gate.madeHead("task-1");
+
+        assertThat(head).isNotNull();
+        assertThat(head.trailers()).containsExactly("Assisted-by: Some Tool");
+        assertThat(head.message()).isEqualTo(message);
+        assertThat(gate.made("task-1", null).getFirst().message()).isEqualTo(message);
+    }
+
+    /** Writes an object into the mirror byte for byte, as an agent can, and returns its id. */
+    private String object(String type, String content) {
+        return runner.runOrFail(
+                        Command.of(
+                                        "git",
+                                        "--git-dir",
+                                        mirror.toString(),
+                                        "hash-object",
+                                        "-w",
+                                        "-t",
+                                        type,
+                                        "--stdin")
+                                .withInput(content))
+                .standardOutput()
+                .strip();
+    }
+
+    /** Points an incoming ref of the mirror at an object, as a push of it would. */
+    private void incoming(String name, String object) {
+        git(root, "--git-dir", mirror.toString(), "update-ref", GitGate.INCOMING + name, object);
+    }
+
     @Test
     void theReviewNamesWhatIsDangerousByKindFirstAndReformattingLast() throws IOException {
 
