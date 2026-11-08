@@ -1,6 +1,6 @@
 # [B502](README.md#b502) — What A Machine Lets A Task Reach
 
-**Status:** Backlog.
+**Status:** Implementing.
 **Size:** M - a method in the egress contract part (`25-egress`), its record, and a test reading the same code
 `ReachDocumentTest` reads.
 

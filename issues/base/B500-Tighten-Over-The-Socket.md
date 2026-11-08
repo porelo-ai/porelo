@@ -1,6 +1,6 @@
 # [B500](README.md#b500) — Tighten Over The Socket
 
-**Status:** Backlog.
+**Status:** Implementing.
 **Size:** S - one method in the machine's contract part (`50-machine`), `MachineMethods`, and its test.
 
 **What must be true.** A client of the daemon asks what `porelo tighten` would change, and has it done, as one method

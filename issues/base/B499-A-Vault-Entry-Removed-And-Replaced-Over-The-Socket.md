@@ -1,6 +1,6 @@
 # [B499](README.md#b499) — A Vault Entry Removed And Replaced Over The Socket
 
-**Status:** Backlog.
+**Status:** Implementing.
 **Size:** M - two methods in the vault's contract part (`30-vault`), `VaultMethods`, and their tests.
 
 **What must be true.** A client of the daemon removes a vault entry - its secret, not only the record
