@@ -94,7 +94,10 @@ final class HostForgeAccess implements FetchAccess {
                                                     "sudo",
                                                     "-n",
                                                     HostPerson.PROGRAM.toString(),
-                                                    "forge-token")
+                                                    // Lent for this command, beside the tokens
+                                                    // a running task holds.
+                                                    "forge-token",
+                                                    "--lend")
                                             .withInput(""));
         } catch (final CommandException ex) {
             throw cannotSay();

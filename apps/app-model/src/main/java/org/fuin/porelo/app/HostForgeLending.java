@@ -111,7 +111,14 @@ final class HostForgeLending implements GitCredentials {
             asked =
                     context.runner()
                             .run(
-                                    Command.of("sudo", "-n", PROGRAM.toString(), "forge-token")
+                                    // A token of its own for this command: a plain forge-token
+                                    // replaces every token of the login, a running task's too.
+                                    Command.of(
+                                                    "sudo",
+                                                    "-n",
+                                                    PROGRAM.toString(),
+                                                    "forge-token",
+                                                    "--lend")
                                             .withInput(""));
         } catch (final CommandException ex) {
             return null;

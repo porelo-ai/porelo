@@ -67,7 +67,8 @@ class HostForgeAccessTest {
                                             "sudo",
                                             "-n",
                                             HostPerson.PROGRAM.toString(),
-                                            "forge-token");
+                                            "forge-token",
+                                            "--lend");
                             assertThat(command.input()).isEmpty();
                         });
     }

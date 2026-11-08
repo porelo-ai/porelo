@@ -1,6 +1,6 @@
 # [B497](README.md#b497) — A Forge Token Lent For One Command
 
-**Status:** Backlog; waits on the host's helper offering `forge-token --lend` on the host this runs on.
+**Status:** Review.
 **Size:** XS - the two lending callers and a unit test.
 
 **What must be true.** The gate's git commands against the host's forge and a task start's taking of a project ask the
@@ -13,8 +13,13 @@ push, refresh or start.
 - `HostForgeLending.token()` and `HostForgeAccess.token()` call `sudo -n /usr/local/sbin/porelo-host-person
   forge-token --lend`; nothing else changes, and the builds watch keeps reading the vault entry.
 - Red first: a unit test that the two callers ask with `--lend`.
-- Built only once a host's helper takes `--lend`: a helper without it refuses, and a task start would be refused.
+- The host's helper takes `--lend` from `porelo-host` commit `2b17e7e` on. A host whose installed helper is older
+  refuses `--lend` in sudo, so a start or a gate fetch there is refused: this ships in a release that requires that
+  `porelo-host`, never before it.
+- Built 2026-11-08: both callers send `--lend`; `HostForgeLendingTest`, `HostForgeAccessTest` and
+  `ProjectTakingTest` hold the command, seen red without it.
 
 ## Acceptance
 
 - Both callers send `--lend`; on a host with the helper that takes it, builds stay followed across a push.
+- The release notes name the `porelo-host` version this needs.

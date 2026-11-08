@@ -71,6 +71,9 @@ class HostForgeLendingTest {
         final GitCredentials.Lease lease = lending.forUrl("http://127.0.0.1:3001/demo/first.git");
 
         assertThat(lease.arguments()).isEmpty();
+        assertThat(runner.lines())
+                .as("a token of its own for this command, which leaves the person's other tokens")
+                .containsExactly("sudo -n " + HostPerson.PROGRAM + " forge-token --lend");
         assertThat(lease.environment())
                 .containsEntry("GIT_CONFIG_KEY_0", "http.http://127.0.0.1:3001/.extraHeader")
                 .containsEntry(

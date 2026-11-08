@@ -1,0 +1,2 @@
+title: "On a host, the gate and a task start ask the host's helper for a token lent for one command, so the person's own forge token stays valid; needs porelo-host with forge-token --lend"
+type: fixed

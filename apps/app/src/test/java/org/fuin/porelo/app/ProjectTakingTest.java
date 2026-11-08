@@ -654,7 +654,12 @@ class ProjectTakingTest {
         assertThat(asked)
                 .as("through sudo, for each fetch")
                 .containsOnly(
-                        List.of("sudo", "-n", "/usr/local/sbin/porelo-host-person", "forge-token"));
+                        List.of(
+                                "sudo",
+                                "-n",
+                                "/usr/local/sbin/porelo-host-person",
+                                "forge-token",
+                                "--lend"));
         assertThat(
                         Files.readString(
                                 context.paths()
