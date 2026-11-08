@@ -247,6 +247,28 @@ class McpWiringTest {
     }
 
     @Test
+    void aStartThatFailsAfterItsEndpointEndsItsProcessAndClosesItsDaemonSocket() throws Exception {
+        // What a launch's clean-up runs once its container exists, when the gateway, the hooks,
+        // 'podman create' or 'podman start' failed after porelo-mcp said ready.
+        stand(RUNS);
+        final PoreloContext context = context();
+        McpWiring.start(context, McpWiring.open(context, TASK, PROJECT).orElseThrow());
+        final ProcessHandle process =
+                org.fuin.porelo.wire.HelperPid.verified(
+                                context.paths()
+                                        .tasks()
+                                        .containerState(TASK)
+                                        .resolve(McpWiring.HELPER + ".pid"))
+                        .orElseThrow();
+
+        TaskLaunch.reapOrphans(context, TASK);
+
+        process.onExit().get(10, java.util.concurrent.TimeUnit.SECONDS);
+        assertThat(process.isAlive()).isFalse();
+        assertThat(closed).as("the daemon socket opened for it").containsExactly(TASK);
+    }
+
+    @Test
     void aResumeOpensTheSocketAgainAndStartsItWithTheKeptKey() throws Exception {
         stand(RUNS);
         final PoreloContext context = context();

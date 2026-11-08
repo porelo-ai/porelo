@@ -4099,6 +4099,26 @@ public final class TaskLaunch {
     }
 
     /**
+     * Ends what a start made for a task once no container of it runs: its helpers, by their pid
+     * files, and its MCP endpoint.
+     *
+     * <p>Only when no container is running: a start that failed fires no poststop hook, and the
+     * helpers of one that runs belong to it.
+     *
+     * @param context Where the task's state and podman come from.
+     * @param container The task.
+     */
+    static void reapOrphans(PoreloContext context, String container) {
+        if (context.podman().pidOf(container).orElse(0L) > 0) {
+            return;
+        }
+        TaskLifecycle.stopHelpers(context.paths().tasks().containerState(container));
+        // Its porelo-mcp went with the helpers; the daemon socket opened for it lives in porelod,
+        // which no pid file reaches. Before the state goes: the stop finds porelo-mcp by its file.
+        McpWiring.stop(context, container);
+    }
+
+    /**
      * Notes that a task stopped before it was handed on holds nothing, where its stop could not
      * say: before its workspace is a checkout nothing can be asked, and the removal its start names
      * then refused without {@code --force} a task nobody had worked in.
@@ -4260,8 +4280,7 @@ public final class TaskLaunch {
             // closes when there is none.
             McpWiring.stop(context, container);
         } else {
-            // Only reaps when no container is running: a start that failed fires no poststop hook.
-            runner.reapOrphans(container);
+            reapOrphans(context, container);
         }
         if (unmade) {
             // After the reaping, which finds the helpers by the pid files in its state.
