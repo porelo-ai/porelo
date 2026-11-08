@@ -71,7 +71,7 @@ public final class McpDaemonSockets {
      * @return The one it replaced, for a test to put back.
      */
     public static Opener install(final Opener opener) {
-        final Opener before = CURRENT.getAndSet(opener);
+        final Opener before = CURRENT.getAndSet(java.util.Objects.requireNonNull(opener));
         return before == null ? NONE : before;
     }
 }

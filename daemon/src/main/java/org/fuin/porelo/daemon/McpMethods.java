@@ -28,16 +28,17 @@ final class McpMethods {
     static final String LOCAL_LIST = "mcp-writing";
 
     /**
-     * Methods that change nothing and hand out no secret. Not here though they only read: {@code
-     * LogArchive} and {@code PendingBundle} write a file, {@code Landed} and {@code TakeProject}
-     * change state, {@code Tighten} changes modes unless asked for a dry run, and {@code
-     * ReadHostVaultShare} hands out a share of the vault.
+     * Methods that change nothing and hand out no secret. Not here though they seem to read: {@code
+     * LogArchive} and {@code PendingBundle} write a file; {@code CanStart} may take a project,
+     * lending a forge token; {@code FirstStart} keeps a note and looks things up; {@code Node}
+     * makes the node's id on its first ask; {@code Landed} and {@code TakeProject} change state;
+     * {@code Tighten} changes modes unless asked for a dry run.
      */
     static final Set<String> READING =
             Set.of(
                     "List",
+                    "McpMethods",
                     "Watch",
-                    "CanStart",
                     "Logs",
                     "Tail",
                     "WorkHeld",
@@ -45,7 +46,6 @@ final class McpMethods {
                     "Screen",
                     "HandIns",
                     "Usage",
-                    "FirstStart",
                     "HostKeys",
                     "Projects",
                     "WatchProjects",
@@ -74,21 +74,24 @@ final class McpMethods {
                     "Peers",
                     "Talk",
                     "Held",
-                    "ReadHeld",
                     "MessageMembers",
                     "Doctor",
-                    "Node",
                     "Process",
                     "Events",
                     "VerifyEvents");
 
     /**
      * Methods never offered, whatever the person's list says: each stops every task, removes what
-     * cannot be had back, or hands out a secret.
+     * cannot be had back, hands out a secret ({@code ReadHostVaultShare}, and {@code ReadHeld} with
+     * a refused message's text), or changes where a credential is sent ({@code WriteDestination},
+     * {@code CredentialDeclare}).
      */
     static final Set<String> NEVER =
             Set.of(
                     "Panic",
+                    "ReadHeld",
+                    "WriteDestination",
+                    "CredentialDeclare",
                     "Clear",
                     "VaultClear",
                     "Prune",
@@ -105,6 +108,7 @@ final class McpMethods {
     static final Set<String> JUDGEMENT =
             Set.of(
                     "Approve",
+                    "Reject",
                     "Decide",
                     "TrustHostKey",
                     "ConfirmFirstStart",
@@ -139,15 +143,43 @@ final class McpMethods {
         return reply;
     }
 
+    /** Larger than any list of Tasks1's methods with comments; a larger file is refused unread. */
+    static final int LARGEST_LIST = 16 * 1024;
+
     private static List<String> listed(final Path list) throws IOException {
-        final List<String> lines;
+        final java.nio.file.attribute.PosixFileAttributes attributes;
         try {
-            lines = Files.readAllLines(list, StandardCharsets.UTF_8);
+            attributes =
+                    Files.readAttributes(
+                            list,
+                            java.nio.file.attribute.PosixFileAttributes.class,
+                            java.nio.file.LinkOption.NOFOLLOW_LINKS);
         } catch (NoSuchFileException ex) {
             return List.of();
         }
+        // Who may change this list decides what a client may do, so it is this account's own file,
+        // read as it is: not through a link, not a pipe that never ends, not without bound.
+        if (attributes.isSymbolicLink()) {
+            throw new IOException(
+                    list + " is a link; the list is read only from a file of its own");
+        }
+        if (!attributes.isRegularFile()) {
+            throw new IOException(list + " is not a regular file");
+        }
+        if ((int) Files.getAttribute(list, "unix:uid", java.nio.file.LinkOption.NOFOLLOW_LINKS)
+                != (int) Files.getAttribute(Path.of("/proc/self"), "unix:uid")) {
+            throw new IOException(list + " belongs to another account");
+        }
+        final byte[] bytes;
+        try (java.io.InputStream in =
+                Files.newInputStream(list, java.nio.file.LinkOption.NOFOLLOW_LINKS)) {
+            bytes = in.readNBytes(LARGEST_LIST + 1);
+        }
+        if (bytes.length > LARGEST_LIST) {
+            throw new IOException(list + " is too large for a list of methods");
+        }
         final List<String> names = new ArrayList<>();
-        for (final String line : lines) {
+        for (final String line : new String(bytes, StandardCharsets.UTF_8).split("\n", -1)) {
             final int hash = line.indexOf('#');
             final String name = (hash < 0 ? line : line.substring(0, hash)).strip();
             if (!name.isEmpty()) {

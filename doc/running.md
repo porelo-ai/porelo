@@ -486,7 +486,7 @@ need both:
 your own daemon socket. Which methods it offers comes from the daemon (`McpMethods`):
 
 - **Reading methods** are offered by default. They change nothing and hand out no secret, such as `List`, `Tail` or
-  `Events`.
+  `Events`. `CanStart`, `FirstStart` and `Node` are not among them, since each can write something.
 - **A method that changes something** is offered only when you name it in `$XDG_CONFIG_HOME/porelo/mcp-writing`.
   - One method per line, by its name alone, such as `Start`. A full name such as `org.fuin.porelo.Tasks1.Start`
     matches nothing.
@@ -495,9 +495,14 @@ your own daemon socket. Which methods it offers comes from the daemon (`McpMetho
   - `porelo-mcp` reads the list when it starts.
 - **A method that stands for your own judgement**, such as `Approve` or `Decide`, may be on that list. `porelo-mcp` then
   says at its start which of them the client may call.
-- **Never offered**, whatever the list says: a method that stops every task (`Panic`), removes what cannot be had back
-  (`Clear`, `VaultClear`, `Prune`, `RemoveProject`, `Remove`, `DeleteBackup`, `RestoreBackup`, `CredentialRemove`,
-  `CredentialReplace`, `RevokeKeyslot`), or hands out a secret (`ReadHostVaultShare`).
+- **Never offered**, whatever the list says:
+  - a method that stops every task (`Panic`);
+  - one that removes what cannot be had back (`Clear`, `VaultClear`, `Prune`, `RemoveProject`, `Remove`,
+    `DeleteBackup`, `RestoreBackup`, `CredentialRemove`, `CredentialReplace`, `RevokeKeyslot`);
+  - one that hands out a secret (`ReadHostVaultShare`, and `ReadHeld`, whose refused message holds what was refused);
+  - one that changes where a credential is sent (`WriteDestination`, `CredentialDeclare`).
+- **The list is read only from your own regular file**, at most 16 KiB. A link, a pipe or another account's file is
+  refused, and the client is then offered no writing method.
 
 A list that lets the client start and stop tasks:
 

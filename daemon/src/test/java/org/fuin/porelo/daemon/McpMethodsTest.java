@@ -1,6 +1,7 @@
 package org.fuin.porelo.daemon;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -29,6 +30,9 @@ class McpMethodsTest {
     static final Set<String> WRITING_ONLY_FROM_THE_LIST =
             Set.of(
                     "Start",
+                    "CanStart",
+                    "FirstStart",
+                    "Node",
                     "Certify",
                     "RefreshTask",
                     "Stop",
@@ -48,16 +52,13 @@ class McpMethodsTest {
                     "SetClearance",
                     "NarrowTask",
                     "WidenTask",
-                    "CredentialDeclare",
                     "CredentialForget",
                     "ImportCredential",
-                    "WriteDestination",
                     "RemoveDestination",
                     "KeepHostVaultShare",
                     "ForgetHostVaultShare",
                     "PendingBundle",
                     "Landed",
-                    "Reject",
                     "CredentialTryPush",
                     "MessageKey",
                     "Say",
@@ -85,7 +86,6 @@ class McpMethodsTest {
             count += set.size();
         }
         final Set<String> described = new TreeSet<>(McpMethods.described());
-        described.remove("McpMethods");
 
         assertThat(sorted).as("every method of Tasks1, and no other").isEqualTo(described);
         assertThat(count).as("no method in two sets").isEqualTo(sorted.size());
@@ -107,6 +107,61 @@ class McpMethodsTest {
                         "CredentialReplace",
                         "RevokeKeyslot",
                         "ReadHostVaultShare");
+    }
+
+    @Test
+    void whatHandsOutASecretOrRedirectsACredentialIsNeverOffered() {
+        assertThat(McpMethods.NEVER)
+                .as("a held message's text, secrets included; where a credential is sent")
+                .contains("ReadHeld", "WriteDestination", "CredentialDeclare");
+    }
+
+    @Test
+    void whatWritesAnythingIsNotReading() {
+        assertThat(McpMethods.READING)
+                .as("each writes a file, fetches, or takes a project")
+                .doesNotContain("CanStart", "FirstStart", "Node", "ReadHeld")
+                .contains("McpMethods");
+        assertThat(McpMethods.JUDGEMENT).as("dropping pending work").contains("Reject");
+    }
+
+    @Test
+    void aListThatIsALinkIsRefused(@TempDir final Path dir) throws Exception {
+        final Path real = Files.writeString(dir.resolve("elsewhere"), "Start\n");
+        final Path list = Files.createSymbolicLink(dir.resolve(McpMethods.LOCAL_LIST), real);
+
+        assertThatThrownBy(() -> McpMethods.answer(list, McpMethods.described()))
+                .isInstanceOf(java.io.IOException.class)
+                .hasMessageContaining("link");
+    }
+
+    @Test
+    void aListThatIsAPipeIsRefusedWithoutWaiting(@TempDir final Path dir) throws Exception {
+        final Path list = dir.resolve(McpMethods.LOCAL_LIST);
+        assertThat(new ProcessBuilder("mkfifo", list.toString()).start().waitFor()).isZero();
+
+        assertThat(
+                        java.util.concurrent.CompletableFuture.supplyAsync(
+                                        () -> {
+                                            try {
+                                                McpMethods.answer(list, McpMethods.described());
+                                                return "read";
+                                            } catch (java.io.IOException ex) {
+                                                return "refused";
+                                            }
+                                        })
+                                .get(5, java.util.concurrent.TimeUnit.SECONDS))
+                .isEqualTo("refused");
+    }
+
+    @Test
+    void aListLargerThanAnyListOfMethodsIsRefused(@TempDir final Path dir) throws Exception {
+        final Path list =
+                Files.writeString(dir.resolve(McpMethods.LOCAL_LIST), "# x\n".repeat(100_000));
+
+        assertThatThrownBy(() -> McpMethods.answer(list, McpMethods.described()))
+                .isInstanceOf(java.io.IOException.class)
+                .hasMessageContaining("large");
     }
 
     @Test
