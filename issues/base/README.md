@@ -20,6 +20,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b503"></a>[B503](B503-The-Ecosystems-A-Machine-Has.md) | M | - | `Ecosystems` lists the installed ecosystem plugins and what each places for a repository; its shape agreed with the ecosystems' repository first. |
 | <a id="b497"></a>[B497](B497-A-Forge-Token-Lent-For-One-Command.md) | XS | - | The gate and a start ask the host's helper for a token lent for one command, leaving the person's token valid; needs `porelo-host` from `2b17e7e`. |
 | <a id="b504"></a>[B504](B504-An-Unknown-Project-Removed-From-The-Window.md) | XS | - | `RemoveProject` previews and removes a project the machine lists but has no file for, instead of `NoSuchProject`. |
 | <a id="b502"></a>[B502](B502-What-A-Machine-Lets-A-Task-Reach.md) | M | - | `Reach` answers `doc/reach.md`'s rows with this machine's values, and per task where it was widened or narrowed. |
@@ -102,7 +103,6 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
-| <a id="b503"></a>[B503](B503-The-Ecosystems-A-Machine-Has.md) | M | - | `Ecosystems` lists the installed ecosystem plugins and what each places for a repository; its shape agreed with the ecosystems' repository first. |
 | <a id="b506"></a>[B506](B506-An-Agent-Waiting-On-A-Person.md) | XS | [B118](#b118) | A task's listing says when its agent waits on a person for its own question, where the agent declares how that is seen. |
 | <a id="b474"></a>[B474](B474-A-Task-Fetches-Its-Projects-Snapshots-Through-Its-Broker.md) | M | [B470](#b470), [B467](#b467) | A package route in the task's broker: GET/HEAD below its own organization's maven path, refused before upstream otherwise; Maven's answers there alone; the task's host token read narrowly and made before the broker; settings through porelo.yml and Configure | Whether removal ends the token at once; the shared snapshot rule |
 | <a id="b467"></a>[B467](B467-A-Task-Reaches-Its-Tools-Repositories-Through-Their-Settings.md) | M | [B468](#b468) | A project declares its build tool's repositories in `project.yml`, and a task start calls the ecosystem adapter's `Configure` and places the settings files it returns. |

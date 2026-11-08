@@ -39,13 +39,13 @@ final class TaskMethods {
 
     private TaskMethods() {}
 
-    private static org.fuin.porelo.app.FirstStart firstStart(final PoreloContext context) {
+    static org.fuin.porelo.app.FirstStart firstStart(final PoreloContext context) {
         return new org.fuin.porelo.app.FirstStart(
                 context, org.fuin.porelo.app.EcosystemDetector.INSTALLED);
     }
 
     /** A daemon has a directory of its own: a relative path would name something else. */
-    private static Path checkout(final Map<String, Object> parameters)
+    static Path checkout(final Map<String, Object> parameters)
             throws org.fuin.porelo.app.FirstStart.Refused {
         final Path checkout = Path.of(text(parameters, "checkout"));
         if (!checkout.isAbsolute()) {
@@ -56,7 +56,7 @@ final class TaskMethods {
         return checkout;
     }
 
-    private static VarlinkException firstStartRefused(
+    static VarlinkException firstStartRefused(
             final org.fuin.porelo.app.FirstStart.Refused refused) {
         return new VarlinkException(
                 INTERFACE + ".FirstStartRefused",

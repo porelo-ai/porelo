@@ -186,3 +186,75 @@ type Installable (
   # What is installed, or what the repository offers. "" when neither is known.
   version: string
 )
+
+# The ecosystem adapters installed on this machine and, for a checkout, what each would place there at a first start,
+# found as FirstStart finds them: the account's own directory first, then the packaged one, each asked Detect with the
+# checkout's directory and the person's home. Nothing is looked up (no Resolve, so nothing reaches the network), and
+# nothing is written, in the checkout or on the machine. A checkout of 'default' or of a placed project is asked alike.
+# A checkout in no git repository, or not named by its absolute path, is FirstStartRefused with NOT_A_CHECKOUT.
+method Ecosystems(
+  # The checkout to ask about, by its absolute path. Without it only the adapters are listed.
+  checkout: ?string
+) -> (
+  # Every installed adapter by name, one refused included, which is never asked about a checkout.
+  ecosystems: []Ecosystem,
+  # With a checkout: one entry per adapter that is not refused, in the order a first start asks them. Absent without.
+  placing: ?[]EcosystemPlacing
+)
+
+# An installed ecosystem adapter, as its executable describes itself.
+type Ecosystem (
+  # Its executable's file name, which is the ecosystem it serves.
+  name: string,
+  # Where it is installed.
+  executable: string,
+  # Its own release, as it says it. Absent when it is refused or says none.
+  version: ?string,
+  # The version of org.fuin.porelo.Ecosystem1 it speaks. Absent when it is refused.
+  protocolVersion: ?int,
+  # Why it cannot be used, in words. Absent when it can.
+  refusal: ?string
+)
+
+# What one adapter answers for a checkout. Every text an adapter wrote is made printable.
+type EcosystemPlacing (
+  # The adapter's name, as in Ecosystem.
+  ecosystem: string,
+  # DETECTED (it recognized something), NOT_RECOGNIZED (nothing of its tool is there), UNREADABLE (a file it needs
+  # cannot be read; note says which) or FAILED (it did not answer, or answered no detection).
+  outcome: string,
+  # What it recognized, as it goes into a first start's draft. Empty unless DETECTED.
+  findings: []EcosystemFinding,
+  # What it read and can place in no part, with its words. Empty unless DETECTED.
+  unplaced: []EcosystemUnplaced,
+  # The settings files a first start places from it in a task. Empty today: a first start asks no adapter's Configure.
+  files: []EcosystemFile,
+  # What a first start says of an UNREADABLE or FAILED adapter, or "".
+  note: string
+)
+
+# One value an adapter recognized, as org.fuin.porelo.Ecosystem1's Finding has it.
+type EcosystemFinding (
+  # TOOLS or RULES.
+  part: string,
+  key: string,
+  value: string,
+  # Where it is set; "" with line 0 when it comes from no file.
+  file: string,
+  line: int,
+  # YOURS, CHECKOUT or MACHINE: who wrote it.
+  origin: string,
+  # Whether it is set where it cannot be read without running something.
+  unknown: bool,
+  note: string
+)
+
+# Something an adapter read and can place in no part.
+type EcosystemUnplaced (file: string, line: int, note: string)
+
+# A settings file an adapter would have placed in a task: its path, relative to the task user's home, and whether
+# only that user may read it. Never what it holds, which may be a credential.
+type EcosystemFile (path: string, ownerOnly: bool)
+
+# The installed adapters could not be listed: detail names the directory.
+error EcosystemsNotListed(detail: string)

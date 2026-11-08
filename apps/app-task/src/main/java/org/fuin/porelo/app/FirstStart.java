@@ -22,7 +22,10 @@ import org.fuin.porelo.core.project.Repository;
 import org.fuin.porelo.ecosystem.api.Detection;
 import org.fuin.porelo.ecosystem.api.EcosystemException;
 import org.fuin.porelo.ecosystem.api.EcosystemRefused;
+import org.fuin.porelo.ecosystem.api.File;
+import org.fuin.porelo.ecosystem.api.Finding;
 import org.fuin.porelo.ecosystem.api.InstalledEcosystems;
+import org.fuin.porelo.ecosystem.api.Unplaced;
 import org.fuin.porelo.gate.LocalRepository;
 import org.fuin.porelo.shield.EgressSet;
 import org.fuin.porelo.vault.RegistryText;
@@ -221,6 +224,88 @@ public final class FirstStart {
         }
     }
 
+    /** What one plugin's answer for a checkout is. */
+    public enum Asking {
+        /** It recognized something, which its detection holds. */
+        DETECTED,
+        /** It holds nothing of its tool there. */
+        NOT_RECOGNIZED,
+        /** A file it needs cannot be read. */
+        UNREADABLE,
+        /** It did not answer, or answered something that is no detection. */
+        FAILED
+    }
+
+    /**
+     * What one usable plugin answers for a checkout at a first start, before anything is looked up.
+     *
+     * @param plugin The plugin.
+     * @param outcome What its answer is.
+     * @param detection What it recognized; empty unless {@link Asking#DETECTED}.
+     * @param files The settings files a first start places from it.
+     * @param note What a person reads of a refusal or a failure, printable; or "".
+     */
+    public record Placing(
+            InstalledEcosystems.Description plugin,
+            Asking outcome,
+            Detection detection,
+            List<File> files,
+            String note) {
+
+        /** Constructor. */
+        public Placing {
+            files = List.copyOf(files);
+        }
+
+        /**
+         * Returns this as the wire has it: a file by its path and whether it is owner-only, never
+         * what it holds, which may be a credential.
+         *
+         * @return Its fields.
+         */
+        public Map<String, Object> asMap() {
+            final Map<String, Object> map = new LinkedHashMap<>();
+            map.put("ecosystem", plugin.name());
+            map.put("outcome", outcome.name());
+            map.put("findings", detection.findings().stream().map(FirstStart::finding).toList());
+            map.put("unplaced", detection.unplaced().stream().map(FirstStart::unplaced).toList());
+            map.put("files", files.stream().map(FirstStart::file).toList());
+            map.put("note", note);
+            return map;
+        }
+    }
+
+    /**
+     * The installed plugins and, for a checkout, what each answers there as a first start asks it.
+     *
+     * @param plugins Every installed plugin, a refused one with its refusal.
+     * @param placing For a checkout, one entry per usable plugin in the order a first start asks
+     *     them; {@code null} when no checkout was named.
+     */
+    public record Ecosystems(
+            List<InstalledEcosystems.Description> plugins, @Nullable List<Placing> placing) {
+
+        /** Constructor. */
+        public Ecosystems {
+            plugins = List.copyOf(plugins);
+            placing = placing == null ? null : List.copyOf(placing);
+        }
+
+        /**
+         * Returns this as the wire has it.
+         *
+         * @return Its fields; {@code placing} is absent without a checkout.
+         */
+        public Map<String, Object> asMap() {
+            final Map<String, Object> map = new LinkedHashMap<>();
+            map.put("ecosystems", plugins.stream().map(FirstStart::plugin).toList());
+            if (placing != null) {
+                map.put("placing", placing.stream().map(Placing::asMap).toList());
+            }
+            return map;
+        }
+    }
+
     /** An existing local project's file, whose approval remains a project approval. */
     private static final String FILE_NAME = CheckoutProject.FILE_NAME;
 
@@ -300,16 +385,8 @@ public final class FirstStart {
      */
     public Answer look(final Path directory, final @Nullable Map<String, String> proxies)
             throws Refused {
-        final Path here;
-        try {
-            here = directory.toRealPath();
-        } catch (IOException ex) {
-            throw new Refused(Reason.NOT_A_CHECKOUT, "that directory cannot be read");
-        }
-        final Path top = LocalRepository.topLevel(context.runner(), here);
-        if (top == null) {
-            throw new Refused(Reason.NOT_A_CHECKOUT, "that directory is in no git checkout");
-        }
+        final Path here = real(directory);
+        final Path top = topLevel(here);
         final String origin = origin(top);
         if (!origin.isEmpty()) {
             // Before any file in the checkout is read: a project.yml decides nothing for such a
@@ -341,6 +418,86 @@ public final class FirstStart {
             return knownRepository(own, top, origin);
         }
         return detected(here, top, origin, proxies);
+    }
+
+    /**
+     * Lists the installed plugins and, for a checkout, asks each usable one what it finds there as
+     * a first start asks it: the same plugins, directory and home, nothing looked up, and nothing
+     * written. Whatever project the checkout belongs to, it is asked.
+     *
+     * @param directory The checkout, or {@code null} to list the plugins alone.
+     * @return What they are and answer.
+     * @throws Refused When the directory is in no checkout.
+     * @throws EcosystemException When a plugin directory cannot be listed.
+     */
+    public Ecosystems ecosystems(final @Nullable Path directory) throws Refused {
+        final Path here = directory == null ? null : real(directory);
+        if (here != null) {
+            topLevel(here);
+        }
+        final List<InstalledEcosystems.Description> plugins = installed();
+        if (here == null) {
+            return new Ecosystems(plugins, null);
+        }
+        final Path home = context.paths().xdg().home();
+        final List<Placing> placing = new ArrayList<>();
+        for (final InstalledEcosystems.Description each : plugins) {
+            if (each.refusal() == null) {
+                placing.add(ask(each, here, home));
+            }
+        }
+        return new Ecosystems(plugins, placing);
+    }
+
+    /** The plugins a first start finds: the account's own first, then the packaged ones. */
+    private List<InstalledEcosystems.Description> installed() {
+        return InstalledEcosystems.all(context.paths().ecosystemDirectories());
+    }
+
+    /**
+     * Asks one usable plugin what it recognizes, as a first start does before it looks anything up;
+     * a refusal or a failure becomes the note a first start gives for it.
+     */
+    private Placing ask(
+            final InstalledEcosystems.Description plugin, final Path here, final Path home) {
+        final Detection none = new Detection(List.of(), List.of());
+        try {
+            return new Placing(
+                    plugin, Asking.DETECTED, detector.detect(plugin, here, home), List.of(), "");
+        } catch (EcosystemRefused ex) {
+            if (ex.reason() == EcosystemRefused.Reason.NOT_RECOGNIZED) {
+                return new Placing(plugin, Asking.NOT_RECOGNIZED, none, List.of(), "");
+            }
+            return new Placing(
+                    plugin,
+                    Asking.UNREADABLE,
+                    none,
+                    List.of(),
+                    printable(plugin.name() + " could not read: " + ex.detail()));
+        } catch (EcosystemException | IOException ex) {
+            return new Placing(
+                    plugin,
+                    Asking.FAILED,
+                    none,
+                    List.of(),
+                    printable(plugin.name() + " failed to answer"));
+        }
+    }
+
+    private static Path real(final Path directory) throws Refused {
+        try {
+            return directory.toRealPath();
+        } catch (IOException ex) {
+            throw new Refused(Reason.NOT_A_CHECKOUT, "that directory cannot be read");
+        }
+    }
+
+    private Path topLevel(final Path here) throws Refused {
+        final Path top = LocalRepository.topLevel(context.runner(), here);
+        if (top == null) {
+            throw new Refused(Reason.NOT_A_CHECKOUT, "that directory is in no git checkout");
+        }
+        return top;
     }
 
     /**
@@ -789,7 +946,7 @@ public final class FirstStart {
         final List<String> notes = new ArrayList<>();
         final List<InstalledEcosystems.Description> plugins;
         try {
-            plugins = InstalledEcosystems.all(context.paths().ecosystemDirectories());
+            plugins = installed();
         } catch (EcosystemException ex) {
             return Answer.plain(
                     Outcome.NO_PLUGIN,
@@ -824,25 +981,24 @@ public final class FirstStart {
         final List<Found> found = new ArrayList<>();
         try {
             for (final InstalledEcosystems.Description each : usable) {
-                try {
-                    final Path home = context.paths().xdg().home();
-                    Detection detection = detector.detect(each, here, home);
-                    if (proxies != null) {
-                        final EcosystemLookup.Looked looked =
-                                lookedUp(each, here, home, detection, proxies);
-                        if (looked.note() != null) {
-                            notes.add(printable(looked.note()));
-                        }
-                        detection = looked.detection();
+                final Path home = context.paths().xdg().home();
+                final Placing asked = ask(each, here, home);
+                if (asked.outcome() != Asking.DETECTED) {
+                    if (!asked.note().isEmpty()) {
+                        notes.add(asked.note());
                     }
-                    proposal.add(each.name(), detection);
-                } catch (EcosystemRefused ex) {
-                    if (ex.reason() != EcosystemRefused.Reason.NOT_RECOGNIZED) {
-                        notes.add(printable(each.name() + " could not read: " + ex.detail()));
-                    }
-                } catch (EcosystemException | IOException ex) {
-                    notes.add(printable(each.name() + " failed to answer"));
+                    continue;
                 }
+                Detection detection = asked.detection();
+                if (proxies != null) {
+                    final EcosystemLookup.Looked looked =
+                            lookedUp(each, here, home, detection, proxies);
+                    if (looked.note() != null) {
+                        notes.add(printable(looked.note()));
+                    }
+                    detection = looked.detection();
+                }
+                proposal.add(each.name(), detection);
             }
             // Before the draft is made: one that cannot be made still says these.
             proposal.notesForAPerson().forEach(each -> notes.add(printable(each)));
@@ -980,6 +1136,52 @@ public final class FirstStart {
                         + "' of another repository or other content; give this one another name in"
                         + " its "
                         + FILE_NAME);
+    }
+
+    private static Map<String, Object> plugin(final InstalledEcosystems.Description plugin) {
+        final Map<String, Object> map = new LinkedHashMap<>();
+        map.put("name", plugin.name());
+        map.put("executable", printable(plugin.executable().toString()));
+        // Absent rather than "", as Describe leaves out a version nobody said.
+        if (plugin.version() != null) {
+            map.put("version", printable(plugin.version()));
+        }
+        if (plugin.protocolVersion() != null) {
+            map.put("protocolVersion", plugin.protocolVersion());
+        }
+        if (plugin.refusal() != null) {
+            map.put("refusal", printable(plugin.refusal()));
+        }
+        return map;
+    }
+
+    /** A plugin's words are a stranger's input: every text of a finding is made printable. */
+    private static Map<String, Object> finding(final Finding finding) {
+        final Map<String, Object> map = new LinkedHashMap<>();
+        map.put("part", finding.part().name());
+        map.put("key", printable(finding.key()));
+        map.put("value", printable(finding.value()));
+        map.put("file", printable(finding.file()));
+        map.put("line", Integer.valueOf(finding.line()));
+        map.put("origin", finding.origin().name());
+        map.put("unknown", Boolean.valueOf(finding.unknown()));
+        map.put("note", printable(finding.note()));
+        return map;
+    }
+
+    private static Map<String, Object> unplaced(final Unplaced unplaced) {
+        final Map<String, Object> map = new LinkedHashMap<>();
+        map.put("file", printable(unplaced.file()));
+        map.put("line", Integer.valueOf(unplaced.line()));
+        map.put("note", printable(unplaced.note()));
+        return map;
+    }
+
+    private static Map<String, Object> file(final File file) {
+        final Map<String, Object> map = new LinkedHashMap<>();
+        map.put("path", printable(file.path()));
+        map.put("ownerOnly", Boolean.valueOf(file.ownerOnly()));
+        return map;
     }
 
     private static String printable(final String text) {

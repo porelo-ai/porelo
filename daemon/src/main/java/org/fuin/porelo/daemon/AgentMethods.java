@@ -111,6 +111,26 @@ final class AgentMethods {
                     }
                 });
 
+        // The first start's own question, so a window sees what a start would make of a checkout.
+        final org.fuin.porelo.app.FirstStart firstStart = TaskMethods.firstStart(context);
+        server.method(
+                "Ecosystems",
+                (parameters, replies) -> {
+                    try {
+                        final Path checkout =
+                                parameters.get("checkout") == null
+                                        ? null
+                                        : TaskMethods.checkout(parameters);
+                        replies.last(firstStart.ecosystems(checkout).asMap());
+                    } catch (org.fuin.porelo.app.FirstStart.Refused ex) {
+                        throw TaskMethods.firstStartRefused(ex);
+                    } catch (org.fuin.porelo.ecosystem.api.EcosystemException ex) {
+                        throw new org.fuin.porelo.wire.varlink.VarlinkException(
+                                INTERFACE + ".EcosystemsNotListed",
+                                Map.of("detail", String.valueOf(ex.getMessage())));
+                    }
+                });
+
         server.method(
                 "Installable",
                 (parameters, replies) -> {
