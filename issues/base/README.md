@@ -103,6 +103,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b509"></a>[B509](B509-A-Varlink-Number-Read-Exactly.md) | S | - | A number in a varlink call or reply reaches its reader as sent: `VarlinkConnection` reads with `Json.parseDecimals`, so an int is no double and an int64 above 2^53 keeps its digits. |
 | <a id="b118"></a>[B118](B118-An-Attached-Agent-Said-At-Rest-Or-Working.md) | M | - | A new `AT_REST` activity, judged from the screen reads the listing already makes with the wake's two-look rule; the stub agent gets an `at_rest`. | - |
 | <a id="b506"></a>[B506](B506-An-Agent-Waiting-On-A-Person.md) | XS | [B118](#b118) | A task's listing says when its agent waits on a person for its own question, where the agent declares how that is seen. |
 | <a id="b474"></a>[B474](B474-A-Task-Fetches-Its-Projects-Snapshots-Through-Its-Broker.md) | M | [B470](#b470), [B467](#b467) | A package route in the task's broker: GET/HEAD below its own organization's maven path, refused before upstream otherwise; Maven's answers there alone; the task's host token read narrowly and made before the broker; settings through porelo.yml and Configure | Whether removal ends the token at once; the shared snapshot rule |
@@ -118,7 +119,6 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers | Open questions |
 |---|---|---|---|---|
-| <a id="b509"></a>[B509](B509-A-Varlink-Number-Read-Exactly.md) | S | - | A number in a varlink call or reply reaches its reader as sent: `VarlinkConnection` reads with `Json.parseDecimals`, so an int is no double and an int64 above 2^53 keeps its digits. | - |
 | <a id="b507"></a>[B507](B507-A-Task-That-Starts-Tasks-Through-An-MCP-Endpoint.md) | L | - | A task the signed project file allows reaches Porelo's API as MCP through the gateway: porelod runs a `porelo-mcp` process per task on a 0600 Unix socket, the file sets its methods and limits, it stops only its own children, and the event log names the parent | 0 |
 | <a id="b308"></a>[B308](B308-A-Guide-For-Adding-A-Provider-Or-An-Agent.md) | L | - | One guide in `doc/` to the checks that prove a new provider or agent safe, with scripts beside the acceptance kit: recording a provider's answers through the broker, the walk script's shared shape; the agents' part kept by their repositories | 0 |
 | <a id="b136"></a>[B136](B136-An-Approve-Bound-To-What-Was-Reviewed.md) | M | - | Capture one reviewed commit for patch/log and every approval path; confirmations and signatures use that key; SARIF never authorizes forwarding. | 0 |
