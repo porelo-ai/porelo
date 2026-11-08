@@ -467,6 +467,39 @@ class HandInsTest {
         assertThat(ran).anySatisfy(command -> assertThat(command).contains("--user", "root", "dd"));
     }
 
+    @Test
+    void aHandedInFileIsDeliveredUnderTheIdsGitGivesItsContent() throws IOException {
+        // A review finds the file in a push by these, in whichever object format the mirror has.
+        final Path source = Files.writeString(dir.resolve("h.txt"), "hi\n");
+        handIns.give(TASK, "h.txt", source, "alice");
+
+        assertThat(handIns.delivered(TASK))
+                .as("one delivery, with both formats' ids")
+                .singleElement()
+                .satisfies(
+                        delivered -> {
+                            assertThat(delivered.file().name()).isEqualTo("h.txt");
+                            assertThat(delivered.file().by()).isEqualTo("alice");
+                            assertThat(delivered.blobs())
+                                    .containsEntry(
+                                            "sha1", "45b983be36b73c0788dc9cbcb76cbb80fc7bb057")
+                                    .containsEntry(
+                                            "sha256",
+                                            "96c18f0297e38d01f4b2dacddea4259aea6b2961eb0822bd2c0c3f6029030045");
+                        });
+    }
+
+    @Test
+    void aFileTakenBackIsNoLongerDelivered() throws IOException {
+        final Path source = Files.writeString(dir.resolve("h.txt"), "hi\n");
+        handIns.give(TASK, "h.txt", source, "alice");
+        handIns.takeBack(TASK, "h.txt", "alice");
+
+        assertThat(handIns.delivered(TASK))
+                .as("what it held may still be in a push: it was delivered all the same")
+                .hasSize(1);
+    }
+
     private static void deleteTree(final Path root) throws IOException {
         try (var tree = Files.walk(root)) {
             for (final Path path : tree.sorted(java.util.Comparator.reverseOrder()).toList()) {

@@ -51,6 +51,17 @@ public final class ReviewText {
     }
 
     /**
+     * Returns the name of the task whose push a review reads.
+     *
+     * @param project The project.
+     * @param push The pending push's name.
+     * @return The task's container name.
+     */
+    public static String container(String project, String push) {
+        return "porelo-" + project + "-" + push;
+    }
+
+    /**
      * Finds what the task that made a push was asked.
      *
      * <p>A gated task pushes to {@code refs/porelo/incoming/<task>} in its project's gate, so the
@@ -63,7 +74,7 @@ public final class ReviewText {
      * @return What is known.
      */
     public static Instruction instruction(PoreloPaths paths, String project, String push) {
-        final String container = "porelo-" + project + "-" + push;
+        final String container = container(project, push);
         for (final Path directory :
                 List.of(
                         paths.tasks().containerState(container),

@@ -1,6 +1,6 @@
 # [B505](README.md#b505) — Where Delivered Content Came From, In Review
 
-**Status:** Backlog.
+**Status:** Implementing.
 **Size:** M - a field in `Review` (`35-gate`), `GateMethods`, read from the hand-in records, then a record of what a
 first start placed; part of [B38](README.md#b38)'s acceptance ("content Porelo delivered into a task carries its
 origin, and the review shows that origin").
@@ -13,7 +13,11 @@ the agent's own and carries no mark. Build logs, verdicts and room messages are 
 
 ## Plan
 
-1. Hand-ins: `HandIns.record` already keeps name and sha256 per task. `Review` reads the record of the task that
+1. Hand-ins (built): a hand-in's record line also keeps the ids git gives its content in both object formats
+   (`blobs`), computed from the bytes as they are placed, so a review matches without reading a blob back.
+   `GitGate.blobs` answers the pending push's ids with `ls-tree -z`, and `DeliveredOrigins` names, per path, the
+   latest delivery with that id. A record line written before `blobs` existed matches nothing. Before:
+   `HandIns.record` already keeps name and sha256 per task. `Review` reads the record of the task that
    pushed and the blob of each changed file at the push (`git ls-tree`/`cat-file` in the mirror), and answers an
    `origin` per `ReviewFile`; additive under `Tasks1`.
 2. Placed files: a first start records what each plugin placed (path, sha256, plugin name, version) beside the task,

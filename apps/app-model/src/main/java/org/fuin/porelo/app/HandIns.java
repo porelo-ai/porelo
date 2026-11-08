@@ -150,6 +150,16 @@ public final class HandIns {
     }
 
     /**
+     * A file Porelo delivered into a task, as a review matches it: its record and the ids git gives
+     * its content.
+     *
+     * @param file The hand-in.
+     * @param blobs The blob id by object format, {@code sha1} and {@code sha256}; empty for a line
+     *     written before they were recorded.
+     */
+    public record Delivered(HandedFile file, Map<String, String> blobs) {}
+
+    /**
      * What a task says about its hand-ins.
      *
      * @param run The container id, or "" when none is recorded.
@@ -467,6 +477,51 @@ public final class HandIns {
     }
 
     /**
+     * Returns every file handed into a task, of every run, oldest first: taken back or not, what
+     * the agent saw may be in its work.
+     *
+     * @param container The task's name.
+     * @return The deliveries, empty when nothing was handed in or the record cannot be read.
+     */
+    public List<Delivered> delivered(final String container) {
+        final Path file = recordOf(container);
+        final List<Delivered> delivered = new ArrayList<>();
+        try {
+            if (!Files.isRegularFile(file)) {
+                return delivered;
+            }
+            for (final String line : Files.readAllLines(file, StandardCharsets.UTF_8)) {
+                if (line.isBlank() || !(Json.parse(line) instanceof Map<?, ?> map)) {
+                    continue;
+                }
+                final String event = String.valueOf(map.get("event"));
+                if (!GIVEN.equals(event) && !REPLACED.equals(event)) {
+                    continue;
+                }
+                final Map<String, String> blobs = new LinkedHashMap<>();
+                if (map.get("blobs") instanceof Map<?, ?> ids) {
+                    ids.forEach(
+                            (format, id) -> blobs.put(String.valueOf(format), String.valueOf(id)));
+                }
+                delivered.add(
+                        new Delivered(
+                                new HandedFile(
+                                        String.valueOf(map.get("name")),
+                                        number(map.get("bytes")),
+                                        String.valueOf(map.get("sha256")),
+                                        String.valueOf(map.get("at")),
+                                        String.valueOf(map.get("by")),
+                                        String.valueOf(map.get("run"))),
+                                blobs));
+            }
+        } catch (IOException | RuntimeException ex) {
+            // An unreadable record names no origin; the review it is read for still answers.
+            return List.of();
+        }
+        return delivered;
+    }
+
+    /**
      * Returns what a task says about its hand-ins: its run, its limit and what it holds now.
      *
      * @param container The task.
@@ -549,7 +604,7 @@ public final class HandIns {
                 null,
                 "Could not move " + name + " into place in " + container);
         final HandedFile file = new HandedFile(name, bytes, sha256, now(), by, run(container));
-        append(container, replaced ? REPLACED : GIVEN, file);
+        append(container, replaced ? REPLACED : GIVEN, file, blobsOf(source));
         return file;
     }
 
@@ -562,6 +617,15 @@ public final class HandIns {
 
     private void append(final String container, final String event, final HandedFile file)
             throws IOException {
+        append(container, event, file, Map.of());
+    }
+
+    private void append(
+            final String container,
+            final String event,
+            final HandedFile file,
+            final Map<String, String> blobs)
+            throws IOException {
         final Path record = recordOf(container);
         Directories.create(
                 record.getParent(),
@@ -569,6 +633,9 @@ public final class HandIns {
         final Map<String, Object> line = new LinkedHashMap<>();
         line.put("event", event);
         line.putAll(file.asMap());
+        if (!blobs.isEmpty()) {
+            line.put("blobs", blobs);
+        }
         if (events != null) {
             // What a task holds that it did not bring: the hash, never the content.
             EventLog.record(
@@ -668,6 +735,31 @@ public final class HandIns {
 
     private String now() {
         return clock.instant().truncatedTo(java.time.temporal.ChronoUnit.SECONDS).toString();
+    }
+
+    /** The ids git gives a file's content, in both object formats, read once. */
+    static Map<String, String> blobsOf(final Path file) throws IOException {
+        try (InputStream in = Files.newInputStream(file)) {
+            final MessageDigest sha1 = MessageDigest.getInstance("SHA-1");
+            final MessageDigest sha256 = MessageDigest.getInstance("SHA-256");
+            final byte[] header =
+                    ("blob " + Files.size(file) + "\0").getBytes(StandardCharsets.US_ASCII);
+            sha1.update(header);
+            sha256.update(header);
+            final byte[] buffer = new byte[64 * 1024];
+            int read;
+            while ((read = in.read(buffer)) > 0) {
+                sha1.update(buffer, 0, read);
+                sha256.update(buffer, 0, read);
+            }
+            return Map.of(
+                    "sha1",
+                    HexFormat.of().formatHex(sha1.digest()),
+                    "sha256",
+                    HexFormat.of().formatHex(sha256.digest()));
+        } catch (NoSuchAlgorithmException ex) {
+            throw new IllegalStateException("every Java has SHA-1 and SHA-256", ex);
+        }
     }
 
     static String sha256Of(final Path file) throws IOException {

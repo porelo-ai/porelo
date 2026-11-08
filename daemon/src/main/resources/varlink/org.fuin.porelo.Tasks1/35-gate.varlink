@@ -43,7 +43,24 @@ type ReviewFile (
   # DANGEROUS, ORDINARY, GENERATED or REFORMATTING - the order to read them in.
   rank: string,
   # Why it has that rank, in words; "" for an ORDINARY file.
-  reason: string
+  reason: string,
+  # The delivery this file came in through: its content at the push is exactly a file Porelo
+  # handed into the task, at any path. Absent for the agent's own work, and from older daemons.
+  origin: ?DeliveredOrigin
+)
+
+# Where a pushed file came from, when Porelo delivered its content into the task.
+type DeliveredOrigin (
+  # HAND_IN: a file handed into /porelo/files.
+  kind: string,
+  # The delivered file's name.
+  name: string,
+  # Who delivered it: an account, or "porelo".
+  by: string,
+  # When, UTC.
+  at: string,
+  # The delivered content's sha256, hex.
+  sha256: string
 )
 
 # ---------------------------------------------------------------------------- the gate

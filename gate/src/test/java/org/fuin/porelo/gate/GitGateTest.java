@@ -217,6 +217,25 @@ class GitGateTest {
     }
 
     @Test
+    void aPendingPushAnswersTheBlobIdOfEachFileItHolds() throws IOException {
+        // What reached a task is matched by content, and git already names content by its id.
+        final GitGate gate = gate(GateMode.GATEKEEPING, null);
+        git(root, "init", "-b", "main", work.toString());
+        Files.createDirectories(work.resolve("docs"));
+        makeCommit("docs/h.txt", "hi\n");
+        git(work, "push", mirror.toString(), "HEAD:" + GitGate.INCOMING + "blobs");
+
+        final GitGate.Blobs blobs = gate.blobs("blobs", List.of("docs/h.txt", "gone.txt"));
+
+        assertThat(blobs.format()).as("the mirror's object format").isEqualTo("sha1");
+        assertThat(blobs.byPath())
+                .as("the id git gives the content, and nothing for a path the push lacks")
+                .containsExactly(
+                        java.util.Map.entry(
+                                "docs/h.txt", "45b983be36b73c0788dc9cbcb76cbb80fc7bb057"));
+    }
+
+    @Test
     void lineEndingNoiseDoesNotHideRealChangesInTheReview() throws IOException {
         // Guards the review contract: filtering noise must leave every real edit available.
         final GitGate gate = gate(GateMode.GATEKEEPING, null);

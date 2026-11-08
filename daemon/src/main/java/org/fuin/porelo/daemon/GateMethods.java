@@ -141,6 +141,24 @@ final class GateMethods {
                                     : text(parameters, "against");
                     final org.fuin.porelo.gate.ReviewRanking.Review review =
                             gate.rankedReview(name, against, flag(parameters, "ignoreLineEndings"));
+                    // Matched by content against what was handed into the task that pushed.
+                    final Map<String, org.fuin.porelo.app.DeliveredOrigins.Origin> origins =
+                            org.fuin.porelo.app.DeliveredOrigins.of(
+                                    org.fuin.porelo.app.HandIns.of(context)
+                                            .delivered(
+                                                    org.fuin.porelo.app.ReviewText.container(
+                                                            GateSupport.project(
+                                                                            projectFile(
+                                                                                    parameters,
+                                                                                    context))
+                                                                    .name(),
+                                                            name)),
+                                    gate.blobs(
+                                            name,
+                                            review.files().stream()
+                                                    .filter(file -> !"D".equals(file.status()))
+                                                    .map(file -> file.path())
+                                                    .toList()));
                     final Map<String, Object> reply = new LinkedHashMap<>();
                     reply.put("diff", review.patch());
                     reply.put("log", gate.log(name, against));
@@ -163,6 +181,10 @@ final class GateMethods {
                                                         file.removedIgnoringLineEndings());
                                                 row.put("rank", file.rank().name());
                                                 row.put("reason", file.reason());
+                                                final var origin = origins.get(file.path());
+                                                if (origin != null) {
+                                                    row.put("origin", origin.asMap());
+                                                }
                                                 return row;
                                             })
                                     .toList());

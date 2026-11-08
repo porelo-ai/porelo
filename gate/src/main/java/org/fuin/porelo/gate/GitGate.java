@@ -796,6 +796,44 @@ public class GitGate {
      * @param against Ref to compare against, or {@code null} to show the ref's own last commit.
      * @return The ranked files and the patch.
      */
+    /**
+     * The blob ids of a pending push's files, and the object format they are in.
+     *
+     * @param format {@code sha1} or {@code sha256}, as the mirror reports it.
+     * @param byPath Each asked path the push holds, with its blob id.
+     */
+    public record Blobs(String format, java.util.Map<String, String> byPath) {}
+
+    /**
+     * Returns the blob id of each named file as the pending push holds it.
+     *
+     * @param name Incoming ref name, without the namespace prefix.
+     * @param paths Paths in the repository; one the push does not hold is left out.
+     * @return The ids, by path.
+     */
+    public Blobs blobs(String name, java.util.Collection<String> paths) {
+        requirePending(name);
+        final String format = gitIn("rev-parse", "--show-object-format").standardOutput().strip();
+        final java.util.Map<String, String> byPath = new java.util.LinkedHashMap<>();
+        if (paths.isEmpty()) {
+            return new Blobs(format, byPath);
+        }
+        final List<String> command =
+                new ArrayList<>(
+                        List.of("ls-tree", "-r", "-z", "--full-tree", INCOMING + name, "--"));
+        command.addAll(paths);
+        // Read with -z, as the review's counts are: a quoted path would match no delivery.
+        for (final String entry :
+                gitIn(command.toArray(String[]::new)).standardOutput().split("\0")) {
+            final int tab = entry.indexOf('\t');
+            final String[] head = tab < 0 ? new String[0] : entry.substring(0, tab).split(" ");
+            if (head.length == 3 && "blob".equals(head[1])) {
+                byPath.put(entry.substring(tab + 1), head[2]);
+            }
+        }
+        return new Blobs(format, byPath);
+    }
+
     public ReviewRanking.Review rankedReview(String name, @Nullable String against) {
         return rankedReview(name, against, false);
     }

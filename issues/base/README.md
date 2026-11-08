@@ -87,6 +87,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b505"></a>[B505](B505-Where-Delivered-Content-Came-From-In-Review.md) | M | - | `Review` names where each file Porelo delivered into the task came from. |
 | <a id="b494"></a>[B494](B494-Build-Status-Reads-The-Builds-A-Host-Names.md) | S | - | `build status` on a host answers from the builds the host names when `project.yml` names none, as the task's watch does. |
 | <a id="b496"></a>[B496](B496-A-Shut-Vault-Is-Named-When-An-Organization-Change-Is-Refused.md) | S | - | An organization change refused because no forge token could be lent says `vault-shut` when the vault is shut. |
 | <a id="b495"></a>[B495](B495-A-Start-Says-Which-Image-And-Where-To-Run-Host.md) | XS | - | A start's protocol says which base image the task runs on, what the changed settings keep, and that `--host` runs on the person's own computer. |
@@ -102,7 +103,6 @@ from its side, as *blocked by*.
 |---|---|---|---|
 | <a id="b497"></a>[B497](B497-A-Forge-Token-Lent-For-One-Command.md) | XS | - | The gate and a start ask the host's helper for a token lent for one command, leaving the person's token valid; waits on a helper that takes `--lend`. |
 | <a id="b503"></a>[B503](B503-The-Ecosystems-A-Machine-Has.md) | M | - | `Ecosystems` lists the installed ecosystem plugins and what each places for a repository; its shape agreed with the ecosystems' repository first. |
-| <a id="b505"></a>[B505](B505-Where-Delivered-Content-Came-From-In-Review.md) | M | - | `Review` names where each file Porelo delivered into the task came from. |
 | <a id="b506"></a>[B506](B506-An-Agent-Waiting-On-A-Person.md) | XS | [B118](#b118) | A task's listing says when its agent waits on a person for its own question, where the agent declares how that is seen. |
 | <a id="b474"></a>[B474](B474-A-Task-Fetches-Its-Projects-Snapshots-Through-Its-Broker.md) | M | [B470](#b470), [B467](#b467) | A package route in the task's broker: GET/HEAD below its own organization's maven path, refused before upstream otherwise; Maven's answers there alone; the task's host token read narrowly and made before the broker; settings through porelo.yml and Configure | Whether removal ends the token at once; the shared snapshot rule |
 | <a id="b467"></a>[B467](B467-A-Task-Reaches-Its-Tools-Repositories-Through-Their-Settings.md) | M | [B468](#b468) | A project declares its build tool's repositories in `project.yml`, and a task start calls the ecosystem adapter's `Configure` and places the settings files it returns. |

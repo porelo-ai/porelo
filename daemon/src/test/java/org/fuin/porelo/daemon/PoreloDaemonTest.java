@@ -3649,7 +3649,7 @@ class PoreloDaemonTest {
         reviewWithBase(dir, true);
     }
 
-    private void reviewWithBase(Path dir, boolean develop) throws Exception {
+    private Map<String, Object> reviewWithBase(Path dir, boolean develop) throws Exception {
         // The contract says "Default: the upstream's default branch"; the daemon showed the push's
         // last commit alone, and a client saw half of the work.
         final PoreloContext context = context(dir);
@@ -3712,6 +3712,8 @@ class PoreloDaemonTest {
                     "push", "-q", gate.mirror().toString(), "HEAD:refs/porelo/incoming/t"
                 });
 
+        final java.util.concurrent.atomic.AtomicReference<Map<String, Object>> answered =
+                new java.util.concurrent.atomic.AtomicReference<>();
         servingContext(
                 context,
                 dir,
@@ -3727,6 +3729,7 @@ class PoreloDaemonTest {
                                                 "app",
                                                 "name",
                                                 "t"));
+                        answered.set(review);
                         assertThat(
                                         ((java.util.List<?>) review.get("files"))
                                                 .stream()
@@ -3743,6 +3746,37 @@ class PoreloDaemonTest {
                                 .contains("second.txt");
                     }
                 });
+        return answered.get();
+    }
+
+    @Test
+    void aReviewNamesTheHandInAPushedFileCameInThrough(@TempDir Path dir) throws Exception {
+        // A reviewer tells what the agent was given from what it made by the content, at any path.
+        final Path record = dir.resolve("state/porelo/hand-ins/porelo-default-t.jsonl");
+        Files.createDirectories(record.getParent());
+        Files.writeString(
+                record,
+                "{\"event\":\"given\",\"name\":\"handed.txt\",\"bytes\":10,"
+                        + "\"sha256\":\"baba894a4c278efe2a4c8f29f960e63bdb7cf57338f20f38904e1cfeb179733c\","
+                        + "\"at\":\"2026-11-08T09:00:00Z\",\"by\":\"alice\",\"run\":\"r\","
+                        + "\"blobs\":{\"sha1\":\"a20a2a96ff42adf7ecb4b6424b714e9dc55249d7\","
+                        + "\"sha256\":\"da22591943cc2ef8885e5d12bc9935c55f5588d7b22174e01009ee5829b2b5c6\"}}\n");
+
+        final Map<String, Object> review = reviewWithBase(dir, false);
+
+        final Map<String, Map<?, ?>> byPath = new java.util.LinkedHashMap<>();
+        for (final Object file : (java.util.List<?>) review.get("files")) {
+            byPath.put(String.valueOf(((Map<?, ?>) file).get("path")), (Map<?, ?>) file);
+        }
+        assertThat(byPath.get("first.txt").get("origin"))
+                .as("the pushed file with the handed-in content names that hand-in")
+                .asInstanceOf(org.assertj.core.api.InstanceOfAssertFactories.MAP)
+                .containsEntry("kind", "HAND_IN")
+                .containsEntry("name", "handed.txt")
+                .containsEntry("by", "alice");
+        assertThat(byPath.get("second.txt").containsKey("origin"))
+                .as("the agent's own file carries no origin")
+                .isFalse();
     }
 
     @Test
