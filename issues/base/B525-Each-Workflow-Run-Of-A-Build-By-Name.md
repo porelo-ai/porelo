@@ -24,24 +24,39 @@ Tasks1's `Build` gains `runs: []BuildRun` (`name`, `result`), empty when the rea
 
 ## Plan
 
-1. `builds/api` `Build` gains `List<Run> runs` and `record Run(String name, String result)`, at most `MOST_RUNS` = 50.
-   The constructors from before stay, with `runs` empty. `toMap` writes `runs` only when non-empty. `fromMap` reads
-   it when present, skips an entry without a string `name` and `result`, cuts at 50, and cleans each text as a job's
-   name is cleaned.
-2. `org.fuin.porelo.Build2.varlink`: `type Run (name: string, result: string)`; `Build(...)` answers
-   `runs: ?[]Run`. The protocol version is unchanged: the field is optional both ways.
-3. `StubReader` answers `runs` from its JSON at every answer, also while queued or running, so the acceptance
-   tests can drive it.
-4. `BuildWatch.tell` also tells when `runs` changed (same names and results in the same order counts as unchanged).
-   So a run's change of state is handed in like a verdict's, at most once per round of 20 s. `resume` takes `runs`
-   back from the record.
-5. `TaskBuilds.Seen` gains `runs` (record and Tasks1 `Build.runs: []BuildRun`, empty when absent). A record line from
-   before reads with none.
-6. `BuildStatus` writes one line per run into `build-<12>.txt` (`run      <name>: <result>`), each name and result
-   shown as a job's are.
-7. Tests, red first: the `Build` round trip with and without `runs`; the stub answering two runs while running; a
-   watched running build with one run finished and one running reaching `TaskBuilds` and the file; a run's change
-   alone handed in once; a record line from before read with no runs.
+Revised after the plan reading (agy gemini-4-argon-high, 2026-11-08); each finding was checked in the code.
+
+1. `builds/api` `Build` becomes `(verdict, jobs, detail, runs)` with `record Run(String name, String result)` and
+   `MOST_RUNS` = 50. The three-argument constructor stays, with `runs` empty. The compact constructor cleans each
+   run: control and format characters (line breaks included) become a space, the text is stripped and cut at 200
+   code points. A run with an empty name or result is dropped, a later run of the same name replaces an earlier one,
+   and the list is cut at 50. **A job's name and result are cleaned the same way.** They are not today, so a
+   workflow named `x\nverdict: success` writes a forged line into `build-<12>.txt` (BuildWatch.text).
+   `asMap` writes `runs` only when non-empty. `of(Map)` reads it only as a list (`null` or anything else is none).
+2. `org.fuin.porelo.Build2.varlink`: `type Run (name: string, result: string)`, and `Build(...)` answers
+   `runs: ?[]Run`. The protocol version is unchanged: `InstalledBuildReader` checks only the version, and `of`
+   ignores keys it does not know, so either side may be older.
+3. `StubReader` reads `runs` from its JSON at every answer, whether or not it is done.
+4. **A run's change alone never wakes the agent.** `BuildWatch.tell` hands in `build-<12>.txt`, and so wakes the
+   agent through `AgentWake.announceFiles`, only when the verdict, the jobs or the detail changed, as today. When only
+   `runs` changed, it appends the new state to the record (`TaskBuilds`), so Tasks1 and the tile show it, and
+   changes neither `since`, nor `changed`, nor the file.
+5. **Settled only when every run is.** `each.settled` is set only when the build is finished and no run's result is
+   a state of one not finished (`queued`, `waiting`, `pending`, `requested`, `in_progress`, `running`). A failure
+   while another workflow still runs keeps the 20 s rounds.
+6. `TaskBuilds.Seen` gains `runs` last; the six-argument constructor stays. `asMap` always writes `runs`, since
+   Tasks1's `Build.runs: []BuildRun` is not optional. A record line from before reads with none. `resume` takes them
+   back, and a later answer that only adds runs to such a line is recorded without a hand-in (step 4).
+7. `BuildWatch.text` writes one `run: <name> - <result>` line per run after `verdict:` and before the jobs, in the
+   jobs' grammar. doc/running.md's description of the file says so. `porelo build status` and `porelo task status`
+   are unchanged.
+8. Tests, red first:
+   - `Build`: the round trip with and without `runs`, and the cleaning of a run and of a job.
+   - The stub answers two runs while running.
+   - A watched running build with one run finished and one running reaches the record with both, and not the file.
+   - A failure while a run is in progress is not settled.
+   - A record line from before is read with no runs and is not handed in again.
+   - A job name with a line break gives one line in the file.
 
 ## Why
 
