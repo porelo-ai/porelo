@@ -26,7 +26,8 @@ or registers one, and its account reaches more than this repository, against wha
 A project's repository meets the same setting, read in `porelo-host`, not run at GitHub: its migration posts the same call and is
 refused the same way, in that repository's own organization.
 
-**To be checked.**
+**To be checked.** Measured with a second GitHub account, with no membership in `porelo-ai`, which the operator makes after the
+trial moves (2026-11-08).
 
 - GitHub's words on this 422, and on one for a key in use elsewhere, so the refusal can tell them apart.
 - How Forgejo answers when deploy keys are off, if it can turn them off.

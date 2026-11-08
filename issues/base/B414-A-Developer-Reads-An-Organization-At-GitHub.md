@@ -60,6 +60,9 @@ Permission 403 or 404: "cannot say".
 
 ## To be checked
 
+The operator makes a second GitHub account, with no membership in `porelo-ai`, after the trial moves (2026-11-08). The
+measurements below wait for it.
+
 - What the permission call answers for a collaborator who is no member. The token measured belongs to a member of the
   organization, whose token lacked the right on members, so the 403s above say nothing of a non-member's, and the 200 does not
   yet show that a collaborator gets it. This case is what the issue is for.

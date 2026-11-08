@@ -1,6 +1,7 @@
 # B270 — A Forge Token Stored By The Forge's Own Login
 
-**Status:** Accepted. The interface ships first with the pasted token, and this then opens the device-code login in the same terminals.
+**Status:** Accepted, to be built after the trial moves. The interface ships first with the pasted token, and this then
+opens the device-code login in the same terminals.
 
 **What must be true.** A person gets their forge token into a machine's vault, as `git.token.<host>`, by the forge's
 own login in a terminal on that machine: a device code shown there, approved in any browser. The person does not make
@@ -16,18 +17,31 @@ the login in a terminal on the machine, as it does for an agent's sign-in.
 Read in the code: `porelo vault authorize` runs a device-code flow for an `oauth-device` service entry and a
 redirect flow for an `oauth-code` entry. Its grant is kept hidden as `grant/<name>` and spent by the broker for a task;
 it is never stored as
-`git.token.<host>` and never lent to the host's own git.
+`git.token.<host>` and ## Decided
 
-## Decided
+The operator decided on 2026-11-08, replacing the OAuth App decided before:
 
-- **Whose application: both.** Porelo registers an OAuth application at each forge as the default, its client id
-  shipped with Porelo. A person or company may name their own application's client id in the vault entry, which then
-  takes precedence.
-- **Which kind: an OAuth App**, not a GitHub App, with the scopes git and the forge's API need: **`repo` by default**.
-  `workflow` is asked for only when the person asks for it at the login: a token that may change a repository's
-  workflows can change what its CI runs with its secrets, and a push of approved work that touches
-  `.github/workflows/` without it is refused by the forge, which the gate then names.
-- **An accepted risk, written into `doc/decisions.md` when this is built:** the exposure is a token that reaches
-  every repository the person can, does not expire until revoked, and sits in each machine's vault. It stays because
-  it is simpler and works the same at every forge with a device flow. What would change the answer: a token leak, or
-  a company that requires repository-scoped tokens, which the person's own application then covers.
+- **A public GitHub App, used through the device flow and user access tokens.** It is registered for `porelo-ai` by
+  the operator, after a trial with a test app. Both come after the trial moves. Its client id ships with Porelo.
+- **What a user access token is, as GitHub documents it** (to be measured in the trial, not taken as read):
+  - it acts only where the app is installed, and only with what both the app's permissions and the person allow;
+  - it expires after eight hours and comes with a refresh token;
+  - the device flow is a setting the app has to have turned on.
+- **So the vault keeps the refresh token** beside `git.token.<host>`, hidden as `grant/<name>` is, and renews the
+  token before it is lent. A renewal that fails says so and asks the person to log in again; it never falls back to
+  an older token.
+- **The app's permissions:** contents and pull requests read and write, metadata read. Workflows only when the person
+  asks for it at the login. A token that may change a repository's workflows can change what its CI runs with its
+  secrets, and a push of approved work that touches `.github/workflows/` without it is refused by the forge, which
+  the gate then names.
+- **Forgejo and other forges** keep their OAuth application with a device flow where they have one. This decision is
+  GitHub's.
+
+## To be checked
+
+- In the trial with the test app: the device flow, the token's lifetime, a renewal, and a push into a repository where
+  the app is not installed, with the words GitHub answers.
+- Whether a person or company may still name their own app's client id in the vault entry, as was decided for the
+  OAuth App. The operator's word of 2026-11-08 does not say.
+- The accepted risk to write into `doc/decisions.md` when this is built. It is narrower than the OAuth App's (only where
+  the app is installed, eight hours), but a refresh token in each machine's vault still renews it.
