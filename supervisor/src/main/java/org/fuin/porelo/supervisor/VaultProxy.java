@@ -147,6 +147,12 @@ public class VaultProxy implements AutoCloseable, Runnable {
             java.util.regex.Pattern.compile(
                     "grant_type[\"'=:\\s]+(" + String.join("|", REFUSED_GRANTS) + ")");
 
+    /**
+     * The address a request to a {@code unix:} destination names: never dialed, since {@link
+     * UnixHttp} sends it over the socket, but {@link HttpRequest} takes nothing else.
+     */
+    private static final String LOCAL = "http://localhost";
+
     private final Path socket;
 
     private final String upstream;
@@ -696,7 +702,30 @@ public class VaultProxy implements AutoCloseable, Runnable {
         }
         final HttpResponse<InputStream> response;
         try {
-            response = http.send(outbound, HttpResponse.BodyHandlers.ofInputStream());
+            // A destination on this host is reached over its socket; HttpClient dials hosts only.
+            response =
+                    UnixUpstream.is(route.upstream())
+                            ? UnixHttp.send(
+                                    UnixUpstream.path(route.upstream()), outbound, request.body())
+                            : http.send(outbound, HttpResponse.BodyHandlers.ofInputStream());
+        } catch (UnixHttp.Unframed ex) {
+            if (observation != null) {
+                observation.start(false, 502);
+                observation.finish(false);
+            }
+            // Never the answer's own bytes: what could not be framed is not repeated.
+            log.accept(
+                    head.method() + " -> 502 the answer could not be framed: " + ex.getMessage());
+            out.write(
+                    HttpHead.response(
+                            502,
+                            "Bad Gateway",
+                            error(
+                                    "api_error",
+                                    "porelo: the destination answered in a form the gateway cannot"
+                                            + " frame, so nothing was passed on")));
+            out.flush();
+            return;
         } catch (IOException | InterruptedException ex) {
             if (observation != null) {
                 observation.start(false, 502);
@@ -949,9 +978,14 @@ public class VaultProxy implements AutoCloseable, Runnable {
         if (!target.startsWith("/")) {
             throw new IllegalArgumentException("a request target that is not a path");
         }
+        // A socket on this host has no address: the request names a local one, under the
+        // endpoint's own path, and is sent over the socket by UnixHttp.
+        final boolean local = UnixUpstream.is(route.upstream());
+        final String base = local ? LOCAL : route.upstream();
+        final String sent = local ? UnixUpstream.target(target) : target;
         // Parsed before the key is added: a parser that refuses an address repeats it, key and all.
-        final URI address = URI.create(route.upstream() + target);
-        final URI upstream = URI.create(route.upstream());
+        final URI address = URI.create(base + sent);
+        final URI upstream = URI.create(base);
         if (!java.util.Objects.equals(address.getHost(), upstream.getHost())
                 || address.getPort() != upstream.getPort()
                 || address.getRawUserInfo() != null) {
@@ -961,11 +995,11 @@ public class VaultProxy implements AutoCloseable, Runnable {
                 HttpRequest.newBuilder()
                         .uri(
                                 URI.create(
-                                        route.upstream()
+                                        base
                                                 + (route.authQuery() == null
-                                                        ? target
+                                                        ? sent
                                                         : Query.replace(
-                                                                target, route.authQuery(), real))))
+                                                                sent, route.authQuery(), real))))
                         .timeout(Duration.ofMinutes(10))
                         .method(
                                 head.method(),
