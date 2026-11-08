@@ -100,6 +100,8 @@ public abstract class OrgWriting extends OrgReading {
         final OrganizationWrites.Written written;
         try {
             written = write(machine, opened, change);
+        } catch (Refused ex) {
+            throw shutVaultNamed(machine, ex);
         } catch (GitTreeStore.Unreachable ex) {
             throw new Refused(
                     Refused.CANNOT_SAY,
@@ -117,6 +119,23 @@ public abstract class OrgWriting extends OrgReading {
         answer.put("of", of());
         more(answer);
         return answer;
+    }
+
+    /**
+     * A change the forge could not judge while the vault holding the person's token is shut is the
+     * shut vault's refusal: checking a token nobody can read is no way on, opening it is.
+     */
+    private static Refused shutVaultNamed(final PoreloContext machine, final Refused refused) {
+        if (!Refused.CANNOT_SAY.equals(refused.reason())
+                || machine.readableCredentials().isPresent()) {
+            return refused;
+        }
+        return new Refused(
+                Refused.VAULT_SHUT,
+                "this computer's Porelo-Vault is shut, so your forge token could not be lent to"
+                        + " read the organization: open it with 'porelo vault unlock' and ask"
+                        + " again",
+                refused.revision());
     }
 
     /**

@@ -358,6 +358,41 @@ class OrgWritingCommandsTest {
     }
 
     @Test
+    void aChangeThatCouldNotBeJudgedWithTheVaultShutNamesTheVault() throws Exception {
+        // A person told to check a token that sits in a shut vault cannot act; opening it is the
+        // way on.
+        final PoreloContext machine = context();
+        Files.createDirectories(machine.vault().path().getParent());
+        new org.fuin.porelo.vault.VaultFile(machine.vault().path())
+                .write(Map.of(), "test passphrase".toCharArray());
+        refusing =
+                new Refused(
+                        Refused.CANNOT_SAY,
+                        "the forge could not say enough of its people's keys and owners to judge"
+                                + " this change: see whether this person's forge token is set",
+                        REVISION);
+
+        assertThat(run("org", "owner", "add", "alice", "--json"))
+                .as("a shut vault ends where the contract puts it")
+                .isEqualTo(77);
+
+        assertThat(answer().get("reason")).as("the shut vault is named").isEqualTo("vault-shut");
+        assertThat(out.toString())
+                .as("the way on is to open the vault")
+                .contains("porelo vault unlock");
+    }
+
+    @Test
+    void aChangeThatCouldNotBeJudgedWithNoVaultKeepsItsReason() {
+        // Without a vault there is nothing to open, so the forge's words stand.
+        refusing = new Refused(Refused.CANNOT_SAY, "the forge could not say enough", REVISION);
+
+        assertThat(run("org", "owner", "add", "alice", "--json")).isEqualTo(69);
+
+        assertThat(answer().get("reason")).as("the refusal is unchanged").isEqualTo("cannot-say");
+    }
+
+    @Test
     void aStoreThatCannotBeReachedSaysTheIdToAskAgainWith() throws Exception {
         failing = unreachable();
 
