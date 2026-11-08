@@ -573,7 +573,20 @@ method Start(
   # What went wrong per helper, for the ones that did not come back.
   problems: ?[]string,
   # Set when the image the container was built from has changed since it was created.
-  imageDrift: ?string
+  imageDrift: ?string,
+  # One line the run itself wrote, as its agent shows it, on a streamed reply while a start with a
+  # prompt runs. Apart from line, which is Porelo's own. A caller that reads too slowly loses lines
+  # rather than holding the run; a line then says how many, and Logs has them all.
+  runLine: ?string,
+  # What this start's own run answered, on the final reply of a start with a prompt that ran its
+  # agent, streamed or not: the record its agent declares as its last message, or else the run's
+  # last lines. At most 16 KiB of UTF-8, cut at a code point. Absent when this call ran nothing: a
+  # refusal, a task found running, or one brought back without a prompt.
+  result: ?string,
+  # ANSWER for the agent's own answer, LAST_LINES for the run's last lines in its stead.
+  resultKind: ?string,
+  # Whether result was cut to fit.
+  resultCut: ?bool
 )
 
 # What a start asks a person's computer to certify: the key of the one principal, until the end.

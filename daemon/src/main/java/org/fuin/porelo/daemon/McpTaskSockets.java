@@ -472,7 +472,13 @@ final class McpTaskSockets implements McpDaemonSockets.Opener, AutoCloseable {
             starting.put(token, new Starting(caller, container));
         }
         try {
-            start.call(held, replies);
+            // The run's lines and answer are what Logs and Tail read: a section that allows neither
+            // gets neither through Start.
+            start.call(
+                    held,
+                    endpoint.methods().contains("Logs") || endpoint.methods().contains("Tail")
+                            ? replies
+                            : withoutTheRun(replies));
         } finally {
             synchronized (starting) {
                 starting.remove(token);
@@ -506,6 +512,48 @@ final class McpTaskSockets implements McpDaemonSockets.Opener, AutoCloseable {
      * The methods answering with every task of the person, which a task sees cut to its project.
      */
     static final Set<String> TASK_LISTS = Set.of("List", "Watch");
+
+    /** What a start's replies carry of its run, which Logs and Tail read. */
+    static final Set<String> THE_RUN = Set.of("runLine", "result", "resultKind", "resultCut");
+
+    /**
+     * Returns replies without what a start says of its run.
+     *
+     * @param replies Where the replies go.
+     * @return The replies to answer through.
+     */
+    static VarlinkServer.Replies withoutTheRun(final VarlinkServer.Replies replies) {
+        return new VarlinkServer.Replies() {
+            @Override
+            public void more(final Map<String, Object> parameters) throws IOException {
+                if (parameters.containsKey("runLine")) {
+                    return;
+                }
+                replies.more(cut(parameters));
+            }
+
+            @Override
+            public void last(final Map<String, Object> parameters) throws IOException {
+                replies.last(cut(parameters));
+            }
+
+            @Override
+            public boolean streaming() {
+                return replies.streaming();
+            }
+
+            @Override
+            public boolean open() {
+                return replies.open();
+            }
+
+            private Map<String, Object> cut(final Map<String, Object> parameters) {
+                final Map<String, Object> answer = new LinkedHashMap<>(parameters);
+                answer.keySet().removeAll(THE_RUN);
+                return answer;
+            }
+        };
+    }
 
     /**
      * Returns replies that keep, of a list of tasks, those of one project alone.

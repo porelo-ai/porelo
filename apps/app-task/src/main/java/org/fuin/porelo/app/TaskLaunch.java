@@ -637,6 +637,12 @@ public final class TaskLaunch {
         int started(Running running) throws Exception;
     }
 
+    private java.util.function.@Nullable Consumer<String> runLines;
+
+    private @Nullable RunResult runResult;
+
+    private long runLinesDropped;
+
     private final PoreloContext context;
 
     private final StartSteps steps;
@@ -2746,6 +2752,33 @@ public final class TaskLaunch {
         }
     }
 
+    /**
+     * Has the lines of this start's run sent as it writes them, as the agent shows them.
+     *
+     * @param lines Where each line goes; may block, which never holds the run.
+     */
+    public void followRun(java.util.function.Consumer<String> lines) {
+        this.runLines = lines;
+    }
+
+    /**
+     * Returns what this start's own run answered, read at its end.
+     *
+     * @return The result, or {@code null} when this start ran no agent.
+     */
+    public @Nullable RunResult runResult() {
+        return runResult;
+    }
+
+    /**
+     * Returns how many of the run's lines were not sent to a caller that read too slowly.
+     *
+     * @return The count, 0 when nothing was followed or all was sent.
+     */
+    public long runLinesDropped() {
+        return runLinesDropped;
+    }
+
     private int runAgentSteps(
             TaskRunner runner,
             @Nullable InstalledAgent selected,
@@ -2766,6 +2799,15 @@ public final class TaskLaunch {
             return 2;
         }
         final Path log = context.paths().tasks().containerState(container).resolve("task.log");
+        // This run's log alone: a resumed task's last run must not answer for this one, nor stream
+        // as if it were.
+        runResult = null;
+        try {
+            java.nio.file.Files.deleteIfExists(log);
+        } catch (java.io.IOException ex) {
+            err.println("porelo: could not empty the run's log: " + ex.getMessage());
+            err.flush();
+        }
         // Continuing is what starting a task that has a session does - not a verb of its own - and
         // only where the agent says how to name one: nothing is guessed, and a fresh session says
         // it is one.
@@ -2793,6 +2835,12 @@ public final class TaskLaunch {
                                         : "a fresh one"));
         out.flush();
 
+        final java.util.function.Consumer<String> following = runLines;
+        final RunFollower follower =
+                following == null
+                        ? null
+                        : RunFollower.start(
+                                log, selected::format, following, java.time.Duration.ofMillis(250));
         try {
             return runner.runAgent(
                     selected,
@@ -2809,6 +2857,14 @@ public final class TaskLaunch {
             err.flush();
             return 124;
         } finally {
+            if (follower != null) {
+                follower.close();
+                runLinesDropped = follower.dropped();
+            }
+            final org.fuin.porelo.agent.api.Waiting waiting = selected.definition().waiting();
+            runResult =
+                    RunResult.of(
+                            log, waiting == null ? null : waiting.lastMessage(), selected::format);
             // Whatever the run named, even one that was killed: the transcript up to there is worth
             // going on from.
             final org.fuin.porelo.agent.api.SessionIds ids = selected.definition().sessionIds();

@@ -52,7 +52,7 @@ Feature: An unattended run, started at the terminal and through the daemon
         And its output contains 'an agent nobody installed: "outcome":"UNKNOWN_AGENT"'
         And its output contains 'locked: "outcome":"VAULT_LOCKED"'
 
-    Scenario: the daemon says what an agent was refused, and runs one with a prompt
+    Scenario: the daemon says what an agent was refused, and runs one with a prompt and answers with its result
         Given a daemon of this scenario's own
         When a script runs:
             """
@@ -62,6 +62,7 @@ Feature: An unattended run, started at the terminal and through the daemon
             reply=$(ask '{"method":"org.fuin.porelo.Tasks1.Start","parameters":{"task":"viadaemon","project":"unattended","agent":"stub","repository":"unattended","prompt":"say hello and stop","clearance":"deny","keep":true}}')
             container=$(printf '%s' "$reply" | grep -oE '"container":"[^"]*"' | cut -d'"' -f4)
             echo "started: ${container:-nothing}"
+            printf '%s' "$reply" | grep -oE '"result":"[^"]*"|"resultKind":"[^"]*"' | sed 's/^/answered: /'
             test -s "${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/porelo/$container/task.log" && echo "the daemon ran the agent, not only the container"
             [ -n "$container" ] && porelo task remove "$container" --force >/dev/null 2>&1
             true
@@ -69,6 +70,8 @@ Feature: An unattended run, started at the terminal and through the daemon
         Then its output contains '"refusedDomains":["example.net"]'
         And its output contains "started: porelo-unattended-viadaemon"
         And its output contains "the daemon ran the agent, not only the container"
+        And its output contains 'answered: "result":"stub: finished"'
+        And its output contains 'answered: "resultKind":"ANSWER"'
 
     Scenario: a task's logs are kept in one archive readable by the account only, without the agent's words unasked
         When a script runs:

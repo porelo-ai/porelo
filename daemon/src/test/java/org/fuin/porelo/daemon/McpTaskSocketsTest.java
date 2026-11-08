@@ -794,6 +794,53 @@ class McpTaskSocketsTest {
                         });
     }
 
+    @Test
+    void aStartThroughASectionWithoutLogsOrTailCarriesNothingOfItsRun() throws IOException {
+        final List<Map<String, Object>> more = new java.util.ArrayList<>();
+        final List<Map<String, Object>> last = new java.util.ArrayList<>();
+        final org.fuin.porelo.wire.varlink.VarlinkServer.Replies replies =
+                McpTaskSockets.withoutTheRun(
+                        new org.fuin.porelo.wire.varlink.VarlinkServer.Replies() {
+                            @Override
+                            public void more(final Map<String, Object> parameters) {
+                                more.add(parameters);
+                            }
+
+                            @Override
+                            public void last(final Map<String, Object> parameters) {
+                                last.add(parameters);
+                            }
+
+                            @Override
+                            public boolean streaming() {
+                                return true;
+                            }
+
+                            @Override
+                            public boolean open() {
+                                return true;
+                            }
+                        });
+
+        replies.more(Map.of("line", "running   stub (up to 5 minutes)"));
+        replies.more(Map.of("runLine", "the child's own output"));
+        replies.last(
+                Map.of(
+                        "container",
+                        "porelo-uc-child",
+                        "exitCode",
+                        0,
+                        "result",
+                        "the child's answer",
+                        "resultKind",
+                        "ANSWER",
+                        "resultCut",
+                        false));
+
+        assertThat(more).containsExactly(Map.of("line", "running   stub (up to 5 minutes)"));
+        assertThat(last).containsExactly(Map.of("container", "porelo-uc-child", "exitCode", 0));
+    }
+
     private void assertNothingStarted() {
         assertThat(runner.lines())
                 .as("no start reached the machine's check")

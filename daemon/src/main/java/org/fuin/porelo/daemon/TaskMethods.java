@@ -907,6 +907,10 @@ final class TaskMethods {
                                     context,
                                     request(parameters, context),
                                     new org.fuin.porelo.app.StartSteps(progress, sink));
+                    if (replies.streaming()) {
+                        // The run's own lines as it writes them, apart from Porelo's.
+                        launch.followRun(line -> progress.stream().send(Map.of("runLine", line)));
+                    }
                     if (flag(parameters, "certify") && replies.streaming()) {
                         launch.certifyingBy(
                                 certificates,
@@ -1032,6 +1036,22 @@ final class TaskMethods {
                                     : List.of(collected.toString().split("\n", -1)));
                     if (action != null) {
                         reply.put("action", action);
+                    }
+                    final org.fuin.porelo.app.RunResult result = launch.runResult();
+                    if (result != null) {
+                        reply.put("result", result.text());
+                        reply.put("resultKind", result.kind().name());
+                        reply.put("resultCut", result.cut());
+                    }
+                    if (replies.streaming() && launch.runLinesDropped() > 0) {
+                        progress.stream()
+                                .send(
+                                        Map.of(
+                                                "line",
+                                                "porelo: "
+                                                        + launch.runLinesDropped()
+                                                        + " of the run's lines were not sent,"
+                                                        + " read too slowly; Logs has them all"));
                     }
                     progress.finish(reply);
                     replies.last(reply);
