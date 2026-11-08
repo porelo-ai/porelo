@@ -422,4 +422,57 @@ class VarlinkTest {
             }
         }
     }
+
+    @Test
+    void aWholeNumberInAReplyKeepsEveryDigit(@TempDir Path dir) throws IOException {
+
+        // 2^53 + 1 is the first whole number a double cannot hold: read as one, it arrives as 2^53.
+        try (VarlinkServer server = server(dir)) {
+            server.method(
+                    "Count",
+                    (parameters, replies) ->
+                            replies.last(Map.of("n", Long.valueOf(9_007_199_254_740_993L))));
+
+            try (VarlinkClient client = new VarlinkClient(server.socketPath())) {
+                final Object n = client.call(INTERFACE + ".Count", Map.of()).get("n");
+                assertThat(n).isInstanceOf(Number.class);
+                assertThat(new java.math.BigDecimal(String.valueOf(n)))
+                        .isEqualByComparingTo("9007199254740993");
+            }
+        }
+    }
+
+    @Test
+    void aWholeNumberPassedOnIsWrittenAsTheWholeNumberItWas(@TempDir Path dir) throws IOException {
+
+        // A reply handed on unchanged, as porelo-mcp does, is written again: 1024 must not leave
+        // as 1024.0.
+        try (VarlinkServer server = server(dir)) {
+            server.method(
+                    "Size",
+                    (parameters, replies) -> replies.last(Map.of("n", Integer.valueOf(1024))));
+
+            try (VarlinkClient client = new VarlinkClient(server.socketPath())) {
+                final Map<String, Object> reply = client.call(INTERFACE + ".Size", Map.of());
+                assertThat(org.fuin.porelo.wire.Json.write(reply)).isEqualTo("{\"n\":1024}");
+            }
+        }
+    }
+
+    @Test
+    void aServerReadsAWholeNumberParameterAsTheWholeNumberSent(@TempDir Path dir)
+            throws IOException {
+
+        try (VarlinkServer server = server(dir)) {
+            server.method(
+                    "Echo",
+                    (parameters, replies) ->
+                            replies.last(Map.of("text", String.valueOf(parameters.get("n")))));
+
+            try (VarlinkClient client = new VarlinkClient(server.socketPath())) {
+                assertThat(client.call(INTERFACE + ".Echo", Map.of("n", Integer.valueOf(1024))))
+                        .containsEntry("text", "1024");
+            }
+        }
+    }
 }

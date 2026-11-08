@@ -1,6 +1,6 @@
 # [B509](README.md#b509) — A Varlink Number Read Exactly
 
-**Status:** Backlog. Built after the third trial move, unless porelo-mcp's MC02 needs it sooner.
+**Status:** Review.
 **Size:** S - one parser call in `porelo-wire`, the numbers its readers take, and a red test on each side.
 
 **What must be true.** A number in a varlink message reaches its reader as it was sent. An `int` of 1024 is 1024, not

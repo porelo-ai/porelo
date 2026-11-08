@@ -20,6 +20,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b509"></a>[B509](B509-A-Varlink-Number-Read-Exactly.md) | S | - | A number in a varlink call or reply reaches its reader as sent: `VarlinkConnection` reads with `Json.parseDecimals`, so an int is no double and an int64 above 2^53 keeps its digits. |
 | <a id="b503"></a>[B503](B503-The-Ecosystems-A-Machine-Has.md) | M | - | `Ecosystems` lists the installed ecosystem plugins and what each places for a repository; its shape agreed with the ecosystems' repository first. |
 | <a id="b497"></a>[B497](B497-A-Forge-Token-Lent-For-One-Command.md) | XS | - | The gate and a start ask the host's helper for a token lent for one command, leaving the person's token valid; needs `porelo-host` from `2b17e7e`. |
 | <a id="b504"></a>[B504](B504-An-Unknown-Project-Removed-From-The-Window.md) | XS | - | `RemoveProject` previews and removes a project the machine lists but has no file for, instead of `NoSuchProject`. |
@@ -104,7 +105,6 @@ from its side, as *blocked by*.
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
 | <a id="b510"></a>[B510](B510-The-Tasks-Contract-In-Porelo-Wire.md) | S | - | The published `porelo-wire` jar carries the `Tasks1` interface files and their order, so a client such as porelo-mcp reads the real contract; the daemon reads them from there as before. |
-| <a id="b509"></a>[B509](B509-A-Varlink-Number-Read-Exactly.md) | S | - | A number in a varlink call or reply reaches its reader as sent: `VarlinkConnection` reads with `Json.parseDecimals`, so an int is no double and an int64 above 2^53 keeps its digits. |
 | <a id="b118"></a>[B118](B118-An-Attached-Agent-Said-At-Rest-Or-Working.md) | M | - | A new `AT_REST` activity, judged from the screen reads the listing already makes with the wake's two-look rule; the stub agent gets an `at_rest`. | - |
 | <a id="b506"></a>[B506](B506-An-Agent-Waiting-On-A-Person.md) | XS | [B118](#b118) | A task's listing says when its agent waits on a person for its own question, where the agent declares how that is seen. |
 | <a id="b474"></a>[B474](B474-A-Task-Fetches-Its-Projects-Snapshots-Through-Its-Broker.md) | M | [B470](#b470), [B467](#b467) | A package route in the task's broker: GET/HEAD below its own organization's maven path, refused before upstream otherwise; Maven's answers there alone; the task's host token read narrowly and made before the broker; settings through porelo.yml and Configure | Whether removal ends the token at once; the shared snapshot rule |
