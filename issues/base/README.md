@@ -133,8 +133,16 @@ from its side, as *blocked by*.
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
 | <a id="b529"></a>[B529](B529-A-Peers-Message-Cannot-Pass-For-A-Filter-Note.md) | S | - | Another task's message shaped like a refusal note no longer wakes every task it reaches. |
+| <a id="b577"></a>[B577](B577-An-Online-Tasks-Pushed-Commit-Waits-On-Nobody.md) | M | - | An online task whose push passed the gate is never shown as waiting on the person; its push appears as the task's. |
+| <a id="b578"></a>[B578](B578-A-Task-That-Said-Done-Is-Done.md) | M | - | A task whose agent said done and stopped has the state `done`. |
+| <a id="b576"></a>[B576](B576-A-Tasks-Status-Names-Its-Model-And-Its-Own-Name.md) | M | - | `task status --json` names the model, its source and the short name; a start naming no model says `modelFrom: project`; usage names the model. |
+| <a id="b575"></a>[B575](B575-The-Wizards-Host-Key-Is-Not-Asked-Again.md) | S | - | No second host key question after the wizard compared and stored the key. |
+| <a id="b579"></a>[B579](B579-A-Single-Admins-Project-Needs-No-Review.md) | S | - | A project with a single admin is created with `review: optional`, and `required` that cannot be met is said. |
+| <a id="b581"></a>[B581](B581-The-Task-Terminal-Takes-The-Largest-View.md) | XS | - | The task terminal sizes to the latest client (`window-size latest`). |
 | <a id="b571"></a>[B571](B571-A-Task-Container-Finds-Its-Init.md) | XS | - | porelo's package depends on `catatonit`, the init every task container starts with, and a start without it refuses before anything is made. |
 | <a id="b572"></a>[B572](B572-The-Host-Services-Listener-Prepared-With-The-Suite.md) | S | - | A root-run script beside the acceptance suite prepares host-services' TLS listener, so the VM chain runs that feature instead of skipping it. |
+| <a id="b574"></a>[B574](B574-A-Hosts-Waiting-Project-Is-Never-Shown-As-Carried.md) | L | [B543](#b543) | A project the host reports waiting (`waiting-for-token`) is never listed as carried; the host's state and why reach the window. |
+| <a id="b580"></a>[B580](B580-The-Gathered-Push-From-The-Window.md) | M | [B544](#b544) | `PushToCentral` over the daemon: the gathered push to central with progress and typed refusals, for the window's release. |
 | <a id="b561"></a>[B561](B561-What-Starts-Work-Named-In-The-Project-File.md) | M | - | `planning` in the signed project file: the adapter, its credential (`github-app` or `token`) and settings, `work` per working state (`from`, `done`, `per`, `modes`, `order`, `model`) and the coordinator's order. |
 | <a id="b564"></a>[B564](B564-States-Moved-On-The-Board.md) | M | [B562](README.md#b562) | `SaveMoves` saves story and issue moves together, all or none; a working state is refused as a target with `EnteredOnlyByWork`. |
 | <a id="b565"></a>[B565](B565-Work-Started-From-The-Board.md) | L | [B562](README.md#b562), [B563](README.md#b563) | `ProposeStoryWork`, `StartStoryWork`, `GetStoryWork`, `StopStoryWork`: tasks started for a story's working state and recorded by porelod. |
