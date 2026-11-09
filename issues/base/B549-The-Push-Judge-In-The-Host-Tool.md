@@ -1,8 +1,8 @@
 # [B549](README.md#b549) — The Push Judge In The Host Tool
 
-**Status:** Backlog. Filed 2026-11-09 from the porelo-host CLI proposal the operator took (a module `host/` of porelo,
+**Status:** Implementing, since 2026-11-09. Filed 2026-11-09 from the porelo-host CLI proposal the operator took (a module `host/` of porelo,
 built by Agent Core and read by Agent Machines; built all at once: every issue of it on one branch, one hand-over, its real test
-move 5). Priority to be set by the operator; nothing built before the operator's word after move 4.
+move 5).
 **Size:** L.
 **Blocked by:** [B547](README.md#b547).
 

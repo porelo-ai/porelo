@@ -110,6 +110,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b549"></a>[B549](B549-The-Push-Judge-In-The-Host-Tool.md) | L | [B547](#b547) | `porelo-host judge-push` behind the judge socket, with every refusal test. |
 | <a id="b563"></a>[B563](B563-The-Board-Told-Of-Every-Change.md) | S | [B562](README.md#b562) | `WatchStories` and `RefreshStories`: the whole board, then every change from the adapter or porelod. |
 | <a id="b560"></a>[B560](B560-A-Planning-Adapter-Behind-Its-Own-Contract.md) | M | - | `porelo-planning-api`: `org.fuin.porelo.Planning1`, `PlanningMain`, the client and discovery of installed planning adapters, a stub, and the adapter guide. |
 | <a id="b562"></a>[B562](B562-The-Board-Read-Through-Porelod.md) | L | [B560](README.md#b560), [B561](README.md#b561) | Tasks1 part `60-planning`'s reads through the adapter porelod runs, a GitHub App's token minted per call, a story's state computed from its issues in one workflow, and `planning.work` checked against it. |
@@ -141,7 +142,6 @@ from its side, as *blocked by*.
 | <a id="b552"></a>[B552](B552-The-Forge-Gates-And-The-Pool-In-The-Host-Tool.md) | L | [B540](#b540) | `porelo-host gate forge --web|--git|--runner` after HO153's load measure; `pool revert | make-vm | find-vm | delete-vm`. |
 | <a id="b551"></a>[B551](B551-The-Host-Purges-A-Person-And-Restores-Runtimes-In-Java.md) | L | [B550](#b550) | `porelo-host person purge <login> | restore-runtime`. |
 | <a id="b550"></a>[B550](B550-The-Host-Follows-Its-Organization-In-Java.md) | L | [B546](#b546), [B547](#b547) | `porelo-host org follow | refresh | renew-pin`; the project verbs called in-process. |
-| <a id="b549"></a>[B549](B549-The-Push-Judge-In-The-Host-Tool.md) | L | [B547](#b547) | `porelo-host judge-push` behind the judge socket, with every refusal test. |
 | <a id="b548"></a>[B548](B548-A-Repositorys-Arrivals-Read-As-A-Published-File.md) | M | [B547](#b547) | root publishes arrivals with a read ACL; porelod reads the file, no sudo verb. |
 | <a id="b547"></a>[B547](B547-Task-Accounts-And-Lent-Tokens-Through-The-Host-Tool.md) | L | [B541](#b541) | `porelo-host task start | end`, `forge issue-token | lend-token`, for `SUDO_USER` alone; porelo's callers switched. |
 | <a id="b546"></a>[B546](B546-The-Host-Tool-Measures-Copies-And-Advances-A-Project.md) | L | [B545](#b545) | `porelo-host project measure-central | copy | advance | check-central`. |
