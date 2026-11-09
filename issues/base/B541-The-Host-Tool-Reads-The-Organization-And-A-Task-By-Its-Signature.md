@@ -1,8 +1,7 @@
 # [B541](README.md#b541) — The Host Tool Reads The Organization And A Task By Its Signature
 
-**Status:** Backlog. Filed 2026-11-09 from the porelo-host CLI proposal the operator took (a module `host/` of porelo,
-built by Agent Core and read by Agent Machines; built all at once: every issue of it on one branch, one hand-over, its real test
-move 5). Priority to be set by the operator; nothing built before the operator's word after move 4.
+**Status:** Implementing, since 2026-11-09, on the operator's order to build the host's own program now; nothing of it
+reaches `main` before the operator's move-4 test. Filed 2026-11-09 from the porelo-host CLI proposal the operator took.
 **Size:** L.
 **Blocked by:** [B540](README.md#b540).
 
