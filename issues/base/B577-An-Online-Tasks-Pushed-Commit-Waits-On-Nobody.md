@@ -1,6 +1,6 @@
 # [B577](README.md#b577) — An Online Task's Pushed Commit Waits On Nobody
 
-**Status:** Backlog. Filed 2026-11-09 under ST290, from the fourth move.
+**Status:** Implementing. Filed 2026-11-09 under ST290, from the fourth move.
 **Size:** M - the task's waiting reason, what Needs you is told, and whose account a task pushes as.
 
 **What must be true.** In class `online`, a task whose push passed the gate to the host's forge is never shown as
