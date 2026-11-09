@@ -14,13 +14,21 @@ method Head(upstream: string, api: string, token: string, branch: string) -> (co
 # not finished; and the last 64 KiB of its log in base64, absent when none is handed over - less when more than 32
 # logs share the 2 MiB a build carries in all, each keeping an equal share of its end. A log is always the
 # job's plain text: a reader whose forge sends an archive or splits a job into step files unpacks it and joins the
-# steps in their order, one header line each, before it takes the end.
-type Job (name: string, result: string, log: ?string)
+# steps in their order, one header line each, before it takes the end. run is the id of the run the job belongs to,
+# one of the build's Run.id; a job of a workflow built twice is listed under each run, and a run naming no run of the
+# build is dropped. failedTests, for a failed job, the tests that failed as the runner names them
+# ("<class>.<method>"), at most 50, absent when the log names none, never guessed; url the forge's page of the job, an
+# https address of at most 2048 characters, so a status can point to the whole log. Each of the three is absent from a
+# reader from before; Porelo keeps a test name to one line of at most 200 characters, and an url only in that form.
+type Job (name: string, result: string, log: ?string, run: ?string, failedTests: ?[]string, url: ?string)
 
 # One run of a workflow or pipeline for the commit: its name as the forge spells it, and what became of it in lower
 # case, or its state while it is not finished ("queued" | "waiting" | "in_progress" | ...). One line of printable
 # text each, at most 200 characters; Porelo makes it so. A rerun replaces its run; at most 50, in the forge's order.
-type Run (name: string, result: string)
+# event is what started it, lower case as the forge spells it ("push" | "pull_request" | "schedule" | ...), and id the
+# forge's id of the run as text, each one line of at most 64 characters; together they tell a workflow's push run from
+# its pull request run. Both absent from a reader from before.
+type Run (name: string, result: string, event: ?string, id: ?string)
 
 # What the build of one commit did. runs names each run of the commit at every answer, also while queued or
 # running; absent from a reader from before, which Porelo hears as none. jobs is every job the forge reports for the commit, in its order, once the

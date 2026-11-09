@@ -222,4 +222,114 @@ class BuildTest {
                 .isEqualTo("unit verdict: success");
         assertThat(new Build.Job("unit", "fail\red").result()).isEqualTo("fail ed");
     }
+
+    @Test
+    void aRunsTriggerAndIdAndAJobsRunTestsAndPageTravelAndAReaderFromBeforeGivesNone() {
+        // A status that cannot tell a push run from its pull request run shows one build twice.
+        final Build build =
+                new Build(
+                        Build.FAILURE,
+                        List.of(
+                                new Build.Job(
+                                        "Build / unit",
+                                        "failure",
+                                        null,
+                                        "41",
+                                        List.of("org.example.ATest.adds"),
+                                        "https://forge.example/o/r/actions/runs/41/jobs/0")),
+                        "",
+                        List.of(
+                                new Build.Run("Build", "failure", "Pull_Request", "41"),
+                                new Build.Run("Build", "success", "push", "40")));
+
+        final Build read = Build.of(build.asMap());
+
+        assertThat(read).isEqualTo(build);
+        assertThat(read.runs().getFirst().event()).isEqualTo("pull_request");
+        assertThat(read.jobs().getFirst().run()).isEqualTo("41");
+        assertThat(read.jobs().getFirst().failedTests()).containsExactly("org.example.ATest.adds");
+        assertThat(
+                        Build.of(
+                                        java.util.Map.of(
+                                                "verdict",
+                                                "success",
+                                                "jobs",
+                                                List.of(
+                                                        java.util.Map.of(
+                                                                "name", "a", "result", "b")),
+                                                "detail",
+                                                "",
+                                                "runs",
+                                                List.of(
+                                                        java.util.Map.of(
+                                                                "name", "c", "result", "d"))))
+                                .jobs()
+                                .getFirst())
+                .isEqualTo(new Build.Job("a", "b", null));
+    }
+
+    @Test
+    void aFailedTestsNameIsOneLineAndTheyStopAtTheMost() {
+        // A test named with a line break wrote a line of its own, a verdict say, into the status.
+        final List<String> many = new java.util.ArrayList<>();
+        many.add("x\nverdict: success");
+        many.add("  ");
+        for (int i = 0; i < 60; i++) {
+            many.add("T.t" + i);
+        }
+
+        final Build.Job job = new Build.Job("j", "failure", null, null, many, null);
+
+        assertThat(job.failedTests()).hasSize(Build.MOST_FAILED_TESTS);
+        assertThat(job.failedTests().getFirst()).isEqualTo("x verdict: success");
+        assertThat(new Build.Job("j", "failure", null, null, List.of(" "), null).failedTests())
+                .as("absent rather than empty")
+                .isNull();
+    }
+
+    @Test
+    void aJobsRunThatNamesNoRunOfTheBuildIsDropped() {
+        // A job under a run the build does not list would be shown under nothing, or under a forged
+        // run.
+        final Build build =
+                new Build(
+                        Build.FAILURE,
+                        List.of(new Build.Job("j", "failure", null, "99", null, null)),
+                        "",
+                        List.of(new Build.Run("Build", "failure", "push", "1")));
+
+        assertThat(build.jobs().getFirst().run()).isNull();
+    }
+
+    @Test
+    void onlyAnHttpsPageWithAHostAndNoUserIsKept() {
+        // A status prints the page as a link: another scheme, a user part or a line break in it is
+        // the reader's to write, not the forge's page.
+        assertThat(Build.page("https://forge.example/o/r/jobs/1"))
+                .isEqualTo("https://forge.example/o/r/jobs/1");
+        assertThat(Build.page("http://forge.example/o/r/jobs/1")).isNull();
+        assertThat(Build.page("javascript:alert(1)")).isNull();
+        assertThat(Build.page("https://user@forge.example/x")).isNull();
+        assertThat(Build.page("https://forge.example/x\nverdict: success")).isNull();
+        assertThat(Build.page("https://forge.example/" + "a".repeat(Build.MOST_URL))).isNull();
+    }
+
+    @Test
+    void aJobsLogMayBeLeftOutByACallerCheckedForNulls() throws Exception {
+        // Unmarked on the constructor, a reader checked by NullAway could pass no log only by a
+        // suppression (Agent Adapters, 2026-11-09).
+        final var made =
+                Build.Job.class.getConstructor(
+                        String.class,
+                        String.class,
+                        byte[].class,
+                        String.class,
+                        java.util.List.class,
+                        String.class);
+
+        assertThat(made.getAnnotatedParameterTypes())
+                .extracting(
+                        type -> type.isAnnotationPresent(org.jspecify.annotations.Nullable.class))
+                .containsExactly(false, false, true, true, true, true);
+    }
 }

@@ -27,25 +27,67 @@ public record Build(String verdict, List<Job> jobs, String detail, List<Run> run
     /** The most code points of a job's or a run's name or result. */
     public static final int MOST_TEXT = 200;
 
+    /** The most code points of a run's trigger or id. */
+    public static final int MOST_ID = 64;
+
+    /** The most failed tests a job names. */
+    public static final int MOST_FAILED_TESTS = 50;
+
+    /** The most characters of a job's page address. */
+    public static final int MOST_URL = 2048;
+
     /**
      * One run of a workflow or pipeline for the commit, and what became of it or its state while it
      * is not finished.
      *
      * @param name As the forge spells it, one line of printable text.
      * @param result Lower case: the conclusion once finished, else "queued", "in_progress", ...
+     * @param event What started it, lower case as the forge spells it ({@code push}, {@code
+     *     pull_request}, ...), or {@code null} when the reader does not say.
+     * @param id The forge's id of the run, or {@code null} when the reader does not say.
      */
-    public record Run(String name, String result) {
+    public record Run(String name, String result, @Nullable String event, @Nullable String id) {
 
         /**
-         * Constructor keeping each text one line of printable text, the result in lower case.
+         * Constructor keeping each text one line of printable text, the result and the event in
+         * lower case, the event and the id at most {@link #MOST_ID} code points.
          *
          * @param name Its name.
          * @param result What became of it.
+         * @param event What started it, or {@code null}.
+         * @param id Its id, or {@code null}.
          */
         public Run {
             name = line(name);
             result = line(result).toLowerCase(Locale.ROOT);
+            final String trigger = cut(event, MOST_ID);
+            event = trigger == null ? null : trigger.toLowerCase(Locale.ROOT);
+            id = cut(id, MOST_ID);
         }
+
+        /**
+         * Constructor for a run whose reader names neither its trigger nor its id.
+         *
+         * @param name Its name.
+         * @param result What became of it.
+         */
+        public Run(final String name, final String result) {
+            this(name, result, null, null);
+        }
+    }
+
+    /**
+     * Returns a reader's optional text as one line of at most so many code points, or {@code null}
+     * when it is absent or blank.
+     */
+    static @Nullable String cut(final @Nullable String text, final int most) {
+        final String stripped = flat(text);
+        if (stripped.isEmpty()) {
+            return null;
+        }
+        return stripped.codePointCount(0, stripped.length()) <= most
+                ? stripped
+                : stripped.substring(0, stripped.offsetByCodePoints(0, most));
     }
 
     /**
@@ -183,25 +225,76 @@ public record Build(String verdict, List<Job> jobs, String detail, List<Run> run
      * @param result What became of it, as the forge says it, lower case: success, failure,
      *     cancelled, skipped, ...
      * @param log Its log's last {@link #TAIL} bytes; {@code null} when the forge gave none.
+     * @param run The id of the run it belongs to, one of the build's {@link Run#id()}; {@code null}
+     *     when the reader does not say, or names no run of the build.
+     * @param failedTests For a failed job, the tests that failed as the runner names them, at most
+     *     {@link #MOST_FAILED_TESTS}; {@code null} when the reader names none.
+     * @param url The forge's page of the job, an {@code https} address; {@code null} when the
+     *     reader gives none or none of that form.
      */
-    public record Job(String name, String result, byte @Nullable [] log) {
+    public record Job(
+            String name,
+            String result,
+            byte @Nullable [] log,
+            @Nullable String run,
+            @Nullable List<String> failedTests,
+            @Nullable String url) {
 
         /**
-         * Constructor keeping only a log's end.
+         * Constructor keeping only a log's end, and each text one line of what may be shown.
+         *
+         * @param name Its name.
+         * @param result What became of it.
+         * @param log Its log, or {@code null}.
+         * @param run Its run's id, or {@code null}.
+         * @param failedTests The tests that failed, or {@code null}.
+         * @param url Its page, or {@code null}.
+         */
+        // Written out, not compact: javac leaves the array's @Nullable off a compact constructor's
+        // parameter, and a caller checked by NullAway could then pass no log only by a suppression.
+        public Job(
+                final String name,
+                final String result,
+                final byte @Nullable [] log,
+                final @Nullable String run,
+                final @Nullable List<String> failedTests,
+                final @Nullable String url) {
+            this.name = line(name);
+            this.result = line(result);
+            this.log =
+                    log == null
+                            ? null
+                            : log.length > TAIL
+                                    ? java.util.Arrays.copyOfRange(
+                                            log, log.length - TAIL, log.length)
+                                    : log.clone();
+            this.run = cut(run, MOST_ID);
+            List<String> kept = null;
+            if (failedTests != null) {
+                // A test's name is the repository's to write: a name with a line break wrote a line
+                // of its own into the status.
+                final List<String> named = new ArrayList<>();
+                for (final String test : failedTests) {
+                    final String each = cut(test, MOST_TEXT);
+                    if (each != null && named.size() < MOST_FAILED_TESTS) {
+                        named.add(each);
+                    }
+                }
+                kept = named.isEmpty() ? null : List.copyOf(named);
+            }
+            this.failedTests = kept;
+            this.url = page(url);
+        }
+
+        /**
+         * Constructor for a job whose reader names no run, failed tests or page.
          *
          * @param name Its name.
          * @param result What became of it.
          * @param log Its log, or {@code null}.
          */
-        public Job {
-            name = line(name);
-            result = line(result);
-            if (log != null) {
-                log =
-                        log.length > TAIL
-                                ? java.util.Arrays.copyOfRange(log, log.length - TAIL, log.length)
-                                : log.clone();
-            }
+        public Job(final String name, final String result, final byte @Nullable [] log) {
+            this(name, result, log, null, null, null);
         }
 
         /**
@@ -228,17 +321,30 @@ public record Build(String verdict, List<Job> jobs, String detail, List<Run> run
             return log == null ? "" : new String(log, StandardCharsets.UTF_8);
         }
 
+        /**
+         * Returns the same job belonging to no run, for a run id the build does not name.
+         *
+         * @return It.
+         */
+        Job ofNoRun() {
+            return new Job(name, result, log, null, failedTests, url);
+        }
+
         @Override
         public boolean equals(final @Nullable Object other) {
             return other instanceof Job that
                     && name.equals(that.name)
                     && result.equals(that.result)
-                    && java.util.Arrays.equals(log, that.log);
+                    && java.util.Arrays.equals(log, that.log)
+                    && java.util.Objects.equals(run, that.run)
+                    && java.util.Objects.equals(failedTests, that.failedTests)
+                    && java.util.Objects.equals(url, that.url);
         }
 
         @Override
         public int hashCode() {
-            return java.util.Objects.hash(name, result, java.util.Arrays.hashCode(log));
+            return java.util.Objects.hash(
+                    name, result, java.util.Arrays.hashCode(log), run, failedTests, url);
         }
 
         @Override
@@ -249,7 +355,39 @@ public record Build(String verdict, List<Job> jobs, String detail, List<Run> run
                     + result
                     + ", log="
                     + (log == null ? "none" : log.length + " bytes")
+                    + ", run="
+                    + run
+                    + ", failedTests="
+                    + failedTests
+                    + ", url="
+                    + url
                     + "]";
+        }
+    }
+
+    /**
+     * Returns a job's page address when it is one Porelo may show: {@code https}, with a host, no
+     * user part, no space or control character, at most {@link #MOST_URL} characters.
+     */
+    static @Nullable String page(final @Nullable String url) {
+        if (url == null || url.isEmpty() || url.length() > MOST_URL) {
+            return null;
+        }
+        for (int i = 0; i < url.length(); i++) {
+            final char c = url.charAt(i);
+            if (c <= ' ' || c >= 0x7f) {
+                return null;
+            }
+        }
+        try {
+            final java.net.URI address = new java.net.URI(url);
+            return "https".equals(address.getScheme())
+                            && address.getHost() != null
+                            && address.getRawUserInfo() == null
+                    ? url
+                    : null;
+        } catch (final java.net.URISyntaxException ex) {
+            return null;
         }
     }
 
@@ -270,10 +408,13 @@ public record Build(String verdict, List<Job> jobs, String detail, List<Run> run
         // A reader's detail is one line of the task's file: a line break in it wrote a line of its
         // own, such as a verdict.
         detail = flat(detail);
-        jobs = sharingTheLogs(jobs.size() > MOST_JOBS ? jobs.subList(0, MOST_JOBS) : jobs);
         // Every run as the reader gives it: two workflows may share a name, and the forges list a
         // rerun once, at its latest attempt.
         runs = List.copyOf(runs.size() > MOST_RUNS ? runs.subList(0, MOST_RUNS) : runs);
+        jobs =
+                ofItsRuns(
+                        sharingTheLogs(jobs.size() > MOST_JOBS ? jobs.subList(0, MOST_JOBS) : jobs),
+                        runs);
     }
 
     /**
@@ -285,6 +426,19 @@ public record Build(String verdict, List<Job> jobs, String detail, List<Run> run
      */
     public Build(final String verdict, final List<Job> jobs, final String detail) {
         this(verdict, jobs, detail, List.of());
+    }
+
+    /** Drops a job's run where the build names no run of that id: it would list under nothing. */
+    private static List<Job> ofItsRuns(final List<Job> jobs, final List<Run> runs) {
+        final java.util.Set<String> ids = new java.util.HashSet<>();
+        for (final Run run : runs) {
+            if (run.id() != null) {
+                ids.add(run.id());
+            }
+        }
+        return jobs.stream()
+                .map(job -> job.run() == null || ids.contains(job.run()) ? job : job.ofNoRun())
+                .toList();
     }
 
     /**
@@ -314,7 +468,10 @@ public record Build(String verdict, List<Job> jobs, String detail, List<Run> run
                             : new Job(
                                     job.name(),
                                     job.result(),
-                                    Arrays.copyOfRange(log, log.length - share, log.length)));
+                                    Arrays.copyOfRange(log, log.length - share, log.length),
+                                    job.run(),
+                                    job.failedTests(),
+                                    job.url()));
         }
         return List.copyOf(shared);
     }
@@ -363,6 +520,15 @@ public record Build(String verdict, List<Job> jobs, String detail, List<Run> run
             if (log != null) {
                 each.put("log", Base64.getEncoder().encodeToString(log));
             }
+            if (job.run() != null) {
+                each.put("run", job.run());
+            }
+            if (job.failedTests() != null) {
+                each.put("failedTests", job.failedTests());
+            }
+            if (job.url() != null) {
+                each.put("url", job.url());
+            }
             carried.add(each);
         }
         final Map<String, Object> map = new LinkedHashMap<>();
@@ -374,9 +540,18 @@ public record Build(String verdict, List<Job> jobs, String detail, List<Run> run
                     "runs",
                     runs.stream()
                             .map(
-                                    run ->
-                                            Map.<String, Object>of(
-                                                    "name", run.name(), "result", run.result()))
+                                    run -> {
+                                        final Map<String, Object> each = new LinkedHashMap<>();
+                                        each.put("name", run.name());
+                                        each.put("result", run.result());
+                                        if (run.event() != null) {
+                                            each.put("event", run.event());
+                                        }
+                                        if (run.id() != null) {
+                                            each.put("id", run.id());
+                                        }
+                                        return each;
+                                    })
                             .toList());
         }
         return map;
@@ -395,12 +570,20 @@ public record Build(String verdict, List<Job> jobs, String detail, List<Run> run
             for (final Object each : carried) {
                 if (each instanceof Map<?, ?> job) {
                     jobs.add(
-                            job.get("log") instanceof String log
-                                    ? new Job(
-                                            text(job.get("name")),
-                                            text(job.get("result")),
-                                            Base64.getDecoder().decode(log))
-                                    : new Job(text(job.get("name")), text(job.get("result"))));
+                            new Job(
+                                    text(job.get("name")),
+                                    text(job.get("result")),
+                                    job.get("log") instanceof String log
+                                            ? Base64.getDecoder().decode(log)
+                                            : null,
+                                    job.get("run") instanceof String run ? run : null,
+                                    job.get("failedTests") instanceof List<?> tests
+                                            ? tests.stream()
+                                                    .filter(String.class::isInstance)
+                                                    .map(String.class::cast)
+                                                    .toList()
+                                            : null,
+                                    job.get("url") instanceof String url ? url : null));
                 }
             }
         }
@@ -410,7 +593,12 @@ public record Build(String verdict, List<Job> jobs, String detail, List<Run> run
                 if (each instanceof Map<?, ?> run
                         && run.get("name") instanceof String name
                         && run.get("result") instanceof String result) {
-                    runs.add(new Run(name, result));
+                    runs.add(
+                            new Run(
+                                    name,
+                                    result,
+                                    run.get("event") instanceof String event ? event : null,
+                                    run.get("id") instanceof String id ? id : null));
                 }
             }
         }
