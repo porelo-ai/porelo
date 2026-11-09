@@ -40,6 +40,19 @@ class ForgeIdentityTest {
                 .toList();
     }
 
+    // A credential probe must not trust another host or forward the person's agent to it.
+    @Test
+    void aProbeIsolatesSshTrustEvenWithoutALentKey() throws Exception {
+        ForgeIdentity.ask(context(), "git@forge.example:team/repo.git", "probe");
+
+        final Command ssh = sshRuns().getFirst();
+        SshPolicyFixture.assertIsolated(
+                SshPolicyFixture.effective(
+                        dir, ssh.arguments().subList(1, ssh.arguments().size())));
+        assertThat(ssh.inheritsEnvironment()).isFalse();
+        assertThat(ssh.environment()).containsEntry("SSH_ASKPASS_REQUIRE", "never");
+    }
+
     @Test
     void aProbeUsesTheSelectedAgentIdentityRatherThanAnotherKey() throws Exception {
         // A successful check of a different identity would authorize keeping the wrong key.

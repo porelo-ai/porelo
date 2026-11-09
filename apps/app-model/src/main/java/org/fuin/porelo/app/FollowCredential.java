@@ -583,14 +583,20 @@ public final class FollowCredential implements AutoCloseable {
      * @return The command for {@code GIT_SSH_COMMAND}.
      */
     static String sshCommand(final PoreloContext context, final @Nullable String identityFile) {
-        // Each path one shell word: git runs this through a shell, so a state directory with a
-        // space broke every fetch, and a key path with ';' ran as shell.
-        return "ssh -o BatchMode=yes -o StrictHostKeyChecking=yes"
-                + " -o UserKnownHostsFile="
-                + word(knownHosts(context).toString())
+        // Shell quoting and SSH's own path quoting are separate: both must keep the pin whole.
+        final String policy =
+                PinnedHostSsh.options(knownHosts(context)).stream()
+                        .map(
+                                option ->
+                                        option.startsWith("UserKnownHostsFile=")
+                                                ? word(option)
+                                                : option)
+                        .collect(java.util.stream.Collectors.joining(" "));
+        return "ssh "
+                + policy
                 + (identityFile == null
                         ? ""
-                        : " -F /dev/null -i " + word(identityFile) + " -o IdentitiesOnly=yes");
+                        : " -i " + word(identityFile) + " -o IdentitiesOnly=yes");
     }
 
     /**

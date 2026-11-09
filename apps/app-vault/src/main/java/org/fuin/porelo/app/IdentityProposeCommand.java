@@ -114,11 +114,21 @@ public class IdentityProposeCommand implements Callable<Integer>, PoreloFactory.
             login = null;
         }
         if (login == null) {
+            final String host =
+                    HostKeys.Address.of(
+                                    Objects.requireNonNull(
+                                            address.getHost(), "a validated forge has a host"))
+                            .host();
+            final HostKeys.Address configuredSsh = HostKeys.Address.ofUpstream(origin.url());
             login =
                     sshLogin(
                             machine,
-                            Objects.requireNonNull(
-                                    address.getHost(), "a validated forge has a host"));
+                            new HostKeys.Address(
+                                    host,
+                                    configuredSsh == null
+                                            ? HostKeys.Address.SSH
+                                            : configuredSsh.port()),
+                            notes);
             loginSource = "ssh";
             if (login != null && !PersonCard.isLogin(login)) {
                 notes.add("The SSH login is not a card login.");
@@ -262,30 +272,37 @@ public class IdentityProposeCommand implements Callable<Integer>, PoreloFactory.
         }
     }
 
-    private static @Nullable String sshLogin(final PoreloContext machine, final String host) {
-        Command command =
-                Command.of(
-                        "timeout",
-                        "12s",
-                        "ssh",
-                        "-T",
-                        "-o",
-                        "BatchMode=yes",
-                        "-o",
-                        "ConnectTimeout=5",
-                        "-o",
-                        "StrictHostKeyChecking=yes",
-                        "-o",
-                        "UpdateHostKeys=no",
-                        "git@" + host);
-        final String socket = machine.environment().apply("SSH_AUTH_SOCK");
-        if (socket != null) command = command.withEnvironment(Map.of("SSH_AUTH_SOCK", socket));
+    private static @Nullable String sshLogin(
+            final PoreloContext machine, final HostKeys.Address address, final List<String> notes) {
+        final var arguments = new ArrayList<>(List.of("timeout", "12s", "ssh"));
+        arguments.addAll(PinnedHostSsh.options(FollowCredential.knownHostsFile(machine)));
+        arguments.addAll(List.of("-T", "-o", "ConnectTimeout=5"));
+        if (address.port() != HostKeys.Address.SSH) {
+            arguments.addAll(List.of("-p", Integer.toString(address.port())));
+        }
+        arguments.add("git@" + address.host());
+        final Command command =
+                Command.of(arguments)
+                        .withChosenEnvironment(PinnedHostSsh.environment(machine.environment()));
         try {
             final CommandResult result = machine.runner().run(command);
+            final String said = result.standardOutput() + result.standardError();
+            if (HostKeys.refusedTheHost(said)) {
+                final boolean changed = HostKeys.changed(said);
+                notes.add(
+                        "The SSH host key for "
+                                + address.name()
+                                + (changed ? " changed" : " is not trusted")
+                                + "; compare it with the forge's administrator"
+                                + (changed
+                                        ? "."
+                                        : " before confirming it with 'porelo credentials trust-host "
+                                                + address.name()
+                                                + "'."));
+                return null;
+            }
             if (result.exitCode() != 0 && result.exitCode() != 1) return null;
-            final var match =
-                    Pattern.compile("Hi (?:there, )?([^!\\s]+)!")
-                            .matcher(result.standardOutput() + result.standardError());
+            final var match = Pattern.compile("Hi (?:there, )?([^!\\s]+)!").matcher(said);
             return match.find() ? match.group(1) : null;
         } catch (CommandException ex) {
             return null;

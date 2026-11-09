@@ -330,8 +330,9 @@ class HostUnlockCommandTest {
                                                 java.nio.file.Files.readString(
                                                         Path.of(
                                                                 argument.substring(
-                                                                        "UserKnownHostsFile="
-                                                                                .length()))));
+                                                                                "UserKnownHostsFile="
+                                                                                        .length())
+                                                                        .replace("\"", ""))));
                                     } catch (java.io.IOException ex) {
                                         throw new AssertionError(ex);
                                     }
@@ -439,7 +440,8 @@ class HostUnlockCommandTest {
                         .filter(a -> a.startsWith("UserKnownHostsFile="))
                         .findFirst()
                         .orElseThrow()
-                        .substring("UserKnownHostsFile=".length());
+                        .substring("UserKnownHostsFile=".length())
+                        .replace("\"", "");
         assertThat(java.nio.file.Files.exists(Path.of(pin)))
                 .as("the temporary public pin is removed")
                 .isFalse();

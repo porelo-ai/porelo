@@ -1,0 +1,2 @@
+title: Identity discovery checks only Porelo's pinned SSH host key on the forge's configured SSH port and explains unknown or changed keys without asking
+type: fixed

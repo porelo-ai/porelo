@@ -79,22 +79,9 @@ public final class ForgeIdentity {
         try (FollowCredential credential =
                 FollowCredential.open(context, url, label, "git", offered)) {
             final java.util.List<String> command =
-                    new java.util.ArrayList<>(
-                            java.util.List.of(
-                                    "ssh",
-                                    "-o",
-                                    "BatchMode=yes",
-                                    "-o",
-                                    "ConnectTimeout=10",
-                                    // The host-key policy a fetch uses, strict: this file is the
-                                    // one every fetch trusts, so learning a host here decided the
-                                    // question a fetch puts to a person. A host never met answers
-                                    // nothing about the credential, which is said as nothing.
-                                    "-o",
-                                    "StrictHostKeyChecking=yes",
-                                    "-o",
-                                    "UserKnownHostsFile="
-                                            + FollowCredential.knownHostsFile(context)));
+                    new java.util.ArrayList<>(java.util.List.of("ssh"));
+            command.addAll(PinnedHostSsh.options(FollowCredential.knownHostsFile(context)));
+            command.addAll(java.util.List.of("-o", "ConnectTimeout=10"));
             command.addAll(credential.identityArguments());
             final var selected =
                     offered == null ? context.credentialRegistry().forUrl("git", url) : offered;
@@ -104,14 +91,7 @@ public final class ForgeIdentity {
                 // A key in a file is named to ssh directly. The lease says so in GIT_SSH_COMMAND,
                 // which git reads and ssh does not - so asking with the lease's environment alone
                 // asked about no key at all.
-                command.addAll(
-                        java.util.List.of(
-                                "-F",
-                                "/dev/null",
-                                "-i",
-                                selected.id(),
-                                "-o",
-                                "IdentitiesOnly=yes"));
+                command.addAll(java.util.List.of("-i", selected.id(), "-o", "IdentitiesOnly=yes"));
             }
             // On the address's own port: a forge on 7999 is not the service that answers on 22.
             final HostKeys.Address address = HostKeys.Address.ofUpstream(url);
@@ -121,7 +101,12 @@ public final class ForgeIdentity {
             command.addAll(java.util.List.of("-T", (user == null ? "git" : user) + "@" + host));
             final CommandResult asked =
                     context.runner()
-                            .run(Command.of(command).withEnvironment(credential.environment()));
+                            .run(
+                                    Command.of(command)
+                                            .withChosenEnvironment(
+                                                    PinnedHostSsh.environment(
+                                                            context.environment()))
+                                            .withEnvironment(credential.environment()));
             final String all = asked.standardError() + "\n" + asked.standardOutput();
             final String greeting =
                     all.lines()

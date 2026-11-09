@@ -31,7 +31,7 @@ class FollowCredentialQuotingTest {
         final String command = FollowCredential.sshCommand(context, "/keys/id;touch x");
 
         assertThat(command)
-                .contains("UserKnownHostsFile='" + state.resolve("porelo"))
+                .contains("UserKnownHostsFile=\"" + state.resolve("porelo"))
                 .contains("-i '/keys/id;touch x'");
     }
 }

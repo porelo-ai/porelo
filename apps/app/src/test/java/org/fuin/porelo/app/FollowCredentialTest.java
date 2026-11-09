@@ -21,6 +21,18 @@ import org.junit.jupiter.params.provider.ValueSource;
 /** Tests for {@link FollowCredential}: what git is given to reach a destination. */
 class FollowCredentialTest {
 
+    // A fetch must not accept another trust source or split the pin into relative file names.
+    @Test
+    void aFetchIsolatesSshTrustAndKeepsThePinPathWhole(@TempDir Path dir) throws Exception {
+        final PoreloContext machine = context(dir.resolve("my  state"));
+        final String effective =
+                SshPolicyFixture.effectiveShell(dir, FollowCredential.sshCommand(machine, null));
+
+        SshPolicyFixture.assertIsolated(effective);
+        assertThat(effective.lines().filter(line -> line.startsWith("userknownhostsfile ")))
+                .containsExactly("userknownhostsfile " + FollowCredential.knownHostsFile(machine));
+    }
+
     @Test
     void anAgentDeclarationNamesOnlyTheChosenPublicKey(@TempDir Path dir) throws Exception {
         // Prevent a configured identity from silently authenticating as another account.
@@ -311,7 +323,9 @@ class FollowCredentialTest {
             assertThat(lent.environment().get("GIT_SSH_COMMAND"))
                     .contains("StrictHostKeyChecking=yes")
                     .contains(
-                            "UserKnownHostsFile='" + dir.resolve("state/porelo/known_hosts") + "'");
+                            "UserKnownHostsFile=\""
+                                    + dir.resolve("state/porelo/known_hosts")
+                                    + "\"");
             // A policy is not a credential: what failed is still answered as nothing stored for it.
             assertThat(lent.lent()).isFalse();
         }

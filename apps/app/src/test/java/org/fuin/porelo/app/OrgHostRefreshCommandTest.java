@@ -73,7 +73,8 @@ class OrgHostRefreshCommandTest {
                                             .filter(a -> a.startsWith("UserKnownHostsFile="))
                                             .findFirst()
                                             .orElseThrow()
-                                            .substring("UserKnownHostsFile=".length());
+                                            .substring("UserKnownHostsFile=".length())
+                                            .replace("\"", "");
                             known.set(Files.readString(Path.of(pin)));
                         } catch (java.io.IOException ex) {
                             throw new AssertionError(ex);
@@ -247,7 +248,8 @@ class OrgHostRefreshCommandTest {
                         .filter(a -> a.startsWith("UserKnownHostsFile="))
                         .findFirst()
                         .orElseThrow()
-                        .substring("UserKnownHostsFile=".length());
+                        .substring("UserKnownHostsFile=".length())
+                        .replace("\"", "");
         assertThat(Files.exists(Path.of(pin))).as("public temporary pin removed").isFalse();
         try (var files = Files.walk(dir)) {
             for (Path file : files.filter(Files::isRegularFile).toList()) {
