@@ -1,0 +1,2 @@
+title: "porelo task list and the daemon's rows show a task by its name (display, short, named), and the container name only among its details; a script that read container names out of task list takes them from podman or task status now. A task is shown in its room as its agent, a second task of the agent with its short name"
+type: changed

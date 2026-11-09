@@ -227,7 +227,7 @@ class MachineTransportsTest {
         final List<StartStep> steps = new java.util.ArrayList<>();
         final TaskConversations conversations = new TaskConversations(context);
 
-        conversations.enroll(project, "t1", new StartSteps(steps::add));
+        conversations.enroll(project, "t1", null, new StartSteps(steps::add));
         conversations.retire(project, "t1", new PrintWriter(new StringWriter()));
 
         assertThat(runner.lines()).as("it did run").anyMatch(line -> line.contains(" retire"));

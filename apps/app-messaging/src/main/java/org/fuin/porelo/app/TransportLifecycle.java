@@ -286,7 +286,8 @@ final class TransportLifecycle {
     }
 
     /**
-     * Enrolls a task, telling the transport when it may reach nothing beyond this machine.
+     * Enrolls a task, telling the transport when it may reach nothing beyond this machine, shown by
+     * its short name.
      *
      * @param scheme The transport.
      * @param project The task's project.
@@ -302,16 +303,98 @@ final class TransportLifecycle {
             Map<String, Object> settings,
             boolean loopbackOnly)
             throws Refused {
+        enroll(scheme, project, task, null, settings, loopbackOnly);
+    }
+
+    /**
+     * Enrolls a task under its agent's name in the room, where the transport shows one.
+     *
+     * <p>The name is chosen and recorded under the addresses file's lock, around the transport's
+     * enroll: two starts at once would otherwise both take one agent's name, and a head would name
+     * two tasks. A name a task of the project holds stays its own until it is retired.
+     *
+     * @param scheme The transport.
+     * @param project The task's project.
+     * @param task The task's container.
+     * @param agent The task's agent, or {@code null} to show it by its short name.
+     * @param settings What the project says to this transport.
+     * @param loopbackOnly Whether the project is offline.
+     * @throws Refused If the transport refused, or its secrets or its name cannot be kept.
+     */
+    void enroll(
+            String scheme,
+            String project,
+            String task,
+            @Nullable String agent,
+            Map<String, Object> settings,
+            boolean loopbackOnly)
+            throws Refused {
         lendable(scheme, "enroll");
         writable(scheme);
         final Map<String, String> given = given(scheme, project);
+        final Path adapter = transports.find(scheme);
+        final boolean shows =
+                adapter != null
+                        && TransportDescription.of(context.runner(), adapter).takes(DISPLAY);
+        final Path file = addressesFile(scheme, project);
+        final Path shown = displaysFile(scheme, project);
+        final Refused[] refused = new Refused[1];
+        try {
+            FileLocks.holding(
+                    lockOf(file),
+                    () -> {
+                        try {
+                            enrolled(
+                                    scheme,
+                                    project,
+                                    task,
+                                    agent,
+                                    settings,
+                                    loopbackOnly,
+                                    given,
+                                    shows,
+                                    file,
+                                    shown);
+                        } catch (Refused ex) {
+                            refused[0] = ex;
+                        }
+                        return Boolean.TRUE;
+                    });
+        } catch (IOException ex) {
+            // A name nobody recorded could be handed to the next task as well.
+            throw new Refused(
+                    "the names of "
+                            + project
+                            + "'s tasks in its "
+                            + scheme
+                            + " conversation could not be kept: "
+                            + ex.getMessage(),
+                    0);
+        }
+        if (refused[0] != null) {
+            throw refused[0];
+        }
+    }
+
+    /** Runs the transport's enroll and records what it said; under the addresses file's lock. */
+    private void enrolled(
+            String scheme,
+            String project,
+            String task,
+            @Nullable String agent,
+            Map<String, Object> settings,
+            boolean loopbackOnly,
+            Map<String, String> given,
+            boolean shows,
+            Path file,
+            Path shownFile)
+            throws Refused, IOException {
+        final Map<String, String> held = new LinkedHashMap<>(names(shownFile));
+        final String shown =
+                shows ? display(project, task, agent, heldWithEarlier(project, held, file)) : null;
         final List<String> verb =
                 new java.util.ArrayList<>(List.of("enroll", "--project", project, "--task", task));
-        final Path adapter = transports.find(scheme);
-        final String shown = agentName(project, task);
-        if (adapter != null
-                && shown != null
-                && TransportDescription.of(context.runner(), adapter).takes(DISPLAY)) {
+        if (shown != null) {
             verb.add("--display");
             verb.add(shown);
         }
@@ -320,34 +403,110 @@ final class TransportLifecycle {
         if (said.get("secrets") instanceof Map<?, ?> secrets && !secrets.isEmpty()) {
             keep(scheme, "task/" + task, secrets);
         }
+        Directories.create(file.getParent());
+        if (shown != null && !shown.equals(held.get(task))) {
+            Directories.create(shownFile.getParent());
+            held.put(task, shown);
+            whole(shownFile, Json.write(held));
+        }
         if (said.get("address") instanceof String address && !address.isBlank()) {
             // How the task is named in the conversation - not a secret - so what is sent to it can
-            // be asked about: 'receipt --by' takes it. Read and written under one lock: two tasks
-            // of a project started at once each wrote the file as it read it, and one task's
-            // address was lost - with it, its own words in the room come back to it as a peer's.
-            final Path file = addressesFile(scheme, project);
+            // be asked about: 'receipt --by' takes it. Under the lock: two tasks of a project
+            // started at once each wrote the file as it read it, and one task's address was lost.
             try {
-                Directories.create(file.getParent());
-                FileLocks.holding(
-                        file.resolveSibling("." + file.getFileName() + ".lock"),
-                        () -> {
-                            final Map<String, String> addresses = new LinkedHashMap<>(names(file));
-                            addresses.put(task, address);
-                            whole(file, Json.write(addresses));
-                            return Boolean.TRUE;
-                        });
+                final Map<String, String> addresses = new LinkedHashMap<>(names(file));
+                addresses.put(task, address);
+                whole(file, Json.write(addresses));
             } catch (IOException ex) {
                 // The task takes part all the same; only whether it read something cannot be asked.
             }
         }
     }
 
+    /**
+     * Returns the names held, with each task enrolled before names were recorded holding the one
+     * its enroll was given then, "Agent" and its short name: the room still shows it so.
+     */
+    private static Map<String, String> heldWithEarlier(
+            String project, Map<String, String> held, Path addresses) {
+        final Map<String, String> all = new LinkedHashMap<>(held);
+        for (final String enrolled : names(addresses).keySet()) {
+            final String then = agentName(project, enrolled);
+            if (then != null) {
+                all.putIfAbsent(enrolled, then);
+            }
+        }
+        return all;
+    }
+
     /** What a transport announces when its enroll takes the name the room shows for a task. */
     static final String DISPLAY = "display";
 
+    /** The most characters a name the room shows may have. */
+    private static final int DISPLAY_LENGTH = 64;
+
+    /** An agent's name as a room may show it: lowercase words joined by hyphens. */
+    private static final java.util.regex.Pattern AGENT =
+            java.util.regex.Pattern.compile("[a-z0-9]+(-[a-z0-9]+)*");
+
     /**
-     * Returns the name a task is shown by in its project's room: "Agent" and its task's name, each
-     * word capitalized - "Agent Pi" for {@code porelo-porelo-pi}, as the persons address it.
+     * Returns the name a task is to be shown by in its project's room: "Agent" and its agent's
+     * name, or "Agent" and its agent's name with its short name where another task of the project
+     * holds the first; a task that holds a name keeps it.
+     *
+     * @param project The project.
+     * @param container The task's container.
+     * @param agent The task's agent, or {@code null} to take its short name instead.
+     * @param held The names the project's enrolled tasks hold, by container.
+     * @return It, or {@code null} when no name fits that no other task holds.
+     */
+    static @Nullable String display(
+            final String project,
+            final String container,
+            final @Nullable String agent,
+            final Map<String, String> held) {
+        final String own = held.get(container);
+        if (own != null) {
+            return own;
+        }
+        final String first =
+                agent != null && AGENT.matcher(agent).matches()
+                        ? capitalized(agent)
+                        : agentName(project, container);
+        if (first == null || first.length() > DISPLAY_LENGTH) {
+            return null;
+        }
+        final java.util.Set<String> others = new java.util.HashSet<>();
+        held.forEach(
+                (task, name) -> {
+                    if (!task.equals(container)) {
+                        others.add(name.toLowerCase(java.util.Locale.ROOT));
+                    }
+                });
+        if (!others.contains(first.toLowerCase(java.util.Locale.ROOT))) {
+            return first;
+        }
+        final String within = ContainerName.taskIn(project, container);
+        final int room = DISPLAY_LENGTH - first.length() - " ()".length();
+        // Numbered where two short names cut to one: a task shown by no name of its own is shown
+        // by its account, which no head names.
+        for (int number = 1; number <= held.size() + 1; number++) {
+            final String suffix = number == 1 ? "" : "-" + number;
+            final String cut = ContainerName.shortened(within, room - suffix.length());
+            if (cut.isEmpty()) {
+                return null;
+            }
+            final String second = first + " (" + cut + suffix + ")";
+            if (!others.contains(second.toLowerCase(java.util.Locale.ROOT))) {
+                return second;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Returns the name a task is shown by in its project's room when nothing records its agent:
+     * "Agent" and its task's name, each word capitalized - "Agent Pi" for {@code porelo-porelo-pi}.
      *
      * @param project The project.
      * @param container The task's container, {@code porelo-<project>-<task>}.
@@ -363,8 +522,16 @@ final class TransportLifecycle {
         if (ContainerName.refusal(project, task).isPresent()) {
             return null;
         }
+        final String shown = capitalized(task);
+        return shown != null && shown.length() <= DISPLAY_LENGTH ? shown : null;
+    }
+
+    /**
+     * Returns "Agent" and a hyphenated name with each word capitalized, or null for an empty word.
+     */
+    private static @Nullable String capitalized(final String name) {
         final StringBuilder shown = new StringBuilder("Agent ");
-        final String[] words = task.split("-", -1);
+        final String[] words = name.split("-", -1);
         for (int i = 0; i < words.length; i++) {
             if (words[i].isEmpty()) {
                 return null;
@@ -375,7 +542,18 @@ final class TransportLifecycle {
             shown.append(Character.toUpperCase(words[i].charAt(0)))
                     .append(words[i], 1, words[i].length());
         }
-        return shown.length() <= 64 ? shown.toString() : null;
+        return shown.toString();
+    }
+
+    /**
+     * Returns the names the room shows for a project's enrolled tasks, as their enroll chose them.
+     *
+     * @param scheme The transport.
+     * @param project The project.
+     * @return Task container to its name; empty when none was given one.
+     */
+    Map<String, String> displays(String scheme, String project) {
+        return names(displaysFile(scheme, project));
     }
 
     /**
@@ -549,6 +727,16 @@ final class TransportLifecycle {
                 .resolve(project + ".json");
     }
 
+    private Path displaysFile(String scheme, String project) {
+        return context.paths()
+                .xdg()
+                .state()
+                .resolve("transport")
+                .resolve(scheme)
+                .resolve("displays")
+                .resolve(project + ".json");
+    }
+
     private Path addressesFile(String scheme, String project) {
         return context.paths()
                 .xdg()
@@ -590,13 +778,41 @@ final class TransportLifecycle {
             throws Refused {
         lendable(scheme, "retire");
         final Map<String, String> own = secrets(scheme, "task/" + task);
-        if (own.isEmpty()) {
+        if (!own.isEmpty()) {
+            final Map<String, String> given = given(scheme, project);
+            given.putAll(own);
+            run(scheme, settings, given, false, "retire", "--project", project, "--task", task);
+            forget(scheme, "task/" + task);
+        }
+        // Only once its account is gone: until then a head of its name still reaches it.
+        release(scheme, project, task);
+    }
+
+    /** Frees the name a retired task held in the room, under the addresses file's lock. */
+    private void release(String scheme, String project, String task) {
+        final Path shown = displaysFile(scheme, project);
+        if (!Files.isRegularFile(shown) && !Files.isRegularFile(addressesFile(scheme, project))) {
             return;
         }
-        final Map<String, String> given = given(scheme, project);
-        given.putAll(own);
-        run(scheme, settings, given, false, "retire", "--project", project, "--task", task);
-        forget(scheme, "task/" + task);
+        try {
+            FileLocks.holding(
+                    lockOf(addressesFile(scheme, project)),
+                    () -> {
+                        final Map<String, String> held = new LinkedHashMap<>(names(shown));
+                        if (held.remove(task) != null) {
+                            whole(shown, Json.write(held));
+                        }
+                        // Its address too: a task enrolled before names were recorded holds by it.
+                        final Path file = addressesFile(scheme, project);
+                        final Map<String, String> addresses = new LinkedHashMap<>(names(file));
+                        if (addresses.remove(task) != null) {
+                            whole(file, Json.write(addresses));
+                        }
+                        return Boolean.TRUE;
+                    });
+        } catch (IOException ex) {
+            // Held a while longer: a name kept too long is shown with the short name, never twice.
+        }
     }
 
     /**
@@ -650,6 +866,7 @@ final class TransportLifecycle {
         try {
             Files.deleteIfExists(state(scheme, project));
             Files.deleteIfExists(addressesFile(scheme, project));
+            Files.deleteIfExists(displaysFile(scheme, project));
             Files.deleteIfExists(takenFile(scheme, project));
             Files.deleteIfExists(
                     context.paths()
@@ -768,6 +985,7 @@ final class TransportLifecycle {
             boolean token,
             @Nullable String display)
             throws Refused {
+        notAnAgent(person, display);
         final Map<String, String> given = given(scheme, project);
         final java.util.List<String> verb =
                 new java.util.ArrayList<>(
@@ -1250,6 +1468,47 @@ final class TransportLifecycle {
      */
     static String login() throws Refused {
         return login(System.getProperty("user.name", ""));
+    }
+
+    /**
+     * Refuses a person who would be shown as a task's agent: a line headed by that name would then
+     * be read as the task's own words.
+     *
+     * @param person Whom the account is for.
+     * @param display The name shown for them, or {@code null} for the transport's own.
+     * @throws Refused If either begins with "Agent " or "agent-", in any case.
+     */
+    static void notAnAgent(final String person, final @Nullable String display) throws Refused {
+        for (final String name : java.util.Arrays.asList(person, display)) {
+            if (name != null && agentLike(name)) {
+                throw new Refused(
+                        "'"
+                                + name.replaceAll("\\p{Cntrl}", "?")
+                                + "' is no name a person may join under: a name beginning with"
+                                + " 'Agent ' or 'agent-' is a task's in the room",
+                        64);
+            }
+        }
+    }
+
+    /** Anything a room may show as nothing or as a space: separators, controls and formats. */
+    private static final java.util.regex.Pattern INVISIBLE =
+            java.util.regex.Pattern.compile("[\\s\\p{Z}\\p{Cc}\\p{Cf}]");
+
+    /**
+     * Returns whether a name would read as an agent's in the room: "agent" alone, or followed by a
+     * space, a hyphen, an underscore or a dot, past anything invisible, in any case and width.
+     */
+    private static boolean agentLike(final String name) {
+        final String seen =
+                INVISIBLE
+                        .matcher(
+                                java.text.Normalizer.normalize(
+                                        name, java.text.Normalizer.Form.NFKC))
+                        .replaceAll(" ")
+                        .stripLeading()
+                        .toLowerCase(java.util.Locale.ROOT);
+        return seen.equals("agent") || seen.matches("agent[ ._-].*");
     }
 
     /**

@@ -1,6 +1,6 @@
 # [B532](README.md#b532) — A Task Shown By Its Name, Not Its Container
 
-**Status:** Backlog. Filed 2026-11-08 from the third move's findings 10 and 19 (the operator's decision: a task is
+**Status:** Review. Filed 2026-11-08 from the third move's findings 10 and 19 (the operator's decision: a task is
 shown by the name given at its start, or short by its repository; the container name only in the details).
 **Size:** M - three fields on the task row, the name recorded at start, the room's display taken from the repository's
 agent; no container is renamed.
@@ -29,17 +29,23 @@ project's room a task appears as its agent's name (`Agent Pi`), so a line headed
   name (TaskPaths, MessagingPaths, `task/<container>/`, `/run/user/<uid>/porelo/<container>/`).
 - Red first: a start with the default name records no `named` and shows `display: pi`; a start named `fix` shows
   `display: fix`; the room's display of a `pi` task named `fix` is "Agent Pi".
+- **As built.** The container name does not change. `named` equals the short name wherever it is set (the person's
+  word becomes the task name), so it records only that somebody chose it. The MCP endpoint marks a name it picked
+  (`.unnamed`, no contract field), so the child records none. The displays a room shows are kept in
+  `transport/<scheme>/displays/<project>.json`, chosen and written under the addresses file's lock with the
+  transport's `enroll` inside it, freed by `retire` and removed by `clear`; `retire` also drops the task's address. A task in the
+  addresses file with no recorded display holds "Agent <short>", the name it was enrolled under before displays were
+  kept. Two short names cut to one are numbered (`-2`, `-3`). `TaskLaunch.startExisting` (`task start` of a stopped
+  task, `--restarted`, the daemon's `Start`) enrolls with the recorded agent, read from the durable record after a
+  reboot; `task resume` and `task attach` enroll through `TaskConversations.rejoin`, which asks no transport when every
+  room already holds a display for the task. A task keeps its recorded display on every enroll. A person's name or
+  display is refused when, after NFKC and with separators, controls and format characters read as spaces, it is
+  "agent" or begins with "agent" and a space, `-`, `_` or `.`.
 
 ## Acceptance
 
 - `porelo task list` and the daemon's `List()` show `display` per task as above; the room shows "Agent Pi" and a line
   "Agent Pi: hi" wakes that task. Seen in unit tests and once against a VM.
-
-## Open questions
-
-- "porelo-porelo-pi → porelo-pi": is the container itself to lose the doubled project name, or is it enough that no
-  person sees it (this plan)? Renaming the container orphans every task's state and mail made before, and two projects
-  could then make one container name.
 
 ## To be checked
 

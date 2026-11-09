@@ -50,20 +50,32 @@ final class TaskConversations {
      * @return Why it cannot be, in a person's words, or {@code null} when it is in every one.
      */
     @Nullable String enroll(Project project, String container) {
-        return enroll(project, container, new StartSteps(step -> {}));
+        return enroll(project, container, null, new StartSteps(step -> {}));
     }
 
-    @Nullable String enroll(Project project, String container, StartSteps steps) {
+    /**
+     * Takes a task into its project's conversations, shown in each room by its agent's name.
+     *
+     * @param project The task's project.
+     * @param container The task.
+     * @param agent The task's agent: the one selected at a start, the recorded one on a resume;
+     *     {@code null} where it has none, which shows it by its short name.
+     * @param steps Where the start's steps are said.
+     * @return Why it cannot be, in a person's words, or {@code null} when it is in every one.
+     */
+    @Nullable String enroll(
+            Project project, String container, @Nullable String agent, StartSteps steps) {
         final java.util.function.Consumer<String> before =
                 lifecycle.saying(line -> steps.waiting(StartStep.Step.CONVERSATION, line));
         try {
-            return enrolling(project, container, steps);
+            return enrolling(project, container, agent, steps);
         } finally {
             lifecycle.saying(before);
         }
     }
 
-    private @Nullable String enrolling(Project project, String container, StartSteps steps) {
+    private @Nullable String enrolling(
+            Project project, String container, @Nullable String agent, StartSteps steps) {
         // 'default' has no room as its normal case: a task there talks to nobody, whatever a file
         // of that name says and whatever this machine has.
         if (DefaultProject.is(project.name())) {
@@ -106,7 +118,7 @@ final class TaskConversations {
                         return refusal;
                     }
                 }
-                lifecycle.enroll(scheme, project.name(), container, settings, offline);
+                lifecycle.enroll(scheme, project.name(), container, agent, settings, offline);
                 steps.done(StartStep.Step.CONVERSATION);
             } catch (org.fuin.porelo.core.process.CommandException ex) {
                 steps.failed(StartStep.Step.CONVERSATION, ex.standardError());
@@ -183,29 +195,84 @@ final class TaskConversations {
      * @param project The task's project as its records name it, or {@code null} when they are gone.
      */
     void retire(PoreloContext context, String container, @Nullable String project) {
-        new ProjectInventory(context)
-                .projects().stream()
-                        .filter(summary -> summary.file() != null)
-                        .filter(
-                                summary ->
-                                        project != null
-                                                ? summary.name().equals(project)
-                                                : container.startsWith(
-                                                        "porelo-" + summary.name() + "-"))
-                        .max(java.util.Comparator.comparingInt(summary -> summary.name().length()))
-                        .ifPresent(
-                                summary -> {
-                                    try {
-                                        retire(
-                                                GateSupport.project(
-                                                        java.nio.file.Path.of(summary.file())),
-                                                container,
-                                                new PrintWriter(System.err, true));
-                                    } catch (RuntimeException ex) {
-                                        // A project file that cannot be read any more: its
-                                        // conversations cannot be named either.
-                                    }
-                                });
+        final Project found = projectOf(context, container, project);
+        if (found != null) {
+            retire(found, container, new PrintWriter(System.err, true));
+        }
+    }
+
+    /**
+     * Takes a task a resume brought back into its project's rooms, where one holds no name for it
+     * yet; a task every room has a name for is left as it is, and no transport is asked.
+     *
+     * @param context Where the projects are.
+     * @param container The task.
+     * @param project The task's project as its records name it, or {@code null} when they do not.
+     * @param agent The task's agent as its start recorded it, or {@code null}.
+     * @param err Where what could not be done is said; the resume goes on either way.
+     */
+    void rejoin(
+            PoreloContext context,
+            String container,
+            @Nullable String project,
+            @Nullable String agent,
+            PrintWriter err) {
+        final Project found = projectOf(context, container, project);
+        if (found == null
+                || found.mail().conversations().stream()
+                        .allMatch(
+                                scheme ->
+                                        lifecycle
+                                                .displays(scheme, found.name())
+                                                .containsKey(container))) {
+            return;
+        }
+        try {
+            final String outside = enroll(found, container, agent, new StartSteps(step -> {}));
+            if (outside != null) {
+                err.println("porelo: " + outside);
+                err.flush();
+            }
+        } catch (RuntimeException ex) {
+            // Back all the same: its workspace is in it, and the next start enrolls it again.
+            err.println("porelo: " + container + " is back outside its room: " + ex.getMessage());
+            err.flush();
+        }
+    }
+
+    /**
+     * Returns a task's project: the one its records name, when they still do. Found by the name
+     * alone, the first project whose name the container began with was taken, so project {@code a}
+     * caught the tasks of {@code a-b}; without a record, the longest such name is the likeliest.
+     */
+    private static @Nullable Project projectOf(
+            PoreloContext context, String container, @Nullable String project) {
+        final java.util.Optional<ProjectInventory.Summary> summary =
+                new ProjectInventory(context)
+                        .projects().stream()
+                                .filter(each -> each.file() != null)
+                                .filter(
+                                        each ->
+                                                project != null
+                                                        ? each.name().equals(project)
+                                                        : container.startsWith(
+                                                                "porelo-" + each.name() + "-"))
+                                .max(
+                                        java.util.Comparator.comparingInt(
+                                                each -> each.name().length()));
+        if (summary.isEmpty()) {
+            return null;
+        }
+        try {
+            return GateSupport.project(
+                    java.nio.file.Path.of(
+                            java.util.Objects.requireNonNull(
+                                    summary.get().file(), "filtered for a file above")));
+        } catch (RuntimeException ex) {
+            // A project file that cannot be read any more: its conversations cannot be named
+            // either.
+            return null;
+        }
     }
 
     /**
@@ -267,6 +334,7 @@ final class TaskConversations {
             @Nullable String display)
             throws TransportLifecycle.Refused {
         // Before setup, too: nobody else checks the person's name.
+        TransportLifecycle.notAnAgent(person, display);
         TransportLifecycle.login(person);
         try {
             ProjectMembers.requireAdmitted(context, project.name(), person);

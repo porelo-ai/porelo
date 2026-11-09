@@ -157,12 +157,12 @@ class TransportConversationsTest {
         // The room names a member by its display name; without it no head names anyone.
         final PoreloContext context = removalContext("guarded", false);
 
-        final TalkReply reply = talk(context, "join", "p", "carol", "--display", "Agent Carol");
+        final TalkReply reply = talk(context, "join", "p", "carol", "--display", "Carol Smith");
 
         assertThat(reply.code()).as(reply.err()).isZero();
         assertThat(runner.only("--person carol").arguments())
                 .as("the transport's join is given the display name as one argument")
-                .containsSubsequence("--display", "Agent Carol");
+                .containsSubsequence("--display", "Carol Smith");
     }
 
     @Test
@@ -474,6 +474,260 @@ class TransportConversationsTest {
         assertThat(enrolled)
                 .extracting(arguments -> arguments.get(arguments.indexOf("--display") + 1))
                 .containsExactly("Agent Unit", "Agent Pi");
+    }
+
+    /** A room whose transport shows the name it is given for each task, set up for project p. */
+    private TransportLifecycle room() throws Exception {
+        runner.answering(
+                "describe",
+                "{\"scheme\":\"room\",\"poll\":true,\"display\":true,"
+                        + "\"lifecycle\":[\"setup\",\"enroll\",\"retire\"]}");
+        runner.answering(
+                "setup",
+                "{\"account\":{\"ADMIN\":\"a-1\"},\"secrets\":{\"POLLER\":\"p-1\"},\"conversation\":\"!room-p\",\"reaches\":[\"127.0.0.1\"]}");
+        runner.answering("enroll", "{\"secrets\":{\"TASK\":\"t-1\"}}");
+        runner.answering(" retire ", "{}");
+        final PoreloContext context = context().asking(prompt -> PASSPHRASE.clone());
+        Files.createDirectories(context.vault().path().getParent());
+        emptyVault(context);
+        assertThat(
+                        context.openerAsking(
+                                false, new java.io.PrintWriter(java.io.Writer.nullWriter())))
+                .as("the fixture opens its vault without a kernel keyring")
+                .isPresent();
+        final TransportLifecycle lifecycle =
+                new TransportLifecycle(context, context.paths().messaging().transportDirectory());
+        lifecycle.setup("room", "p", Map.of());
+        return lifecycle;
+    }
+
+    /** The name each enroll so far handed the transport, in order. */
+    private List<String> shown() {
+        return runner.invocations().stream()
+                .map(org.fuin.porelo.core.process.Command::arguments)
+                .filter(arguments -> arguments.contains("enroll"))
+                .map(
+                        arguments ->
+                                arguments.contains("--display")
+                                        ? arguments.get(arguments.indexOf("--display") + 1)
+                                        : "")
+                .toList();
+    }
+
+    @Test
+    void aTaskIsShownInTheRoomByItsAgentWhateverItsTaskIsCalled() throws Exception {
+        // Shown by its task name, a task named fix-login is "Agent Fix-login", and a line headed
+        // "Agent Scout:" reaches nobody.
+        final TransportLifecycle lifecycle = room();
+
+        lifecycle.enroll("room", "p", "porelo-p-fix-login", "scout", Map.of(), false);
+
+        assertThat(shown())
+                .as("the room shows the task by its agent's name")
+                .containsExactly("Agent Scout");
+    }
+
+    @Test
+    void aSecondTaskOfTheAgentIsShownWithItsShortNameWhileTheFirstKeepsItsOwn() throws Exception {
+        // Two tasks shown as "Agent Scout" would each take the other's words as their own.
+        final TransportLifecycle lifecycle = room();
+        final String long_ = "a-very-long-task-name-that-fills-the-room-for-a-name-entirely";
+
+        lifecycle.enroll("room", "p", "porelo-p-scout", "scout", Map.of(), false);
+        lifecycle.enroll("room", "p", "porelo-p-fix", "scout", Map.of(), false);
+        lifecycle.enroll("room", "p", "porelo-p-scout", "scout", Map.of(), false);
+        lifecycle.enroll("room", "p", "porelo-p-fix", "scout", Map.of(), false);
+        lifecycle.enroll("room", "p", "porelo-p-" + long_, "scout", Map.of(), false);
+
+        assertThat(shown().subList(0, 4))
+                .as("the first keeps the agent's name on every enroll, the second its own")
+                .containsExactly(
+                        "Agent Scout", "Agent Scout (fix)", "Agent Scout", "Agent Scout (fix)");
+        assertThat(shown().get(4))
+                .as("a long short name is cut so the whole fits a room's name")
+                .startsWith("Agent Scout (a-very")
+                .endsWith(")")
+                .hasSizeLessThanOrEqualTo(64);
+    }
+
+    @Test
+    void aNameAStoppedTaskHoldsIsFreeOnlyOnceThatTaskIsRetired() throws Exception {
+        // Handed on while its task is still enrolled, a name would reach two tasks.
+        final TransportLifecycle lifecycle = room();
+
+        lifecycle.enroll("room", "p", "porelo-p-scout", "scout", Map.of(), false);
+        lifecycle.enroll("room", "p", "porelo-p-b", "scout", Map.of(), false);
+        lifecycle.retire("room", "p", "porelo-p-scout", Map.of());
+        lifecycle.enroll("room", "p", "porelo-p-c", "scout", Map.of(), false);
+
+        assertThat(shown())
+                .as("held by an enrolled task it is not given; retired, it is free again")
+                .containsExactly("Agent Scout", "Agent Scout (b)", "Agent Scout");
+    }
+
+    @Test
+    void aTaskEnrolledBeforeNamesWereKeptHoldsTheNameItWasShownByUntilItIsRetired()
+            throws Exception {
+        // Its room still shows it as "Agent Scout": a new task given that name too would share it.
+        final TransportLifecycle lifecycle = room();
+        final Path file =
+                context().paths().xdg().state().resolve("transport/room/addresses/p.json");
+        Files.createDirectories(file.getParent());
+        Files.writeString(file, "{\"porelo-p-scout\":\"@porelo-p-scout\"}");
+
+        lifecycle.enroll("room", "p", "porelo-p-work", "scout", Map.of(), false);
+        lifecycle.retire("room", "p", "porelo-p-scout", Map.of());
+        lifecycle.enroll("room", "p", "porelo-p-next", "scout", Map.of(), false);
+
+        assertThat(shown())
+                .as("held by the earlier task while it is enrolled, free once it is retired")
+                .containsExactly("Agent Scout (work)", "Agent Scout");
+    }
+
+    @Test
+    void tasksWhoseShortNamesCutToOneAreStillEachShownByANameOfTheirOwn() throws Exception {
+        // Two cut to one, the second was given no name and the room showed its account.
+        final TransportLifecycle lifecycle = room();
+        final String base = "feature-authentication-oauth-token-refresh-handling-v";
+
+        lifecycle.enroll("room", "p", "porelo-p-main", "scout", Map.of(), false);
+        lifecycle.enroll("room", "p", "porelo-p-" + base + "1", "scout", Map.of(), false);
+        lifecycle.enroll("room", "p", "porelo-p-" + base + "2", "scout", Map.of(), false);
+        lifecycle.enroll("room", "p", "porelo-p-" + base + "3", "scout", Map.of(), false);
+
+        assertThat(shown())
+                .as("every task is handed a name, none twice, each within 64")
+                .hasSize(4)
+                .doesNotContain("")
+                .doesNotHaveDuplicates()
+                .allSatisfy(name -> assertThat(name).hasSizeLessThanOrEqualTo(64));
+    }
+
+    @Test
+    void tasksOfOneAgentEnrolledAtOnceAreEachGivenANameNoOtherHolds() throws Exception {
+        Assumptions.assumeTrue(
+                KernelKeyring.available(),
+                "no kernel keyring here: libkeyutils is missing or the kernel refuses it");
+        // Each start that chose its name before another recorded one took "Agent Scout" too.
+        final int tasks = 6;
+        final List<String> displays =
+                java.util.Collections.synchronizedList(new java.util.ArrayList<>());
+        final org.fuin.porelo.core.process.CommandRunner enrolling =
+                command -> {
+                    final List<String> arguments = command.arguments();
+                    if (arguments.contains("describe")) {
+                        return new org.fuin.porelo.core.process.CommandResult(
+                                command,
+                                0,
+                                "{\"scheme\":\"room\",\"display\":true,"
+                                        + "\"lifecycle\":[\"setup\",\"enroll\"]}",
+                                "");
+                    }
+                    if (!arguments.contains("enroll")) {
+                        return new org.fuin.porelo.core.process.CommandResult(command, 0, "", "");
+                    }
+                    displays.add(arguments.get(arguments.indexOf("--display") + 1));
+                    try {
+                        // As slow as a transport that makes an account, so the starts overlap.
+                        Thread.sleep(150);
+                    } catch (final InterruptedException ex) {
+                        Thread.currentThread().interrupt();
+                    }
+                    final String task = arguments.get(arguments.indexOf("--task") + 1);
+                    return new org.fuin.porelo.core.process.CommandResult(
+                            command, 0, "{\"address\":\"@" + task + "\"}", "");
+                };
+        final PoreloContext context = context(enrolling);
+        final KernelKeyring keyring = new KernelKeyring(context.paths().vault().vaultKeyringKey());
+        VaultCache.hold();
+        try {
+            Files.createDirectories(context.vault().path().getParent());
+            emptyVault(context);
+            keyring.store(PASSPHRASE);
+            final TransportLifecycle lifecycle =
+                    new TransportLifecycle(
+                            context, context.paths().messaging().transportDirectory());
+            final List<Throwable> failed =
+                    java.util.Collections.synchronizedList(new java.util.ArrayList<>());
+            final List<Thread> starts =
+                    java.util.stream.IntStream.range(0, tasks)
+                            .mapToObj(
+                                    n ->
+                                            Thread.ofPlatform()
+                                                    .start(
+                                                            () -> {
+                                                                try {
+                                                                    lifecycle.enroll(
+                                                                            "room",
+                                                                            "p",
+                                                                            "porelo-p-t" + n,
+                                                                            "scout",
+                                                                            Map.of(),
+                                                                            false);
+                                                                } catch (final Exception ex) {
+                                                                    failed.add(ex);
+                                                                }
+                                                            }))
+                            .toList();
+            for (final Thread start : starts) {
+                start.join(java.time.Duration.ofSeconds(30));
+            }
+
+            assertThat(failed).as("every enroll ran").isEmpty();
+            assertThat(displays)
+                    .as("no two tasks were handed one name, however their starts overlapped")
+                    .hasSize(tasks)
+                    .doesNotHaveDuplicates();
+        } finally {
+            VaultCache.stop();
+            keyring.forget();
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(
+            strings = {
+                "Agent Scout",
+                "agent scout",
+                "AGENT-Scout",
+                " Agent\u00a0Scout",
+                "agent-scout",
+                "\u200bAgent Scout",
+                "Agent\u200bScout",
+                "Agent\tScout",
+                "\uff21\uff47\uff45\uff4e\uff54 Scout",
+                "agent",
+                "Agent_Scout",
+                "agent.scout"
+            })
+    void aPersonCannotJoinUnderANameTheRoomShowsForATask(final String name) throws Exception {
+        // A person shown as "Agent Scout" would be read as the task's own words.
+        final PoreloContext context = removalContext("guarded", false);
+
+        final TransportLifecycle lifecycle =
+                new TransportLifecycle(context, context.paths().messaging().transportDirectory());
+        final boolean login = name.matches("[a-z][a-z0-9-]*");
+
+        final TalkReply byDisplay = talk(context, "join", "p", "carol", "--display", name);
+        assertThat(byDisplay.code()).as("refused as a display: %s", byDisplay.err()).isNotZero();
+        assertThatThrownBy(
+                        () ->
+                                lifecycle.join(
+                                        "room", "p", "carol", false, Map.of(), false, false, name))
+                .as("the transport's join refuses it as a display, whoever calls it")
+                .isInstanceOf(TransportLifecycle.Refused.class);
+        if (login) {
+            assertThatThrownBy(
+                            () ->
+                                    lifecycle.join(
+                                            "room", "p", name, false, Map.of(), false, false, null))
+                    .as("the transport's join refuses it as a person's name")
+                    .isInstanceOf(TransportLifecycle.Refused.class);
+        }
+        assertThat(runner.lines())
+                .as("the transport's join never ran for the refused name")
+                .noneMatch(
+                        line -> line.contains("--person carol") || line.contains("--person agent"));
     }
 
     @Test
@@ -1171,8 +1425,6 @@ class TransportConversationsTest {
         // Two starts of one project's tasks at once each wrote the addresses as they had read them,
         // and one task's address was lost: its own words in the room then came back to it.
         final int tasks = 8;
-        final java.util.concurrent.CyclicBarrier together =
-                new java.util.concurrent.CyclicBarrier(tasks);
         final org.fuin.porelo.core.process.CommandRunner enrolling =
                 command -> {
                     final List<String> arguments = command.arguments();
@@ -1187,11 +1439,10 @@ class TransportConversationsTest {
                         return new org.fuin.porelo.core.process.CommandResult(command, 0, "", "");
                     }
                     try {
-                        // Every enroll answers at the same moment, as the transport answers starts
-                        // that overlap.
-                        together.await(10, java.util.concurrent.TimeUnit.SECONDS);
-                    } catch (final Exception ex) {
-                        throw new IllegalStateException(ex);
+                        // As slow as a transport that makes an account, so the starts overlap.
+                        Thread.sleep(150);
+                    } catch (final InterruptedException ex) {
+                        Thread.currentThread().interrupt();
                     }
                     final String task = arguments.get(arguments.indexOf("--task") + 1);
                     return new org.fuin.porelo.core.process.CommandResult(

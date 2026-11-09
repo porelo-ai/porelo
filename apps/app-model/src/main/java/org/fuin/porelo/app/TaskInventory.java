@@ -69,6 +69,7 @@ public final class TaskInventory {
      * @param modelLabel What a person is shown for it, or {@code ""}.
      * @param modelFrom Where it was settled from: {@code start}, {@code repository}, {@code
      *     project} or {@code agent}; {@code ""} when nothing recorded the task.
+     * @param named The name its start was given, or {@code null} when it took its repository's.
      */
     public record Task(
             String name,
@@ -107,9 +108,10 @@ public final class TaskInventory {
             String certifiedUntil,
             String model,
             String modelLabel,
-            String modelFrom) {
+            String modelFrom,
+            @Nullable String named) {
 
-        /** Creates a task whose model nothing recorded. */
+        /** Creates a task whose model nothing recorded and whose start was given no name. */
         public Task(
                 String name,
                 @Nullable String project,
@@ -182,7 +184,33 @@ public final class TaskInventory {
                     certifiedUntil,
                     "",
                     "",
-                    "");
+                    "",
+                    null);
+        }
+
+        /**
+         * Returns the task's name within its project.
+         *
+         * @return It, or {@code null} when nothing recorded its project or the container is not of
+         *     it.
+         */
+        public @Nullable String shortName() {
+            final String within =
+                    project == null
+                            ? ""
+                            : org.fuin.porelo.runtime.ContainerName.taskIn(project, name);
+            return within.isEmpty() ? null : within;
+        }
+
+        /**
+         * Returns the name a client shows for the task: the one its start was given, else its short
+         * name, else its container's.
+         *
+         * @return The name to show; never the identity a call takes, which is {@link #name()}.
+         */
+        public String display() {
+            final String within = shortName();
+            return named != null ? named : within != null ? within : name;
         }
 
         /** Creates a task whose commits are not signed by a certified key of its own. */
@@ -900,6 +928,9 @@ public final class TaskInventory {
                             ? ""
                             : org.fuin.porelo.runtime.ContainerName.taskIn(project, name);
             map.put("task", within);
+            map.put("short", within);
+            map.put("named", named == null ? "" : named);
+            map.put("display", display());
 
             // What Start would do to this task, answered before anybody presses it. A listed task
             // exists by definition, so CREATE cannot appear here. Worked out where the state
@@ -1380,7 +1411,8 @@ public final class TaskInventory {
                                 : state)),
                 profile == null || profile.model() == null ? "" : profile.model(),
                 profile == null || profile.modelLabel() == null ? "" : profile.modelLabel(),
-                profile == null ? "" : profile.modelFrom());
+                profile == null ? "" : profile.modelFrom(),
+                profile == null ? null : profile.named());
     }
 
     /**

@@ -267,7 +267,7 @@ Feature: The vault commands
         Then it exits zero
         Given the vault holds the value of "PORELO_ACCEPTANCE_FAKE_CREDENTIAL" as "anthropic" of kind "api-key"
         When a task called "second" is started in "cleared" for the "stub" agent and left running
-        Then a script running "porelo task list" mentions "porelo-cleared-second"
+        Then a script running "porelo task list | grep -E '^second +cleared '" mentions "second"
         And a script runs "porelo task remove porelo-cleared-second --force"
 
     # What root's helper runs in a person's account to lock them out: no terminal, standard input closed, the vault

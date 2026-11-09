@@ -59,6 +59,8 @@ import org.jspecify.annotations.Nullable;
  *     without, which is all a start could do then.
  * @param modelLabel What a person is shown for the model, as the file that named it gives it, or
  *     {@code null} when it gives none.
+ * @param named The task's name as its start was given it, or {@code null} when the start took it
+ *     from the repository. What a client shows; the container name stays what every call takes.
  */
 public record TaskProfile(
         int version,
@@ -75,7 +77,8 @@ public record TaskProfile(
         int subagents,
         @Nullable String parent,
         String modelFrom,
-        @Nullable String modelLabel) {
+        @Nullable String modelLabel,
+        @Nullable String named) {
 
     /** Where a model a start asked for comes from. */
     public static final String FROM_START = "start";
@@ -84,7 +87,8 @@ public record TaskProfile(
     public static final String FROM_AGENT = "agent";
 
     /**
-     * Constructor for a task whose model, if any, its start asked for.
+     * Constructor for a task whose model, if any, its start asked for, and whose start took its
+     * name from its repository.
      *
      * @param version Schema version.
      * @param agent Agent running in the task, or {@code null}.
@@ -129,7 +133,114 @@ public record TaskProfile(
                 subagents,
                 parent,
                 model == null ? FROM_AGENT : FROM_START,
+                null,
                 null);
+    }
+
+    /**
+     * Constructor for a task whose start took its name from its repository.
+     *
+     * @param version Schema version.
+     * @param agent Agent running in the task, or {@code null}.
+     * @param mode How a person is meant to be involved.
+     * @param prompt What an unattended task was asked to do, or {@code null}.
+     * @param branch Ref the work goes to, or {@code null}.
+     * @param startedAt When it started, ISO-8601.
+     * @param clearance What it does with a blocked connection.
+     * @param label Its caption, or {@code null}.
+     * @param provider Its model provider, or {@code null}.
+     * @param model Model it runs on, or {@code null}.
+     * @param forgeBranch The branch beyond the gate, or {@code null}.
+     * @param subagents The most subagents at the same time.
+     * @param parent The task that started it, or {@code null}.
+     * @param modelFrom Where its model was settled from.
+     * @param modelLabel What a person is shown for the model, or {@code null}.
+     */
+    public TaskProfile(
+            int version,
+            @Nullable String agent,
+            TaskMode mode,
+            @Nullable String prompt,
+            @Nullable String branch,
+            String startedAt,
+            @Nullable String clearance,
+            @Nullable String label,
+            @Nullable String provider,
+            @Nullable String model,
+            @Nullable String forgeBranch,
+            int subagents,
+            @Nullable String parent,
+            String modelFrom,
+            @Nullable String modelLabel) {
+        this(
+                version,
+                agent,
+                mode,
+                prompt,
+                branch,
+                startedAt,
+                clearance,
+                label,
+                provider,
+                model,
+                forgeBranch,
+                subagents,
+                parent,
+                modelFrom,
+                modelLabel,
+                null);
+    }
+
+    /**
+     * Constructor for a task whose model, if any, its start asked for.
+     *
+     * @param version Schema version.
+     * @param agent Agent running in the task, or {@code null}.
+     * @param mode How a person is meant to be involved.
+     * @param prompt What an unattended task was asked to do, or {@code null}.
+     * @param branch Ref the work goes to, or {@code null}.
+     * @param startedAt When it started, ISO-8601.
+     * @param clearance What it does with a blocked connection.
+     * @param label Its caption, or {@code null}.
+     * @param provider Its model provider, or {@code null}.
+     * @param model Model it runs on, or {@code null}.
+     * @param forgeBranch The branch beyond the gate, or {@code null}.
+     * @param subagents The most subagents at the same time.
+     * @param parent The task that started it, or {@code null}.
+     * @param named The task's name as its start was given it, or {@code null}.
+     */
+    public TaskProfile(
+            int version,
+            @Nullable String agent,
+            TaskMode mode,
+            @Nullable String prompt,
+            @Nullable String branch,
+            String startedAt,
+            @Nullable String clearance,
+            @Nullable String label,
+            @Nullable String provider,
+            @Nullable String model,
+            @Nullable String forgeBranch,
+            int subagents,
+            @Nullable String parent,
+            @Nullable String named) {
+        this(
+                version,
+                agent,
+                mode,
+                prompt,
+                branch,
+                startedAt,
+                clearance,
+                label,
+                provider,
+                model,
+                forgeBranch,
+                subagents,
+                parent,
+                model == null ? FROM_AGENT : FROM_START,
+                null,
+                named);
     }
 
     /**
@@ -345,7 +456,8 @@ public record TaskProfile(
                 subagents,
                 parent,
                 modelFrom,
-                modelLabel);
+                modelLabel,
+                named);
     }
 
     /**
@@ -374,7 +486,8 @@ public record TaskProfile(
                 subagents,
                 parent,
                 modelFrom,
-                modelLabel);
+                modelLabel,
+                named);
     }
 
     /**
@@ -422,6 +535,7 @@ public record TaskProfile(
         document.put("parent", parent == null ? "" : parent);
         document.put("modelFrom", modelFrom);
         document.put("modelLabel", modelLabel == null ? "" : modelLabel);
+        document.put("named", named == null ? "" : named);
         final Path file = stateDirectory.resolve(FILE);
         Files.writeString(file, Json.write(document), StandardCharsets.UTF_8);
         // A prompt is the operator's own words and may name anything they were working on; the same
@@ -471,7 +585,9 @@ public record TaskProfile(
                     // A task started before it was recorded was started by a person.
                     text(document, "parent"),
                     modelFrom(document),
-                    text(document, "modelLabel"));
+                    text(document, "modelLabel"),
+                    // A task started before it was recorded is shown by its short name.
+                    text(document, "named"));
         } catch (IOException | RuntimeException ex) {
             // A half-written file from a start that was killed. A task nobody can describe is still
             // a task somebody may need to stop.

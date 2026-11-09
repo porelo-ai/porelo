@@ -389,7 +389,7 @@ final class McpTaskSockets implements McpDaemonSockets.Opener, AutoCloseable {
         final TaskLaunch.Request request = PoreloDaemon.request(parameters, context);
         final boolean unnamed = PoreloDaemon.text(parameters, "task").isEmpty();
         final String prefix = ContainerName.PREFIX + project + "-";
-        final Map<String, Object> held = new LinkedHashMap<>(parameters);
+        Map<String, Object> held = new LinkedHashMap<>(parameters);
         final Object token = new Object();
         synchronized (starting) {
             // As the launch names it: a task given by its container name is the same task.
@@ -408,7 +408,7 @@ final class McpTaskSockets implements McpDaemonSockets.Opener, AutoCloseable {
             }
             // The name settled once: the start would otherwise pick an unnamed task's again, and
             // another than the one counted here once a task of that name exists.
-            held.put("task", name);
+            held = settled(held, name, unnamed);
             final String agent = PoreloDaemon.text(parameters, "agent");
             final String model = PoreloDaemon.text(parameters, "model");
             String runs = agent;
@@ -480,6 +480,25 @@ final class McpTaskSockets implements McpDaemonSockets.Opener, AutoCloseable {
                 starting.remove(token);
             }
         }
+    }
+
+    /**
+     * Returns a start's parameters with the name the endpoint settled for it.
+     *
+     * @param parameters What the start carries.
+     * @param name The task's name, as given or as the endpoint picked it.
+     * @param unnamed Whether the start carried no name, so the endpoint picked it.
+     * @return A copy, marked as named by nobody when the endpoint picked the name.
+     */
+    static Map<String, Object> settled(
+            final Map<String, Object> parameters, final String name, final boolean unnamed) {
+        final Map<String, Object> held = new LinkedHashMap<>(parameters);
+        held.put("task", name);
+        if (unnamed) {
+            // Picked here, not given: the started task shows its short name.
+            held.put(PoreloDaemon.UNNAMED, true);
+        }
+        return held;
     }
 
     /** Tells whether a start running now makes or brings back a container; under its lock. */

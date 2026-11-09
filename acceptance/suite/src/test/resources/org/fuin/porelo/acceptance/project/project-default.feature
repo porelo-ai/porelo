@@ -22,7 +22,7 @@ Feature: Work starts without a project, in the project every machine has
             echo "start exit $?"
             grep -o "added to 'default' as '$repo'" "$base/start"
             porelo project default | grep -c "^$repo " | sed 's/^/listed in default: /'
-            porelo task list | grep -c "porelo-default-probe" | sed 's/^/a task in default: /'
+            porelo task list | grep -cE '^probe +default ' | sed 's/^/a task in default: /'
             porelo shield egress --project default --add-domain example.org 2>&1 | grep -o "a project repository is the way"
             porelo project remove default 2>&1 | grep -o "is always there and is never removed"
             porelo task remove porelo-default-probe --force > /dev/null 2>&1

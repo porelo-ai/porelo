@@ -11,7 +11,7 @@ Feature: A task is what Porelo made
         And its output contains "started"
         # Not a row of the table, but named under it as what it is: decided on 2026-10-10, so that "No tasks" never hides a
         # container whose removal removes what is in it.
-        When a script runs "porelo task list; porelo task list | grep -c '^porelo-forged-task'; echo rows $?"
+        When a script runs "porelo task list; porelo task list | grep -cE '^task +forged '; echo rows $?"
         Then its output contains "not listed: porelo-forged-task"
         And its output contains "no container id"
         And its output contains "rows 1"

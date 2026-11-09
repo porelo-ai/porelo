@@ -17,7 +17,7 @@ Feature: Leaving a task and coming back to it
         Given a project called "session" with a file in it
         And a terminal on the machine
         When I run "porelo task start --project session --repository session --agent stub --attach shell --detach"
-        And I run "porelo task attach $(porelo task list | grep -o 'porelo-session[^ ]*' | head -1)"
+        And I run "porelo task attach $(podman ps -a --format '{{.Names}}' | grep -o '^porelo-session[^ ]*' | head -1)"
         And I wait for the session inside the container
         And I run "echo MARKER-BEFORE-LEAVING"
         And I run "(sleep 120 && echo LATE) > /tmp/carried-on 2>&1 &"
@@ -25,13 +25,13 @@ Feature: Leaving a task and coming back to it
 
         When I log off
         And a terminal on the machine
-        And I run "porelo task attach $(porelo task list | grep -o 'porelo-session[^ ]*' | head -1)"
+        And I run "porelo task attach $(podman ps -a --format '{{.Names}}' | grep -o '^porelo-session[^ ]*' | head -1)"
         And I wait for the session inside the container
         Then the terminal shows "MARKER-BEFORE-LEAVING"
 
     Scenario: the process started before the disconnect is still running after it
         Given a terminal on the machine
-        When I run "porelo task attach $(porelo task list | grep -o 'porelo-session[^ ]*' | head -1)"
+        When I run "porelo task attach $(podman ps -a --format '{{.Names}}' | grep -o '^porelo-session[^ ]*' | head -1)"
         And I wait for the session inside the container
         And I run "pgrep -f 'sleep 120' >/dev/null && echo STILL-RUNNING || echo GONE"
         Then the terminal shows "STILL-RUNNING"
@@ -42,11 +42,11 @@ Feature: Leaving a task and coming back to it
         # Asked of a daemon this scenario starts: an account on a leased machine runs none of its own, and the
         # socket is not there to ask (CI, 2026-10-04).
         Given a daemon of this scenario's own
-        When a script runs "set -o pipefail; t=$(porelo task list | grep -o 'porelo-session[^ ]*' | head -1); varlinkctl call unix:/run/user/$(id -u)/porelo/porelod.sock org.fuin.porelo.Tasks1.Screen \"$(printf '{\"task\":\"%s\",\"last\":200}' \"$t\")\" | tr -d ' \\n'"
+        When a script runs "set -o pipefail; t=$(podman ps -a --format '{{.Names}}' | grep -o '^porelo-session[^ ]*' | head -1); varlinkctl call unix:/run/user/$(id -u)/porelo/porelod.sock org.fuin.porelo.Tasks1.Screen \"$(printf '{\"task\":\"%s\",\"last\":200}' \"$t\")\" | tr -d ' \\n'"
         Then it exits zero
         And its output contains "MARKER-BEFORE-LEAVING"
         And its output contains "\"live\":true"
 
     Scenario: the task is cleaned up afterwards
-        When a script runs "porelo task remove $(porelo task list | grep -o 'porelo-session[^ ]*' | head -1) --force"
+        When a script runs "porelo task remove $(podman ps -a --format '{{.Names}}' | grep -o '^porelo-session[^ ]*' | head -1) --force"
         Then it exits zero

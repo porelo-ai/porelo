@@ -70,9 +70,11 @@ public class TaskListCommand implements Callable<Integer>, PoreloFactory.Context
                 "NAME", "PROJECT", "CLASS", "STATE", "AGE", "HELPERS");
         for (final TaskInventory.Task task : tasks) {
             final String age = Age.compact(task.since(), now);
+            // The name a person gave it, or its short one; the project column tells two of one
+            // name apart, and 'task status' shows the container.
             out.printf(
                     "%-38s %-14s %-9s %-18s %-5s %s%n",
-                    task.name(),
+                    task.display(),
                     task.project() == null ? "-" : task.project(),
                     task.securityClass() == null ? "-" : task.securityClass(),
                     state(task.state()),

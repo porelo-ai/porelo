@@ -166,6 +166,7 @@ class StartProgressReviewTest {
                                             .enroll(
                                                     ProjectReader.read(projectFile(true)),
                                                     "porelo-p-work",
+                                                    null,
                                                     new StartSteps(events::add)));
         } finally {
             PoreloContext.forgetAsked();

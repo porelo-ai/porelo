@@ -72,6 +72,37 @@ class TaskLabelTest {
     }
 
     @Test
+    void aRelabeledOrReclearedProfileKeepsTheNameItsStartWasGiven(@TempDir Path dir)
+            throws IOException {
+        // A caption or clearance edit that dropped the name would show the task by another one.
+        final PoreloContext context = context(dir);
+        final Path state = Files.createDirectories(dir.resolve("run/porelo/porelo-uc-fix"));
+        new TaskProfile(
+                        TaskProfile.VERSION,
+                        "example",
+                        TaskMode.UNATTENDED,
+                        "fix the parser",
+                        null,
+                        "2026-11-08T06:00:00Z",
+                        "prompt",
+                        null,
+                        null,
+                        null,
+                        null,
+                        0,
+                        null,
+                        "fix")
+                .writeTo(state);
+
+        new TaskControl(context).label("porelo-uc-fix", "second attempt");
+        TaskProfile.readFrom(state).withClearance("deny").writeTo(state);
+
+        assertThat(TaskProfile.readFrom(state).named())
+                .as("the name a person gave at the start outlives a caption and a clearance edit")
+                .isEqualTo("fix");
+    }
+
+    @Test
     void writesACaptionIntoTheTasksOwnProfile(@TempDir Path dir) throws IOException {
 
         // In the profile beside the mode and the prompt, so it survives a resume and outlives the

@@ -838,8 +838,16 @@ public final class PoreloDaemon {
                 subagents(parameters),
                 org.fuin.porelo.app.TaskBase.named(empty(parameters, "from")),
                 // The task whose MCP socket the call came over, never a field of the call.
-                McpTaskSockets.caller());
+                McpTaskSockets.caller(),
+                // The caller's own word only: a name the MCP endpoint settled for it is none.
+                task.isEmpty() || flag(parameters, UNNAMED) ? null : task);
     }
+
+    /**
+     * The parameter the MCP endpoint adds to a start whose name it settled. No varlink identifier
+     * and not in the contract; a caller that sent it would only lose its own name from the row.
+     */
+    static final String UNNAMED = ".unnamed";
 
     /**
      * Returns the key of the repository a start names, by key or by full name, so an unnamed task

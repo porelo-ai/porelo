@@ -109,7 +109,8 @@ class TaskLifecycleCommandsTest {
 
         assertThat(execute(context, "task", "list")).isZero();
         assertThat(out.toString())
-                .contains("porelo-uc-shell-1")
+                .as("listed by the name it has in its project, beside the project")
+                .contains("shell-1 ")
                 .contains("uc")
                 .contains("guarded")
                 .contains("Up 4 minutes");
@@ -389,7 +390,7 @@ class TaskLifecycleCommandsTest {
         final String row =
                 out.toString()
                         .lines()
-                        .filter(line -> line.startsWith("porelo-uc"))
+                        .filter(line -> line.startsWith("shell-1"))
                         .findFirst()
                         .orElseThrow();
         assertThat(row).contains("uc").contains("guarded").doesNotContain("-  ");
@@ -867,7 +868,7 @@ class TaskLifecycleCommandsTest {
         final String row =
                 out.toString()
                         .lines()
-                        .filter(line -> line.startsWith("porelo-uc"))
+                        .filter(line -> line.startsWith("shell-1"))
                         .findFirst()
                         .orElseThrow();
         assertThat(row).contains("Exited (143)").doesNotContain("Less than");
@@ -1298,6 +1299,94 @@ class TaskLifecycleCommandsTest {
             Thread.sleep(100);
         }
         assertThat(Files.readString(order)).contains("vault");
+    }
+
+    /** Gives project uc a room on a transport that shows a task's name, and opens the vault. */
+    private PoreloContext roomContext(Path dir) throws IOException {
+        final char[] passphrase = "test-passphrase".toCharArray();
+        final PoreloContext context = context(dir).asking(shown -> passphrase.clone());
+        Files.createDirectories(context.vault().path().getParent());
+        context.vault().write(java.util.Map.of(), passphrase.clone());
+        context.openerAsking(false, new PrintWriter(new StringWriter()));
+        final Path adapters =
+                context.paths().messaging().transportDirectory().locations().getFirst();
+        Files.createDirectories(adapters);
+        final Path adapter = adapters.resolve(TransportDirectory.PREFIX + "room");
+        Files.writeString(adapter, "#!/bin/sh\n");
+        adapter.toFile().setExecutable(true);
+        runner.answering(
+                "describe",
+                "{\"scheme\":\"room\",\"display\":true,"
+                        + "\"lifecycle\":[\"setup\",\"enroll\",\"retire\"]}");
+        runner.answering(
+                " setup ", "{\"conversation\":\"!room\",\"reaches\":[\"127.0.0.1:18008\"]}");
+        runner.answering(" enroll ", "{\"secrets\":{\"TASK\":\"t-1\"}}");
+        final Path file = dir.resolve("project.yml");
+        Files.writeString(
+                file,
+                "project:\n  name: uc\n  security_class: guarded\nimage:\n  from: ubuntu:24.04\n"
+                        + "mail:\n  transports:\n    room: {}\n"
+                        + "  peers:\n    reviewer: { address: 'room:', trust: vouched }\n");
+        new ProjectRegistry(context.paths().projects().projectRegistry()).remember("uc", file);
+        return context;
+    }
+
+    private void recordAgent(Path state, String agent) throws IOException {
+        new org.fuin.porelo.wire.TaskProfile(
+                        org.fuin.porelo.wire.TaskProfile.VERSION,
+                        agent,
+                        org.fuin.porelo.wire.TaskMode.AGENT,
+                        null,
+                        null,
+                        "2026-11-09T00:00:00Z",
+                        "deny")
+                .writeTo(state);
+    }
+
+    private java.util.List<java.util.List<String>> enrolls() {
+        return runner.invocations().stream()
+                .map(org.fuin.porelo.core.process.Command::arguments)
+                .filter(arguments -> arguments.contains("enroll"))
+                .toList();
+    }
+
+    @Test
+    void aResumedTaskTheRoomHoldsNoNameForIsEnrolledUnderItsAgentsName(@TempDir Path dir)
+            throws Exception {
+        // Resumed outside its room, a task from before names were kept answers to no head.
+        final PoreloContext context = roomContext(dir);
+        runner.answering("container inspect", "4711");
+        runner.answering("ps", "porelo-uc-shell-1\tExited (0)\t\t\tuc\tguarded\tuc\t\n");
+        recordAgent(stateOf("porelo-uc-shell-1"), "preview");
+
+        assertThat(resume(context, "porelo-uc-shell-1")).as(err.toString()).isZero();
+
+        assertThat(enrolls())
+                .as("enrolled once on its way back: %s", err)
+                .singleElement()
+                .satisfies(
+                        arguments ->
+                                assertThat(arguments)
+                                        .as("under the name of the agent its start recorded")
+                                        .containsSubsequence("--display", "Agent Preview"));
+    }
+
+    @Test
+    void aResumedTaskThatHoldsItsNameInTheRoomAsksNoTransport(@TempDir Path dir) throws Exception {
+        // Every resume asking the transport would make a stopped room hold up every resume.
+        final PoreloContext context = roomContext(dir);
+        runner.answering("container inspect", "4711");
+        runner.answering("ps", "porelo-uc-shell-1\tExited (0)\t\t\tuc\tguarded\tuc\t\n");
+        recordAgent(stateOf("porelo-uc-shell-1"), "preview");
+        final Path held = context.paths().xdg().state().resolve("transport/room/displays/uc.json");
+        Files.createDirectories(held.getParent());
+        Files.writeString(held, "{\"porelo-uc-shell-1\":\"Agent Preview\"}");
+
+        assertThat(resume(context, "porelo-uc-shell-1")).as(err.toString()).isZero();
+
+        assertThat(runner.lines())
+                .as("neither set up nor enrolled again")
+                .noneMatch(line -> line.contains(" setup ") || line.contains(" enroll "));
     }
 
     @Test

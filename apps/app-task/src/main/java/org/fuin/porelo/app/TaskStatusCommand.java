@@ -123,9 +123,10 @@ public class TaskStatusCommand implements Callable<Integer>, PoreloFactory.Conte
             return 69;
         }
 
-        line(out, "task", task.name());
+        line(out, "task", task.display());
         line(out, "label", task.label());
         line(out, "project", task.project());
+        line(out, "container", task.name());
         line(out, "class", task.securityClass());
         line(out, "agent", task.agent());
         line(out, "provider", task.provider());

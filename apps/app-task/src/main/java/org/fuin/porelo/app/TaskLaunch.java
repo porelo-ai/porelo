@@ -63,6 +63,8 @@ public final class TaskLaunch {
      *     same time, or {@code null} for what the project file says, and none when it says nothing.
      * @param parent The task whose MCP endpoint asked for this start, by container name, or {@code
      *     null} for a person's start. The daemon takes it from the socket the start came over.
+     * @param named The task name as the caller gave it, or {@code null} when the start took it from
+     *     the repository or numbered it; recorded so a client shows the name a person chose.
      */
     public record Request(
             String task,
@@ -87,7 +89,86 @@ public final class TaskLaunch {
             @Nullable String branch,
             @Nullable Integer subagents,
             @Nullable TaskBase base,
-            @Nullable String parent) {
+            @Nullable String parent,
+            @Nullable String named) {
+
+        /**
+         * Constructor for a start whose name nobody gave.
+         *
+         * @param task Task name.
+         * @param projectFile Project file.
+         * @param agentName Agent to use, or {@code null} for the only one installed.
+         * @param providerName Provider to use, or {@code null} for the agent's own.
+         * @param credentialType Credential kind, or {@code null} for the stored one.
+         * @param tokenHours How long the phantom token is accepted.
+         * @param upstream Upstream for the gate, or {@code null}.
+         * @param noGate Whether to run without a workspace and gate.
+         * @param dryRun Whether to report rather than start.
+         * @param clearance What to do with a blocked connection.
+         * @param keep Whether the container survives the run.
+         * @param mode How somebody is involved.
+         * @param prompt What an unattended task is asked, or {@code null}.
+         * @param model Model to request, or {@code null}.
+         * @param maxTurns Turn limit, or {@code null}.
+         * @param minutes How long an unattended run may take.
+         * @param repository The repository, or {@code null}.
+         * @param credentials Credentials beyond the agent's own.
+         * @param parameters The values a start hands in.
+         * @param branch Value of {@code --branch}, or {@code null}.
+         * @param subagents Value of {@code --subagents}, or {@code null}.
+         * @param base The starting branch, or {@code null}.
+         * @param parent The task that asked for this start, or {@code null}.
+         */
+        public Request(
+                String task,
+                Path projectFile,
+                @Nullable String agentName,
+                @Nullable String providerName,
+                @Nullable String credentialType,
+                int tokenHours,
+                @Nullable String upstream,
+                boolean noGate,
+                boolean dryRun,
+                String clearance,
+                boolean keep,
+                org.fuin.porelo.wire.TaskMode mode,
+                @Nullable String prompt,
+                @Nullable String model,
+                @Nullable Integer maxTurns,
+                int minutes,
+                @Nullable String repository,
+                java.util.Map<String, String> credentials,
+                java.util.Map<String, org.fuin.porelo.core.project.Parameters.Given> parameters,
+                @Nullable String branch,
+                @Nullable Integer subagents,
+                @Nullable TaskBase base,
+                @Nullable String parent) {
+            this(
+                    task,
+                    projectFile,
+                    agentName,
+                    providerName,
+                    credentialType,
+                    tokenHours,
+                    upstream,
+                    noGate,
+                    dryRun,
+                    clearance,
+                    keep,
+                    mode,
+                    prompt,
+                    model,
+                    maxTurns,
+                    minutes,
+                    repository,
+                    credentials,
+                    parameters,
+                    branch,
+                    subagents,
+                    base,
+                    parent,
+                    null);
+        }
 
         /** Constructor for a start a person asked for. */
         public Request(
@@ -579,7 +660,9 @@ public final class TaskLaunch {
                     branch,
                     subagents,
                     base,
-                    parent);
+                    parent,
+                    // The same task by its other name: a person who named it named it so.
+                    named == null ? null : name);
         }
     }
 
@@ -1199,7 +1282,15 @@ public final class TaskLaunch {
         if (java.nio.file.Files.isDirectory(state)) {
             steps.recordIn(state);
         }
-        final String outside = new TaskConversations(context).enroll(project, container, steps);
+        // Its agent as its start recorded it, so the room shows it by the name it had.
+        final org.fuin.porelo.wire.TaskProfile recordedProfile = keptProfile(container);
+        final String outside =
+                new TaskConversations(context)
+                        .enroll(
+                                project,
+                                container,
+                                recordedProfile == null ? null : recordedProfile.agent(),
+                                steps);
         if (outside != null) {
             err.println("porelo: " + outside);
             err.println(
@@ -1255,16 +1346,20 @@ public final class TaskLaunch {
      * @return The number; 0 for a task whose record does not say, which is what it was told.
      */
     private int keptSubagents(String container) {
-        org.fuin.porelo.wire.TaskProfile profile =
+        final org.fuin.porelo.wire.TaskProfile profile = keptProfile(container);
+        return profile == null ? 0 : profile.subagents();
+    }
+
+    /** Returns what a task's start recorded, from where it runs or else from its durable record. */
+    private org.fuin.porelo.wire.@Nullable TaskProfile keptProfile(String container) {
+        final org.fuin.porelo.wire.TaskProfile profile =
                 org.fuin.porelo.wire.TaskProfile.readFrom(
                         context.paths().tasks().containerState(container));
-        if (profile == null) {
-            // After a reboot, before the resume puts the runtime directory's records back.
-            profile =
-                    org.fuin.porelo.wire.TaskProfile.readFrom(
-                            context.paths().tasks().taskRecord(container));
-        }
-        return profile == null ? 0 : profile.subagents();
+        // After a reboot, before the resume puts the runtime directory's records back.
+        return profile != null
+                ? profile
+                : org.fuin.porelo.wire.TaskProfile.readFrom(
+                        context.paths().tasks().taskRecord(container));
     }
 
     static @Nullable String ofAnotherProject(
@@ -1324,7 +1419,8 @@ public final class TaskLaunch {
                             request.branch(),
                             request.subagents(),
                             request.base(),
-                            request.parent());
+                            request.parent(),
+                            request.named());
         }
         return null;
     }
@@ -2402,7 +2498,12 @@ public final class TaskLaunch {
             // can reach is - and enrolled earlier, a start refused afterwards for something else
             // left its account at the transport with nothing to retire it.
             final TaskConversations conversations = new TaskConversations(context);
-            final String unreachable = conversations.enroll(project, container, steps);
+            final String unreachable =
+                    conversations.enroll(
+                            project,
+                            container,
+                            selected == null ? null : selected.definition().name(),
+                            steps);
             if (unreachable != null) {
                 err.println("porelo: " + unreachable);
                 err.println("porelo: nothing was created");
@@ -3101,7 +3202,8 @@ public final class TaskLaunch {
                             subagents,
                             request.parent(),
                             model.from(),
-                            model.label().isEmpty() ? null : model.label())
+                            model.label().isEmpty() ? null : model.label(),
+                            request.named())
                     .writeTo(context.paths().tasks().containerState(container));
         } catch (java.io.IOException ex) {
             err.println("porelo: could not record what this task is: " + ex.getMessage());

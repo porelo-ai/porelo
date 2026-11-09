@@ -99,6 +99,21 @@ class TaskTargetTest {
     }
 
     @Test
+    void aShortNameTasksOfTwoProjectsShareMeansTheOneOfTheCheckoutStoodIn() {
+        // Two projects' tasks shown by one name: in a checkout, its project's is the one meant.
+        listed =
+                "porelo-elsewhere-utils4j\tUp 1 minute\t\t\telsewhere\tguarded\tutils4j\t\tid\n"
+                        + "porelo-default-utils4j\tUp 1 minute\t\t\tdefault\tguarded\tutils4j\t\tid\n";
+
+        assertThat(TaskTarget.resolve(context, "utils4j", checkout, null).container())
+                .as("the task of the project this checkout belongs to")
+                .isEqualTo("porelo-default-utils4j");
+        assertThat(TaskTarget.resolve(context, "utils4j", dir, null).container())
+                .as("outside a checkout neither is guessed, and the command refuses the name")
+                .isEqualTo("utils4j");
+    }
+
+    @Test
     void severalAreNamedAndAskedForOrRefusedWhereNobodyCanBeAsked() {
         tasks("porelo-default-utils4j", "porelo-default-utils4j-2");
 

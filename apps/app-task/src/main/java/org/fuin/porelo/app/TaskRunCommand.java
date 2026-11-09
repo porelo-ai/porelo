@@ -53,6 +53,9 @@ public class TaskRunCommand implements Callable<Integer>, PoreloFactory.ContextA
                             + " says which.")
     private String task = "shell";
 
+    /** Whether the person gave another name in answer to a refusal. */
+    private boolean nameGiven;
+
     @Option(
             names = {"-p", "--project"},
             paramLabel = "<name>",
@@ -491,6 +494,7 @@ public class TaskRunCommand implements Callable<Integer>, PoreloFactory.ContextA
             attach = "shell";
         } else if (chosen.startsWith("name:")) {
             task = chosen.substring("name:".length());
+            nameGiven = true;
         }
         return code;
     }
@@ -761,7 +765,14 @@ public class TaskRunCommand implements Callable<Integer>, PoreloFactory.ContextA
                                         given,
                                         branch,
                                         subagents,
-                                        base),
+                                        base,
+                                        null,
+                                        // Only the person's own word: a name taken from the
+                                        // repository is no name anybody gave.
+                                        spec.commandLine().getParseResult().hasMatchedPositional(0)
+                                                        || nameGiven
+                                                ? task
+                                                : null),
                                 new StartSteps(step -> StartSteps.render(out, step), err))
                         // What a refusal would name is offered at a terminal instead; a script or a
                         // pipe is refused as before.

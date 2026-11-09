@@ -180,7 +180,7 @@ Feature: A start through the daemon has the person's own computer certify its ta
             print("asked:", asked)
             PY
             timeout 600 python3 "$base/start.py" "$repo"
-            porelo task list | grep -c "porelo-default-$repo" | sed 's/^/a task in default: /'
+            porelo task list | grep -cE "^$repo +default " | sed 's/^/a task in default: /'
             porelo task remove "porelo-default-$repo" --force > /dev/null 2>&1
             porelo project default remove "$repo" > /dev/null 2>&1
             rm -rf "${XDG_DATA_HOME:-$HOME/.local/share}/porelo/mirrors/default/$repo.git"

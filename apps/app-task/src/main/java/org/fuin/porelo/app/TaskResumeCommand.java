@@ -120,7 +120,29 @@ public class TaskResumeCommand implements Callable<Integer>, PoreloFactory.Conte
                         out)) {
             return 0;
         }
+        // Its container is up in each of these, so it is back in its rooms too.
+        if (result.outcome() == TaskControl.Outcome.RESUMED
+                || result.outcome() == TaskControl.Outcome.NO_HELPERS_RECORDED
+                || result.outcome() == TaskControl.Outcome.HELPERS_INCOMPLETE) {
+            rejoin(context, container, err);
+        }
         return render(result, container, out, err, suggests);
+    }
+
+    /** Takes a resumed task into its rooms under its agent's name, where none holds one for it. */
+    private static void rejoin(PoreloContext context, String container, PrintWriter err) {
+        final org.fuin.porelo.wire.TaskProfile profile =
+                org.fuin.porelo.wire.TaskProfile.readFrom(
+                        context.paths().tasks().containerState(container));
+        final String project =
+                context.podman().poreloTasks().stream()
+                        .filter(each -> each.name().equals(container))
+                        .map(org.fuin.porelo.runtime.ContainerSummary::project)
+                        .filter(java.util.Objects::nonNull)
+                        .findFirst()
+                        .orElse(null);
+        new TaskConversations(context)
+                .rejoin(context, container, project, profile == null ? null : profile.agent(), err);
     }
 
     /**

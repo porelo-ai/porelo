@@ -347,6 +347,32 @@ class McpTaskSocketsTest {
                 .isNull();
     }
 
+    @Test
+    void aNameTheEndpointPicksIsRecordedAsNoNameTheStartWasGiven() throws IOException {
+        // Recorded as given, a picked name would show a child as named by somebody.
+        final PoreloContext context = context(HEAD + SECTION);
+        final Map<String, Object> unnamed = start("alpha", null, 30);
+        unnamed.remove("task");
+
+        assertThat(
+                        PoreloDaemon.request(
+                                        McpTaskSockets.settled(unnamed, "child-2", true), context)
+                                .named())
+                .as("the endpoint picked the name, nobody gave it")
+                .isNull();
+        assertThat(
+                        PoreloDaemon.request(
+                                        McpTaskSockets.settled(
+                                                start("alpha", null, 30), "child", false),
+                                        context)
+                                .named())
+                .as("the calling task gave the name")
+                .isEqualTo("child");
+        assertThat(PoreloDaemon.request(unnamed, context).named())
+                .as("a start over the daemon's own socket that gave no name")
+                .isNull();
+    }
+
     private static final class TaskRequestSeen {
         private String parent;
     }

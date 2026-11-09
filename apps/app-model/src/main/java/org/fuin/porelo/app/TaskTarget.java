@@ -58,6 +58,21 @@ public final class TaskTarget {
      * @return The container's name, or {@code given} as it is when no task has it.
      */
     public static String spelled(final PoreloContext context, final String given) {
+        return spelled(context, given, Path.of("."));
+    }
+
+    /**
+     * Returns a task's container from either of its names, the task's own taken in the project of
+     * the checkout the person stands in where tasks of several projects have it.
+     *
+     * @param context The machine.
+     * @param given What the person typed.
+     * @param directory Where the person stands.
+     * @return The container's name, or {@code given} as it is when no task has it or several do and
+     *     the checkout settles none of them.
+     */
+    public static String spelled(
+            final PoreloContext context, final String given, final Path directory) {
         final List<ContainerSummary> tasks = context.podman().poreloTasks();
         if (tasks.stream().anyMatch(task -> task.name().equals(given))) {
             return given;
@@ -75,8 +90,21 @@ public final class TaskTarget {
                                                                         + given))
                         .map(ContainerSummary::name)
                         .toList();
-        return own.size() == 1 ? own.getFirst() : given;
+        if (own.size() == 1) {
+            return own.getFirst();
+        }
+        if (own.isEmpty()) {
+            return given;
+        }
+        // Two projects' tasks of one name: the one this checkout's project has, as a start here
+        // would take it.
+        final Checkout standing = checkout(context, directory);
+        final String here = standing == null ? null : "porelo-" + standing.project() + "-" + given;
+        return here != null && own.contains(here) ? here : given;
     }
+
+    /** The project and repository a checkout belongs to, as its start takes them. */
+    private record Checkout(String project, @Nullable String repository) {}
 
     /**
      * Returns the tasks started from the checkout a directory is in.
@@ -88,6 +116,23 @@ public final class TaskTarget {
      */
     public static @Nullable List<String> fromCheckout(
             final PoreloContext context, final Path directory) {
+        final Checkout found = checkout(context, directory);
+        if (found == null) {
+            return null;
+        }
+        final String inProject = found.project();
+        final String ofRepository = found.repository();
+        return context.podman().poreloTasks().stream()
+                .filter(
+                        task ->
+                                inProject.equals(task.project())
+                                        && ofRepository != null
+                                        && ofRepository.equals(task.repository()))
+                .map(ContainerSummary::name)
+                .toList();
+    }
+
+    private static @Nullable Checkout checkout(final PoreloContext context, final Path directory) {
         final Path top = LocalRepository.topLevel(context.runner(), directory);
         if (top == null) {
             return null;
@@ -115,16 +160,7 @@ public final class TaskTarget {
             project = DefaultProject.NAME;
             repository = own.name();
         }
-        final String inProject = project;
-        final String ofRepository = repository;
-        return context.podman().poreloTasks().stream()
-                .filter(
-                        task ->
-                                inProject.equals(task.project())
-                                        && ofRepository != null
-                                        && ofRepository.equals(task.repository()))
-                .map(ContainerSummary::name)
-                .toList();
+        return new Checkout(project, repository);
     }
 
     private static String originOf(final PoreloContext context, final Path top) {
@@ -158,7 +194,7 @@ public final class TaskTarget {
             final Path directory,
             final @Nullable Asker asker) {
         if (given != null && !given.isBlank()) {
-            return new Found(spelled(context, given.strip()), "", 0);
+            return new Found(spelled(context, given.strip(), directory), "", 0);
         }
         final List<String> started = fromCheckout(context, directory);
         if (started == null) {
@@ -196,7 +232,7 @@ public final class TaskTarget {
                     "several tasks were started from " + top + ": " + named + "; name one",
                     SEVERAL);
         }
-        final String chosen = spelled(context, answer.strip());
+        final String chosen = spelled(context, answer.strip(), directory);
         return started.contains(chosen)
                 ? new Found(chosen, "", 0)
                 : new Found(null, "'" + answer.strip() + "' is none of " + named, SEVERAL);

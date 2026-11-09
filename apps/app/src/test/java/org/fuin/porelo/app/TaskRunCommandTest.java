@@ -2339,6 +2339,63 @@ class TaskRunCommandTest {
     }
 
     @Test
+    void aStartGivenNoNameRecordsNoneSoItIsShownByItsShortName(@TempDir Path dir)
+            throws IOException {
+        // A default recorded as a person's name would show every task as chosen by somebody.
+        final PoreloContext context = countingContext(dir);
+        final CommandLine cmd = PoreloCli.commandLine(context);
+        cmd.setOut(new PrintWriter(out));
+        cmd.setErr(new PrintWriter(err));
+
+        // Not through execute, which names every start 'shell'.
+        final int started =
+                cmd.execute(
+                        "task",
+                        "start",
+                        "-p",
+                        projectFile(dir, MINIMAL),
+                        "--repository",
+                        "uc",
+                        "--agent",
+                        "preview",
+                        "--no-gate");
+
+        assertThat(started).as("started: %s", err).isZero();
+        assertThat(
+                        org.fuin.porelo.wire.TaskProfile.readFrom(
+                                        context.paths().tasks().containerState("porelo-uc-uc"))
+                                .named())
+                .as("named after its repository by nobody, so its record names nothing")
+                .isNull();
+    }
+
+    @Test
+    void aStartGivenANameRecordsItAsThePersonGaveIt(@TempDir Path dir) throws IOException {
+        // The name a person typed is what every client shows; lost, the row falls back to another.
+        final PoreloContext context = countingContext(dir);
+
+        final int started =
+                execute(
+                        context,
+                        "task",
+                        "start",
+                        "fix",
+                        "-p",
+                        projectFile(dir, MINIMAL),
+                        "--agent",
+                        "preview",
+                        "--no-gate");
+
+        assertThat(started).as("started: %s", err).isZero();
+        assertThat(
+                        org.fuin.porelo.wire.TaskProfile.readFrom(
+                                        context.paths().tasks().containerState("porelo-uc-fix"))
+                                .named())
+                .as("its record keeps the name the person gave")
+                .isEqualTo("fix");
+    }
+
+    @Test
     void aTaskAPersonStartsRecordsNoParentAndNoStartedEvent(@TempDir Path dir) throws IOException {
         final PoreloContext context = countingContext(dir);
 
@@ -2853,6 +2910,99 @@ class TaskRunCommandTest {
         assertThat(runner.lines().subList(before, runner.lines().size()))
                 .as("brought back with its own number: its container is asked for")
                 .anyMatch(line -> line.contains("container inspect"));
+    }
+
+    /** A project file whose conversation is a room on a transport that shows a task's name. */
+    private String roomProject(final PoreloContext context, final Path dir) throws IOException {
+        final char[] passphrase = "test-passphrase".toCharArray();
+        Files.createDirectories(context.vault().path().getParent());
+        context.vault().write(java.util.Map.of(), passphrase.clone());
+        context.openerAsking(false, new PrintWriter(new StringWriter()));
+        final Path adapters =
+                context.paths().messaging().transportDirectory().locations().getFirst();
+        Files.createDirectories(adapters);
+        final Path adapter = adapters.resolve(TransportDirectory.PREFIX + "room");
+        Files.writeString(adapter, "#!/bin/sh\n");
+        adapter.toFile().setExecutable(true);
+        runner.answering(
+                "describe",
+                "{\"scheme\":\"room\",\"display\":true,"
+                        + "\"lifecycle\":[\"setup\",\"enroll\",\"retire\"]}");
+        runner.answering(
+                " setup ", "{\"conversation\":\"!room\",\"reaches\":[\"127.0.0.1:18008\"]}");
+        runner.answering(" enroll ", "{\"secrets\":{\"TASK\":\"t-1\"}}");
+        runner.answering(" retire ", "{}");
+        return projectFile(
+                dir,
+                MINIMAL
+                        + "mail:\n  transports:\n    room: {}\n"
+                        + "  peers:\n    reviewer: { address: 'room:', trust: vouched }\n");
+    }
+
+    /** Asserts the task was enrolled once, under the given name in the room. */
+    private void enrolledAs(final String display) {
+        assertThat(runner.invocations())
+                .as("enrolled in the project's room: %s", err)
+                .filteredOn(command -> command.arguments().contains("enroll"))
+                .singleElement()
+                .satisfies(
+                        command ->
+                                assertThat(command.arguments())
+                                        .as("under the name of the task's agent")
+                                        .containsSubsequence("--display", display));
+    }
+
+    @Test
+    void aNewTaskIsEnrolledInTheRoomUnderItsAgentsNameWhateverItIsCalled(@TempDir Path dir)
+            throws IOException {
+        // Enrolled by its task name, a task named fix is "Agent Fix", and "Agent Preview:" reaches
+        // nobody.
+        final PoreloContext context =
+                countingContext(dir).asking(shown -> "test-passphrase".toCharArray());
+        final String project = roomProject(context, dir);
+
+        execute(context, "task", "start", "fix", "-p", project, "--agent", "preview", "--no-gate");
+
+        enrolledAs("Agent Preview");
+    }
+
+    @Test
+    void aStoppedTaskStartedAgainIsEnrolledInTheRoomUnderItsRecordedAgentsName(@TempDir Path dir)
+            throws IOException {
+        // Enrolled by its short name on the way back, the task would no longer answer to its
+        // agent's name in the room.
+        final PoreloContext context =
+                context(dir, true).asking(shown -> "test-passphrase".toCharArray());
+        final String project = roomProject(context, dir);
+        runner.answering(
+                "ps",
+                "porelo-uc-shell\tExited (0) 4 minutes ago\t1700000000\t1700000100\tuc\tguarded\tuc\t\n");
+        recordSubagents(context, "preview", 0);
+
+        execute(context, "task", "start", "shell", "-p", project, "--detach");
+
+        enrolledAs("Agent Preview");
+    }
+
+    @Test
+    void aTaskBroughtBackAfterARebootIsEnrolledUnderTheAgentItsDurableRecordNames(@TempDir Path dir)
+            throws IOException {
+        // A reboot empties the runtime directory before the resume puts the record back; read
+        // from there alone, the task came back into its room under its short name.
+        final PoreloContext context =
+                context(dir, true).asking(shown -> "test-passphrase".toCharArray());
+        final String project = roomProject(context, dir);
+        runner.answering(
+                "ps",
+                "porelo-uc-shell\tExited (0) 4 minutes ago\t1700000000\t1700000100\tuc\tguarded\tuc\t\n");
+        recordSubagents(context.paths().tasks().taskRecord("porelo-uc-shell"), "preview", 0);
+        org.fuin.porelo.wire.Sidecar.recordId(
+                context.paths().tasks().taskRecord("porelo-uc-shell"), "0123456789abcdef");
+        runner.answering("{{.Id}}", "0123456789abcdef");
+
+        execute(context, "task", "start", "shell", "-p", project, "--detach");
+
+        enrolledAs("Agent Preview");
     }
 
     @Test

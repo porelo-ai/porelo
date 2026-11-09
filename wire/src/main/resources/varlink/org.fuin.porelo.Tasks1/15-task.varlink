@@ -215,6 +215,14 @@ type Task (
   # the two are related only by a rule Porelo owns and may change - it changed in this release. ""
   # for a container from before this field existed, where nothing recorded one.
   task: string,
+  # The same name within the project, under the name the rows of other clients read; "" as for task.
+  short: string,
+  # The name the task's start was given by the person or the task that started it; "" when the
+  # start took its name from the repository, numbered it, or was made before this field existed.
+  named: string,
+  # What a client shows for the task: named, else short, else the container name. Never what a
+  # method takes - that is name - and two tasks of two projects can show the same one.
+  display: string,
   # What Start would do to this task, without doing it.
   startAction: StartAction,
   # Which refusal, when startAction is one: the StartOutcome value for NOT_READY, the task a
