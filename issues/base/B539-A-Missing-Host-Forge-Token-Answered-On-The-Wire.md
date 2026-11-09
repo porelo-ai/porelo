@@ -1,9 +1,9 @@
 # [B539](README.md#b539) — A Missing Host Forge Token Answered On The Wire
 
-**Status:** Analyzed. Filed 2026-11-09 for porelo-frontend's F443 (the forge token on a host, made by the host when a
-start needs it), which the operator accepted with priority High; this is porelo's part. Not built before the
+**Status:** Analyzed. Filed 2026-11-09 for porelo-frontend's forge token on a host, made by the host when a
+start needs it, which the operator accepted with priority High; this is porelo's part. Not built before the
 operator's word.
-**Priority:** high (the operator, 2026-11-09, with F443).
+**Priority:** high (the operator, 2026-11-09, with the window's forge token on a host).
 **Size:** S - one contract type, a field on `CanStart`'s answer and one on the task's builds, both filled from the check
 `BuildsWiring` already makes; tests and the contract's text.
 

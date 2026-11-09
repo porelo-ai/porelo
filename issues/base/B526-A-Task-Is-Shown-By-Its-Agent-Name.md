@@ -4,7 +4,7 @@
 **Size:** S - `enroll` passes `--display` where the transport announces it.
 
 **What must be true.** A task enrolled into its project's room is shown there as "Agent" and its task's name, each
-word capitalized: `porelo-porelo-pi` is "Agent Pi", the name the persons write to and Matrix's MX85 reads as a head.
+word capitalized: `porelo-porelo-pi` is "Agent Pi", the name the persons write to and porelo-message-matrix reads as a head.
 Porelo passes it only to a transport that announces `"display": true`, as porelo-message-matrix does.
 
 ## Why

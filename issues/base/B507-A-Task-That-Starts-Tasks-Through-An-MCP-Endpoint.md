@@ -15,7 +15,7 @@ event log. Stopping every task stays a person's act.
 
 ## Why
 
-The operator decided on 2026-11-08 that the coordinator works from a task (`porelo-project` PJ103). The MCP side is
+The operator decided on 2026-11-08 that the coordinator works from a task. The MCP side is
 its own repository, `porelo-mcp`, with its own agent, Agent MCP. It offers every contract method as an MCP tool,
 generated from the Varlink files, and ships as its own DEB/RPM. This issue is porelo's part.
 

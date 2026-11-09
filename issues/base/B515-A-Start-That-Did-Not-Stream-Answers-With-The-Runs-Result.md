@@ -54,7 +54,7 @@ Read on 2026-11-08, and again in the plan reading (agy gemini-4-argon-high), whi
 - **The contract:** `Start`'s final reply gains `result: ?string`, `resultKind: ?string` (`ANSWER` or `LAST_LINES`) and
   `resultCut: ?bool`. It is only added; Tasks1 only grows. A streamed run line comes as `runLine: ?string`, apart from
   porelo's own `line`, so a caller tells the agent's lines from porelo's.
-- **porelo-mcp:** the tool's text is `result` when present (Agent MCP, MC09).
+- **porelo-mcp:** the tool's text is `result` when present.
 - **Red first:**
   - a stub agent's run whose final reply carries its answer, with and without `more`;
   - an agent without `last_message`, and a timed-out run, which carry their last lines as `LAST_LINES`;

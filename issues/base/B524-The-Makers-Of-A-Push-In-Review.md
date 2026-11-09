@@ -1,6 +1,6 @@
 # [B524](README.md#b524) — The Makers Of A Push In Review
 
-**Status:** Review. Filed 2026-11-08 for Agent Frontend's F440 (move 3's finding 14).
+**Status:** Review. Filed 2026-11-08 for the window's review, which shows who made each commit of a push (move 3's finding 14).
 **Size:** S - two Tasks1 fields filled from git.
 
 **What must be true.** `PendingPush` carries its head commit's `author` and `committer` (`name <email>`) and

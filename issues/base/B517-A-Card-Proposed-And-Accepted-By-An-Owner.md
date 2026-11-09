@@ -12,7 +12,7 @@ the CLI for both sides.
 
 ## Why
 
-Agent Frontend's window shows *Join an organization…* and *Accept a proposed card…* as waiting actions (F429). Today a
+Agent Frontend's window shows *Join an organization…* and *Accept a proposed card…* as waiting actions. Today a
 card is filed only by its own person's `identity create`, which needs write access to the organization's repository.
 `CardStanding.notYet` is no waiting proposal: it is a card filed and accepted before the identity source could confirm
 the login. Nothing proposes and nothing accepts.

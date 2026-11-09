@@ -13,5 +13,5 @@
 
 ## Why
 
-Agent Frontend's window shows *Leave <organization>…* as a waiting action (F429). Nothing does it today: `org owner
+Agent Frontend's window shows *Leave <organization>…* as a waiting action. Nothing does it today: `org owner
 remove`, `org admin remove` and `org person revoke` act on one part each, and nothing forgets the organization here.

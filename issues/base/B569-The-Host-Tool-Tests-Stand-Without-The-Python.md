@@ -1,7 +1,7 @@
 # [B569](README.md#b569) — The Host Tool's Tests Stand Without The Python
 
 **Status:** Backlog. Filed 2026-11-09 as porelo's part of `porelo-project` ST291, by the operator's request of
-2026-11-09. Built once `porelo-project` HO156 has replaced the host's Python tool with the `porelo-host` package and
+2026-11-09. Built once porelo-host has replaced the host's Python tool with the `porelo-host` package and
 ST291 is accepted.
 **Size:** M - comments and assertion wording across about twenty test classes of `host/`, a few tests that only
 restate the predecessor, and the module's README.
@@ -12,7 +12,7 @@ or assertion message names a Python test (`// py: test_...`), the predecessor sc
 `porelo-host-project`, `porelo-host-push`, `porelo-forge-gate`, the pool scripts) or "the Python". A test that only
 proved the port matches the predecessor, and holds nothing `porelo-host`'s own contract needs, is removed. Every
 behaviour the man page's "Codes by verb" and the module README promise keeps a test. The host's own tests in
-`porelo-host` (HO156) are where the shell around the package is held; this issue does not move tests there.
+`porelo-host` are where the shell around the package is held; this issue does not move tests there.
 
 ## Why
 

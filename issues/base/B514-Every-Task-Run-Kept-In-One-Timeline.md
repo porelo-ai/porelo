@@ -5,7 +5,7 @@
 **Size:** M - mostly re-routing the existing log sources into one stream. Four pieces of new code beyond that: the
 lifecycle entries, the copy on stop with the archive on Remove, the `podman events` follower, and the readings.
 
-**What must be true.** A task's whole life can be read, in the CLI and (with F436 in porelo-frontend) in the window,
+**What must be true.** A task's whole life can be read, in the CLI and, through the readings below, in the window,
 for as long as the person keeps it, also after the task is stopped, the machine rebooted, or the task removed.
 - **Each run's lifecycle:** created, started, resumed, stopped, ended, removed and pruned. Each entry says when, and who:
   the person, an agent over MCP, a parent task, or porelod itself.
@@ -103,7 +103,7 @@ One issue, in this order:
    - the nine files turned into views in one go, each with a test that it answers as before;
    - `failures.log` bounded at once.
 
-**For every reading** (Agent Frontend, 14:24Z; F436's size holds only with them):
+**For every reading** (the window's timeline is sized on them):
 - lifecycle entries and stream records by filter (project, task, run, component, level, since), in pages with a
   cursor, so a reconnect resumes with no gap and no double;
 - a follow that pushes new records and ends with the run;
@@ -113,5 +113,5 @@ One issue, in this order:
 
 **Plan reading** before it is built: the lifecycle and the archive cross a trust boundary.
 
-**Frontend:** F436 in porelo-frontend reads the lifecycle and the archive through `Lifecycle` and `ArchivedLog`, and the
+**Frontend:** porelo-frontend's timeline reads the lifecycle and the archive through `Lifecycle` and `ArchivedLog`, and the
 stream through `porelo logs`' reading.

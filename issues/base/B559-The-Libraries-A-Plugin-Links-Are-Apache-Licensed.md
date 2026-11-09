@@ -1,6 +1,6 @@
 # [B559](README.md#b559) — The Libraries A Plugin Links Are Apache-Licensed
 
-**Status:** Backlog. Filed 2026-11-09 as porelo's part of `porelo-project` PJ33, on the operator's word of 2026-11-09
+**Status:** Backlog. Filed 2026-11-09 as porelo's part of the plugin libraries' Apache-2.0 license, on the operator's word of 2026-11-09
 (Apache-2.0, without legal advice; the operator is the sole author). Built after the move-4 test.
 **Size:** M - the license files, POMs and headers of four modules and the varlink definitions, one build check, and
 one page of documentation.

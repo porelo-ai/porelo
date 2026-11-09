@@ -21,7 +21,9 @@ Measured on a test host, with a 200 MB branch:
 Read in the code, not run:
 
 - `porelo-host-push` asks for the token first, then waits on the terminal for the central token, then uses the first one. A person typing while a measure runs, or another command of theirs, stops that push. It pushes without force, so it can be run again.
-- It also stores the new token in the vault as `<forge>.person` "so their own tools keep one that wor**What HO146 and its switch already do** (on main since 2026-11-08), read in the code:
+- It also stores the new token in the vault as `<forge>.person` "so their own tools keep one that works".
+
+**What the host tool's lending and its switch already do**, read in the code:
 
 - `porelo-host-person forge-token --lend` makes a token for one command, named `porelo-host-lend-<UTC time>-<uuid>`. It
   deletes only lends a day old, never the person's token and never a younger lend.
