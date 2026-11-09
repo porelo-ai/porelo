@@ -274,7 +274,8 @@ public final class PoreloHost implements Callable<Integer> {
             name = "show",
             mixinStandardHelpOptions = true,
             exitCodeOnInvalidInput = 64,
-            description = "Show one of the sudo person's task certificate records as JSON.")
+            description =
+                    "Show a task certificate record for root or a sudo member of its project as JSON.")
     static final class TaskShow implements Callable<Integer> {
         private final PoreloHost host;
 
@@ -290,7 +291,10 @@ public final class PoreloHost implements Callable<Integer> {
         @Override
         public Integer call() throws IOException {
             HostTasks.checkFingerprint(fingerprint);
-            final HostPerson person = host.person.apply(host.environment);
+            final HostPerson person =
+                    host.environment.containsKey("SUDO_USER")
+                            ? host.person.apply(host.environment)
+                            : null;
             final var conf = host.files.path("/etc/porelo-host/forge.conf");
             host.files.check(conf, 69, true, false, -1);
             try (var lock = HostConfigurationLock.acquire(conf, false)) {

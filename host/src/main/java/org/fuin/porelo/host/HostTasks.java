@@ -14,7 +14,7 @@ import java.util.List;
 import java.util.Map;
 import org.jspecify.annotations.Nullable;
 
-/** Finds a task certificate record belonging to the authenticated sudo person. */
+/** Finds a task certificate record for root or the authenticated sudo person. */
 final class HostTasks {
     private static final DateTimeFormatter TIME =
             DateTimeFormatter.ofPattern("uuuu-MM-dd'T'HH:mm:ss")
@@ -33,14 +33,23 @@ final class HostTasks {
         }
     }
 
-    Map<String, @Nullable Object> show(HostPerson person, String fingerprint) {
-        final HostRecords.Person record = new HostRecords(files).read().get(person.login());
-        if (record == null || !record.admitted()) {
-            throw new HostRefusal(65, person.login() + " is no unlocked person of this host");
+    Map<String, @Nullable Object> show(@Nullable HostPerson person, String fingerprint) {
+        final Map<String, HostRecords.Person> records = new HostRecords(files).read();
+        final HostRecords.Person caller = person == null ? null : records.get(person.login());
+        if (person != null) {
+            if (caller == null || !caller.admitted()) {
+                throw new HostRefusal(65, person.login() + " is no unlocked person of this host");
+            }
+            if (new HostOrganization(files).revoked(person.login())) {
+                throw new HostRefusal(
+                        65, "the host's organization names " + person.login() + " revoked");
+            }
         }
         Map<String, @Nullable Object> found = null;
-        for (Task task : read(person.login())) {
-            if (found == null && fingerprint.equals(task.entry().get("fingerprint"))) {
+        for (Task task : read()) {
+            if (found == null
+                    && fingerprint.equals(task.entry().get("fingerprint"))
+                    && (caller == null || task.visibleTo(caller))) {
                 found = task.entry();
             }
         }
@@ -51,6 +60,18 @@ final class HostTasks {
     }
 
     record Task(String login, String name, Map<String, @Nullable Object> entry) {
+        boolean visibleTo(HostRecords.Person person) {
+            for (String member : person.members()) {
+                final String[] membership = member.split(" ", -1);
+                if (membership.length == 2
+                        && List.of("task:" + membership[0] + ":" + name)
+                                .equals(entry.get("principals"))) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
         Instant end() {
             final String time = string(entry.get("valid_before"));
             return LocalDateTime.parse(
@@ -60,18 +81,12 @@ final class HostTasks {
     }
 
     List<Task> read() {
-        return read(null);
-    }
-
-    private List<Task> read(@Nullable String login) {
         final Path root = files.path("/var/lib/porelo-host/tasks");
         if (!files.check(root, 73, false, true, 0700)) {
             return List.of();
         }
         final List<Task> found = new ArrayList<>();
-        final List<Path> directories =
-                login == null ? files.list(root, 73, 0700) : List.of(root.resolve(login));
-        for (Path directory : directories) {
+        for (Path directory : files.list(root, 73, 0700)) {
             final String user = directory.getFileName().toString();
             if (!user.matches(HostRecords.USER)) {
                 throw new HostRefusal(65, root + " holds an unknown entry");

@@ -18,6 +18,11 @@ final class HostOrganization {
         this.files = files;
     }
 
+    boolean revoked(String login) {
+        final Map<String, @Nullable Object> applied = applied();
+        return applied != null && array(applied.get("revoked")).contains(login);
+    }
+
     Map<String, @Nullable Object> status() {
         final String host = host();
         final String pinned = pin();

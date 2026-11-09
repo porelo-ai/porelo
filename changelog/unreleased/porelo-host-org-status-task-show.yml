@@ -1,2 +1,2 @@
-title: "'porelo-host org status [--json]' answers root's read of the host, its organization, persons and projects, and 'porelo-host task show <fingerprint>' a sudo person's own task record, as the host's Python helper does"
+title: "'porelo-host org status [--json]' answers root's read of the host, its organization, persons and projects, and 'porelo-host task show <fingerprint>' serves task records to root's units or to an unlocked, non-revoked sudo person within their projects"
 type: added

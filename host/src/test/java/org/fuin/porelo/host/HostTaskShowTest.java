@@ -10,6 +10,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
 class HostTaskShowTest {
@@ -22,6 +23,7 @@ class HostTaskShowTest {
         fixture.person("alice", "member=alpha developer\n", "");
     }
 
+    // py: test_show_answers_a_recorded_certificate_to_any_admitted_person_and_changes_nothing
     @Test
     void theSudoPersonReadsTheWholeTaskRecordInItsStoredOrder() throws Exception {
         final String record = task("alice", "one", FINGERPRINT);
@@ -31,12 +33,31 @@ class HostTaskShowTest {
                 .isEqualTo(new Answer(0, record + "\n", ""));
     }
 
-    @Test
-    void anotherPersonsTaskIsNotDisclosed() throws Exception {
+    // py: test_show_answers_a_recorded_certificate_to_any_admitted_person_and_changes_nothing
+    @ParameterizedTest
+    @ValueSource(strings = {"developer", "project-admin"})
+    void anotherMembersTaskInASharedProjectIsServed(String role) throws Exception {
+        fixture.person("alice", "member=alpha " + role + "\n", "");
         fixture.person("bob", "member=alpha developer\n", "");
-        fixture.put("/var/lib/porelo-host/tasks/bob/one.json", task("bob", "one", FINGERPRINT));
+        fixture.put(
+                "/var/lib/porelo-host/tasks/alice/own.json",
+                task("alice", "own", "SHA256:" + "B".repeat(43)));
+        final String record = task("bob", "one", FINGERPRINT);
+        fixture.put("/var/lib/porelo-host/tasks/bob/one.json", record);
         assertThat(fixture.run(SUDO, "task", "show", FINGERPRINT))
-                .as("membership of the host grants no access to another person's task records")
+                .as("a project member can trace commits signed by another member's task")
+                .isEqualTo(new Answer(0, record + "\n", ""));
+    }
+
+    @ParameterizedTest
+    @CsvSource({"alice,beta", "bob,beta", "alice,alpha", "bob,alpha"})
+    void aTaskOutsideTheCallersProjectsIsIndistinguishableFromAnUnknownFingerprint(
+            String owner, String projectField) throws Exception {
+        fixture.person("bob", "member=beta developer\n", "");
+        fixture.person("alice", "member=host-admin\nmember=alpha developer\n", "");
+        final Answer unknown = fixture.run(SUDO, "task", "show", FINGERPRINT);
+        assertThat(unknown)
+                .as("the comparison starts with the exact unrecorded-fingerprint refusal")
                 .isEqualTo(
                         new Answer(
                                 65,
@@ -44,6 +65,15 @@ class HostTaskShowTest {
                                 "porelo-host-person: no task certificate is recorded for "
                                         + FINGERPRINT
                                         + "\n"));
+        fixture.put(
+                "/var/lib/porelo-host/tasks/" + owner + "/one.json",
+                task(owner, "one", FINGERPRINT)
+                        .replace("task:alpha:", "task:beta:")
+                        .replace("\"project\":\"alpha\"", "\"project\":\"" + projectField + "\""));
+        assertThat(fixture.run(SUDO, "task", "show", FINGERPRINT))
+                .as(
+                        "only membership in the principal's project grants access, even for an own task")
+                .isEqualTo(unknown);
     }
 
     @Test
@@ -78,20 +108,38 @@ class HostTaskShowTest {
                                 "porelo-host-person: a task must match [a-z0-9][a-z0-9._-]{0,63}, a task key's fingerprint SHA256:<43 base64>\n"));
     }
 
+    // py: test_show_answers_a_recorded_certificate_to_any_admitted_person_and_changes_nothing
     @Test
-    void rootWithoutASudoPersonCannotReadATask() {
+    void rootWithoutASudoPersonReadsATaskFromAnyPersonsRecords() throws Exception {
+        fixture.put(
+                "/var/lib/porelo-host/tasks/alice/one.json",
+                task("alice", "one", "SHA256:" + "B".repeat(43)));
+        final String record = task("bob", "two", FINGERPRINT);
+        fixture.put("/var/lib/porelo-host/tasks/bob/two.json", record);
         assertThat(fixture.run(Map.of(), "task", "show", FINGERPRINT))
-                .as("this verb requires HostPerson even when the process is root")
-                .isEqualTo(
-                        new Answer(
-                                77,
-                                "",
-                                "porelo-host: SUDO_USER is required; invoke through the installed sudo rule\n"));
+                .as("root's units can trace a certificate without a sudo person or host membership")
+                .isEqualTo(new Answer(0, record + "\n", ""));
     }
 
+    // py: test_show_answers_a_recorded_certificate_to_any_admitted_person_and_changes_nothing
+    @Test
+    void rootWithoutASudoPersonRefusesAnUnrecordedFingerprint() {
+        assertThat(fixture.run(Map.of(), "task", "show", FINGERPRINT))
+                .as("a root lookup must not claim success when no certificate is recorded")
+                .isEqualTo(
+                        new Answer(
+                                65,
+                                "",
+                                "porelo-host-person: no task certificate is recorded for "
+                                        + FINGERPRINT
+                                        + "\n"));
+    }
+
+    // py: test_show_answers_a_recorded_certificate_to_any_admitted_person_and_changes_nothing
     @ParameterizedTest
     @ValueSource(strings = {"locked=true", "lock=pending", "no-members"})
     void aPersonWithoutActiveAdmissionIsRefused(String state) throws Exception {
+        fixture.put("/var/lib/porelo-host/tasks/alice/one.json", task("alice", "one", FINGERPRINT));
         final String members = state.equals("no-members") ? "" : "member=alpha developer\n";
         fixture.put(
                 "/etc/porelo-host/people/alice.conf",
@@ -247,6 +295,7 @@ class HostTaskShowTest {
     @Test
     void anUnrecordedSudoPersonIsRefused() throws Exception {
         Files.delete(fixture.path("/etc/porelo-host/people/alice.conf"));
+        fixture.put("/var/lib/porelo-host/tasks/alice/one.json", task("alice", "one", FINGERPRINT));
         assertThat(fixture.run(SUDO, "task", "show", FINGERPRINT))
                 .as("a valid account in NSS alone does not establish host admission")
                 .isEqualTo(
@@ -254,5 +303,40 @@ class HostTaskShowTest {
                                 65,
                                 "",
                                 "porelo-host-person: alice is no unlocked person of this host\n"));
+    }
+
+    @Test
+    void aRevokedPersonCannotReadEvenTheirOwnTask() throws Exception {
+        fixture.put("/var/lib/porelo-host/tasks/alice/one.json", task("alice", "one", FINGERPRINT));
+        fixture.put(
+                "/etc/porelo-host/organization/applied.json",
+                "{\"commit\":\""
+                        + "a".repeat(40)
+                        + "\",\"persons\":[],\"projects\":[],\"revoked\":[\"alice\"]}");
+        assertThat(fixture.run(SUDO, "task", "show", FINGERPRINT))
+                .as("an unlocked local account cannot override the organization's revocation")
+                .isEqualTo(
+                        new Answer(
+                                65,
+                                "",
+                                "porelo-host-person: the host's organization names alice revoked\n"));
+    }
+
+    @Test
+    void anInvalidSudoUidIsRefusedBeforeReadingHostFiles() throws Exception {
+        Files.delete(fixture.path("/etc/porelo-host/forge.conf"));
+        assertThat(
+                        fixture.run(
+                                Map.of("SUDO_USER", "alice", "SUDO_UID", "1001"),
+                                "task",
+                                "show",
+                                FINGERPRINT))
+                .as(
+                        "a sudo caller still needs a uid matching the system account before record admission")
+                .isEqualTo(
+                        new Answer(
+                                77,
+                                "",
+                                "porelo-host: SUDO_UID must agree with the person's non-root system uid\n"));
     }
 }

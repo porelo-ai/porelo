@@ -57,6 +57,7 @@ class HostOrgStatusTest {
                 .isEqualTo(new Answer(0, "workshop: no organization; 0 persons; 0 projects\n", ""));
     }
 
+    // py: test_org_status_is_roots_alone
     @ParameterizedTest
     @ValueSource(strings = {"alice", ""})
     void sudoCannotReadRootOrganizationStatus(String sudoUser) throws Exception {

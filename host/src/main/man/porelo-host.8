@@ -19,9 +19,14 @@ With \-\-json, prints one complete JSON object in the host protocol's field orde
 Otherwise prints the host, organization state, person count, and project count.
 .TP
 .B task show <fingerprint>
-Through sudo only: prints the complete recorded task certificate as one JSON object.
-Only the calling SUDO_USER's tasks are visible, and the person must be unlocked
-and hold a host membership. Takes an exclusive flock on forge.conf.
+Prints the complete recorded task certificate as one JSON object.
+Root without SUDO_USER can read any person's task records.
+Through sudo, the calling SUDO_USER must be recorded, unlocked and not revoked
+by the organization. Any task whose principal task:<project>:<task> names a
+project the caller belongs to is visible, using membership from the host's
+people records. A task outside those projects is refused with status 65 and
+exactly the same output as an unrecorded fingerprint.
+Takes an exclusive flock on forge.conf.
 The fingerprint must match SHA256: followed by exactly 43 base64 characters,
 without padding. No certificate or token is created or changed.
 .TP
