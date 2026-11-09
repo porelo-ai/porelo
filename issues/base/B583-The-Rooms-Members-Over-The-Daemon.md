@@ -11,7 +11,7 @@ lists who is in instead of "Nobody has joined yet".
 
 The transport announces a lifecycle verb `members --project P` in `describe`, run like `join`/`part` with the
 account's secrets on standard input; it answers `{"room":…,"members":[{"id","shown","state":"join|invite",
-"kind":"task|person|helper","task":"<container>" for a task}]}`, `"members":[]` when there is no room yet, exit 75
+"kind":"task|person|helper","task":"<container>" for a task}]}`, `"members":[]` when there is no room or no setup yet (`kind` may also be `other`, never taken as a task; on a central homeserver a task member carries `login`, and porelo takes only its own), exit 75
 when the homeserver is not reached and 78 for settings or secrets (agreed with porelo-message-matrix).
 
 - `TransportDescription` reads the verb; `TransportLifecycle` runs it as it runs `join` and judges the answer (sizes,

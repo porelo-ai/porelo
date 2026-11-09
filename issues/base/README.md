@@ -119,6 +119,7 @@ from its side, as *blocked by*.
 | <a id="b575"></a>[B575](B575-The-Wizards-Host-Key-Is-Not-Asked-Again.md) | S | - | No second host key question after the wizard compared and stored the key. |
 | <a id="b581"></a>[B581](B581-The-Task-Terminal-Takes-The-Largest-View.md) | XS | - | The task terminal sizes to the latest client (`window-size latest`). |
 | <a id="b582"></a>[B582](B582-A-Task-Is-Shown-In-Its-Room-By-Its-Own-Name.md) | S | - | A task is shown in its room as "Agent" and its own name ("Agent Pi"), the agent's name only to tell two apart. |
+| <a id="b585"></a>[B585](B585-A-Builds-Runs-By-Trigger-And-A-Failed-Jobs-Tests.md) | M | - | Build2's runs name their trigger and id, a job its run, failed tests and page; `build status` lists runs with their jobs. |
 | <a id="b549"></a>[B549](B549-The-Push-Judge-In-The-Host-Tool.md) | L | [B547](#b547) | `porelo-host judge-push` behind the judge socket, with every refusal test. |
 | <a id="b560"></a>[B560](B560-A-Planning-Adapter-Behind-Its-Own-Contract.md) | M | - | `porelo-planning-api`: `org.fuin.porelo.Planning1`, `PlanningMain`, the client and discovery of installed planning adapters, a stub, and the adapter guide. |
 | <a id="b562"></a>[B562](B562-The-Board-Read-Through-Porelod.md) | L | [B560](README.md#b560), [B561](README.md#b561) | Tasks1 part `60-planning`'s reads through the adapter porelod runs, a GitHub App's token minted per call, a story's state computed from its issues in one workflow, and `planning.work` checked against it. |
