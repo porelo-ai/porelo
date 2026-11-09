@@ -68,6 +68,7 @@ final class McpMethods {
                     "Pending",
                     "Review",
                     "Agents",
+                    "AgentSignIns",
                     "Providers",
                     "Installable",
                     "Ecosystems",
@@ -83,8 +84,9 @@ final class McpMethods {
     /**
      * Methods never offered, whatever the person's list says: each stops every task, removes what
      * cannot be had back, hands out a secret ({@code ReadHostVaultShare}, and {@code ReadHeld} with
-     * a refused message's text), or changes where a credential is sent ({@code WriteDestination},
-     * {@code CredentialDeclare}).
+     * a refused message's text), changes where a credential is sent ({@code WriteDestination},
+     * {@code CredentialDeclare}), or signs an agent in on the host's own network ({@code
+     * AgentSignInStart}, and {@code AgentSignInWait}, which holds a call while one runs).
      */
     static final Set<String> NEVER =
             Set.of(
@@ -102,7 +104,9 @@ final class McpMethods {
                     "CredentialRemove",
                     "CredentialReplace",
                     "RevokeKeyslot",
-                    "ReadHostVaultShare");
+                    "ReadHostVaultShare",
+                    "AgentSignInStart",
+                    "AgentSignInWait");
 
     /** Methods that stand for a person's own judgement; offered only from the list, and named. */
     static final Set<String> JUDGEMENT =

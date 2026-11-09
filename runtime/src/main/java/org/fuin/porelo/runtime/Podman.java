@@ -770,6 +770,33 @@ public class Podman {
     }
 
     /**
+     * Lists the login containers on this machine, running or not, each with the value of one label.
+     *
+     * @param label The label naming whose login it is.
+     * @return Each login container's name with that label's value, "" where it carries none.
+     */
+    public java.util.Map<String, String> loginContainers(final String label) {
+        // A tab, and the label asked for by name: 'index' answers "" for a container without it.
+        final java.util.Map<String, String> logins = new java.util.LinkedHashMap<>();
+        runner.runOrFail(
+                        podman(
+                                "ps",
+                                "--all",
+                                "--format",
+                                "{{.Names}}\t{{index .Labels \"" + label + "\"}}"))
+                .standardOutput()
+                .lines()
+                .map(line -> line.split("\t", 2))
+                .filter(parts -> ContainerName.isLogin(parts[0].strip()))
+                .forEach(
+                        parts ->
+                                logins.put(
+                                        parts[0].strip(),
+                                        parts.length > 1 ? parts[1].strip() : ""));
+        return logins;
+    }
+
+    /**
      * Removes a project image, if it is there.
      *
      * <p>An image that is not there is the outcome asked for, not a failure - the same rule as

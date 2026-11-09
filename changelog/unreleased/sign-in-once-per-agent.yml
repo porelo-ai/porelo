@@ -1,0 +1,2 @@
+title: "The daemon signs an agent in once per machine (AgentSignIns, AgentSignInStart, AgentSignInWait) as a detached login a window attaches to, never a task; a second sign-in of the agent answers the running one, the sweep spares it, and one nobody finishes ends after 30 minutes"
+type: added

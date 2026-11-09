@@ -117,6 +117,15 @@ class McpMethodsTest {
     }
 
     @Test
+    void aTaskIsNeverOfferedAnAgentsSignIn() {
+        // A sign-in runs on the host's own network with the real credential being made in it, and
+        // its wait holds a call for half an hour: neither is a task's to start.
+        assertThat(McpMethods.NEVER)
+                .as("starting or waiting on a sign-in")
+                .contains("AgentSignInStart", "AgentSignInWait");
+    }
+
+    @Test
     void whatWritesAnythingIsNotReading() {
         assertThat(McpMethods.READING)
                 .as("each writes a file, fetches, or takes a project")

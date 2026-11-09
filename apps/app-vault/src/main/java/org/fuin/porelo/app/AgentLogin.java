@@ -83,8 +83,55 @@ public final class AgentLogin {
         /** The vault cannot be opened without a passphrase nobody can be asked for here. */
         VAULT_LOCKED,
 
+        /** A sign-in of the same agent runs already on this machine; nothing was started. */
+        RUNNING,
+
+        /** The sign-in names a provider this machine cannot keep it under, or the agent none. */
+        NO_PROVIDER,
+
         /** The image could not be built, or the container could not be run. */
         FAILED
+    }
+
+    /** The label a login container names its agent in, so a sweep can tell whose it is. */
+    public static final String AGENT_LABEL = "porelo.login.agent";
+
+    /**
+     * The agent a login runs for, as much of it as the login needs.
+     *
+     * @param name The agent's name.
+     * @param definition What it declares.
+     * @param extractor Reads its sign-in from a directory, as {@code vault import} does.
+     */
+    record Signing(
+            String name,
+            AgentDefinition definition,
+            java.util.function.Function<Path, java.util.Optional<Credential>> extractor) {}
+
+    /**
+     * How a login runs detached, for a window to attach to.
+     *
+     * @param started Told the container's name once it runs.
+     * @param limit How long it may run: one nobody finishes is stopped then, and its lock freed.
+     */
+    record Detached(java.util.function.Consumer<String> started, java.time.Duration limit) {}
+
+    /** Runs the login once the preflight passed, with the vault's opener taken at its start. */
+    @FunctionalInterface
+    interface Launch {
+
+        /**
+         * Runs it.
+         *
+         * @param command The agent's login command.
+         * @param configDirectory Where the agent keeps its sign-in, as it declares it.
+         * @param opener What opens the vault, taken before the login started.
+         * @return What happened.
+         */
+        Result run(
+                List<String> command,
+                String configDirectory,
+                org.fuin.porelo.vault.VaultFile.Opener opener);
     }
 
     /**
@@ -335,18 +382,154 @@ public final class AgentLogin {
                         "no such agent; installed: " + String.join(", ", agents.names()));
             }
             final InstalledAgent agent = found.get();
+            final Signing signing =
+                    new Signing(agent.name(), agent.definition(), agent::extractCredential);
 
             return login(
                     context,
                     agent.definition(),
                     dryRun,
                     force,
+                    false,
                     out,
                     directory -> agent.extractCredential(directory).isPresent(),
-                    (command, directory) -> run(context, agent, command, directory, out));
+                    () -> opening(context, out),
+                    (command, directory, opener) ->
+                            run(context, signing, command, directory, opener, null, out));
         } catch (RuntimeException ex) {
             return failed(Outcome.FAILED, String.valueOf(ex.getMessage()));
         }
+    }
+
+    /**
+     * Signs an agent in with its login running detached, for a window to attach to, and returns
+     * once the login has ended and what it made is stored.
+     *
+     * <p>The login is the container's first process, with no shell around it, and the container is
+     * removed when that process ends. It is no task: it runs on the machine's own network, with the
+     * credential being made inside it, so nothing that lists, watches or attaches to tasks may see
+     * it.
+     *
+     * @param context The machine.
+     * @param agentName Which agent.
+     * @param force Signs in again although the machine's own agent directory holds a sign-in.
+     * @param remote Whether the person asking reaches this machine from another one, where a
+     *     redirect to this machine cannot reach their browser.
+     * @param started Told the container's name once the login runs, so a window can attach.
+     * @param out Where progress goes.
+     * @return What happened.
+     */
+    public static Result signIn(
+            final PoreloContext context,
+            final String agentName,
+            final boolean force,
+            final boolean remote,
+            final java.util.function.Consumer<String> started,
+            final PrintWriter out) {
+        try (var agents = context.agents()) {
+            final java.util.Optional<InstalledAgent> found = agents.find(agentName);
+            if (found.isEmpty()) {
+                return failed(
+                        Outcome.NO_SUCH_AGENT,
+                        "no such agent; installed: " + String.join(", ", agents.names()));
+            }
+            final InstalledAgent agent = found.get();
+            final Signing signing =
+                    new Signing(agent.name(), agent.definition(), agent::extractCredential);
+            return login(
+                    context,
+                    agent.definition(),
+                    false,
+                    force,
+                    remote,
+                    out,
+                    directory -> agent.extractCredential(directory).isPresent(),
+                    context::opener,
+                    (command, directory, opener) ->
+                            run(
+                                    context,
+                                    signing,
+                                    command,
+                                    directory,
+                                    opener,
+                                    new Detached(started, AgentSignInRuns.LIMIT),
+                                    out));
+        } catch (RuntimeException ex) {
+            return failed(Outcome.FAILED, String.valueOf(ex.getMessage()));
+        }
+    }
+
+    /**
+     * Returns the lock a sign-in of an agent holds while it runs: one sign-in per agent on a
+     * machine.
+     *
+     * @param context The machine.
+     * @param agent The agent, a name a file can carry.
+     * @return The lock file.
+     */
+    static Path lockFile(final PoreloContext context, final String agent) {
+        return context.paths().xdg().state().resolve("logins").resolve(agent + ".lock");
+    }
+
+    /**
+     * Returns where a running sign-in says its container's name, beside its lock.
+     *
+     * @param context The machine.
+     * @param agent The agent, a name a file can carry.
+     * @return The file.
+     */
+    static Path containerFile(final PoreloContext context, final String agent) {
+        return context.paths().xdg().state().resolve("logins").resolve(agent + ".container");
+    }
+
+    /**
+     * Says whether a name can be part of a lock file's name without leaving its directory.
+     *
+     * @param agent The name.
+     * @return {@code true} when it can.
+     */
+    static boolean ownName(final String agent) {
+        return agent.matches("[A-Za-z0-9][A-Za-z0-9._-]{0,63}");
+    }
+
+    /**
+     * Returns the container of a sign-in of this agent that runs on this machine now, from this
+     * process or another, found by its lock.
+     *
+     * @param context The machine.
+     * @param agent The agent.
+     * @return Empty when none runs; the container's name, or "" while it has none yet.
+     */
+    public static java.util.Optional<String> running(
+            final PoreloContext context, final String agent) {
+        if (!ownName(agent) || FileLocks.free(lockFile(context, agent))) {
+            return java.util.Optional.empty();
+        }
+        try {
+            return java.util.Optional.of(Files.readString(containerFile(context, agent)).strip());
+        } catch (java.io.IOException ex) {
+            return java.util.Optional.of("");
+        }
+    }
+
+    /**
+     * Says whether an opener opens the vault now: a stale passphrase or a revoked share does not.
+     */
+    private static boolean opens(
+            final PoreloContext context, final org.fuin.porelo.vault.VaultFile.Opener opener) {
+        try {
+            context.vault().read(opener);
+            return true;
+        } catch (org.fuin.porelo.vault.VaultException ex) {
+            return false;
+        }
+    }
+
+    /** What opens the vault at a terminal: a kept passphrase or a share, then a prompt. */
+    private static java.util.Optional<org.fuin.porelo.vault.VaultFile.Opener> opening(
+            final PoreloContext context, final PrintWriter out) {
+        context.openIfShut(true, false, out);
+        return context.opener();
     }
 
     /** Runs the sign-in preflight before asking the vault or launching anything. */
@@ -355,9 +538,12 @@ public final class AgentLogin {
             AgentDefinition definition,
             boolean dryRun,
             boolean force,
+            boolean remote,
             PrintWriter out,
             java.util.function.Predicate<Path> signedIn,
-            java.util.function.BiFunction<List<String>, String, Result> launch) {
+            java.util.function.Supplier<java.util.Optional<org.fuin.porelo.vault.VaultFile.Opener>>
+                    opening,
+            Launch launch) {
         final List<String> loginArguments = definition.loginArguments();
         // Null, not empty: an agent whose login is "just run me" declares 'arguments: []', and
         // treating that as "cannot log in" would refuse the commonest shape.
@@ -370,7 +556,8 @@ public final class AgentLogin {
                             + " in, so there is nothing to run. Store its credential with"
                             + " 'porelo vault put', or import one it already holds");
         }
-        if (loopbackOverSsh(context, definition)) {
+        if (loopbackOverSsh(context, definition)
+                || remote && definition.loginFlow() == LoginFlow.LOOPBACK) {
             return failed(
                     Outcome.LOOPBACK_OVER_SSH,
                     "'"
@@ -425,25 +612,94 @@ public final class AgentLogin {
         }
         out.flush();
 
-        // Before anything expensive, and after every refusal. A login container is never reused -
-        // the name carries the millisecond it was made - so one still on the machine is litter,
-        // and the teardown at the end cannot have covered every way a login ends: a kill leaves
-        // nothing a chance to run. The login *image* is the expensive part and is deliberately
-        // kept.
-        sweepLeftoverLogins(context.podman(), out);
+        final String agent = definition.name();
+        if (!ownName(agent)) {
+            return failed(
+                    Outcome.FAILED,
+                    "'" + agent + "' is not a name a sign-in's lock can carry - nothing was run");
+        }
+        final java.util.Optional<Result> held;
+        try {
+            // Not queued behind a running one: that one is the person's, and a second login would
+            // be a second authorization.
+            held =
+                    FileLocks.holdingIfFree(
+                            lockFile(context, agent),
+                            () ->
+                                    locked(
+                                            context,
+                                            agent,
+                                            command,
+                                            configDirectory,
+                                            out,
+                                            opening,
+                                            launch));
+        } catch (java.io.IOException ex) {
+            return failed(
+                    Outcome.FAILED, "the sign-in's lock could not be taken: " + ex.getMessage());
+        }
+        if (held.isPresent()) {
+            return held.get();
+        }
+        final String container = running(context, agent).orElse("");
+        return failed(
+                Outcome.RUNNING,
+                "a sign-in of '"
+                        + agent
+                        + "' runs already on this machine"
+                        + (container.isEmpty() ? "" : ", in " + container)
+                        + " - finish that one; nothing was started");
+    }
 
-        // Asked before the login, never after it: a person who signed in and was then told the
-        // vault is locked had to sign in again. Without a terminal nothing is asked, and the
-        // end of the login refuses as before.
-        context.openIfShut(true, false, out);
-        if (context.vault().exists() && context.opener().isEmpty()) {
+    /** The part of a login that runs holding its agent's lock. */
+    private static Result locked(
+            final PoreloContext context,
+            final String agent,
+            final List<String> command,
+            final String configDirectory,
+            final PrintWriter out,
+            final java.util.function.Supplier<
+                            java.util.Optional<org.fuin.porelo.vault.VaultFile.Opener>>
+                    opening,
+            final Launch launch) {
+        // Before anything expensive, and after every refusal. A login container is never reused -
+        // the name carries the millisecond it was made - so one still on the machine whose
+        // sign-in no longer runs is litter, and the teardown at the end cannot have covered every
+        // way a login ends: a kill leaves nothing a chance to run. The login *image* is the
+        // expensive part and is deliberately kept.
+        try {
+            // What a killed sign-in named is not this one's container.
+            Files.deleteIfExists(containerFile(context, agent));
+        } catch (java.io.IOException ex) {
+            return failed(
+                    Outcome.FAILED,
+                    "an earlier sign-in's container name could not be removed: " + ex.getMessage());
+        }
+        sweepLeftoverLogins(context, agent, out);
+
+        // Asked once, before the login and under its lock, and kept to store with: a person who
+        // signed in and was then told the vault is locked had to sign in again, and a 'vault
+        // lock' while the login ran dropped what they had just made.
+        final java.util.Optional<org.fuin.porelo.vault.VaultFile.Opener> opener =
+                context.vault().exists() ? opening.get() : java.util.Optional.empty();
+        if (opener.isPresent() && !opens(context, opener.get())) {
             return failed(
                     Outcome.VAULT_LOCKED,
-                    "the vault is locked, so nothing was run: what the login produced"
-                            + " could not be stored - 'porelo vault unlock' and run this again");
+                    "what this account keeps does not open the vault, so nothing was run: what the"
+                            + " login produced could not be stored - 'porelo vault unlock' and run"
+                            + " this again");
         }
-
-        return launch.apply(command, configDirectory);
+        if (opener.isEmpty()) {
+            return failed(
+                    Outcome.VAULT_LOCKED,
+                    context.vault().exists()
+                            ? "the vault is locked, so nothing was run: what the login produced"
+                                    + " could not be stored - 'porelo vault unlock' and run this"
+                                    + " again"
+                            : "there is no vault, so nothing was run: what the login produced"
+                                    + " could not be stored - 'porelo vault init' first");
+        }
+        return launch.run(command, configDirectory, opener.get());
     }
 
     /**
@@ -511,11 +767,26 @@ public final class AgentLogin {
                 && context.environment().apply("SSH_CONNECTION") != null;
     }
 
-    private static Result run(
+    /**
+     * Builds the login image, runs the agent's login in a container of it, and stores what the
+     * login made with the opener taken before it started.
+     *
+     * @param context The machine.
+     * @param agent The agent.
+     * @param command The agent's login command.
+     * @param configDirectory Where the agent keeps its sign-in, as it declares it.
+     * @param opener What opens the vault, taken before the login started.
+     * @param detached How it runs detached, or {@code null} to run it in this terminal.
+     * @param out Where progress goes.
+     * @return What happened.
+     */
+    static Result run(
             PoreloContext context,
-            InstalledAgent agent,
+            Signing agent,
             List<String> command,
             String configDirectory,
+            org.fuin.porelo.vault.VaultFile.Opener opener,
+            @Nullable Detached detached,
             PrintWriter out) {
 
         final org.fuin.porelo.runtime.Podman podman = context.podman();
@@ -557,6 +828,7 @@ public final class AgentLogin {
         out.println();
 
         final String container = org.fuin.porelo.runtime.ContainerName.login();
+        final Path named = containerFile(context, agent.name());
         Path collected = null;
         Path watched = null;
         Thread watcher = null;
@@ -566,40 +838,51 @@ public final class AgentLogin {
         // is a Ctrl-C, and the signal reaches this process before the finally does. Reported as
         // containers left behind after an abandoned login.
         try (Teardown teardown = Teardown.arm(() -> podman.remove(container))) {
+            org.fuin.porelo.wire.Directories.create(named.getParent());
+            if (detached == null) {
+                // Said beside the lock as the container starts, so a second sign-in names it.
+                Files.writeString(named, container);
+            }
             // The node's own network, so a login that redirects to a port on localhost reaches
             // something. That is more access than a task ever gets, and it is why this container is
             // removed rather than kept: it exists for the seconds a login takes.
-            final List<String> arguments =
-                    new ArrayList<>(
-                            List.of(
-                                    "run",
-                                    "--interactive",
-                                    "--tty",
-                                    "--network",
-                                    "host",
-                                    "--name",
-                                    container,
-                                    image));
+            final List<String> arguments = new ArrayList<>(List.of("run"));
+            if (detached != null) {
+                arguments.add("--detach");
+            }
+            arguments.addAll(
+                    List.of(
+                            "--interactive",
+                            "--tty",
+                            "--network",
+                            "host",
+                            "--label",
+                            AGENT_LABEL + "=" + agent.name(),
+                            "--name",
+                            container,
+                            image));
             arguments.addAll(command);
-            out.println();
-            out.println(
-                    "What follows is "
-                            + agent.name()
-                            + "'s own login, not Porelo's - it will"
-                            + " ask you things, and Porelo takes over again when it exits.");
-            out.println();
-            out.println("Two things about doing it in here:");
-            out.println();
-            out.println(
-                    "  * There is no browser in this container. Anything the agent tries to"
-                            + " open prints the URL instead, marked with '=== Open this ... ==='. Open it"
-                            + " on whatever machine you are sitting at.");
-            out.println(
-                    "  * Nothing is stored unless the login finishes. Ctrl-C or leaving the"
-                            + " agent aborts it, and the container is removed either way.");
-            hint(agent.definition().loginFlow(), hostname()).forEach(out::println);
-            out.println();
-            out.flush();
+            if (detached == null) {
+                out.println();
+                out.println(
+                        "What follows is "
+                                + agent.name()
+                                + "'s own login, not Porelo's - it will"
+                                + " ask you things, and Porelo takes over again when it exits.");
+                out.println();
+                out.println("Two things about doing it in here:");
+                out.println();
+                out.println(
+                        "  * There is no browser in this container. Anything the agent tries to"
+                                + " open prints the URL instead, marked with '=== Open this ... ==='."
+                                + " Open it on whatever machine you are sitting at.");
+                out.println(
+                        "  * Nothing is stored unless the login finishes. Ctrl-C or leaving the"
+                                + " agent aborts it, and the container is removed either way.");
+                hint(agent.definition().loginFlow(), hostname()).forEach(out::println);
+                out.println();
+                out.flush();
+            }
             // WATCHED WHILE IT RUNS, not collected after it stops. The token is written the moment
             // the login succeeds; everything after that - the agent's own session, how somebody
             // leaves it, whether the terminal is closed on it - is none of this command's business
@@ -623,9 +906,25 @@ public final class AgentLogin {
                                                     into,
                                                     early,
                                                     ended,
-                                                    out));
+                                                    opener));
 
-            final int code = context.exec().applyAsInt(podman.arguments(arguments));
+            final int code;
+            boolean abandoned = false;
+            if (detached == null) {
+                code = context.exec().applyAsInt(podman.arguments(arguments));
+            } else {
+                final int up = context.exec().applyAsInt(podman.arguments(arguments));
+                if (up != 0) {
+                    return failed(
+                            Outcome.FAILED,
+                            "the login container could not be started - podman exited with " + up);
+                }
+                // Named once it runs, so a second start is given a container it can attach to.
+                Files.writeString(named, container);
+                detached.started().accept(container);
+                abandoned = !waited(context, podman, container, detached.limit());
+                code = 0;
+            }
             // Let the watch finish before looking ourselves: a watch still asking the agent for the
             // credential while this asks it too made the second call fail now and then ("Call to
             // ... ExtractCredential failed", the suite, 2026-10-04), and a watch that found it a
@@ -650,13 +949,25 @@ public final class AgentLogin {
                 // what it held is what was found. Whatever the agent's full-screen view left on the
                 // terminal goes with it.
                 credential = java.util.Optional.of(early.get());
-                out.print(
-                        "\033[?1049l\033[?25h\033[0m\033[r\033[?7h\033[?1000l\033[?1002l\033[?1003l\033[?1006l"
-                                + "\033[H\033[2J");
-                out.flush();
+                if (detached == null) {
+                    out.print(
+                            "\033[?1049l\033[?25h\033[0m\033[r\033[?7h\033[?1000l\033[?1002l\033[?1003l\033[?1006l"
+                                    + "\033[H\033[2J");
+                    out.flush();
+                }
             } else {
                 podman.copyOut(container, contentsOf(configDirectory), collected);
-                credential = agent.extractCredential(collected);
+                credential = agent.extractor().apply(collected);
+            }
+            if (credential.isEmpty() && abandoned) {
+                return failed(
+                        Outcome.NOTHING_TO_COLLECT,
+                        "nobody finished the sign-in within "
+                                + java.util.Objects.requireNonNull(
+                                                detached, "only a detached login is abandoned")
+                                        .limit()
+                                        .toMinutes()
+                                + " minutes; it was stopped and removed");
             }
             if (credential.isEmpty()) {
                 // BOTH paths: what the agent declares and where that actually was looked for. "no
@@ -695,23 +1006,7 @@ public final class AgentLogin {
             } catch (final ClientPick.NoPair ex) {
                 return failed(Outcome.FAILED, "logged in, but " + ex.getMessage());
             }
-
-            final SelectedProvider selection =
-                    SelectedProvider.choose(context.providers(), agent.definition(), null);
-            final String key = selection == null ? agent.name() : selection.name();
-
-            // Whatever already opens the vault - a cached passphrase or a device's share - and only
-            // then a prompt. Storing a credential needs the vault open, not the passphrase.
-            final java.util.Optional<org.fuin.porelo.vault.VaultFile.Opener> way =
-                    context.openerAsking(false, out);
-            if (way.isEmpty()) {
-                return failed(
-                        Outcome.VAULT_LOCKED,
-                        "logged in, but the vault is locked and"
-                                + " nothing could ask for a passphrase - unlock it and run this again");
-            }
-            store(context, agent, value, way.get());
-            return new Result(Outcome.STORED, key, value.type(), value.secret().length(), "");
+            return store(context, agent, value, opener);
 
         } catch (java.io.IOException | RuntimeException ex) {
             return failed(Outcome.FAILED, String.valueOf(ex.getMessage()));
@@ -731,30 +1026,89 @@ public final class AgentLogin {
                 }
                 deleteTree(watched);
             }
+            try {
+                Files.deleteIfExists(named);
+            } catch (java.io.IOException ex) {
+                // Read only while the lock is held, which ends with this login.
+            }
         }
     }
 
     /**
-     * Removes login containers an earlier run left behind.
+     * Waits until a detached login's first process ends, at most for its limit, and stops it then.
+     *
+     * @param context The machine.
+     * @param podman The runtime.
+     * @param container The login container.
+     * @param limit How long it may run.
+     * @return {@code true} when it ended by itself; {@code false} when it was stopped.
+     */
+    private static boolean waited(
+            final PoreloContext context,
+            final org.fuin.porelo.runtime.Podman podman,
+            final String container,
+            final java.time.Duration limit) {
+        final Thread waiting =
+                Thread.ofVirtual()
+                        .start(
+                                () ->
+                                        context.exec()
+                                                .applyAsInt(
+                                                        podman.arguments(
+                                                                List.of("wait", container))));
+        try {
+            if (waiting.join(limit)) {
+                return true;
+            }
+        } catch (InterruptedException ex) {
+            Thread.currentThread().interrupt();
+        }
+        // A login nobody attached to, or nobody finished, waits on its terminal for ever, holding
+        // the agent's lock and a container on the host's network.
+        podman.stop(container);
+        try {
+            if (!waiting.join(java.time.Duration.ofSeconds(15))) {
+                waiting.interrupt();
+            }
+        } catch (InterruptedException ex) {
+            Thread.currentThread().interrupt();
+        }
+        return false;
+    }
+
+    /**
+     * Removes login containers whose sign-in no longer runs.
      *
      * <p>Reported from a machine carrying one thirteen hours old: it had outlived an interrupted
      * login from before the teardown existed. Sweeping here rather than only tearing down at the
      * end covers what a teardown structurally cannot - a {@code SIGKILL}, a power cut, or a version
      * that had no teardown at all.
      *
-     * @param podman The runtime.
+     * <p>A container whose agent's lock is held by another sign-in is that sign-in's, live, and
+     * kept: removing it ended a person's login half way. One of this login's own agent is litter,
+     * since this login holds that lock; one without an agent label predates the label.
+     *
+     * @param context The machine.
+     * @param agent The agent this login is for, whose lock it holds.
      * @param out Where a removal is reported.
      */
     private static void sweepLeftoverLogins(
-            org.fuin.porelo.runtime.Podman podman, PrintWriter out) {
+            final PoreloContext context, final String agent, final PrintWriter out) {
+        final org.fuin.porelo.runtime.Podman podman = context.podman();
         try {
-            final java.util.List<String> leftover =
-                    podman.poreloContainers().stream()
-                            .filter(org.fuin.porelo.runtime.ContainerName::isLogin)
-                            .toList();
-            for (final String stale : leftover) {
-                podman.remove(stale);
-                out.println("removed   " + stale + ", left behind by an earlier login");
+            for (final java.util.Map.Entry<String, String> login :
+                    podman.loginContainers(AGENT_LABEL).entrySet()) {
+                final String owner = login.getValue();
+                final boolean leftover =
+                        owner.isEmpty()
+                                || !ownName(owner)
+                                || owner.equals(agent)
+                                || FileLocks.free(lockFile(context, owner));
+                if (leftover) {
+                    podman.remove(login.getKey());
+                    out.println(
+                            "removed   " + login.getKey() + ", left behind by an earlier login");
+                }
             }
         } catch (RuntimeException ex) {
             // A sweep that cannot run is not a reason to refuse a login. The worst case is the
@@ -765,19 +1119,8 @@ public final class AgentLogin {
     }
 
     /**
-     * Returns a declared config directory as it is inside the container.
-     *
-     * <p><strong>Not {@code VaultImportCommand.expand}.</strong> That resolves {@code ~} against
-     * this machine's home, which is right when reading a directory on the node and wrong here by
-     * one user: the agent runs as {@code agent} inside the image, so {@code ~/.claude} is {@code
-     * /home/agent/.claude} there and {@code /home/somebody/.claude} on the node. Copying from the
-     * second would find nothing and report a login that produced no credential.
-     *
-     * @param declared The directory as the agent's manifest writes it.
-     * @return The absolute path inside the container.
-     */
-    /**
-     * Puts a credential in the vault under the name a task will look for.
+     * Puts a credential in the vault under the provider its extractor names, or the agent's default
+     * where it names none, and closes the question of authorizing it.
      *
      * <p>One method, because it is done from two moments now - the instant the login writes the
      * token, and the ordinary path after the run - and two of these would be two chances to store
@@ -787,14 +1130,22 @@ public final class AgentLogin {
      * @param agent Whose credential it is.
      * @param value What was found.
      * @param way How the vault opens.
+     * @return {@link Outcome#STORED}, or {@link Outcome#NO_PROVIDER} with nothing stored.
      */
-    private static void store(
+    private static Result store(
             PoreloContext context,
-            InstalledAgent agent,
+            Signing agent,
             Credential value,
             org.fuin.porelo.vault.VaultFile.Opener way) {
-        final SelectedProvider selection =
-                SelectedProvider.choose(context.providers(), agent.definition(), null);
+        // Under the provider the sign-in is for: an agent that signs in to several stored a
+        // sign-in for one under its default, where a task reaching the other never found it.
+        final SelectedProvider.Choice chosen =
+                SelectedProvider.consider(
+                        context.providers(), agent.definition(), value.provider());
+        if (chosen.refusal() != null) {
+            return failed(Outcome.NO_PROVIDER, "logged in, but " + chosen.detail());
+        }
+        final SelectedProvider selection = chosen.selection();
         final String key = selection == null ? agent.name() : selection.name();
         context.vault()
                 .update(
@@ -804,6 +1155,10 @@ public final class AgentLogin {
                                     entries, key, value, true, LoginCredentials.kept(selection));
                             return entries;
                         });
+        // A sign-in is a grant: an interface still showing the question would send the person to
+        // authorize what they just did.
+        AuthorizationsNeeded.clear(context, key);
+        return new Result(Outcome.STORED, key, value.type(), value.secret().length(), "");
     }
 
     /**
@@ -815,9 +1170,8 @@ public final class AgentLogin {
      * them, which an ssh session closing does not guarantee. Watching makes the token safe the
      * second it exists.
      *
-     * <p><strong>It only stores when the vault is already open.</strong> Asking for a passphrase
-     * here is impossible: the terminal belongs to the agent. When the vault is shut, the credential
-     * is still captured and the ordinary path stores it after the run, where a prompt is possible.
+     * <p>It stores with the opener taken before the login started: the terminal belongs to the
+     * agent, so nothing could be asked here, and a vault locked meanwhile still takes it.
      *
      * @param context The machine.
      * @param podman Runs the copy.
@@ -826,18 +1180,19 @@ public final class AgentLogin {
      * @param configDirectory What the agent declares.
      * @param into A directory to copy into.
      * @param found Where to put what was found.
-     * @param out Where to say it.
+     * @param ended Set when the login has ended.
+     * @param opener What opens the vault.
      */
     private static void watchFor(
             PoreloContext context,
             org.fuin.porelo.runtime.Podman podman,
-            InstalledAgent agent,
+            Signing agent,
             String container,
             String configDirectory,
             java.nio.file.Path into,
             java.util.concurrent.atomic.AtomicReference<Credential> found,
             java.util.concurrent.atomic.AtomicBoolean ended,
-            PrintWriter out) {
+            org.fuin.porelo.vault.VaultFile.Opener opener) {
         while (!ended.get() && !Thread.currentThread().isInterrupted()) {
             try {
                 Thread.sleep(java.time.Duration.ofSeconds(2));
@@ -847,7 +1202,7 @@ public final class AgentLogin {
             }
             try {
                 podman.copyOut(container, contentsOf(configDirectory), into);
-                final java.util.Optional<Credential> credential = agent.extractCredential(into);
+                final java.util.Optional<Credential> credential = agent.extractor().apply(into);
                 if (credential.isEmpty()) {
                     continue;
                 }
@@ -860,17 +1215,13 @@ public final class AgentLogin {
                     podman.stop(container);
                     return;
                 }
-                // Stored here when it can be, so that nothing after this moment can lose it.
-                final java.util.Optional<org.fuin.porelo.vault.VaultFile.Opener> way =
-                        context.opener();
-                if (way.isPresent()) {
-                    store(context, agent, credential.get(), way.get());
-                }
+                // Stored here, so that nothing after this moment can lose it; a refusal is said
+                // by the ordinary path after the run.
+                store(context, agent, credential.get(), opener);
                 // And then the login is over, said once, by Porelo. Left running, the agent carried
                 // on into its own "Press Enter to continue" while Porelo said the person could
                 // leave it however they liked: two voices for one moment (2026-10-01). Nothing in
-                // the container is needed any more; a shut vault is asked for after it, where a
-                // prompt is possible.
+                // the container is needed any more.
                 podman.stop(container);
                 return;
             } catch (final RuntimeException ex) {
@@ -903,6 +1254,18 @@ public final class AgentLogin {
         }
     }
 
+    /**
+     * Returns a declared config directory as it is inside the container.
+     *
+     * <p><strong>Not {@code VaultImportCommand.expand}.</strong> That resolves {@code ~} against
+     * this machine's home, which is right when reading a directory on the node and wrong here by
+     * one user: the agent runs as {@code agent} inside the image, so {@code ~/.claude} is {@code
+     * /home/agent/.claude} there and {@code /home/somebody/.claude} on the node. Copying from the
+     * second would find nothing and report a login that produced no credential.
+     *
+     * @param declared The directory as the agent's manifest writes it.
+     * @return The absolute path inside the container.
+     */
     static String inContainer(String declared) {
         return declared.startsWith("~") ? AGENT_HOME + declared.substring(1) : declared;
     }

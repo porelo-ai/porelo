@@ -30,6 +30,8 @@ import org.junit.jupiter.params.provider.ValueSource;
  */
 class AgentLoginTest {
 
+    private static final char[] PASSPHRASE = "correct horse battery staple".toCharArray();
+
     private final FakeCommandRunner runner = new FakeCommandRunner();
 
     private final StringWriter out = new StringWriter();
@@ -61,9 +63,11 @@ class AgentLoginTest {
                 definition(dir, "paste-code"),
                 false,
                 false,
+                false,
                 new PrintWriter(out, true),
                 directory -> false,
-                (command, directory) ->
+                AgentLoginTest::anOpener,
+                (command, directory, opener) ->
                         new AgentLogin.Result(
                                 AgentLogin.Outcome.NOTHING_TO_COLLECT, "", "", 0, ""));
 
@@ -74,6 +78,405 @@ class AgentLoginTest {
                                         && line.contains("porelo-login-1788886971400"));
         // And nothing else: a task is not litter, whatever state it is in.
         assertThat(runner.lines()).noneMatch(line -> line.contains("porelo-uc-shell-1"));
+    }
+
+    /** Holds an agent's sign-in lock on a thread of its own until released, as a running login. */
+    private static final class Held implements AutoCloseable {
+
+        private final java.util.concurrent.CountDownLatch taken =
+                new java.util.concurrent.CountDownLatch(1);
+
+        private final java.util.concurrent.CountDownLatch release =
+                new java.util.concurrent.CountDownLatch(1);
+
+        private final Thread thread;
+
+        Held(final Path lock) throws InterruptedException {
+            thread =
+                    Thread.ofPlatform()
+                            .start(
+                                    () -> {
+                                        try {
+                                            FileLocks.holding(
+                                                    lock,
+                                                    () -> {
+                                                        taken.countDown();
+                                                        try {
+                                                            release.await();
+                                                        } catch (InterruptedException ex) {
+                                                            Thread.currentThread().interrupt();
+                                                        }
+                                                        return "";
+                                                    });
+                                        } catch (java.io.IOException ex) {
+                                            throw new IllegalStateException(ex);
+                                        }
+                                    });
+            assertThat(taken.await(10, java.util.concurrent.TimeUnit.SECONDS))
+                    .as("the other sign-in holds its lock")
+                    .isTrue();
+        }
+
+        @Override
+        public void close() throws InterruptedException {
+            release.countDown();
+            thread.join();
+        }
+    }
+
+    @Test
+    void aLoginOfAnotherAgentSparesTheContainerOfASignInThatRuns(@TempDir Path dir)
+            throws Exception {
+
+        // Every login container used to be swept, so a second person's sign-in removed the
+        // first one's live container half way through their login.
+        final PoreloContext context = context(dir);
+        runner.answering(
+                "ps",
+                "porelo-login-1000000000001\tworker\n"
+                        + "porelo-login-1000000000002\t\n"
+                        + "porelo-login-1000000000003\texample\n"
+                        + "porelo-login-1000000000004\tgone\n");
+
+        try (Held worker = new Held(AgentLogin.lockFile(context, "worker"))) {
+            AgentLogin.login(
+                    context,
+                    definition(dir, "paste-code"),
+                    false,
+                    false,
+                    false,
+                    new PrintWriter(out, true),
+                    directory -> false,
+                    AgentLoginTest::anOpener,
+                    (command, directory, opener) ->
+                            new AgentLogin.Result(
+                                    AgentLogin.Outcome.NOTHING_TO_COLLECT, "", "", 0, ""));
+        }
+
+        assertThat(runner.lines())
+                .as("the container of a sign-in whose lock is held is that sign-in's, live")
+                .noneMatch(
+                        line ->
+                                line.startsWith("podman rm")
+                                        && line.contains("porelo-login-1000000000001"));
+        for (final String litter :
+                List.of(
+                        "porelo-login-1000000000002",
+                        "porelo-login-1000000000003",
+                        "porelo-login-1000000000004")) {
+            assertThat(runner.lines())
+                    .as(
+                            "one with no agent, of this login's own agent, or whose sign-in ended"
+                                    + " is litter: "
+                                    + litter)
+                    .anyMatch(line -> line.startsWith("podman rm") && line.contains(litter));
+        }
+    }
+
+    @Test
+    void aSecondLoginOfAnAgentWhoseSignInRunsSaysSoAndRunsNothing(@TempDir Path dir)
+            throws Exception {
+
+        // Queued or run beside the first, a second login is a second authorization of the same
+        // person's account, and its sweep removed the first one's container.
+        final PoreloContext context = context(dir);
+        runner.answering("ps", "porelo-login-1000000000001\texample\n");
+
+        final AgentLogin.Result result;
+        try (Held first = new Held(AgentLogin.lockFile(context, "example"))) {
+            result =
+                    AgentLogin.login(
+                            context,
+                            definition(dir, "paste-code"),
+                            false,
+                            false,
+                            false,
+                            new PrintWriter(out, true),
+                            directory -> false,
+                            AgentLoginTest::anOpener,
+                            (command, directory, opener) -> {
+                                throw new AssertionError("a second sign-in must not launch");
+                            });
+            assertThat(AgentLogin.running(context, "example"))
+                    .as("the running sign-in is found by its lock")
+                    .isPresent();
+        }
+
+        assertThat(result.outcome())
+                .as("it says that one runs, without waiting for it")
+                .isEqualTo(AgentLogin.Outcome.RUNNING);
+        assertThat(runner.lines())
+                .as("nothing of the running sign-in is removed")
+                .noneMatch(line -> line.startsWith("podman rm"));
+        assertThat(AgentLogin.running(context, "example"))
+                .as("once its lock is free, no sign-in runs")
+                .isEmpty();
+    }
+
+    private static AgentLogin.Signing signing(
+            final AgentDefinition definition, final org.fuin.porelo.agent.api.Credential made) {
+        return new AgentLogin.Signing(
+                definition.name(), definition, directory -> java.util.Optional.of(made));
+    }
+
+    private AgentLogin.Result signedIn(
+            final PoreloContext context, final Path dir, final AgentLogin.Signing signing) {
+        return AgentLogin.run(
+                context,
+                signing,
+                List.of("example-cli", "auth", "login"),
+                dir.toString(),
+                org.fuin.porelo.vault.VaultFile.Opener.passphrase(PASSPHRASE.clone()),
+                null,
+                new PrintWriter(out, true));
+    }
+
+    @Test
+    void aSignInIsStoredWithTheOpenerTakenBeforeItThoughTheVaultWasLockedMeanwhile(
+            @TempDir Path dir) {
+
+        // The vault was asked again once the login ended: a 'vault lock' while the person signed
+        // in dropped the credential they had just made. Nothing here opens the vault on its own,
+        // as after a lock.
+        final PoreloContext context = context(dir);
+        context.vault().write(new java.util.LinkedHashMap<>(), PASSPHRASE);
+        assertThat(context.opener()).as("the vault is locked").isEmpty();
+
+        final AgentLogin.Result result =
+                signedIn(
+                        context,
+                        dir,
+                        signing(
+                                definition(dir, "paste-code"),
+                                org.fuin.porelo.agent.api.Credential.of("oauth", "at-made-here")));
+
+        assertThat(result.outcome())
+                .as("stored: " + result.detail())
+                .isEqualTo(AgentLogin.Outcome.STORED);
+        assertThat(context.vault().read(PASSPHRASE).get("example").value())
+                .as("what the login made is in the vault")
+                .isEqualTo("at-made-here");
+    }
+
+    @Test
+    void aSignInIsStoredUnderTheProviderItsExtractorNames(@TempDir Path dir) throws Exception {
+
+        // Stored under the agent's default, a sign-in to another provider replaced that
+        // provider's credential and left the one it was for without any.
+        final PoreloContext context = context(dir);
+        final Path providers =
+                java.nio.file.Files.createDirectories(
+                        context.paths().xdg().data().resolve("providers"));
+        for (final String name : List.of("alpha", "beta")) {
+            java.nio.file.Files.writeString(
+                    providers.resolve(name + ".yaml"),
+                    """
+                    name: %s
+                    upstream: https://%s.example.com
+                    dialects: { preview: "" }
+                    auth_header: { _default: Authorization }
+                    auth_prefix: { _default: "Bearer " }
+                    """
+                            .formatted(name, name));
+        }
+        final java.util.Map<String, org.fuin.porelo.vault.VaultEntry> before =
+                new java.util.LinkedHashMap<>();
+        before.put("alpha", new org.fuin.porelo.vault.VaultEntry("alphas-own", "api-key"));
+        context.vault().write(before, PASSPHRASE);
+        final AgentDefinition brokered =
+                AgentDefinitionReader.read(
+                        new java.io.StringReader(
+                                """
+                                name: example
+                                binary: example-cli
+                                git_identity: { name: Example, email: noreply@example.com }
+                                headless: { prompt_flag: "-p" }
+                                config_dir: %s
+                                login:
+                                  arguments: [auth, login]
+                                provider:
+                                  dialect: preview
+                                  default: alpha
+                                  endpoint: url
+                                  base_url_env: EXAMPLE_BASE_URL
+                                """
+                                        .formatted(dir)),
+                        "test.yaml");
+
+        final AgentLogin.Result result =
+                signedIn(
+                        context,
+                        dir,
+                        signing(
+                                brokered,
+                                org.fuin.porelo.agent.api.Credential.of("oauth", "at-for-beta")
+                                        .forProvider("beta")));
+
+        assertThat(result.name())
+                .as("kept under the provider it is for: " + result.detail())
+                .isEqualTo("beta");
+        assertThat(context.vault().read(PASSPHRASE))
+                .as("the sign-in under its provider, the default's credential untouched")
+                .hasEntrySatisfying(
+                        "beta", entry -> assertThat(entry.value()).isEqualTo("at-for-beta"))
+                .hasEntrySatisfying(
+                        "alpha", entry -> assertThat(entry.value()).isEqualTo("alphas-own"));
+    }
+
+    @Test
+    void aSignInClosesTheOpenQuestionOfAuthorizingItsCredential(@TempDir Path dir) {
+
+        // Left open, every interface kept asking the person to authorize what they had just
+        // signed in to.
+        final PoreloContext context = context(dir);
+        context.vault().write(new java.util.LinkedHashMap<>(), PASSPHRASE);
+        AuthorizationsNeeded.raise(context, "example", "", "", AuthorizationsNeeded.NEVER);
+
+        signedIn(
+                context,
+                dir,
+                signing(
+                        definition(dir, "paste-code"),
+                        org.fuin.porelo.agent.api.Credential.of("oauth", "at-made-here")));
+
+        assertThat(AuthorizationsNeeded.open(context))
+                .as("the question for the credential just stored is closed")
+                .noneMatch(question -> "example".equals(question.get("credential")));
+    }
+
+    @Test
+    void aDetachedSignInNobodyFinishesIsStoppedAtItsLimit(@TempDir Path dir) throws Exception {
+
+        // Its login waits on a terminal nobody attached to; waited on without end, it held the
+        // agent's lock and a container on the host's network for the daemon's life.
+        final java.util.concurrent.CountDownLatch never =
+                new java.util.concurrent.CountDownLatch(1);
+        final PoreloContext context =
+                new PoreloContext(
+                        runner,
+                        context(dir).paths(),
+                        command -> {
+                            if (command.contains("wait")) {
+                                try {
+                                    never.await();
+                                } catch (InterruptedException ex) {
+                                    Thread.currentThread().interrupt();
+                                }
+                            }
+                            return 0;
+                        });
+        final java.util.concurrent.atomic.AtomicReference<String> started =
+                new java.util.concurrent.atomic.AtomicReference<>("");
+        try {
+            final AgentLogin.Result result =
+                    org.junit.jupiter.api.Assertions.assertTimeoutPreemptively(
+                            java.time.Duration.ofSeconds(60),
+                            () ->
+                                    AgentLogin.run(
+                                            context,
+                                            new AgentLogin.Signing(
+                                                    "example",
+                                                    definition(dir, "paste-code"),
+                                                    directory -> java.util.Optional.empty()),
+                                            List.of("example-cli", "auth", "login"),
+                                            dir.toString(),
+                                            org.fuin.porelo.vault.VaultFile.Opener.passphrase(
+                                                    PASSPHRASE.clone()),
+                                            new AgentLogin.Detached(
+                                                    started::set, java.time.Duration.ofMillis(300)),
+                                            new PrintWriter(out, true)));
+
+            assertThat(result.outcome())
+                    .as("it ends, storing nothing")
+                    .isEqualTo(AgentLogin.Outcome.NOTHING_TO_COLLECT);
+            assertThat(runner.lines())
+                    .as("its container is stopped and removed")
+                    .anyMatch(line -> line.startsWith("podman rm") && line.contains(started.get()));
+        } finally {
+            never.countDown();
+        }
+    }
+
+    @Test
+    void aSignInDoesNotNameTheContainerOfOneThatWasKilled(@TempDir Path dir) throws Exception {
+
+        // A killed sign-in leaves its container's name; read beside the next one's lock, a window
+        // was sent to attach to a container that is gone.
+        final PoreloContext context = context(dir);
+        context.vault().write(new java.util.LinkedHashMap<>(), PASSPHRASE);
+        java.nio.file.Files.createDirectories(
+                AgentLogin.containerFile(context, "example").getParent());
+        java.nio.file.Files.writeString(
+                AgentLogin.containerFile(context, "example"), "porelo-login-1000000000005");
+        final java.util.concurrent.atomic.AtomicReference<java.util.Optional<String>> seen =
+                new java.util.concurrent.atomic.AtomicReference<>();
+
+        AgentLogin.login(
+                context,
+                definition(dir, "paste-code"),
+                false,
+                false,
+                false,
+                new PrintWriter(out, true),
+                directory -> false,
+                AgentLoginTest::anOpener,
+                (command, directory, opener) -> {
+                    seen.set(AgentLogin.running(context, "example"));
+                    return new AgentLogin.Result(
+                            AgentLogin.Outcome.NOTHING_TO_COLLECT, "", "", 0, "");
+                });
+
+        assertThat(seen.get()).as("this sign-in runs, with no container yet").contains("");
+    }
+
+    @Test
+    void aSignInWithoutAVaultRunsNothingThoughAPassphraseIsKept(@TempDir Path dir) {
+
+        // The person signed in at the browser, and only then was there nowhere to store it.
+        final AgentLogin.Result result =
+                AgentLogin.login(
+                        context(dir),
+                        definition(dir, "paste-code"),
+                        false,
+                        false,
+                        false,
+                        new PrintWriter(out, true),
+                        directory -> false,
+                        AgentLoginTest::anOpener,
+                        (command, directory, opener) -> {
+                            throw new AssertionError("nothing may run without a vault to store in");
+                        });
+
+        assertThat(result.outcome())
+                .as("refused before")
+                .isEqualTo(AgentLogin.Outcome.VAULT_LOCKED);
+    }
+
+    @Test
+    void aSignInWhoseKeptPassphraseNoLongerOpensTheVaultRunsNothing(@TempDir Path dir) {
+        final PoreloContext context = context(dir);
+        context.vault().write(new java.util.LinkedHashMap<>(), PASSPHRASE);
+
+        final AgentLogin.Result result =
+                AgentLogin.login(
+                        context,
+                        definition(dir, "paste-code"),
+                        false,
+                        false,
+                        false,
+                        new PrintWriter(out, true),
+                        directory -> false,
+                        () ->
+                                java.util.Optional.of(
+                                        org.fuin.porelo.vault.VaultFile.Opener.passphrase(
+                                                "a stale one".toCharArray())),
+                        (command, directory, opener) -> {
+                            throw new AssertionError("nothing may run that could not be stored");
+                        });
+
+        assertThat(result.outcome())
+                .as("refused before")
+                .isEqualTo(AgentLogin.Outcome.VAULT_LOCKED);
     }
 
     @Test
@@ -119,9 +522,11 @@ class AgentLoginTest {
                                         definition,
                                         false,
                                         false,
+                                        false,
                                         new PrintWriter(new StringWriter(), true),
                                         directory -> false,
-                                        (command, directory) -> {
+                                        AgentLoginTest::anOpener,
+                                        (command, directory, opener) -> {
                                             throw new AssertionError("nothing may be run");
                                         })
                                 .outcome())
@@ -181,6 +586,11 @@ class AgentLoginTest {
                 .doesNotContain("BROWSER");
     }
 
+    private static java.util.Optional<org.fuin.porelo.vault.VaultFile.Opener> anOpener() {
+        return java.util.Optional.of(
+                org.fuin.porelo.vault.VaultFile.Opener.passphrase(PASSPHRASE.clone()));
+    }
+
     private static AgentDefinition definition(Path directory, String flow) {
         return AgentDefinitionReader.read(
                 new java.io.StringReader(
@@ -226,11 +636,15 @@ class AgentLoginTest {
                         definition(dir, "loopback"),
                         false,
                         false,
+                        false,
                         new PrintWriter(out, true),
                         directory -> {
                             throw new AssertionError("no existing credential may be read");
                         },
-                        (command, directory) -> {
+                        () -> {
+                            throw new AssertionError("the vault must not be asked");
+                        },
+                        (command, directory, opener) -> {
                             throw new AssertionError("no login may launch");
                         });
 
@@ -258,9 +672,11 @@ class AgentLoginTest {
                         definition(dir, "loopback"),
                         dryRun,
                         force,
+                        false,
                         new PrintWriter(out, true),
                         directory -> false,
-                        (command, directory) -> {
+                        AgentLoginTest::anOpener,
+                        (command, directory, opener) -> {
                             throw new AssertionError("a refused login must not launch");
                         });
 
@@ -285,6 +701,7 @@ class AgentLoginTest {
                         context(dir).paths(),
                         command -> 0,
                         name -> ssh && "SSH_CONNECTION".equals(name) ? "connected" : null);
+        allowed.vault().write(new java.util.LinkedHashMap<>(), PASSPHRASE);
         final List<List<String>> launched = new ArrayList<>();
         final AgentLogin.Result ran =
                 new AgentLogin.Result(AgentLogin.Outcome.NOTHING_TO_COLLECT, "", "", 0, "");
@@ -295,9 +712,11 @@ class AgentLoginTest {
                         definition(dir, flow),
                         false,
                         false,
+                        false,
                         new PrintWriter(out, true),
                         directory -> false,
-                        (command, directory) -> {
+                        AgentLoginTest::anOpener,
+                        (command, directory, opener) -> {
                             launched.add(List.copyOf(command));
                             assertThat(directory)
                                     .as("the declared directory is collected")

@@ -111,6 +111,91 @@ final class AgentMethods {
                     }
                 });
 
+        // One per agent on the machine, kept for the daemon's life so a wait after a sign-in
+        // ended hears how it ended.
+        final org.fuin.porelo.app.AgentSignInRuns signIns =
+                org.fuin.porelo.app.AgentSignInRuns.of(context);
+        server.method(
+                "AgentSignIns",
+                (parameters, replies) -> {
+                    try (org.fuin.porelo.agent.api.InstalledAgents agents = context.agents()) {
+                        // Read once: each read of a passphrase vault is a key derivation.
+                        final var stored = context.readableCredentials();
+                        final var providers = context.providers();
+                        final List<Map<String, Object>> rows =
+                                agents.all().stream()
+                                        .map(
+                                                agent -> {
+                                                    final Map<String, Object> row =
+                                                            new LinkedHashMap<>();
+                                                    row.put("agent", agent.name());
+                                                    row.put(
+                                                            "state",
+                                                            org.fuin.porelo.app.AgentSignInRuns
+                                                                    .state(
+                                                                            providers,
+                                                                            agent.definition(),
+                                                                            stored)
+                                                                    .name());
+                                                    signIns.running(agent.name())
+                                                            .ifPresent(
+                                                                    container ->
+                                                                            row.put(
+                                                                                    "running",
+                                                                                    container));
+                                                    return row;
+                                                })
+                                        .toList();
+                        replies.last(Map.of("signIns", rows));
+                    }
+                });
+        server.method(
+                "AgentSignInStart",
+                (parameters, replies) -> {
+                    final String agent = text(parameters, "agent");
+                    try {
+                        final org.fuin.porelo.app.AgentSignInRuns.Started started =
+                                signIns.start(
+                                        agent,
+                                        flag(parameters, "force"),
+                                        flag(parameters, "remote"));
+                        replies.last(
+                                Map.of(
+                                        "container",
+                                        started.container(),
+                                        "started",
+                                        started.started(),
+                                        "attach",
+                                        started.container().isEmpty()
+                                                ? List.of()
+                                                : context.podman()
+                                                        .arguments(
+                                                                // A closed terminal ends the
+                                                                // watching, not the sign-in.
+                                                                List.of(
+                                                                        "attach",
+                                                                        "--sig-proxy=false",
+                                                                        started.container()))));
+                    } catch (org.fuin.porelo.app.AgentSignInRuns.Refused ex) {
+                        throw new org.fuin.porelo.wire.varlink.VarlinkException(
+                                INTERFACE + ".SignInRefused",
+                                Map.of(
+                                        "agent",
+                                        agent,
+                                        "reason",
+                                        ex.outcome().name(),
+                                        "detail",
+                                        String.valueOf(ex.getMessage())));
+                    }
+                });
+        server.method(
+                "AgentSignInWait",
+                (parameters, replies) -> {
+                    final org.fuin.porelo.app.AgentSignInRuns.Ended ended =
+                            signIns.await(text(parameters, "agent"));
+                    replies.last(Map.of("stored", ended.stored(), "reason", ended.reason()));
+                });
+
         // The first start's own question, so a window sees what a start would make of a checkout.
         final org.fuin.porelo.app.FirstStart firstStart = TaskMethods.firstStart(context);
         server.method(

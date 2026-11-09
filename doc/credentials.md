@@ -294,6 +294,25 @@ as before, over SSH too. Porelo leaves `BROWSER` unset; its browser shim prints 
 `porelo agents --json` reports each agent's `flow` as `paste-code`, `device-code`, `loopback` or `""` when
 undeclared, so an interface can show the hint before the sign-in starts.
 
+**One sign-in per agent runs on a machine.** A login holds `logins/<agent>.lock` under Porelo's state directory from
+before its sweep to its end, and names its container beside it. A second `vault login` of that agent, at a terminal
+or from a window, starts nothing: it says that one runs, and a window is given its container to attach to. A login
+container carries its agent in the `porelo.login.agent` label, and the sweep before a login removes only one whose
+agent's lock is free, one of its own agent, or one with no label; another agent's running login is kept.
+
+**The vault is opened once, before the login runs**, and what opened it stores the credential, so a `vault lock`
+while somebody signs in does not drop it. It is stored under the provider the agent's own extractor names for the
+sign-in, else the agent's default; a sign-in for a provider this machine cannot keep it under stores nothing and
+says so. Storing it closes an open question to authorize that credential.
+
+**From a window, the login runs detached** through the daemon: `AgentSignInStart` runs the agent's login as the
+container's first process, with no shell, and answers the command that attaches to it; the container is removed when
+the login ends, or after 30 minutes when nobody finished it. It is no task: `List`, `Watch` and `Screen` never see it. `AgentSignInWait` returns when the agent's
+sign-in ends, from a window or a terminal, at most after 30 minutes, and says whether the vault holds the credential
+then, never judging by how the login exited; `AgentSignIns` gives each agent's state. A batch start asks
+`AgentSignIns` once and signs in each missing agent in turn before it starts its tasks. Neither starting nor waiting
+on a sign-in is offered to a task over MCP.
+
 ### A subscription granted once: GitHub Copilot
 
 Copilot is reached with a GitHub token a person grants once, through GitHub's device flow. One command makes

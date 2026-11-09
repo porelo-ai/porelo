@@ -1,6 +1,6 @@
 # [B530](README.md#b530) — One Sign-In Per Agent That Starts Wait On
 
-**Status:** Backlog. Filed 2026-11-08 from the third move's finding 7/7b (the operator's decision: the whole flow runs
+**Status:** Review. The start's wait is split off as [B534](README.md#b534). Filed 2026-11-08 from the third move's finding 7/7b (the operator's decision: the whole flow runs
 in the window).
 **Size:** L - a new daemon contract (three methods), a lock and a wait the start takes, the sweep made safe, and the
 batch's order; one acceptance step.
@@ -37,6 +37,20 @@ one after another, and only then starts its tasks.
 - **The batch** is the client's: it asks `AgentSignIns` once, runs `AgentSignInStart`/`Wait` for each missing agent in
   turn, then starts. Porelo's part is that a second client's start waits, not signs in again.
 - Docs: doc/credentials.md (one sign-in per agent per machine, the wait); the contract's comments.
+- **What the build found** (the first half, built: the lock, the sweep, the opener, the provider, the store, the three
+  methods):
+  - `LoginCredentials.put` already removed a stale `grant/<credential>` (and `client-secret/<credential>`) when the
+    new sign-in is not renewable; what `AgentLogin.store` lacked was closing the open authorization question.
+  - `AgentSignIns` is taken: apps/app-agents has an `AgentSignIns` report (`porelo agents --json`'s `signed_in`) in
+    the same package. The daemon's one-per-agent registry is `AgentSignInRuns` (apps/app-vault), whose state follows
+    that report's rule (`SelectedProvider.credentialKey`, `CredentialHeaders.lacking`).
+  - `AgentSignInStart(agent, force, remote) -> (container, started, attach)`: the login is no task, so it answers its
+    container and the command that attaches, and the refusal is `SignInRefused(agent, reason, detail)`. `remote` is
+    the client's word: the daemon sees only the local end of an ssh forward and cannot tell a remote client itself.
+  - `AgentLogin.login` refused no-vault only after the login ran; it now refuses before, with the opener it keeps.
+  - **Not built yet: the start's wait** (`waitForSignIn`, `SignInNeeded`, the credential check before side effects and
+    in `startExisting`, the `VaultLocked` answer). It splits into a second issue, as foreseen under "Size", and this
+    issue stays open until that one is filed.
 
 ## Acceptance
 

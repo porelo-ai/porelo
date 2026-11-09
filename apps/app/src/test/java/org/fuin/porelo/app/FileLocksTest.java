@@ -18,6 +18,70 @@ import org.junit.jupiter.api.io.TempDir;
 class FileLocksTest {
 
     @Test
+    void aLockFileThatIsNotThereIsFree(@TempDir Path dir) {
+        // Read as held, a sign-in that never ran kept its leftover container from every sweep.
+        assertThat(FileLocks.free(dir.resolve("logins").resolve("gone.lock")))
+                .as("nobody can hold a lock file that does not exist")
+                .isTrue();
+    }
+
+    @Test
+    void aProbeNeverDropsTheLockAnotherThreadOfThisProcessHolds(@TempDir Path dir)
+            throws Exception {
+        // A probe's channel closing drops every lock this process holds on the file: a sign-in
+        // in the daemon lost its lock to a listing, and a terminal's login then took it.
+        final Path lock = dir.resolve("logins").resolve("example.lock");
+        final java.util.concurrent.atomic.AtomicBoolean stop =
+                new java.util.concurrent.atomic.AtomicBoolean();
+        final Thread probing =
+                Thread.ofPlatform()
+                        .start(
+                                () -> {
+                                    while (!stop.get()) {
+                                        FileLocks.free(lock);
+                                    }
+                                });
+        int dropped = 0;
+        int holds = 0;
+        try {
+            final long until = System.nanoTime() + Duration.ofSeconds(5).toNanos();
+            while (System.nanoTime() - until < 0) {
+                final java.util.Optional<Boolean> kept =
+                        FileLocks.holdingIfFree(
+                                lock,
+                                () -> {
+                                    Thread.onSpinWait();
+                                    return heldHere(lock);
+                                });
+                if (kept.isPresent()) {
+                    holds++;
+                }
+                if (kept.isPresent() && !kept.get()) {
+                    dropped++;
+                }
+            }
+        } finally {
+            stop.set(true);
+            probing.join();
+        }
+        assertThat(holds).as("the lock was taken beside the probes").isPositive();
+        assertThat(dropped).as("holds whose lock the kernel no longer had").isZero();
+    }
+
+    /** Says whether the kernel lists a lock of this process on the file. */
+    private static boolean heldHere(final Path lock) throws IOException {
+        final long inode = (long) Files.getAttribute(lock, "unix:ino");
+        final String pid = Long.toString(ProcessHandle.current().pid());
+        for (final String line : Files.readAllLines(Path.of("/proc/locks"))) {
+            final String[] fields = line.trim().split("\\s+");
+            if (fields.length > 5 && fields[4].equals(pid) && fields[5].endsWith(":" + inode)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    @Test
     void waitingProcessesRetryAnUnlinkedLockBeforeEntering(@TempDir Path dir) throws Exception {
         final Path lock = dir.resolve("clone.lock");
         final Path events = Files.createFile(dir.resolve("events"));

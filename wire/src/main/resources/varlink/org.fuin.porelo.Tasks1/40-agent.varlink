@@ -258,3 +258,67 @@ type EcosystemFile (path: string, ownerOnly: bool)
 
 # The installed adapters could not be listed: detail names the directory.
 error EcosystemsNotListed(detail: string)
+
+# One installed agent's sign-in on this machine.
+type AgentSignIn (
+  # The agent, as Agents names it.
+  agent: string,
+  # Whether the vault holds the credential its sign-in makes, as a start reads it: SIGNED_IN,
+  # NOT_SIGNED_IN, VAULT_LOCKED (shut: unknown until it is opened, never missing) or CANNOT_SAY (its
+  # default provider cannot be used, so which credential a start needs is the start's choice).
+  state: string,
+  # The container of its sign-in that runs now, from a window or a terminal; "" while one is being
+  # prepared and has no container yet. Absent when none runs.
+  running: ?string
+)
+
+# Each installed agent's sign-in state, read from the vault once. A batch start asks this once and
+# signs in each agent that is NOT_SIGNED_IN, one after another, before it starts its tasks.
+method AgentSignIns() -> (signIns: []AgentSignIn)
+
+# Starts an agent's own login on this machine, at most one per agent: one already running - started
+# here or by 'porelo vault login' in a terminal - is answered instead, with started false.
+#
+# The login is no task. It runs detached, the agent's login as the container's first process and no
+# shell around it, on the machine's own network and with the credential being made inside it, so
+# List, Watch and Screen never see it. A window attaches to it with 'attach', run ON THAT MACHINE in a
+# terminal; closing that terminal ends only the watching, never the sign-in, which ends with the login or
+# at its 30-minute limit. The container is removed when the login ends. What the login makes is stored with
+# what opened the vault when it started, under the provider the agent's sign-in names.
+#
+# Returns once the container runs, which the first time includes building the login image; a second
+# call while one is being prepared returns once that one runs. A login nobody finishes within 30
+# minutes is stopped and removed.
+method AgentSignInStart(
+  # The agent, as Agents names it.
+  agent: string,
+  # Signs in although this machine's own agent directory holds a sign-in. Without it that is
+  # SignInRefused with ALREADY_SIGNED_IN, so the window offers ImportCredential first.
+  force: ?bool,
+  # Whether the person reaches this machine from another one. A LOOPBACK sign-in is then refused
+  # with LOOPBACK_OVER_SSH: its redirect to this machine cannot reach their browser.
+  remote: ?bool
+) -> (
+  # The login container, to attach to.
+  container: string,
+  # Whether this call started it.
+  started: bool,
+  # What to run on that machine to attach to the login.
+  attach: []string
+)
+
+# Waits until an agent's sign-in ends, at most 30 minutes, and answers whether the vault holds its
+# credential then - read from the vault, never from how the login exited. At once when none runs:
+# after one that ended here, with its result; otherwise with what the vault holds.
+method AgentSignInWait(agent: string) -> (
+  # Whether the vault holds the agent's credential now.
+  stored: bool,
+  # Why not: the sign-in's outcome (NOTHING_TO_COLLECT, FAILED, NO_PROVIDER, ...), VAULT_LOCKED,
+  # NOT_SIGNED_IN, CANNOT_SAY, NONE_RUNNING or TIMED_OUT; "" when stored.
+  reason: string
+)
+
+# A sign-in could not start. reason is NO_SUCH_AGENT, UNSUPPORTED (the agent declares no login),
+# LOOPBACK_OVER_SSH, NO_CONFIG_DIRECTORY, ALREADY_SIGNED_IN, VAULT_LOCKED (nothing could store what it
+# makes), or FAILED (the image or the container could not be made); detail says it in words.
+error SignInRefused(agent: string, reason: string, detail: string)
