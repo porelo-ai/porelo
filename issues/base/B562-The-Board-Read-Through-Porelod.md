@@ -41,10 +41,44 @@ Read in `daemon` (`PoreloDaemon.register`, `ProjectMethods`, `EcosystemsCommand`
   adapter's own, `NoSuchStory`, `NoSuchIssue`.
 - `daemon`: new `PlanningMethods.register`, called from `PoreloDaemon.register`, so a task's MCP socket may name
   them as any other method. A store's change is the adapter's and comes back in its revision.
+- `PlanIssue` adds the local work fields below to adapter reads, from the same PlanningWork snapshot as
+  GetStoryWork. Define their wire shape here; [B565](README.md#b565) supplies Start's saved choices and
+  [B567](README.md#b567) supplies round results and interventions. Reads never infer an end from adapter state.
 - Red first: `StoryStatesTest` - issues in Implementing and Review read Implementing; Finished and Rejected read
   Finished; all Rejected read Rejected; no issues reads the story's own. `GitHubAppTokenTest` against a local HTTP
   stand-in: the JWT it posts verifies with the key's public half and names the app id. Then `PoreloDaemonTest` holds the new part
-  against the registered methods.
+  against the registered methods. `PlanningReadsTest` first fails on missing PlanIssue work fields: the fake
+  local record's rounds/limit, stopped flags and optional finding location must match on all issue views.
+
+## The window's wire
+
+All fields and methods below belong to Tasks1's `60-planning`, not Planning1. They describe the newest bounded
+reading design; state names come from the checked workflow/configuration.
+
+1. `StartStoryWork.comment: ?string`, `readingRounds: ?int`,
+   `issueReadingRounds: ?[](issue: string, rounds: int)` carry the operator's text and maximum readings: issue
+   override > story limit > `planning.reading.rounds` (default 2). ProposeStoryWork returns the prefilled limits
+   and comment; [B565](README.md#b565) persists and delivers them.
+2. `PlanIssue.rounds: int`, `roundsMost: int`, `atWork: bool`, `needsYou: bool`, `readingStopped: bool` are
+   present on ListStoryIssues/GetIssue and every nested PlanIssue in ListStories/GetStory/WatchStories.
+   `rounds` is consumed readings (0 before any); `roundsMost` is the effective per-issue maximum, or the project
+   default without a cycle. Exhausted blocking Reading answers its unchanged state, `readingStopped: true`,
+   `atWork: false`, `needsYou: true`; PlanWork's reason is `ROUND_LIMIT`. Other stops do not set readingStopped.
+3. `PlanIssue.findings: []PlanFinding`; `PlanFinding(number: int, severity: (BLOCKING, NOTE), text: string,
+   file: ?string, line: ?int)`. `blocking|note` in the reader's answer map to BLOCKING/NOTE. WorkEnds parses the
+   `Findings:` block of AgentEnded.answer, using the exact format in [B567](README.md#b567), and PlanningWork's
+   per-issue reading history keeps raw answer plus parsed findings durably; the wire list is the latest reading,
+   empty before one. GetStoryWork and WatchStories use the same results, including notes carried into Review.
+4. New `ResolveIssueReading(project: string, story: string, issue: string, round: int,
+   choice: (REVIEW_ANYWAY, ONE_MORE_ROUND, REWORK), comment: string, revision: string)`
+   `-> (issue: PlanIssue, work: PlanWork, revision: string)` carries all three choices for ROUND_LIMIT.
+   REVIEW_ANYWAY enters the configured waiting done state (Review), starts nobody and preserves rounds/roundsMost
+   and findings. ONE_MORE_ROUND raises roundsMost to `max(roundsMost, rounds + 1)` and starts a fresh reading of
+   the recorded commit, incrementing rounds once. REWORK requires nonblank operator text, grants the same next
+   reading allowance and resumes the same main task into configured blocked (Reworking) with that text/findings;
+   rounds stays unchanged until its successful chained Reading increments it. No choice resets the cycle.
+   `round` must match the displayed PlanIssue.rounds, preventing a delayed retry from granting another round.
+   [B567](README.md#b567) owns checks/recovery; ordinary MoveIssues and StartStoryWork gain no implicit retry.
 
 ## Acceptance
 
@@ -52,6 +86,9 @@ Read in `daemon` (`PoreloDaemon.register`, `ProjectMethods`, `EcosystemsCommand`
   `planning` answers `PlanningNotSet`, one whose adapter has no workflow `WorkflowMissing`; a `github-app` credential
   reaches the adapter as a minted token, never the private key; a `planning.work` naming a state the workflow lacks is a fault in
   `GetPlanningWorkflow`, not a refusal of the reads.
+- Contract/read tests hold every field in the window's wire, including optional finding locations, a stopped
+  Reading and a no-cycle issue. List/detail/nested reads and WatchStories agree with GetStoryWork after restart;
+  reads on a machine without the work record report local defaults, never another machine's inferred work.
 
 ## Questions from the window
 
