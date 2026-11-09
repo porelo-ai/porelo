@@ -532,7 +532,12 @@ public final class FollowCredential implements AutoCloseable {
      */
     List<String> arguments() {
         final String configured = environment.get("PORELO_GIT_CREDENTIAL_CONFIG");
-        return configured == null ? List.of() : List.of("-c", configured);
+        final List<String> arguments = new java.util.ArrayList<>();
+        if ("0".equals(environment.get("GIT_TERMINAL_PROMPT"))) {
+            arguments.addAll(List.of("-c", "credential.helper="));
+        }
+        if (configured != null) arguments.addAll(List.of("-c", configured));
+        return List.copyOf(arguments);
     }
 
     /**
@@ -635,9 +640,13 @@ public final class FollowCredential implements AutoCloseable {
      * @return The destination's SSH or TLS policy.
      */
     static Map<String, String> policyFor(final PoreloContext context, final String url) {
-        return GitCredentialNames.kindOf(url) == GitCredentialNames.Kind.KEY
-                ? Map.of("GIT_SSH_COMMAND", sshCommand(context, null))
-                : new GitCertificates(context.paths().xdg()).environment(url);
+        final Map<String, String> environment =
+                new java.util.LinkedHashMap<>(
+                        GitCredentialNames.kindOf(url) == GitCredentialNames.Kind.KEY
+                                ? Map.of("GIT_SSH_COMMAND", sshCommand(context, null))
+                                : new GitCertificates(context.paths().xdg()).environment(url));
+        if (!context.input().canPrompt()) environment.putAll(UnattendedGit.environment());
+        return Map.copyOf(environment);
     }
 
     /**

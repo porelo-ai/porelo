@@ -109,7 +109,7 @@ public class GateApproveCommand implements Callable<Integer>, PoreloFactory.Cont
         final PrintWriter out = spec.commandLine().getOut();
         final PrintWriter err = spec.commandLine().getErr();
         final Offer offer =
-                noInput || asker == Offer.Asker.NOBODY
+                noInput || !context.input().terminal() || asker == Offer.Asker.NOBODY
                         ? Offer.NOBODY
                         : new Offer(asker, false, false, err);
         // Each branch taken is offered the next free one once, so a run of taken names ends rather

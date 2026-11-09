@@ -21,6 +21,46 @@ import org.junit.jupiter.api.io.TempDir;
 class UpstreamProbeTest {
 
     @Test
+    @org.junit.jupiter.api.Timeout(5)
+    void aHostForgeProbeDisablesPromptsWithoutDroppingItsLentHeader(@TempDir Path dir)
+            throws Exception {
+        final var commands = new java.util.ArrayList<org.fuin.porelo.core.process.Command>();
+        final var machine =
+                new PoreloContext(
+                        command -> {
+                            commands.add(command);
+                            return new org.fuin.porelo.core.process.CommandResult(
+                                    command,
+                                    0,
+                                    command.program().equals("sudo") ? "lent-token" : "",
+                                    "");
+                        },
+                        context(dir).paths(),
+                        arguments -> 0);
+        final Path conf = dir.resolve("forge.conf");
+        Files.writeString(conf, "web_port=3000\ngit_port=3001\n");
+        final var lending =
+                new HostForgeLending(machine, org.fuin.porelo.gate.GitCredentials.NONE, conf);
+        assertThat(UpstreamProbe.probe(machine, lending, "http://127.0.0.1:3001/acme/repo.git"))
+                .as("the bounded probe still gets its successful answer")
+                .isNull();
+        assertThat(commands)
+                .filteredOn(command -> command.arguments().contains("ls-remote"))
+                .singleElement()
+                .satisfies(
+                        command -> {
+                            assertThat(command.environment())
+                                    .containsEntry("GIT_ASKPASS", "/bin/false")
+                                    .containsEntry("GIT_TERMINAL_PROMPT", "0")
+                                    .containsEntry("GIT_CONFIG_COUNT", "2");
+                            assertThat(command.arguments())
+                                    .containsSequence("-c", "credential.helper=");
+                            assertThat(command.environment().get("GIT_CONFIG_VALUE_0"))
+                                    .startsWith("Authorization: Basic ");
+                        });
+    }
+
+    @Test
     void aTaskDoesNotOfferToCopyADeclaredExternalKeyIntoTheVault(@TempDir final Path dir)
             throws Exception {
         final PoreloContext context = context(dir);

@@ -568,6 +568,7 @@ class BuildStatusCommandTest {
     }
 
     @Test
+    @org.junit.jupiter.api.Timeout(5)
     void aLockedVaultNamesUnlockAndDoesNotStartAnAdapter() {
         // A script must not continue as if it queried a forge when its credential was unreadable.
         context = context.asking(VaultPrompt.NOBODY);
@@ -576,11 +577,12 @@ class BuildStatusCommandTest {
                 .isEqualTo(77);
         assertThat(err.toString())
                 .as("the action this vault supports")
-                .contains("porelo vault unlock");
+                .contains("porelo vault unlock --passphrase-command");
         assertThat(starts).as("no adapter started").isZero();
     }
 
     @Test
+    @org.junit.jupiter.api.Timeout(5)
     void aMissingCredentialNamesPutInsteadOfUnlock() {
         // Unlocking a readable vault will not add its missing credential.
         context.vault().write(Map.of(), "test passphrase".toCharArray());
@@ -594,6 +596,7 @@ class BuildStatusCommandTest {
     }
 
     @Test
+    @org.junit.jupiter.api.Timeout(5)
     void anAbsentVaultNamesInitializationBeforeStoringTheEntry() throws Exception {
         // Unlocking or putting an entry cannot work until a missing vault is initialized.
         Files.delete(context.vault().path());

@@ -77,7 +77,11 @@ class FollowCredentialHelperTest {
             arguments = lent.arguments();
         }
 
-        assertThat(arguments).hasSize(2);
+        assertThat(arguments)
+                .as("the inherited helper is reset before the sole scoped helper is installed")
+                .hasSize(4)
+                .startsWith("-c", "credential.helper=", "-c");
+        assertThat(arguments.get(3)).startsWith("credential.https://forge.example.org.helper=");
         final List<String> command = new ArrayList<>(List.of("git"));
         command.addAll(arguments);
         command.addAll(List.of("credential", "fill"));
@@ -343,7 +347,9 @@ class FollowCredentialHelperTest {
         try (FollowCredential lent =
                 FollowCredential.open(
                         context, "http://forge.example.org:8080/team/repo.git", "test")) {
-            assertThat(lent.arguments()).as("no helper is named for an http address").isEmpty();
+            assertThat(lent.arguments())
+                    .as("only inherited helpers are cleared for an http address")
+                    .containsExactly("-c", "credential.helper=");
             assertThat(lent.lent()).as("nothing was lent").isFalse();
         }
     }

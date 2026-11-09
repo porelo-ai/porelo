@@ -21,7 +21,7 @@ public final class AgentPublicKeys {
         if (result.exitCode() == 1) return List.of();
         if (!result.successful())
             throw new CredentialException(
-                    "Cannot list the SSH agent's keys; open KeePassXC, unlock it, and refresh.");
+                    "Cannot list the SSH agent's keys; set SSH_AUTH_SOCK to a running agent that serves your key.");
         return result.standardOutput()
                 .lines()
                 .map(
@@ -80,6 +80,6 @@ public final class AgentPublicKeys {
                 .orElseThrow(
                         () ->
                                 new CredentialException(
-                                        "The SSH agent has no key with that fingerprint; open KeePassXC, unlock it, and refresh."));
+                                        "The SSH agent has no key with that fingerprint; load the key into your agent and set SSH_AUTH_SOCK to its socket."));
     }
 }

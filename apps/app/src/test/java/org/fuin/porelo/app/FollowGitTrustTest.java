@@ -298,7 +298,9 @@ class FollowGitTrustTest {
             assertThat(lease.environment())
                     .as("the vault implementation also works when it lends nothing")
                     .containsKey("GIT_SSL_CAINFO");
-            assertThat(lease.arguments()).as("a public remote needs no helper").isEmpty();
+            assertThat(lease.arguments())
+                    .as("a public remote clears inherited helpers")
+                    .containsExactly("-c", "credential.helper=");
         }
     }
 

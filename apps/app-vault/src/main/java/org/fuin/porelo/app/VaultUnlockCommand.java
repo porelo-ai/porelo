@@ -1,11 +1,13 @@
 package org.fuin.porelo.app;
 
 import java.io.PrintWriter;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.Callable;
-import org.fuin.porelo.core.process.ProcessCommandRunner;
 import org.fuin.porelo.vault.CommandPassphrase;
 import org.fuin.porelo.vault.ConsolePassphrase;
 import org.fuin.porelo.vault.KernelKeyring;
+import org.fuin.porelo.vault.PassphraseSource;
 import org.fuin.porelo.vault.PassphraseTiers;
 import org.fuin.porelo.vault.StdinPassphrase;
 import org.fuin.porelo.vault.SystemdCredential;
@@ -146,7 +148,7 @@ public class VaultUnlockCommand implements Callable<Integer>, PoreloFactory.Cont
                                         () ->
                                                 context.exec()
                                                                 .applyAsInt(
-                                                                        java.util.List.of(
+                                                                        List.of(
                                                                                 PoreloBinary.path(),
                                                                                 "vault",
                                                                                 "init"))
@@ -202,32 +204,50 @@ public class VaultUnlockCommand implements Callable<Integer>, PoreloFactory.Cont
             err.flush();
             return 69;
         }
+        final var runner = context.runner();
+        final List<PassphraseSource> sources =
+                new ArrayList<>(
+                        List.of(
+                                new SystemdCredential(runner, systemdCredential),
+                                new CommandPassphrase(runner, passphraseCommand)));
+        if (context.input().canPrompt()
+                && System.console() != null
+                && System.console().isTerminal()) {
+            sources.add(new ConsolePassphrase("Vault passphrase: "));
+        }
+        final PassphraseTiers tiers = new PassphraseTiers(sources);
 
-        final KernelKeyring keyring = new KernelKeyring(context.paths().vault().vaultKeyringKey());
-
-        final var runner = new ProcessCommandRunner();
-        final PassphraseTiers tiers =
-                new PassphraseTiers(
-                        // Strongest first: a TPM-sealed credential beats a password manager, which
-                        // beats typing. The keyring itself is not in this list - it is what is
-                        // being filled.
-                        new SystemdCredential(runner, systemdCredential),
-                        new CommandPassphrase(runner, passphraseCommand),
-                        new ConsolePassphrase("Vault passphrase: "));
-
+        final java.util.Optional<char[]> supplied;
         try {
             // Standard input is the only source when given: its caller has no terminal to fall
             // back to, and a prompt it cannot answer would hang it.
-            final char[] passphrase =
+            supplied =
                     passphraseStdin
-                            ? new StdinPassphrase(context.input().stream())
-                                    .passphrase()
-                                    .orElseThrow(
-                                            () ->
-                                                    new VaultException(
-                                                            "standard input gave no passphrase"
-                                                                    + " - nothing was cached"))
-                            : tiers.require();
+                            ? new StdinPassphrase(context.input().stream()).passphrase()
+                            : tiers.passphrase();
+        } catch (VaultException ex) {
+            err.println("porelo: " + ex.getMessage());
+            err.flush();
+            return 70;
+        }
+        if (supplied.isEmpty()) {
+            if (context.input().terminal()) {
+                err.println(
+                        "porelo: No passphrase available, tried: "
+                                + String.join(", ", tiers.names())
+                                + "; pipe a passphrase on standard input with --passphrase-stdin, or use --passphrase-command");
+                err.flush();
+                return 70;
+            }
+            err.println(
+                    passphraseStdin
+                            ? "porelo: standard input gave no passphrase; supply one line with --passphrase-stdin - nothing was cached"
+                            : "porelo: no passphrase is available and there is no terminal to ask; use --passphrase-command or --passphrase-stdin - nothing was cached");
+            err.flush();
+            return 70;
+        }
+        final char[] passphrase = supplied.get();
+        try {
             // Caching an unverified passphrase moves the failure to the next command, where it
             // reads as a possibly corrupt vault.
             final var vault = context.vault();
@@ -235,7 +255,7 @@ public class VaultUnlockCommand implements Callable<Integer>, PoreloFactory.Cont
                 err.println(
                         "porelo: that passphrase does not open "
                                 + vault.path()
-                                + " - nothing was cached");
+                                + " - nothing was cached; check --passphrase-command or --passphrase-stdin");
                 err.flush();
                 return 70;
             }
@@ -247,7 +267,7 @@ public class VaultUnlockCommand implements Callable<Integer>, PoreloFactory.Cont
                 err.flush();
                 return 2;
             }
-            keyring.store(passphrase, bound);
+            new KernelKeyring(context.paths().vault().vaultKeyringKey()).store(passphrase, bound);
             out.println(
                     bound == null
                             ? "cached in this account's kernel keyring - the daemon and later sessions"
@@ -259,6 +279,8 @@ public class VaultUnlockCommand implements Callable<Integer>, PoreloFactory.Cont
             err.println("porelo: " + ex.getMessage());
             err.flush();
             return 70;
+        } finally {
+            java.util.Arrays.fill(passphrase, '\0');
         }
     }
 

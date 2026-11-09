@@ -556,7 +556,20 @@ public class VaultPutCommand implements Callable<Integer>, PoreloFactory.Context
 
         String value;
         if (fromFile == null) {
-            value = valueFrom(name, System.console(), System.in, type);
+            final java.io.Console console = System.console();
+            if (context.input().terminal() && (console == null || !console.isTerminal())) {
+                err.println(
+                        "porelo: no console can hide the value; pipe the value on standard input to porelo vault put "
+                                + name);
+                err.flush();
+                return 2;
+            }
+            value =
+                    valueFrom(
+                            name,
+                            context.input().terminal() ? console : null,
+                            context.input().stream(),
+                            type);
         } else {
             // The machine reads its own disk. This is what lets an interface offer "use the key
             // that is already here" without the value crossing a socket or a person retyping it.
@@ -628,6 +641,26 @@ public class VaultPutCommand implements Callable<Integer>, PoreloFactory.Context
         }
 
         final boolean written;
+        if (!context.input().terminal() && context.opener().isEmpty()) {
+            if (!context.vault().exists()) {
+                err.println(
+                        "porelo: there is no vault; create it with porelo vault init --passphrase-command first");
+                err.flush();
+                return 70;
+            }
+            try {
+                context.requirePassphraseSlot();
+            } catch (VaultException ex) {
+                err.println("porelo: " + ex.getMessage());
+                err.flush();
+                return 70;
+            }
+            err.println(
+                    "porelo: the vault is shut and there is no terminal to ask its passphrase; "
+                            + "run porelo vault unlock --passphrase-command first (or --passphrase-stdin)");
+            err.flush();
+            return 70;
+        }
         try {
             written =
                     context.vault()

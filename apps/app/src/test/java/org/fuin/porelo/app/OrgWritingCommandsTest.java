@@ -56,6 +56,7 @@ class OrgWritingCommandsTest {
     private @Nullable IOException failing;
 
     private boolean again;
+    private boolean terminal;
 
     private OrgWriting.Ground standing = (machine, opener) -> null;
 
@@ -97,10 +98,11 @@ class OrgWritingCommandsTest {
                                 },
                         dir);
         return new PoreloContext(
-                new ProcessCommandRunner(),
-                new PoreloPaths(xdg, dir.resolve("bin")),
-                arguments -> 0,
-                environment::get);
+                        new ProcessCommandRunner(),
+                        new PoreloPaths(xdg, dir.resolve("bin")),
+                        arguments -> 0,
+                        environment::get)
+                .reading(new StandardInput(java.io.InputStream.nullInputStream(), terminal));
     }
 
     private CommandLine line() {
@@ -358,6 +360,7 @@ class OrgWritingCommandsTest {
     }
 
     @Test
+    @org.junit.jupiter.api.Timeout(5)
     void aChangeThatCouldNotBeJudgedWithTheVaultShutNamesTheVault() throws Exception {
         // A person told to check a token that sits in a shut vault cannot act; opening it is the
         // way on.
@@ -377,7 +380,7 @@ class OrgWritingCommandsTest {
         assertThat(answer().get("reason")).as("the shut vault is named").isEqualTo("vault-shut");
         assertThat(out.toString())
                 .as("the way on is to open the vault")
-                .contains("porelo vault unlock");
+                .contains("porelo vault unlock --passphrase-command");
     }
 
     @Test
@@ -678,6 +681,49 @@ class OrgWritingCommandsTest {
         }
 
         assertThat(out.toString()).contains("no-key");
+    }
+
+    @ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource({
+        "settled,65,false", "card,65,false", "id,64,false", "agent,69,false", "token,69,false",
+                "retry,0,false",
+        "settled,65,true", "card,65,true", "id,64,true", "agent,69,true", "token,69,true",
+                "retry,0,true"
+    })
+    void aShutVaultDoesNotChangeAnEarlierFoundingAnswer(
+            String state, int expected, boolean atTerminal) throws Exception {
+        terminal = atTerminal;
+        context().vault().write(Map.of(), "test passphrase".toCharArray());
+        if (state.equals("settled")) {
+            organization();
+            assertThat(run("org", "create", "git@github.com:other/organization.git", "--json"))
+                    .isEqualTo(expected);
+            return;
+        }
+        if (!state.equals("card")) ownCard();
+        if (state.equals("id")) {
+            assertThat(run("org", "create", ADDRESS, "--id", "bad id", "--json"))
+                    .isEqualTo(expected);
+        } else if (state.equals("agent")) {
+            // Real card validation, followed by an absent agent, precedes any forge token lookup.
+            final Path card = context().paths().xdg().config().resolve("identity/card");
+            Files.writeString(
+                    card,
+                    PersonCard.write(
+                            "mia",
+                            "Mia",
+                            "",
+                            KEY,
+                            java.time.LocalDate.of(2026, 1, 1),
+                            java.time.LocalDate.of(2030, 1, 1),
+                            null));
+            assertThat(runReal("org", "create", ADDRESS, "--json")).isEqualTo(expected);
+        } else {
+            if (state.equals("token"))
+                refusing = new Refused(Refused.CANNOT_SAY, "could not judge", null);
+            again = state.equals("retry");
+            assertThat(run("org", "create", ADDRESS, "--id", "one", "--json")).isEqualTo(expected);
+        }
     }
 
     private static final String ADDRESS = "git@github.com:acme/organization.git";

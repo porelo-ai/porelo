@@ -171,7 +171,7 @@ public final class UpstreamProbe {
             command.addAll(lease.arguments());
             command.addAll(List.of("ls-remote", "--heads", "--end-of-options", url));
             asked =
-                    context.runner()
+                    UnattendedGit.runner(context)
                             .run(Command.of(command).withEnvironment(bounded(lease.environment())));
         } catch (final RuntimeException ex) {
             return new Answer(

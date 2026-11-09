@@ -134,7 +134,8 @@ class RealAccountRefusedTest {
                                 new FakeCommandRunner(),
                                 new PoreloPaths(XdgPaths.of(name -> null, dir), dir.resolve("bin")),
                                 arguments -> 0)
-                        .asking(prompt -> passphrase.clone());
+                        .asking(prompt -> passphrase.clone())
+                        .reading(new StandardInput(java.io.InputStream.nullInputStream(), true));
         context.vault().write(Map.of(), passphrase);
         final VaultPutCommand command = new VaultPutCommand();
         command.setContext(context);

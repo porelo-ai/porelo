@@ -8,7 +8,6 @@ import java.io.StringWriter;
 import java.nio.file.Path;
 import java.util.Map;
 import org.fuin.porelo.core.config.XdgPaths;
-import org.fuin.porelo.testing.FakeCommandRunner;
 import org.fuin.porelo.vault.KernelKeyring;
 import org.fuin.porelo.vault.VaultEntry;
 import org.junit.jupiter.api.Test;
@@ -35,7 +34,13 @@ class VaultPassphraseCommandTest {
                                 },
                         dir);
         return new PoreloContext(
-                new FakeCommandRunner(), new PoreloPaths(xdg, dir.resolve("bin")), arguments -> 0);
+                command ->
+                        command.program().equals("sh")
+                                ? new org.fuin.porelo.core.process.ProcessCommandRunner()
+                                        .run(command)
+                                : new org.fuin.porelo.testing.FakeCommandRunner().run(command),
+                new PoreloPaths(xdg, dir.resolve("bin")),
+                arguments -> 0);
     }
 
     private int execute(PoreloContext context, String... args) {

@@ -41,7 +41,14 @@ class VaultLockCommandTest {
                                     default -> null;
                                 },
                         dir);
-        return new PoreloContext(runner, new PoreloPaths(xdg, dir.resolve("bin")), arguments -> 0);
+        return new PoreloContext(
+                command ->
+                        command.program().equals("sh")
+                                ? new org.fuin.porelo.core.process.ProcessCommandRunner()
+                                        .run(command)
+                                : runner.run(command),
+                new PoreloPaths(xdg, dir.resolve("bin")),
+                arguments -> 0);
     }
 
     private int execute(PoreloContext context, String... args) {

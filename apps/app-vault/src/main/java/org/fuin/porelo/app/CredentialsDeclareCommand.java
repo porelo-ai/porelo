@@ -139,15 +139,21 @@ public class CredentialsDeclareCommand implements Callable<Integer>, PoreloFacto
                                         : Credential.Source.VAULT;
         // Blank rather than refused: a vault record with no name means "you name it", the same as
         // over the socket, and it is named from the destination below.
-        final String id =
-                agent
-                        ? agentKey == null ? "" : AgentPublicKeys.select(context, agentKey)
-                        : file != null
-                                ? file
-                                : variable != null
-                                        ? variable
-                                        : vaultEntry == null ? "" : vaultEntry;
-
+        final String id;
+        try {
+            id =
+                    agent
+                            ? agentKey == null ? "" : AgentPublicKeys.select(context, agentKey)
+                            : file != null
+                                    ? file
+                                    : variable != null
+                                            ? variable
+                                            : vaultEntry == null ? "" : vaultEntry;
+        } catch (final org.fuin.porelo.core.credential.CredentialException ex) {
+            err.println("porelo: " + ex.getMessage());
+            err.flush();
+            return 70;
+        }
         final Credential credential;
         try {
             credential =

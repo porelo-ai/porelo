@@ -351,7 +351,7 @@ record KeePassXcKey(
                 "no-terminal",
                 "keepassxc-cli asks for the database's master password on a terminal, and "
                         + why
-                        + "; run this in a terminal, with neither redirected");
+                        + "; use --key with a key your SSH agent serves, or run this in a terminal, with neither redirected");
     }
 
     private static Path keptDirectory(final PoreloContext context) {

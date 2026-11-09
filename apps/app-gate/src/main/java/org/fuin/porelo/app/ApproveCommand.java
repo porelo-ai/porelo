@@ -52,7 +52,8 @@ public class ApproveCommand implements Callable<Integer>, PoreloFactory.ContextA
     public Integer call() {
         final PrintWriter out = spec.commandLine().getOut();
         final BufferedReader in =
-                new BufferedReader(new InputStreamReader(System.in, StandardCharsets.UTF_8));
+                new BufferedReader(
+                        new InputStreamReader(context.input().stream(), StandardCharsets.UTF_8));
         return new CheckoutApproval(context, out, spec.commandLine().getErr())
                 .run(
                         Path.of("."),

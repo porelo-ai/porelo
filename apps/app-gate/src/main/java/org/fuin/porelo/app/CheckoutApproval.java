@@ -122,6 +122,13 @@ final class CheckoutApproval {
         if (refused != null) {
             return refuse(NOT_MOVED, refused);
         }
+        if (!yes && !context.input().canPrompt()) {
+            return refuse(
+                    NOT_MOVED,
+                    "there is no terminal to confirm; use porelo approve "
+                            + chosen.name()
+                            + " --yes to bring this work back");
+        }
         if (!yes) {
             final String answer = asker.ask("Bring this into " + top + " as " + branch + "? [y/N]");
             if (answer == null
@@ -283,13 +290,13 @@ final class CheckoutApproval {
         final List<String> names = waiting.stream().map(PendingPush::name).toList();
         String wanted = task;
         if (wanted == null && waiting.size() > 1) {
-            if (yes) {
+            if (yes || !context.input().canPrompt()) {
                 chosenRefusal =
                         refuse(
                                 AMBIGUOUS,
                                 "work of several tasks waits at the gate: "
                                         + String.join(", ", names)
-                                        + "; name the one to bring back");
+                                        + "; name the one to bring back with porelo approve <task> --yes");
                 return null;
             }
             wanted =

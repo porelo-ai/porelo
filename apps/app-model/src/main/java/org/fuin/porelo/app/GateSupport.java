@@ -1,7 +1,6 @@
 package org.fuin.porelo.app;
 
 import java.nio.file.Path;
-import org.fuin.porelo.core.process.ProcessCommandRunner;
 import org.fuin.porelo.core.project.Project;
 import org.fuin.porelo.core.project.ProjectReader;
 import org.fuin.porelo.core.project.Repository;
@@ -221,7 +220,7 @@ public final class GateSupport {
         // needed.
         final GitGate gate =
                 new GitGate(
-                                new ProcessCommandRunner(),
+                                UnattendedGit.runner(context),
                                 mirror(context, project, repository),
                                 GateMode.of(project.securityClass()),
                                 forwardTo,

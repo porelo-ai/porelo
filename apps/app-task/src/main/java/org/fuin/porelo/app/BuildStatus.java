@@ -190,7 +190,7 @@ public record BuildStatus(
             throw new Refused(
                     Reason.CREDENTIAL_UNAVAILABLE,
                     ex.reason() == BuildWatch.NotNow.Reason.VAULT_SHUT
-                            ? "the vault is shut; run 'porelo vault unlock', then retry this build query."
+                            ? "the vault is shut; run 'porelo vault unlock --passphrase-command', then retry this build query."
                             : context.vault().exists()
                                     ? String.valueOf(ex.getMessage())
                                     : "there is no vault; run 'porelo vault init', then store the credential with 'porelo vault put "

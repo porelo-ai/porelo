@@ -1,0 +1,2 @@
+title: "Move commands accept piped secrets and refuse missing unattended prerequisites without prompting"
+type: changed

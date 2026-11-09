@@ -666,11 +666,16 @@ class TaskRunCommandTest {
         final var git = new org.fuin.porelo.core.process.ProcessCommandRunner();
         return new PoreloContext(
                 command ->
-                        command.arguments().getFirst().equals("git")
-                                        && command.arguments().size() > 2
-                                        && command.arguments().get(1).equals("-C")
-                                        && Path.of(command.arguments().get(2))
-                                                .startsWith(paths.xdg().data().resolve("mirrors"))
+                        command.program().equals("git")
+                                        && command.arguments().stream()
+                                                .anyMatch(
+                                                        argument ->
+                                                                argument.startsWith(
+                                                                        paths.xdg()
+                                                                                        .data()
+                                                                                        .resolve(
+                                                                                                "mirrors")
+                                                                                + "/"))
                                 ? git.run(
                                         command.withEnvironment(
                                                 java.util.Map.of(

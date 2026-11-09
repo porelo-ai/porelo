@@ -57,11 +57,10 @@ public class OrgCreateCommand extends OrgReading {
                 true,
                 false,
                 new java.io.PrintWriter(System.err, true, java.nio.charset.StandardCharsets.UTF_8));
+        if (check && id != null) {
+            throw new Refused(Refused.USAGE, "--check changes nothing, so it has no --id", null);
+        }
         if (check) {
-            if (id != null) {
-                throw new Refused(
-                        Refused.USAGE, "--check changes nothing, so it has no --id", null);
-            }
             return OrgCreateCheck.answer(machine, settable, replace, asker.ask(machine, settable));
         }
         // The same address goes on: the store says whether this is the same change asked again.

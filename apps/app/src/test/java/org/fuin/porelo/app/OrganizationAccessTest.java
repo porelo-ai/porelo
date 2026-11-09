@@ -88,7 +88,11 @@ class OrganizationAccessTest {
             try (var lease = OrganizationAccess.lent(context, null).lend(address)) {
                 assertThat(lease.environment())
                         .as("no bookkeeping of ours goes to git")
-                        .containsOnlyKeys("FORGE_TOKEN");
+                        .containsOnlyKeys(
+                                "FORGE_TOKEN",
+                                "GIT_TERMINAL_PROMPT",
+                                "GIT_ASKPASS",
+                                "SSH_ASKPASS_REQUIRE");
                 final java.util.List<String> command =
                         new java.util.ArrayList<>(java.util.List.of("git"));
                 command.addAll(lease.arguments());

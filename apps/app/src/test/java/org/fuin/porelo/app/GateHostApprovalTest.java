@@ -91,6 +91,10 @@ class GateHostApprovalTest {
         context =
                 new PoreloContext(
                                 command -> {
+                                    // The approval runs git for real, without a terminal.
+                                    if (command.program().equals("git")) {
+                                        return runner.run(command);
+                                    }
                                     assertThat(command.arguments())
                                             .as("approval anchors its event in the journal")
                                             .containsExactly("logger", "--journald");

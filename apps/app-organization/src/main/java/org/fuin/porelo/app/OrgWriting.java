@@ -138,7 +138,7 @@ public abstract class OrgWriting extends OrgReading {
         return new Refused(
                 Refused.VAULT_SHUT,
                 "this computer's Porelo-Vault is shut, so your forge token could not be lent to"
-                        + " read the organization: open it with 'porelo vault unlock' and ask"
+                        + " read the organization: open it with 'porelo vault unlock --passphrase-command' and ask"
                         + " again",
                 refused.revision());
     }

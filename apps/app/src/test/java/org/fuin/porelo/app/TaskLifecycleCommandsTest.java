@@ -1088,10 +1088,19 @@ class TaskLifecycleCommandsTest {
 
         // What the checkout gained while the task was down reached it only when another task
         // started.
-        final PoreloContext context = context(dir);
+        final PoreloContext machine = context(dir);
         final Path checkout = Files.createDirectories(dir.resolve("app"));
         final org.fuin.porelo.core.process.ProcessCommandRunner git =
                 new org.fuin.porelo.core.process.ProcessCommandRunner();
+        // The gate runs Git through the context; only the container runtime is fake here.
+        final PoreloContext context =
+                new PoreloContext(
+                        command ->
+                                command.program().equals("git")
+                                        ? git.run(command)
+                                        : machine.runner().run(command),
+                        machine.paths(),
+                        machine.exec());
         final java.util.function.Consumer<String[]> inCheckout =
                 arguments -> {
                     final java.util.List<String> all =

@@ -61,7 +61,8 @@ class CheckoutApprovalTest {
                                 },
                         dir);
         context =
-                new PoreloContext(runner, new PoreloPaths(xdg, dir.resolve("bin")), arguments -> 0);
+                new PoreloContext(runner, new PoreloPaths(xdg, dir.resolve("bin")), arguments -> 0)
+                        .reading(new StandardInput(java.io.InputStream.nullInputStream(), true));
         origin = dir.resolve("origin.git");
         git(dir, "init", "-q", "--bare", "-b", "main", origin.toString());
         checkout = dir.resolve("app");
@@ -282,6 +283,79 @@ class CheckoutApprovalTest {
                 .contains(task)
                 .contains("2 commits and 1 changed file")
                 .contains("git push");
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(booleans = {false, true})
+    @org.junit.jupiter.api.Timeout(5)
+    void withoutATerminalApprovalNeverReadsAnOpenPipe(boolean inputTerminal) throws Exception {
+        agentPushes("writer", "one");
+        context =
+                context.reading(
+                        new StandardInput(
+                                java.io.InputStream.nullInputStream(), inputTerminal, false));
+        assertThat(approve(null, false)).isEqualTo(1);
+        assertThat(err.toString()).contains("--yes");
+        assertThat(asked).isEmpty();
+        assertThat(gate.pending()).containsExactly("writer");
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(booleans = {false, true})
+    @org.junit.jupiter.api.Timeout(5)
+    void withoutATerminalSeveralTasksKeepTheEmptyInputRefusal(boolean inputTerminal)
+            throws Exception {
+        agentPushes("writer", "one");
+        agentPushes("review", "two");
+        context =
+                context.reading(
+                        new StandardInput(
+                                java.io.InputStream.nullInputStream(), inputTerminal, false));
+        assertThat(approve(null, false)).isEqualTo(64);
+        assertThat(err.toString()).contains("writer", "review", "--yes");
+        assertThat(asked).isEmpty();
+    }
+
+    @Test
+    @org.junit.jupiter.api.Timeout(
+            value = 5,
+            threadMode = org.junit.jupiter.api.Timeout.ThreadMode.SEPARATE_THREAD)
+    void theApproveCommandReadsItsContextsTerminalInput() throws Exception {
+        agentPushes("writer", "one");
+        final var machine =
+                new PoreloContext(
+                                command -> {
+                                    final List<String> arguments =
+                                            new java.util.ArrayList<>(command.arguments());
+                                    final int directory = arguments.indexOf("-C");
+                                    if (directory >= 0
+                                            && arguments.get(directory + 1).equals(".")) {
+                                        arguments.set(directory + 1, checkout.toString());
+                                    }
+                                    return runner.run(
+                                            new Command(
+                                                    arguments,
+                                                    command.workingDirectory(),
+                                                    command.environment(),
+                                                    command.input(),
+                                                    command.inheritsEnvironment(),
+                                                    command.binaryInput()));
+                                },
+                                context.paths(),
+                                arguments -> 0)
+                        .reading(
+                                new StandardInput(
+                                        new java.io.ByteArrayInputStream(
+                                                "y\n"
+                                                        .getBytes(
+                                                                java.nio.charset.StandardCharsets
+                                                                        .UTF_8)),
+                                        true));
+        final var cli = PoreloCli.commandLine(machine);
+        cli.setOut(new PrintWriter(out));
+        cli.setErr(new PrintWriter(err));
+        assertThat(cli.execute("approve", "writer")).as(err.toString()).isZero();
+        assertThat(gate.pending()).isEmpty();
     }
 
     private int approve(final String task, final boolean yes) {
