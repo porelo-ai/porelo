@@ -65,6 +65,10 @@ public final class TaskInventory {
      * @param certified Whether its commits are signed by its own key, certified at its start, and
      *     judged at its gate.
      * @param certifiedUntil When its current certificate ends, or {@code ""} when it has none.
+     * @param model The model its agent runs on, or {@code ""} for the agent's own default.
+     * @param modelLabel What a person is shown for it, or {@code ""}.
+     * @param modelFrom Where it was settled from: {@code start}, {@code repository}, {@code
+     *     project} or {@code agent}; {@code ""} when nothing recorded the task.
      */
     public record Task(
             String name,
@@ -100,7 +104,86 @@ public final class TaskInventory {
             int inboxWaiting,
             @Nullable String forgeBranch,
             boolean certified,
-            String certifiedUntil) {
+            String certifiedUntil,
+            String model,
+            String modelLabel,
+            String modelFrom) {
+
+        /** Creates a task whose model nothing recorded. */
+        public Task(
+                String name,
+                @Nullable String project,
+                @Nullable String securityClass,
+                String state,
+                boolean running,
+                long helpers,
+                @Nullable String agent,
+                @Nullable String mode,
+                @Nullable String prompt,
+                @Nullable String branch,
+                String since,
+                Activity activity,
+                @Nullable String waitingFor,
+                @Nullable String clearance,
+                @Nullable String label,
+                int waiting,
+                String startAction,
+                String startDetail,
+                @Nullable String repository,
+                @Nullable String commit,
+                AgentWaiting.Derived derived,
+                Map<String, String> credentials,
+                Map<String, Map<String, String>> grants,
+                @Nullable String provider,
+                AgentEnding.@Nullable Ended agentEnded,
+                HandIns.Summary handIns,
+                TaskBuilds.View builds,
+                Map<String, Map<String, String>> parameters,
+                String phase,
+                String lastWrote,
+                int inboxWaiting,
+                @Nullable String forgeBranch,
+                boolean certified,
+                String certifiedUntil) {
+            this(
+                    name,
+                    project,
+                    securityClass,
+                    state,
+                    running,
+                    helpers,
+                    agent,
+                    mode,
+                    prompt,
+                    branch,
+                    since,
+                    activity,
+                    waitingFor,
+                    clearance,
+                    label,
+                    waiting,
+                    startAction,
+                    startDetail,
+                    repository,
+                    commit,
+                    derived,
+                    credentials,
+                    grants,
+                    provider,
+                    agentEnded,
+                    handIns,
+                    builds,
+                    parameters,
+                    phase,
+                    lastWrote,
+                    inboxWaiting,
+                    forgeBranch,
+                    certified,
+                    certifiedUntil,
+                    "",
+                    "",
+                    "");
+        }
 
         /** Creates a task whose commits are not signed by a certified key of its own. */
         public Task(
@@ -788,6 +871,9 @@ public final class TaskInventory {
             map.put("forgeBranch", forgeBranch == null ? "" : forgeBranch);
             map.put("certified", certified);
             map.put("certifiedUntil", certifiedUntil);
+            map.put("model", model);
+            map.put("modelLabel", modelLabel);
+            map.put("modelFrom", modelFrom);
             map.put("since", since);
             map.put("activity", activity.name());
             map.put("lastWrote", lastWrote);
@@ -1291,7 +1377,10 @@ public final class TaskInventory {
                 TaskState.certifiedUntil(
                         (restartTookIt
                                 ? context.paths().tasks().taskRecord(summary.name())
-                                : state)));
+                                : state)),
+                profile == null || profile.model() == null ? "" : profile.model(),
+                profile == null || profile.modelLabel() == null ? "" : profile.modelLabel(),
+                profile == null ? "" : profile.modelFrom());
     }
 
     /**

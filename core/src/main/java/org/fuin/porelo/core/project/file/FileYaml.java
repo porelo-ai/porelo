@@ -123,6 +123,16 @@ final class FileYaml {
             put(section, "minutes", mcp.minutes());
             top.put("mcp", section);
         }
+        final Map<String, Object> providers = new LinkedHashMap<>();
+        file.providers()
+                .forEach(
+                        (name, entry) -> {
+                            final Map<String, Object> each = new LinkedHashMap<>();
+                            put(each, "model", entry.model());
+                            put(each, "label", entry.label());
+                            providers.put(name, each);
+                        });
+        put(top, "providers", providers);
         return top;
     }
 

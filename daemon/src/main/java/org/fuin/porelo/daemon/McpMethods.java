@@ -49,6 +49,7 @@ final class McpMethods {
                     "HostKeys",
                     "Projects",
                     "WatchProjects",
+                    "ProviderModels",
                     "Backups",
                     "DefaultRepositories",
                     "ProjectFileSchema",

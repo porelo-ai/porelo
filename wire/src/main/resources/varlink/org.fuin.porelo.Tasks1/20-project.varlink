@@ -564,6 +564,31 @@ type ProjectFileKey (
 # beginning 'mail.transports.<scheme>: '. A transport that does not offer the check leaves its section open.
 method CheckProjectFile(text: string) -> (refused: []string, refusedHere: []string, warnings: []string)
 
+# The model a start on the project would run on for each provider this machine knows, when the start
+# names none: the repository's porelo.yml's for that provider, else project.yml's
+# (providers.<provider>.model), else the agent's own default. So New work shows it before starting.
+# A file that does not read, or names a provider this machine does not know, is Failed, as Start
+# refuses it.
+method ProviderModels(
+  # Project NAME, as Start takes it.
+  project: string,
+  # The repository the task would be for, as Start takes it. Omitted, project.yml alone answers.
+  repository: ?string
+) -> (models: []ProviderModel)
+
+# One provider's model, as a start that names none settles it.
+type ProviderModel (
+  # The provider, by the name Providers reports.
+  provider: string,
+  # The model's id. "" when nothing names one, and the agent runs on its own default.
+  model: string,
+  # What a person is shown for it, as the file that named it gives it. "" when it gives none: a
+  # repository's model takes no label from project.yml's.
+  label: string,
+  # "repository", "project", or "agent" when nothing names one.
+  from: string
+)
+
 # The deploy key could not be had: no upstream a key can be for, or the vault is locked.
 error DeployKeyRefused(message: string)
 

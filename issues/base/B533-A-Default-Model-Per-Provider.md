@@ -1,6 +1,6 @@
 # [B533](README.md#b533) — A Default Model Per Provider
 
-**Status:** Backlog. Filed 2026-11-08 from the third move's finding 11 (the operator's decision: the default model is
+**Status:** Review. Filed 2026-11-08 from the third move's finding 11 (the operator's decision: the default model is
 set per provider in project.yml, each provider its own).
 **Size:** M - a new section of the project file, read at start, recorded and shown; a contract field and a reply.
 
@@ -62,3 +62,33 @@ The build takes these answers; each harm gets a test seen red first.
   the project's. `ImageChoice` ignores the new keys.
 - **The row:** `model`, `modelLabel` and `modelFrom` are strings, "" when unknown; a task recorded before reads
   `modelFrom` as `start` where it has a model, `agent` where it has none.
+
+## Found in the build
+
+Where the code was not as the plan read it:
+
+- `ProjectFileCheck.refuseAsOption` does not exist; the check is `Repository.refuseAsOption`, which tests only a
+  leading `-`. The one-word and one-line rules are `ModelDefault.isWord` and `ModelDefault.isLine`, used by the
+  reader, `--model` and `Start.model` alike.
+- The old `--model` refusal for an agent without a `modelFlag` came after the workspace and the gate were made, not
+  "before anything exists"; it is replaced by the refusal right after the provider is settled, also in the dry run.
+- `Start.model`'s contract said a model was "ignored otherwise" for an agent without a flag; the start refused it.
+  The contract now says it is refused (`MODEL_REFUSED`).
+- A stopped task continued with a prompt ran on its agent's default: `runAgentInExisting` passed the new request's
+  model, null on a continuation. It now runs on `TaskProfile.model`.
+- `ImageChoice` read an organization's `porelo.yml` as image-only (`Sections.REPOSITORY`), so a signed file with any
+  other setting - `egress` before, `providers` now - stopped the image while `RepositoryOwnSettings.ofOrganization`
+  took it. It now reads it beside settings when the project came from an organization.
+- Left open: `McpTaskSockets` judges `mcp.agents` on the model the call names, before any file is read, so an MCP
+  start naming no model for an agent with a list is still `AgentNotAllowed` even when the files settle an allowed one.
+  `TaskLaunch` checks the settled model for every start with a parent, so no file can bring a model past the list.
+
+From the code reading after the build:
+
+- In `default`, a repository's model counts for `ProviderModels` and `CanStart` only once this machine allowed what
+  its files ask (`ModelChoice.withRepository`), as at the start.
+- A task brought back after a reboot reads its recorded model from its durable record, so another `--model` is
+  refused there too; a `--model` for a task no agent runs in is refused; a dry run settles the model for the provider
+  the agent was found signed in to.
+- A repository's label set without its model is refused at read; `providers.<provider>: ~` removes the entry whole,
+  and `model: ~` under a kept label is refused as a missing model.

@@ -50,6 +50,16 @@ final class FileBinder {
                                 repositories.put(name, entry);
                             }
                         });
+        final Map<String, ProviderEntry> providers = new LinkedHashMap<>();
+        b.named(top.get("providers"), "providers")
+                .forEach(
+                        (name, node) -> {
+                            final ProviderEntry entry =
+                                    provider(b, node, Binding.join("providers", name));
+                            if (entry != null) {
+                                providers.put(name, entry);
+                            }
+                        });
         return new ProjectFile(
                 projectInfo(b, top.get("project")),
                 image(b, top.get("image"), "image"),
@@ -63,7 +73,21 @@ final class FileBinder {
                 credentials,
                 repositories,
                 b.word(top.get("base_branch"), "base_branch"),
-                mcp(b, top.get("mcp")));
+                mcp(b, top.get("mcp")),
+                providers);
+    }
+
+    private static @Nullable ProviderEntry provider(
+            final Binding b, final Node node, final String path) {
+        final Map<String, Node> s = b.entry(node, path, "providers.<name>");
+        if (s == null) {
+            return null;
+        }
+        // The model goes on the agent's command line, so 'yes' or 123 is refused, not read as a
+        // word.
+        return new ProviderEntry(
+                b.word(s.get("model"), Binding.join(path, "model")),
+                b.text(s.get("label"), Binding.join(path, "label")));
     }
 
     /**

@@ -173,6 +173,48 @@ class ImageChoiceTest {
                 .isEqualTo("RUN from-the-checkout");
     }
 
+    @Test
+    void aCheckoutsFileNamingAModelStillGivesItsImageInDefault(@TempDir Path dir) throws Exception {
+
+        // The model is a setting beside the image, allowed and merged elsewhere: refused here, the
+        // file would stop every start on the checkout.
+        final XdgPaths xdg =
+                XdgPaths.of(
+                        name ->
+                                switch (name) {
+                                    case "XDG_DATA_HOME" -> dir.resolve("data").toString();
+                                    case "XDG_CONFIG_HOME" -> dir.resolve("config").toString();
+                                    case "XDG_STATE_HOME" -> dir.resolve("state").toString();
+                                    default -> null;
+                                },
+                        dir);
+        final PoreloContext context =
+                new PoreloContext(runner, new PoreloPaths(xdg, dir.resolve("bin")), arguments -> 0);
+        final Path checkout = Files.createDirectories(dir.resolve("work"));
+        Files.writeString(
+                checkout.resolve("porelo.yml"),
+                "image:\n  from: \"checked-in\"\nproviders:\n  provider-a:\n"
+                        + "    model: \"model-c\"\n");
+        new DefaultProject(context).add(checkout.toString(), "work", checkout.toString());
+        final Project project =
+                ProjectReader.read(
+                        new StringReader(
+                                """
+                                project:
+                                  name: "default"
+                                  security_class: "guarded"
+                                image:
+                                  from: "default-base"
+                                repositories:
+                                  work: {}
+                                """),
+                        "project.yml");
+
+        assertThat(ImageChoice.of(context, project, project.repositories().getFirst()).baseImage())
+                .as("the checkout's image, its model left to the settings")
+                .isEqualTo("checked-in");
+    }
+
     private void git(Path directory, String... arguments) {
         final List<String> all =
                 new ArrayList<>(

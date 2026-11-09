@@ -149,4 +149,31 @@ class ProjectFileCheckTest {
         java.nio.file.Files.writeString(adapter, "#!/bin/sh\n");
         adapter.toFile().setExecutable(true);
     }
+
+    @Test
+    void aProviderThisMachineDoesNotKnowIsWhatItsFollowWouldRefuse() throws Exception {
+
+        // A start here refuses it; told nothing, a person commits a file every task here refuses.
+        final String draft = HEAD + "providers:\n  provider-a:\n    model: \"model-a\"\n";
+
+        assertThat(ProjectFileCheck.check(context(), draft).refusedHere())
+                .as("no provider-a is declared here")
+                .hasSize(1);
+
+        final Path providers =
+                java.nio.file.Files.createDirectories(
+                        context().paths().xdg().data().resolve("providers"));
+        java.nio.file.Files.writeString(
+                providers.resolve("provider-a.yaml"),
+                """
+                name: provider-a
+                upstream: https://provider.example.com
+                dialects: { preview: "" }
+                auth_header: { _default: Authorization }
+                auth_prefix: { _default: "Bearer " }
+                """);
+        assertThat(ProjectFileCheck.check(context(), draft).refusedHere())
+                .as("once it is declared, nothing here refuses the file")
+                .isEmpty();
+    }
 }

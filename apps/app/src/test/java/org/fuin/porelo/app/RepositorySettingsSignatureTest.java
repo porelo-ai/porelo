@@ -151,6 +151,41 @@ class RepositorySettingsSignatureTest {
         assertThat(organization(context)).isNull();
     }
 
+    @Test
+    void aSignedFileNamesItsOwnModelAndTheImageIsStillTakenFromIt() throws Exception {
+
+        // The model is a setting beside the image: refused by the image's reading, the
+        // repository's file would stop every start of it.
+        final PoreloContext context = context();
+        final Path key = key();
+        final String[] line =
+                Files.readString(key.resolveSibling(key.getFileName() + ".pub")).strip().split(" ");
+        place(context, line[0] + " " + line[1]);
+        mirror(
+                context,
+                "uc",
+                "web",
+                "image:\n  from: \"web-base\"\nproviders:\n  provider-a:\n"
+                        + "    model: \"model-c\"\n",
+                key);
+
+        final RepositoryOwnSettings.Found found = organization(context);
+
+        assertThat(found).isNotNull();
+        assertThat(found.project().providers().get("provider-a"))
+                .as("the signed file's model is the repository's own")
+                .isEqualTo(
+                        new org.fuin.porelo.core.project.ModelDefault(
+                                "model-c",
+                                "",
+                                org.fuin.porelo.core.project.ModelDefault.REPOSITORY));
+        final org.fuin.porelo.core.project.Project project =
+                org.fuin.porelo.core.project.ProjectReader.read(dir.resolve("project.yml"));
+        assertThat(ImageChoice.of(context, project, project.repository("web")).baseImage())
+                .as("the image is read from the same file, its other settings left to the merge")
+                .isEqualTo("web-base");
+    }
+
     private RepositoryOwnSettings.@org.jspecify.annotations.Nullable Found organization(
             final PoreloContext context) throws IOException {
         final Path projectFile = dir.resolve("project.yml");

@@ -252,7 +252,8 @@ At a terminal a shut vault asks for its passphrase; a script must unlock it firs
 - A task whose agent names its sessions continues the conversation it was having, after a stop or a
   reboot alike, and the start says whether it continued or began fresh. An agent that names no
   session, or a continuation that failed, begins fresh and says so; nothing runs twice unasked. The
-  `--model` a task was started with is kept for `task attach` and later starts, and starting a stopped
+  model a task was started with, named by `--model` or settled from the
+  [files](project-file.md#the-default-model), is kept for `task attach` and later starts, and starting a stopped
   task with another `--model` is refused, naming what it was started with. So is its
   [`--subagents`](project-file.md#limits) number: a continuation hands its agent the number the task was
   started with, takes `--subagents` with that number and refuses another with exit code 64.

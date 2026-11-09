@@ -74,7 +74,8 @@ final class Sections {
                         "parameters",
                         "branch",
                         "base_branch",
-                        MCP));
+                        MCP,
+                        "providers"));
         keys.put(
                 "project",
                 List.of(
@@ -110,6 +111,7 @@ final class Sections {
                 List.of("description", "values", "pattern", "default", "required", "env"));
         keys.put("branch", List.of("template", "pattern"));
         keys.put(MCP, List.of("methods", "agents", "tasks", "minutes"));
+        keys.put("providers.<name>", List.of("model", "label"));
     }
 
     /**

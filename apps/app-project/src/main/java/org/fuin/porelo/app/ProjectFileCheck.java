@@ -88,6 +88,11 @@ public final class ProjectFileCheck {
         }
         final Map<String, Destination> destinations = Destination.all(context.paths().xdg().data());
         final var providers = context.providers();
+        // A provider this machine does not know: a start here refuses it, so no task falls back.
+        final String unknownProvider = ModelChoice.unknownProvider(project, providers.keySet());
+        if (unknownProvider != null) {
+            refusedHere.add(unknownProvider);
+        }
         final Map<String, org.fuin.porelo.vault.VaultEntry> stored =
                 context.readableCredentials().orElse(null);
         project.credentials()

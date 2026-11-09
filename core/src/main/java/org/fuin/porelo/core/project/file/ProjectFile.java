@@ -26,6 +26,8 @@ import org.jspecify.annotations.Nullable;
  *     one ({@code base_branch}).
  * @param mcp What a task may do through its MCP endpoint ({@code mcp}); {@code null} allows it
  *     none.
+ * @param providers Each provider's default model, by the provider's name, in the order written
+ *     ({@code providers}).
  */
 public record ProjectFile(
         @Nullable ProjectInfo project,
@@ -40,7 +42,8 @@ public record ProjectFile(
         Map<String, String> credentials,
         Map<String, RepositoryEntry> repositories,
         @Nullable String baseBranch,
-        @Nullable Mcp mcp) {
+        @Nullable Mcp mcp,
+        Map<String, ProviderEntry> providers) {
 
     /**
      * Constructor.
@@ -58,11 +61,61 @@ public record ProjectFile(
      * @param repositories The repositories by name.
      * @param baseBranch The branch a task starts from by default.
      * @param mcp What a task may do through its MCP endpoint, or {@code null}.
+     * @param providers Each provider's default model, by name.
      */
     public ProjectFile {
         parameters = ordered(parameters);
         credentials = ordered(credentials);
         repositories = ordered(repositories);
+        providers = ordered(providers);
+    }
+
+    /**
+     * Constructor for a file that names no provider's model.
+     *
+     * @param project Who the project is.
+     * @param image What a task's container is built from.
+     * @param build What the image build fetches from.
+     * @param egress What a task may reach.
+     * @param limits What one task may consume.
+     * @param mail Whom its tasks may write to.
+     * @param builds Where its builds are read.
+     * @param parameters The values a task may be started with.
+     * @param branch How a task's branch is named.
+     * @param credentials Vault entries to their destinations.
+     * @param repositories The repositories by name.
+     * @param baseBranch The branch a task starts from by default.
+     * @param mcp What a task may do through its MCP endpoint, or {@code null}.
+     */
+    public ProjectFile(
+            @Nullable ProjectInfo project,
+            @Nullable Image image,
+            @Nullable BuildSources build,
+            @Nullable Egress egress,
+            @Nullable Limits limits,
+            @Nullable Mail mail,
+            @Nullable Builds builds,
+            Map<String, Parameter> parameters,
+            @Nullable BranchScheme branch,
+            Map<String, String> credentials,
+            Map<String, RepositoryEntry> repositories,
+            @Nullable String baseBranch,
+            @Nullable Mcp mcp) {
+        this(
+                project,
+                image,
+                build,
+                egress,
+                limits,
+                mail,
+                builds,
+                parameters,
+                branch,
+                credentials,
+                repositories,
+                baseBranch,
+                mcp,
+                Map.of());
     }
 
     /**

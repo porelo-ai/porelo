@@ -150,5 +150,10 @@ class FileExamplesTest {
                 .as("the documented peer")
                 .isEqualTo("matrix:");
         assertThat(file.branch().pattern()).as("the documented branch pattern").isNotNull();
+        // The page's model id is a real one, which only a document may name.
+        assertThat(file.providers().values())
+                .as("the documented default model")
+                .singleElement()
+                .satisfies(entry -> assertThat(entry.label()).as("with its label").isNotNull());
     }
 }

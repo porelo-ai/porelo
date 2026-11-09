@@ -87,17 +87,24 @@ class TaskRunCommandTest {
                                                 "definition",
                                                 org.fuin.porelo.agent.api.AgentDefinitionJson.write(
                                                         definition))));
-                // Says what it was told, as the command it would run and the file it would write.
+                // Says what it was told, as the command it would run and the file it would write;
+                // a model goes by its declared flag, as a real agent's command carries it.
                 server.method(
                         "BuildCommand",
-                        (parameters, replies) ->
-                                replies.last(
-                                        java.util.Map.of(
-                                                "command",
-                                                List.of(
-                                                        "preview",
-                                                        String.valueOf(parameters.get("prompt")),
-                                                        "subagents=" + told(parameters)))));
+                        (parameters, replies) -> {
+                            final List<String> command =
+                                    new ArrayList<>(
+                                            List.of(
+                                                    "preview",
+                                                    String.valueOf(parameters.get("prompt")),
+                                                    "subagents=" + told(parameters)));
+                            if (parameters.get("model") != null
+                                    && definition.headless().modelFlag() != null) {
+                                command.add(definition.headless().modelFlag());
+                                command.add(String.valueOf(parameters.get("model")));
+                            }
+                            replies.last(java.util.Map.of("command", command));
+                        });
                 server.method(
                         "ContainerSetup",
                         (parameters, replies) -> {
@@ -1795,6 +1802,28 @@ class TaskRunCommandTest {
     }
 
     @Test
+    void aDryRunSettlesTheModelForTheProviderTheAgentWasFoundSignedInTo(@TempDir Path dir)
+            throws IOException {
+
+        // Settled for the agent's default provider instead, a dry run would promise a start the
+        // start then refuses.
+        final PoreloContext context = twoAgentsOneSignedIn(dir);
+
+        final int code =
+                execute(
+                        context,
+                        "task",
+                        "start",
+                        "-p",
+                        projectFile(dir, MINIMAL + "providers:\n  beta:\n    model: \"model-a\"\n"),
+                        "--dry-run");
+
+        assertThat(code)
+                .as("beta's model, for an agent that takes none, is refused: %s", err)
+                .isEqualTo(2);
+    }
+
+    @Test
     void aStartWithoutTheCredentialNamesTheImportForTheProviderFound(@TempDir Path dir)
             throws IOException {
 
@@ -2883,6 +2912,39 @@ class TaskRunCommandTest {
     }
 
     @Test
+    void aTaskBroughtBackAfterARebootWithAnotherModelIsRefusedAndNotBroughtBack(@TempDir Path dir)
+            throws IOException {
+
+        // Its runtime record is gone until the resume: read from there alone, the task came back on
+        // its old model while the start was asked for another and said nothing.
+        final PoreloContext context = context(dir, true);
+        runner.answering(
+                "ps",
+                "porelo-uc-shell\tExited (0) 4 minutes ago\t1700000000\t1700000100\tuc\tguarded\tuc\t\n");
+        recordSubagents(context.paths().tasks().taskRecord("porelo-uc-shell"), "preview", 0);
+        org.fuin.porelo.wire.Sidecar.recordId(
+                context.paths().tasks().taskRecord("porelo-uc-shell"), "0123456789abcdef");
+        runner.answering("{{.Id}}", "0123456789abcdef");
+
+        final int code =
+                execute(
+                        context,
+                        "task",
+                        "start",
+                        "shell",
+                        "-p",
+                        projectFile(dir, MINIMAL),
+                        "--model",
+                        "model-a",
+                        "--detach");
+
+        assertThat(code).as("refused: %s", err).isEqualTo(64);
+        assertThat(runner.lines())
+                .as("and not brought back: %s", runner.lines())
+                .noneMatch(line -> line.contains("podman start"));
+    }
+
+    @Test
     void aStoppedTaskContinuedWithAPromptHandsItsAgentTheNumberItWasStartedWith(@TempDir Path dir)
             throws IOException {
 
@@ -2943,6 +3005,413 @@ class TaskRunCommandTest {
                                         .resolve("task.log")))
                 .as("the agent is asked for its run with the task's own number")
                 .contains("go on subagents=2");
+    }
+
+    /** The minimal project, naming the model its preview provider's tasks run on. */
+    private static final String WITH_MODEL =
+            MINIMAL + "providers:\n  preview:\n    model: \"model-a\"\n    label: \"Model A\"\n";
+
+    /**
+     * A machine with the preview agent brokered to the preview provider, which needs no credential,
+     * taking a model by its flag or declaring none, and its hooks registered.
+     */
+    private PoreloContext modelContext(Path dir, boolean takesAModel) throws IOException {
+        final PoreloContext context = previewContext(dir, true);
+        previewAgent(context, "preview");
+        if (takesAModel) {
+            final Path definition = context.paths().xdg().data().resolve("agents/preview.yaml");
+            Files.writeString(
+                    definition,
+                    Files.readString(definition)
+                            .replace(
+                                    "headless: { prompt_flag: \"-p\" }",
+                                    "headless: { prompt_flag: \"-p\", model_flag: \"--model\" }"));
+        }
+        return context;
+    }
+
+    /**
+     * Runs a start whose agent's run writes the command it was asked to run into the task's log.
+     */
+    private int echoingStart(PoreloContext context, Path dir, String project, String... options)
+            throws IOException {
+        final Path podman = dir.resolve("echoing-podman");
+        Files.writeString(podman, "#!/bin/sh\necho \"$@\"\n");
+        Files.setPosixFilePermissions(
+                podman, java.nio.file.attribute.PosixFilePermissions.fromString("rwx------"));
+        final List<String> args =
+                new ArrayList<>(
+                        List.of(
+                                "task",
+                                "start",
+                                "-p",
+                                projectFile(dir, project),
+                                "--agent",
+                                "preview",
+                                "--prompt",
+                                "do the work",
+                                "--no-gate"));
+        args.addAll(List.of(options));
+        final String standIn = System.getProperty(org.fuin.porelo.runtime.Podman.NAMED);
+        System.setProperty(org.fuin.porelo.runtime.Podman.NAMED, podman.toString());
+        try {
+            return execute(context, args.toArray(String[]::new));
+        } finally {
+            System.setProperty(org.fuin.porelo.runtime.Podman.NAMED, standIn);
+        }
+    }
+
+    private static String taskLog(PoreloContext context) throws IOException {
+        return Files.readString(
+                context.paths().tasks().containerState("porelo-uc-shell").resolve("task.log"));
+    }
+
+    private static org.fuin.porelo.wire.TaskProfile recorded(PoreloContext context) {
+        return java.util.Objects.requireNonNull(
+                org.fuin.porelo.wire.TaskProfile.readFrom(
+                        context.paths().tasks().containerState("porelo-uc-shell")),
+                "the start records its task");
+    }
+
+    @Test
+    void aProjectsModelReachesItsAgentAndTheTaskSaysItCameFromTheProject(@TempDir Path dir)
+            throws IOException {
+
+        // A start that names no model runs on the file's for its provider, never on the agent's
+        // own.
+        final PoreloContext context = modelContext(dir, true);
+
+        final int code = echoingStart(context, dir, WITH_MODEL);
+
+        assertThat(code).as("started and run: %s", err).isZero();
+        assertThat(taskLog(context))
+                .as("the agent's command carries the project's model by its flag")
+                .contains("--model model-a");
+        assertThat(recorded(context).model())
+                .as("the task records the model it runs on")
+                .isEqualTo("model-a");
+        assertThat(recorded(context).modelFrom())
+                .as("the task says the project's file chose it")
+                .isEqualTo("project");
+        assertThat(recorded(context).modelLabel())
+                .as("the label the file gave it is kept for the row")
+                .isEqualTo("Model A");
+    }
+
+    @Test
+    void aStartsModelWinsOverTheProjectsAndTheTaskSaysItCameFromTheStart(@TempDir Path dir)
+            throws IOException {
+        final PoreloContext context = modelContext(dir, true);
+
+        final int code = echoingStart(context, dir, WITH_MODEL, "--model", "model-b");
+
+        assertThat(code).as("started and run: %s", err).isZero();
+        assertThat(taskLog(context))
+                .as("the person's choice is the one the agent is given")
+                .contains("--model model-b")
+                .doesNotContain("model-a");
+        assertThat(recorded(context).modelFrom())
+                .as("the task says the start chose it")
+                .isEqualTo("start");
+        assertThat(recorded(context).modelLabel())
+                .as("the project's label is not the start's model's")
+                .isNull();
+    }
+
+    @Test
+    void anAttendedStartHandsItsAgentTheProjectsModel(@TempDir Path dir) throws IOException {
+
+        // Attended, the agent is started by the session: without the model it ran on its default.
+        final PoreloContext context = modelContext(dir, true);
+
+        final int code =
+                execute(
+                        context,
+                        "task",
+                        "start",
+                        "-p",
+                        projectFile(dir, WITH_MODEL),
+                        "--agent",
+                        "preview",
+                        "--attach",
+                        "agent",
+                        "--no-gate");
+
+        assertThat(code).as("started: %s", err).isZero();
+        assertThat(execCalls).as("the session it went into").hasSize(1);
+        assertThat(String.join(" ", execCalls.get(0)))
+                .as("the session starts the agent on the project's model")
+                .contains("'--model' 'model-a'");
+    }
+
+    @Test
+    void aProjectsModelForAnAgentWithoutAModelFlagIsRefusedBeforeAnythingIsMade(@TempDir Path dir)
+            throws IOException {
+
+        // Dropped on the way in, the agent would answer on its own default while the file said
+        // otherwise.
+        final PoreloContext context = modelContext(dir, false);
+
+        final int code = echoingStart(context, dir, WITH_MODEL);
+
+        assertThat(code).as("refused: %s", err).isEqualTo(2);
+        assertThat(runner.lines())
+                .as("a refused model leaves no image or container")
+                .noneMatch(line -> line.contains("podman build") || line.contains("podman create"));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"-x", "two words", "line\nbreak", ""})
+    void aModelThatIsNotOneWordIsRefusedBeforeAnythingIsMade(String model, @TempDir Path dir)
+            throws IOException {
+
+        // It goes on the agent's command line, where it would be read as an option or as two.
+        final PoreloContext context = modelContext(dir, true);
+
+        final int code = echoingStart(context, dir, MINIMAL, "--model=" + model);
+
+        assertThat(code).as("refused: %s", err).isEqualTo(2);
+        assertThat(runner.lines())
+                .as("a refused model leaves no image or container")
+                .noneMatch(line -> line.contains("podman build") || line.contains("podman create"));
+    }
+
+    @Test
+    void aProviderTheFileNamesThatThisMachineDoesNotKnowIsRefusedBeforeAnythingIsMade(
+            @TempDir Path dir) throws IOException {
+
+        // A typo in the provider's name would otherwise run every task on the agent's own default.
+        final PoreloContext context = modelContext(dir, true);
+
+        final int code =
+                echoingStart(
+                        context,
+                        dir,
+                        MINIMAL + "providers:\n  previews:\n    model: \"model-a\"\n");
+
+        assertThat(code).as("refused: %s", err).isEqualTo(2);
+        assertThat(runner.lines())
+                .as("a refused file leaves no image or container")
+                .noneMatch(line -> line.contains("podman build") || line.contains("podman create"));
+    }
+
+    private int startedThroughAnEndpoint(PoreloContext context, Path dir, String project)
+            throws IOException {
+        projectFile(dir, project);
+        final PrintWriter said = new PrintWriter(err, true);
+        return new TaskLaunch(
+                        context,
+                        new TaskLaunch.Request(
+                                "shell",
+                                dir.resolve("project.yml"),
+                                "preview",
+                                null,
+                                null,
+                                8,
+                                null,
+                                true,
+                                false,
+                                "prompt",
+                                true,
+                                org.fuin.porelo.wire.TaskMode.SHELL,
+                                null,
+                                null,
+                                null,
+                                60,
+                                null,
+                                java.util.Map.of(),
+                                java.util.Map.of(),
+                                null,
+                                null,
+                                null,
+                                "porelo-uc-lead"),
+                        new StartSteps(step -> {}, said))
+                .launch(new PrintWriter(out, true), said, running -> 0);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"model-a", "model-b"})
+    void aStartThroughAnEndpointRunsOnlyOnAModelItsListAllowsWhicheverFileNamedIt(
+            String named, @TempDir Path dir) throws IOException {
+
+        // The list holds for the model the start ends up with, not only for one the caller named.
+        final PoreloContext context = modelContext(dir, true);
+
+        final int code =
+                startedThroughAnEndpoint(
+                        context,
+                        dir,
+                        MINIMAL
+                                + "providers:\n  preview:\n    model: \""
+                                + named
+                                + "\"\nmcp:\n  methods: [\"Start\"]\n  agents:\n"
+                                + "    preview: [\"model-a\"]\n");
+
+        if ("model-a".equals(named)) {
+            // Here past the model, a start in this process stops at the endpoint only porelod
+            // gives.
+            assertThat(code)
+                    .as("a model the list allows is not refused for its model: %s", err)
+                    .isNotEqualTo(2);
+        } else {
+            assertThat(code).as("a model the list does not allow is refused: %s", err).isEqualTo(2);
+            assertThat(runner.lines())
+                    .as("a refused model leaves no container")
+                    .noneMatch(line -> line.contains("podman create"));
+        }
+    }
+
+    private StartCheck.Result canStart(PoreloContext context, Path dir) {
+        return StartCheck.check(
+                context,
+                dir.resolve("project.yml"),
+                "shell",
+                "preview",
+                null,
+                null,
+                "uc",
+                true,
+                java.util.Map.of(),
+                java.util.Map.of(),
+                null);
+    }
+
+    @Test
+    void canStartRefusesAProjectsModelForAnAgentWithoutAModelFlagAsStartRefusesIt(@TempDir Path dir)
+            throws IOException {
+
+        // An interface told READY would offer a start that Start then refuses.
+        final PoreloContext context = modelContext(dir, false);
+        final String project = projectFile(dir, WITH_MODEL);
+
+        final StartCheck.Result checked = canStart(context, dir);
+        final int started =
+                execute(context, "task", "start", "-p", project, "--agent", "preview", "--dry-run");
+
+        assertThat(checked.outcome())
+                .as("CanStart says it cannot start: %s", checked.detail())
+                .isEqualTo(StartCheck.Outcome.MODEL_REFUSED);
+        assertThat(started).as("and a dry run refuses it as Start does: %s", err).isEqualTo(2);
+    }
+
+    @Test
+    void canStartRefusesAProviderTheFileNamesThatThisMachineDoesNotKnow(@TempDir Path dir)
+            throws IOException {
+        final PoreloContext context = modelContext(dir, true);
+        projectFile(dir, MINIMAL + "providers:\n  previews:\n    model: \"model-a\"\n");
+
+        assertThat(canStart(context, dir).outcome())
+                .as("the start refuses the file, so CanStart may not answer READY")
+                .isEqualTo(StartCheck.Outcome.UNKNOWN_PROVIDER);
+    }
+
+    @Test
+    void canStartAnswersReadyForAProjectsModelTheAgentTakes(@TempDir Path dir) throws IOException {
+        final PoreloContext context = modelContext(dir, true);
+        projectFile(dir, WITH_MODEL);
+
+        assertThat(canStart(context, dir).outcome())
+                .as("a model the agent takes stands in the way of nothing")
+                .isEqualTo(StartCheck.Outcome.READY);
+    }
+
+    @Test
+    void theModelsShownBeforeAStartAreTheOnesTheStartSettles(@TempDir Path dir) throws IOException {
+
+        // New work shows the model before the start: one the start would not use misleads.
+        final PoreloContext context = modelContext(dir, true);
+        projectFile(dir, WITH_MODEL);
+
+        assertThat(ModelChoice.defaults(context, dir.resolve("project.yml"), null))
+                .as("each provider this machine knows, with the project's model for it")
+                .containsExactly(
+                        new ModelChoice.ProviderModel("preview", "model-a", "Model A", "project"));
+
+        projectFile(dir, MINIMAL);
+        assertThat(ModelChoice.defaults(context, dir.resolve("project.yml"), "uc"))
+                .as("a provider nothing names a model for runs on the agent's own")
+                .containsExactly(new ModelChoice.ProviderModel("preview", "", "", "agent"));
+
+        projectFile(dir, MINIMAL + "providers:\n  previews:\n    model: \"model-a\"\n");
+        org.assertj.core.api.Assertions.assertThatThrownBy(
+                        () -> ModelChoice.defaults(context, dir.resolve("project.yml"), null))
+                .as("a file the start refuses is refused here too")
+                .isInstanceOf(org.fuin.porelo.core.project.ProjectException.class);
+    }
+
+    @Test
+    void aStoppedTaskContinuedWithAPromptRunsOnItsRecordedModelNotTheFilesNow(@TempDir Path dir)
+            throws IOException {
+
+        // A task's model was settled when it was made; a file changed since must not move it.
+        final PoreloContext context = modelContext(dir, true);
+        projectFile(dir, MINIMAL + "providers:\n  preview:\n    model: \"model-b\"\n");
+        final Path state =
+                Files.createDirectories(context.paths().tasks().containerState("porelo-uc-shell"));
+        new org.fuin.porelo.wire.TaskProfile(
+                        org.fuin.porelo.wire.TaskProfile.VERSION,
+                        "preview",
+                        org.fuin.porelo.wire.TaskMode.UNATTENDED,
+                        "do the work",
+                        null,
+                        "2026-10-31T00:00:00Z",
+                        "deny",
+                        null,
+                        "preview",
+                        "model-a",
+                        null,
+                        0,
+                        null,
+                        "project",
+                        null)
+                .writeTo(state);
+        final Path podman = dir.resolve("echoing-podman");
+        Files.writeString(podman, "#!/bin/sh\necho \"$@\"\n");
+        Files.setPosixFilePermissions(
+                podman, java.nio.file.attribute.PosixFilePermissions.fromString("rwx------"));
+        final String standIn = System.getProperty(org.fuin.porelo.runtime.Podman.NAMED);
+        System.setProperty(org.fuin.porelo.runtime.Podman.NAMED, podman.toString());
+        final int code;
+        try {
+            code =
+                    new TaskLaunch(
+                                    context,
+                                    new TaskLaunch.Request(
+                                            "shell",
+                                            dir.resolve("project.yml"),
+                                            null,
+                                            null,
+                                            null,
+                                            8,
+                                            null,
+                                            true,
+                                            false,
+                                            "deny",
+                                            true,
+                                            org.fuin.porelo.wire.TaskMode.UNATTENDED,
+                                            "go on",
+                                            null,
+                                            null,
+                                            1,
+                                            "uc",
+                                            java.util.Map.of(),
+                                            java.util.Map.of(),
+                                            null,
+                                            null))
+                            .runAgentInExisting(
+                                    "porelo-uc-shell",
+                                    null,
+                                    new PrintWriter(out),
+                                    new PrintWriter(err));
+        } finally {
+            System.setProperty(org.fuin.porelo.runtime.Podman.NAMED, standIn);
+        }
+
+        assertThat(code).as("the run went ahead: %s", err).isZero();
+        assertThat(taskLog(context))
+                .as("the agent is asked for its run on the model it was made with")
+                .contains("--model model-a")
+                .doesNotContain("model-b");
     }
 
     @Test
@@ -4316,6 +4785,29 @@ class TaskRunCommandTest {
 
         assertThat(code).isZero();
         assertThat(execCalls).hasSize(1);
+    }
+
+    @Test
+    void aShellTaskWithAModelButNoAgentIsRefusedBeforeAnythingIsMade(@TempDir Path dir)
+            throws IOException {
+
+        // No agent would run on it, yet its row would say the task runs on that model.
+        final int code =
+                execute(
+                        context(dir, true),
+                        "task",
+                        "start",
+                        "--attach",
+                        "shell",
+                        "-p",
+                        projectFile(dir, MINIMAL),
+                        "--model",
+                        "model-a");
+
+        assertThat(code).as("refused: %s", err).isEqualTo(2);
+        assertThat(runner.lines())
+                .as("before a container is made: %s", runner.lines())
+                .noneMatch(line -> line.contains("podman create"));
     }
 
     @Test

@@ -247,6 +247,13 @@ branch:
   template: "{type}/porelo/{task}"   # {task}, {project}, {repository} and the values above
   pattern: "^(feature|bugfix|hotfix|release)/porelo/[a-z0-9-]+$"   # required with a template
 
+# Optional. The model a task runs on for each provider when its start names none; without an entry,
+# the agent's own default. See "The default model" below.
+providers:
+  anthropic:                       # a provider 'porelo providers' lists
+    model: "claude-opus-5-5"       # required; one word, handed to the agent's model flag
+    label: "Opus 5.5"              # optional; what a client shows for it
+
 # Optional. Gives each task of this project an MCP endpoint, through which it starts, lists and
 # stops tasks within these limits; without it a task gets none. See "A task's MCP endpoint" below.
 # mcp:
@@ -320,6 +327,31 @@ container is up, before its relay, gate and workspace, so a task that is not sta
 the workspace is written once the workspace is checked out, which refuses to overwrite a file its repository tracks. On
 a host, the task's forge token is taken last, once the task's key is kept, which is how `porelo task remove` ends the
 token; a start whose key cannot be kept takes none and is refused with exit code 65.
+
+## The default model
+
+A task runs on the model its start names (`--model`, or `model` over the daemon), else on the one the repository's own
+`porelo.yml` names under `providers.<provider>.model` for the provider the start settled, else on the project file's,
+else on its agent's own default. The row of every task says which model it runs on, its label and where it came from
+(`start`, `repository`, `project` or `agent`); `ProviderModels` answers the same before a start, one entry per
+provider this machine knows.
+
+- **A model is one word.** One with a space, a line break or another control character, or one starting with `-`, is
+  refused when the file is read, and so is such a `--model`: the model goes on the agent's command line, where it
+  would be read as more than a model. A label is one line.
+- **A provider this machine does not know is refused** at the start, by `CanStart` (`UNKNOWN_PROVIDER`) and by
+  `CheckProjectFile`, rather than leaving every task on the agent's own default without a word. `porelo providers`
+  lists those it knows.
+- **An agent that takes no model is refused before anything is made** when a model is settled for it, by the start
+  and by `CanStart` (`MODEL_REFUSED`), whichever file named the model.
+- **A repository's model is a setting like its others**: in `default` it is allowed once per machine, in an
+  organization's project it counts only signed. Until it is allowed, `ProviderModels` and `CanStart` go by the
+  project's file alone, and a start is refused as for any setting not allowed. It takes no label from the project's
+  file, a label it sets without its model is refused, and `~` for the provider takes the project's entry away whole.
+- **A task keeps the model it was made with.** A stopped task started again runs on its recorded model, not on what
+  the files say now. A start through a task's [MCP endpoint](#a-tasks-mcp-endpoint) is judged against `mcp.agents`
+  on the model it settles, whichever file named it; one naming no model for an agent with a list is still refused
+  with `AgentNotAllowed`, since the endpoint judges it before any file is read.
 
 ## A task's MCP endpoint
 

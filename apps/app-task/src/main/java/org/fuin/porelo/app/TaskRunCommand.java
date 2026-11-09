@@ -870,7 +870,8 @@ public class TaskRunCommand implements Callable<Integer>, PoreloFactory.ContextA
                                                                     running.selected()
                                                                             .definition()
                                                                             .attendedCommand(
-                                                                                    model)))
+                                                                                    running
+                                                                                            .model())))
                                             : null;
                             out.println(
                                     rm

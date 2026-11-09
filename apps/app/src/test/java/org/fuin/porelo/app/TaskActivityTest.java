@@ -237,6 +237,37 @@ class TaskActivityTest {
     }
 
     @Test
+    void saysWhichModelItRunsOnAndWhereThatCameFrom(@TempDir Path dir) throws IOException {
+
+        // Every client shows the model a task runs on; a row without it leaves them to guess.
+        final PoreloContext context = context(dir);
+        final Path state = task("porelo-uc-shell-1", "Up 4 minutes", "1788500000", "0");
+        new TaskProfile(
+                        TaskProfile.VERSION,
+                        "example",
+                        TaskMode.UNATTENDED,
+                        "fix the parser",
+                        null,
+                        "2026-09-07T10:00:00Z",
+                        "prompt",
+                        null,
+                        "provider-a",
+                        "model-a",
+                        null,
+                        0,
+                        null,
+                        "repository",
+                        "Model A")
+                .writeTo(state);
+
+        assertThat(only(context).asMap())
+                .as("the row carries the model, its label and where it came from")
+                .containsEntry("model", "model-a")
+                .containsEntry("modelLabel", "Model A")
+                .containsEntry("modelFrom", "repository");
+    }
+
+    @Test
     void saysItsWorkWaitsAtTheGateOfTheRepositoryItWorksOn(@TempDir Path dir) throws IOException {
 
         // A task on a repository other than its project's own - every task of 'default' - pushes to

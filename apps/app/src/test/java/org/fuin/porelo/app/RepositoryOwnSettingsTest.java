@@ -181,6 +181,33 @@ class RepositoryOwnSettingsTest {
                                 "image.env.DROP", RepositoryOwnSettings.OVERRIDE));
     }
 
+    @Test
+    void aModelTheRepositoryNamesCountsOnlyOnceThisMachineAllowedIt() throws Exception {
+
+        // What a start shows and judges before the allowance must not be a setting it refuses.
+        final PoreloContext context = context();
+        final Path projectFile =
+                shop(context, "providers:\n  provider-a:\n    model: \"model-c\"\n");
+        final org.fuin.porelo.core.project.Project project = ProjectReader.read(projectFile);
+
+        assertThat(
+                        ModelChoice.withRepository(
+                                        context, projectFile, project, project.repository("shop"))
+                                .providers())
+                .as("a file nobody allowed sets no model")
+                .isEmpty();
+
+        final String hash =
+                StartCheck.withSettings(context, READY, projectFile, "shop").settingsHash();
+        assertThat(RepositoryOwnSettings.allowIfUnchanged(context, "shop", hash)).isTrue();
+        assertThat(
+                        ModelChoice.withRepository(
+                                        context, projectFile, project, project.repository("shop"))
+                                .providers())
+                .as("once allowed, the repository's model is the one a start takes")
+                .containsOnlyKeys("provider-a");
+    }
+
     private Path shop(final PoreloContext context, final String porelo) throws Exception {
         Files.createDirectories(checkout());
         Files.writeString(checkout().resolve("porelo.yml"), porelo);

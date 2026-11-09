@@ -552,6 +552,30 @@ final class ProjectSchema {
                             "The longest run a task started through it may be given, in minutes.",
                             "integer",
                             String.valueOf(McpEndpoint.DEFAULT_MINUTES),
+                            false),
+                    key(
+                            "",
+                            "providers",
+                            "The model a task runs on for each provider, by the name 'porelo"
+                                    + " providers' lists, unless its start names another; without"
+                                    + " one the agent's own default.",
+                            "map",
+                            "",
+                            false),
+                    key(
+                            "providers.<provider>",
+                            "model",
+                            "The model's id, one word, as the provider names it; a repository's"
+                                    + " porelo.yml may name its own.",
+                            "string",
+                            "",
+                            true),
+                    key(
+                            "providers.<provider>",
+                            "label",
+                            "What a person is shown for the model, one line.",
+                            "string",
+                            "",
                             false));
 
     private ProjectSchema() {}
@@ -587,6 +611,7 @@ final class ProjectSchema {
             case "repositories.<name>" -> "repositories.<repository>";
             case "mail.peers.<name>" -> "mail.peers.<peer>";
             case "parameters.<name>" -> "parameters.<parameter>";
+            case "providers.<name>" -> "providers.<provider>";
             default -> section;
         };
     }

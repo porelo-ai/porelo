@@ -230,7 +230,9 @@ public final class ProjectReader {
                         reader, origin, snippets, layers);
         // A file on this machine, as read(Path) reads it: placed where this machine reaches it.
         return new WithRepository(
-                placement.apply(project(read.file(), snippets, origin)),
+                placement.apply(
+                        project(read.file(), snippets, origin)
+                                .withProviders(providers(read.file(), read.sources()))),
                 read.asked(),
                 read.sources(),
                 read.removed());
@@ -272,8 +274,60 @@ public final class ProjectReader {
                 branch(file.branch()),
                 review(info.review()),
                 image.env(),
-                file.baseBranch());
+                file.baseBranch(),
+                providers(file, Map.of()));
     }
+
+    /**
+     * Returns each provider's model, with the file that named it: the project's, unless a
+     * repository's own file set it. A label goes with its model, so a repository's model takes no
+     * label from the project's.
+     *
+     * @param file The file, checked.
+     * @param sources Each value's path to the file that set it; empty for the project's alone.
+     */
+    private static Map<String, ModelDefault> providers(
+            final ProjectFile file, final Map<String, String> sources) {
+        final Map<String, ModelDefault> read = new LinkedHashMap<>();
+        file.providers()
+                .forEach(
+                        (provider, entry) -> {
+                            final String path = "providers." + provider;
+                            final String modelBy =
+                                    sources.getOrDefault(path + ".model", PROJECT_SOURCE);
+                            final String labelBy =
+                                    sources.getOrDefault(path + ".label", PROJECT_SOURCE);
+                            // A later file's label would name the model of an earlier one.
+                            if (entry.label() != null
+                                    && !labelBy.equals(modelBy)
+                                    && !PROJECT_SOURCE.equals(labelBy)) {
+                                throw new ProjectException(
+                                        labelBy
+                                                + ": '"
+                                                + path
+                                                + ".label' is set without '"
+                                                + path
+                                                + ".model'; a label belongs to the model"
+                                                + " written beside it");
+                            }
+                            read.put(
+                                    provider,
+                                    new ModelDefault(
+                                            Objects.requireNonNull(
+                                                    entry.model(), "checked: " + path + ".model"),
+                                            entry.label() == null || !labelBy.equals(modelBy)
+                                                    ? ""
+                                                    : entry.label(),
+                                            PROJECT_SOURCE.equals(modelBy)
+                                                    ? ModelDefault.PROJECT
+                                                    : ModelDefault.REPOSITORY));
+                        });
+        return read;
+    }
+
+    /** Where the project's own values come from in a merge's sources. */
+    private static final String PROJECT_SOURCE =
+            org.fuin.porelo.core.project.file.RepositorySettings.PROJECT;
 
     private static Limits limits(org.fuin.porelo.core.project.file.@Nullable Limits limits) {
         if (limits == null) {

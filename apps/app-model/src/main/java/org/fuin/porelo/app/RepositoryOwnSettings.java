@@ -189,7 +189,11 @@ public final class RepositoryOwnSettings {
                 read.removed());
     }
 
-    private static boolean fromOrganization(final PoreloContext context, final String project) {
+    /**
+     * Tells whether this machine took a project from an organization, whose repositories' files may
+     * add settings beside their image.
+     */
+    static boolean fromOrganization(final PoreloContext context, final String project) {
         try {
             return OrganizationProjects.of(context).find(project) != null;
         } catch (IOException ex) {

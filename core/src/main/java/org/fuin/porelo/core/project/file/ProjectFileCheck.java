@@ -213,6 +213,46 @@ public final class ProjectFileCheck {
         if (file.mcp() != null) {
             mcp(file.mcp());
         }
+        providers(file.providers());
+    }
+
+    /**
+     * Checks the {@code providers} section's shape. Whether this machine knows each provider is
+     * asked where the machine's providers are: at a start and by {@code project check}.
+     */
+    private void providers(final Map<String, ProviderEntry> providers) {
+        providers.forEach(
+                (provider, entry) -> {
+                    final String path = Binding.join("providers", provider);
+                    if (!provider.matches(
+                            org.fuin.porelo.core.project.ModelDefault.PROVIDER_NAME)) {
+                        fault(path, "'" + path + "' is not a provider's name");
+                    }
+                    final String model = entry.model();
+                    if (model == null) {
+                        fault(
+                                path + ".model",
+                                "'" + path + ".model' is required: the model a task on it runs on");
+                    } else if (!org.fuin.porelo.core.project.ModelDefault.isWord(model)) {
+                        fault(
+                                path + ".model",
+                                "'"
+                                        + path
+                                        + ".model' is one word, a model's id, not '"
+                                        + shown(model)
+                                        + "'");
+                    }
+                    final String label = entry.label();
+                    if (label != null && !org.fuin.porelo.core.project.ModelDefault.isLine(label)) {
+                        fault(
+                                path + ".label",
+                                "'"
+                                        + path
+                                        + ".label' is one line of text, not '"
+                                        + shown(label)
+                                        + "'");
+                    }
+                });
     }
 
     /**

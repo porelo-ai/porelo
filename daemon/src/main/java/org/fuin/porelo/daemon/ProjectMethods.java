@@ -506,6 +506,31 @@ final class ProjectMethods {
                                                                         ::asMap)
                                                         .toList())));
 
+        // What a start that names no model would run on, per provider, so a client shows it first.
+        server.method(
+                "ProviderModels",
+                (parameters, replies) -> {
+                    final java.nio.file.Path file = projectFile(parameters, context);
+                    final List<org.fuin.porelo.app.ModelChoice.ProviderModel> models;
+                    try {
+                        models =
+                                org.fuin.porelo.app.ModelChoice.defaults(
+                                        context, file, empty(parameters, "repository"));
+                    } catch (final org.fuin.porelo.core.project.ProjectException ex) {
+                        throw new VarlinkException(
+                                INTERFACE + ".Failed",
+                                Map.of("message", String.valueOf(ex.getMessage())));
+                    }
+                    replies.last(
+                            Map.of(
+                                    "models",
+                                    models.stream()
+                                            .map(
+                                                    org.fuin.porelo.app.ModelChoice.ProviderModel
+                                                            ::asMap)
+                                            .toList()));
+                });
+
         server.method(
                 "CheckProjectFile",
                 (parameters, replies) ->

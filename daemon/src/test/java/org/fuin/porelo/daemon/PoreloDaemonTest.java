@@ -2379,6 +2379,68 @@ class PoreloDaemonTest {
     }
 
     @Test
+    void providerModelsSaysWhatAStartNamingNoModelWouldRunOn(@TempDir Path dir) throws Exception {
+
+        // New work shows the model before the start; a client cannot read this machine's files.
+        final Path providers = Files.createDirectories(dir.resolve("data/porelo/providers"));
+        Files.writeString(
+                providers.resolve("provider-a.yaml"),
+                """
+                name: provider-a
+                upstream: https://provider.example.com
+                dialects: { preview: "" }
+                auth_header: { _default: Authorization }
+                auth_prefix: { _default: "Bearer " }
+                """);
+        final Path file = projectFile(dir);
+        Files.writeString(
+                file,
+                Files.readString(file)
+                        + "providers:\n  provider-a:\n    model: \"model-a\"\n"
+                        + "    label: \"Model A\"\n");
+
+        serving(
+                dir,
+                socket -> {
+                    try (VarlinkClient client = new VarlinkClient(socket)) {
+                        assertThat(
+                                        client.call(
+                                                PoreloDaemon.INTERFACE + ".ProviderModels",
+                                                Map.of("project", PROJECT)))
+                                .as("the project's model for the provider this machine knows")
+                                .containsEntry(
+                                        "models",
+                                        List.of(
+                                                Map.of(
+                                                        "provider",
+                                                        "provider-a",
+                                                        "model",
+                                                        "model-a",
+                                                        "label",
+                                                        "Model A",
+                                                        "from",
+                                                        "project")));
+
+                        Files.writeString(
+                                file, Files.readString(file).replace("provider-a:", "provider-b:"));
+                        assertThatThrownBy(
+                                        () ->
+                                                client.call(
+                                                        PoreloDaemon.INTERFACE + ".ProviderModels",
+                                                        Map.of("project", PROJECT)))
+                                .as("a provider this machine does not know fails, as Start does")
+                                .isInstanceOfSatisfying(
+                                        VarlinkException.class,
+                                        failed ->
+                                                assertThat(failed.getErrorName())
+                                                        .isEqualTo(
+                                                                PoreloDaemon.INTERFACE
+                                                                        + ".Failed"));
+                    }
+                });
+    }
+
+    @Test
     void anInterfaceManagesDestinationsAsTheFilesAPersonWouldEdit(@TempDir Path dir)
             throws Exception {
 

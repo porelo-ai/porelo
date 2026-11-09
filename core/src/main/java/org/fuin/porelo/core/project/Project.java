@@ -35,6 +35,8 @@ package org.fuin.porelo.core.project;
  * @param review Whether a merge in its own repository needs another person's approval.
  * @param imageEnv Variables the project's own image sets, in the order written; empty when it sets
  *     none. A repository's own file names an image of its own, taken whole instead.
+ * @param providers The model each provider's tasks run on unless their start names another, by the
+ *     provider's name; empty when the file names none.
  */
 public record Project(
         String name,
@@ -56,7 +58,77 @@ public record Project(
         @org.jspecify.annotations.Nullable BranchScheme branch,
         String review,
         java.util.Map<String, String> imageEnv,
-        @org.jspecify.annotations.Nullable String baseBranch) {
+        @org.jspecify.annotations.Nullable String baseBranch,
+        java.util.Map<String, ModelDefault> providers) {
+
+    /**
+     * Constructor for a project that names no provider's model.
+     *
+     * @param name Short name.
+     * @param description Human-readable description.
+     * @param securityClass Trust level.
+     * @param baseImage Base image.
+     * @param imageSnippet Extra build lines, or {@code null}.
+     * @param upstream Where approved work goes, or {@code null}.
+     * @param limits What a task may consume.
+     * @param egress What the project's own tooling may reach.
+     * @param packageSources Where apt fetches from, or {@code null} for the default.
+     * @param mail The peers its tasks may address.
+     * @param repositories The work repositories it names.
+     * @param credentials Vault entries every task holds, by the destination each is for.
+     * @param builds Where its builds are read, or {@code null}.
+     * @param imageVariant The repository whose own image this is, or {@code null}.
+     * @param parameters What a start may be given.
+     * @param nickname The name its own repository's agent goes by, or {@code null}.
+     * @param branch How a task's branch at its forge is named, or {@code null}.
+     * @param review Whether a merge in its own repository needs approval.
+     * @param imageEnv Variables its own image sets.
+     * @param baseBranch Starting branch, or {@code null}.
+     */
+    public Project(
+            String name,
+            String description,
+            SecurityClass securityClass,
+            String baseImage,
+            @org.jspecify.annotations.Nullable String imageSnippet,
+            @org.jspecify.annotations.Nullable String upstream,
+            Limits limits,
+            Egress egress,
+            java.util.@org.jspecify.annotations.Nullable List<String> packageSources,
+            Mail mail,
+            java.util.List<Repository> repositories,
+            java.util.Map<String, String> credentials,
+            @org.jspecify.annotations.Nullable Builds builds,
+            @org.jspecify.annotations.Nullable String imageVariant,
+            Parameters parameters,
+            @org.jspecify.annotations.Nullable String nickname,
+            @org.jspecify.annotations.Nullable BranchScheme branch,
+            String review,
+            java.util.Map<String, String> imageEnv,
+            @org.jspecify.annotations.Nullable String baseBranch) {
+        this(
+                name,
+                description,
+                securityClass,
+                baseImage,
+                imageSnippet,
+                upstream,
+                limits,
+                egress,
+                packageSources,
+                mail,
+                repositories,
+                credentials,
+                builds,
+                imageVariant,
+                parameters,
+                nickname,
+                branch,
+                review,
+                imageEnv,
+                baseBranch,
+                java.util.Map.of());
+    }
 
     /**
      * Constructor for a project whose own image sets no variables.
@@ -774,6 +846,11 @@ public record Project(
 
     public Project {
         parameters = parameters == null ? Parameters.none() : parameters;
+        providers =
+                providers == null
+                        ? java.util.Map.of()
+                        : java.util.Collections.unmodifiableMap(
+                                new java.util.LinkedHashMap<>(providers));
         imageEnv =
                 imageEnv == null
                         ? java.util.Map.of()
@@ -984,7 +1061,39 @@ public record Project(
                 branch,
                 review,
                 imageEnv,
-                baseBranch);
+                baseBranch,
+                providers);
+    }
+
+    /**
+     * Returns this project with other providers' models, as a repository's own file names them.
+     *
+     * @param each The models by provider.
+     * @return The project.
+     */
+    public Project withProviders(final java.util.Map<String, ModelDefault> each) {
+        return new Project(
+                name,
+                description,
+                securityClass,
+                baseImage,
+                imageSnippet,
+                upstream,
+                limits,
+                egress,
+                packageSources,
+                mail,
+                repositories,
+                credentials,
+                builds,
+                imageVariant,
+                parameters,
+                nickname,
+                branch,
+                review,
+                imageEnv,
+                baseBranch,
+                each);
     }
 
     /**
@@ -1127,6 +1236,7 @@ public record Project(
                 branch,
                 review,
                 java.util.Map.of(),
-                baseBranch);
+                baseBranch,
+                providers);
     }
 }

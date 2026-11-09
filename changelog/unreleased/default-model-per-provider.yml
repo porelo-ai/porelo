@@ -1,0 +1,2 @@
+title: "project.yml names a default model per provider (providers.<provider>.model and label), a start takes it unless another is asked, ProviderModels says it before a start, and a task's row says its model and where it came from"
+type: added

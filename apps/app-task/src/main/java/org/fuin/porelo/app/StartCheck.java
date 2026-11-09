@@ -163,6 +163,12 @@ public final class StartCheck {
         SUBAGENTS_REFUSED,
 
         /**
+         * The model the start would settle from the repository's or the project's file is one the
+         * agent has no flag for. {@code detail} names the model and the file.
+         */
+        MODEL_REFUSED,
+
+        /**
          * In the default project, the repository's own {@code porelo.yml} or the person's {@code
          * .porelo.yml} beside it sets something other than the project does, outside the image, and
          * this machine has not allowed exactly that. {@code settingsToAllow} lists it, {@code
@@ -1562,6 +1568,52 @@ public final class StartCheck {
         }
     }
 
+    /**
+     * Refuses as Start refuses: a provider the files name a model for that this machine does not
+     * know, and a model they name for the task's provider that its agent has no flag for. A file
+     * that does not read is answered elsewhere.
+     */
+    private static @Nullable Result modelRefused(
+            final PoreloContext context,
+            final Path projectFile,
+            final org.fuin.porelo.core.project.@Nullable Repository repository,
+            final InstalledAgent agent,
+            final String provider) {
+        final org.fuin.porelo.core.project.Project project;
+        try {
+            final org.fuin.porelo.core.project.Project read =
+                    org.fuin.porelo.core.project.ProjectReader.read(projectFile);
+            project =
+                    repository == null
+                            ? read
+                            : ModelChoice.withRepository(context, projectFile, read, repository);
+        } catch (RuntimeException ex) {
+            return null;
+        }
+        final String unknown = ModelChoice.unknownProvider(project, context.providers().keySet());
+        if (unknown != null) {
+            return new Result(Outcome.UNKNOWN_PROVIDER, agent.name(), provider, "", unknown);
+        }
+        final ModelChoice.Settled settled =
+                ModelChoice.settle(null, project, provider.isEmpty() ? null : provider);
+        if (settled.model() != null && agent.definition().headless().modelFlag() == null) {
+            return new Result(
+                    Outcome.MODEL_REFUSED,
+                    agent.name(),
+                    provider,
+                    "",
+                    agent.name()
+                            + " does not take a model, so "
+                            + settled.model()
+                            + " named by the "
+                            + settled.from()
+                            + " file for "
+                            + provider
+                            + " would change nothing");
+        }
+        return null;
+    }
+
     /** Answers everything that follows once the agent is settled. */
     private static Result settled(
             PoreloContext context,
@@ -1601,6 +1653,14 @@ public final class StartCheck {
         final CredentialChoice choice =
                 new CredentialChoice(context, providerName, credentialType, agentName);
         final String provider = serving.selection() == null ? "" : serving.selection().name();
+
+        // As Start settles and refuses it, before the credential: a model that would be dropped.
+        if (projectFile != null) {
+            final Result model = modelRefused(context, projectFile, repository, agent, provider);
+            if (model != null) {
+                return model;
+            }
+        }
 
         if (serving.selection() == null || choice.tokenVariable(agent) == null) {
             // Takes no brokered credential, so there is nothing that could be missing.

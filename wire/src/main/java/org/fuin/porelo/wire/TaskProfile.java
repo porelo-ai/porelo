@@ -53,6 +53,12 @@ import org.jspecify.annotations.Nullable;
  * @param parent The task that started this one through its MCP endpoint, by container name, or
  *     {@code null} for a task a person started. Taken from the socket the start came over, never
  *     from what the start said; a stop over that socket takes only a task naming its caller here.
+ * @param modelFrom Where its model was settled from: {@code start}, {@code repository}, {@code
+ *     project}, or {@code agent} when nothing named one and the agent runs on its own default. A
+ *     profile from before it was recorded reads as {@code start} with a model, {@code agent}
+ *     without, which is all a start could do then.
+ * @param modelLabel What a person is shown for the model, as the file that named it gives it, or
+ *     {@code null} when it gives none.
  */
 public record TaskProfile(
         int version,
@@ -67,7 +73,64 @@ public record TaskProfile(
         @Nullable String model,
         @Nullable String forgeBranch,
         int subagents,
-        @Nullable String parent) {
+        @Nullable String parent,
+        String modelFrom,
+        @Nullable String modelLabel) {
+
+    /** Where a model a start asked for comes from. */
+    public static final String FROM_START = "start";
+
+    /** Where no model comes from: the agent's own default. */
+    public static final String FROM_AGENT = "agent";
+
+    /**
+     * Constructor for a task whose model, if any, its start asked for.
+     *
+     * @param version Schema version.
+     * @param agent Agent running in the task, or {@code null}.
+     * @param mode How a person is meant to be involved.
+     * @param prompt What an unattended task was asked to do, or {@code null}.
+     * @param branch Ref the work goes to, or {@code null}.
+     * @param startedAt When it started, ISO-8601.
+     * @param clearance What it does with a blocked connection.
+     * @param label Its caption, or {@code null}.
+     * @param provider Its model provider, or {@code null}.
+     * @param model Model requested at start, or {@code null}.
+     * @param forgeBranch The branch beyond the gate, or {@code null}.
+     * @param subagents The most subagents at the same time.
+     * @param parent The task that started it, or {@code null}.
+     */
+    public TaskProfile(
+            int version,
+            @Nullable String agent,
+            TaskMode mode,
+            @Nullable String prompt,
+            @Nullable String branch,
+            String startedAt,
+            @Nullable String clearance,
+            @Nullable String label,
+            @Nullable String provider,
+            @Nullable String model,
+            @Nullable String forgeBranch,
+            int subagents,
+            @Nullable String parent) {
+        this(
+                version,
+                agent,
+                mode,
+                prompt,
+                branch,
+                startedAt,
+                clearance,
+                label,
+                provider,
+                model,
+                forgeBranch,
+                subagents,
+                parent,
+                model == null ? FROM_AGENT : FROM_START,
+                null);
+    }
 
     /**
      * Constructor for a task a person started.
@@ -280,7 +343,9 @@ public record TaskProfile(
                 model,
                 forgeBranch,
                 subagents,
-                parent);
+                parent,
+                modelFrom,
+                modelLabel);
     }
 
     /**
@@ -307,7 +372,9 @@ public record TaskProfile(
                 model,
                 forgeBranch,
                 subagents,
-                parent);
+                parent,
+                modelFrom,
+                modelLabel);
     }
 
     /**
@@ -327,7 +394,7 @@ public record TaskProfile(
     }
 
     /** Current schema version. */
-    public static final int VERSION = 8;
+    public static final int VERSION = 9;
 
     /** Name of the file in a task's state directory. */
     public static final String FILE = "task.json";
@@ -353,6 +420,8 @@ public record TaskProfile(
         document.put("forgeBranch", forgeBranch == null ? "" : forgeBranch);
         document.put("subagents", subagents);
         document.put("parent", parent == null ? "" : parent);
+        document.put("modelFrom", modelFrom);
+        document.put("modelLabel", modelLabel == null ? "" : modelLabel);
         final Path file = stateDirectory.resolve(FILE);
         Files.writeString(file, Json.write(document), StandardCharsets.UTF_8);
         // A prompt is the operator's own words and may name anything they were working on; the same
@@ -400,12 +469,23 @@ public record TaskProfile(
                     // A task started before it was recorded was told none.
                     subagents(document),
                     // A task started before it was recorded was started by a person.
-                    text(document, "parent"));
+                    text(document, "parent"),
+                    modelFrom(document),
+                    text(document, "modelLabel"));
         } catch (IOException | RuntimeException ex) {
             // A half-written file from a start that was killed. A task nobody can describe is still
             // a task somebody may need to stop.
             return null;
         }
+    }
+
+    private static String modelFrom(Map<?, ?> document) {
+        final String recorded = text(document, "modelFrom");
+        if (recorded != null) {
+            return recorded;
+        }
+        // Before it was recorded, only a start could name a model.
+        return text(document, "model") == null ? FROM_AGENT : FROM_START;
     }
 
     private static int subagents(Map<?, ?> document) {

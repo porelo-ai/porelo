@@ -133,6 +133,17 @@ type Task (
   # The model provider its agent was brokered to, by the name Providers reports. "" when it was
   # brokered to none, or when the task was started by a Porelo that did not record it.
   provider: string,
+  # The model its agent runs on, as its start settled it: the start's own, else the repository's
+  # porelo.yml's for its provider, else project.yml's. "" for the agent's own default. A task
+  # brought back keeps it.
+  model: string,
+  # What a person is shown for the model, as the file that named it gives it. "" when it gives
+  # none, and for a model the start named.
+  modelLabel: string,
+  # Where the model came from: "start", "repository", "project", or "agent" when nothing named one
+  # and the agent runs on its own default. A task started before it was recorded reads "start"
+  # where it has a model and "agent" where it has none. "" when nothing recorded the task.
+  modelFrom: string,
   # How somebody is meant to be involved: SHELL, AGENT or UNATTENDED, spelled as Mode spells
   # them. A string rather than the Mode type because it has a fourth state the type does not: ""
   # for a task started before this field existed, where nothing recorded one and inventing an
@@ -528,7 +539,11 @@ method Start(
   # exit code in the reply is then the agent's. Without a prompt the container comes up and the
   # call returns, as it always did.
   prompt: ?string,
-  # Model to ask the agent for, when it declares a model flag. Ignored otherwise.
+  # Model to ask the agent for, one word. Omitted, the repository's porelo.yml's for the task's
+  # provider, else project.yml's (providers.<provider>.model), else the agent's own default. A model
+  # for an agent that declares no model flag, a model that is not one word, and through a task's
+  # MCP endpoint one its mcp.agents does not allow, whichever file named it, are refused with
+  # exitCode 2 before anything is made. A task brought back keeps the model it was made with.
   model: ?string,
   # Turn limit, when the agent declares one.
   maxTurns: ?int,
@@ -834,6 +849,10 @@ type StartOutcome (
   # time than its definition says it can enforce. 'detail' names the agent and where the number came
   # from, in the words Start refuses with (exitCode 64).
   SUBAGENTS_REFUSED,
+  # The model the start would settle - the repository's porelo.yml's or project.yml's for the
+  # provider - is one the agent cannot take: its definition declares no model flag. 'detail' names
+  # the model and the file. Start refuses the same case before anything is created (exitCode 2).
+  MODEL_REFUSED,
   # In 'default', the repository's porelo.yml, or the person's .porelo.yml beside it, sets something
   # other than the project does, outside the image, and this machine has not allowed exactly that.
   # settingsToAllow lists what is new, changed or removed since the last allowance (the first time,

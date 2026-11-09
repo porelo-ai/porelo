@@ -595,6 +595,8 @@ public final class TaskLaunch {
      * @param cleanUp Turns an exit code into the final one, removing the container unless the run
      *     asked to keep it. Handed over rather than duplicated: whether a container survives is one
      *     decision, and the attaching path needs it too.
+     * @param model The model its agent runs on as the start settled it, or {@code null} for the
+     *     agent's own default; an attended start hands it to the agent as the unattended run does.
      */
     public record Running(
             TaskRunner runner,
@@ -603,7 +605,31 @@ public final class TaskLaunch {
             String container,
             java.util.Map<String, String> environment,
             Project project,
-            IntUnaryOperator cleanUp) {
+            IntUnaryOperator cleanUp,
+            @Nullable String model) {
+
+        /**
+         * Creates a running task whose agent runs on its own default model.
+         *
+         * @param runner Runs commands in it.
+         * @param agents The installed agents.
+         * @param selected The agent, or {@code null}.
+         * @param container Container name.
+         * @param environment What the container was given.
+         * @param project The project.
+         * @param cleanUp Turns an exit code into the final one.
+         */
+        public Running(
+                TaskRunner runner,
+                InstalledAgents agents,
+                @Nullable InstalledAgent selected,
+                String container,
+                java.util.Map<String, String> environment,
+                Project project,
+                IntUnaryOperator cleanUp) {
+            this(runner, agents, selected, container, environment, project, cleanUp, null);
+        }
+
         /** Without what it holds, as a line must never carry that. */
         @Override
         public String toString() {
@@ -667,6 +693,108 @@ public final class TaskLaunch {
      * from {@code --subagents} or the project file; none until then.
      */
     private int subagents;
+
+    /** The model the task runs on, once the start has settled it with its provider. */
+    private ModelChoice.Settled model = ModelChoice.Settled.AGENTS;
+
+    /** The model this call's run hands its agent: the settled one, or a task's recorded one. */
+    private @Nullable String runModel;
+
+    /**
+     * Settles the model with the provider and refuses one the start cannot take: a model that is no
+     * word, a provider the files name that this machine does not know, a model the agent has no
+     * flag for, and, for a start through a task's MCP endpoint, one the project file's list does
+     * not allow for the agent, whichever file named it.
+     *
+     * @return Whether the start is refused, which is said.
+     */
+    private boolean refusesModel(
+            final @Nullable InstalledAgent agent,
+            final Project project,
+            final java.nio.file.Path projectFile,
+            final PrintWriter out,
+            final PrintWriter err) {
+        String refused = ModelChoice.refusal(request.model(), "the model asked for");
+        if (refused == null) {
+            refused = ModelChoice.unknownProvider(project, context.providers().keySet());
+        }
+        if (refused == null && agent == null && request.model() != null) {
+            // Recorded on a task no agent runs in, it would be shown as a model nothing uses.
+            refused =
+                    "no agent runs in this task, so the model "
+                            + request.model()
+                            + " would change nothing; start it without --model";
+        }
+        SelectedProvider serving = null;
+        if (refused == null && agent != null) {
+            try {
+                serving = credentials().provider(agent);
+            } catch (org.fuin.porelo.agent.api.AgentException ex) {
+                // Refused with its own words where the credential is looked at, as before.
+                serving = null;
+            }
+        }
+        if (refused == null) {
+            model =
+                    ModelChoice.settle(
+                            request.model(), project, serving == null ? null : serving.name());
+            runModel = model.model();
+        }
+        if (refused == null
+                && model.model() != null
+                && agent != null
+                && agent.definition().headless().modelFlag() == null) {
+            refused =
+                    agent.name()
+                            + " does not take a model, so "
+                            + model.model()
+                            + (org.fuin.porelo.core.project.ModelDefault.START.equals(model.from())
+                                    ? " would change nothing; start it without --model"
+                                    : " named by the "
+                                            + model.from()
+                                            + " file for "
+                                            + (serving == null ? "its provider" : serving.name())
+                                            + " would change nothing; start another agent, or"
+                                            + " remove it from the file");
+        }
+        if (refused == null && request.parent() != null && agent != null) {
+            // A file that allows no endpoint has no list to hold a start to; one that cannot be
+            // read allows nothing.
+            java.util.@Nullable Optional<org.fuin.porelo.core.project.McpEndpoint> endpoint;
+            try {
+                endpoint = ProjectReader.endpoint(projectFile);
+            } catch (ProjectException ex) {
+                endpoint = null;
+            }
+            if (endpoint == null
+                    || endpoint.isPresent()
+                            && !endpoint.get().allows(agent.name(), model.model())) {
+                refused =
+                        "the project file's mcp.agents does not allow "
+                                + agent.name()
+                                + (model.model() == null
+                                        ? " on its own default model"
+                                        : " with model " + model.model());
+            }
+        }
+        if (refused != null) {
+            err.println("porelo: " + refused);
+            err.println("porelo: nothing was created");
+            err.flush();
+            return true;
+        }
+        if (model.model() != null) {
+            out.println(
+                    "model          "
+                            + model.model()
+                            + (model.label().isEmpty() ? "" : " (" + model.label() + ")")
+                            + "  (from "
+                            + model.from()
+                            + ")");
+            out.flush();
+        }
+        return false;
+    }
 
     /** What the start says {@link #subagents} came from, as a refusal names it. */
     private String subagentsAsked = "--subagents 0";
@@ -1003,9 +1131,7 @@ public final class TaskLaunch {
             return new Existing(container, project.name(), 64);
         }
         if (request.model() != null) {
-            final org.fuin.porelo.wire.TaskProfile profile =
-                    org.fuin.porelo.wire.TaskProfile.readFrom(
-                            context.paths().tasks().containerState(container));
+            final org.fuin.porelo.wire.TaskProfile profile = keptProfile(container);
             if (profile != null && !request.model().equals(profile.model())) {
                 err.println(
                         "porelo: "
@@ -1723,6 +1849,8 @@ public final class TaskLaunch {
             try (InstalledAgents agents = context.agents()) {
                 final AgentChoice.Choice choice =
                         AgentChoice.considerAgent(context, agents, request.agentName(), repository);
+                // The provider it was found signed in to is the one its model is settled for.
+                decision = choice;
                 sayFoundWarnings(choice, err);
                 sayChoice(choice, out);
                 if (choice.refusal() == AgentChoice.AgentRefusal.SEVERAL_AGENTS) {
@@ -1754,6 +1882,10 @@ public final class TaskLaunch {
                         return 2;
                     }
                     serving = provider.selection();
+                }
+                // As the start refuses it, so a dry run promises no start that would not come.
+                if (refusesModel(selected, project, projectFile, out, err)) {
+                    return 2;
                 }
                 EgressReport.reportReachable(
                         project,
@@ -1830,6 +1962,12 @@ public final class TaskLaunch {
             }
             if (asked != null && refusesSubagents(asked, err)) {
                 return 64;
+            }
+            // Settled with the provider and refused before anything is made: a model the agent has
+            // no flag for would be dropped on the way in, attended or not, and the agent would
+            // answer on its own default without a word.
+            if (refusesModel(asked, project, projectFile, out, err)) {
+                return 2;
             }
 
             credentials().reportStaleCredential(select(agents), out);
@@ -2259,21 +2397,6 @@ public final class TaskLaunch {
 
             final org.fuin.porelo.agent.api.InstalledAgent selected = select(agents);
 
-            // Before anything exists: a model the agent has no flag for would be dropped on the way
-            // in, attended or not, and the agent would answer on its own default without a word.
-            if (request.model() != null
-                    && selected != null
-                    && selected.definition().headless().modelFlag() == null) {
-                err.println(
-                        "porelo: "
-                                + selected.name()
-                                + " does not take a model, so --model "
-                                + request.model()
-                                + " would change nothing; start it without --model");
-                err.flush();
-                return 2;
-            }
-
             // Into the project's conversations before anything exists, and after every other
             // refusal: a task whose messages reach nobody is refused here, as a credential nobody
             // can reach is - and enrolled earlier, a start refused afterwards for something else
@@ -2667,7 +2790,8 @@ public final class TaskLaunch {
                             container,
                             environmentCache,
                             project,
-                            code -> cleanUp(runner, container, code, out, err)));
+                            code -> cleanUp(runner, container, code, out, err),
+                            model.model()));
 
         } catch (HostPerson.Refused ex) {
             err.println("porelo: " + ex.getMessage());
@@ -2831,13 +2955,7 @@ public final class TaskLaunch {
                 sessions.toContinue(container, selected.definition()).orElse(null);
         final org.fuin.porelo.agent.api.RunRequest agentRequest =
                 new org.fuin.porelo.agent.api.RunRequest(
-                        prompt,
-                        request.model(),
-                        request.maxTurns(),
-                        continuing,
-                        false,
-                        true,
-                        subagents);
+                        prompt, runModel, request.maxTurns(), continuing, false, true, subagents);
 
         out.println();
         out.println("running   " + selected.name() + " (up to " + request.minutes() + " minutes)");
@@ -2931,9 +3049,10 @@ public final class TaskLaunch {
                     profile == null || profile.agent() == null
                             ? null
                             : agents.find(profile.agent()).orElse(null);
-            // Its number as its start settled it: the run request is where an unattended agent
-            // hears it, on every run.
+            // Its number and its model as its start settled them: the run request is where an
+            // unattended agent hears them, on every run, never from a file read again now.
             subagents = profile == null ? 0 : profile.subagents();
+            runModel = profile == null ? null : profile.model();
             // Nothing extra for the exec: a container that exists already carries what it was
             // given.
             final int code =
@@ -2977,10 +3096,12 @@ public final class TaskLaunch {
                             request.clearance(),
                             null,
                             servingName,
-                            request.model(),
+                            model.model(),
                             forgeBranch,
                             subagents,
-                            request.parent())
+                            request.parent(),
+                            model.from(),
+                            model.label().isEmpty() ? null : model.label())
                     .writeTo(context.paths().tasks().containerState(container));
         } catch (java.io.IOException ex) {
             err.println("porelo: could not record what this task is: " + ex.getMessage());

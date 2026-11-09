@@ -259,17 +259,29 @@ public record ImageChoice(
                 RepositorySettingsSignature.check(
                         context, project.name(), repository.name(), mirror, found.ref());
                 final String origin = FILE + " at " + found.ref() + " of " + repository.name();
+                // An organization's file may set more than its image, merged and judged where its
+                // settings are read; only the image is taken here.
+                final boolean besideSettings =
+                        RepositoryOwnSettings.fromOrganization(context, project.name());
                 MirrorFile.read(context.runner(), mirror, FILE)
                         .ifPresent(
                                 text ->
                                         order.add(
-                                                RepositoryImageReader.read(
-                                                        text,
-                                                        origin,
-                                                        MirrorFile.snippets(
-                                                                context.runner(),
-                                                                mirror,
-                                                                found.ref()))));
+                                                besideSettings
+                                                        ? RepositoryImageReader.readBesideSettings(
+                                                                text,
+                                                                origin,
+                                                                MirrorFile.snippets(
+                                                                        context.runner(),
+                                                                        mirror,
+                                                                        found.ref()))
+                                                        : RepositoryImageReader.read(
+                                                                text,
+                                                                origin,
+                                                                MirrorFile.snippets(
+                                                                        context.runner(),
+                                                                        mirror,
+                                                                        found.ref()))));
             }
         } catch (RepositorySettingsSignature.Unsigned ex) {
             // No fetch repairs a change nobody who may sign it signed: refused as it stands.
