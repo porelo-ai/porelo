@@ -33,8 +33,25 @@ class MailboxGuideTest {
                 // The operator in walk 10: "Seid Ihr alle da?" to the room, and an agent filed it
                 // unanswered.
                 .contains("names nobody is meant for every agent in the room:")
-                .contains("answer it in the room.")
-                .contains("A message that names another is not yours to answer");
+                .contains("answer it in the room.");
+    }
+
+    @Test
+    void sendingUsesTheNamesThePeerCardAllows() {
+        // An agent following the guide must not choose an alias that dispatch will hold.
+        assertThat(MailboxGuide.text())
+                .as("outgoing recipients are the peer card's names")
+                .contains("Use only the names it lists in `metadata.to`");
+    }
+
+    @Test
+    @Tag("documents")
+    void anUnmatchedRoomMessageIsSilentBeforeSignatureChecks() throws IOException {
+        // A false refusal promise leaves a person waiting for an answer that never comes.
+        assertThat(Files.readString(Path.of("..", "..", "doc", "messages.md")))
+                .as("unmatched task messages are dropped silently before delivery checks")
+                .contains("A task's message naming no task here reaches none, silently")
+                .doesNotContain("project's tasks; anything else is held");
     }
 
     @Test

@@ -300,6 +300,86 @@ class AgentWakeTest {
                 .isTrue();
     }
 
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(
+            strings = {"porelo-p-review", "review", "Agent Review"})
+    void everyNameThatHandsOutAMessageAlsoWakesItsTask(final String to) throws IOException {
+        // A delivered display-addressed message must not leave its recipient asleep indefinitely.
+        final Mailbox mailbox = new Mailbox(dir.resolve("mail/porelo-p-review"));
+        mailbox.create();
+        final Path message = mailbox.inboxNew().resolve("m.json");
+        Files.writeString(
+                message,
+                org.fuin.porelo.wire.Json.write(
+                        java.util.Map.of(
+                                "role", "ROLE_AGENT", "metadata", java.util.Map.of("to", to))));
+
+        assertThat(AgentWake.namesIt(message, "porelo-p-review", "p", answers()))
+                .as("a delivered message addressed by %s wakes its task", to)
+                .isTrue();
+    }
+
+    @Test
+    void announceUsesTheDisplayTheRoomHoldsInsteadOfTheDerivedName() throws IOException {
+        // A room's assigned name must wake its owner without waking it under an obsolete alias.
+        final PoreloContext context = context();
+        final Path adapter =
+                context.paths()
+                        .messaging()
+                        .transportDirectory()
+                        .locations()
+                        .getFirst()
+                        .resolve(TransportDirectory.PREFIX + "room");
+        Files.createDirectories(adapter.getParent());
+        Files.writeString(adapter, "#!/bin/sh\n");
+        adapter.toFile().setExecutable(true);
+        final Path displays =
+                context.paths().xdg().state().resolve("transport/room/displays/p.json");
+        Files.createDirectories(displays.getParent());
+        Files.writeString(displays, "{\"porelo-p-review\":\"Agent Scout (review)\"}");
+        final Path unrelated =
+                context.paths().xdg().state().resolve("transport/other/displays/q.json");
+        Files.createDirectories(unrelated.getParent());
+        Files.writeString(unrelated, "{\"porelo-q-review\":\"Agent Review\"}");
+        final Mailbox mailbox = new Mailbox(dir.resolve("mail/porelo-p-review"));
+        mailbox.create();
+        final Path message = mailbox.inboxNew().resolve("m.json");
+        Files.writeString(
+                message, "{\"role\":\"ROLE_AGENT\",\"metadata\":{\"to\":\"Agent Review\"}}");
+        final AgentWake wake = new AgentWake(context);
+        assertThat(wake.announce(mailbox, "porelo-p-review", "p", () -> true))
+                .as("the derived alias no longer names this task")
+                .isFalse();
+        Files.writeString(
+                message,
+                "{\"role\":\"ROLE_AGENT\",\"metadata\":{\"to\":\"Agent Scout (review)\"}}");
+        assertThat(wake.announce(mailbox, "porelo-p-review", "p", () -> true))
+                .as("the recorded room display wakes the task through announce")
+                .isTrue();
+    }
+
+    @Test
+    void aRecordedDisplayInOneRoomDoesNotHideAnotherRoomsFallback() throws IOException {
+        // A task in two rooms must not sleep through a name that one of those rooms delivers.
+        final PoreloContext context = context();
+        final Path rooms = context.paths().xdg().state().resolve("transport");
+        final Path first = rooms.resolve("first/displays/p.json");
+        final Path second = rooms.resolve("second/displays/p.json");
+        Files.createDirectories(first.getParent());
+        Files.createDirectories(second.getParent());
+        Files.writeString(first, "{\"porelo-p-review\":\"Agent Scout\"}");
+        Files.writeString(second, "{\"porelo-p-build\":\"Agent Build\"}");
+        final Mailbox mailbox = new Mailbox(dir.resolve("mail/porelo-p-review"));
+        mailbox.create();
+        Files.writeString(
+                mailbox.inboxNew().resolve("m.json"),
+                "{\"role\":\"ROLE_AGENT\",\"metadata\":{\"to\":\"Agent Review\"}}");
+
+        assertThat(new AgentWake(context).announce(mailbox, "porelo-p-review", "p", () -> true))
+                .as("the second room's unclaimed derived name still wakes its recipient")
+                .isTrue();
+    }
+
     @Test
     void aPeersMessageShapedLikeARefusalWakesOnlyTheTaskItNames() throws IOException {
         // A task writes its message's metadata and parts itself: shaped like a refusal note, it

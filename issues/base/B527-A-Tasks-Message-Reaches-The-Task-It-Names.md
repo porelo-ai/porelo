@@ -1,6 +1,6 @@
 # [B527](README.md#b527) — A Task's Message Reaches The Task It Names
 
-**Status:** Implementing. Filed 2026-11-08 from the operator's decision on move 3's 13c/22: "tasks reach each other only
+**Status:** Review. Filed 2026-11-08 from the operator's decision on move 3's 13c/22: "tasks reach each other only
 by naming them".
 **Size:** M - it replaces 2026-10-04's "every agent reads every message in the room" in the hand-out.
 
@@ -8,18 +8,28 @@ by naming them".
 `metadata.to` names and to no other task. A message to `people` reaches no task ([B523](README.md#b523)). The room
 still shows every message to the persons.
 
-## Open for the plan reading
-
-- **Which names count.** `metadata.to` names a task by its container (`porelo-p-review`, as the card lists it) and,
-  in `TransportConversationsTest.whatArrivesGoesToEveryTaskOfThatProjectWhomeverItNamesAndNothingIsKept`, by its
-  short name (`review`). Both must reach it, and [B526](README.md#b526)'s "Agent Review" may become a third.
-- **A peer on another machine.** A message naming somebody not on this machine was handed to every task here. Under
-  the decision it reaches none. Say so to the sender, or keep it silent as the room shows it anyway?
-- **TalkPassProjectTest's removed siblings**: `aRemovedSiblingWhoseNameFitsTwoProjectsKeepsWhatItsRoomHeldForIt`
-  and `aRemovedTaskOfAProjectNoLongerFollowedIsGivenNoOtherProjectsConversation` failed under a first narrowing.
-  Read why before changing what they pin.
-- The guide (`MailboxGuide`, doc/messages.md) and the decision in doc/decisions.md say the new rule.
 
 ## Why
 
 In move 3 every message of one task woke the others, who filed them away as not meant for them, or answered.
+
+## As built
+
+- `TransportConversations.handOut` hands a task's signed message with any role except `ROLE_USER` to each local task
+  of the project that its `metadata.to` names, and to no other task. One string or the string entries of a list
+  name recipients; other list entries are ignored. A list containing no strings names nobody.
+- A task counts as named by its container (`porelo-p-review`), its short name (`review`) or the display name its room
+  holds for it ("Agent Review"). Without a recorded display, the derived task name applies only when no member holds
+  it as a recorded display. Matching is exact and resolved per room; another project's records do not apply. Hand-out and wake use the same matcher and display resolution;
+  `AgentWake.announce` reads recorded room names without asking the transport or opening the vault.
+- A message naming nobody of this project here reaches no task, silently, before delivery checks: the room shows it
+  to the persons. A message naming a task here goes through the existing delivery checks. A message to `people`
+  reaches no task; a message never goes back to its posting account. Only a person's words reach every task in the
+  room, and a direct chat reaches the one task it is with.
+- An agent may write only the names its current peer card lists in `metadata.to`. Container and room display names
+  also match on arrival; outbound dispatch still uses peer names. `MailboxGuide` and doc/messages.md explain both.
+- `TalkPassProjectTest`'s removed-sibling tests name their recipients explicitly and prove that no message of one
+  project reaches another project's task, with decoys. `EveryoneReadsTheRoomTest` uses a `ROLE_AGENT` fixture and a
+  third, unaddressed task to prove recipient selection and sender exclusion.
+- Regression tests cover exact container, short and display names, recorded display ownership, wake through
+  `announce`, missing and unfamiliar roles, `people`, mixed recipient lists and silent unmatched delivery.

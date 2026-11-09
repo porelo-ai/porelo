@@ -1,0 +1,2 @@
+title: A task's room message reaches and wakes only the local tasks it names, using recorded room displays without borrowing another task's name; agents send to the peer names their card lists, and persons still see every message.
+type: fixed

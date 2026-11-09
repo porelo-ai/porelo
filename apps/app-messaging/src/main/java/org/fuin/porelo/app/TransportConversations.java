@@ -68,8 +68,18 @@ final class TransportConversations {
      * @param mailbox Its mailbox.
      * @param project Its project.
      * @param scheme The transport whose conversation it is in.
+     * @param display The display to match, {@code null} to derive it, or empty when none may match.
      */
-    record Member(String container, Mailbox mailbox, String project, String scheme) {}
+    record Member(
+            String container,
+            Mailbox mailbox,
+            String project,
+            String scheme,
+            @Nullable String display) {
+        Member(String container, Mailbox mailbox, String project, String scheme) {
+            this(container, mailbox, project, scheme, null);
+        }
+    }
 
     /**
      * What one pass did.
@@ -211,7 +221,7 @@ final class TransportConversations {
                 dropped +=
                         handOut(
                                 inbound,
-                                group,
+                                withDisplays(group),
                                 accounts,
                                 lifecycle.heard(scheme, project, persons),
                                 persons,
@@ -270,13 +280,12 @@ final class TransportConversations {
     }
 
     /**
-     * Hands each message that arrived to every task of the project here, with what came beside it.
+     * Hands arriving task messages to the task they name, with what came beside them.
      *
      * @param inbound Where the transport put them.
      * @param members The project's tasks on this machine.
      * @param handed Filled with message to task.
-     * @param said Filled with a sentence for each message dropped, and why: never dropped without a
-     *     word.
+     * @param said Filled with refusals of a person's words; an unmatched task recipient is silent.
      * @return How many were for no task here, and were dropped.
      * @throws IOException If a file cannot be moved.
      */
@@ -405,7 +414,7 @@ final class TransportConversations {
                 dropped +=
                         handOut(
                                 inbound,
-                                group,
+                                withDisplays(group),
                                 accounts,
                                 lifecycle.heard(scheme, project, persons),
                                 persons,
@@ -507,7 +516,7 @@ final class TransportConversations {
                 lifecycle.conversation(member.scheme(), member.project());
         return handOut(
                 into,
-                List.of(member),
+                withDisplays(List.of(member)),
                 accounts,
                 lifecycle.heard(member.scheme(), member.project(), persons),
                 persons,
@@ -534,24 +543,19 @@ final class TransportConversations {
     static final String SENDER_SUFFIX = ".sender";
 
     /**
-     * Hands each message that arrived to every task of the project here that is to read it.
+     * Hands a task's message to the local task of this project named by its {@code metadata.to}.
      *
-     * <p><strong>Every agent reads every message in the room</strong> (2026-10-04): a task's
-     * message goes to every other task, whomever its {@code metadata.to} names, and never back to
-     * the task that posted it; {@code metadata.to} says whom it is meant for, not who reads it. One
-     * to {@code people} is for the persons alone and goes to no task (2026-11-08, move 3: each
-     * agent's answer to them woke every other one, who answered in turn). A person's words in the
-     * room go to every task, and in a direct chat to the one task it is with. They are a person's,
-     * so they are not filtered (2026-10-04) - and taken only from somebody who joined the project's
-     * conversation.
+     * <p>The container name, short task name and {@code Agent <Name>} display name match exactly. A
+     * message to {@code people}, or to nobody here, reaches no task; the persons still see it in
+     * the room. A message never goes back to its posting account. A person's words in the room
+     * still go to every task, and in a direct chat to the one task it is with, without filtering.
      *
      * @param inbound Where the transport put them.
      * @param members The project's tasks on this machine.
      * @param accounts Each task's account in the conversation, as {@code enroll} named it.
      * @param people Each person who joined, to their account.
      * @param handed Filled with message to the tasks it was handed to.
-     * @param said Filled with a sentence for each message dropped, and why: never dropped without a
-     *     word.
+     * @param said Filled with refusals of a person's words; an unmatched task recipient is silent.
      * @return How many reached no task here.
      * @throws IOException If a file cannot be written or moved.
      */
@@ -576,6 +580,31 @@ final class TransportConversations {
                 null);
     }
 
+    /** Uses the room's assigned names, which can differ from the names of the tasks. */
+    private List<Member> withDisplays(final List<Member> members) {
+        if (members.isEmpty()) {
+            return members;
+        }
+        final Member first = members.getFirst();
+        final Map<String, String> displays = lifecycle.displays(first.scheme(), first.project());
+        return members.stream()
+                .map(
+                        member ->
+                                new Member(
+                                        member.container(),
+                                        member.mailbox(),
+                                        member.project(),
+                                        member.scheme(),
+                                        TaskRecipients.displays(
+                                                        member.project(),
+                                                        member.container(),
+                                                        displays)
+                                                .stream()
+                                                .findFirst()
+                                                .orElse("")))
+                .toList();
+    }
+
     /** This machine's own account in the conversation, which is never a person's. */
     private static java.util.Set<String> ours(
             final TransportLifecycle.@Nullable Conversation conversation) {
@@ -598,6 +627,16 @@ final class TransportConversations {
             throws IOException {
         final String project =
                 members.isEmpty() ? "this project" : "'" + members.getFirst().project() + "'";
+        final Map<String, String> displays = new LinkedHashMap<>();
+        members.stream()
+                .filter(member -> member.display() != null)
+                .forEach(
+                        member ->
+                                displays.put(
+                                        member.container(),
+                                        java.util.Objects.requireNonNull(
+                                                member.display(),
+                                                "filtered for a recorded display")));
         int dropped = 0;
         // Each person taken is heard by the next file at once, so a second sender cannot claim
         // the same host account in the same batch.
@@ -606,6 +645,9 @@ final class TransportConversations {
             final String name = message.getFileName().toString();
             final Path signature = message.resolveSibling(name + ".sig");
             final Path sender = message.resolveSibling(name + SENDER_SUFFIX);
+            final boolean taskMessage =
+                    Files.isRegularFile(signature)
+                            && !MessageSay.ROLE.equals(MessageFile.role(message));
             final List<Member> readers;
             final @Nullable String person;
             final byte @Nullable [] bytes;
@@ -651,7 +693,7 @@ final class TransportConversations {
                 readers = words.readers();
                 person = words.person();
                 bytes = words.message();
-            } else if (Files.isRegularFile(signature) && forPeopleAlone(message)) {
+            } else if (taskMessage && forPeopleAlone(message)) {
                 // Meant for the persons, who read it in the room: handed to another task, each
                 // agent's answer to them woke every other one, who answered in turn.
                 Files.deleteIfExists(message);
@@ -663,8 +705,12 @@ final class TransportConversations {
                         Files.isRegularFile(sender)
                                 ? Files.readString(sender, StandardCharsets.UTF_8).strip()
                                 : "";
+                final List<String> addressed = taskMessage ? recipients(message) : List.of();
                 readers =
                         members.stream()
+                                .filter(
+                                        member ->
+                                                !taskMessage || names(member, addressed, displays))
                                 .filter(
                                         member ->
                                                 posted.isEmpty()
@@ -674,7 +720,7 @@ final class TransportConversations {
                 person = null;
                 bytes = null;
             }
-            if (readers.isEmpty()) {
+            if (readers.isEmpty() && !taskMessage) {
                 said.add(
                         "dropped "
                                 + name
@@ -961,7 +1007,7 @@ final class TransportConversations {
      */
     private static boolean forPeopleAlone(final Path message) {
         try {
-            if (!MessageIntake.AGENT.equals(MessageFile.role(message))
+            if (MessageSay.ROLE.equals(MessageFile.role(message))
                     || !(org.fuin.porelo.wire.Json.parse(
                                     Files.readString(message, StandardCharsets.UTF_8))
                             instanceof Map<?, ?> document)
@@ -973,7 +1019,8 @@ final class TransportConversations {
                         case String one -> List.of(one.strip());
                         case List<?> many ->
                                 many.stream()
-                                        .map(each -> String.valueOf(each).strip())
+                                        .filter(String.class::isInstance)
+                                        .map(each -> ((String) each).strip())
                                         .filter(each -> !each.isEmpty())
                                         .toList();
                         case null, default -> List.of();
@@ -984,18 +1031,49 @@ final class TransportConversations {
         }
     }
 
+    /**
+     * Uses this member's recorded project, so a shared container prefix never chooses a project.
+     */
+    private static boolean names(
+            final Member member, final List<String> addressed, final Map<String, String> displays) {
+        final List<String> shown =
+                TaskRecipients.displays(member.project(), member.container(), displays);
+        return addressed.stream()
+                .anyMatch(
+                        to ->
+                                TaskRecipients.names(
+                                        member.container(), member.project(), shown, to));
+    }
+
     private static @Nullable String recipient(Path message) {
+        final List<String> named = recipients(message);
+        return named.size() == 1 ? named.getFirst() : null;
+    }
+
+    /**
+     * Returns whom a message's {@code metadata.to} names: one string, or a list of strings, blank
+     * ones left out; anything else names nobody.
+     */
+    private static List<String> recipients(Path message) {
         try {
             if (org.fuin.porelo.wire.Json.parse(Files.readString(message, StandardCharsets.UTF_8))
                             instanceof Map<?, ?> document
-                    && document.get("metadata") instanceof Map<?, ?> metadata
-                    && metadata.get("to") instanceof String to) {
-                return to;
+                    && document.get("metadata") instanceof Map<?, ?> metadata) {
+                return switch (metadata.get("to")) {
+                    case String one -> one.isBlank() ? List.of() : List.of(one);
+                    case List<?> many ->
+                            many.stream()
+                                    .filter(String.class::isInstance)
+                                    .map(String.class::cast)
+                                    .filter(each -> !each.isBlank())
+                                    .toList();
+                    case null, default -> List.of();
+                };
             }
         } catch (IOException | RuntimeException ex) {
             // Not a message this can read: it names nobody here.
         }
-        return null;
+        return List.of();
     }
 
     private static List<Path> messages(Path inbound) throws IOException {

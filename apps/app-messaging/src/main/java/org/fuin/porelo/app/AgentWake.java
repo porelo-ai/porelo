@@ -125,6 +125,20 @@ public final class AgentWake {
      */
     static boolean namesIt(
             final Path message, final String container, final String project, final Path answers) {
+        return namesIt(
+                message,
+                container,
+                project,
+                answers,
+                TaskRecipients.displays(project, container, Map.of()));
+    }
+
+    private static boolean namesIt(
+            final Path message,
+            final String container,
+            final String project,
+            final Path answers,
+            final List<String> displays) {
         try {
             // The task writes its inbox: what is read there is a regular file of a message's size.
             final byte[] bytes = MessageIntake.taskWritten(message);
@@ -160,7 +174,6 @@ public final class AgentWake {
                 // write a person's role, so it cannot wake them all.
                 return true;
             }
-            final String task = org.fuin.porelo.runtime.ContainerName.taskIn(project, container);
             final Object to = metadata.get("to");
             final List<?> named =
                     to instanceof List<?> list ? list : to == null ? List.of() : List.of(to);
@@ -174,8 +187,7 @@ public final class AgentWake {
             return named.stream()
                     .filter(String.class::isInstance)
                     .map(String.class::cast)
-                    .filter(name -> !name.isEmpty())
-                    .anyMatch(name -> name.equals(container) || name.equals(task));
+                    .anyMatch(name -> TaskRecipients.names(container, project, displays, name));
         } catch (final IOException | RuntimeException ex) {
             return false;
         }
@@ -294,6 +306,11 @@ public final class AgentWake {
                 told.addAll(Files.readAllLines(record, StandardCharsets.UTF_8));
             }
             final List<String> waiting = new java.util.ArrayList<>();
+            final String knownProject = project == null ? "" : project;
+            final List<String> displays =
+                    new TransportLifecycle(
+                                    context, context.paths().messaging().transportDirectory())
+                            .displayNames(knownProject, container);
             if (Files.isDirectory(mailbox.inboxNew())) {
                 try (java.util.stream.Stream<Path> listed = Files.list(mailbox.inboxNew())) {
                     listed.filter(path -> path.getFileName().toString().endsWith(".json"))
@@ -303,8 +320,9 @@ public final class AgentWake {
                                             namesIt(
                                                     path,
                                                     container,
-                                                    project == null ? "" : project,
-                                                    MessageLookup.answers(mailbox)))
+                                                    knownProject,
+                                                    MessageLookup.answers(mailbox),
+                                                    displays))
                             .forEach(path -> waiting.add(path.getFileName().toString()));
                 }
             }

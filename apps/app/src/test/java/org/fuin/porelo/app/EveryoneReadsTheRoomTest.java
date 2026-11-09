@@ -13,8 +13,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 /**
- * Decided on 2026-10-04: every agent reads every message in the room, a person addresses one with
- * {@code @agentname} or in a direct chat, and a person's words are not filtered.
+ * A person's words in the room reach every task, a direct chat reaches one task, and a task's
+ * message to the persons reaches no task.
  */
 class EveryoneReadsTheRoomTest {
 
@@ -178,12 +178,13 @@ class EveryoneReadsTheRoomTest {
                 .exists();
     }
 
-    // In move 3 each agent's answer to the persons woke every other agent, who answered in turn.
+    // An unaddressed third task must not receive another task's private work or answer to people.
     @Test
-    void aTasksMessageToPeopleReachesNoTaskAndOneToATaskReachesTheOthersButNotItsSender()
+    void aTasksMessageToPeopleReachesNoTaskAndOneToATaskReachesItsRecipientButNotItsSender()
             throws IOException {
         final Mailbox writer = mailbox("porelo-p-writer");
         final Mailbox review = mailbox("porelo-p-review");
+        final Mailbox build = mailbox("porelo-p-build");
         final Path inbound = Files.createDirectories(dir.resolve("inbound"));
         Files.writeString(
                 inbound.resolve("$m.json"),
@@ -191,7 +192,8 @@ class EveryoneReadsTheRoomTest {
         Files.writeString(inbound.resolve("$m.json.sig"), "sig");
         Files.writeString(inbound.resolve("$m.json.sender"), "@porelo-p-writer:localhost");
         Files.writeString(
-                inbound.resolve("$n.json"), "{\"metadata\":{\"to\":\"porelo-p-review\"}}");
+                inbound.resolve("$n.json"),
+                "{\"role\":\"ROLE_AGENT\",\"metadata\":{\"to\":\"porelo-p-review\"}}");
         Files.writeString(inbound.resolve("$n.json.sig"), "sig");
         Files.writeString(inbound.resolve("$n.json.sender"), "@porelo-p-writer:localhost");
         final List<String> said = new java.util.ArrayList<>();
@@ -199,7 +201,13 @@ class EveryoneReadsTheRoomTest {
         final int dropped =
                 TransportConversations.handOut(
                         inbound,
-                        members(writer, review),
+                        List.of(
+                                new TransportConversations.Member(
+                                        "porelo-p-writer", writer, "p", "matrix"),
+                                new TransportConversations.Member(
+                                        "porelo-p-review", review, "p", "matrix"),
+                                new TransportConversations.Member(
+                                        "porelo-p-build", build, "p", "matrix")),
                         ACCOUNTS,
                         PEOPLE,
                         new LinkedHashMap<>(),
@@ -210,6 +218,12 @@ class EveryoneReadsTheRoomTest {
         assertThat(review.inbound().resolve("$n.json")).exists();
         assertThat(review.inbound().resolve("$n.json.sig")).exists();
         assertThat(writer.inbound().resolve("$n.json")).as("its own, back").doesNotExist();
+        assertThat(build.inbound().resolve("$n.json"))
+                .as("an unaddressed third task receives no task message")
+                .doesNotExist();
+        assertThat(build.inbound().resolve("$m.json"))
+                .as("people reaches no third task either")
+                .doesNotExist();
         assertThat(dropped).as("the room has it; nothing was lost").isZero();
         assertThat(said).noneMatch(line -> line.startsWith("dropped"));
     }

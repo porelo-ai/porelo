@@ -254,7 +254,7 @@ class TalkPassProjectTest {
         assertThat(adapter.toFile().setExecutable(true)).as("the adapter runs").isTrue();
         runner.answering(
                 "describe",
-                "{\"scheme\":\"room\",\"poll\":true,\"lifecycle\":[\"setup\",\"join\",\"part\"]}");
+                "{\"scheme\":\"room\",\"poll\":true,\"display\":true,\"lifecycle\":[\"setup\",\"enroll\",\"join\",\"part\"]}");
         runner.answering(
                 " setup ", "{\"account\":{\"ADMIN\":\"a-1\"},\"secrets\":{\"POLLER\":\"p-1\"}}");
         Conversations.setUp(context, GateSupport.byName(context, "web-app"));
@@ -412,7 +412,7 @@ class TalkPassProjectTest {
         assertThat(adapter.toFile().setExecutable(true)).as("the adapter runs").isTrue();
         runner.answering(
                 "describe",
-                "{\"scheme\":\"room\",\"poll\":true,\"lifecycle\":[\"setup\",\"join\",\"part\"]}");
+                "{\"scheme\":\"room\",\"poll\":true,\"display\":true,\"lifecycle\":[\"setup\",\"enroll\",\"join\",\"part\"]}");
         runner.answering(
                 " setup ", "{\"account\":{\"ADMIN\":\"a-1\"},\"secrets\":{\"POLLER\":\"p-1\"}}");
         Conversations.setUp(context, GateSupport.byName(context, project));
@@ -420,16 +420,25 @@ class TalkPassProjectTest {
                 context.paths().xdg().state().resolve("transport/room/inbound").resolve(project));
     }
 
-    private static void posted(final Path inbound, final String id) throws IOException {
-        Files.writeString(inbound.resolve(id + ".json"), "{\"messageId\":\"" + id + "\"}");
+    private static void posted(final Path inbound, final String id, final String to)
+            throws IOException {
+        Files.writeString(
+                inbound.resolve(id + ".json"),
+                org.fuin.porelo.wire.Json.write(
+                        Map.of(
+                                "messageId",
+                                id,
+                                "role",
+                                MessageIntake.AGENT,
+                                "metadata",
+                                Map.of("to", to))));
         Files.writeString(inbound.resolve(id + ".json.sig"), "signature");
     }
 
     @Test
     void aRemovedTaskOfAProjectNoLongerFollowedIsGivenNoOtherProjectsConversation()
             throws Exception {
-        // 'porelo-web-app-fix' fits 'web' alone once 'web-app' is gone from the machine, and was
-        // handed 'web''s room although its start recorded 'web-app'.
+        // A removed task must not receive a different project's room through a shared name prefix.
         final PoreloContext context = context();
         final String mail = "mail:\n  transports:\n    room: {}\n";
         register(context, "web", mail);
@@ -441,7 +450,8 @@ class TalkPassProjectTest {
         final Mailbox other =
                 new Mailbox(context.paths().messaging().mailbox("porelo-web-app-fix"));
         other.create();
-        posted(inbound, "m-1");
+        posted(inbound, "m-1", "work");
+        posted(inbound, "m-2", "porelo-web-app-fix");
 
         final int code = pass(context, "porelo-web-work", "--project", "web");
 
@@ -449,15 +459,19 @@ class TalkPassProjectTest {
         assertThat(work.record().resolve(TransportConversations.ARRIVED))
                 .as("the room's message reached the project's own task: " + err)
                 .exists();
-        assertThat(other.inbound().resolve("m-1.json"))
-                .as("another project's mailbox is given nothing of this room")
-                .doesNotExist();
+        for (final String id : List.of("m-1", "m-2")) {
+            assertThat(other.inbound().resolve(id + ".json"))
+                    .as("another project's mailbox is given nothing of this room")
+                    .doesNotExist();
+        }
+        assertThat(Files.readAllLines(work.record().resolve(TransportConversations.ARRIVED)))
+                .as("a foreign recipient is not broadcast to the local project")
+                .containsExactly("m-1.json");
     }
 
     @Test
     void aRemovedSiblingWhoseNameFitsTwoProjectsKeepsWhatItsRoomHeldForIt() throws Exception {
-        // 'porelo-web-app-build' fits 'web' and 'web-app': taken by neither, what 'web-app''s
-        // room held for it was deleted once handed to nobody.
+        // An ambiguous name must not lose its room's message or reach another project.
         final PoreloContext context = context();
         final String mail = "mail:\n  transports:\n    room: {}\n";
         register(context, "web", mail);
@@ -469,7 +483,10 @@ class TalkPassProjectTest {
         final Mailbox build =
                 new Mailbox(context.paths().messaging().mailbox("porelo-web-app-build"));
         build.create();
-        posted(inbound, "m-1");
+        recorded(context, "porelo-web-build", "web");
+        final Mailbox other = new Mailbox(context.paths().messaging().mailbox("porelo-web-build"));
+        other.create();
+        posted(inbound, "m-1", "build");
 
         final int code = pass(context, "porelo-web-app-fix", "--project", "web-app");
 
@@ -477,5 +494,47 @@ class TalkPassProjectTest {
         assertThat(build.inbound().resolve("m-1.json"))
                 .as("the sibling is handed what its room held: " + err)
                 .exists();
+        assertThat(other.inbound().resolve("m-1.json"))
+                .as("the same short name in another project receives nothing")
+                .doesNotExist();
+        assertThat(
+                        new Mailbox(context.paths().messaging().mailbox("porelo-web-app-fix"))
+                                .record()
+                                .resolve(TransportConversations.ARRIVED))
+                .as("the unaddressed sibling receives nothing")
+                .doesNotExist();
+    }
+
+    @Test
+    void aTaskIsReachedOnlyByTheDisplayNameItsRoomActuallyShows() throws Exception {
+        // A guessed display name can wake the wrong task when the room assigned another name.
+        final PoreloContext context = context();
+        register(context, "p", "mail:\n  transports:\n    room: {}\n");
+        final Path inbound = room(context, "p");
+        runner.answering(" enroll ", "{\"secrets\":{\"TASK\":\"task-token\"}}");
+        final TransportLifecycle lifecycle =
+                new TransportLifecycle(context, context.paths().messaging().transportDirectory());
+        lifecycle.enroll("room", "p", "porelo-p-review", "scout", Map.of(), false);
+        lifecycle.enroll("room", "p", "porelo-p-build", "scout", Map.of(), false);
+        recorded(context, "porelo-p-review", "p");
+        recorded(context, "porelo-p-build", "p");
+        final Mailbox review = new Mailbox(context.paths().messaging().mailbox("porelo-p-review"));
+        final Mailbox build = new Mailbox(context.paths().messaging().mailbox("porelo-p-build"));
+        review.create();
+        build.create();
+        posted(inbound, "m-1", "Agent Scout");
+        posted(inbound, "m-2", "Agent Scout (build)");
+        posted(inbound, "m-3", "Agent Review");
+
+        final int code = pass(context, "porelo-p-review", "--project", "p");
+
+        assertThat(code).as(err.toString()).isZero();
+        assertThat(review.record().resolve(TransportConversations.ARRIVED))
+                .as(
+                        "the actual room name reaches the task; its unassigned task-derived name does not")
+                .hasContent("m-1.json\n");
+        assertThat(build.record().resolve(TransportConversations.ARRIVED))
+                .as("the second task is reached only by its own assigned display")
+                .hasContent("m-2.json\n");
     }
 }

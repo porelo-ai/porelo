@@ -10,6 +10,7 @@ import java.nio.file.Path;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Stream;
 import org.fuin.porelo.core.config.XdgPaths;
 import org.fuin.porelo.core.project.Project;
 import org.fuin.porelo.core.project.ProjectReader;
@@ -968,26 +969,245 @@ class TransportConversationsTest {
         return mailbox;
     }
 
-    private static void message(Path directory, String name, String to) throws IOException {
+    private static void message(Path directory, String name, Object to) throws IOException {
         Files.createDirectories(directory);
         Files.writeString(
                 directory.resolve(name),
-                "{\"metadata\":{\"to\":\"" + to + "\"},\"body\":\"hi\"}",
+                org.fuin.porelo.wire.Json.write(
+                        Map.of(
+                                "role",
+                                MessageIntake.AGENT,
+                                "metadata",
+                                Map.of("to", to),
+                                "body",
+                                "hi")),
                 StandardCharsets.UTF_8);
         Files.writeString(directory.resolve(name + ".sig"), "sig", StandardCharsets.UTF_8);
     }
 
-    @Test
-    void whatArrivesGoesToEveryTaskOfThatProjectWhomeverItNamesAndNothingIsKept()
-            throws IOException {
+    @ParameterizedTest
+    @org.junit.jupiter.params.provider.MethodSource("namedTaskRecipients")
+    void whatArrivesGoesOnlyToTheTaskItNamesAndNothingIsKept(final Object to) throws IOException {
+        // Waking an unaddressed task wastes its work and can start a loop of unwanted answers.
+        final Mailbox review = mailbox("porelo-p-review");
+        final Mailbox build = mailbox("porelo-p-build");
+        final Mailbox writer = mailbox("porelo-p-writer");
+        final Path inbound = Files.createDirectories(dir.resolve("inbound"));
+        message(inbound, "$a.json", to);
+        Files.writeString(inbound.resolve("$a.json.sender"), "@writer");
+        final byte[] original = Files.readAllBytes(inbound.resolve("$a.json"));
+        final Map<String, String> handed = new LinkedHashMap<>();
+        final List<String> said = new java.util.ArrayList<>();
 
-        // Every agent reads every message in the room (2026-10-04); metadata.to says whom it is
-        // meant for.
+        final int dropped =
+                TransportConversations.handOut(
+                        inbound,
+                        List.of(
+                                new TransportConversations.Member(
+                                        "porelo-p-review", review, "p", "room"),
+                                new TransportConversations.Member(
+                                        "porelo-p-build", build, "p", "room"),
+                                new TransportConversations.Member(
+                                        "porelo-p-writer", writer, "p", "room")),
+                        Map.of("porelo-p-writer", "@writer"),
+                        Map.of(),
+                        handed,
+                        said);
+
+        assertThat(build.inbound().resolve("$a.json"))
+                .as("an unaddressed task receives nothing")
+                .doesNotExist();
+        assertThat(writer.inbound().resolve("$a.json"))
+                .as("the sender receives nothing back")
+                .doesNotExist();
+        assertThat(Files.readAllBytes(review.inbound().resolve("$a.json")))
+                .as("the named task gets the original signed bytes")
+                .isEqualTo(original);
+        assertThat(review.inbound().resolve("$a.json.sig"))
+                .as("the signature travels with the message")
+                .hasContent("sig");
+        assertThat(handed)
+                .as("only the named task is handed the message")
+                .containsExactlyEntriesOf(Map.of("$a.json", "porelo-p-review"));
+        assertThat(dropped).as("the named task is here").isZero();
+        assertThat(said).as("no answer or diagnostic is added").isEmpty();
+        assertThat(inbound).as("the message and its companions are consumed").isEmptyDirectory();
+    }
+
+    private static Stream<Object> namedTaskRecipients() {
+        return Stream.of(
+                "porelo-p-review",
+                "review",
+                "Agent Review",
+                List.of("review"),
+                List.of("", "Agent Review", " "));
+    }
+
+    @ParameterizedTest
+    @org.junit.jupiter.params.provider.MethodSource("otherRecipients")
+    void aTasksMessageNamingNobodyHereReachesNoTaskSilently(final Object to) throws IOException {
+        // A foreign or inexact recipient must not leak a message into an unrelated task's mailbox.
         final Mailbox review = mailbox("porelo-p-review");
         final Mailbox build = mailbox("porelo-p-build");
         final Path inbound = Files.createDirectories(dir.resolve("inbound"));
-        message(inbound, "$a.json", "review");
-        message(inbound, "$c.json", "someone-on-another-machine");
+        message(inbound, "$a.json", to);
+        final Map<String, String> handed = new LinkedHashMap<>();
+        final List<String> said = new java.util.ArrayList<>();
+
+        TransportConversations.handOut(
+                inbound,
+                List.of(
+                        new TransportConversations.Member("porelo-p-review", review, "p", "room"),
+                        new TransportConversations.Member("porelo-p-build", build, "p", "room")),
+                handed,
+                said);
+
+        assertThat(review.inbound().resolve("$a.json"))
+                .as("no local task was named")
+                .doesNotExist();
+        assertThat(build.inbound().resolve("$a.json"))
+                .as("no fallback to another task")
+                .doesNotExist();
+        assertThat(handed).as("nothing is handed here").isEmpty();
+        assertThat(said)
+                .as("the room already shows it; no answer or diagnostic is added")
+                .isEmpty();
+        assertThat(inbound).as("nothing waits for another pass").isEmptyDirectory();
+    }
+
+    private static Stream<Object> otherRecipients() {
+        return Stream.of(
+                "someone-on-another-machine",
+                "porelo-q-review",
+                "alice",
+                "Review",
+                "Agent review",
+                "@porelo-p-review:example.org",
+                "task:p:review",
+                " review ",
+                "Agent Review ",
+                "",
+                List.of());
+    }
+
+    @Test
+    void aDerivedDisplayCannotTakeAnotherMembersRecordedName() throws IOException {
+        // A missing enrollment must not leak a message addressed to another member's room name.
+        final Mailbox review = mailbox("porelo-p-review");
+        final Mailbox scout = mailbox("porelo-p-scout");
+        final Path inbound = Files.createDirectories(dir.resolve("inbound"));
+        message(inbound, "$a.json", "Agent Scout");
+        TransportConversations.handOut(
+                inbound,
+                List.of(
+                        new TransportConversations.Member(
+                                "porelo-p-review", review, "p", "room", "Agent Scout"),
+                        new TransportConversations.Member("porelo-p-scout", scout, "p", "room")),
+                new LinkedHashMap<>(),
+                new java.util.ArrayList<>());
+        assertThat(scout.inbound().resolve("$a.json"))
+                .as("a recorded display belongs only to its recorded owner")
+                .doesNotExist();
+        assertThat(review.inbound().resolve("$a.json"))
+                .as("the recorded owner receives the message")
+                .exists();
+    }
+
+    @ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource({
+        "absent,review",
+        "agent,review",
+        "ROLE_SYSTEM,review",
+        "absent,people",
+        "agent,people",
+        "ROLE_SYSTEM,people"
+    })
+    void onlyAPersonsRoleCanBroadcastASignedMessage(final String role, final String to)
+            throws IOException {
+        // An unusual or missing task role must not broadcast private work or answers to people.
+        final Mailbox review = mailbox("porelo-p-review");
+        final Mailbox build = mailbox("porelo-p-build");
+        final Path inbound = Files.createDirectories(dir.resolve("inbound"));
+        message(inbound, "$a.json", to);
+        final Map<String, Object> document = new LinkedHashMap<>();
+        document.put("metadata", Map.of("to", to));
+        if (!role.equals("absent")) {
+            document.put("role", role);
+        }
+        Files.writeString(inbound.resolve("$a.json"), org.fuin.porelo.wire.Json.write(document));
+        final List<String> said = new java.util.ArrayList<>();
+        TransportConversations.handOut(
+                inbound,
+                List.of(
+                        new TransportConversations.Member("porelo-p-review", review, "p", "room"),
+                        new TransportConversations.Member("porelo-p-build", build, "p", "room")),
+                new LinkedHashMap<>(),
+                said);
+        assertThat(build.inbound().resolve("$a.json"))
+                .as("a signed non-person message reaches no unaddressed task")
+                .doesNotExist();
+        assertThat(Files.exists(review.inbound().resolve("$a.json")))
+                .as("only the named task receives it; people reaches none")
+                .isEqualTo(to.equals("review"));
+        assertThat(said).as("no answer is added").isEmpty();
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"[\"review\",null]", "[true,\"review\",42,{},[]]"})
+    void nonStringListEntriesDoNotEraseNamedRecipients(final String recipients) throws IOException {
+        // One optional or malformed list entry must not silently discard another task's message.
+        final Mailbox review = mailbox("porelo-p-review");
+        final Mailbox build = mailbox("porelo-p-build");
+        final Path inbound = Files.createDirectories(dir.resolve("inbound"));
+        message(inbound, "$a.json", org.fuin.porelo.wire.Json.parse(recipients));
+        TransportConversations.handOut(
+                inbound,
+                List.of(
+                        new TransportConversations.Member("porelo-p-review", review, "p", "room"),
+                        new TransportConversations.Member("porelo-p-build", build, "p", "room")),
+                new LinkedHashMap<>(),
+                new java.util.ArrayList<>());
+        assertThat(review.inbound().resolve("$a.json"))
+                .as("string recipients survive non-string list entries")
+                .exists();
+        assertThat(build.inbound().resolve("$a.json"))
+                .as("non-string entries name no other task")
+                .doesNotExist();
+    }
+
+    @Test
+    void aTasksMessageNamingSeveralTasksReachesEachOfThemAndNoOther() throws IOException {
+        // A message to two tasks that reached neither would be lost for both.
+        final Mailbox review = mailbox("porelo-p-review");
+        final Mailbox build = mailbox("porelo-p-build");
+        final Mailbox scout = mailbox("porelo-p-scout");
+        final Path inbound = Files.createDirectories(dir.resolve("inbound"));
+        message(inbound, "$a.json", List.of("review", "porelo-p-build", "alice"));
+        final Map<String, String> handed = new LinkedHashMap<>();
+        final List<String> said = new java.util.ArrayList<>();
+
+        TransportConversations.handOut(
+                inbound,
+                List.of(
+                        new TransportConversations.Member("porelo-p-review", review, "p", "room"),
+                        new TransportConversations.Member("porelo-p-build", build, "p", "room"),
+                        new TransportConversations.Member("porelo-p-scout", scout, "p", "room")),
+                handed,
+                said);
+
+        assertThat(review.inbound().resolve("$a.json")).as("named by its short name").exists();
+        assertThat(build.inbound().resolve("$a.json")).as("named by its container").exists();
+        assertThat(scout.inbound().resolve("$a.json")).as("not named").doesNotExist();
+    }
+
+    @Test
+    void aTasksMessageToPeopleReachesNoTask() throws IOException {
+        // An answer meant for the persons must not wake tasks that answer it in turn.
+        final Mailbox review = mailbox("porelo-p-review");
+        final Mailbox build = mailbox("porelo-p-build");
+        final Path inbound = Files.createDirectories(dir.resolve("inbound"));
+        message(inbound, "$a.json", "people");
+        Files.writeString(inbound.resolve("$a.json.sender"), "@writer");
         final Map<String, String> handed = new LinkedHashMap<>();
         final List<String> said = new java.util.ArrayList<>();
 
@@ -1002,16 +1222,72 @@ class TransportConversationsTest {
                         handed,
                         said);
 
-        assertThat(handed)
-                .containsEntry("$a.json", "porelo-p-review, porelo-p-build")
-                .containsEntry("$c.json", "porelo-p-review, porelo-p-build");
-        assertThat(review.inbound().resolve("$a.json")).exists();
-        assertThat(build.inbound().resolve("$a.json.sig")).as("with its signature").exists();
-        assertThat(dropped).isZero();
-        assertThat(said).isEmpty();
-        try (var left = Files.list(inbound)) {
-            assertThat(left).isEmpty();
-        }
+        assertThat(review.inbound().resolve("$a.json")).as("people means no task").doesNotExist();
+        assertThat(build.inbound().resolve("$a.json"))
+                .as("people means no other task either")
+                .doesNotExist();
+        assertThat(handed).as("the persons read it in the room").isEmpty();
+        assertThat(dropped).as("the room still holds the message").isZero();
+        assertThat(said).as("no answer or diagnostic is added").isEmpty();
+        assertThat(inbound).as("the message and its companions are consumed").isEmptyDirectory();
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"porelo-p-writer", "writer", "Agent Writer"})
+    void aTaskIsNotHandedItsOwnPostEvenWhenItNamesItself(final String to) throws IOException {
+        // Echoing a task's own post can wake it into answering itself indefinitely.
+        final Mailbox writer = mailbox("porelo-p-writer");
+        final Mailbox review = mailbox("porelo-p-review");
+        final Path inbound = Files.createDirectories(dir.resolve("inbound"));
+        message(inbound, "$a.json", to);
+        Files.writeString(inbound.resolve("$a.json.sender"), "@writer");
+        final Map<String, String> handed = new LinkedHashMap<>();
+        final List<String> said = new java.util.ArrayList<>();
+
+        TransportConversations.handOut(
+                inbound,
+                List.of(
+                        new TransportConversations.Member("porelo-p-writer", writer, "p", "room"),
+                        new TransportConversations.Member("porelo-p-review", review, "p", "room")),
+                Map.of("porelo-p-writer", "@writer"),
+                Map.of(),
+                handed,
+                said);
+
+        assertThat(writer.inbound().resolve("$a.json"))
+                .as("the posting account is excluded even when it is the recipient")
+                .doesNotExist();
+        assertThat(review.inbound().resolve("$a.json"))
+                .as("a self-addressed post is not broadcast to another task")
+                .doesNotExist();
+        assertThat(handed).as("no task receives the echo").isEmpty();
+        assertThat(said).as("no answer is added").isEmpty();
+        assertThat(inbound).as("the echo and companions are consumed").isEmptyDirectory();
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"true", "null"})
+    void aNonStringRecipientCannotTurnIntoATasksName(final String literal) throws IOException {
+        // Coercing JSON values into names can hand a message to a task it never named.
+        final String container = "porelo-p-" + literal;
+        final Mailbox task = mailbox(container);
+        final Path inbound = Files.createDirectories(dir.resolve("inbound"));
+        message(inbound, "$a.json", org.fuin.porelo.wire.Json.parse("[" + literal + "]"));
+        final Map<String, String> handed = new LinkedHashMap<>();
+        final List<String> said = new java.util.ArrayList<>();
+
+        TransportConversations.handOut(
+                inbound,
+                List.of(new TransportConversations.Member(container, task, "p", "room")),
+                handed,
+                said);
+
+        assertThat(task.inbound().resolve("$a.json"))
+                .as("a JSON literal is not a string naming the task")
+                .doesNotExist();
+        assertThat(handed).as("an invalid address reaches no task").isEmpty();
+        assertThat(said).as("no answer is added").isEmpty();
+        assertThat(inbound).as("nothing waits for another pass").isEmptyDirectory();
     }
 
     @Test

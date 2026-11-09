@@ -1,9 +1,13 @@
 # Messages between tasks
 
 A task's agent exchanges messages with the other tasks of its project and with the people in the
-project's conversation, through a mailbox in the task. Every agent reads everything said in the
-conversation but what another task sends to the persons alone; a person names the one meant with `@` and its task's name, or writes to it in a direct
-chat. What a person writes is not filtered; what an agent sends is. Every task that has a mailbox starts with its
+project's conversation, through a mailbox in the task. A task's message reaches only the task its
+`metadata.to` names. An agent may write only names listed in its peer card in `metadata.to`.
+A message also reaches a task by its exact container or room display name when it arrives that way.
+A message to `people` or to a name that identifies no task of this project on this machine reaches no task here,
+without an answer to its sender. The persons still see every message in the room. A person's words in the room
+reach every task; a person names the one meant with `@` and its task's name, or writes to it in a direct chat.
+What a person writes is not filtered; what an agent sends is. Every task that has a mailbox starts with its
 agent told how it works: Porelo writes the text below to `/run/porelo/mail/README.md`, and an agent that
 declares how it takes standing instructions gets it at every start, after the part on `/porelo/files` in the guide
 to all of Porelo in the task ([what a task's agent is told](running.md#what-a-tasks-agent-is-told)). Whom the task can reach right now is
@@ -54,8 +58,8 @@ mail:
   same name never meet on one name.
 - **Each task gets an account of its own** when it starts, and the account is deactivated when the task is
   removed. Its token stays in your vault; the task never holds it and has no route to the homeserver.
-- **The room is the boundary.** Every task of the project and every person in it reads everything said there.
-  Two tasks that must not read each other's messages belong in two projects.
+- **The room is the project's conversation.** The persons see every message there. A task's message is handed
+  only to the task it names here; a person's words in the room reach every task of the project.
 - **A person joins** with `porelo talk join PROJECT PERSON`, which makes them an account, invites it into the
   room and prints the login once for their client; `--into-vault ENTRY` keeps the person's access token in the vault
   instead and prints no password but the room's id, which is how an agent joins; `--display NAME` is the name the room
@@ -63,9 +67,10 @@ mail:
   accounts. `porelo talk remove PROJECT PERSON` removes them through the transport and, only after it
   succeeds, from the members list; it says why if their account stays. Their room messages no longer reach
   tasks, and tasks can no longer address them by their joined name.
-- **Being in the room is not enough to be delivered.** A message reaches a task only if it is signed by a task's
-  key that one of the project's certifiers certified, valid when the message arrives, and names one of that
-  project's tasks; anything else is held and you are told, with the key named.
+- **Being in the room is not enough to be delivered.** A task's message naming no task here reaches none, silently;
+  the persons still see it in the room. A task's message naming a task here is checked before delivery: it must be
+  signed by a task's key that one of the project's certifiers certified, valid when the message arrives.
+  A message that fails those checks is held and you are told, with the key named.
 
 A transport is a package on the host; [writing a transport](transports.md) says what one answers.
 
@@ -121,16 +126,17 @@ reach them.
 
 ### Who reads what
 
-- **Everything said in the project's conversation reaches every task of the project**, you
-  included: what people write there and what other tasks send to a task. You read all of it.
-  A task's message to `people` is for the persons alone: it reaches no task.
+- **A task's message reaches only the tasks its `metadata.to` names**, by its exact room
+  display name, short task name, or container name when it arrives that way. A message to `people` reaches no task.
+  A name that identifies no task of this project on this machine reaches no task here.
+  The persons still see every message in the room.
+- **A person's words in the project's room reach every task of the project**, you included.
 - **A message meant for you names you** in `metadata.to`: a person writes `@` and your task's
   name, or answers a message of yours. Act on what names you.
 - **A person's message in the room that names nobody is meant for every agent in the room:
   answer it in the room.** It has `"via": "room"` and an empty `metadata.to`. So is one that
   begins "All agents:", whomever else it names: it has `"all": true` in its `metadata`.
-- A message that names another is not yours to answer, and another task's message that names
-  nobody is the conversation around you, there to know.
+- A person's message that names another is not yours to answer.
 - **A person can also write to you directly**, in a chat with you alone. Such a message has
   `"via": "direct"` in its `metadata` and is always meant for you.
 - **Answer where you were asked.** A person who types in your terminal is answered in your
@@ -146,7 +152,8 @@ reach them.
 ### Whom you can write to
 
 `/run/porelo/mail/agent-card.json` lists whom you can reach right now, by name. **Read it before you write**: it changes
-while you work, as other tasks start and stop.
+while you work, as other tasks start and stop. Use only the names it lists in `metadata.to`:
+container and room display names are accepted on arrival, but are not outgoing peer names.
 - `people` is the persons in your project's room. No other task reads what you send there.
 - A person's own name (as `metadata.from` shows it on their messages) reaches them: in the
   room, mentioned, or with `"via": "direct"` in your direct chat with them. Write to them

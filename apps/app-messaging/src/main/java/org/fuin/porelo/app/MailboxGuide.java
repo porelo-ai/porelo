@@ -52,16 +52,17 @@ public final class MailboxGuide {
 
                 ## Who reads what
 
-                - **Everything said in the project's conversation reaches every task of the project**, you
-                  included: what people write there and what other tasks send to a task. You read all of it.
-                  A task's message to `@PEOPLE@` is for the persons alone: it reaches no task.
+                - **A task's message reaches only the tasks its `metadata.to` names**, by its exact room
+                  display name, short task name, or container name when it arrives that way. A message to `@PEOPLE@` reaches no task.
+                  A name that identifies no task of this project on this machine reaches no task here.
+                  The persons still see every message in the room.
+                - **A person's words in the project's room reach every task of the project**, you included.
                 - **A message meant for you names you** in `metadata.to`: a person writes `@` and your task's
                   name, or answers a message of yours. Act on what names you.
                 - **A person's message in the room that names nobody is meant for every agent in the room:
                   answer it in the room.** It has `"via": "room"` and an empty `metadata.to`. So is one that
                   begins "All agents:", whomever else it names: it has `"all": true` in its `metadata`.
-                - A message that names another is not yours to answer, and another task's message that names
-                  nobody is the conversation around you, there to know.
+                - A person's message that names another is not yours to answer.
                 - **A person can also write to you directly**, in a chat with you alone. Such a message has
                   `"via": "direct"` in its `metadata` and is always meant for you.
                 - **Answer where you were asked.** A person who types in your terminal is answered in your
@@ -77,7 +78,8 @@ public final class MailboxGuide {
                 ## Whom you can write to
 
                 `@CARD@` lists whom you can reach right now, by name. **Read it before you write**: it changes
-                while you work, as other tasks start and stop.
+                while you work, as other tasks start and stop. Use only the names it lists in `metadata.to`:
+                container and room display names are accepted on arrival, but are not outgoing peer names.
                 - `@PEOPLE@` is the persons in your project's room. No other task reads what you send there.
                 - A person's own name (as `metadata.from` shows it on their messages) reaches them: in the
                   room, mentioned, or with `"via": "direct"` in your direct chat with them. Write to them

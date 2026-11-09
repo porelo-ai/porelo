@@ -557,6 +557,39 @@ final class TransportLifecycle {
     }
 
     /**
+     * Returns the recorded room displays a wake can use without asking a transport or the vault.
+     */
+    List<String> displayNames(final String project, final String container) throws IOException {
+        final Path directory = context.paths().xdg().state().resolve("transport");
+        if (!Files.isDirectory(directory)) {
+            return TaskRecipients.displays(project, container, Map.of());
+        }
+        try (var schemes = Files.list(directory)) {
+            final List<Map<String, String>> rooms =
+                    schemes.filter(Files::isDirectory)
+                            .map(path -> path.getFileName().toString())
+                            .filter(
+                                    scheme ->
+                                            Files.isRegularFile(state(scheme, project))
+                                                    || Files.isRegularFile(
+                                                            displaysFile(scheme, project))
+                                                    || Files.isRegularFile(
+                                                            addressesFile(scheme, project)))
+                            .map(scheme -> displays(scheme, project))
+                            .toList();
+            return rooms.isEmpty()
+                    ? TaskRecipients.displays(project, container, Map.of())
+                    : rooms.stream()
+                            .flatMap(
+                                    room ->
+                                            TaskRecipients.displays(project, container, room)
+                                                    .stream())
+                            .distinct()
+                            .toList();
+        }
+    }
+
+    /**
      * Returns how each enrolled task of a project is named in its conversation, as {@code enroll}
      * said.
      *

@@ -120,6 +120,7 @@ would change the answer.
 | A task holds no key and sees no address | one mailbox in the container; messages and commits signed on the host by the task's own certified key, never a login key | [entry](#a-task-holds-no-key-and-sees-no-address) |
 | No model decides what a message may contain | rules accept or refuse, a person holds; a classifier may only ever hold | [entry](#no-model-decides-what-a-message-may-contain) |
 | A project's message rules are set once, in its project file | by class (project, room, others), defaults allow, allow, deny; the host keeps only holding a peer | [entry](#a-projects-message-rules-are-set-once-in-its-project-file) |
+| A task's message reaches the task it names | exact container, short task or Agent display name in this project here; people and unknown names reach no task; persons still see every message in the room | [entry](#a-tasks-message-reaches-the-task-it-names) |
 | A person's words in the room reach every agent, unfiltered | what a joined person writes in the room reaches every task of the project, and in a direct chat that one task, without the content filter; an answer goes where it was asked | [entry](#a-persons-words-in-the-room-reach-every-agent-unfiltered) |
 | The mailbox guide is the same for every task of one Porelo version | built from enforced constants only; whom a task reaches is in `agent-card.json` | [entry](#the-mailbox-guide-is-the-same-for-every-task-of-one-porelo-version) |
 | Each host keeps its own record; a shared ordered record is given up | hash-chained per host; no shared ordered record across machines | [entry](#each-host-keeps-its-own-record-a-shared-ordered-record-is-given-up) |
@@ -717,10 +718,18 @@ ask a question nobody can answer well. The host keeps only the brake: holding a 
 peer, where no task can change it. A mode set on the host is not read; `talk hold --mode` and `Moderate` with a mode
 are refused and say where a mode is set. Kinds of message in the rules and a brake per task are not wanted.
 
+## A task's message reaches the task it names
+
+A task's message arriving through the project's conversation is handed only to the tasks its `metadata.to` names
+on this machine, in this project. Matching is exact on the container name, the short task name or the
+`Agent <Name>` display name. A message to `people`, to a person by name or to a name that identifies no task here
+reaches no task here, without an answer to the sender. The persons still see every message in the room.
+A task is never handed its own post back. A person's own words in the room keep their separate rule below.
+
 ## A person's words in the room reach every agent, unfiltered
 
-Communication with a project's agents is through messaging. Everything said in the project's conversation reaches
-every task of the project on the machine; `metadata.to` says whom a message is meant for, not who reads it. A room
+Communication with a project's agents is through messaging. A person's words in the project's conversation reach
+every task of the project on the machine; their `metadata.to` says whom they are meant for. A room
 message that names only a helper account - the room's administrator or its relay, marked `"helpers": true` by the
 transport - reaches no task and wakes none; the relay answers the person once in the room instead. A
 person's messages are not filtered - only what the agents send is - because the filter guards what leaves a task, and
