@@ -24,6 +24,7 @@ Only the calling SUDO_USER's tasks are visible, and the person must be unlocked
 and hold a host membership. Takes an exclusive flock on forge.conf.
 The fingerprint must match SHA256: followed by exactly 43 base64 characters,
 without padding. No certificate or token is created or changed.
+The project commands maintain the host's registered forge organizations.
 .SH OPTIONS
 .TP
 .BR \-h ", " \-\-help
@@ -78,13 +79,14 @@ Reads are bounded.
 .SH EXIT STATUS
 .TP
 .B 0
-The requested information was printed.
+The command completed successfully.
 .TP
 .B 64 (EX_USAGE)
 Invalid arguments or no verb.
 .TP
 .B 65 (EX_DATAERR)
-Invalid host records, a refused organization read through sudo, or no visible task.
+Invalid host records or project data, a refused organization read through sudo,
+no visible task, or a refused forge operation.
 .TP
 .B 69 (EX_UNAVAILABLE)
 A required dependency or account database could not answer.
@@ -124,3 +126,33 @@ The system account database configuration used by getent passwd.
 .BR sudo (8),
 .BR systemd (1),
 .BR getent (1)
+.SH PROJECT COMMANDS
+.TP
+.B project add <project> <admin> \-\-signed-by <key>
+Register a project named for this admin in the applied organization.
+The canonical Ed25519 signing key is pinned in root's private record.
+The organization gets its teams and an isolated package publisher.
+.TP
+.B project remove <project>
+Check every repository ref against central before deleting this project's
+repositories, packages, organization, publisher, memberships and publications.
+A partial removal keeps its record for retry.
+.TP
+.B project migrate <project>
+Read one JSON object containing address and token from standard input.
+Migrate the repository, install a read-only deploy key and protect main.
+The token stays in memory and the private forge request.
+.TP
+.B project take-off <project>
+Read one JSON object containing repository and token (or null) from stdin.
+Check all work before deleting the repository and its read key.
+Without a token, report the central deploy key for its owner to remove.
+.TP
+.B project central-state <project>
+Print the compact JSON central-state record without making an admin token.
+Every repository is up-to-date, ahead, moved-on or cannot-say.
+.PP
+Every project verb accepts a trailing \-\-lock-fd <descriptor> for the
+follow's existing exclusive flock on the trusted forge.conf open description.
+Private records have mode 0600, their directories 0700.
+A write failure exits 73; data refusal exits 65; unavailable dependencies exit 69.

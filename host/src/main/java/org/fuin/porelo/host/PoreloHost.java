@@ -125,6 +125,7 @@ public final class PoreloHost implements Callable<Integer> {
                 "org", new CommandLine(new Group()).addSubcommand("status", new OrgStatus(host)));
         command.addSubcommand(
                 "task", new CommandLine(new Group()).addSubcommand("show", new TaskShow(host)));
+        command.addSubcommand("project", HostProject.commandLine());
         command.setExpandAtFiles(false);
         command.setExecutionExceptionHandler(
                 (exception, line, parse) -> {

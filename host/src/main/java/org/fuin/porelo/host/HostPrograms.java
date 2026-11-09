@@ -47,9 +47,28 @@ final class HostPrograms {
         this.programs = programs;
     }
 
-    record Result(int exitCode, String output) {}
+    record Result(int exitCode, String output) {
+        @Override
+        public String toString() {
+            return "Result[exitCode=" + exitCode + ", output withheld]";
+        }
+    }
 
     Result run(List<String> argv) throws IOException {
+        return run(argv, new byte[0], Map.of(), true);
+    }
+
+    Result run(List<String> argv, byte[] input, Map<String, String> environment)
+            throws IOException {
+        return run(argv, input, environment, false);
+    }
+
+    private Result run(
+            List<String> argv,
+            byte[] input,
+            Map<String, String> environment,
+            boolean fixedEnvironment)
+            throws IOException {
         if (argv.isEmpty()) {
             throw new IllegalArgumentException("Expected a program and its arguments");
         }
@@ -65,17 +84,29 @@ final class HostPrograms {
         final ProcessBuilder builder =
                 new ProcessBuilder(command)
                         .directory(Path.of("/").toFile())
-                        // A warning on stderr (an NSS module's, say) is no part of the answer.
-                        .redirectError(ProcessBuilder.Redirect.DISCARD);
+                        // A warning on stderr (an NSS module's, say) is no part of the answer: it
+                        // is
+                        // read apart, bounded, and never mixed into what the caller takes.
+                        .redirectErrorStream(false);
         builder.environment().clear();
-        builder.environment().putAll(ENVIRONMENT);
+        builder.environment().putAll(fixedEnvironment ? ENVIRONMENT : environment);
         final Process process = builder.start();
         final FutureTask<byte[]> output = new FutureTask<>(() -> read(process.getInputStream()));
         final Thread reader = Thread.ofVirtual().name("porelo-host-output").start(output);
+        final FutureTask<byte[]> errors = new FutureTask<>(() -> read(process.getErrorStream()));
+        final Thread errorReader = Thread.ofVirtual().name("porelo-host-errors").start(errors);
+        final FutureTask<Void> feed =
+                new FutureTask<>(
+                        () -> {
+                            try (var pipe = process.getOutputStream()) {
+                                pipe.write(input);
+                            }
+                            return null;
+                        });
+        final Thread writer = Thread.ofVirtual().name("porelo-host-input").start(feed);
         final long deadline = System.nanoTime() + timeout.toNanos();
         final Set<ProcessHandle> descendants = new HashSet<>();
         try {
-            process.getOutputStream().close();
             while (process.isAlive() && !output.isDone()) {
                 process.descendants().forEach(descendants::add);
                 if (System.nanoTime() >= deadline) {
@@ -87,7 +118,20 @@ final class HostPrograms {
             if (!process.waitFor(remaining(deadline), TimeUnit.NANOSECONDS)) {
                 throw new TimeoutException();
             }
-            return new Result(process.exitValue(), new String(bytes, StandardCharsets.UTF_8));
+            try {
+                feed.get(remaining(deadline), TimeUnit.NANOSECONDS);
+            } catch (ExecutionException ex) {
+                if (process.exitValue() == 0 || !(ex.getCause() instanceof IOException)) {
+                    throw ex;
+                }
+                // A child may refuse before reading stdin; its refusal remains the verdict.
+            }
+            java.util.Arrays.fill(errors.get(remaining(deadline), TimeUnit.NANOSECONDS), (byte) 0);
+            try {
+                return new Result(process.exitValue(), new String(bytes, StandardCharsets.UTF_8));
+            } finally {
+                java.util.Arrays.fill(bytes, (byte) 0);
+            }
         } catch (TimeoutException ex) {
             throw new IOException("Host program exceeded its timeout", ex);
         } catch (ExecutionException ex) {
@@ -105,8 +149,13 @@ final class HostPrograms {
                     });
             process.destroyForcibly();
             output.cancel(true);
+            errors.cancel(true);
+            feed.cancel(true);
             reader.interrupt();
+            errorReader.interrupt();
+            writer.interrupt();
             process.getInputStream().close();
+            process.getErrorStream().close();
         }
     }
 

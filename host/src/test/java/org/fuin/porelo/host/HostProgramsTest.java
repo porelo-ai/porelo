@@ -17,6 +17,50 @@ import org.junit.jupiter.api.io.TempDir;
 class HostProgramsTest {
     @TempDir Path directory;
 
+    @Test
+    void aChildThatRefusesBeforeReadingStdinKeepsItsExitStatus() throws Exception {
+        assertThat(
+                        runner().run(
+                                        List.of("sh", "-c", "exec 0<&-; exit 65"),
+                                        new byte[1024 * 1024],
+                                        java.util.Map.of())
+                                .exitCode())
+                .as("an early refusal is not replaced by the writer's broken pipe")
+                .isEqualTo(65);
+    }
+
+    @Test
+    void aSuccessfulChildCannotSilentlyLoseItsInput() {
+        assertThatThrownBy(
+                        () ->
+                                runner().run(
+                                                List.of("sh", "-c", "exec 0<&-; exit 0"),
+                                                new byte[1024 * 1024],
+                                                java.util.Map.of()))
+                .as("a successful command must have accepted the complete supplied input")
+                .isInstanceOf(IOException.class);
+    }
+
+    @Test
+    void privateCommandsKeepStderrOutOfTheirTokenAndUseExactlyTheirEnvironment() throws Exception {
+        final var result =
+                runner().run(
+                                List.of("sh", "-c", "printf token; printf warning >&2"),
+                                new byte[0],
+                                java.util.Map.of("LC_ALL", "C"));
+        assertThat(result.output())
+                .as("a warning is never part of a minted token")
+                .isEqualTo("token");
+        assertThat(
+                        runner().run(List.of("env"), new byte[0], java.util.Map.of("LC_ALL", "C"))
+                                .output())
+                .as("no inherited or additional variable reaches project commands")
+                .isEqualTo("LC_ALL=C\n");
+        assertThat(result.toString())
+                .as("a process result's debug rendering hides credentials")
+                .doesNotContain("token");
+    }
+
     private HostPrograms runner() {
         return runner(Duration.ofSeconds(10), 65536);
     }
