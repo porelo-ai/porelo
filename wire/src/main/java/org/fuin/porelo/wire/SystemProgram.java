@@ -53,15 +53,18 @@ public final class SystemProgram {
 
     private static Path found(String name, List<Path> directories) {
         try {
-            final int root =
-                    rootAsSeenHere(
-                            proc("/proc/self/uid_map"),
-                            Integer.parseInt(proc("/proc/sys/kernel/overflowuid").strip()));
+            final int root = rootAsSeenHere();
             return find(
                     name, directories, path -> Files.readAttributes(path, "unix:uid,mode"), root);
         } catch (IOException ex) {
             throw new UncheckedIOException(ex.getMessage(), ex);
         }
+    }
+
+    static int rootAsSeenHere() throws IOException {
+        return rootAsSeenHere(
+                proc("/proc/self/uid_map"),
+                Integer.parseInt(proc("/proc/sys/kernel/overflowuid").strip()));
     }
 
     /**
@@ -143,7 +146,7 @@ public final class SystemProgram {
         }
     }
 
-    private static int check(Path path, Attributes attributes, int root) throws IOException {
+    static int check(Path path, Attributes attributes, int root) throws IOException {
         final Map<String, Object> values = attributes.read(path);
         if (!Integer.valueOf(root).equals(values.get("uid"))) {
             throw new IOException(

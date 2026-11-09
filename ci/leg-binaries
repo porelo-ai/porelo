@@ -1,5 +1,6 @@
 apps/app/target/porelo
 daemon/target/porelod
+host/target/porelo-host
 hooks/target/porelo-hook-nft
 hooks/target/porelo-hook-supervisor
 hooks/target/porelo-hook-reader

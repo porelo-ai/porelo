@@ -126,6 +126,7 @@
         <module>planning</module>
         <module>apps</module>
         <module>daemon</module>
+        <module>host</module>
         <module>hooks</module>
         <module>acceptance</module>
         <module>dist</module>

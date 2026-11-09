@@ -37,12 +37,58 @@ class InstallTest {
             NO-PORELO-NAME
             STEP: running the packaged setup script
             SETUP-SCRIPT-RUNS
+            HOST-VERSION
+            HOST-NO-RUNTIME-OPTIONS
+            HOST-ENV-REFUSED
+            HOST-MAN
             """;
 
     private final Reports out = new Reports();
 
     private static final String AZURE = "http://azure.archive.ubuntu.com/ubuntu/";
     private static final String ARCHIVE = "http://archive.ubuntu.com/ubuntu/";
+
+    // A missing privileged-binary check must fail Debian installs without failing Fedora,
+    // where this repository ships no host package.
+    @ParameterizedTest
+    @ValueSource(
+            strings = {"HOST-VERSION", "HOST-NO-RUNTIME-OPTIONS", "HOST-ENV-REFUSED", "HOST-MAN"})
+    void eachHostCheckIsRequiredOnlyOnTheDebianSide(String marker) {
+        final String missing = EVERYTHING.replace(marker + "\n", "");
+        for (final String distribution :
+                List.of("Debian 13", "Ubuntu 26.04", "Fedora", "Fedora 43")) {
+            final Reports result = new Reports();
+
+            Install.verdicts(distribution, missing, VERSION, result.report);
+
+            if (distribution.startsWith("Fedora")) {
+                assertThat(result.report.failures()).as(result.text()).isZero();
+            } else {
+                assertThat(result.report.failures()).as(result.text()).isOne();
+                assertThat(result.text())
+                        .as("the missing check is named")
+                        .contains("FAIL  " + marker + " on " + distribution);
+            }
+        }
+    }
+
+    @Test
+    void installsTheHostAfterPoreloOnlyOnTheDebianSide() {
+        final Install install =
+                new Install(
+                        Path.of("/d/porelo.deb"), Path.of("/r/porelo.rpm"), Path.of("/a/stub.deb"));
+
+        for (final String script : List.of(install.debian(), install.ubuntu(AZURE))) {
+            assertThat(script)
+                    .as("the separate host package is installed from the same directory")
+                    .containsSubsequence(
+                            "/deb/porelo_*.deb", "/deb/porelo-host_*.deb", "porelo-host --version")
+                    .contains("|| failed \"installing porelo-host\"");
+        }
+        assertThat(install.fedora())
+                .as("no host rpm is shipped")
+                .doesNotContain("porelo-host", "HOST-");
+    }
 
     @Test
     void aTimedOutAzureInstallCanPassOnTheArchiveMirror() {
@@ -245,7 +291,7 @@ class InstallTest {
         assertThat(commands).as("the timed-out mirror is retried exactly once").hasSize(2);
         assertThat(out.report.failures())
                 .as("only the second attempt supplies verdicts")
-                .isEqualTo(Install.MARKERS.size() + 1);
+                .isEqualTo(Install.MARKERS.size() + Install.HOST_MARKERS.size() + 1);
         for (final String marker : Install.MARKERS.keySet()) {
             assertThat(out.text())
                     .as("the first attempt cannot supply %s", marker)
@@ -627,7 +673,8 @@ class InstallTest {
                         .lines()
                         .filter(
                                 line ->
-                                        !Install.MARKERS.containsKey(line)
+                                        (!Install.MARKERS.containsKey(line)
+                                                        && !Install.HOST_MARKERS.containsKey(line))
                                                 || line.equals("NO-PORELO-NAME"))
                         .collect(java.util.stream.Collectors.joining("\n"));
 
@@ -660,10 +707,12 @@ class InstallTest {
                 new Install(
                         Path.of("/d/porelo.deb"), Path.of("/r/porelo.rpm"), Path.of("/a/stub.deb"));
 
-        assertThat(install.debian())
+        final String debian = install.debian();
+        assertThat(debian.substring(0, debian.indexOf("echo \"STEP: porelo --version\"")))
                 .as("apt failures retain the command output")
                 .contains("|| failed \"apt-get update\"")
                 .contains("|| failed \"installing porelo\"")
+                .contains("|| failed \"installing porelo-host\"")
                 .doesNotContain(">/dev/null 2>&1\n");
         assertThat(install.fedora())
                 .as("dnf failures retain the command output")

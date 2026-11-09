@@ -98,6 +98,9 @@ public final class Main {
     /** The native binary the packages carry. */
     static final String BINARY = "apps/app/target/porelo";
 
+    /** The native binary carried only by the separate host deb. */
+    static final String HOST_BINARY = "host/target/porelo-host";
+
     /** Modules that must not leave a package: only agents are packaged. */
     static final List<String> STRAYS = List.of("agents/target", "agents/api/target");
 
@@ -128,11 +131,12 @@ public final class Main {
     static int run(Path root, boolean inCi, PrintStream out) {
         out.println("== packages ==");
         final Path deb = only(root.resolve(DEB), "porelo_*.deb", out);
+        final Path hostDeb = only(root.resolve(DEB), "porelo-host_*.deb", out);
         final Path rpm = only(root.resolve(RPM), "porelo-[0-9]*.rpm", out);
         // The stub: the real agents live in their own repositories, and the packaging is the same.
         final Path agentDeb = only(root.resolve(AGENT), "porelo-agent-stub_*.deb", out);
         final Path agentRpm = only(root.resolve(AGENT), "porelo-agent-stub-*.rpm", out);
-        if (deb == null || rpm == null || agentDeb == null || agentRpm == null) {
+        if (deb == null || hostDeb == null || rpm == null || agentDeb == null || agentRpm == null) {
             out.println("run: JAVA_HOME=<graalvm> ./mvnw -Pnative,dist clean verify -DskipTests");
             out.println("note the phase: 'package' builds the binaries and no packages at all");
             return 2;
@@ -142,6 +146,7 @@ public final class Main {
         report.section("freshness");
         final Map<Path, Path> carried = new LinkedHashMap<>();
         carried.put(deb, root.resolve(BINARY));
+        carried.put(hostDeb, root.resolve(HOST_BINARY));
         carried.put(rpm, root.resolve(BINARY));
         carried.put(agentDeb, root.resolve(AGENT).resolve("porelo-agent-stub"));
         carried.put(agentRpm, root.resolve(AGENT).resolve("porelo-agent-stub"));

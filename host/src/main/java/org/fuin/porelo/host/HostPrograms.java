@@ -1,0 +1,136 @@
+package org.fuin.porelo.host;
+
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.UncheckedIOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Path;
+import java.time.Duration;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.FutureTask;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
+import java.util.function.Function;
+import org.fuin.porelo.wire.SystemProgram;
+
+/** Runs checked programs without a shell or an inherited environment. */
+final class HostPrograms {
+    private static final Map<String, String> ENVIRONMENT =
+            Map.of("PATH", "/usr/sbin:/usr/bin:/sbin:/bin", "LANG", "C.UTF-8");
+    private final Duration timeout;
+    private final int maximumBytes;
+    private final Function<String, Path> programs;
+
+    HostPrograms() {
+        this(Duration.ofSeconds(10), 65536);
+    }
+
+    HostPrograms(Duration timeout, int maximumBytes) {
+        this(timeout, maximumBytes, HostPrograms::program);
+    }
+
+    HostPrograms(Duration timeout, int maximumBytes, Function<String, Path> programs) {
+        if (timeout.isNegative()
+                || timeout.isZero()
+                || maximumBytes < 1
+                || maximumBytes == Integer.MAX_VALUE) {
+            throw new IllegalArgumentException(
+                    "Expected a positive timeout and bounded output limit");
+        }
+        this.timeout = timeout;
+        this.maximumBytes = maximumBytes;
+        this.programs = programs;
+    }
+
+    record Result(int exitCode, String output) {}
+
+    Result run(List<String> argv) throws IOException {
+        if (argv.isEmpty()) {
+            throw new IllegalArgumentException("Expected a program and its arguments");
+        }
+        final String name = argv.getFirst();
+        final Path program;
+        try {
+            program = programs.apply(name);
+        } catch (UncheckedIOException ex) {
+            throw ex.getCause();
+        }
+        final List<String> command = new ArrayList<>(argv);
+        command.set(0, program.toString());
+        final ProcessBuilder builder =
+                new ProcessBuilder(command)
+                        .directory(Path.of("/").toFile())
+                        // A warning on stderr (an NSS module's, say) is no part of the answer.
+                        .redirectError(ProcessBuilder.Redirect.DISCARD);
+        builder.environment().clear();
+        builder.environment().putAll(ENVIRONMENT);
+        final Process process = builder.start();
+        final FutureTask<byte[]> output = new FutureTask<>(() -> read(process.getInputStream()));
+        final Thread reader = Thread.ofVirtual().name("porelo-host-output").start(output);
+        final long deadline = System.nanoTime() + timeout.toNanos();
+        final Set<ProcessHandle> descendants = new HashSet<>();
+        try {
+            process.getOutputStream().close();
+            while (process.isAlive() && !output.isDone()) {
+                process.descendants().forEach(descendants::add);
+                if (System.nanoTime() >= deadline) {
+                    throw new TimeoutException();
+                }
+                process.waitFor(10, TimeUnit.MILLISECONDS);
+            }
+            final byte[] bytes = output.get(remaining(deadline), TimeUnit.NANOSECONDS);
+            if (!process.waitFor(remaining(deadline), TimeUnit.NANOSECONDS)) {
+                throw new TimeoutException();
+            }
+            return new Result(process.exitValue(), new String(bytes, StandardCharsets.UTF_8));
+        } catch (TimeoutException ex) {
+            throw new IOException("Host program exceeded its timeout", ex);
+        } catch (ExecutionException ex) {
+            throw new IOException("Host program output could not be read within its limit", ex);
+        } catch (InterruptedException ex) {
+            Thread.currentThread().interrupt();
+            throw new IOException("Host program interrupted", ex);
+        } finally {
+            process.descendants().forEach(ProcessHandle::destroyForcibly);
+            descendants.forEach(
+                    child -> {
+                        if (child.isAlive()) {
+                            child.destroyForcibly();
+                        }
+                    });
+            process.destroyForcibly();
+            output.cancel(true);
+            reader.interrupt();
+            process.getInputStream().close();
+        }
+    }
+
+    private static Path program(String name) {
+        return Path.of(name).isAbsolute()
+                ? SystemProgram.at(Path.of(name))
+                : SystemProgram.find(name);
+    }
+
+    private byte[] read(InputStream stream) throws IOException {
+        try (stream) {
+            final byte[] bytes = stream.readNBytes(maximumBytes + 1);
+            if (bytes.length > maximumBytes) {
+                throw new IOException("Host program exceeded its output limit");
+            }
+            return bytes;
+        }
+    }
+
+    private static long remaining(long deadline) throws TimeoutException {
+        final long nanos = deadline - System.nanoTime();
+        if (nanos <= 0) {
+            throw new TimeoutException();
+        }
+        return nanos;
+    }
+}

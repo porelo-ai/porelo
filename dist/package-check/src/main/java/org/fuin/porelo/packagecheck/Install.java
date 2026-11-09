@@ -49,6 +49,15 @@ record Install(
     /** What the container prints for each step that worked, and what that step proves. */
     static final Map<String, String> MARKERS = markers();
 
+    /** Checks of the separate host deb, which has no RPM counterpart. */
+    static final Map<String, String> HOST_MARKERS =
+            Map.of(
+                    "HOST-VERSION", "porelo-host answers the installed porelo version",
+                    "HOST-NO-RUNTIME-OPTIONS",
+                            "porelo-host refuses runtime options in its arguments",
+                    "HOST-ENV-REFUSED", "porelo-host refuses JAVA_TOOL_OPTIONS with exit 78",
+                    "HOST-MAN", "the host package installs its section-8 man page");
+
     private static final String REPORTED = "REPORTED:";
 
     /**
@@ -90,6 +99,23 @@ record Install(
             /usr/share/porelo/setup/porelo-setup.sh --show --user x 2>&1 \
                 | grep -q "as the installed porelo $(porelo --version 2>/dev/null | cut -d' ' -f2)" \
                 && echo SETUP-SCRIPT-RUNS
+            """;
+
+    // The apt script and the container carry names the privileged program deliberately refuses.
+    static final String HOST =
+            """
+            echo "STEP: comparing porelo-host --version with porelo --version"
+            porelo_version=$(porelo --version 2>/dev/null) \\
+                && host_version=$(env -i PATH="$PATH" porelo-host --version 2>/dev/null) \\
+                && [ "$host_version" = "porelo-host ${porelo_version#porelo }" ] && echo HOST-VERSION
+            echo "STEP: refusing host runtime arguments"
+            env -i PATH="$PATH" porelo-host -Dporelo.probe=1 --version >/dev/null 2>&1
+            [ "$?" -ne 0 ] && echo HOST-NO-RUNTIME-OPTIONS
+            echo "STEP: refusing the host runtime environment"
+            env -i PATH="$PATH" JAVA_TOOL_OPTIONS=-Xmx1k porelo-host --version >/dev/null 2>&1
+            [ "$?" -eq 78 ] && echo HOST-ENV-REFUSED
+            echo "STEP: finding the host man page"
+            (man -w porelo-host >/dev/null 2>&1 || [ -f /usr/share/man/man8/porelo-host.8 ]) && echo HOST-MAN
             """;
 
     private static Map<String, String> markers() {
@@ -179,11 +205,14 @@ record Install(
                 logged apt-get update -qq --error-on=any || failed "apt-get update"
                 echo "STEP: installing porelo"
                 logged apt-get install -y -qq /deb/porelo_*.deb || failed "installing porelo"
+                echo "STEP: installing porelo-host"
+                logged apt-get install -y -qq /deb/porelo-host_*.deb || failed "installing porelo-host"
                 echo "STEP: installing the agent"
                 logged apt-get install -y -qq /agent/porelo-agent-stub_*.deb && echo AGENT-OK \
                     || failed "installing the agent"
                 """
-                + COMMON;
+                + COMMON
+                + HOST;
     }
 
     /**
@@ -302,7 +331,11 @@ record Install(
         final List<String> lines = output.lines().filter(line -> !line.startsWith(STEP)).toList();
         // Why comes first and once: every check after a failed install fails for the same reason.
         lines.stream().filter(line -> line.startsWith(WHY)).forEach(report::info);
-        for (final Map.Entry<String, String> marker : MARKERS.entrySet()) {
+        final Map<String, String> expected = new LinkedHashMap<>(MARKERS);
+        if (label.startsWith("Debian") || label.startsWith("Ubuntu")) {
+            expected.putAll(HOST_MARKERS);
+        }
+        for (final Map.Entry<String, String> marker : expected.entrySet()) {
             if (lines.contains(marker.getKey())) {
                 report.pass(marker.getValue());
             } else {

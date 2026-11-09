@@ -166,6 +166,7 @@ What each Maven module is, in a few sentences of its own:
   build readers, ecosystem adapters and planning adapters are written against
 - [apps](apps/README.md) - the `porelo` command line, area by area
 - [daemon](daemon/README.md), [hooks](hooks/README.md) - `porelod` and the OCI hooks
+- [host](host/README.md) - the host's own privileged `porelo-host` program
 - [acceptance](acceptance/README.md) - scenarios at a real terminal
 - [dist](dist/README.md) - the packages
 

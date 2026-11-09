@@ -41,6 +41,13 @@
             <groupId>org.fuin.porelo</groupId>
             <artifactId>porelod</artifactId>
         </dependency>
+        <!-- Reactor ordering only: the separate host package must not enter porelo's bill. -->
+        <dependency>
+            <groupId>org.fuin.porelo</groupId>
+            <artifactId>porelo-host</artifactId>
+            <version>${porelo.version}</version>
+            <scope>provided</scope>
+        </dependency>
         <dependency>
             <groupId>org.fuin.porelo</groupId>
             <artifactId>porelo-hooks</artifactId>
@@ -281,6 +288,54 @@
                                             <mapper>
                                                 <type>perm</type>
                                                 <prefix>/usr/share/doc/${package.name}</prefix>
+                                                <filemode>644</filemode>
+                                                <user>root</user>
+                                                <group>root</group>
+                                            </mapper>
+                                        </data>
+                                    </dataSet>
+                                </configuration>
+                            </execution>
+                            <execution>
+                                <id>deb-host</id>
+                                <phase>verify</phase>
+                                <goals>
+                                    <goal>jdeb</goal>
+                                </goals>
+                                <configuration>
+                                    <name>porelo-host</name>
+                                    <deb>${project.build.directory}/porelo-host_${porelo.package.version}_amd64.deb</deb>
+                                    <controlDir>${project.basedir}/src/deb-host/control</controlDir>
+                                    <skipPOMs>false</skipPOMs>
+                                    <dataSet>
+                                        <data>
+                                            <src>${project.basedir}/../../host/target/porelo-host</src>
+                                            <type>file</type>
+                                            <mapper>
+                                                <type>perm</type>
+                                                <prefix>/usr/sbin</prefix>
+                                                <filemode>755</filemode>
+                                                <user>root</user>
+                                                <group>root</group>
+                                            </mapper>
+                                        </data>
+                                        <data>
+                                            <src>${project.basedir}/../../host/src/main/man/porelo-host.8</src>
+                                            <type>file</type>
+                                            <mapper>
+                                                <type>perm</type>
+                                                <prefix>/usr/share/man/man8</prefix>
+                                                <filemode>644</filemode>
+                                                <user>root</user>
+                                                <group>root</group>
+                                            </mapper>
+                                        </data>
+                                        <data>
+                                            <src>${project.basedir}/src/deb/copyright/copyright</src>
+                                            <type>file</type>
+                                            <mapper>
+                                                <type>perm</type>
+                                                <prefix>/usr/share/doc/porelo-host</prefix>
                                                 <filemode>644</filemode>
                                                 <user>root</user>
                                                 <group>root</group>

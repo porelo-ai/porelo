@@ -1,0 +1,103 @@
+.TH PORELO-HOST 8 "2026-11-09" "Porelo" "System Administration"
+.SH NAME
+porelo-host \- the host's own program
+.SH SYNOPSIS
+.B porelo-host
+.RB [ \-\-help " | " \-\-version ]
+.SH DESCRIPTION
+.B porelo-host
+is run by sudo rules granting NOPASSWD access for the calling person alone,
+or by root's systemd service and socket units.
+It is never typed directly by a person in a shell.
+This frame has no operational verbs yet.
+.SH OPTIONS
+.TP
+.BR \-h ", " \-\-help
+Show help. Available to any uid with an accepted environment.
+.TP
+.BR \-V ", " \-\-version
+Show the Porelo build version. Available to any uid with an accepted environment.
+.SH BOUNDARY
+The environment is checked before argument parsing, including help and version.
+Only the names sudo's env_reset keeps by default and those systemd sets for a
+service or a socket are accepted; none of them reaches a child program, and the
+program's own locale and output encoding are fixed.
+The complete name allow-list is:
+.nf
+SUDO_USER SUDO_UID SUDO_GID SUDO_COMMAND SUDO_HOME HOME PATH
+LOGNAME USER SHELL MAIL TERM LANG COLUMNS LINES INVOCATION_ID
+JOURNAL_STREAM NOTIFY_SOCKET LISTEN_FDS LISTEN_PID
+LISTEN_FDNAMES RUNTIME_DIRECTORY STATE_DIRECTORY
+CACHE_DIRECTORY LOGS_DIRECTORY CONFIGURATION_DIRECTORY
+CREDENTIALS_DIRECTORY SYSTEMD_EXEC_PID MANAGERPID
+WATCHDOG_PID WATCHDOG_USEC USERNAME SUDO_TTY
+MEMORY_PRESSURE_WATCH MEMORY_PRESSURE_WRITE MAINPID PIDFILE
+SERVICE_RESULT EXIT_CODE EXIT_STATUS TRIGGER_UNIT
+TRIGGER_PATH TRIGGER_TIMER_REALTIME_USEC
+TRIGGER_TIMER_MONOTONIC_USEC MONITOR_SERVICE_RESULT
+MONITOR_EXIT_CODE MONITOR_EXIT_STATUS MONITOR_INVOCATION_ID
+MONITOR_UNIT REMOTE_ADDR REMOTE_PORT LANGUAGE LINGUAS
+_XKB_CHARSET TZ COLORS COLORTERM LS_COLORS DISPLAY XAUTHORITY
+XAUTHORIZATION XDG_CURRENT_DESKTOP HOSTNAME KRB5CCNAME PS1 PS2
+LC_*
+.fi
+Unknown names are refused with the variable's name, never its value:
+a widened sudo env_keep is a broken host configuration.
+Accepted variables do not configure behavior; SUDO_USER and SUDO_UID identify
+the person, and socket activation variables are reserved for later verbs.
+HOME, PATH and directory variables are never used to locate configuration.
+.PP
+A person is taken only from SUDO_USER, never from an argument.
+The login must be a non-root account and SUDO_UID must match the system account database.
+Missing, empty, invalid, unknown or mismatching identities are refused.
+Root's unit invocations need no person until a verb acts for one.
+.PP
+Other invocations require real uid 0.
+Argument files are not expanded and JVM runtime options are ordinary arguments.
+Child programs are checked through SystemProgram, run without a shell from /,
+with only PATH=/usr/sbin:/usr/bin:/sbin:/bin and LANG=C.UTF-8,
+a timeout and bounded output.
+Root-owned data files must be regular files without symbolic links;
+the file and every parent through / must be root-owned and not writable
+by group or others, including sticky temporary directories.
+Reads are bounded.
+.SH EXIT STATUS
+.TP
+.B 0
+Help or version was printed.
+.TP
+.B 64 (EX_USAGE)
+Invalid arguments or no verb.
+.TP
+.B 65 (EX_DATAERR)
+Reserved for invalid input data in later verbs; this frame does not emit it.
+.TP
+.B 69 (EX_UNAVAILABLE)
+A required dependency or account database could not answer.
+.TP
+.B 77 (EX_NOPERM)
+Root uid or a valid sudo person could not be established.
+.TP
+.B 78 (EX_CONFIG)
+The invocation environment contains an unapproved variable.
+.SH FILES
+.TP
+.B /usr/sbin/porelo-host
+The host program.
+.TP
+.B /proc/self/status
+Kernel source of the real uid.
+.TP
+.B /proc/self/uid_map
+Namespace mapping used for root-owned file and program checks.
+.TP
+.B /proc/sys/kernel/overflowuid
+Owner uid reported for an unmapped host root.
+.TP
+.B /etc/nsswitch.conf
+The system account database configuration used by getent passwd.
+.SH SEE ALSO
+.BR porelo (1),
+.BR sudo (8),
+.BR systemd (1),
+.BR getent (1)

@@ -102,6 +102,9 @@ class LegTreePathsTest {
         assertThat(home.resolve(".local/bin/porelo")).isRegularFile();
         assertThat(home.resolve(".local/bin/porelod")).isRegularFile();
         assertThat(home.resolve(".local/bin/porelo-hook-nft")).isRegularFile();
+        assertThat(home.resolve(".local/bin/porelo-host"))
+                .as("root's program, which only its package installs, at /usr/sbin")
+                .doesNotExist();
         assertThat(home.resolve(".local/share/porelo/agents/porelo-agent-stub")).isRegularFile();
         assertThat(home.resolve(".local/share/porelo/builds/stub-forge")).isExecutable();
         assertThat(home.resolve(".local/share/porelo/ecosystems/stub-ecosystem"))

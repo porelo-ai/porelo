@@ -1,0 +1,12 @@
+Package: porelo-host
+Version: [[porelo.package.version]]
+Section: admin
+Priority: optional
+Architecture: amd64
+Maintainer: Michael Schnell <michael@fuin.org>
+Homepage: https://github.com/porelo-ai/porelo
+Depends: libc6 (>= [[package.glibc.floor]]), zlib1g
+Description: The host's own privileged program
+ Run by sudo rules and root's units for the person sudo names, never typed by
+ a person. This package installs no sudo rule, unit or timer; those belong to
+ the host collection.

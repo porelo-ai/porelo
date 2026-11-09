@@ -14,6 +14,8 @@ agents=0
 while read -r binary; do
     [ -n "$binary" ] || continue
     case "$binary" in
+    # Root's program: only its package installs it, at /usr/sbin, never on an account's PATH.
+    */porelo-host) ;;
     */porelo-agent-*)
         cp "$binary" "$share/agents/"
         agents=$((agents + 1))

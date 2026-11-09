@@ -18,7 +18,8 @@ class LayoutTest {
         final Path root = Path.of("").toAbsolutePath().getParent().getParent();
         assertThat(root.resolve("dist/package-check")).isDirectory();
         final List<String> places =
-                new ArrayList<>(List.of(Main.DEB, Main.RPM, Main.AGENT, Main.BINARY));
+                new ArrayList<>(
+                        List.of(Main.DEB, Main.RPM, Main.AGENT, Main.BINARY, Main.HOST_BINARY));
         places.addAll(Main.STRAYS);
         for (final String place : places) {
             final Path module = root.resolve(place.substring(0, place.indexOf("/target")));
