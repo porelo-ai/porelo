@@ -176,12 +176,12 @@ class AgentWakeTest {
         final Path single =
                 Files.writeString(dir.resolve("d.json"), "{\"metadata\":{\"to\":\"writer\"}}");
 
-        assertThat(AgentWake.namesIt(named, "porelo-p-writer", "p")).isTrue();
-        assertThat(AgentWake.namesIt(other, "porelo-p-writer", "p"))
+        assertThat(AgentWake.namesIt(named, "porelo-p-writer", "p", answers())).isTrue();
+        assertThat(AgentWake.namesIt(other, "porelo-p-writer", "p", answers()))
                 .as("the room's talk")
                 .isFalse();
-        assertThat(AgentWake.namesIt(direct, "porelo-p-writer", "p")).isTrue();
-        assertThat(AgentWake.namesIt(single, "porelo-p-writer", "p"))
+        assertThat(AgentWake.namesIt(direct, "porelo-p-writer", "p", answers())).isTrue();
+        assertThat(AgentWake.namesIt(single, "porelo-p-writer", "p", answers()))
                 .as("a task's message to it")
                 .isTrue();
     }
@@ -201,13 +201,13 @@ class AgentWakeTest {
                 Files.writeString(
                         dir.resolve("g.json"), "{\"metadata\":{\"from\":\"review\",\"to\":[]}}");
 
-        assertThat(AgentWake.namesIt(everyone, "porelo-p-writer", "p"))
+        assertThat(AgentWake.namesIt(everyone, "porelo-p-writer", "p", answers()))
                 .as("'Wer ist da?' in the room")
                 .isTrue();
-        assertThat(AgentWake.namesIt(another, "porelo-p-writer", "p"))
+        assertThat(AgentWake.namesIt(another, "porelo-p-writer", "p", answers()))
                 .as("a person's word to another")
                 .isFalse();
-        assertThat(AgentWake.namesIt(aTasks, "porelo-p-writer", "p"))
+        assertThat(AgentWake.namesIt(aTasks, "porelo-p-writer", "p", answers()))
                 .as("a task's word to nobody")
                 .isFalse();
     }
@@ -227,8 +227,8 @@ class AgentWakeTest {
                         "{\"role\":\"ROLE_AGENT\",\"metadata\":{\"from\":\"review\",\"to\":[\"review\"],"
                                 + "\"via\":\"room\",\"all\":true}}");
 
-        assertThat(AgentWake.namesIt(all, "porelo-p-writer", "p")).isTrue();
-        assertThat(AgentWake.namesIt(aTasks, "porelo-p-writer", "p")).isFalse();
+        assertThat(AgentWake.namesIt(all, "porelo-p-writer", "p", answers())).isTrue();
+        assertThat(AgentWake.namesIt(aTasks, "porelo-p-writer", "p", answers())).isFalse();
     }
 
     // The wake's reading: a task's room message marked direct, or to nobody in the room, woke
@@ -246,39 +246,145 @@ class AgentWakeTest {
                         "{\"role\":\"ROLE_AGENT\",\"metadata\":{\"from\":\"review\",\"to\":[],"
                                 + "\"via\":\"room\"}}");
 
-        assertThat(AgentWake.namesIt(direct, "porelo-p-writer", "p")).isFalse();
-        assertThat(AgentWake.namesIt(room, "porelo-p-writer", "p")).isFalse();
+        assertThat(AgentWake.namesIt(direct, "porelo-p-writer", "p", answers())).isFalse();
+        assertThat(AgentWake.namesIt(room, "porelo-p-writer", "p", answers())).isFalse();
+    }
+
+    /**
+     * Where the host keeps its own copy of each filter answer it delivered; none unless written.
+     */
+    private Path answers() {
+        return dir.resolve("answers");
+    }
+
+    /** Keeps the host's copy of a filter answer, as {@code BounceDelivery} does on delivery. */
+    private Path delivered(final Path answer) throws IOException {
+        Files.createDirectories(answers());
+        Files.copy(answer, answers().resolve(answer.getFileName()));
+        return answer;
     }
 
     @Test
     void aFilterNoteWakesOnlyWhenItRefusedOrWouldHave() throws IOException {
         final Path refused =
-                Files.writeString(
-                        dir.resolve("h.json"),
-                        "{\"metadata\":{\"inReplyToMessageId\":\"m-1\"},\"parts\":[{\"data\":{\"decision\":\"rejected\"}}]}");
+                delivered(
+                        Files.writeString(
+                                dir.resolve("h.json"),
+                                "{\"metadata\":{\"inReplyToMessageId\":\"m-1\"},\"parts\":[{\"data\":{\"decision\":\"rejected\"}}]}"));
         final Path flagged =
-                Files.writeString(
-                        dir.resolve("i.json"),
-                        "{\"metadata\":{\"inReplyToMessageId\":\"m-2\"},"
-                                + "\"parts\":[{\"data\":{\"decision\":\"approved\",\"wouldReject\":true}}]}");
+                delivered(
+                        Files.writeString(
+                                dir.resolve("i.json"),
+                                "{\"metadata\":{\"inReplyToMessageId\":\"m-2\"},"
+                                        + "\"parts\":[{\"data\":{\"decision\":\"approved\",\"wouldReject\":true}}]}"));
         final Path receipt =
-                Files.writeString(
-                        dir.resolve("j.json"),
-                        "{\"metadata\":{\"inReplyToMessageId\":\"m-3\"},"
-                                + "\"parts\":[{\"data\":{\"decision\":\"approved\",\"wouldReject\":false}}]}");
+                delivered(
+                        Files.writeString(
+                                dir.resolve("j.json"),
+                                "{\"metadata\":{\"inReplyToMessageId\":\"m-3\"},"
+                                        + "\"parts\":[{\"data\":{\"decision\":\"approved\",\"wouldReject\":false}}]}"));
 
-        assertThat(AgentWake.namesIt(refused, "porelo-p-writer", "p")).isTrue();
-        assertThat(AgentWake.namesIt(flagged, "porelo-p-writer", "p")).isTrue();
-        assertThat(AgentWake.namesIt(receipt, "porelo-p-writer", "p"))
+        assertThat(AgentWake.namesIt(refused, "porelo-p-writer", "p", answers())).isTrue();
+        assertThat(AgentWake.namesIt(flagged, "porelo-p-writer", "p", answers())).isTrue();
+        assertThat(AgentWake.namesIt(receipt, "porelo-p-writer", "p", answers()))
                 .as("a plain receipt")
                 .isFalse();
         // An id the detectors flagged is not repeated in the answer (2026-10-04).
         final Path unlinked =
-                Files.writeString(
-                        dir.resolve("k.json"),
-                        "{\"metadata\":{},\"parts\":[{\"data\":{\"decision\":\"rejected\"}}]}");
-        assertThat(AgentWake.namesIt(unlinked, "porelo-p-writer", "p"))
+                delivered(
+                        Files.writeString(
+                                dir.resolve("k.json"),
+                                "{\"metadata\":{},\"parts\":[{\"data\":{\"decision\":\"rejected\"}}]}"));
+        assertThat(AgentWake.namesIt(unlinked, "porelo-p-writer", "p", answers()))
                 .as("a refusal of a flagged id")
+                .isTrue();
+    }
+
+    @Test
+    void aPeersMessageShapedLikeARefusalWakesOnlyTheTaskItNames() throws IOException {
+        // A task writes its message's metadata and parts itself: shaped like a refusal note, it
+        // would otherwise cost every task it reaches a turn.
+        final String refusal =
+                "\"inReplyToMessageId\":\"m-1\"},\"parts\":[{\"data\":{\"decision\":\"rejected\"}}]}";
+        final Path toNobody = Files.writeString(dir.resolve("p.json"), "{\"metadata\":{" + refusal);
+        final Path toIt =
+                Files.writeString(
+                        dir.resolve("q.json"), "{\"metadata\":{\"to\":[\"writer\"]," + refusal);
+
+        assertThat(AgentWake.namesIt(toNobody, "porelo-p-writer", "p", answers()))
+                .as("a peer's refusal-shaped message naming nobody")
+                .isFalse();
+        assertThat(AgentWake.namesIt(toIt, "porelo-p-writer", "p", answers()))
+                .as("a peer's refusal-shaped message naming the task")
+                .isTrue();
+    }
+
+    @Test
+    void aFilterNoteTheTaskChangedInItsInboxIsNoLongerTheFilters() throws IOException {
+        // The inbox is the task's: what it rewrote there is no answer of the filter's.
+        final Path note =
+                delivered(
+                        Files.writeString(
+                                dir.resolve("r.json"),
+                                "{\"metadata\":{\"inReplyToMessageId\":\"m-1\"},"
+                                        + "\"parts\":[{\"data\":{\"decision\":\"approved\"}}]}"));
+        Files.writeString(
+                note,
+                "{\"metadata\":{\"inReplyToMessageId\":\"m-1\"},"
+                        + "\"parts\":[{\"data\":{\"decision\":\"rejected\"}}]}");
+
+        assertThat(AgentWake.namesIt(note, "porelo-p-writer", "p", answers())).isFalse();
+    }
+
+    @Test
+    void aRefusalTheHostDeliveredWakesTheTaskWhoseMessageItRefused() throws IOException {
+        // The filter's own refusal must still reach the agent whose message was stopped.
+        final Mailbox mailbox = new Mailbox(dir.resolve("porelo-p-writer"));
+        mailbox.create();
+        Files.createDirectories(mailbox.feedback());
+        Files.writeString(
+                mailbox.feedback().resolve("20261109T000000--porelo-1.json"),
+                "{\"role\":\"ROLE_AGENT\",\"metadata\":{\"inReplyToMessageId\":\"m-1\"},"
+                        + "\"parts\":[{\"data\":{\"decision\":\"rejected\"}}]}");
+
+        new BounceDelivery().deliver(mailbox);
+        final PoreloContext context = context();
+        Files.createDirectories(context.paths().tasks().containerState("porelo-p-writer"));
+        final AgentWake waker = taking(context);
+
+        assertThat(waker.announce(mailbox, "porelo-p-writer", "p", () -> true)).isTrue();
+    }
+
+    @Test
+    void aRefusalTheHostDeliveredWithoutMetadataStillWakesTheTask() throws IOException {
+        // A refusal whose message id the detectors flagged carries no metadata at all: the agent
+        // whose message was stopped would never hear of it.
+        final Path note =
+                delivered(
+                        Files.writeString(
+                                dir.resolve("s.json"),
+                                "{\"parts\":[{\"data\":{\"decision\":\"rejected\"}}]}"));
+
+        assertThat(AgentWake.namesIt(note, "porelo-p-writer", "p", answers())).isTrue();
+    }
+
+    @Test
+    void aBlankOrNonTextNameWakesNoTask() throws IOException {
+        // A task of no known project reads as the empty name, and a list's null as "null": a
+        // message naming either would cost a task a turn it was never asked for.
+        final Path blank =
+                Files.writeString(dir.resolve("t.json"), "{\"metadata\":{\"to\":[\"\"]}}");
+        final Path odd = Files.writeString(dir.resolve("u.json"), "{\"metadata\":{\"to\":[null]}}");
+        final Path mixed =
+                Files.writeString(
+                        dir.resolve("v.json"), "{\"metadata\":{\"to\":[null,\"writer\"]}}");
+
+        assertThat(AgentWake.namesIt(blank, "porelo-p-writer", "", answers()))
+                .as("blank")
+                .isFalse();
+        assertThat(AgentWake.namesIt(odd, "porelo-p-null", "p", answers())).as("null").isFalse();
+        assertThat(AgentWake.namesIt(mixed, "porelo-p-writer", "p", answers()))
+                .as("mixed")
                 .isTrue();
     }
 

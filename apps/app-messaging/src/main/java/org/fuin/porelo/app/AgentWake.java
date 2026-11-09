@@ -120,18 +120,22 @@ public final class AgentWake {
      * @param message The message, in the inbox.
      * @param container The task.
      * @param project Its project's name.
+     * @param answers Where the host keeps its own copy of each filter answer it delivered.
      * @return {@code true} when it names it.
      */
-    static boolean namesIt(final Path message, final String container, final String project) {
+    static boolean namesIt(
+            final Path message, final String container, final String project, final Path answers) {
         try {
             // The task writes its inbox: what is read there is a regular file of a message's size.
             final byte[] bytes = MessageIntake.taskWritten(message);
             if (bytes == null
                     || !(Json.parse(new String(bytes, StandardCharsets.UTF_8))
-                            instanceof Map<?, ?> document)
-                    || !(document.get("metadata") instanceof Map<?, ?> metadata)) {
+                            instanceof Map<?, ?> document)) {
                 return false;
             }
+            // A filter answer whose message id the detectors flagged may carry no metadata at all.
+            final Map<?, ?> metadata =
+                    document.get("metadata") instanceof Map<?, ?> given ? given : Map.of();
             // Only a person writes a direct chat or to everybody in the room: a task cannot write a
             // person's role, so its message marked so wakes nobody it does not name.
             final boolean person = MessageSay.ROLE.equals(document.get("role"));
@@ -140,10 +144,13 @@ public final class AgentWake {
                             || "direct".equals(metadata.get("via")))) {
                 return true;
             }
-            if (metadata.get("inReplyToMessageId") != null || decided(document)) {
+            if ((metadata.get("inReplyToMessageId") != null || decided(document))
+                    && delivered(message, bytes, answers)) {
                 // The filter's answer to the agent's own message: worth waking for only when it
                 // refused it or would have, never for a receipt. Known by its decision too, because
-                // an id the detectors flagged is not repeated in the answer.
+                // an id the detectors flagged is not repeated in the answer. Only the host's own
+                // delivery counts: a task writes its message's shape itself, so a peer's message
+                // shaped like a refusal is the room's talk and wakes only the task it names.
                 return refused(document);
             }
             if (person
@@ -163,12 +170,27 @@ public final class AgentWake {
                 // stays the room's talk.
                 return true;
             }
+            // Only a name in words counts, and never the empty one a task of no known project has.
             return named.stream()
-                    .map(String::valueOf)
+                    .filter(String.class::isInstance)
+                    .map(String.class::cast)
+                    .filter(name -> !name.isEmpty())
                     .anyMatch(name -> name.equals(container) || name.equals(task));
         } catch (final IOException | RuntimeException ex) {
             return false;
         }
+    }
+
+    /**
+     * Says whether the host delivered this message as a filter answer: it keeps a copy of every
+     * answer it moves into a task's inbox, under the task's record, where the task cannot write.
+     */
+    private static boolean delivered(final Path message, final byte[] bytes, final Path answers)
+            throws IOException {
+        final Path copy = answers.resolve(message.getFileName().toString());
+        return Files.isRegularFile(copy, java.nio.file.LinkOption.NOFOLLOW_LINKS)
+                && Files.size(copy) == bytes.length
+                && java.util.Arrays.equals(Files.readAllBytes(copy), bytes);
     }
 
     private static boolean decided(final Map<?, ?> document) {
@@ -281,7 +303,8 @@ public final class AgentWake {
                                             namesIt(
                                                     path,
                                                     container,
-                                                    project == null ? "" : project))
+                                                    project == null ? "" : project,
+                                                    MessageLookup.answers(mailbox)))
                             .forEach(path -> waiting.add(path.getFileName().toString()));
                 }
             }

@@ -1,6 +1,6 @@
 # [B529](README.md#b529) — A Peer's Message Cannot Pass For A Filter Note
 
-**Status:** Implementing.
+**Status:** Review.
 **Size:** S - one predicate in `AgentWake` given the task's mailbox, and its tests; no contract changes.
 **Severity:** low - it costs every task it reaches a turn; it widens no reach and shows nothing.
 
@@ -36,3 +36,20 @@ through the transport and has no such copy. The record outlives a stop, so a res
 - A test writes a task's room message with `inReplyToMessageId` and a part `{"data":{"decision":"rejected"}}` into
   another task's inbox, naming nobody: the wake does not wake it. The filter's own refusal note still wakes the task
   whose message it refused. Both are seen red first where they fail.
+
+## As built
+
+- `AgentWake.namesIt` takes the directory of the host's own copies (`MessageLookup.answers(mailbox)`). A message shaped
+  like a note counts as the filter's answer only when the copy of the same name there is a regular file holding the
+  same bytes; a peer's note-shaped message, or a delivered note the task rewrote in its inbox, falls through to the
+  naming rule. `announceHeld` passes the copies; there is no other caller.
+- Tests in `AgentWakeTest`: `aPeersMessageShapedLikeARefusalWakesOnlyTheTaskItNames` and
+  `aFilterNoteTheTaskChangedInItsInboxIsNoLongerTheFilters`, both red with the copy check made to accept everything;
+  `aRefusalTheHostDeliveredWakesTheTaskWhoseMessageItRefused` (through `BounceDelivery`) and the existing
+  `aFilterNoteWakesOnlyWhenItRefusedOrWouldHave`, both red with the copy check made to accept nothing. The first now
+  goes through `announce`, so it is also red when `announceHeld` passes another directory than the copies.
+- Found by the independent reading: a delivered note without any `metadata` (its id flagged by the detectors) was
+  dropped before the copy check; it is now read as having empty metadata
+  (`aRefusalTheHostDeliveredWithoutMetadataStillWakesTheTask`). A `to` entry counts only as a non-empty string, so a
+  task of no known project (empty short name) is not woken by `""`, nor a task called `null` by `[null]`, and
+  `[null, "writer"]` still names writer (`aBlankOrNonTextNameWakesNoTask`). Both red before the change.

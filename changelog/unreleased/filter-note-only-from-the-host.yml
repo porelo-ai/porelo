@@ -1,0 +1,2 @@
+title: "A task's room message shaped like the filter's refusal note (an `inReplyToMessageId`, or a part whose `decision` is `rejected`) no longer wakes every task it reaches: only a note the host itself delivered from the filter wakes a task as a filter note, and any other message wakes only the task it names"
+type: fixed
