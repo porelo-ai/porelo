@@ -528,6 +528,22 @@ final class McpTaskSockets implements McpDaemonSockets.Opener, AutoCloseable {
      */
     static final Set<String> TASK_LISTS = Set.of("List", "Watch");
 
+    /**
+     * Methods taking a project that a task may still ask of any of the person's projects: holding
+     * them to its own changes what the MCP endpoint's clients rely on. {@code Start} holds its
+     * project itself.
+     */
+    static final Set<String> ANY_PROJECT =
+            Set.of(
+                    "Start",
+                    "Backups",
+                    "ProviderModels",
+                    "Egress",
+                    "Pending",
+                    "Review",
+                    "Peers",
+                    "MessageMembers");
+
     /** What a listed task carries of what its run said, which Logs and Tail read. */
     static final Set<String> WHAT_IT_SAID = Set.of("lastMessage", "agentEnded");
 
@@ -667,10 +683,28 @@ final class McpTaskSockets implements McpDaemonSockets.Opener, AutoCloseable {
      * @return Their names, without the interface.
      */
     static Set<String> takingATask() {
+        return declaring("task");
+    }
+
+    /**
+     * Returns the methods that take a project, but those in {@link #ANY_PROJECT}: over a task's
+     * socket each reads the caller's own project alone, so one added later is held too.
+     *
+     * @return Their names, without the interface.
+     */
+    static Set<String> takingAProject() {
+        final Set<String> taking = new java.util.TreeSet<>(declaring("project"));
+        taking.removeAll(ANY_PROJECT);
+        return taking;
+    }
+
+    /** The methods whose own parameters, as the interface description declares them, name one. */
+    private static Set<String> declaring(final String parameter) {
         final List<String> lines = PoreloDaemon.description().lines().toList();
         final java.util.regex.Pattern method =
                 java.util.regex.Pattern.compile("^method\\s+([A-Za-z][A-Za-z0-9]*)\\s*\\(");
-        final java.util.regex.Pattern task = java.util.regex.Pattern.compile("(^|[,\\s])task\\s*:");
+        final java.util.regex.Pattern task =
+                java.util.regex.Pattern.compile("(^|[,\\s])" + parameter + "\\s*:");
         final Set<String> taking = new java.util.TreeSet<>();
         for (int i = 0; i < lines.size(); i++) {
             final java.util.regex.Matcher named = method.matcher(lines.get(i));
@@ -760,6 +794,7 @@ final class McpTaskSockets implements McpDaemonSockets.Opener, AutoCloseable {
         private final String project;
         private final McpEndpoint endpoint;
         private final Set<String> takingATask;
+        private final Set<String> takingAProject = takingAProject();
 
         TaskSocket(
                 final Path socket,
@@ -790,6 +825,17 @@ final class McpTaskSockets implements McpDaemonSockets.Opener, AutoCloseable {
                 held =
                         (parameters, replies) -> {
                             own(task, parameters, itself);
+                            method.call(parameters, replies);
+                        };
+            } else if (takingAProject.contains(name)) {
+                held =
+                        (parameters, replies) -> {
+                            final String asked = PoreloDaemon.text(parameters, "project");
+                            if (!project.equals(asked)) {
+                                throw new VarlinkException(
+                                        INTERFACE + ".ProjectNotItsOwn",
+                                        Map.of("project", asked, "own", project));
+                            }
                             method.call(parameters, replies);
                         };
             } else if (TASK_LISTS.contains(name)) {

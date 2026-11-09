@@ -757,6 +757,56 @@ class McpTaskSocketsTest {
     }
 
     @Test
+    void aMethodTakingAProjectReadsOnlyTheCallersOwnProject() throws IOException {
+        // A task granted a board read must not read the board of another of the person's projects.
+        final Path socket =
+                opened(
+                        HEAD
+                                + SECTION.replace(
+                                        "\"Stop\"]",
+                                        "\"Stop\", \"ListStories\", \"WatchStories\","
+                                                + " \"GetIssue\"]"));
+        assertThat(McpTaskSockets.takingAProject())
+                .as("every board read is held to the caller's project")
+                .contains(
+                        "GetPlanningWorkflow",
+                        "ListStories",
+                        "WatchStories",
+                        "GetStory",
+                        "ListStoryIssues",
+                        "GetIssue",
+                        "ProposeStoryWork",
+                        "GetStoryWork")
+                .as("Start holds its project itself, and these read any of the person's projects")
+                .doesNotContain("Start", "Backups", "Egress", "Pending", "Review", "Peers");
+
+        for (final String method : List.of("ListStories", "WatchStories")) {
+            refused(
+                    socket,
+                    method,
+                    Map.of("project", "other"),
+                    "ProjectNotItsOwn",
+                    Map.of("project", "other", "own", "uc"));
+        }
+        refused(
+                socket,
+                "GetIssue",
+                Map.of("project", "other", "issue", "B1"),
+                "ProjectNotItsOwn",
+                Map.of("project", "other", "own", "uc"));
+        refused(
+                socket,
+                "ListStories",
+                Map.of(),
+                "ProjectNotItsOwn",
+                Map.of("project", "", "own", "uc"));
+        final Object own = attempt(socket, Map.of("project", "uc"), "ListStories").join();
+        if (own instanceof VarlinkException ex) {
+            assertThat(ex.getErrorName()).as("its own project").doesNotEndWith(".ProjectNotItsOwn");
+        }
+    }
+
+    @Test
     void aListShowsOnlyTheTasksOfTheCallersOwnProject() throws IOException {
         final Path socket = opened(HEAD + SECTION.replace("\"Stop\"]", "\"Stop\", \"List\"]"));
         runner.answering(
