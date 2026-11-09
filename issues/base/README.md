@@ -140,6 +140,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b586"></a>[B586](B586-A-Task-Name-The-Room-Cannot-Hold.md) | S | - | A long task name on a clash, and one with two hyphens in a row, still get a name in the room. |
 | <a id="b583"></a>[B583](B583-The-Rooms-Members-Over-The-Daemon.md) | S | - | `RoomMembers` over the daemon from the transport's `members` verb: who is in a project's room, tasks by container. |
 | <a id="b584"></a>[B584](B584-A-Hosts-Open-Pull-Requests-Over-The-Daemon.md) | M | - | A host forge's open pull requests per project, with makers, read and watched over the daemon until each merges or closes. |
 | <a id="b578"></a>[B578](B578-A-Task-That-Said-Done-Is-Done.md) | M | - | A task whose agent said done and stopped has the state `done`. |
