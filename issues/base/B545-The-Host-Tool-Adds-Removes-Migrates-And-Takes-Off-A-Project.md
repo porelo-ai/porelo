@@ -44,7 +44,7 @@ Built by Codex CLI on Agent Core's brief; merged onto [B541](README.md#b541) and
   - the forge's `Authorization` is built and sent as bytes and cleared. Where an API takes only a String (the JSON bodies, `HttpRequest.header`), the String lives no longer than the call.
   - Four paired tests that stayed green under a broken implementation now go through the command and the forge's real Unix socket.
 - **Where it differs from the Python:**
-  - A non-root caller gets the frame's 77, not 69.
+  - A non-root caller gets the Python's 69 before parsing ([B546](README.md#b546) restored it; the frame's other verbs answer 77).
   - Byte limits and stricter UTF-8 and URI checks can refuse what the Python took.
   - An account is looked up through a checked `getent`.
   - A raw SIGINT may exit 130 where the Python gave 64. The rollback itself is tested.

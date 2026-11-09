@@ -84,6 +84,22 @@ class HttpForgeUnixTest {
     }
 
     @ParameterizedTest
+    @ValueSource(ints = {200, 302, 403, 503})
+    void aPresenceProbeOmitsAuthorizationAndDoesNotNeedTheResponseBody(int status)
+            throws Exception {
+        reply("HTTP/1.1 " + status + " Probe\r\nContent-Length: 100\r\n\r\n", 0);
+        try (var api = HttpForgeAdmin.unauthenticated(socket)) {
+            assertThat(api.answers())
+                    .as("any complete HTTP headers prove the forge is present")
+                    .isTrue();
+        }
+        assertThat(served.get(2, TimeUnit.SECONDS))
+                .as("the probe uses the shared private socket transport without a token")
+                .contains("GET /api/v1/version HTTP/1.1\r\n")
+                .doesNotContain("Authorization:");
+    }
+
+    @ParameterizedTest
     @ValueSource(
             strings = {
                 "Content-Length: 2\r\n\r\n{}",

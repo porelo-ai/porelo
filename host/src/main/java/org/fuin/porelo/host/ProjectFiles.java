@@ -260,6 +260,53 @@ final class ProjectFiles {
         }
     }
 
+    void removeTree(Path root) throws IOException {
+        // Copies belong to another uid. Relative, pinned descriptors keep a renamed child
+        // or substituted symlink from turning cleanup into a deletion outside this tree.
+        try (var parent = Files.newDirectoryStream(parent(root))) {
+            if (!(parent instanceof java.nio.file.SecureDirectoryStream<Path> secure)) {
+                throw new IOException("Secure directory deletion is unavailable");
+            }
+            remove(secure, root.getFileName());
+        }
+    }
+
+    private static void remove(java.nio.file.SecureDirectoryStream<Path> parent, Path name)
+            throws IOException {
+        final var view =
+                java.util.Objects.requireNonNull(
+                        parent.getFileAttributeView(
+                                name,
+                                java.nio.file.attribute.BasicFileAttributeView.class,
+                                LinkOption.NOFOLLOW_LINKS),
+                        "Secure directory supports basic file attributes");
+        if (view.readAttributes().isDirectory()) {
+            try (var directory = parent.newDirectoryStream(name, LinkOption.NOFOLLOW_LINKS)) {
+                for (Path child : directory) {
+                    remove(directory, child.getFileName());
+                }
+            }
+            parent.deleteDirectory(name);
+        } else {
+            parent.deleteFile(name);
+        }
+    }
+
+    void giveTree(Path root, int uid, int gid) throws IOException {
+        try (var paths = Files.walk(root)) {
+            // Keep the enclosing 0700 directory root's until every descendant has its owner.
+            for (Path path : paths.sorted(java.util.Comparator.reverseOrder()).toList()) {
+                final int mode =
+                        (int) Files.getAttribute(path, "unix:mode", LinkOption.NOFOLLOW_LINKS);
+                if ((mode & 0170000) != 0120000) {
+                    Files.setAttribute(path, "unix:mode", mode & 0700, LinkOption.NOFOLLOW_LINKS);
+                }
+                Files.setAttribute(path, "unix:gid", gid, LinkOption.NOFOLLOW_LINKS);
+                Files.setAttribute(path, "unix:uid", uid, LinkOption.NOFOLLOW_LINKS);
+            }
+        }
+    }
+
     @FunctionalInterface
     interface Writing {
         void run() throws IOException;

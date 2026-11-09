@@ -216,7 +216,7 @@ final class HostProjects {
         }
     }
 
-    private static boolean centralRow(Map<String, @Nullable Object> row) {
+    static boolean centralRow(Map<?, ?> row) {
         if (!(row.get("repository") instanceof String repository)
                 || !repository.matches("[A-Za-z0-9][A-Za-z0-9._-]*")) {
             return false;
@@ -225,8 +225,9 @@ final class HostProjects {
         return switch (state) {
             case "ahead" ->
                     row.keySet().equals(Set.of("repository", "state", "commits"))
-                            && row.get("commits") instanceof java.math.BigInteger commits
-                            && commits.signum() > 0;
+                            && (row.get("commits") instanceof java.math.BigInteger commits
+                                            && commits.signum() > 0
+                                    || row.get("commits") instanceof Long count && count > 0);
             case "cannot-say" ->
                     row.keySet().equals(Set.of("repository", "state", "why"))
                             && row.get("why") instanceof String

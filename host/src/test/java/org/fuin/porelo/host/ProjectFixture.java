@@ -85,7 +85,7 @@ final class ProjectFixture implements AutoCloseable {
                 "/etc/porelo-host/forge",
                 "/run/user/1234/porelo-forge",
                 "/tmp",
-                "/usr/local/sbin");
+                "/usr/sbin");
         write("/etc/porelo-host/forge.conf", "account=forge\nhost=build-host\n");
         write("/etc/porelo-host/people/alice.conf", person("member=host-admin\n", false, false));
         write("/etc/porelo-host/people/bob.conf", person("member=host-admin\n", false, false));
@@ -99,7 +99,7 @@ final class ProjectFixture implements AutoCloseable {
         write(
                 "/etc/porelo-host/forge/organization.json",
                 "{\"variables\":{\"PROJECT\":\"{project}\"},\"placeholder_secrets\":[\"JF_ACCESS_TOKEN\"]}");
-        write("/usr/local/sbin/porelo-host-push", "fixture only\n");
+        write("/usr/sbin/porelo-host", "fixture only\n");
         users.addAll(List.of("alice", "bob"));
         runtime =
                 new ProjectRuntime(
@@ -107,17 +107,39 @@ final class ProjectFixture implements AutoCloseable {
                         this::command,
                         Path::of,
                         path -> true,
-                        (path, token) -> {
-                            assertThat(path)
-                                    .as(
-                                            "the local admin transport is bound to the forge's Unix socket")
-                                    .isEqualTo(files.at("/run/user/1234/porelo-forge/http.sock"));
-                            return realSocket
-                                    // The runtime names the forge's path, checked above; the test's
-                                    // server listens on a short one, within the 108-byte limit.
-                                    ? new org.fuin.porelo.organization.gittree.HttpForgeAdmin(
-                                            socketOverride == null ? path : socketOverride, token)
-                                    : TestForgeAdmin.create(token, false, this::localExchange);
+                        new ProjectRuntime.ForgeFactory() {
+                            @Override
+                            public org.fuin.porelo.organization.gittree.HttpForgeAdmin open(
+                                    Path path, char[] token) {
+                                assertThat(path)
+                                        .as(
+                                                "the local admin transport is bound to the forge's Unix socket")
+                                        .isEqualTo(
+                                                files.at("/run/user/1234/porelo-forge/http.sock"));
+                                return realSocket
+                                        // A short test socket fits the 108-byte limit; the runtime
+                                        // path is checked above.
+                                        ? new org.fuin.porelo.organization.gittree.HttpForgeAdmin(
+                                                socketOverride == null ? path : socketOverride,
+                                                token)
+                                        : TestForgeAdmin.create(
+                                                token, false, ProjectFixture.this::localExchange);
+                            }
+
+                            @Override
+                            public org.fuin.porelo.organization.gittree.HttpForgeAdmin
+                                    unauthenticated(Path path) {
+                                return TestForgeAdmin.create(
+                                        ADMIN_TOKEN.toCharArray(),
+                                        false,
+                                        ProjectFixture.this::localExchange);
+                            }
+                        },
+                        (argv, input, output, environment, timeout) -> {
+                            final var result =
+                                    command(argv, input.readAllBytes(), environment, timeout);
+                            output.write(result.output().getBytes(StandardCharsets.UTF_8));
+                            return new HostPrograms.Result(result.exitCode(), "");
                         });
     }
 
@@ -128,6 +150,13 @@ final class ProjectFixture implements AutoCloseable {
         }
         if (unavailable) {
             throw new IOException("fixture socket unavailable");
+        }
+        if (path.equals("/version")) {
+            assertThat(authorization).as("a presence probe needs no admin credential").isEmpty();
+            calls.add(new Call(method, "/api/v1" + path, null));
+            return responseBytes(
+                    replies.getOrDefault(
+                            "GET /api/v1/version", new Reply(200, Map.of("version", "fixture"))));
         }
         assertThat(new String(authorization, StandardCharsets.US_ASCII))
                 .as("local administration uses only its admin token")
@@ -214,7 +243,7 @@ final class ProjectFixture implements AutoCloseable {
             users.add(argv.get(argv.indexOf("--username") + 1));
             return new HostPrograms.Result(0, "discarded-random-password");
         }
-        if (argv.getFirst().endsWith("porelo-host-push")) {
+        if (argv.getFirst().endsWith("/porelo-host") && argv.contains("check-central")) {
             pushInput = new String(input, StandardCharsets.UTF_8);
             return new HostPrograms.Result(pushFailure, "");
         }
@@ -511,6 +540,24 @@ final class ProjectFixture implements AutoCloseable {
             }
             if (parts[2].equals("actions")) {
                 if (parts[3].equals("secrets")) {
+                    if (method.equals("GET")) {
+                        return new Reply(
+                                200,
+                                secrets.keySet().stream()
+                                        .filter(key -> key.startsWith(project + "/"))
+                                        .sorted()
+                                        .map(
+                                                key ->
+                                                        Map.of(
+                                                                "name",
+                                                                key.substring(
+                                                                        project.length() + 1)))
+                                        .toList());
+                    }
+                    if (method.equals("DELETE")) {
+                        secrets.remove(project + "/" + parts[4]);
+                        return new Reply(204, null);
+                    }
                     secrets.put(project + "/" + parts[4], ((Map<?, ?>) call.body).get("data"));
                     return new Reply(204, null);
                 }

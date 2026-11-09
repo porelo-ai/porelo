@@ -26,7 +26,13 @@ import picocli.CommandLine.Command;
             HostProject.Remove.class,
             HostProject.Migrate.class,
             HostProject.TakeOff.class,
-            HostProject.CentralState.class
+            HostProject.CentralState.class,
+            HostProject.GiveBackCheck.class,
+            HostProject.Copy.class,
+            HostProject.Advance.class,
+            HostProject.CheckCentral.class,
+            HostProject.MeasureCentral.class,
+            HostProject.PoolKey.class
         })
 final class HostProject implements Callable<Integer> {
     private static final String USAGE =
@@ -40,6 +46,7 @@ final class HostProject implements Callable<Integer> {
     private final ProjectRuntime runtime;
     private final ProjectMigration.Central central;
     private final Locking locking;
+    private Map<String, String> environment = Map.of();
 
     @FunctionalInterface
     interface Locking {
@@ -51,7 +58,13 @@ final class HostProject implements Callable<Integer> {
     }
 
     static CommandLine commandLine() {
-        final CommandLine command = new CommandLine(new HostProject());
+        return commandLine(System.getenv());
+    }
+
+    static CommandLine commandLine(Map<String, String> environment) {
+        final HostProject host = new HostProject();
+        host.environment = Map.copyOf(environment);
+        final CommandLine command = new CommandLine(host);
         command.setEndOfOptionsDelimiter("");
         command.setUnmatchedOptionsArePositionalParams(true);
         command.getSubcommands()
@@ -132,6 +145,32 @@ final class HostProject implements Callable<Integer> {
             description = "Read the central state of <project> without making a forge token.")
     static final class CentralState extends Verb {}
 
+    @Command(
+            name = "give-back-check",
+            description = "Check every project main before returning the host.")
+    static final class GiveBackCheck extends Verb {}
+
+    @Command(name = "project-copy", description = "Copy <project> <address> <known-commit|->.")
+    static final class Copy extends Verb {}
+
+    @Command(
+            name = "project-advance",
+            description = "Advance <project> <repository> <commit> <copy> <signed|tip>.")
+    static final class Advance extends Verb {}
+
+    @Command(
+            name = "check-central",
+            description = "Check all refs of <project> <repository>... before down.")
+    static final class CheckCentral extends Verb {}
+
+    @Command(
+            name = "measure-central",
+            description = "Publish <project>'s timestamped central measurement to its members.")
+    static final class MeasureCentral extends Verb {}
+
+    @Command(name = "pool-key", description = "Send or withdraw the pool run key for all projects.")
+    static final class PoolKey extends Verb {}
+
     int run(
             String action,
             List<String> supplied,
@@ -142,6 +181,10 @@ final class HostProject implements Callable<Integer> {
         boolean inherited = false;
         String project = "";
         try {
+            if (action.equals("check-central")) {
+                new ProjectCentralCheck(files, runtime).check(arguments, environment, input, err);
+                return 0;
+            }
             Integer descriptor = null;
             if (arguments.size() >= 2 && arguments.get(arguments.size() - 2).equals("--lock-fd")) {
                 final String value = arguments.getLast();
@@ -153,10 +196,77 @@ final class HostProject implements Callable<Integer> {
                 arguments.removeLast();
                 inherited = true;
             }
-            if (action.equals("add")
-                    ? arguments.size() != 4 || !arguments.get(2).equals("--signed-by")
-                    : arguments.size() != 1) {
+            if (action.equals("pool-key")) {
+                if (arguments.size() != 1
+                        || !List.of("send", "withdraw").contains(arguments.getFirst())) {
+                    throw new HostRefusal(64, "usage: pool-key send | pool-key withdraw");
+                }
+                final ProjectRecords records = new ProjectRecords(files);
+                List<String> changed = List.of();
+                final boolean send = arguments.getFirst().equals("send");
+                if (send || files.exists(records.conf())) {
+                    files.trusted(records.conf(), false);
+                    try (AutoCloseable lock = locking.acquire(records.conf(), descriptor)) {
+                        final Map<String, String> values = records.values(records.conf(), 69);
+                        if (send || !runtime.forgeGone(values, records.conf())) {
+                            try (HttpForgeAdmin forge = runtime.forge(values, records.conf())) {
+                                final ProjectPoolKey pool = new ProjectPoolKey(files);
+                                changed = send ? pool.send(forge) : pool.withdraw(forge);
+                            }
+                        }
+                    }
+                }
+                output(out, ProjectRecords.object("changed", changed));
+                return 0;
+            }
+            final int count =
+                    switch (action) {
+                        case "add" -> 4;
+                        case "project-copy" -> 3;
+                        case "project-advance" -> 5;
+                        case "give-back-check" -> 0;
+                        default -> 1;
+                    };
+            if (arguments.size() != count
+                    || action.equals("add") && !arguments.get(2).equals("--signed-by")) {
                 throw new HostRefusal(64, USAGE);
+            }
+            if (action.equals("give-back-check")) {
+                files.directory(files.etc.resolve("projects"), true, true);
+                final var records = new ProjectRecords(files);
+                files.trusted(records.conf(), false);
+                try (AutoCloseable lock = locking.acquire(records.conf(), descriptor)) {
+                    final String account =
+                            ProjectRecords.setting(
+                                    records.values(records.conf(), 69),
+                                    "account",
+                                    ProjectRecords.ACCOUNT,
+                                    records.conf(),
+                                    69);
+                    output(out, new ProjectGiveBack(files, runtime).check(account));
+                }
+                return 0;
+            }
+            if (action.equals("project-copy")
+                    && !arguments.get(2).equals("-")
+                    && !arguments.get(2).matches(ProjectRecords.COMMIT)) {
+                throw new HostRefusal(64, "project-copy takes a known commit or -");
+            }
+            if (action.equals("project-advance")
+                    && (!arguments.get(1).matches(ProjectRecords.REPOSITORY)
+                            || !arguments.get(2).matches(ProjectRecords.COMMIT)
+                            || !arguments
+                                    .get(3)
+                                    .matches(
+                                            java.util.regex.Pattern.quote(
+                                                            new ProjectCopies(files, runtime)
+                                                                    .directory()
+                                                                    .toString())
+                                                    + "/[0-9a-f]{32}/central\\.git")
+                            || !List.of("signed", "tip").contains(arguments.get(4)))) {
+                throw new HostRefusal(
+                        64,
+                        "project-advance takes a repository's name, a commit, a copy of this helper's and signed or tip");
             }
             project = arguments.getFirst();
             if (!project.matches(ProjectRecords.PROJECT)) {
@@ -196,7 +306,13 @@ final class HostProject implements Callable<Integer> {
                     records.namedInOrganization(project, arguments.get(1));
                     publisher = "";
                     affected = List.of();
-                } else if (action.equals("central-state") || action.equals("take-off")) {
+                } else if (List.of(
+                                "central-state",
+                                "take-off",
+                                "project-copy",
+                                "project-advance",
+                                "measure-central")
+                        .contains(action)) {
                     person = null;
                     publisher = "";
                     affected = List.of();
@@ -214,6 +330,22 @@ final class HostProject implements Callable<Integer> {
                                 values, "account", ProjectRecords.ACCOUNT, records.conf(), 69);
                 if (action.equals("central-state")) {
                     answer = new ProjectReadKeys(files, runtime).centralState(account, project);
+                } else if (action.equals("measure-central")) {
+                    new ProjectMeasurements(files, runtime, java.time.Clock.systemUTC())
+                            .measure(account, project);
+                    answer = null;
+                } else if (action.equals("project-copy")) {
+                    answer =
+                            new ProjectCopies(files, runtime)
+                                    .copy(project, arguments.get(1), arguments.get(2));
+                } else if (action.equals("project-advance")) {
+                    answer =
+                            new ProjectAdvance(files, runtime, account, project, arguments.get(1))
+                                    .advance(
+                                            arguments.get(1),
+                                            arguments.get(2),
+                                            Path.of(arguments.get(3)),
+                                            arguments.get(4));
                 } else {
                     try (HttpForgeAdmin forge = runtime.forge(values, records.conf())) {
                         final ProjectRegistration registration =
@@ -263,24 +395,27 @@ final class HostProject implements Callable<Integer> {
                     return 73;
                 }
             }
-            return diagnostic(err, ex.getMessage(), 65);
+            return diagnostic(err, action, ex.getMessage(), 65);
         } catch (HostRefusal ex) {
             if (inherited && action.equals("remove") && ex.exitCode() == 65) {
                 if (!failureOutput(out, project, Map.of())) {
                     return 73;
                 }
             }
-            return diagnostic(err, ex.getMessage(), ex.exitCode());
+            return diagnostic(err, action, ex.getMessage(), ex.exitCode());
         } catch (HttpForgeAdmin.Refusal ex) {
             if (inherited && action.equals("remove") && ex.exitCode() == 65) {
                 if (!failureOutput(out, project, Map.of())) {
                     return 73;
                 }
             }
-            return diagnostic(err, ex.getMessage(), ex.exitCode());
+            return diagnostic(err, action, ex.getMessage(), ex.exitCode());
         } catch (Exception ex) {
             return diagnostic(
-                    err, "dependency or file read failed: " + ex.getClass().getSimpleName(), 69);
+                    err,
+                    action,
+                    "dependency or file read failed: " + ex.getClass().getSimpleName(),
+                    69);
         }
     }
 
@@ -294,8 +429,11 @@ final class HostProject implements Callable<Integer> {
         }
     }
 
-    private static int diagnostic(PrintWriter err, @Nullable String message, int code) {
-        err.println("porelo-host-project: " + message);
+    private static int diagnostic(
+            PrintWriter err, String action, @Nullable String message, int code) {
+        err.println(
+                (action.equals("check-central") ? "porelo-host-push: " : "porelo-host-project: ")
+                        + message);
         err.flush();
         return err.checkError() ? 73 : code;
     }

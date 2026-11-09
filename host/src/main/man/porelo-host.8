@@ -166,8 +166,50 @@ Without a token, report the central deploy key for its owner to remove.
 .B project central-state <project>
 Print the compact JSON central-state record without making an admin token.
 Every repository is up-to-date, ahead, moved-on or cannot-say.
+.TP
+.B project pool-key send|withdraw
+Send /var/lib/porelo-host/pool/run-key as the PORELO_POOL_SSH organization
+secret to registered projects, or withdraw only that secret.
+Send again when the key changes or an organization lacks it; record its SHA-256
+in run-key.sent only after every upload succeeds. The key and marker are private.
+Print compact JSON containing the sorted changed project names.
+Withdrawal succeeds without making a token when forge.conf, the forge account,
+or the answering forge is gone. An answering forge's refusal stops withdrawal.
 .PP
-Every project verb accepts a trailing \-\-lock-fd <descriptor> for the
+Every project verb except check-central accepts a trailing \-\-lock-fd <descriptor> for the
 follow's existing exclusive flock on the trusted forge.conf open description.
 Private records have mode 0600, their directories 0700.
 A write failure exits 73; data refusal exits 65; unavailable dependencies exit 69.
+.TP
+.B project give-back-check
+Check every registered project's main before returning the host.
+Refuse when any main is ahead, moved-on, or cannot-say; remove nothing.
+.TP
+.B project project-copy <project> <address> <known-commit|->
+Read central main using the repository's read key and pinned SSH host keys.
+Remove old copies; return a private bare copy owned by the forge account,
+or a null copy when main is unchanged. The enclosing directory has mode 0711.
+.TP
+.B project project-advance <project> <repository> <commit> <copy> <signed|tip>
+Bundle the copy as its owner and advance the forge's main only forward.
+The signed reach takes only project.yml changes or an exact Porelo-Signs-Anew
+trailer for that file. The tip reach follows unused repositories, except those
+holding workflows or naming snippet_file. Tell Forgejo after moving the ref.
+Print up-to-date, moved, ahead, diverged, other-changes or moved-unseen as JSON.
+A changed copy exits 65; a Git or cleanup failure exits 69.
+.TP
+.B project check-central <project> <repository>...
+Root without sudo only: compare every local ref with central reachability.
+Read migrated original_url values over /run/porelo-forge/git.sock and clone
+from the token gate on literal 127.0.0.1 at forge.conf's git_port.
+Read the central token from stdin without echo and the local token as its owner;
+no token enters argv or diagnostics. Refuse unpushed commits with 65.
+Use forge/central-ca.conf or the system CA bundle for central only and refuse
+redirects. Neither forge is written. This verb takes no inherited lock fd.
+.TP
+.B project measure-central <project>
+Publish the comparison to organization/central/<project>.json with the follow's
+project, read_at and repositories fields, spaced JSON and a trailing newline.
+Grant read access only to the applied project's unlocked, admitted members
+whose local accounts exist. Replace the old file's readers before asking central.
+A failed question publishes an empty list, never an up-to-date answer.

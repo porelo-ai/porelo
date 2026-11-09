@@ -155,8 +155,7 @@ final class ProjectReadKeys {
                                 + name
                                 + " has no confirmed read key for its central address");
             }
-            final HostPrograms.Result local =
-                    runtime.read(account, project, name, "rev-list", "--all");
+            final HostPrograms.Result local = runtime.inventory(account, project, name);
             if (local.exitCode() != 0) {
                 throw new HostRefusal(
                         69,
@@ -211,15 +210,11 @@ final class ProjectReadKeys {
                             Map.of(),
                             Duration.ofSeconds(120)));
         } finally {
-            try (var paths = Files.walk(scratch)) {
-                for (Path path : paths.sorted(java.util.Comparator.reverseOrder()).toList()) {
-                    Files.delete(path);
-                }
-            }
+            files.removeTree(scratch);
         }
     }
 
-    private String ssh(Path directory, Map<String, @Nullable Object> item) throws IOException {
+    String ssh(Path directory, Map<String, @Nullable Object> item) throws IOException {
         final Path key = directory.resolve(lower(name(item)));
         final Path known = files.etc.resolve("organization/known_hosts");
         files.trusted(key, true);
@@ -260,7 +255,7 @@ final class ProjectReadKeys {
                 : "'" + value.replace("'", "'\"'\"'") + "'";
     }
 
-    private String git(List<String> arguments, Map<String, String> extra, Duration timeout)
+    String git(List<String> arguments, Map<String, String> extra, Duration timeout)
             throws IOException {
         final Map<String, String> environment = new LinkedHashMap<>(ProjectRuntime.SAFE_ENV);
         environment.putAll(
@@ -273,18 +268,45 @@ final class ProjectReadKeys {
                         "0"));
         environment.putAll(extra);
         final List<String> command =
-                new ArrayList<>(List.of("/usr/bin/git", "-c", "core.hooksPath=/dev/null"));
+                new ArrayList<>(
+                        List.of(
+                                runtime.checked("/usr/bin/git").toString(),
+                                "-c",
+                                "core.hooksPath=/dev/null"));
         command.addAll(arguments);
         final HostPrograms.Result result =
                 arguments.getFirst().equals("clone")
                         ? runtime.privateFiles(command, new byte[0], environment, timeout)
-                        : runtime.run(command, new byte[0], environment, timeout);
+                        : arguments.contains("rev-list") && !arguments.contains("--count")
+                                ? runtime.collect(command, environment, timeout)
+                                : runtime.run(command, new byte[0], environment, timeout);
         if (result.exitCode() != 0) {
             throw new HostRefusal(
                     69,
                     "the project read-only Git command failed (exit " + result.exitCode() + ")");
         }
         return result.output();
+    }
+
+    @Nullable String centralMain(Path directory, Map<String, @Nullable Object> item)
+            throws IOException {
+        final String text =
+                git(
+                        List.of(
+                                "ls-remote",
+                                "--",
+                                ProjectAddress.parse(address(item)).ssh(),
+                                "refs/heads/main"),
+                        Map.of("GIT_SSH_COMMAND", ssh(directory, item)),
+                        Duration.ofSeconds(30));
+        if (text.isBlank()) {
+            return null;
+        }
+        final String commit = text.split("\t", 2)[0];
+        if (!commit.matches(ProjectRecords.COMMIT)) {
+            throw new HostRefusal(69, "the central forge answered an invalid main");
+        }
+        return commit;
     }
 
     Map<String, @Nullable Object> centralState(String account, String project) throws IOException {
@@ -332,23 +354,11 @@ final class ProjectReadKeys {
         if (id(item) <= 0) {
             return unknown("no-read-key");
         }
-        final String central;
+        final @Nullable String central;
         try {
-            final String text =
-                    git(
-                            List.of(
-                                    "ls-remote",
-                                    "--",
-                                    ProjectAddress.parse(address(item)).ssh(),
-                                    "refs/heads/main"),
-                            Map.of("GIT_SSH_COMMAND", ssh(directory, item)),
-                            Duration.ofSeconds(30));
-            if (text.isBlank()) {
+            central = centralMain(directory, item);
+            if (central == null) {
                 return unknown("no-central-main");
-            }
-            central = text.split("\t", 2)[0];
-            if (!central.matches(ProjectRecords.COMMIT)) {
-                return unknown("unreachable");
             }
         } catch (HostRefusal | IOException ex) {
             return unknown("unreachable");

@@ -29,8 +29,20 @@ final class ProjectRuntime {
     private final HostFiles personFiles;
     private final Commands commands;
     private final Programs programs;
+    private final Transfers transfers;
     private final SocketCheck sockets;
     private final ForgeFactory forgeFactory;
+
+    @FunctionalInterface
+    interface Transfers {
+        HostPrograms.Result run(
+                List<String> argv,
+                java.io.InputStream input,
+                java.io.OutputStream output,
+                Map<String, String> environment,
+                Duration timeout)
+                throws IOException;
+    }
 
     @FunctionalInterface
     interface SocketCheck {
@@ -40,6 +52,10 @@ final class ProjectRuntime {
     @FunctionalInterface
     interface ForgeFactory {
         HttpForgeAdmin open(Path path, char[] token);
+
+        default HttpForgeAdmin unauthenticated(Path path) {
+            return HttpForgeAdmin.unauthenticated(path);
+        }
     }
 
     @FunctionalInterface
@@ -83,7 +99,17 @@ final class ProjectRuntime {
             Programs programs,
             SocketCheck sockets,
             ForgeFactory forgeFactory) {
-        this(files, commands, programs, sockets, forgeFactory, new HostFiles());
+        this(files, commands, programs, sockets, forgeFactory, ProjectRuntime::transfer);
+    }
+
+    private static HostPrograms.Result transfer(
+            List<String> argv,
+            java.io.InputStream input,
+            java.io.OutputStream output,
+            Map<String, String> environment,
+            Duration timeout)
+            throws IOException {
+        return new HostPrograms(timeout, 1024 * 1024).transfer(argv, input, output, environment);
     }
 
     ProjectRuntime(HostFiles files) {
@@ -106,7 +132,18 @@ final class ProjectRuntime {
                 programs,
                 files::isSocket,
                 forgeFactory,
+                ProjectRuntime::transfer,
                 files);
+    }
+
+    ProjectRuntime(
+            ProjectFiles files,
+            Commands commands,
+            Programs programs,
+            SocketCheck sockets,
+            ForgeFactory forgeFactory,
+            Transfers transfers) {
+        this(files, commands, programs, sockets, forgeFactory, transfers, new HostFiles());
     }
 
     private ProjectRuntime(
@@ -115,9 +152,11 @@ final class ProjectRuntime {
             Programs programs,
             SocketCheck sockets,
             ForgeFactory forgeFactory,
+            Transfers transfers,
             HostFiles personFiles) {
         this.personFiles = personFiles;
         this.files = files;
+        this.transfers = transfers;
         this.commands = commands;
         this.programs = programs;
         this.sockets = sockets;
@@ -128,6 +167,46 @@ final class ProjectRuntime {
             List<String> argv, byte[] input, Map<String, String> environment, Duration timeout)
             throws IOException {
         return commands.run(argv, input, environment, timeout);
+    }
+
+    ProjectRuntime until(java.time.Instant deadline, java.time.Clock clock) {
+        return new ProjectRuntime(
+                files,
+                (argv, input, environment, timeout) ->
+                        commands.run(argv, input, environment, remaining(timeout, deadline, clock)),
+                programs,
+                sockets,
+                forgeFactory,
+                (argv, input, output, environment, timeout) ->
+                        transfers.run(
+                                argv,
+                                input,
+                                output,
+                                environment,
+                                remaining(timeout, deadline, clock)),
+                personFiles);
+    }
+
+    private static Duration remaining(
+            Duration timeout, java.time.Instant deadline, java.time.Clock clock)
+            throws IOException {
+        final Duration left = Duration.between(clock.instant(), deadline);
+        if (left.isNegative() || left.isZero()) {
+            throw new IOException("Project measurement deadline reached");
+        }
+        return timeout.isZero() || left.compareTo(timeout) < 0 ? left : timeout;
+    }
+
+    HostPrograms.Result collect(
+            List<String> argv, Map<String, String> environment, Duration timeout)
+            throws IOException {
+        // Commit inventories have no size bound in the predecessor; stderr remains bounded.
+        final var output = new java.io.ByteArrayOutputStream();
+        final var result =
+                transfers.run(
+                        argv, java.io.InputStream.nullInputStream(), output, environment, timeout);
+        return new HostPrograms.Result(
+                result.exitCode(), output.toString(java.nio.charset.StandardCharsets.UTF_8));
     }
 
     HostPrograms.Result privateFiles(
@@ -323,37 +402,107 @@ final class ProjectRuntime {
         return new Account(account, Long.parseLong(number), home);
     }
 
-    HostPrograms.Result exec(String account, List<String> arguments) throws IOException {
-        final Account person = account(account);
-        return container(person, arguments, SAFE_ENV);
+    private List<String> execCommand(String account, List<String> arguments, boolean interactive)
+            throws IOException {
+        return containerCommand(account(account), arguments, SAFE_ENV, interactive);
     }
 
     private HostPrograms.Result container(
             Account account, List<String> arguments, Map<String, String> environment)
             throws IOException {
+        return commands.run(
+                containerCommand(account, arguments, environment, false),
+                new byte[0],
+                environment,
+                Duration.ofSeconds(60));
+    }
+
+    private List<String> containerCommand(
+            Account account,
+            List<String> arguments,
+            Map<String, String> environment,
+            boolean interactive) {
         final boolean person = environment.equals(PERSON_ENV);
         final List<String> command =
-                List.of(
-                        (person ? personProgram("podman") : programs.checked("/usr/bin/podman"))
-                                .toString(),
-                        "exec",
-                        "forgejo");
-        final List<String> argv =
                 new ArrayList<>(
-                        person
-                                ? switched(account, command)
-                                : account.switched(
-                                        programs.checked("/usr/sbin/runuser"),
-                                        programs.checked("/usr/bin/env"),
-                                        command));
-        argv.addAll(arguments);
-        return commands.run(argv, new byte[0], environment, Duration.ofSeconds(60));
+                        List.of(
+                                (person
+                                                ? personProgram("podman")
+                                                : programs.checked("/usr/bin/podman"))
+                                        .toString(),
+                                "exec"));
+        if (interactive) {
+            command.add("-i");
+        }
+        command.add("forgejo");
+        command.addAll(arguments);
+        return person
+                ? switched(account, command)
+                : account.switched(
+                        programs.checked("/usr/sbin/runuser"),
+                        programs.checked("/usr/bin/env"),
+                        command);
     }
 
     private static List<String> adminArguments(List<String> arguments) {
         final List<String> command = new ArrayList<>(List.of("forgejo", "admin", "user"));
         command.addAll(arguments);
         return command;
+    }
+
+    HostPrograms.Result exec(String account, List<String> arguments) throws IOException {
+        return commands.run(
+                execCommand(account, arguments, false),
+                new byte[0],
+                SAFE_ENV,
+                Duration.ofSeconds(60));
+    }
+
+    HostPrograms.Result exec(String account, List<String> arguments, java.io.InputStream input)
+            throws IOException {
+        return transfers.run(
+                execCommand(account, arguments, true),
+                input,
+                java.io.OutputStream.nullOutputStream(),
+                SAFE_ENV,
+                Duration.ofSeconds(60));
+    }
+
+    void bundle(String account, Path copy, java.io.OutputStream output) throws IOException {
+        final var argv =
+                List.of(
+                        programs.checked("/usr/sbin/runuser").toString(),
+                        "-u",
+                        account,
+                        "--",
+                        programs.checked("/usr/bin/env").toString(),
+                        "-C",
+                        "/",
+                        programs.checked("/usr/bin/git").toString(),
+                        "--git-dir=" + copy,
+                        "bundle",
+                        "create",
+                        "-",
+                        "refs/heads/main");
+        if (transfers
+                        .run(
+                                argv,
+                                java.io.InputStream.nullInputStream(),
+                                output,
+                                SAFE_ENV,
+                                Duration.ofSeconds(60))
+                        .exitCode()
+                != 0) {
+            throw new HostRefusal(69, "the verified copy could not be read");
+        }
+    }
+
+    HttpForgeAdmin open(Path socket, char[] token) {
+        return forgeFactory.open(socket, token);
+    }
+
+    Path checked(String path) {
+        return programs.checked(path);
     }
 
     HostPrograms.Result admin(String account, String... arguments) throws IOException {
@@ -394,27 +543,60 @@ final class ProjectRuntime {
     HttpForgeAdmin forge(Map<String, String> values, Path conf) throws IOException {
         final String account =
                 ProjectRecords.setting(values, "account", ProjectRecords.ACCOUNT, conf, 69);
+        final Path socket =
+                java.util.Objects.requireNonNull(
+                        forgeSocket(account, false), "A required forge account has a socket path");
+        final char[] credential = token(account, "porelo-admin", ADMIN_SCOPES);
+        try {
+            return forgeFactory.open(socket, credential);
+        } finally {
+            Arrays.fill(credential, '\0');
+        }
+    }
+
+    boolean forgeGone(Map<String, String> values, Path conf) throws IOException {
+        final String account =
+                ProjectRecords.setting(values, "account", ProjectRecords.ACCOUNT, conf, 69);
+        final Path socket = forgeSocket(account, true);
+        if (socket == null) {
+            return true;
+        }
+        try (HttpForgeAdmin forge = forgeFactory.unauthenticated(socket)) {
+            return !forge.answers();
+        }
+    }
+
+    private @org.jspecify.annotations.Nullable Path forgeSocket(
+            String account, boolean missingAllowed) throws IOException {
         final HostPrograms.Result passwd =
                 commands.run(
                         List.of("/usr/bin/getent", "passwd", account),
                         new byte[0],
                         SAFE_ENV,
                         Duration.ofSeconds(10));
+        if (missingAllowed && passwd.exitCode() == 2) {
+            return null;
+        }
         final String[] fields = passwd.output().strip().split(":", -1);
         if (passwd.exitCode() != 0 || fields.length != 7 || !fields[2].matches("[0-9]+")) {
             throw new HostRefusal(69, "the forge account is missing");
         }
-        final char[] credential = token(account, "porelo-admin", ADMIN_SCOPES);
-        try {
-            return forgeFactory.open(
-                    files.at("/run/user/" + fields[2] + "/porelo-forge/http.sock"), credential);
-        } finally {
-            Arrays.fill(credential, '\0');
-        }
+        return files.at("/run/user/" + fields[2] + "/porelo-forge/http.sock");
+    }
+
+    HostPrograms.Result inventory(String account, String project, String name) throws IOException {
+        return collect(
+                execCommand(account, readCommand(project, name, "rev-list", "--all"), false),
+                SAFE_ENV,
+                Duration.ofSeconds(60));
     }
 
     HostPrograms.Result read(String account, String project, String name, String... arguments)
             throws IOException {
+        return exec(account, readCommand(project, name, arguments));
+    }
+
+    private static List<String> readCommand(String project, String name, String... arguments) {
         final List<String> command =
                 new ArrayList<>(
                         List.of(
@@ -425,7 +607,7 @@ final class ProjectRuntime {
                                         + name.toLowerCase(java.util.Locale.ROOT)
                                         + ".git"));
         command.addAll(List.of(arguments));
-        return exec(account, command);
+        return command;
     }
 
     record Configuration(String account, List<String> identities) {}

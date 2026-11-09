@@ -104,6 +104,11 @@ public final class PoreloHost implements Callable<Integer> {
             HostEnvironment.check(environment);
             final boolean informational = args.length == 1 && answersAlone(args[0]);
             if (!informational && uid.real() != 0) {
+                if (args.length > 0
+                        && args[0].equals("project")
+                        && !(args.length > 1 && args[1].equals("check-central"))) {
+                    throw new HostRefusal(69, "porelo-host-project: runs only as root");
+                }
                 throw new HostRefusal(
                         77,
                         "porelo-host: root uid required; use the installed sudo rule or root's unit");
@@ -150,7 +155,7 @@ public final class PoreloHost implements Callable<Integer> {
                 new CommandLine(new Group())
                         .addSubcommand("show", new TaskShow(host))
                         .addSubcommand("sweep", new TaskSweep(host)));
-        command.addSubcommand("project", HostProject.commandLine());
+        command.addSubcommand("project", HostProject.commandLine(host.environment));
         command.setExpandAtFiles(false);
         command.setExecutionExceptionHandler(
                 (exception, line, parse) -> {

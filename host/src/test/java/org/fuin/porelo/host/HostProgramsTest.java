@@ -190,4 +190,10 @@ class HostProgramsTest {
                         "forge token generation must not introduce an automatically printable credential")
                 .isEqualTo("Result[exitCode=0, output withheld]");
     }
+
+    @Test
+    void aCommandWithoutAPythonDeadlineCanFinishNormally() throws Exception {
+        assertThat(runner(Duration.ZERO, 65536).run(List.of("sh", "-c", "sleep 0.1; printf done")))
+                .isEqualTo(new HostPrograms.Result(0, "done"));
+    }
 }

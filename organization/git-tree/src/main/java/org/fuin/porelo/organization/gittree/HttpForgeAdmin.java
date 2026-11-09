@@ -63,6 +63,53 @@ public final class HttpForgeAdmin implements AutoCloseable {
         this(socket, token, TIMEOUT);
     }
 
+    /** Probe a local forge without needing a token from a possibly stopped container. */
+    public static HttpForgeAdmin unauthenticated(Path socket) {
+        return new HttpForgeAdmin(
+                (method, path, authorization, body) ->
+                        unix(socket, method, path, authorization, body, TIMEOUT, true));
+    }
+
+    private HttpForgeAdmin(Transport transport) {
+        this.transport = transport;
+        token = new char[0];
+        central = false;
+    }
+
+    /** Any HTTP status means the forge is present; no authorization is sent. */
+    public boolean answers() {
+        try {
+            final Answer answer = transport.request("GET", "/version", new byte[0], new byte[0]);
+            Arrays.fill(answer.body(), (byte) 0);
+            return true;
+        } catch (IOException ex) {
+            return false;
+        }
+    }
+
+    /** Whether this project's organization holds the pool run key, whose value is never read. */
+    public boolean holdsPoolKey(String project) {
+        return listing(poolSecrets(project)).stream()
+                .anyMatch(item -> "PORELO_POOL_SSH".equals(item.get("name")));
+    }
+
+    /** Install the same run key used when registering a project. */
+    public void sendPoolKey(String project, String secret) {
+        request("PUT", poolSecrets(project) + "/PORELO_POOL_SSH", Map.of("data", secret), 201, 204);
+    }
+
+    /** Withdraw only the pool run key, preserving the organization's other secrets. */
+    public void withdrawPoolKey(String project) {
+        request("DELETE", poolSecrets(project) + "/PORELO_POOL_SSH", null, 204);
+    }
+
+    private static String poolSecrets(String project) {
+        if (!project.matches("[a-z0-9](?:[a-z0-9-]{0,38}[a-z0-9])?")) {
+            throw new IllegalArgumentException("Expected a project name");
+        }
+        return "/orgs/" + project + "/actions/secrets";
+    }
+
     HttpForgeAdmin(Path socket, char[] token, Duration timeout) {
         this(
                 (method, path, authorization, body) ->
@@ -108,6 +155,9 @@ public final class HttpForgeAdmin implements AutoCloseable {
 
     private @Nullable Object request(
             String method, String path, @Nullable Object body, boolean person, int... expected) {
+        if (token.length == 0) {
+            throw new IllegalStateException("An unauthenticated forge only probes presence");
+        }
         if (!path.startsWith("/")
                 || path.startsWith("//")
                 || path.chars().anyMatch(c -> c < 33 || c > 126)
@@ -404,6 +454,18 @@ public final class HttpForgeAdmin implements AutoCloseable {
             byte[] body,
             Duration timeout)
             throws IOException {
+        return unix(path, method, route, authorization, body, timeout, false);
+    }
+
+    private static Answer unix(
+            Path path,
+            String method,
+            String route,
+            byte[] authorization,
+            byte[] body,
+            Duration timeout,
+            boolean probe)
+            throws IOException {
         try (SocketChannel channel = SocketChannel.open(StandardProtocolFamily.UNIX)) {
             final FutureTask<Answer> task =
                     new FutureTask<>(
@@ -414,10 +476,14 @@ public final class HttpForgeAdmin implements AutoCloseable {
                                         (method
                                                         + " /api/v1"
                                                         + route
-                                                        + " HTTP/1.1\r\nHost: localhost\r\nAuthorization: ")
+                                                        + " HTTP/1.1\r\nHost: localhost\r\n"
+                                                        + (authorization.length == 0
+                                                                ? ""
+                                                                : "Authorization: "))
                                                 .getBytes(StandardCharsets.US_ASCII);
                                 final byte[] after =
-                                        ("\r\nContent-Type: application/json\r\nConnection: close\r\nContent-Length: "
+                                        ((authorization.length == 0 ? "" : "\r\n")
+                                                        + "Content-Type: application/json\r\nConnection: close\r\nContent-Length: "
                                                         + body.length
                                                         + "\r\n\r\n")
                                                 .getBytes(StandardCharsets.US_ASCII);
@@ -426,7 +492,7 @@ public final class HttpForgeAdmin implements AutoCloseable {
                                 out.write(after);
                                 out.write(body);
                                 out.flush();
-                                return answer(Channels.newInputStream(channel));
+                                return answer(Channels.newInputStream(channel), probe);
                             });
             final Thread worker = Thread.ofVirtual().name("project-forge-http").start(task);
             try {
@@ -456,6 +522,10 @@ public final class HttpForgeAdmin implements AutoCloseable {
     }
 
     static Answer answer(InputStream in) throws IOException {
+        return answer(in, false);
+    }
+
+    private static Answer answer(InputStream in, boolean probe) throws IOException {
         final String[] status = line(in).split(" ", 3);
         if (status.length < 2
                 || !status[0].matches("HTTP/1\\.[01]")
@@ -491,6 +561,9 @@ public final class HttpForgeAdmin implements AutoCloseable {
                 }
                 chunked = true;
             }
+        }
+        if (probe) {
+            return new Answer(Integer.parseInt(status[1]), new byte[0]);
         }
         if (chunked && size >= 0) {
             throw new IOException("Ambiguous HTTP framing");

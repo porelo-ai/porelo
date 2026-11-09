@@ -95,8 +95,8 @@ class HostProjectTest {
                                 () -> 1000,
                                 new PrintWriter(out),
                                 new PrintWriter(err)))
-                .as("the established host frame refuses nonroot before parsing")
-                .isEqualTo(77);
+                .as("the project helper refuses nonroot before parsing with its predecessor's code")
+                .isEqualTo(69);
         assertThat(err.toString()).as("frame names the root boundary").contains("root");
         host.noCommands();
     }
@@ -473,6 +473,7 @@ class HostProjectTest {
                         "umask-test",
                         Path.of(System.getProperty("java.home"), "bin/java").toString(),
                         "-XX:-UsePerfData",
+                        "-Djava.io.tmpdir=" + System.getProperty("java.io.tmpdir"),
                         "--enable-native-access=ALL-UNNAMED",
                         "-cp",
                         System.getProperty(

@@ -163,14 +163,7 @@ final class ProjectRegistration {
                     cancellation.check();
                     final Path pool = files.at("/var/lib/porelo-host/pool/run-key");
                     if (files.exists(pool)) {
-                        // The JSON API requires a String; decode strictly immediately before
-                        // sending.
-                        forge.request(
-                                "PUT",
-                                "/orgs/" + project + "/actions/secrets/PORELO_POOL_SSH",
-                                Map.of("data", files.text(pool, true)),
-                                201,
-                                204);
+                        forge.sendPoolKey(project, ProjectPoolKey.readKey(files));
                     }
                     cancellation.check();
                     try {
@@ -504,7 +497,7 @@ final class ProjectRegistration {
 
     private void checkPush(String project, List<String> names, TokenInput tokenInput)
             throws IOException {
-        final Path push = files.at("/usr/local/sbin/porelo-host-push");
+        final Path push = files.at("/usr/sbin/porelo-host");
         files.trusted(push, false);
         final char[] token = tokenInput.read();
         byte[] input = new byte[0];
@@ -518,7 +511,8 @@ final class ProjectRegistration {
             } finally {
                 Arrays.fill(encoded.array(), (byte) 0);
             }
-            final List<String> argv = new ArrayList<>(List.of(push.toString(), "--check", project));
+            final List<String> argv =
+                    new ArrayList<>(List.of(push.toString(), "project", "check-central", project));
             argv.addAll(names);
             final HostPrograms.Result checked =
                     runtime.run(argv, input, ProjectRuntime.SAFE_ENV, Duration.ofSeconds(600));

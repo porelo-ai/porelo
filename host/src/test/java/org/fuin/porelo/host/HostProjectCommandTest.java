@@ -49,17 +49,41 @@ class HostProjectCommandTest {
     }
 
     @Test
-    void theProjectGroupRegistersItsFiveVerbs() {
+    void theProjectGroupRegistersItsProjectVerbs() {
         final var project = PoreloHost.commandLine().getSubcommands().get("project");
         assertThat(project).as("the privileged project helper has a command group").isNotNull();
         assertThat(project.getSubcommands().keySet())
                 .as(
                         "the project group exposes registration, removal, migration, taking off and central state")
-                .containsExactlyInAnyOrder("add", "remove", "migrate", "take-off", "central-state");
+                .containsExactlyInAnyOrder(
+                        "add",
+                        "remove",
+                        "migrate",
+                        "take-off",
+                        "central-state",
+                        "give-back-check",
+                        "project-copy",
+                        "project-advance",
+                        "check-central",
+                        "measure-central",
+                        "pool-key");
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"add", "remove", "migrate", "take-off", "central-state", "unknown"})
+    @ValueSource(
+            strings = {
+                "add",
+                "remove",
+                "migrate",
+                "take-off",
+                "central-state",
+                "project-copy",
+                "project-advance",
+                "check-central",
+                "measure-central",
+                "pool-key",
+                "unknown"
+            })
     void invalidCallsKeepTheUsageCodeThroughTheOuterParser(String verb) {
         final StringWriter err = new StringWriter();
         final int code =
@@ -84,6 +108,34 @@ class HostProjectCommandTest {
                         new PrintWriter(new StringWriter()),
                         new PrintWriter(err));
         assertThat(code).as("Python refuses -- before consulting the host: %s", err).isEqualTo(64);
+    }
+
+    @Test
+    void checkingCentralRequiresRootBeforeReadingAnyConfiguration() {
+        final var err = new StringWriter();
+        assertThat(
+                        PoreloHost.run(
+                                new String[] {"project", "check-central", "alpha", "code"},
+                                Map.of(),
+                                () -> 1000,
+                                new PrintWriter(new StringWriter()),
+                                new PrintWriter(err)))
+                .isEqualTo(77);
+        assertThat(err.toString()).contains("root uid required");
+    }
+
+    @Test
+    void checkingCentralReceivesTheOuterSudoBoundary() {
+        final var err = new StringWriter();
+        assertThat(
+                        PoreloHost.run(
+                                new String[] {"project", "check-central", "alpha", "code"},
+                                Map.of("SUDO_UID", "0"),
+                                () -> 0,
+                                new PrintWriter(new StringWriter()),
+                                new PrintWriter(err)))
+                .isEqualTo(77);
+        assertThat(err.toString()).contains("only as root without sudo");
     }
 
     @Test
