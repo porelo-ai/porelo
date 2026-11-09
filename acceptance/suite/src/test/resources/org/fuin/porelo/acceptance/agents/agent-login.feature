@@ -71,3 +71,7 @@ Feature: An agent's login is stored, through the same chain a real login takes
         And within 30 seconds the terminal shows "Signed in - the credential is stored as 'anthropic'"
         And the terminal shows "Nothing more to do here."
         And the terminal does not show "porelo-stub-fixture-token"
+        # The passphrase typed for a sign-in is the person opening the vault: it stays open, as 'vault unlock' leaves it,
+        # so the daemon and a window waiting on the sign-in read the agent signed in (the operator, 2026-11-09).
+        When a script runs "porelo vault status >/dev/null; echo after-the-login $?"
+        Then its output contains "after-the-login 0"

@@ -525,10 +525,43 @@ public final class AgentLogin {
         }
     }
 
-    /** What opens the vault at a terminal: a kept passphrase or a share, then a prompt. */
+    /**
+     * Says whether a store failed because the vault was locked meanwhile, as 'porelo vault status'
+     * tells shut from broken: the file still reads, porelod answered, and what opened it before no
+     * longer does. A vault gone or damaged, a daemon not answering, or an interrupted wait is not a
+     * lock, and is said as itself.
+     */
+    private static boolean lockedMeanwhile(
+            final PoreloContext context, final org.fuin.porelo.vault.VaultFile.Opener way) {
+        if (Thread.currentThread().isInterrupted() || !context.vault().exists()) {
+            return false;
+        }
+        try {
+            context.vault().slots();
+        } catch (final org.fuin.porelo.vault.VaultException ex) {
+            return false;
+        }
+        try {
+            context.vault().read(way);
+            return false;
+        } catch (final HostVaultConnection.Unreachable ex) {
+            return false;
+        } catch (final org.fuin.porelo.vault.VaultException ex) {
+            return true;
+        }
+    }
+
+    /**
+     * What opens the vault at a terminal: a kept passphrase or a share, then a prompt.
+     *
+     * <p>A passphrase typed here opens the vault as 'porelo vault unlock' does, until the machine
+     * restarts: opened for this command only, the daemon and a window waiting on the sign-in read
+     * the agent's credential as locked away right after it was stored (the operator's decision,
+     * 2026-11-09).
+     */
     private static java.util.Optional<org.fuin.porelo.vault.VaultFile.Opener> opening(
             final PoreloContext context, final PrintWriter out) {
-        context.openIfShut(true, false, out);
+        context.openIfShut(true, true, out);
         return context.opener();
     }
 
@@ -891,6 +924,8 @@ public final class AgentLogin {
             // credential collected only at the end dies with it too.
             final java.util.concurrent.atomic.AtomicReference<Credential> early =
                     new java.util.concurrent.atomic.AtomicReference<>();
+            final java.util.concurrent.atomic.AtomicReference<Result> storedEarly =
+                    new java.util.concurrent.atomic.AtomicReference<>();
             watched = Files.createTempDirectory("porelo-login-watch");
             final Path into = watched;
             watcher =
@@ -905,6 +940,7 @@ public final class AgentLogin {
                                                     configDirectory,
                                                     into,
                                                     early,
+                                                    storedEarly,
                                                     ended,
                                                     opener));
 
@@ -997,6 +1033,12 @@ public final class AgentLogin {
                                 + code
                                 + " - its own session,"
                                 + " not the login, and the credential was written before that");
+            }
+            final Result stored = storedEarly.get();
+            if (stored != null && stored.outcome() == Outcome.STORED) {
+                // In the vault already: asked again, a host vault locked since would say it was
+                // not.
+                return stored;
             }
             final Credential value;
             try {
@@ -1130,7 +1172,8 @@ public final class AgentLogin {
      * @param agent Whose credential it is.
      * @param value What was found.
      * @param way How the vault opens.
-     * @return {@link Outcome#STORED}, or {@link Outcome#NO_PROVIDER} with nothing stored.
+     * @return {@link Outcome#STORED}, or {@link Outcome#NO_PROVIDER} or {@link
+     *     Outcome#VAULT_LOCKED} with nothing stored.
      */
     private static Result store(
             PoreloContext context,
@@ -1147,14 +1190,30 @@ public final class AgentLogin {
         }
         final SelectedProvider selection = chosen.selection();
         final String key = selection == null ? agent.name() : selection.name();
-        context.vault()
-                .update(
-                        way,
-                        entries -> {
-                            LoginCredentials.put(
-                                    entries, key, value, true, LoginCredentials.kept(selection));
-                            return entries;
-                        });
+        try {
+            context.vault()
+                    .update(
+                            way,
+                            entries -> {
+                                LoginCredentials.put(
+                                        entries,
+                                        key,
+                                        value,
+                                        true,
+                                        LoginCredentials.kept(selection));
+                                return entries;
+                            });
+        } catch (final org.fuin.porelo.vault.VaultException ex) {
+            // It opened the vault before the login ran; a kept share asked again after 'vault
+            // lock' no longer does. Said as what it is, not as a login that failed.
+            if (!lockedMeanwhile(context, way)) {
+                throw ex;
+            }
+            return failed(
+                    Outcome.VAULT_LOCKED,
+                    "logged in, but the vault was locked during the sign-in, so what it made could"
+                            + " not be stored - unlock the vault and sign in again");
+        }
         // A sign-in is a grant: an interface still showing the question would send the person to
         // authorize what they just did.
         AuthorizationsNeeded.clear(context, key);
@@ -1180,6 +1239,7 @@ public final class AgentLogin {
      * @param configDirectory What the agent declares.
      * @param into A directory to copy into.
      * @param found Where to put what was found.
+     * @param stored Where to put what storing it answered.
      * @param ended Set when the login has ended.
      * @param opener What opens the vault.
      */
@@ -1191,6 +1251,7 @@ public final class AgentLogin {
             String configDirectory,
             java.nio.file.Path into,
             java.util.concurrent.atomic.AtomicReference<Credential> found,
+            java.util.concurrent.atomic.AtomicReference<Result> stored,
             java.util.concurrent.atomic.AtomicBoolean ended,
             org.fuin.porelo.vault.VaultFile.Opener opener) {
         while (!ended.get() && !Thread.currentThread().isInterrupted()) {
@@ -1217,7 +1278,7 @@ public final class AgentLogin {
                 }
                 // Stored here, so that nothing after this moment can lose it; a refusal is said
                 // by the ordinary path after the run.
-                store(context, agent, credential.get(), opener);
+                stored.set(store(context, agent, credential.get(), opener));
                 // And then the login is over, said once, by Porelo. Left running, the agent carried
                 // on into its own "Press Enter to continue" while Porelo said the person could
                 // leave it however they liked: two voices for one moment (2026-10-01). Nothing in

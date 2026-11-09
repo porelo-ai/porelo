@@ -301,7 +301,10 @@ container carries its agent in the `porelo.login.agent` label, and the sweep bef
 agent's lock is free, one of its own agent, or one with no label; another agent's running login is kept.
 
 **The vault is opened once, before the login runs**, and what opened it stores the credential, so a `vault lock`
-while somebody signs in does not drop it. It is stored under the provider the agent's own extractor names for the
+while somebody signs in does not drop it. A passphrase typed for it at a terminal opens the vault as `vault unlock`
+does, until the machine restarts, so the daemon and a window waiting on the sign-in read the agent signed in (the
+operator's decision). A host vault opened by a kept share asks for the share again when it stores; locked meanwhile,
+the sign-in ends `VAULT_LOCKED`, saying the vault was locked during the sign-in: unlock it and sign in again. It is stored under the provider the agent's own extractor names for the
 sign-in, else the agent's default; a sign-in for a provider this machine cannot keep it under stores nothing and
 says so. Storing it closes an open question to authorize that credential.
 

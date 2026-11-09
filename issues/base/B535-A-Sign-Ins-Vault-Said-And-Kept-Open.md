@@ -1,6 +1,6 @@
 # [B535](README.md#b535) — A Sign-In's Vault: Said When Locked Meanwhile, Kept Open After A Terminal Sign-In
 
-**Status:** Implementing. Filed 2026-11-09 from [B530](README.md#b530)'s code reading, findings 4 and 8, as the
+**Status:** Review. Filed 2026-11-09 from [B530](README.md#b530)'s code reading, findings 4 and 8, as the
 operator decided them (the operator's decision of 2026-11-09 on the open points of wave 2, points 1 and 2).
 **Size:** S - two small changes in the sign-in's store and the terminal's vault opening, each with its test.
 
@@ -23,3 +23,25 @@ sign-in at a terminal is that act.
 - 2: `VaultLoginCommand` opens a shut vault with the keep flag (`openIfShut(true, true, out)`), as `vault unlock`.
   Red first: after a terminal sign-in that opened a shut vault, the keyring holds the vault's key.
 - Docs: doc/credentials.md (a terminal sign-in leaves the vault open until restart).
+
+## As built
+
+- 1: `AgentLogin.store` catches the vault's refusal; where the opener taken before no longer opens, the outcome is
+  `VAULT_LOCKED` with "the vault was locked during the sign-in ... unlock the vault and sign in again". It is said a lock
+  only as `vault status` tells shut from broken: the file is there and its header reads, porelod answered, the wait was
+  not interrupted, and the opener no longer opens; any other vault fault is thrown and ends `FAILED` as before. `AgentSignInWait` answers it as `reason: VAULT_LOCKED`.
+- 2: `AgentLogin.opening` opens with `openIfShut(true, true, out)`; the prompt reads as `vault unlock`'s.
+- Seen red first: `AgentLoginTest.aSignInWhoseVaultWasLockedMeanwhileSaysSoPlainly`, and the acceptance scenario "a
+  login asked for while the vault is shut ..." (agent-login.feature) against the deployed 9410f1627: `vault status`
+  after the login answered 3 (shut).
+
+## After the code reading
+
+- A vault gone or damaged, porelod not answering, or an interrupted wait was said as a lock: now as itself
+  (`aVaultThatBrokeDuringTheSignInIsNotSaidAsLocked`, seen red first).
+- The watch stores the moment the login writes; the path after the run stored once more and, with the vault locked in
+  between, said "not stored" about a credential in the vault. The watch's answer is kept and a stored one is final
+  (`aSignInTheWatchStoredIsStoredThoughTheVaultIsLockedBeforeTheLoginEnds`, seen red with the check taken out).
+- Left as they were: `vault login --credentials-from` (no login runs, so no lock can fall in between, save during the
+  client pick) ends `FAILED`; a store fault other than a lock in the watch keeps the watch looking, as before. Point 2
+  is proved by the acceptance scenario, not by a unit test: the terminal prompt has no seam.

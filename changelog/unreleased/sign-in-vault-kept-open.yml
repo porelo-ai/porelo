@@ -1,0 +1,2 @@
+title: "A passphrase typed for 'porelo vault login' opens the vault until restart, as 'vault unlock' does, so a window waiting on the sign-in reads it signed in; a sign-in whose host vault was locked meanwhile ends VAULT_LOCKED saying so, not as a failed login"
+type: changed

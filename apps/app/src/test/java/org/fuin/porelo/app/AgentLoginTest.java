@@ -259,6 +259,137 @@ class AgentLoginTest {
     }
 
     @Test
+    void aSignInWhoseVaultWasLockedMeanwhileSaysSoPlainly(@TempDir Path dir) {
+
+        // A host vault opened by a kept share asks for the share again at the store; locked
+        // meanwhile, it no longer opens, and the sign-in ended in a general failure that read like
+        // a broken login. Here the opener taken before stops opening, as such a share does.
+        final PoreloContext context = context(dir);
+        context.vault().write(new java.util.LinkedHashMap<>(), PASSPHRASE);
+
+        final AgentLogin.Result result =
+                AgentLogin.run(
+                        context,
+                        signing(
+                                definition(dir, "paste-code"),
+                                org.fuin.porelo.agent.api.Credential.of("oauth", "at-made-here")),
+                        List.of("example-cli", "auth", "login"),
+                        dir.toString(),
+                        org.fuin.porelo.vault.VaultFile.Opener.passphrase(
+                                "no longer opens".toCharArray()),
+                        null,
+                        new PrintWriter(out, true));
+
+        assertThat(result.outcome())
+                .as("said as the vault locked: " + result.detail())
+                .isEqualTo(AgentLogin.Outcome.VAULT_LOCKED);
+        assertThat(result.detail())
+                .as("what to do, plainly")
+                .contains("the vault was locked during the sign-in")
+                .contains("sign in again");
+    }
+
+    @Test
+    void aVaultThatBrokeDuringTheSignInIsNotSaidAsLocked(@TempDir Path dir) throws Exception {
+
+        // A store that fails for another reason - the file gone, porelod not answering - is no
+        // lock: told "unlock and sign in again", the person would unlock a vault that was open.
+        final PoreloContext context = context(dir);
+        context.vault().write(new java.util.LinkedHashMap<>(), PASSPHRASE);
+        java.nio.file.Files.delete(context.paths().vault().vaultFile());
+
+        final AgentLogin.Result result =
+                signedIn(
+                        context,
+                        dir,
+                        signing(
+                                definition(dir, "paste-code"),
+                                org.fuin.porelo.agent.api.Credential.of("oauth", "at-made-here")));
+
+        assertThat(result.outcome())
+                .as("a failure, said as what it is: " + result.detail())
+                .isEqualTo(AgentLogin.Outcome.FAILED);
+    }
+
+    @Test
+    void aSignInTheWatchStoredIsStoredThoughTheVaultIsLockedBeforeTheLoginEnds(@TempDir Path dir) {
+
+        // The watch stores the moment the login writes its credential; the path after the run
+        // stored it once more and, with a host vault locked in between, said "not stored" about a
+        // credential that was in the vault. Here the device's way in is revoked while the login
+        // still runs, after the watch stored: what opened the vault before no longer does, as
+        // after a lock.
+        final byte[] share = new byte[32];
+        java.util.Arrays.fill(share, (byte) 7);
+        final java.util.concurrent.atomic.AtomicReference<String> slot =
+                new java.util.concurrent.atomic.AtomicReference<>();
+        final java.util.concurrent.atomic.AtomicReference<PoreloContext> made =
+                new java.util.concurrent.atomic.AtomicReference<>();
+        final PoreloContext base = context(dir);
+        final PoreloContext context =
+                new PoreloContext(
+                        runner,
+                        base.paths(),
+                        command -> {
+                            if (!command.contains("run")) {
+                                // The login image's build, before the login runs.
+                                return 0;
+                            }
+                            try {
+                                // Longer than one look of the watch.
+                                Thread.sleep(java.time.Duration.ofMillis(4500));
+                            } catch (final InterruptedException ex) {
+                                Thread.currentThread().interrupt();
+                            }
+                            final String id = slot.getAndSet(null);
+                            if (id != null) {
+                                made.get()
+                                        .vault()
+                                        .revoke(
+                                                org.fuin.porelo.vault.VaultFile.Opener.passphrase(
+                                                        PASSPHRASE.clone()),
+                                                id);
+                            }
+                            return 0;
+                        },
+                        base.environment(),
+                        base.recognizesTasks(),
+                        base.prompt(),
+                        base.input(),
+                        base.machineName(),
+                        base.hostVault());
+        made.set(context);
+        context.vault().write(new java.util.LinkedHashMap<>(), PASSPHRASE);
+        slot.set(
+                context.vault()
+                        .enroll(
+                                org.fuin.porelo.vault.VaultFile.Opener.passphrase(
+                                        PASSPHRASE.clone()),
+                                share.clone(),
+                                "device",
+                                "USER_SCOPED")
+                        .id());
+
+        final AgentLogin.Result result =
+                AgentLogin.run(
+                        context,
+                        signing(
+                                definition(dir, "paste-code"),
+                                org.fuin.porelo.agent.api.Credential.of("oauth", "at-made-here")),
+                        List.of("example-cli", "auth", "login"),
+                        dir.toString(),
+                        org.fuin.porelo.vault.VaultFile.Opener.share(share.clone()),
+                        null,
+                        new PrintWriter(out, true));
+
+        assertThat(result.outcome())
+                .as("stored once is stored: " + result.detail())
+                .isEqualTo(AgentLogin.Outcome.STORED);
+        assertThat(context.vault().read(PASSPHRASE).get("example").value())
+                .isEqualTo("at-made-here");
+    }
+
+    @Test
     void aSignInIsStoredUnderTheProviderItsExtractorNames(@TempDir Path dir) throws Exception {
 
         // Stored under the agent's default, a sign-in to another provider replaced that

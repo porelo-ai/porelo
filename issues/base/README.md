@@ -20,6 +20,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b535"></a>[B535](B535-A-Sign-Ins-Vault-Said-And-Kept-Open.md) | S | - | A sign-in whose vault was locked meanwhile says so plainly; a terminal `vault login` keeps a vault it opened open until restart (the operator's decision). |
 | <a id="b531"></a>[B531](B531-A-Projects-Repositories-On-This-Machine.md) | L | - | Each repository of a project says whether this machine carries it, how far its mirror is ahead and behind the central forge, and how many of its tasks run here. |
 | <a id="b532"></a>[B532](B532-A-Task-Shown-By-Its-Name-Not-Its-Container.md) | M | - | A task is shown by the name given at its start or its short name from the repository, the container name only in its details, and in the room by its agent's name. |
 | <a id="b533"></a>[B533](B533-A-Default-Model-Per-Provider.md) | M | - | The project file names a default model per provider, a start takes it unless another is chosen, and the task row says which model and from where. |
@@ -108,7 +109,6 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
-| <a id="b535"></a>[B535](B535-A-Sign-Ins-Vault-Said-And-Kept-Open.md) | S | - | A sign-in whose vault was locked meanwhile says so plainly; a terminal `vault login` keeps a vault it opened open until restart (the operator's decision). |
 | <a id="b505"></a>[B505](B505-Where-Delivered-Content-Came-From-In-Review.md) | M | [B467](#b467) | `Review` names where each file Porelo delivered into the task came from. |
 | <a id="b494"></a>[B494](B494-Build-Status-Reads-The-Builds-A-Host-Names.md) | S | - | `build status` on a host answers from the builds the host names when `project.yml` names none, as the task's watch does. |
 | <a id="b496"></a>[B496](B496-A-Shut-Vault-Is-Named-When-An-Organization-Change-Is-Refused.md) | S | - | An organization change refused because no forge token could be lent says `vault-shut` when the vault is shut. |
