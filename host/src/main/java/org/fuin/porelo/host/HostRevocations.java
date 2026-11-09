@@ -51,8 +51,7 @@ final class HostRevocations {
         runtime.command(arguments, accepted);
     }
 
-    private void lock(
-            String user, HostRecords.Person record, Map<String, HostRecords.Person> records) {
+    void lock(String user, HostRecords.Person record, Map<String, HostRecords.Person> records) {
         final var account = runtime.find(user);
         final List<HostRefusal> errors = new ArrayList<>();
         attempt(errors, () -> files.writePerson(user, record.locked(), true));

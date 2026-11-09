@@ -177,8 +177,17 @@ final class HostProject implements Callable<Integer> {
             InputStream input,
             PrintWriter out,
             PrintWriter err) {
+        return run(action, supplied, input, out, err, false);
+    }
+
+    int run(
+            String action,
+            List<String> supplied,
+            InputStream input,
+            PrintWriter out,
+            PrintWriter err,
+            boolean inherited) {
         final List<String> arguments = new ArrayList<>(supplied);
-        boolean inherited = false;
         String project = "";
         try {
             if (action.equals("check-central")) {

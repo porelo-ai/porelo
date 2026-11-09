@@ -289,7 +289,7 @@ class HostProjectMeasurementsTest {
             }
             if (argv.getFirst().equals("/usr/bin/getent")
                     && List.of("alice", "bob").contains(argv.getLast())) {
-                assertThat(host.timeouts.get(index)).isEqualTo(Duration.ZERO);
+                assertThat(host.timeouts.get(index)).isEqualTo(Duration.ofSeconds(60));
             }
         }
     }

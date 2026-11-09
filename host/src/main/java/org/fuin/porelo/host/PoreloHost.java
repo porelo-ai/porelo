@@ -204,7 +204,12 @@ public final class PoreloHost implements Callable<Integer> {
     private static CommandLine commandLine(PoreloHost host) {
         final CommandLine command = new CommandLine(host);
         command.addSubcommand(
-                "org", new CommandLine(new Group()).addSubcommand("status", new OrgStatus(host)));
+                "org",
+                new CommandLine(new Group())
+                        .addSubcommand("status", new OrgStatus(host))
+                        .addSubcommand("follow", new OrgFollow(host))
+                        .addSubcommand("refresh", new OrgRefresh(host))
+                        .addSubcommand("renew-pin", new OrgRenewPin(host)));
         command.addSubcommand(
                 "task",
                 new CommandLine(new Group())
@@ -335,6 +340,56 @@ public final class PoreloHost implements Callable<Integer> {
                 spec.commandLine().getOut().flush();
             }
             return 0;
+        }
+    }
+
+    @Command
+    abstract static class OrgChange implements Callable<Integer> {
+        private final PoreloHost host;
+        @CommandLine.Spec private CommandLine.Model.CommandSpec spec;
+
+        OrgChange(PoreloHost host) {
+            this.host = host;
+        }
+
+        @Override
+        public Integer call() throws IOException {
+            HostFollow.root(spec.name(), host.environment);
+            final var answer =
+                    new HostFollow(host.files, spec.commandLine().getErr())
+                            .run(spec.name(), host.environment, System.in);
+            spec.commandLine().getOut().println(HostJson.write(answer));
+            return 0;
+        }
+    }
+
+    @Command(
+            name = "follow",
+            exitCodeOnInvalidInput = 64,
+            description = "Follow the signed organization from root's timer.")
+    static final class OrgFollow extends OrgChange {
+        OrgFollow(PoreloHost host) {
+            super(host);
+        }
+    }
+
+    @Command(
+            name = "refresh",
+            exitCodeOnInvalidInput = 64,
+            description = "Follow immediately with a waiting migration's token on stdin.")
+    static final class OrgRefresh extends OrgChange {
+        OrgRefresh(PoreloHost host) {
+            super(host);
+        }
+    }
+
+    @Command(
+            name = "renew-pin",
+            exitCodeOnInvalidInput = 64,
+            description = "Take renewed admin pins from root on stdin.")
+    static final class OrgRenewPin extends OrgChange {
+        OrgRenewPin(PoreloHost host) {
+            super(host);
         }
     }
 

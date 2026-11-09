@@ -167,7 +167,7 @@ final class ProjectFixture implements AutoCloseable {
         return responseBytes(response(call));
     }
 
-    private TestForgeAdmin.Response centralExchange(
+    TestForgeAdmin.Response centralExchange(
             String method, String raw, byte[] authorization, byte[] body) {
         final URI uri = URI.create("http://fixture" + raw);
         final String path = "/api/v1" + uri.getPath();

@@ -43,6 +43,8 @@ public final class HttpForgeAdmin implements AutoCloseable {
     private final Transport transport;
     private final char[] token;
     private final boolean central;
+    private java.time.Clock clock = java.time.Clock.systemUTC();
+    private java.time.@Nullable Instant deadline;
 
     /** A safe refusal carrying no remote body or credential. */
     public static final class Refusal extends RuntimeException {
@@ -148,6 +150,53 @@ public final class HttpForgeAdmin implements AutoCloseable {
         this.central = central;
     }
 
+    /** Set the enclosing operation's deadline before this client is used. */
+    public HttpForgeAdmin until(java.time.Clock clock, java.time.Instant deadline) {
+        this.clock = clock;
+        if (this.deadline == null || deadline.isBefore(this.deadline)) {
+            this.deadline = deadline;
+        }
+        return this;
+    }
+
+    private Answer boundedRequest(String method, String path, byte[] authorization, byte[] body)
+            throws IOException {
+        final java.time.Instant end = deadline;
+        if (end == null) {
+            return transport.request(method, path, authorization, body);
+        }
+        final Duration left = Duration.between(clock.instant(), end);
+        if (left.isZero() || left.isNegative()) {
+            throw new IOException("Forge operation deadline expired");
+        }
+        final byte[] auth = authorization.clone(), data = body.clone();
+        final java.util.concurrent.FutureTask<Answer> task =
+                new java.util.concurrent.FutureTask<>(
+                        () -> {
+                            try {
+                                return transport.request(method, path, auth, data);
+                            } finally {
+                                Arrays.fill(auth, (byte) 0);
+                                Arrays.fill(data, (byte) 0);
+                            }
+                        });
+        final Thread worker = Thread.ofVirtual().name("porelo-forge-deadline").start(task);
+        try {
+            return task.get(left.toNanos(), TimeUnit.NANOSECONDS);
+        } catch (java.util.concurrent.ExecutionException
+                | java.util.concurrent.TimeoutException ex) {
+            throw new IOException("Forge operation did not finish within its deadline", ex);
+        } catch (InterruptedException ex) {
+            Thread.currentThread().interrupt();
+            throw new IOException("Forge operation interrupted", ex);
+        } finally {
+            task.cancel(true);
+            worker.interrupt();
+            Arrays.fill(auth, (byte) 0);
+            Arrays.fill(data, (byte) 0);
+        }
+    }
+
     /** Ask once, validating status and JSON and never exposing response bodies on failure. */
     public @Nullable Object request(
             String method, String path, @Nullable Object body, int... expected) {
@@ -175,7 +224,7 @@ public final class HttpForgeAdmin implements AutoCloseable {
         }
         final Answer answer;
         try {
-            answer = transport.request(method, path, authorization, bytes);
+            answer = boundedRequest(method, path, authorization, bytes);
         } catch (IOException | IllegalArgumentException ex) {
             throw new Refusal(
                     69,

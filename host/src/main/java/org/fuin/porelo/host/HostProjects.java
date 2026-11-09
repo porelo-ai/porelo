@@ -44,7 +44,11 @@ final class HostProjects {
                     .forEach(
                             (project, why) -> {
                                 final Map<String, @Nullable Object> entry =
-                                        optionalObject(entries.get(name(project)));
+                                        optionalObject(
+                                                entries.get(
+                                                        project.equals("a project")
+                                                                ? project
+                                                                : name(project)));
                                 entry.put("state", "refused");
                                 entry.put("why", why);
                                 entries.put(project, entry);

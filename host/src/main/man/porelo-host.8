@@ -153,6 +153,18 @@ Shared boundary codes: 77 no valid root or sudo person; 78 unapproved environmen
 0 status shown; 64 bad arguments; 65 sudo or invalid records;
 69 unsafe or unreadable host files; 73 lock or unhandled file/data failure.
 .TP
+.B org follow
+0 followed or read key not yet added; 64 bad arguments; 65 sudo, invalid pin, records or signed state;
+69 host file, dependency, deadline or reconciliation failure; 73 unsafe path, lock, publication or unhandled file/data failure.
+.TP
+.B org refresh
+0 refreshed; 64 bad arguments; 65 sudo, invalid or unexpected token, pin, records or signed state;
+69 host file, dependency, deadline or reconciliation failure; 73 unsafe path, input, lock, publication or unhandled file/data failure.
+.TP
+.B org renew\-pin
+0 pins replaced and status shown; 64 bad arguments; 65 sudo, invalid pins, no organization or invalid records;
+69 unsafe or unreadable host files; 73 unsafe path, input, lock, publication or unhandled file/data failure.
+.TP
 .B task show
 0 record shown; 64 bad arguments or fingerprint; 65 caller, records or visibility refused;
 69 not root or file/account lookup failure; 73 unsafe task path, lock or file failure.
@@ -323,3 +335,19 @@ project, read_at and repositories fields, spaced JSON and a trailing newline.
 Grant read access only to the applied project's unlocked, admitted members
 whose local accounts exist. Replace the old file's readers before asking central.
 A failed question publishes an empty list, never an up-to-date answer.
+
+.SS org follow
+Follow the signed organization from root's timer. Requires root without SUDO_USER.
+Fetch and validate the complete state before changing access. Removed readers lose
+access before slow service and central questions. Project operations run in this
+process under the host configuration lock. The whole follow has five minutes;
+project-file reads share sixty seconds and central measurements share 120 seconds.
+.SS org refresh
+Follow immediately from the window over root's SSH connection. The central token
+arrives on standard input alone, at most 4096 bytes, for adding the host's read key
+or a waiting migration. Empty input follows without migrating. A token nobody
+waits for is refused. The result is the complete organization status as JSON.
+.SS org renew-pin
+Take one login and canonical SSH key per line on standard input from root on the
+machine. Duplicate keys and malformed lines are refused. The pin is replaced
+atomically and the saved fetch refusal is cleared; the accepted revision remains.

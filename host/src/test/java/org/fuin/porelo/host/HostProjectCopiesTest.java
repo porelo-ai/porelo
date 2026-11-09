@@ -266,8 +266,9 @@ class HostProjectCopiesTest {
         }
     }
 
-    @Test
-    void fullCommitInventoriesCanExceedOneMegabyte() throws Exception {
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void fullCommitInventoriesCanExceedOneMegabyte(boolean bounded) throws Exception {
         final String inventory =
                 java.util.stream.IntStream.range(1, 30001)
                         .mapToObj(value -> "%040x\n".formatted(value))
@@ -305,12 +306,18 @@ class HostProjectCopiesTest {
                             }
                             throw new AssertionError("Only inventories stream here");
                         });
-        new ProjectReadKeys(host.files, runtime)
+        final var clock = java.time.Clock.systemUTC();
+        final var questions =
+                bounded
+                        ? runtime.until(clock, clock.instant().plusSeconds(300))
+                                .until(clock, clock.instant().plusSeconds(120))
+                        : runtime;
+        new ProjectReadKeys(host.files, questions)
                 .check("forge", "alpha", List.of(Map.of("name", "code", "original_url", ADDRESS)));
         centralMissingLast.set(true);
         assertThatThrownBy(
                         () ->
-                                new ProjectReadKeys(host.files, runtime)
+                                new ProjectReadKeys(host.files, questions)
                                         .check(
                                                 "forge",
                                                 "alpha",

@@ -145,7 +145,7 @@ final class ProjectRuntime {
         this(files, commands, programs, sockets, forgeFactory, transfers, new HostFiles());
     }
 
-    private ProjectRuntime(
+    ProjectRuntime(
             ProjectFiles files,
             Commands commands,
             Programs programs,
@@ -162,38 +162,51 @@ final class ProjectRuntime {
         this.forgeFactory = forgeFactory;
     }
 
-    HostPrograms.Result run(
-            List<String> argv, byte[] input, Map<String, String> environment, Duration timeout)
-            throws IOException {
-        return commands.run(argv, input, environment, timeout);
-    }
+    /** All nested project operations share the caller's remaining wall-clock budget. */
+    ProjectRuntime until(java.time.Clock clock, java.time.Instant deadline) {
+        final ForgeFactory bounded =
+                new ForgeFactory() {
+                    @Override
+                    public HttpForgeAdmin open(Path socket, char[] token) {
+                        return forgeFactory.open(socket, token).until(clock, deadline);
+                    }
 
-    ProjectRuntime until(java.time.Instant deadline, java.time.Clock clock) {
+                    @Override
+                    public HttpForgeAdmin unauthenticated(Path socket) {
+                        return forgeFactory.unauthenticated(socket).until(clock, deadline);
+                    }
+                };
         return new ProjectRuntime(
                 files,
                 (argv, input, environment, timeout) ->
-                        commands.run(argv, input, environment, remaining(timeout, deadline, clock)),
+                        commands.run(argv, input, environment, remaining(clock, deadline, timeout)),
                 programs,
                 sockets,
-                forgeFactory,
+                bounded,
                 (argv, input, output, environment, timeout) ->
                         transfers.run(
                                 argv,
                                 input,
                                 output,
                                 environment,
-                                remaining(timeout, deadline, clock)),
+                                remaining(clock, deadline, timeout)),
                 personFiles);
     }
 
     private static Duration remaining(
-            Duration timeout, java.time.Instant deadline, java.time.Clock clock)
+            java.time.Clock clock, java.time.Instant deadline, Duration timeout)
             throws IOException {
         final Duration left = Duration.between(clock.instant(), deadline);
         if (left.isNegative() || left.isZero()) {
-            throw new IOException("Project measurement deadline reached");
+            throw new IOException("The host operation exhausted its deadline");
         }
         return timeout.isZero() || left.compareTo(timeout) < 0 ? left : timeout;
+    }
+
+    HostPrograms.Result run(
+            List<String> argv, byte[] input, Map<String, String> environment, Duration timeout)
+            throws IOException {
+        return commands.run(argv, input, environment, timeout);
     }
 
     HostPrograms.Result collect(
@@ -653,6 +666,10 @@ final class ProjectRuntime {
     }
 
     Session session(String user) {
+        return session(user, "");
+    }
+
+    Session session(String user, String scopes) {
         final Configuration config =
                 java.util.Objects.requireNonNull(
                         configuration(user), "A forge session follows an enabled configuration");
@@ -660,7 +677,13 @@ final class ProjectRuntime {
         final Path socket = personEndpoint(config);
         final String name = "porelo-host-person-" + UUID.randomUUID().toString().replace("-", "");
         final String token =
-                forgeCommand(account, tokenArguments("porelo-admin", name, "write:admin")).strip();
+                forgeCommand(
+                                account,
+                                tokenArguments(
+                                        "porelo-admin",
+                                        name,
+                                        "write:admin" + (scopes.isEmpty() ? "" : "," + scopes)))
+                        .strip();
         if (!token.matches("[0-9a-f]{40}")) {
             throw new HostRefusal(69, "Forgejo made no valid access token");
         }
@@ -783,6 +806,10 @@ final class ProjectRuntime {
                         java.util.Objects.requireNonNull(
                                 ex.getMessage(), "Forge failures carry safe diagnostics"));
             }
+        }
+
+        HttpForgeAdmin forge() {
+            return client;
         }
 
         List<String> drop(String identity, @Nullable Set<String> names) {

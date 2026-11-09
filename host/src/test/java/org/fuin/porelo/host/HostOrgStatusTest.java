@@ -72,6 +72,7 @@ class HostOrgStatusTest {
     }
 
     @Test
+    // py: test_org_status_answers_the_applied_org_and_where_each_person_stands
     void peopleStatesMembershipsAndPurgeDatesAreSortedAndComplete() throws Exception {
         fixture.person("zoe", "member=zulu developer\n", "lock=pending\n");
         fixture.person(
@@ -139,6 +140,7 @@ class HostOrgStatusTest {
     }
 
     @Test
+    // py: test_org_status_gives_a_reason_for_rows_kept_from_before_a_project_was_put_on_again
     void everyRepositoryStateUsesTheSignedSelectionAndTheLastCentralMeasurement() throws Exception {
         final String progress =
                 """
@@ -205,6 +207,7 @@ class HostOrgStatusTest {
                 "{\"project\":\"alpha\",\"repositories\":[{\"repository\":\"Code\",\"state\":\"cannot-say\",\"why\":null}]}",
                 "{\"project\":\"alpha\",\"repositories\":[{\"repository\":\"Code\",\"state\":\"up-to-date\",\"why\":null}]}"
             })
+    // py: test_org_status_reads_no_answer_from_a_malformed_central_state
     void aMalformedCentralMeasurementCannotVouchForTheRepository(String central) throws Exception {
         fixture.put(
                 ORG + "host-projects.json",

@@ -20,6 +20,35 @@ final class ProjectMeasurements {
         this.clock = clock;
     }
 
+    /** Prune stale projects and revoke every former reader before any central question starts. */
+    void prepare(List<String> projects) throws IOException {
+        final Path directory = files.etc.resolve("organization/central");
+        if (projects.isEmpty() && !files.exists(directory)) {
+            return;
+        }
+        files.mkdir(directory, 0711);
+        java.nio.file.Files.setAttribute(
+                directory, "unix:mode", 0711, java.nio.file.LinkOption.NOFOLLOW_LINKS);
+        for (Path path : files.list(directory)) {
+            files.trusted(path, false);
+            final String name = path.getFileName().toString();
+            if (name.startsWith(".porelo-host-person.")
+                    || name.endsWith(".json.new")
+                    || name.endsWith(".json")
+                            && !projects.contains(name.substring(0, name.length() - 5))) {
+                files.delete(path);
+            } else if (!name.endsWith(".json")) {
+                throw new HostRefusal(65, "the central states directory holds an unknown file");
+            }
+        }
+        for (String project : projects) {
+            final Path path = directory.resolve(project + ".json");
+            if (files.exists(path)) {
+                publish(path, files.text(path, false), readers(project));
+            }
+        }
+    }
+
     void measure(String account, String project) throws IOException {
         measure(account, List.of(project));
     }
@@ -56,7 +85,7 @@ final class ProjectMeasurements {
         }
         // porelo-host-person follow_central shares CENTRAL_ASK_SECONDS across the entire pass.
         final var deadline = clock.instant().plusSeconds(120);
-        final var keys = new ProjectReadKeys(files, runtime.until(deadline, clock));
+        final var keys = new ProjectReadKeys(files, runtime.until(clock, deadline));
         for (String project : projects) {
             final String readAt =
                     DateTimeFormatter.ofPattern("uuuu-MM-dd'T'HH:mm:ss'Z'")
@@ -131,7 +160,7 @@ final class ProjectMeasurements {
                                         login),
                                 new byte[0],
                                 ProjectRuntime.SAFE_ENV,
-                                java.time.Duration.ZERO);
+                                java.time.Duration.ofSeconds(60));
                 if (passwd.exitCode() == 2) {
                     continue;
                 }
