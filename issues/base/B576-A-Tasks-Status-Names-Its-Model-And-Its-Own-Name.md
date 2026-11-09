@@ -1,6 +1,6 @@
 # [B576](README.md#b576) — A Task's Status Names Its Model And Its Own Name
 
-**Status:** Backlog. Filed 2026-11-09 under ST290, from the fourth move.
+**Status:** Implementing. Filed 2026-11-09 under ST290, from the fourth move.
 **Size:** M - the start's model source, the status JSON, the usage reading and one line of the start protocol.
 
 **What must be true.**
