@@ -210,12 +210,17 @@ final class HostTasks {
     }
 
     List<Task> read() {
+        return read(null);
+    }
+
+    List<Task> read(@Nullable String login) {
         final Path root = files.path("/var/lib/porelo-host/tasks");
         if (!files.check(root, 73, false, true, 0700)) {
             return List.of();
         }
         final List<Task> found = new ArrayList<>();
-        for (Path directory : files.list(root, 73, 0700)) {
+        for (Path directory :
+                login == null ? files.list(root, 73, 0700) : List.of(root.resolve(login))) {
             final String user = directory.getFileName().toString();
             if (!user.matches(HostRecords.USER)) {
                 throw new HostRefusal(65, root + " holds an unknown entry");

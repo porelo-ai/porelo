@@ -14,7 +14,7 @@ import org.fuin.porelo.wire.RootOwnedFile;
 
 /** Root's fixed file tree; only package-local fixtures may substitute its root or attributes. */
 final class HostFiles {
-    private static final int MAXIMUM_BYTES = 16 * 1024 * 1024;
+    static final int MAXIMUM_BYTES = 16 * 1024 * 1024;
     private final Path root;
     private final RootOwnedFile.Attributes attributes;
     private final RootOwnedFile.Attributes openedAttributes;
@@ -119,6 +119,16 @@ final class HostFiles {
         }
     }
 
+    void checkOpened(Path descriptor, int permissions) throws IOException {
+        if (!descriptor.toString().matches("/proc/self/fd/[0-9]+"))
+            throw new IllegalArgumentException("Expected a pinned host descriptor");
+        final var status = openedAttributes.read(descriptor);
+        if (!Integer.valueOf(0).equals(status.get("uid"))
+                || !(status.get("mode") instanceof Number mode)
+                || (mode.intValue() & 0177777) != (0100000 | permissions))
+            throw new HostRefusal(73, "the open arrival record is not root's alone");
+    }
+
     void directories(Path directory) throws IOException {
         final boolean publicDirectory =
                 List.of(
@@ -136,11 +146,17 @@ final class HostFiles {
         if (!check(parent, 73, false, true, -1)) {
             directories(parent);
         }
-        Files.createDirectory(
-                directory,
-                java.nio.file.attribute.PosixFilePermissions.asFileAttribute(
-                        java.nio.file.attribute.PosixFilePermissions.fromString(
-                                publicDirectory ? "rwxr-xr-x" : "rwx------")));
+        try {
+            Files.createDirectory(
+                    directory,
+                    java.nio.file.attribute.PosixFilePermissions.asFileAttribute(
+                            java.nio.file.attribute.PosixFilePermissions.fromString(
+                                    publicDirectory ? "rwxr-xr-x" : "rwx------")));
+        } catch (java.nio.file.FileAlreadyExistsException ex) {
+            // A shared configuration lock permits another push to create the directory first.
+            check(directory, 73, true, true, mode);
+            return;
+        }
         Files.setAttribute(directory, "unix:mode", mode);
         check(directory, 73, true, true, mode);
     }

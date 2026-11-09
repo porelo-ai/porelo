@@ -73,7 +73,7 @@ final class ProjectRuntime {
         this(
                 files,
                 (argv, input, environment, timeout) ->
-                        new HostPrograms(timeout, 1024 * 1024).run(argv, input, environment),
+                        new HostPrograms(timeout, outputLimit(argv)).run(argv, input, environment),
                 path ->
                         Path.of(path).isAbsolute()
                                 ? SystemProgram.at(Path.of(path))
@@ -115,12 +115,32 @@ final class ProjectRuntime {
         this(
                 files,
                 (argv, input, environment, timeout) ->
-                        new HostPrograms(timeout, 1024 * 1024).run(argv, input, environment),
+                        new HostPrograms(timeout, outputLimit(argv)).run(argv, input, environment),
                 path ->
                         Path.of(path).isAbsolute()
                                 ? SystemProgram.at(Path.of(path))
                                 : HostPrograms.program(path),
                 HttpForgeAdmin::new);
+    }
+
+    /** The most of a push verifier's answer root reads. */
+    static final int MOST_PUSH_ANSWER = 64 * 1024 * 1024;
+
+    private static int outputLimit(List<String> argv) {
+        return outputLimit(argv, PushJudgement.MAX_COMMITS);
+    }
+
+    static int outputLimit(List<String> argv, int commits) {
+        // The verifier's largest UTF-8 verdict is 100627 bytes; commas, framing and its newline
+        // count too. Root holds the whole answer in memory, so it is also kept to 64 MiB: an
+        // accepted verdict carries no reasons, and a push whose answer would not fit is not judged
+        // (a 500, nothing recorded) rather than read into a gigabyte.
+        return argv.stream().anyMatch(value -> value.startsWith("--unit=porelo-host-push-"))
+                ? (int)
+                        Math.min(
+                                Math.addExact(Math.multiplyExact((long) commits, 100628L), 79L),
+                                MOST_PUSH_ANSWER)
+                : 1024 * 1024;
     }
 
     ProjectRuntime(

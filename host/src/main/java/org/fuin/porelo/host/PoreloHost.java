@@ -24,6 +24,9 @@ public final class PoreloHost implements Callable<Integer> {
     private final HostSweep sweep;
     private final HostTasks tasks;
     private final HostTokens tokens;
+    private final ProjectRuntime runtime;
+    private final java.time.Clock clock;
+    private final PushService pushService;
     private final java.io.InputStream input;
     private final Function<Map<String, String>, HostPerson> person;
 
@@ -62,7 +65,22 @@ public final class PoreloHost implements Callable<Integer> {
             ProjectRuntime runtime,
             java.io.InputStream input,
             java.time.Clock clock) {
+        this(environment, files, person, sweep, runtime, input, clock, PoreloHost::servePush);
+    }
+
+    private PoreloHost(
+            Map<String, String> environment,
+            HostFiles files,
+            Function<Map<String, String>, HostPerson> person,
+            HostSweep sweep,
+            ProjectRuntime runtime,
+            java.io.InputStream input,
+            java.time.Clock clock,
+            PushService pushService) {
         this.sweep = sweep;
+        this.runtime = runtime;
+        this.clock = clock;
+        this.pushService = pushService;
         this.tasks = new HostTasks(files, runtime, clock);
         this.tokens = new HostTokens(files, runtime, clock);
         this.input = input;
@@ -150,6 +168,48 @@ public final class PoreloHost implements Callable<Integer> {
             ProjectRuntime runtime,
             java.io.InputStream input,
             java.time.Clock clock) {
+        return run(
+                args,
+                environment,
+                uid,
+                out,
+                err,
+                files,
+                person,
+                sweep,
+                runtime,
+                input,
+                clock,
+                PoreloHost::servePush);
+    }
+
+    @FunctionalInterface
+    interface PushService {
+        void serve(HostPush judge) throws IOException;
+    }
+
+    private static void servePush(HostPush judge) throws IOException {
+        final var socket = HostSocketActivation.standardInput();
+        final long peer = HostSocketActivation.peerUid();
+        try (var connection = new GateConnection(socket, false, 30)) {
+            connection.readDeadline(java.time.Duration.ofSeconds(30));
+            judge.serve(connection.input, connection.output, peer);
+        }
+    }
+
+    static int run(
+            String[] args,
+            Map<String, String> environment,
+            Uid uid,
+            PrintWriter out,
+            PrintWriter err,
+            HostFiles files,
+            Function<Map<String, String>, HostPerson> person,
+            HostSweep sweep,
+            ProjectRuntime runtime,
+            java.io.InputStream input,
+            java.time.Clock clock,
+            PushService pushService) {
         try {
             HostEnvironment.check(environment);
             final boolean informational = args.length == 1 && answersAlone(args[0]);
@@ -159,7 +219,10 @@ public final class PoreloHost implements Callable<Integer> {
                         && !(args.length > 1 && args[1].equals("check-central"))) {
                     throw new HostRefusal(69, "porelo-host-project: runs only as root");
                 }
-                if (args.length > 0 && (args[0].equals("task") || args[0].equals("forge"))) {
+                if (args.length > 0
+                        && (args[0].equals("task")
+                                || args[0].equals("forge")
+                                || args[0].equals("judge-push"))) {
                     throw new HostRefusal(69, "porelo-host-person: runs only as root");
                 }
                 throw new HostRefusal(
@@ -177,7 +240,14 @@ public final class PoreloHost implements Callable<Integer> {
             }
             return commandLine(
                             new PoreloHost(
-                                    environment, files, person, sweep, runtime, input, clock))
+                                    environment,
+                                    files,
+                                    person,
+                                    sweep,
+                                    runtime,
+                                    input,
+                                    clock,
+                                    pushService))
                     .setOut(out)
                     .setErr(err)
                     .execute(args);
@@ -224,6 +294,7 @@ public final class PoreloHost implements Callable<Integer> {
                         .addSubcommand("lend-token", new ForgeToken(host, true)));
         command.addSubcommand("project", HostProject.commandLine(host.environment));
         command.addSubcommand("pool", HostPoolCommands.commandLine(host.environment));
+        command.addSubcommand("judge-push", new JudgePush(host));
         command.setExpandAtFiles(false);
         command.setExecutionExceptionHandler(
                 (exception, line, parse) -> {
@@ -317,6 +388,31 @@ public final class PoreloHost implements Callable<Integer> {
                                 ex.getMessage(), "Identity refusals have safe diagnostics"));
             }
             throw ex;
+        }
+    }
+
+    @Command(
+            name = "judge-push",
+            exitCodeOnInvalidInput = 64,
+            description = "Judge one forge hook request on the accepted socket on stdin.")
+    static final class JudgePush implements Callable<Integer> {
+        private final PoreloHost host;
+
+        JudgePush(PoreloHost host) {
+            this.host = host;
+        }
+
+        @Override
+        public Integer call() throws IOException {
+            if (host.environment.containsKey("SUDO_USER"))
+                throw new HostRefusal(65, "verify-push is the forge hook's socket unit's alone");
+            host.pushService.serve(
+                    new HostPush(
+                            host.files,
+                            host.runtime,
+                            host.clock,
+                            host.spec.commandLine().getErr()));
+            return 0;
         }
     }
 

@@ -1,0 +1,2 @@
+title: "'porelo-host judge-push' judges the forge hook's pushes, confines signature verification and records accepted arrivals, preserving task ownership and the hook's HTTP answers"
+type: added

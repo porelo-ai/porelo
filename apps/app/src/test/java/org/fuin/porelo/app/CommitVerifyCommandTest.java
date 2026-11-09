@@ -1230,4 +1230,38 @@ class CommitVerifyCommandTest {
                 "GIT_COMMITTER_NAME", "A",
                 "GIT_COMMITTER_EMAIL", "a@example.org");
     }
+
+    // Prevent the privileged caller's output budget from drifting from the verifier's serializer.
+    @Test
+    void theLargestSerializedVerifierVerdictIncludesUtf8EscapesAndEveryNullableSignerField() {
+        final var signer =
+                new HostArrivals.Signer(
+                        "task",
+                        "SHA256:" + "A".repeat(43),
+                        "\u0800".repeat(16384),
+                        "certificate",
+                        "SHA256:" + "A".repeat(43));
+        final var verdict =
+                new HostArrivals.Verdict(
+                        "a".repeat(64),
+                        "refs/" + "\"".repeat(1000),
+                        false,
+                        signer,
+                        "\u0800".repeat(16384));
+        final var answer =
+                new HostArrivals.Answer(
+                        java.time.Instant.parse("9999-12-31T23:59:59Z"), List.of(verdict), "");
+        assertThat(HostArrivals.MAX_COMMITS)
+                .as("the host budgets this many serialized verdicts")
+                .isEqualTo(10000);
+        assertThat(
+                        org.fuin.porelo.wire.Json.write(verdict.answer())
+                                .getBytes(java.nio.charset.StandardCharsets.UTF_8)
+                                .length)
+                .as("the largest UTF-8 verdict counts escaped ref quotes and bounded Unicode text")
+                .isEqualTo(100627);
+        assertThat((answer.json() + "\n").getBytes(java.nio.charset.StandardCharsets.UTF_8).length)
+                .as("the first verdict includes the answer framing and println newline")
+                .isEqualTo(100707);
+    }
 }

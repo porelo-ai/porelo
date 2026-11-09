@@ -107,6 +107,26 @@ final class ProjectRecords {
         return files.etc.resolve("projects/" + project + ".conf");
     }
 
+    static void pushRegistration(Path path, String text, String project) {
+        final Map<String, String> values = new LinkedHashMap<>();
+        for (String line : text.lines().toList()) {
+            final int at = line.indexOf('=');
+            if (at < 0
+                    || !Set.of("admin", "signed_by", "publisher").contains(line.substring(0, at))
+                    || values.putIfAbsent(line.substring(0, at), line.substring(at + 1)) != null)
+                throw new HostRefusal(65, path + " has a malformed or duplicate setting");
+        }
+        final String refusal = path + " holds an invalid project registration";
+        if (!values.getOrDefault("admin", "").matches(HostRecords.USER)
+                || !values.getOrDefault("publisher", "").equals("porelo-publisher-" + project))
+            throw new HostRefusal(65, refusal);
+        try {
+            signingKey(values.getOrDefault("signed_by", ""), "project", 65);
+        } catch (HostRefusal ex) {
+            throw new HostRefusal(65, refusal);
+        }
+    }
+
     Path person(String admin) {
         return files.etc.resolve("people/" + admin + ".conf");
     }

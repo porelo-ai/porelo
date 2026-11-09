@@ -16,6 +16,12 @@
     <description>Porelo - Orchestration and CLI (APP)</description>
 
     <dependencies>
+        <dependency>
+            <groupId>org.fuin.porelo</groupId>
+            <artifactId>porelo-host</artifactId>
+            <version>${porelo.version}</version>
+            <scope>test</scope>
+        </dependency>
 
         <!-- compile -->
 

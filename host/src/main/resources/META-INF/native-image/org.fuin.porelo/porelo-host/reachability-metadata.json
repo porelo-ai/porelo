@@ -6,7 +6,8 @@
     "downcalls": [
       {"returnType": "jint", "parameterTypes": ["void*", "jint"]},
       {"returnType": "jint", "parameterTypes": ["jint", "jint"]},
-      {"returnType": "jint", "parameterTypes": ["jint"]}
+      {"returnType": "jint", "parameterTypes": ["jint"]},
+      {"returnType": "jint", "parameterTypes": ["jint", "jint", "jint", "void*", "void*"]}
     ]
   }
 }

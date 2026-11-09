@@ -132,7 +132,9 @@ final class HostPrograms {
                             return new byte[0];
                         });
         final Thread reader = Thread.ofVirtual().name("porelo-host-output").start(output);
-        final FutureTask<byte[]> errors = new FutureTask<>(() -> read(process.getErrorStream()));
+        final FutureTask<byte[]> errors =
+                new FutureTask<>(
+                        () -> read(process.getErrorStream(), Math.min(maximumBytes, 1024 * 1024)));
         final Thread errorReader = Thread.ofVirtual().name("porelo-host-errors").start(errors);
         final FutureTask<Void> feed =
                 new FutureTask<>(
@@ -152,13 +154,16 @@ final class HostPrograms {
             }
             // Zero preserves a caller's lifetime where the predecessor imposes no deadline.
             final long deadline = timeout.isZero() ? 0 : System.nanoTime() + timeout.toNanos();
-            while (process.isAlive() && !output.isDone()) {
+            while (process.isAlive()) {
+                if (output.isDone()) output.get(remaining(deadline), TimeUnit.NANOSECONDS);
+                if (errors.isDone()) errors.get(remaining(deadline), TimeUnit.NANOSECONDS);
                 process.descendants().forEach(descendants::add);
                 if (deadline != 0 && System.nanoTime() >= deadline) {
                     throw new TimeoutException();
                 }
                 process.waitFor(10, TimeUnit.MILLISECONDS);
             }
+            if (errors.isDone()) errors.get(remaining(deadline), TimeUnit.NANOSECONDS);
             final byte[] bytes = output.get(remaining(deadline), TimeUnit.NANOSECONDS);
             if (!process.waitFor(remaining(deadline), TimeUnit.NANOSECONDS)) {
                 throw new TimeoutException();
@@ -219,10 +224,6 @@ final class HostPrograms {
         return failure.getCause() instanceof TimeoutException ? "TimeoutExpired" : "OSError";
     }
 
-    private byte[] read(InputStream stream) throws IOException {
-        return read(stream, null);
-    }
-
     private byte[] read(InputStream stream, @Nullable Consumer<String> lines) throws IOException {
         try (stream) {
             if (lines != null) {
@@ -241,10 +242,15 @@ final class HostPrograms {
                 if (line.size() > 0) lines.accept(line.toString(StandardCharsets.UTF_8));
                 return all.toByteArray();
             }
-            final byte[] bytes = stream.readNBytes(maximumBytes + 1);
-            if (bytes.length > maximumBytes) {
+            return read(stream, maximumBytes);
+        }
+    }
+
+    private static byte[] read(InputStream stream, int maximum) throws IOException {
+        try (stream) {
+            final byte[] bytes = stream.readNBytes(maximum + 1);
+            if (bytes.length > maximum)
                 throw new IOException("Host program exceeded its output limit");
-            }
             return bytes;
         }
     }

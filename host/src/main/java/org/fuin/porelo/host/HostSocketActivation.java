@@ -1,6 +1,7 @@
 package org.fuin.porelo.host;
 
 import java.io.IOException;
+import java.lang.foreign.Arena;
 import java.lang.foreign.FunctionDescriptor;
 import java.lang.foreign.Linker;
 import java.lang.foreign.ValueLayout;
@@ -12,6 +13,47 @@ import java.util.Map;
 /** Adapts systemd's first accepted descriptor to Java's inherited-channel API. */
 final class HostSocketActivation {
     private HostSocketActivation() {}
+
+    /** StandardInput=socket supplies fd 0, without LISTEN_FDS or a descriptor-3 handoff. */
+    static SocketChannel standardInput() throws IOException {
+        final var channel = System.inheritedChannel();
+        if (!(channel instanceof SocketChannel socket)
+                || !socket.isConnected()
+                || !(socket.getRemoteAddress() instanceof UnixDomainSocketAddress)) {
+            throw new IOException("The push judge requires an accepted Unix socket on stdin");
+        }
+        return socket;
+    }
+
+    /** The numeric uid from SO_PEERCRED, independent of NSS names or caller environment. */
+    static long peerUid() throws IOException {
+        return peerUid(0);
+    }
+
+    static long peerUid(int descriptor) throws IOException {
+        final Linker linker = Linker.nativeLinker();
+        final MethodHandle option =
+                linker.downcallHandle(
+                        linker.defaultLookup().find("getsockopt").orElseThrow(),
+                        FunctionDescriptor.of(
+                                ValueLayout.JAVA_INT,
+                                ValueLayout.JAVA_INT,
+                                ValueLayout.JAVA_INT,
+                                ValueLayout.JAVA_INT,
+                                ValueLayout.ADDRESS,
+                                ValueLayout.ADDRESS));
+        try (Arena arena = Arena.ofConfined()) {
+            final var peer = arena.allocate(12, 4);
+            final var length = arena.allocate(ValueLayout.JAVA_INT);
+            length.set(ValueLayout.JAVA_INT, 0, 12);
+            if ((int) option.invokeExact(descriptor, 1, 17, peer, length) != 0
+                    || length.get(ValueLayout.JAVA_INT, 0) != 12)
+                throw new IOException("Cannot read the accepted socket's peer uid");
+            return Integer.toUnsignedLong(peer.get(ValueLayout.JAVA_INT, 4));
+        } catch (Throwable ex) {
+            throw new IOException("Cannot read the accepted socket's peer uid", ex);
+        }
+    }
 
     static void check(Map<String, String> environment, long pid) {
         if (!"1".equals(environment.get("LISTEN_FDS"))

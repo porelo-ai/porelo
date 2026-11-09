@@ -17,6 +17,8 @@ final class GateConnection implements AutoCloseable {
     private final boolean closeChannel;
     private final Selector selector;
     private final SelectionKey key;
+    private final java.util.function.LongSupplier nanoTime;
+    private long readDeadline;
     final InputStream input;
     final OutputStream output;
 
@@ -25,7 +27,22 @@ final class GateConnection implements AutoCloseable {
     }
 
     GateConnection(SocketChannel channel, boolean closeChannel) throws IOException {
+        this(channel, closeChannel, 60);
+    }
+
+    GateConnection(SocketChannel channel, boolean closeChannel, int timeoutSeconds)
+            throws IOException {
+        this(channel, closeChannel, timeoutSeconds, System::nanoTime);
+    }
+
+    GateConnection(
+            SocketChannel channel,
+            boolean closeChannel,
+            int timeoutSeconds,
+            java.util.function.LongSupplier nanoTime)
+            throws IOException {
         this.channel = channel;
+        this.nanoTime = nanoTime;
         this.closeChannel = closeChannel;
         channel.configureBlocking(false);
         selector = Selector.open();
@@ -45,10 +62,18 @@ final class GateConnection implements AutoCloseable {
                                 Objects.checkFromIndexSize(offset, length, bytes.length);
                                 if (length == 0) return 0;
                                 final ByteBuffer buffer = ByteBuffer.wrap(bytes, offset, length);
-                                final long deadline = System.nanoTime() + 60_000_000_000L;
+                                final long deadline =
+                                        readDeadline == 0
+                                                ? nanoTime.getAsLong()
+                                                        + timeoutSeconds * 1_000_000_000L
+                                                : readDeadline;
                                 int count;
-                                while ((count = channel.read(buffer)) == 0)
+                                while (true) {
+                                    remaining(deadline);
+                                    count = channel.read(buffer);
+                                    if (count != 0) break;
                                     ready(SelectionKey.OP_READ, deadline);
+                                }
                                 return count;
                             }
                         });
@@ -62,17 +87,27 @@ final class GateConnection implements AutoCloseable {
                     @Override
                     public void write(byte[] bytes, int offset, int length) throws IOException {
                         final ByteBuffer buffer = ByteBuffer.wrap(bytes, offset, length);
-                        final long deadline = System.nanoTime() + 60_000_000_000L;
+                        final long deadline =
+                                nanoTime.getAsLong() + timeoutSeconds * 1_000_000_000L;
                         while (buffer.hasRemaining())
                             if (channel.write(buffer) == 0) ready(SelectionKey.OP_WRITE, deadline);
                     }
                 };
     }
 
-    private void ready(int operation, long deadline) throws IOException {
-        final long remaining = deadline - System.nanoTime();
-        if (remaining <= 0 || Thread.currentThread().isInterrupted())
+    void readDeadline(java.time.Duration timeout) {
+        readDeadline = nanoTime.getAsLong() + timeout.toNanos();
+    }
+
+    private long remaining(long deadline) throws SocketTimeoutException {
+        final long left = deadline - nanoTime.getAsLong();
+        if (left <= 0 || Thread.currentThread().isInterrupted())
             throw new SocketTimeoutException("Gate connection timed out");
+        return left;
+    }
+
+    private void ready(int operation, long deadline) throws IOException {
+        final long remaining = remaining(deadline);
         key.interestOps(operation);
         selector.select(Math.max(1, remaining / 1_000_000));
         selector.selectedKeys().clear();

@@ -4,12 +4,39 @@ porelo-host \- the host's own program
 .SH SYNOPSIS
 .B porelo-host
 .RB [ \-\-help " | " \-\-version ]
+.PP
+.B porelo-host judge\-push
 .SH DESCRIPTION
 .B porelo-host
 is run by sudo rules granting NOPASSWD access for the calling person alone,
 or by root's systemd service and socket units.
 It is never typed directly by a person in a shell.
 .SH COMMANDS
+.TP
+.B judge\-push
+The forge hook's socket service alone, with no SUDO_USER: read one POST /verify
+HTTP/1.1 request and answer on the accepted Unix socket on standard input (fd 0);
+no LISTEN_FDS is needed. Require root, take a shared flock on forge.conf and read its
+account= setting, then check the forge account's numeric SO_PEERCRED uid before reading
+the request. Validate the registered project and the forge-owned repository and quarantine
+directories, and hold task accounts to their person's recorded porelo/<task> branches
+in that project, including deletions. Refuse a task account whose person no longer exists;
+porelo-admin and porelo-publisher-<project> are host accounts and retain the forge's rules,
+as do person accounts. Retained ended-task records still name their branches: task end
+removes the task's token.
+Judge new commits through the installed porelo commit verify in a confined systemd unit
+as the forge account, with the checked signers, certifiers, task certificates and KRL.
+The worker has no network, writable host tree or home, and at most 270 seconds;
+the parent waits at most 280 seconds and the whole request must be read within one
+30-second deadline. Worker stdout is bounded by the largest serialized verdict for
+10,000 commits; stderr is limited to 1 MiB.
+Accept only complete worker provenance for refs the request updates, with no duplicate
+commits and at most 10,000 commits. Append accepted arrival verdicts privately before
+answering 200; refuse an append that would exceed the ledger's 16 MiB read bound.
+Signature or request
+refusals answer 403 with their reasons; host failures answer 500. Only-deletion pushes
+need no quarantine and record no arrival. Every HTTP answer closes the connection.
+Every HTTP 500 also writes its diagnostic to the journal on standard error.
 .TP
 .B org status [\-\-json]
 Root's read of the last applied organization, persons, projects, repositories,
@@ -150,6 +177,13 @@ The invocation environment contains an unapproved variable.
 .SS Codes by verb
 Shared boundary codes: 77 no valid root or sudo person; 78 unapproved environment variable.
 Pool verbs require root (77); forge gate and measure still check the host namespace (77).
+.TP
+.B judge\-push
+0 one hook request answered, including HTTP refusals and host failures;
+64 bad arguments; 65 SUDO_USER; 69 not root; 73 no accepted Unix socket or activation failure.
+Within an accepted connection, request and data refusals use HTTP 403,
+and dependency, path, verifier or recording failures use HTTP 500.
+Boundary codes 77 and 78 still apply before the verb runs.
 .TP
 .B org status
 0 status shown; 64 bad arguments; 65 sudo or invalid records;

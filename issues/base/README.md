@@ -20,6 +20,12 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b552"></a>[B552](B552-The-Forge-Gates-And-The-Pool-In-The-Host-Tool.md) | L | [B540](#b540) | `porelo-host gate forge --web\|--git\|--runner` after porelo-host's load measure; `pool revert \| make-vm \| find-vm \| delete-vm`. |
+| <a id="b550"></a>[B550](B550-The-Host-Follows-Its-Organization-In-Java.md) | L | [B546](#b546), [B547](#b547) | `porelo-host org follow \| refresh \| renew-pin`; the project verbs called in-process. |
+| <a id="b549"></a>[B549](B549-The-Push-Judge-In-The-Host-Tool.md) | L | [B547](#b547) | `porelo-host judge-push` behind the judge socket, with every refusal test; built, in review. |
+| <a id="b547"></a>[B547](B547-Task-Accounts-And-Lent-Tokens-Through-The-Host-Tool.md) | L | [B541](#b541) | `porelo-host task start \| end`, `forge issue-token \| lend-token`, for `SUDO_USER` alone; porelo's callers switched. |
+| <a id="b546"></a>[B546](B546-The-Host-Tool-Measures-Copies-And-Advances-A-Project.md) | L | [B545](#b545) | `porelo-host project measure-central \| copy \| advance \| check-central`. |
+| <a id="b542"></a>[B542](B542-The-Host-Tool-Sweeps-Ended-Task-Tokens.md) | S | [B541](#b541) | `porelo-host task sweep`, the timer's verb. |
 | <a id="b540"></a>[B540](B540-The-Host-Tool-As-A-Module-Of-Porelo.md) | M | - | `host/` module, native `porelo-host`, package with man page, `--version`, the root boundary's checks (no caller environment, no JVM options from it, root-owned files, `SUDO_USER` only). |
 | <a id="b545"></a>[B545](B545-The-Host-Tool-Adds-Removes-Migrates-And-Takes-Off-A-Project.md) | L | [B541](#b541) | `porelo-host project add | remove | migrate | take-off`, internal, as `porelo-host-project`. |
 | <a id="b541"></a>[B541](B541-The-Host-Tool-Reads-The-Organization-And-A-Task-By-Its-Signature.md) | L | [B540](#b540) | `porelo-host org status` and `task show <fingerprint>`, read-only, answering as the Python does. |
@@ -133,7 +139,6 @@ from its side, as *blocked by*.
 | <a id="b581"></a>[B581](B581-The-Task-Terminal-Takes-The-Largest-View.md) | XS | - | The task terminal sizes to the latest client (`window-size latest`). |
 | <a id="b582"></a>[B582](B582-A-Task-Is-Shown-In-Its-Room-By-Its-Own-Name.md) | S | - | A task is shown in its room as "Agent" and its own name ("Agent Pi"), the agent's name only to tell two apart. |
 | <a id="b585"></a>[B585](B585-A-Builds-Runs-By-Trigger-And-A-Failed-Jobs-Tests.md) | M | - | Build2's runs name their trigger and id, a job its run, failed tests and page; `build status` lists runs with their jobs. |
-| <a id="b549"></a>[B549](B549-The-Push-Judge-In-The-Host-Tool.md) | L | [B547](#b547) | `porelo-host judge-push` behind the judge socket, with every refusal test. |
 | <a id="b560"></a>[B560](B560-A-Planning-Adapter-Behind-Its-Own-Contract.md) | M | - | `porelo-planning-api`: `org.fuin.porelo.Planning1`, `PlanningMain`, the client and discovery of installed planning adapters, a stub, and the adapter guide. |
 | <a id="b562"></a>[B562](B562-The-Board-Read-Through-Porelod.md) | L | [B560](README.md#b560), [B561](README.md#b561) | Tasks1 part `60-planning`'s reads through the adapter porelod runs, a GitHub App's token minted per call, a story's state computed from its issues in one workflow, and `planning.work` checked against it. |
 | <a id="b553"></a>[B553](B553-A-Move-Runs-Without-A-Terminal-For-A-Rehearsal.md) | M | - | Every command of a move's person runs without a terminal, refusing at once instead of prompting, for an automated rehearsal. |
@@ -161,12 +166,7 @@ from its side, as *blocked by*.
 | <a id="b569"></a>[B569](B569-The-Host-Tool-Tests-Stand-Without-The-Python.md) | M | [B552](#b552) | Once the host runs the `porelo-host` package, `host/`'s tests say what it does: no `// py:` citation, predecessor script or "the Python" in a test, and a test that only proved the port is removed. |
 | <a id="b557"></a>[B557](B557-Root-As-Seen-In-A-Hooks-Namespace-Is-Not-Its-Own.md) | S | - | `wire` refuses a file whose owner reads as the overflow uid, or as root through a nested namespace, rather than taking it as root's. |
 | <a id="b556"></a>[B556](B556-The-Talk-Log-Says-Whom-A-Line-Was-For-And-Whether-It-Woke.md) | S | - | `talk log --json` says each message's `to`, `via`, `all`, and whether it woke the agent. |
-| <a id="b552"></a>[B552](B552-The-Forge-Gates-And-The-Pool-In-The-Host-Tool.md) | L | [B540](#b540) | `porelo-host gate forge --web\|--git\|--runner` after porelo-host's load measure; `pool revert \| make-vm \| find-vm \| delete-vm`. |
 | <a id="b551"></a>[B551](B551-The-Host-Purges-A-Person-And-Restores-Runtimes-In-Java.md) | L | [B550](#b550) | `porelo-host person purge <login> \| restore-runtime`. |
-| <a id="b550"></a>[B550](B550-The-Host-Follows-Its-Organization-In-Java.md) | L | [B546](#b546), [B547](#b547) | `porelo-host org follow \| refresh \| renew-pin`; the project verbs called in-process. |
-| <a id="b547"></a>[B547](B547-Task-Accounts-And-Lent-Tokens-Through-The-Host-Tool.md) | L | [B541](#b541) | `porelo-host task start \| end`, `forge issue-token \| lend-token`, for `SUDO_USER` alone; porelo's callers switched. |
-| <a id="b546"></a>[B546](B546-The-Host-Tool-Measures-Copies-And-Advances-A-Project.md) | L | [B545](#b545) | `porelo-host project measure-central \| copy \| advance \| check-central`. |
-| <a id="b542"></a>[B542](B542-The-Host-Tool-Sweeps-Ended-Task-Tokens.md) | S | [B541](#b541) | `porelo-host task sweep`, the timer's verb. |
 | <a id="b537"></a>[B537](B537-One-Host-File-That-Does-Not-Read-Hides-No-Other-Project.md) | S | - | On a host, a project whose host file does not read is a row saying so, and the others are listed. |
 | <a id="b538"></a>[B538](B538-A-Tasks-Container-Without-The-Doubled-Project-Name.md) | L | - | A task's container is `porelo-pi`, not `porelo-porelo-pi`, with tasks made before kept working and no clash between projects. High priority. |
 | <a id="b514"></a>[B514](B514-Every-Task-Run-Kept-In-One-Timeline.md) | M | - | Every task run kept in one timeline: lifecycle entries (who and when, the run's numbers) in the events chain, logs archived past stop, reboot and removal, readings over varlink, MCP and the CLI, one structured log stream for every Porelo process with the journal as its home; porelo-frontend's timeline reads it. |

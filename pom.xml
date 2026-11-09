@@ -106,6 +106,7 @@
         <!-- Late-replaced by surefire. Declared empty so '@{argLine}' resolves when JaCoCo,
              which normally sets this property, is not active. -->
         <argLine/>
+        <porelo.test.jvm.args/>
     </properties>
 
     <modules>
@@ -498,7 +499,7 @@
                     <configuration>
                         <!-- Panama downcalls are a restricted operation and will be blocked
                              outright in a future release without this. -->
-                        <argLine>@{argLine} --enable-native-access=ALL-UNNAMED</argLine>
+                        <argLine>@{argLine} ${porelo.test.jvm.args} --enable-native-access=ALL-UNNAMED</argLine>
                         <excludedGroups>${porelo.tests.excluded}</excludedGroups>
                         <!-- A unit test runs what it starts as it is, on every machine: with a
                              systemd user manager, task processes would otherwise go into scopes of

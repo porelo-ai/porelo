@@ -15,7 +15,6 @@ import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
-import java.util.Base64;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -31,7 +30,6 @@ import org.fuin.porelo.runtime.ContainerName;
 import org.fuin.porelo.vault.CardException;
 import org.fuin.porelo.vault.RegistryText;
 import org.fuin.porelo.vault.SshCertificate;
-import org.fuin.porelo.vault.SshSignature;
 import org.fuin.porelo.wire.Json;
 import org.jspecify.annotations.Nullable;
 
@@ -74,8 +72,6 @@ final class HostArrivals {
     private static final Pattern PROJECT = Pattern.compile("default|[a-z0-9][a-z0-9-]{0,62}");
 
     private static final Pattern REF = Pattern.compile("refs/[\\x21-\\x7e]+");
-
-    private static final String SSH_ARMOR = "-----BEGIN SSH SIGNATURE-----";
 
     private static final DateTimeFormatter VERIFY_TIME =
             DateTimeFormatter.ofPattern("yyyyMMddHHmmss").withZone(ZoneOffset.UTC);
@@ -422,28 +418,21 @@ final class HostArrivals {
             return refused(
                     commit, ref, null, "git cannot read it: " + read.standardError().strip());
         }
-        final SignedArrivals.Signed signed =
-                SignedArrivals.Signed.of(
+        final var framing =
+                ArrivalKeyJudgement.signature(
                         read.standardOutput().getBytes(StandardCharsets.UTF_8), signatureHeader);
-        if (signed == null) {
-            return refused(commit, ref, null, "carries no signature");
-        }
-        final String armored = new String(signed.signature(), StandardCharsets.UTF_8);
-        if (!armored.startsWith(SSH_ARMOR)) {
-            return refused(commit, ref, null, "carries a GPG or X.509 signature, not an SSH one");
-        }
-        final byte[] blob = SshSignature.signerOf(armored);
-        final String type = blob == null ? null : typeOf(blob);
-        if (blob == null || type == null) {
-            return refused(commit, ref, null, "its SSH signature cannot be read");
-        }
-        final String key = type + " " + Base64.getEncoder().encodeToString(blob);
+        if (!framing.refusal().isEmpty()) return refused(commit, ref, null, framing.refusal());
+        final var signed =
+                java.util.Objects.requireNonNull(
+                        framing.signed(), "Accepted framing carries a signature");
+        final String key =
+                java.util.Objects.requireNonNull(framing.key(), "Accepted framing names a key");
         final Path signature =
                 scratchFile(
                         round.scratch(),
                         "commit-",
                         new String(signed.signature(), StandardCharsets.UTF_8));
-        if (type.endsWith("-cert-v01@openssh.com")) {
+        if (key.substring(0, key.indexOf(' ')).endsWith("-cert-v01@openssh.com")) {
             return byCertificate(commit, ref, key, signed, signature, round);
         }
         return byKey(commit, ref, key, signed, signature, round);
@@ -498,78 +487,68 @@ final class HostArrivals {
         final String fingerprint = String.valueOf(SignedBy.fingerprintOf(key));
         final List<AllowedSigner> own =
                 persons.stream().filter(each -> sameKey(each.key(), key)).toList();
-        if (!own.isEmpty()) {
-            final Signer signer =
-                    new Signer("person", fingerprint, own.getFirst().principal(), null, null);
-            if (revoked(key, round)) {
-                return refused(
-                        commit, ref, signer, "its key " + fingerprint + " is revoked by the KRL");
-            }
-            final Path allowed =
-                    scratchFile(
-                            round.scratch(),
-                            "signers-",
-                            String.join("", own.stream().map(e -> line(e) + "\n").toList()));
-            for (final String principal : principalsFor(signature, allowed, round)) {
-                if (verifies(signed, signature, allowed, principal, round)) {
-                    return new Verdict(
-                            commit,
-                            ref,
-                            true,
-                            new Signer("person", fingerprint, principal, null, null),
-                            "");
-                }
-            }
-            return refused(
-                    commit,
-                    ref,
-                    signer,
-                    "its signature does not verify by the key in force " + fingerprint);
-        }
-        SshCertificate kept = null;
-        String refusal = null;
-        for (final SshCertificate each : recorded) {
-            if (sameKey(each.key(), key)) {
-                final String why = refusalOf(each, round);
-                if (why == null) {
-                    kept = each;
-                    break;
-                }
-                if (refusal == null) {
-                    refusal = why;
-                }
-            }
-        }
-        if (kept == null) {
-            return refusal == null
-                    ? refused(
-                            commit,
-                            ref,
-                            null,
-                            "signed by "
-                                    + fingerprint
-                                    + ", which is no signer in force and no task key with a"
-                                    + " recorded certificate")
-                    : refused(
-                            commit,
-                            ref,
-                            null,
-                            "signed by the task key "
-                                    + fingerprint
-                                    + ", whose recorded certificate is not accepted: "
-                                    + refusal);
-        }
-        final Signer signer = taskSigner(kept, "recorded");
-        final Path allowed =
-                scratchFile(round.scratch(), "task-", "porelo namespaces=\"git\" " + key + "\n");
-        if (!verifies(signed, signature, allowed, "porelo", round)) {
-            return refused(
-                    commit,
-                    ref,
-                    signer,
-                    "its signature does not verify by the task key " + fingerprint);
-        }
-        return new Verdict(commit, ref, true, signer, "");
+        return ArrivalKeyJudgement.judge(
+                commit,
+                ref,
+                fingerprint,
+                new ArrivalKeyJudgement.Checks() {
+                    @Override
+                    public List<String> persons() {
+                        return own.stream().map(AllowedSigner::principal).toList();
+                    }
+
+                    @Override
+                    public boolean revoked() throws IOException {
+                        return HostArrivals.this.revoked(key, round);
+                    }
+
+                    @Override
+                    public @Nullable String person() throws IOException {
+                        final Path allowed =
+                                scratchFile(
+                                        round.scratch(),
+                                        "signers-",
+                                        String.join(
+                                                "",
+                                                own.stream().map(e -> line(e) + "\n").toList()));
+                        for (final String principal : principalsFor(signature, allowed, round)) {
+                            if (verifies(signed, signature, allowed, principal, round)) {
+                                return principal;
+                            }
+                        }
+                        return null;
+                    }
+
+                    @Override
+                    public ArrivalKeyJudgement.Recorded recorded() throws IOException {
+                        SshCertificate kept = null;
+                        String refusal = null;
+                        for (final SshCertificate each : recorded) {
+                            if (sameKey(each.key(), key)) {
+                                final String why = refusalOf(each, round);
+                                if (why == null) {
+                                    kept = each;
+                                    break;
+                                }
+                                if (refusal == null) {
+                                    refusal = why;
+                                }
+                            }
+                        }
+                        return new ArrivalKeyJudgement.Recorded(
+                                kept == null ? null : taskSigner(kept, "recorded"), refusal);
+                    }
+
+                    @Override
+                    public boolean task() {
+                        final Path allowed =
+                                scratchFile(
+                                        round.scratch(),
+                                        "task-",
+                                        "porelo namespaces=\"git\" " + key + "\n");
+                        return verifies(signed, signature, allowed, "porelo", round);
+                    }
+                });
     }
 
     /**
@@ -1008,7 +987,7 @@ final class HostArrivals {
     }
 
     /** The key type a public key blob names, or {@code null} when it names none. */
-    private static @Nullable String typeOf(byte[] blob) {
+    static @Nullable String typeOf(byte[] blob) {
         if (blob.length < 4) {
             return null;
         }
