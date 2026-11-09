@@ -1,6 +1,6 @@
 # [B575](README.md#b575) — The Wizard's Host Key Is Not Asked Again
 
-**Status:** Backlog. Filed 2026-11-09 under ST290, from the fourth move.
+**Status:** Implementing. Filed 2026-11-09 under ST290, from the fourth move.
 **Size:** S - one ssh call that does not take the pinned known-hosts file, and its test.
 
 **What must be true.** After the setup wizard compared a host's key with the person and stored it, no later step of

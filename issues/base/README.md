@@ -116,6 +116,9 @@ from its side, as *blocked by*.
 | <a id="b529"></a>[B529](B529-A-Peers-Message-Cannot-Pass-For-A-Filter-Note.md) | S | - | Another task's message shaped like a refusal note no longer wakes every task it reaches. |
 | <a id="b543"></a>[B543](B543-The-Persons-Host-Commands-In-Porelo.md) | L | [B540](#b540) | `porelo host forge-token \| central-state \| stop-secrets`, and porelod reading the central state as a checked file. |
 | <a id="b548"></a>[B548](B548-A-Repositorys-Arrivals-Read-As-A-Published-File.md) | M | [B547](#b547) | root publishes arrivals with a read ACL; porelod reads the file, no sudo verb. |
+| <a id="b575"></a>[B575](B575-The-Wizards-Host-Key-Is-Not-Asked-Again.md) | S | - | No second host key question after the wizard compared and stored the key. |
+| <a id="b581"></a>[B581](B581-The-Task-Terminal-Takes-The-Largest-View.md) | XS | - | The task terminal sizes to the latest client (`window-size latest`). |
+| <a id="b582"></a>[B582](B582-A-Task-Is-Shown-In-Its-Room-By-Its-Own-Name.md) | S | - | A task is shown in its room as "Agent" and its own name ("Agent Pi"), the agent's name only to tell two apart. |
 | <a id="b549"></a>[B549](B549-The-Push-Judge-In-The-Host-Tool.md) | L | [B547](#b547) | `porelo-host judge-push` behind the judge socket, with every refusal test. |
 | <a id="b560"></a>[B560](B560-A-Planning-Adapter-Behind-Its-Own-Contract.md) | M | - | `porelo-planning-api`: `org.fuin.porelo.Planning1`, `PlanningMain`, the client and discovery of installed planning adapters, a stub, and the adapter guide. |
 | <a id="b562"></a>[B562](B562-The-Board-Read-Through-Porelod.md) | L | [B560](README.md#b560), [B561](README.md#b561) | Tasks1 part `60-planning`'s reads through the adapter porelod runs, a GitHub App's token minted per call, a story's state computed from its issues in one workflow, and `planning.work` checked against it. |
@@ -136,10 +139,7 @@ from its side, as *blocked by*.
 | <a id="b577"></a>[B577](B577-An-Online-Tasks-Pushed-Commit-Waits-On-Nobody.md) | M | - | An online task whose push passed the gate is never shown as waiting on the person; its push appears as the task's. |
 | <a id="b578"></a>[B578](B578-A-Task-That-Said-Done-Is-Done.md) | M | - | A task whose agent said done and stopped has the state `done`. |
 | <a id="b576"></a>[B576](B576-A-Tasks-Status-Names-Its-Model-And-Its-Own-Name.md) | M | - | `task status --json` names the model, its source and the short name; a start naming no model says `modelFrom: project`; usage names the model. |
-| <a id="b575"></a>[B575](B575-The-Wizards-Host-Key-Is-Not-Asked-Again.md) | S | - | No second host key question after the wizard compared and stored the key. |
 | <a id="b579"></a>[B579](B579-A-Single-Admins-Project-Needs-No-Review.md) | S | - | A project with a single admin is created with `review: optional`, and `required` that cannot be met is said. |
-| <a id="b581"></a>[B581](B581-The-Task-Terminal-Takes-The-Largest-View.md) | XS | - | The task terminal sizes to the latest client (`window-size latest`). |
-| <a id="b582"></a>[B582](B582-A-Task-Is-Shown-In-Its-Room-By-Its-Own-Name.md) | S | - | A task is shown in its room as "Agent" and its own name ("Agent Pi"), the agent's name only to tell two apart. |
 | <a id="b571"></a>[B571](B571-A-Task-Container-Finds-Its-Init.md) | XS | - | porelo's package depends on `catatonit`, the init every task container starts with, and a start without it refuses before anything is made. |
 | <a id="b572"></a>[B572](B572-The-Host-Services-Listener-Prepared-With-The-Suite.md) | S | - | A root-run script beside the acceptance suite prepares host-services' TLS listener, so the VM chain runs that feature instead of skipping it. |
 | <a id="b574"></a>[B574](B574-A-Hosts-Waiting-Project-Is-Never-Shown-As-Carried.md) | L | [B543](#b543) | A project the host reports waiting (`waiting-for-token`) is never listed as carried; the host's state and why reach the window. |

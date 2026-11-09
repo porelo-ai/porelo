@@ -1,6 +1,6 @@
 # [B582](README.md#b582) — A Task Is Shown In Its Room By Its Own Name
 
-**Status:** Backlog. Filed 2026-11-09 under ST290, from the fourth move.
+**Status:** Implementing. Filed 2026-11-09 under ST290, from the fourth move.
 **Size:** S - the order of two names in one method, the held names it keeps, and its tests.
 
 **What must be true.** A task is shown in its project's room as "Agent" and its own name, as
