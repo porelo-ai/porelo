@@ -108,4 +108,119 @@ final class HostFiles {
             throw new HostRefusal(73, "cannot read or change the host's files");
         }
     }
+
+    boolean isSocket(Path path) {
+        try {
+            return (((Number)
+                                            java.util.Objects.requireNonNull(
+                                                    attributes.read(path).get("mode"),
+                                                    "Unix attributes include mode"))
+                                    .intValue()
+                            & 0170000)
+                    == 0140000;
+        } catch (IOException ex) {
+            return false;
+        }
+    }
+
+    void remove(String name) throws IOException {
+        final Path path = path(name);
+        check(path, 73, false, false, -1);
+        Files.deleteIfExists(path);
+    }
+
+    void writePerson(String login, boolean locked, boolean pending) throws IOException {
+        final Path path = path("/etc/porelo-host/people/" + login + ".conf");
+        check(path, 73, true, false, 0600);
+        final String original = read(path);
+        final String text =
+                original.lines()
+                                .filter(line -> !line.equals("lock=pending"))
+                                .map(line -> line.startsWith("locked=") ? "locked=" + locked : line)
+                                .collect(java.util.stream.Collectors.joining("\n", "", "\n"))
+                        + (pending ? "lock=pending\n" : "");
+        final Path temporary = ProjectFiles.stagePrivate(path, ".porelo-host-person.", text, null);
+        try {
+            Files.move(
+                    temporary,
+                    path,
+                    java.nio.file.StandardCopyOption.ATOMIC_MOVE,
+                    java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+        } finally {
+            Files.deleteIfExists(temporary);
+        }
+    }
+
+    void removeDelivery(String user, ProjectRuntime runtime) {
+        final Path directory = path("/run/porelo-host/people/" + user);
+        check(
+                java.util.Objects.requireNonNull(
+                        directory.getParent(), "The delivery directory has a parent"),
+                73,
+                false,
+                true,
+                -1);
+        final Map<String, Object> status;
+        try {
+            status = attributes.read(directory);
+        } catch (NoSuchFileException ex) {
+            return;
+        } catch (IOException ex) {
+            throw new HostRefusal(
+                    73,
+                    "cannot remove the person's forge token delivery directory; it remains for retry");
+        }
+        final ProjectRuntime.Account account = runtime.find(user);
+        final int mode =
+                ((Number)
+                                java.util.Objects.requireNonNull(
+                                        status.get("mode"), "Unix attributes include mode"))
+                        .intValue();
+        if ((mode & 0170000) != 0040000
+                || account != null
+                        && !Long.valueOf(account.uid())
+                                .equals(
+                                        ((Number)
+                                                        java.util.Objects.requireNonNull(
+                                                                status.get("uid"),
+                                                                "Unix attributes include uid"))
+                                                .longValue())) {
+            throw new HostRefusal(
+                    73,
+                    "the forge token delivery directory is not a private directory of the person's");
+        }
+        try (var stream = Files.newDirectoryStream(directory.getParent())) {
+            if (!(stream instanceof java.nio.file.SecureDirectoryStream<Path> secure)) {
+                throw new HostRefusal(
+                        69, "safe removal of the forge token delivery directory is unavailable");
+            }
+            removeDirectory(secure, directory.getFileName());
+        } catch (IOException ex) {
+            throw new HostRefusal(
+                    73,
+                    "cannot remove the person's forge token delivery directory; it remains for retry");
+        }
+    }
+
+    private static void removeDirectory(java.nio.file.SecureDirectoryStream<Path> parent, Path name)
+            throws IOException {
+        try (var directory = parent.newDirectoryStream(name, LinkOption.NOFOLLOW_LINKS)) {
+            for (Path entry : directory) {
+                final Path child = entry.getFileName();
+                final var view =
+                        java.util.Objects.requireNonNull(
+                                directory.getFileAttributeView(
+                                        child,
+                                        java.nio.file.attribute.BasicFileAttributeView.class,
+                                        LinkOption.NOFOLLOW_LINKS),
+                                "Unix directory entries have basic attributes");
+                if (view.readAttributes().isDirectory()) {
+                    removeDirectory(directory, child);
+                } else {
+                    directory.deleteFile(child);
+                }
+            }
+        }
+        parent.deleteDirectory(name);
+    }
 }

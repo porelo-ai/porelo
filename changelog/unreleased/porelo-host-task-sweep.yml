@@ -1,0 +1,2 @@
+title: "'porelo-host task sweep' retries pending person locks and removes forge task tokens whose recorded certificates have ended, from root's timer alone"
+type: added

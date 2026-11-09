@@ -17,6 +17,14 @@ public final class SystemProgram {
     private static final List<Path> DIRECTORIES =
             List.of(Path.of("/usr/sbin"), Path.of("/usr/bin"), Path.of("/sbin"), Path.of("/bin"));
 
+    /** A checked search found no program, distinct from an installed but unsafe program. */
+    public static final class Missing extends IOException {
+        /** Names the program and fixed directories searched, without any caller arguments. */
+        public Missing(String name, List<Path> searched) {
+            super("Program " + name + " not found at " + searched);
+        }
+    }
+
     private SystemProgram() {}
 
     /**
@@ -133,7 +141,7 @@ public final class SystemProgram {
             }
             return resolved;
         }
-        throw new IOException("Program " + name + " not found at " + searched);
+        throw new Missing(name, searched);
     }
 
     private static void checkDirectories(@Nullable Path directory, Attributes attributes, int root)

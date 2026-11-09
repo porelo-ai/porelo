@@ -24,7 +24,17 @@ Only the calling SUDO_USER's tasks are visible, and the person must be unlocked
 and hold a host membership. Takes an exclusive flock on forge.conf.
 The fingerprint must match SHA256: followed by exactly 43 base64 characters,
 without padding. No certificate or token is created or changed.
-The project commands maintain the host's registered forge organizations.
+.TP
+.B task sweep
+Root's timer only; refused with status 65 when SUDO_USER is set.
+Takes an exclusive flock on /etc/porelo-host/forge.conf, retries pending person
+locks, and deletes forge task tokens whose recorded certificate has ended.
+Retains every task record and every token for a task whose certificate is still valid.
+Prints one JSON object with a sorted swept list of login/task names.
+One person's forge failure stops no other person's sweep; failures answer status
+69, naming the completed deletions and failures. Removal of the temporary
+administrator token is attempted before the answer, including when a request
+fails; a cleanup failure refuses the call.
 .SH OPTIONS
 .TP
 .BR \-h ", " \-\-help
@@ -70,8 +80,8 @@ Root's unit invocations need no person until a verb acts for one.
 Other invocations require real uid 0.
 Argument files are not expanded and JVM runtime options are ordinary arguments.
 Child programs are checked through SystemProgram, run without a shell from /,
-with only PATH=/usr/sbin:/usr/bin:/sbin:/bin and LANG=C.UTF-8,
-a timeout and bounded output.
+with PATH=/usr/sbin:/usr/bin:/sbin:/bin and a fixed locale: LANG=C.UTF-8
+for task work, LC_ALL=C for project work. Time and output are bounded.
 Root-owned data files must be regular files without symbolic links;
 the file and every parent through / must be root-owned and not writable
 by group or others, including sticky temporary directories.
@@ -85,7 +95,7 @@ The command completed successfully.
 Invalid arguments or no verb.
 .TP
 .B 65 (EX_DATAERR)
-Invalid host records or project data, a refused organization read through sudo,
+Invalid host records or project data, a root-only verb called through sudo,
 no visible task, or a refused forge operation.
 .TP
 .B 69 (EX_UNAVAILABLE)

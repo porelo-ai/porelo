@@ -21,6 +21,7 @@ public final class PoreloHost implements Callable<Integer> {
     @CommandLine.Spec private CommandLine.Model.CommandSpec spec;
     private final Map<String, String> environment;
     private final HostFiles files;
+    private final HostSweep sweep;
     private final Function<Map<String, String>, HostPerson> person;
 
     /** Uses only the installed host tree and the sudo identity. */
@@ -32,6 +33,15 @@ public final class PoreloHost implements Callable<Integer> {
             Map<String, String> environment,
             HostFiles files,
             Function<Map<String, String>, HostPerson> person) {
+        this(environment, files, person, new HostSweep(files));
+    }
+
+    private PoreloHost(
+            Map<String, String> environment,
+            HostFiles files,
+            Function<Map<String, String>, HostPerson> person,
+            HostSweep sweep) {
+        this.sweep = sweep;
         this.environment = Map.copyOf(environment);
         this.files = files;
         this.person = person;
@@ -78,6 +88,18 @@ public final class PoreloHost implements Callable<Integer> {
             PrintWriter err,
             HostFiles files,
             Function<Map<String, String>, HostPerson> person) {
+        return run(args, environment, uid, out, err, files, person, new HostSweep(files));
+    }
+
+    static int run(
+            String[] args,
+            Map<String, String> environment,
+            Uid uid,
+            PrintWriter out,
+            PrintWriter err,
+            HostFiles files,
+            Function<Map<String, String>, HostPerson> person,
+            HostSweep sweep) {
         try {
             HostEnvironment.check(environment);
             final boolean informational = args.length == 1 && answersAlone(args[0]);
@@ -95,7 +117,7 @@ public final class PoreloHost implements Callable<Integer> {
                 throw new HostRefusal(
                         64, "porelo-host: --version and --help take no other argument");
             }
-            return commandLine(new PoreloHost(environment, files, person))
+            return commandLine(new PoreloHost(environment, files, person, sweep))
                     .setOut(out)
                     .setErr(err)
                     .execute(args);
@@ -124,7 +146,10 @@ public final class PoreloHost implements Callable<Integer> {
         command.addSubcommand(
                 "org", new CommandLine(new Group()).addSubcommand("status", new OrgStatus(host)));
         command.addSubcommand(
-                "task", new CommandLine(new Group()).addSubcommand("show", new TaskShow(host)));
+                "task",
+                new CommandLine(new Group())
+                        .addSubcommand("show", new TaskShow(host))
+                        .addSubcommand("sweep", new TaskSweep(host)));
         command.addSubcommand("project", HostProject.commandLine());
         command.setExpandAtFiles(false);
         command.setExecutionExceptionHandler(
@@ -214,6 +239,32 @@ public final class PoreloHost implements Callable<Integer> {
                                             + HostJson.array(status.get("projects")).size()
                                             + " projects");
                 }
+            }
+            return 0;
+        }
+    }
+
+    @Command(
+            name = "sweep",
+            mixinStandardHelpOptions = true,
+            exitCodeOnInvalidInput = 64,
+            description = "Delete ended task tokens from root's timer.")
+    static final class TaskSweep implements Callable<Integer> {
+        private final PoreloHost host;
+        @CommandLine.Spec private CommandLine.Model.CommandSpec spec;
+
+        TaskSweep(PoreloHost host) {
+            this.host = host;
+        }
+
+        @Override
+        public Integer call() throws IOException {
+            final var conf = host.files.path("/etc/porelo-host/forge.conf");
+            host.files.check(conf, 69, true, false, -1);
+            try (var lock = HostConfigurationLock.acquire(conf, false)) {
+                spec.commandLine()
+                        .getOut()
+                        .println(HostJson.write(host.sweep.run(host.environment)));
             }
             return 0;
         }

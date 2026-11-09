@@ -3,10 +3,13 @@ package org.fuin.porelo.host;
 import static org.fuin.porelo.host.HostJson.*;
 
 import java.nio.file.Path;
+import java.time.Instant;
 import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.time.format.ResolverStyle;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import org.jspecify.annotations.Nullable;
@@ -35,30 +38,56 @@ final class HostTasks {
         if (record == null || !record.admitted()) {
             throw new HostRefusal(65, person.login() + " is no unlocked person of this host");
         }
-        final Path root = files.path("/var/lib/porelo-host/tasks");
-        final List<Path> paths;
-        if (files.check(root, 73, false, true, 0700)) {
-            paths = files.list(root.resolve(person.login()), 73, 0700);
-        } else {
-            paths = List.of();
-        }
         Map<String, @Nullable Object> found = null;
-        for (Path path : paths) {
-            final String name = path.getFileName().toString();
-            if (!name.endsWith(".json")
-                    || !name.substring(0, name.length() - 5).matches("[a-z0-9][a-z0-9._-]{0,63}")) {
-                throw new HostRefusal(65, path.getParent() + " holds an unknown entry");
-            }
-            final Map<String, @Nullable Object> entry =
-                    taskRecord(path, person.login(), name.substring(0, name.length() - 5));
-            if (found == null && fingerprint.equals(entry.get("fingerprint"))) {
-                found = entry;
+        for (Task task : read(person.login())) {
+            if (found == null && fingerprint.equals(task.entry().get("fingerprint"))) {
+                found = task.entry();
             }
         }
         if (found != null) {
             return found;
         }
         throw new HostRefusal(65, "no task certificate is recorded for " + fingerprint);
+    }
+
+    record Task(String login, String name, Map<String, @Nullable Object> entry) {
+        Instant end() {
+            final String time = string(entry.get("valid_before"));
+            return LocalDateTime.parse(
+                            time.endsWith("Z") ? time.substring(0, time.length() - 1) : time, TIME)
+                    .toInstant(ZoneOffset.UTC);
+        }
+    }
+
+    List<Task> read() {
+        return read(null);
+    }
+
+    private List<Task> read(@Nullable String login) {
+        final Path root = files.path("/var/lib/porelo-host/tasks");
+        if (!files.check(root, 73, false, true, 0700)) {
+            return List.of();
+        }
+        final List<Task> found = new ArrayList<>();
+        final List<Path> directories =
+                login == null ? files.list(root, 73, 0700) : List.of(root.resolve(login));
+        for (Path directory : directories) {
+            final String user = directory.getFileName().toString();
+            if (!user.matches(HostRecords.USER)) {
+                throw new HostRefusal(65, root + " holds an unknown entry");
+            }
+            for (Path path : files.list(directory, 73, 0700)) {
+                final String name = path.getFileName().toString();
+                if (!name.endsWith(".json")
+                        || !name.substring(0, name.length() - 5)
+                                .matches("[a-z0-9][a-z0-9._-]{0,63}")) {
+                    throw new HostRefusal(65, directory + " holds an unknown entry");
+                }
+                final String task = name.substring(0, name.length() - 5);
+                found.add(new Task(user, task, taskRecord(path, user, task)));
+            }
+        }
+        return found;
     }
 
     private Map<String, @Nullable Object> taskRecord(Path path, String login, String task) {

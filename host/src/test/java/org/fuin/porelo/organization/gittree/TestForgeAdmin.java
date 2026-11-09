@@ -19,10 +19,26 @@ public final class TestForgeAdmin {
 
     /** Wrap the production validation around a supplied exchange. */
     public static HttpForgeAdmin create(char[] token, boolean central, Exchange exchange) {
+        return create(token, central, exchange, () -> {});
+    }
+
+    /** Observe transport disposal as well as requests. */
+    public static HttpForgeAdmin create(
+            char[] token, boolean central, Exchange exchange, Runnable close) {
         return new HttpForgeAdmin(
-                (method, path, authorization, body) -> {
-                    final Response reply = exchange.request(method, path, authorization, body);
-                    return new HttpForgeAdmin.Answer(reply.status(), reply.body());
+                new HttpForgeAdmin.Transport() {
+                    @Override
+                    public HttpForgeAdmin.Answer request(
+                            String method, String path, byte[] authorization, byte[] body)
+                            throws IOException {
+                        final Response reply = exchange.request(method, path, authorization, body);
+                        return new HttpForgeAdmin.Answer(reply.status(), reply.body());
+                    }
+
+                    @Override
+                    public void close() {
+                        close.run();
+                    }
                 },
                 token,
                 central);

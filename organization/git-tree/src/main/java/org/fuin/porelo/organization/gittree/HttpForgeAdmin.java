@@ -3,6 +3,7 @@ package org.fuin.porelo.organization.gittree;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.math.BigInteger;
 import java.net.ProxySelector;
 import java.net.StandardProtocolFamily;
 import java.net.URI;
@@ -22,6 +23,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.TreeMap;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ExecutionException;
@@ -101,6 +103,11 @@ public final class HttpForgeAdmin implements AutoCloseable {
     /** Ask once, validating status and JSON and never exposing response bodies on failure. */
     public @Nullable Object request(
             String method, String path, @Nullable Object body, int... expected) {
+        return request(method, path, body, false, expected);
+    }
+
+    private @Nullable Object request(
+            String method, String path, @Nullable Object body, boolean person, int... expected) {
         if (!path.startsWith("/")
                 || path.startsWith("//")
                 || path.chars().anyMatch(c -> c < 33 || c > 126)
@@ -121,9 +128,15 @@ public final class HttpForgeAdmin implements AutoCloseable {
         } catch (IOException | IllegalArgumentException ex) {
             throw new Refusal(
                     69,
-                    central
-                            ? "the central forge did not answer the deploy-key request"
-                            : "the forge did not answer " + method + " " + path + ": IOException");
+                    person
+                            ? "Forgejo admin API did not answer valid JSON on its private socket"
+                            : central
+                                    ? "the central forge did not answer the deploy-key request"
+                                    : "the forge did not answer "
+                                            + method
+                                            + " "
+                                            + path
+                                            + ": IOException");
         } finally {
             Arrays.fill(bytes, (byte) 0);
             Arrays.fill(authorization, (byte) 0);
@@ -134,39 +147,50 @@ public final class HttpForgeAdmin implements AutoCloseable {
                             .anyMatch(code -> code == answer.status());
             if (!accepted || answer.body().length > LIMIT) {
                 throw new Refusal(
-                        central || answer.status() >= 500 ? 69 : 65,
-                        central
-                                ? "the central forge refused the deploy-key request (HTTP "
+                        person || central || answer.status() >= 500 ? 69 : 65,
+                        person
+                                ? "Forgejo admin API answered HTTP "
                                         + answer.status()
-                                        + ")"
-                                : "the forge answered HTTP "
-                                        + answer.status()
-                                        + " for "
+                                        + " to "
                                         + method
                                         + " "
-                                        + path);
+                                        + path.substring("/admin/users/".length())
+                                : central
+                                        ? "the central forge refused the deploy-key request (HTTP "
+                                                + answer.status()
+                                                + ")"
+                                        : "the forge answered HTTP "
+                                                + answer.status()
+                                                + " for "
+                                                + method
+                                                + " "
+                                                + path);
             }
-            if (answer.status() == 404
-                    || answer.body().length == 0 && (central || !method.equals("GET"))) {
+            if (person
+                    ? answer.status() == 204
+                    : answer.status() == 404
+                            || answer.body().length == 0 && (central || !method.equals("GET"))) {
                 return null;
             }
             final Object parsed;
             try {
-                parsed =
-                        Json.parseExact(
-                                StandardCharsets.UTF_8
-                                        .newDecoder()
-                                        .onMalformedInput(java.nio.charset.CodingErrorAction.REPORT)
-                                        .decode(ByteBuffer.wrap(answer.body()))
-                                        .toString());
+                final String text =
+                        StandardCharsets.UTF_8
+                                .newDecoder()
+                                .onMalformedInput(java.nio.charset.CodingErrorAction.REPORT)
+                                .decode(ByteBuffer.wrap(answer.body()))
+                                .toString();
+                parsed = person ? Json.parseNumberTypes(text) : Json.parseExact(text);
             } catch (JsonException | java.nio.charset.CharacterCodingException ex) {
                 throw new Refusal(
-                        central ? 69 : 65,
-                        central
-                                ? "the central forge answered malformed deploy-key JSON"
-                                : "the forge sent invalid JSON for " + method + " " + path);
+                        person || central ? 69 : 65,
+                        person
+                                ? "Forgejo admin API did not answer valid JSON on its private socket"
+                                : central
+                                        ? "the central forge answered malformed deploy-key JSON"
+                                        : "the forge sent invalid JSON for " + method + " " + path);
             }
-            if (parsed == null && !central) {
+            if (parsed == null && !central && !person) {
                 throw new Refusal(
                         65, "the forge sent no identity or list for " + method + " " + path);
             }
@@ -174,6 +198,60 @@ public final class HttpForgeAdmin implements AutoCloseable {
         } finally {
             Arrays.fill(answer.body(), (byte) 0);
         }
+    }
+
+    /** Reads all token pages before deleting any, in numeric ID order; null means every token. */
+    public List<String> dropNamed(String identity, @Nullable Set<String> names) {
+        final Map<BigInteger, @Nullable Object> tokens = new TreeMap<>();
+        for (int page = 1; ; page++) {
+            final @Nullable Object answer =
+                    requestUser("GET", identity + "/tokens?limit=50&page=" + page, 200, null);
+            if (!(answer instanceof List<?> rows)) {
+                throw new Refusal(69, "Forgejo answered no valid access-token list");
+            }
+            if (rows.isEmpty()) {
+                break;
+            }
+            final Map<BigInteger, @Nullable Object> batch = new TreeMap<>();
+            for (Object value : rows) {
+                if (!(value instanceof Map<?, ?> row)
+                        || !(row.get("id") instanceof BigInteger id)
+                        || id.signum() <= 0) {
+                    throw new Refusal(69, "Forgejo answered no valid access-token list");
+                }
+                batch.put(id, row.get("name"));
+            }
+            if (batch.size() != rows.size()
+                    || batch.keySet().stream().anyMatch(tokens::containsKey)) {
+                throw new Refusal(69, "Forgejo repeated a page of access tokens");
+            }
+            tokens.putAll(batch);
+        }
+        if (names != null && tokens.values().stream().anyMatch(name -> !(name instanceof String))) {
+            throw new Refusal(69, "Forgejo answered no valid access-token name");
+        }
+        final List<String> dropped = new ArrayList<>();
+        for (var entry : tokens.entrySet()) {
+            final Object name = entry.getValue();
+            if (names == null || name instanceof String text && names.contains(text)) {
+                requestUser("DELETE", identity + "/tokens/" + entry.getKey(), 204, null);
+                // Only names of tasks are rendered by the host; other token names stay private.
+                if (name instanceof String text) {
+                    dropped.add(text);
+                }
+            }
+        }
+        return dropped;
+    }
+
+    /** Sends one request; failures expose only the status, verb and locally constructed route. */
+    public @Nullable Object requestUser(
+            String method, String route, int expected, @Nullable Object body) {
+        if (!List.of("GET", "DELETE", "PATCH").contains(method)
+                || !route.matches("[a-z_][a-z0-9_-]{0,95}(/tokens([/?][a-zA-Z0-9?=&]+)?)?")) {
+            throw new IllegalArgumentException("Invalid Forgejo admin route");
+        }
+        return request(method, "/admin/users/" + route, body, true, expected);
     }
 
     /** Read all pages, rejecting repetition and incomplete lists before any destructive act. */
@@ -348,80 +426,7 @@ public final class HttpForgeAdmin implements AutoCloseable {
                                 out.write(after);
                                 out.write(body);
                                 out.flush();
-                                final InputStream in = Channels.newInputStream(channel);
-                                final String[] status = line(in).split(" ", 3);
-                                if (status.length < 2
-                                        || !status[0].matches("HTTP/1\\.[01]")
-                                        || !status[1].matches("[0-9]{3}")) {
-                                    throw new IOException("Invalid HTTP status");
-                                }
-                                int size = -1;
-                                boolean chunked = false;
-                                int headerBytes = 0;
-                                while (true) {
-                                    final String header = line(in);
-                                    headerBytes += header.length() + 2;
-                                    if (headerBytes > 65536) {
-                                        throw new IOException("HTTP headers exceed limit");
-                                    }
-                                    if (header.isEmpty()) {
-                                        break;
-                                    }
-                                    final int colon = header.indexOf(':');
-                                    if (colon < 1) {
-                                        throw new IOException("Malformed HTTP header");
-                                    }
-                                    final String name = header.substring(0, colon);
-                                    final String value = header.substring(colon + 1).strip();
-                                    if (name.equalsIgnoreCase("Content-Length")) {
-                                        if (size != -1 || !value.matches("[0-9]{1,9}")) {
-                                            throw new IOException("Ambiguous HTTP length");
-                                        }
-                                        size = Integer.parseInt(value);
-                                    } else if (name.equalsIgnoreCase("Transfer-Encoding")) {
-                                        if (chunked || !value.equalsIgnoreCase("chunked")) {
-                                            throw new IOException("Unsupported transfer encoding");
-                                        }
-                                        chunked = true;
-                                    }
-                                }
-                                if (chunked && size >= 0) {
-                                    throw new IOException("Ambiguous HTTP framing");
-                                }
-                                final int code = Integer.parseInt(status[1]);
-                                if (code == 204 || code == 304) {
-                                    return new Answer(code, new byte[0]);
-                                }
-                                final ByteArrayOutputStream bytes = new ByteArrayOutputStream();
-                                if (chunked) {
-                                    for (int chunks = 0; chunks < LIMIT; chunks++) {
-                                        final String chunk = line(in).split(";", 2)[0];
-                                        if (!chunk.matches("[0-9a-fA-F]{1,8}")) {
-                                            throw new IOException("Invalid HTTP chunk");
-                                        }
-                                        final long count = Long.parseLong(chunk, 16);
-                                        if (count == 0) {
-                                            return new Answer(code, bytes.toByteArray());
-                                        }
-                                        if (count > LIMIT - bytes.size()) {
-                                            throw new IOException("HTTP body exceeds limit");
-                                        }
-                                        bytes.write(exact(in, (int) count));
-                                        if (!line(in).isEmpty()) {
-                                            throw new IOException("Invalid HTTP chunk ending");
-                                        }
-                                    }
-                                    throw new IOException("Too many HTTP chunks");
-                                }
-                                if (size > LIMIT) {
-                                    throw new IOException("HTTP body exceeds limit");
-                                }
-                                final byte[] result =
-                                        size < 0 ? in.readNBytes(LIMIT + 1) : exact(in, size);
-                                if (result.length > LIMIT) {
-                                    throw new IOException("HTTP body exceeds limit");
-                                }
-                                return new Answer(code, result);
+                                return answer(Channels.newInputStream(channel));
                             });
             final Thread worker = Thread.ofVirtual().name("project-forge-http").start(task);
             try {
@@ -448,6 +453,81 @@ public final class HttpForgeAdmin implements AutoCloseable {
                 }
             }
         }
+    }
+
+    static Answer answer(InputStream in) throws IOException {
+        final String[] status = line(in).split(" ", 3);
+        if (status.length < 2
+                || !status[0].matches("HTTP/1\\.[01]")
+                || !status[1].matches("[0-9]{3}")) {
+            throw new IOException("Invalid HTTP status");
+        }
+        int size = -1;
+        boolean chunked = false;
+        int headerBytes = 0;
+        while (true) {
+            final String header = line(in);
+            headerBytes += header.length() + 2;
+            if (headerBytes > 65536) {
+                throw new IOException("HTTP headers exceed limit");
+            }
+            if (header.isEmpty()) {
+                break;
+            }
+            final int colon = header.indexOf(':');
+            if (colon < 1) {
+                throw new IOException("Malformed HTTP header");
+            }
+            final String name = header.substring(0, colon);
+            final String value = header.substring(colon + 1).strip();
+            if (name.equalsIgnoreCase("Content-Length")) {
+                if (size != -1 || !value.matches("[0-9]{1,9}")) {
+                    throw new IOException("Ambiguous HTTP length");
+                }
+                size = Integer.parseInt(value);
+            } else if (name.equalsIgnoreCase("Transfer-Encoding")) {
+                if (chunked || !value.equalsIgnoreCase("chunked")) {
+                    throw new IOException("Unsupported transfer encoding");
+                }
+                chunked = true;
+            }
+        }
+        if (chunked && size >= 0) {
+            throw new IOException("Ambiguous HTTP framing");
+        }
+        final int code = Integer.parseInt(status[1]);
+        if (code == 204 || code == 304) {
+            return new Answer(code, new byte[0]);
+        }
+        final ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+        if (chunked) {
+            for (int chunks = 0; chunks < LIMIT; chunks++) {
+                final String chunk = line(in).split(";", 2)[0];
+                if (!chunk.matches("[0-9a-fA-F]{1,8}")) {
+                    throw new IOException("Invalid HTTP chunk");
+                }
+                final long count = Long.parseLong(chunk, 16);
+                if (count == 0) {
+                    return new Answer(code, bytes.toByteArray());
+                }
+                if (count > LIMIT - bytes.size()) {
+                    throw new IOException("HTTP body exceeds limit");
+                }
+                bytes.write(exact(in, (int) count));
+                if (!line(in).isEmpty()) {
+                    throw new IOException("Invalid HTTP chunk ending");
+                }
+            }
+            throw new IOException("Too many HTTP chunks");
+        }
+        if (size > LIMIT) {
+            throw new IOException("HTTP body exceeds limit");
+        }
+        final byte[] result = size < 0 ? in.readNBytes(LIMIT + 1) : exact(in, size);
+        if (result.length > LIMIT) {
+            throw new IOException("HTTP body exceeds limit");
+        }
+        return new Answer(code, result);
     }
 
     private static byte[] exact(InputStream in, int count) throws IOException {

@@ -182,4 +182,12 @@ class HostProgramsTest {
             Thread.interrupted();
         }
     }
+
+    @Test
+    void aCapturedCredentialNeverAppearsInTheResultDescription() {
+        assertThat(new HostPrograms.Result(0, "private-fixture-value").toString())
+                .as(
+                        "forge token generation must not introduce an automatically printable credential")
+                .isEqualTo("Result[exitCode=0, output withheld]");
+    }
 }

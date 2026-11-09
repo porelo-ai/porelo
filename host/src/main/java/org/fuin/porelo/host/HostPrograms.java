@@ -77,6 +77,9 @@ final class HostPrograms {
         try {
             program = programs.apply(name);
         } catch (UncheckedIOException ex) {
+            if (ex.getCause() instanceof SystemProgram.Missing) {
+                throw new IOException(ex.getCause().getMessage(), ex.getCause());
+            }
             throw ex.getCause();
         }
         final List<String> command = new ArrayList<>(argv);
@@ -84,9 +87,7 @@ final class HostPrograms {
         final ProcessBuilder builder =
                 new ProcessBuilder(command)
                         .directory(Path.of("/").toFile())
-                        // A warning on stderr (an NSS module's, say) is no part of the answer: it
-                        // is
-                        // read apart, bounded, and never mixed into what the caller takes.
+                        // Read stderr apart and bounded: an NSS warning is no part of its answer.
                         .redirectErrorStream(false);
         builder.environment().clear();
         builder.environment().putAll(fixedEnvironment ? ENVIRONMENT : environment);

@@ -16,6 +16,7 @@ import java.nio.file.StandardOpenOption;
 import java.nio.file.attribute.PosixFilePermissions;
 import java.util.List;
 import java.util.Map;
+import org.jspecify.annotations.Nullable;
 
 /** The project's root-owned records and atomic publications, with a test-only trust anchor. */
 final class ProjectFiles {
@@ -171,6 +172,13 @@ final class ProjectFiles {
 
     Path stage(Path destination, String prefix, String content) throws IOException {
         directory(parent(destination), false, false);
+        return stagePrivate(destination, prefix, content, owner);
+    }
+
+    /** Shared private-file publication; a null owner keeps the creating account's ownership. */
+    static Path stagePrivate(
+            Path destination, String prefix, String content, @Nullable Integer owner)
+            throws IOException {
         final Path temporary;
         try {
             temporary =
@@ -190,7 +198,10 @@ final class ProjectFiles {
                         // Set the mode through the checked parent before reopening a possibly 0000
                         // file.
                         Files.setAttribute(temporary, "unix:mode", 0600);
-                        Files.setAttribute(temporary, "unix:uid", owner, LinkOption.NOFOLLOW_LINKS);
+                        if (owner != null) {
+                            Files.setAttribute(
+                                    temporary, "unix:uid", owner, LinkOption.NOFOLLOW_LINKS);
+                        }
                         try (FileChannel channel =
                                 FileChannel.open(
                                         temporary,

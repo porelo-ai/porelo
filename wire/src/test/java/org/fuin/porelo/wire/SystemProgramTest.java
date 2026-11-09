@@ -197,4 +197,12 @@ class SystemProgramTest {
                 .as("a program another account may replace is not run by its path either")
                 .isInstanceOf(java.io.UncheckedIOException.class);
     }
+
+    @Test
+    void anAbsentProgramHasANamedOutcomeInsteadOfADiagnosticToParse() {
+        assertThatThrownBy(() -> SystemProgram.find("absent", List.of(directory), this::rootOwned))
+                .as("optional programs may be absent, but an unsafe installed binary must refuse")
+                .isInstanceOf(SystemProgram.Missing.class)
+                .hasMessage("Program absent not found at [" + directory.resolve("absent") + "]");
+    }
 }
