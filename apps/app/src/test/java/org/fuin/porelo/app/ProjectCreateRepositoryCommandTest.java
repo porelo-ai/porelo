@@ -45,6 +45,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import picocli.CommandLine;
 
 /**
@@ -580,11 +582,190 @@ class ProjectCreateRepositoryCommandTest {
         }
 
         @Test
+        void oneAdminNeedsNoReviewByDefault() throws Exception {
+            // Harm: a sole admin's first task waits for an approval nobody can give.
+            members(false, false);
+            assertThat(run("solo", tip(organization))).as("creation: %s", err).isZero();
+            assertThat(git(project, "show", "HEAD:project.yml"))
+                    .as("a single unlocked admin must get an explicit optional review")
+                    .contains("review: optional");
+        }
+
+        @Test
+        void twoUnlockedAdminsKeepRequiredReviewByDefault() throws Exception {
+            // Harm: a shared project's first task bypasses the other admin's review.
+            members(true, false);
+            assertThat(run("shared", tip(organization))).as("creation: %s", err).isZero();
+            assertThat(projectFile().read(PROJECT, read().signingKeys("demo")).project().review())
+                    .as("two unlocked admins must retain required review")
+                    .isEqualTo("required");
+        }
+
+        @Test
+        void aLockedSecondAdminCannotSupplyTheDefaultReview() throws Exception {
+            // Harm: counting a locked admin strands the sole active admin's work.
+            assertThat(run("locked-second", tip(organization))).as("creation: %s", err).isZero();
+            assertThat(git(project, "show", "HEAD:project.yml"))
+                    .as("a locked second admin must not require an unavailable review")
+                    .contains("review: optional");
+        }
+
+        private void members(final boolean second, final boolean locked) throws Exception {
+            write(
+                    "projects/demo/members.yml",
+                    "members:\n  - login: alice\n    role: admin\n"
+                            + (second
+                                    ? "  - login: bob\n    role: admin\n    locked: "
+                                            + locked
+                                            + "\n"
+                                    : ""));
+            commit("alice");
+            git(work, "push", "-q", organization.toString(), "main");
+        }
+
+        @Test
+        void aCompletedIdDoesNotTreatAnIgnoredReviewAsWritten() throws Exception {
+            // Harm: a replay describes a review requirement the signed file does not hold.
+            assertThat(
+                            execute(
+                                    "project",
+                                    "create-repository",
+                                    "demo",
+                                    "--id",
+                                    "ignored-review",
+                                    "--json"))
+                    .as("creation: %s", err)
+                    .isZero();
+            assertThat(
+                            execute(
+                                    "project",
+                                    "create-repository",
+                                    "demo",
+                                    "--id",
+                                    "ignored-review",
+                                    "--review",
+                                    "required",
+                                    "--json"))
+                    .as("replay: %s", err)
+                    .isZero();
+            assertThat(answer().get("again"))
+                    .as("the existing receipt is returned")
+                    .isEqualTo(true);
+            assertThat(git(project, "show", "HEAD:project.yml"))
+                    .as("the ignored argument cannot change the signed file")
+                    .contains("review: optional");
+            assertThat(answer().containsKey("note"))
+                    .as("an ignored argument cannot justify a review warning")
+                    .isFalse();
+        }
+
+        @ParameterizedTest
+        @ValueSource(booleans = {false, true})
+        void aPartialCreationKeepsItsDefaultWhenTheAdminCountChanges(final boolean second)
+                throws Exception {
+            // Harm: a changed membership strands a first commit under an unchanged retry id.
+            members(second, false);
+            final String[] arguments = {
+                "project", "create-repository", "demo", "--id", "membership-default", "--json"
+            };
+            stopAfterCommitting = true;
+            assertThat(execute(arguments))
+                    .as("the first commit must succeed before interruption: %s", err)
+                    .isEqualTo(69);
+            final String first = git(project, "show", "HEAD:project.yml");
+            members(!second, false);
+            assertThat(execute(arguments))
+                    .as("unchanged retry must finish after membership changes: %s", err)
+                    .isZero();
+            assertThat(git(project, "show", "HEAD:project.yml"))
+                    .as("the first file's original review choice must stand")
+                    .isEqualTo(first);
+            assertThat(git(project, "rev-list", "--count", "HEAD"))
+                    .as("retry must reuse the first signed commit")
+                    .isEqualTo("1");
+        }
+
+        private int formatted(final boolean json, final String... arguments) {
+            final List<String> all = new ArrayList<>(List.of(arguments));
+            if (json) {
+                all.add("--json");
+            }
+            return execute(all.toArray(String[]::new));
+        }
+
+        @ParameterizedTest
+        @ValueSource(booleans = {true, false})
+        void requiredReviewWithOneAdminExplainsTheWaitAndTheManualChange(final boolean json)
+                throws Exception {
+            // Harm: an explicit review requirement silently leaves the creator unable to merge.
+            assertThat(
+                            formatted(
+                                    json,
+                                    "project",
+                                    "create-repository",
+                                    "demo",
+                                    "--review",
+                                    "required",
+                                    "--id",
+                                    "required-solo"))
+                    .as("creation: %s", err)
+                    .isZero();
+            assertThat(git(project, "show", "HEAD:project.yml"))
+                    .as("the explicit review choice must be written")
+                    .contains("review: required");
+            final String note = json ? String.valueOf(answer().get("note")) : out.toString();
+            assertThat(note)
+                    .as("creation must explain the unavailable approval and the real verb")
+                    .contains(
+                            "second admin's approval",
+                            "porelo project review demo optional",
+                            "signed");
+        }
+
+        @ParameterizedTest
+        @ValueSource(booleans = {true, false})
+        void oneStepRequiredReviewAlsoExplainsTheWait(final boolean json) throws Exception {
+            // Harm: one-step creation hides the same impossible review from its sole admin.
+            asked = "fresh";
+            acting = "mia";
+            assertThat(
+                            formatted(
+                                    json,
+                                    "org",
+                                    "project",
+                                    "add",
+                                    "fresh",
+                                    "--admin",
+                                    "mia",
+                                    "--create-repository",
+                                    "--review",
+                                    "required",
+                                    "--id",
+                                    "required-fresh"))
+                    .as("creation: %s", err)
+                    .isZero();
+            assertThat(git(project.resolveSibling("fresh.git"), "show", "HEAD:project.yml"))
+                    .as("one-step creation must preserve an explicit requirement")
+                    .contains("review: required");
+            final String note = json ? String.valueOf(answer().get("note")) : out.toString();
+            assertThat(note)
+                    .as("one-step creation must explain how its admin can change review")
+                    .contains(
+                            "second admin's approval",
+                            "porelo project review fresh optional",
+                            "signed");
+        }
+
+        @Test
         void aPersonNamingThemselvesAddsAProjectAndCreatesItsRepositoryInOneStep()
                 throws Exception {
+            // Harm: one-step creation strands its sole admin behind an impossible review.
             assertThat(addingAndCreating("mia", "one-step")).as("what it said: %s", err).isZero();
 
             assertThat(answer().get("address")).isEqualTo("git@github.com:acme/fresh.git");
+            assertThat(git(project.resolveSibling("fresh.git"), "show", "HEAD:project.yml"))
+                    .as("one-step creation must also choose optional for its sole admin")
+                    .contains("review: optional");
             assertThat(answer().get("id"))
                     .as("the id the person asked under, which finds both parts again")
                     .isEqualTo("one-step");

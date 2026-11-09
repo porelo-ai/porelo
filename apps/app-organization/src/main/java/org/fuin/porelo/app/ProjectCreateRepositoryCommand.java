@@ -2,9 +2,11 @@ package org.fuin.porelo.app;
 
 import java.io.IOException;
 import java.net.URI;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.function.UnaryOperator;
+import org.fuin.porelo.core.project.Repository;
 import org.fuin.porelo.organization.OrganizationQuestions;
 import org.fuin.porelo.organization.OrganizationQuestions.Refused;
 import org.fuin.porelo.organization.OrganizationWrites;
@@ -42,6 +44,8 @@ public class ProjectCreateRepositoryCommand extends OrgWriting {
 
     private @Nullable String address;
 
+    private @Nullable String note;
+
     @Option(
             names = "--review",
             description = "Whether a merge needs another person: required or optional.")
@@ -64,6 +68,7 @@ public class ProjectCreateRepositoryCommand extends OrgWriting {
                         maker,
                         UnaryOperator.identity());
         address = created.address();
+        note = created.note();
         return created.written();
     }
 
@@ -72,8 +77,9 @@ public class ProjectCreateRepositoryCommand extends OrgWriting {
      *
      * @param written The filing of its address.
      * @param address Its address.
+     * @param note What required review waits for, or {@code null}.
      */
-    record Created(OrganizationWrites.Written written, String address) {}
+    record Created(OrganizationWrites.Written written, String address, @Nullable String note) {}
 
     /**
      * Creates a project's repository, reading the organization anew: who may, and where it stands.
@@ -114,7 +120,8 @@ public class ProjectCreateRepositoryCommand extends OrgWriting {
             final Optional<OrganizationWrites.Written> before =
                     opened.writes().addressFiled(change, project);
             if (before.isPresent()) {
-                return new Created(before.orElseThrow(), filed.orElseThrow());
+                // A receipt applies none of the retry's options and judges no current file.
+                return new Created(before.orElseThrow(), filed.orElseThrow(), null);
             }
         }
         ProjectRepositoryCommand.admin(state, project, change.acting().login());
@@ -149,17 +156,28 @@ public class ProjectCreateRepositoryCommand extends OrgWriting {
         final ForgeAddress origin = ForgeAddress.of(organization);
         final String at =
                 state.getProjectRepository(project).orElseGet(() -> beside(organization, project));
-        final String first =
-                firstFile(project, review == null ? null : ProjectRepositoryCommand.review(review));
+        @Nullable String chosen =
+                review == null
+                        ? (ProjectRepositoryCommand.hasSecondAdmin(
+                                        state.getProjectMembers(project).orElse(List.of()))
+                                ? null
+                                : Repository.REVIEW_OPTIONAL)
+                        : ProjectRepositoryCommand.review(review);
+        final String first = firstFile(project, chosen);
         try {
             try {
                 opened.files().found(change, at, first);
             } catch (Refused refused) {
-                if (!Refused.NO_REPOSITORY.equals(refused.reason())) {
+                if (Refused.NO_REPOSITORY.equals(refused.reason())) {
+                    maker.make(machine, origin, project);
+                    opened.files().found(change, at, first);
+                } else if (review == null && Refused.USAGE.equals(refused.reason())) {
+                    // Membership may have changed since this id's first signed commit.
+                    chosen = chosen == null ? Repository.REVIEW_OPTIONAL : null;
+                    opened.files().found(change, at, firstFile(project, chosen));
+                } else {
                     throw refused;
                 }
-                maker.make(machine, origin, project);
-                opened.files().found(change, at, first);
             }
         } catch (GitTreeStore.Unreachable ex) {
             throw new Refused(
@@ -173,12 +191,32 @@ public class ProjectCreateRepositoryCommand extends OrgWriting {
                         ? new OrganizationWrites.Change(
                                 change.acting(), state.revision(), change.id())
                         : change;
-        return new Created(opened.writes().changeProjectRepository(filing, project, at), at);
+        return new Created(
+                opened.writes().changeProjectRepository(filing, project, at),
+                at,
+                note(state, project, chosen == null ? Repository.REVIEW_REQUIRED : chosen));
     }
 
     @Override
     void more(final Map<String, @Nullable Object> answer) {
         answer.put("address", address);
+        if (note != null) {
+            answer.put("note", note);
+        }
+    }
+
+    private static @Nullable String note(
+            final OrganizationQuestions state,
+            final String project,
+            final @Nullable String review) {
+        if (!Repository.REVIEW_REQUIRED.equals(review)
+                || ProjectRepositoryCommand.hasSecondAdmin(
+                        state.getProjectMembers(project).orElse(List.of()))) {
+            return null;
+        }
+        return "With required review, a merge waits for a second admin's approval. To change it, run 'porelo project review "
+                + project
+                + " optional' for the entry to edit in project.yml, then commit it signed with a project admin's key.";
     }
 
     /** A project starts with nothing but what its file must say; its admin fills it from there. */

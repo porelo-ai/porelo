@@ -1074,6 +1074,60 @@ class OrgReadingCommandsTest {
     }
 
     @Test
+    void requiredReviewSaysItWaitsForASecondUnlockedAdmin() throws Exception {
+        // Harm: a required review looks achievable while no other admin can approve it.
+        opened();
+        projectFile =
+                new ProjectFile.Read(
+                        ProjectFile.READ,
+                        "b".repeat(40),
+                        org.fuin.porelo.core.project.ProjectReader.read(
+                                new java.io.StringReader(
+                                        LOCAL_PROJECT.replace("mine", "demo")
+                                                + "\nrepositories:\n  app:\n    upstream: git@github.com:acme/app.git\n"
+                                                + "  free:\n    upstream: git@github.com:acme/free.git\n    review: optional\n"),
+                                "test"),
+                        null);
+        for (final String second : List.of("developer", "admin\n    locked: true")) {
+            write(
+                    "projects/demo/members.yml",
+                    "members:\n  - login: alice\n    role: admin\n"
+                            + "  - login: bob\n    role: "
+                            + second
+                            + "\n");
+            commit("alice");
+            assertThat(run("project", "show", "demo", "--json")).as("show: %s", err).isZero();
+            final Object repositories = answer().get("repositories");
+            assertThat(field(repositories, "review_waits"))
+                    .as("the project must explain why required review waits")
+                    .isEqualTo("no second admin");
+            final List<?> names = (List<?>) field(repositories, "names");
+            for (final Object row : names) {
+                assertThat(field(row, "review_waits"))
+                        .as("each repository must explain only its own required review")
+                        .isEqualTo(
+                                "required".equals(field(row, "review")) ? "no second admin" : null);
+            }
+            assertThat(run("project", "show", "demo")).as("text: %s", err).isZero();
+            assertThat(out.toString())
+                    .as("the text reader needs the wait too")
+                    .contains("app", "no second admin", "second admin's approval");
+        }
+        write(
+                "projects/demo/members.yml",
+                "members:\n  - login: alice\n    role: admin\n"
+                        + "  - login: bob\n    role: admin\n");
+        commit("alice");
+        assertThat(run("project", "show", "demo", "--json")).as("show: %s", err).isZero();
+        assertThat(field(answer().get("repositories"), "review_waits"))
+                .as("two unlocked admins can review")
+                .isNull();
+        for (final Object row : (List<?>) field(answer().get("repositories"), "names")) {
+            assertThat(field(row, "review_waits")).as("a row with two admins can review").isNull();
+        }
+    }
+
+    @Test
     void anOpenedProjectAnswersItsFilesRepositoriesAtItsOwnRevision() throws Exception {
         opened();
         projectFile =

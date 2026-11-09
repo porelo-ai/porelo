@@ -430,4 +430,12 @@ public class ProjectRepositoryCommand {
         }
         return held;
     }
+
+    /** Only an unlocked admin can give the other admin's approval. */
+    static boolean hasSecondAdmin(final List<OrganizationQuestions.Member> members) {
+        return members.stream()
+                        .filter(member -> "admin".equals(member.role()) && !member.locked())
+                        .count()
+                >= 2;
+    }
 }

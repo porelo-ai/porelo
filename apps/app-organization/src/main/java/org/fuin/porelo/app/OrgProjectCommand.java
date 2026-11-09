@@ -58,6 +58,8 @@ public class OrgProjectCommand {
 
         private @Nullable String address;
 
+        private @Nullable String note;
+
         @Override
         OrganizationWrites.Written write(
                 final PoreloContext machine,
@@ -97,6 +99,7 @@ public class OrgProjectCommand {
                             maker,
                             refused -> halfway(refused, change.id()));
             address = created.address();
+            note = created.note();
             // The person asked under their id; asked again, that id finds both parts.
             return new OrganizationWrites.Written(
                     created.written().revision(), change.id(), created.written().again());
@@ -147,6 +150,9 @@ public class OrgProjectCommand {
         void more(final Map<String, @Nullable Object> answer) {
             if (createRepository) {
                 answer.put("address", address);
+                if (note != null) {
+                    answer.put("note", note);
+                }
             }
         }
     }

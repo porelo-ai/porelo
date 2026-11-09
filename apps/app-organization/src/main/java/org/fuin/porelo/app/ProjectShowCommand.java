@@ -8,6 +8,7 @@ import java.util.Map;
 import java.util.Optional;
 import org.fuin.porelo.core.project.Project;
 import org.fuin.porelo.core.project.ProjectReader;
+import org.fuin.porelo.core.project.Repository;
 import org.fuin.porelo.organization.OrganizationQuestions;
 import org.fuin.porelo.organization.OrganizationQuestions.Refused;
 import org.fuin.porelo.organization.gittree.CommitSigning;
@@ -81,6 +82,31 @@ public class ProjectShowCommand extends OrgReading {
         if (answer.get("repositories") instanceof Map<?, ?> repositories) {
             final Object why = repositories.get("why");
             line("Repositories: " + repositories.get("state") + (why == null ? "" : ": " + why));
+            reviewWait("project", repositories);
+            if (repositories.get("names") instanceof List<?> names) {
+                for (final Object name : names) {
+                    if (name instanceof Map<?, ?> row) {
+                        reviewWait(String.valueOf(row.get("name")), row);
+                    }
+                }
+            }
+        }
+    }
+
+    private void reviewWait(final String name, final Map<?, ?> row) {
+        if (row.get("review_waits") instanceof String why) {
+            line(
+                    "Review ("
+                            + name
+                            + "): a merge waits for a second admin's approval ("
+                            + why
+                            + ")");
+        }
+    }
+
+    private static void reviewWait(final Map<String, @Nullable Object> row) {
+        if (Repository.REVIEW_REQUIRED.equals(row.get("review"))) {
+            row.put("review_waits", "no second admin");
         }
     }
 
@@ -141,9 +167,13 @@ public class ProjectShowCommand extends OrgReading {
         final ProjectFile.Read read =
                 files.read(machine, state.getProjectRepository(project).orElseThrow(), keys);
         final Project file = read.project();
-        final Map<String, @Nullable Object> repositories =
-                repositories(read.state(), file == null ? List.of() : names(file));
+        final List<Map<String, @Nullable Object>> names = file == null ? List.of() : names(file);
+        final Map<String, @Nullable Object> repositories = repositories(read.state(), names);
         repositories.put("review", file == null ? null : file.review());
+        if (!ProjectRepositoryCommand.hasSecondAdmin(members)) {
+            reviewWait(repositories);
+            names.forEach(ProjectShowCommand::reviewWait);
+        }
         repositories.put("revision", read.revision());
         repositories.put("file_signer", signer(read, keys));
         if (read.why() != null) {

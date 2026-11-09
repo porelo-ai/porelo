@@ -169,6 +169,9 @@ public abstract class OrgWriting extends OrgReading {
                         + answer.get("revision")
                         + ", under the id "
                         + answer.get("id"));
+        if (answer.get("note") instanceof String note) {
+            line(note);
+        }
     }
 
     /**
