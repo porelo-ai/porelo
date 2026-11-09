@@ -3,7 +3,7 @@
 **Status:** Idea.
 
 **What must be true.** On Fedora and RHEL, `sudo dnf install 'porelo*'` installs all of Porelo, on every published channel, and
-stays true: the build says so when the line stops working, as [B429](README.md#b429) does for apt.
+stays true: the build says so when the line stops working, as the apt line's check does.
 
 ## To be checked
 
