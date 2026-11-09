@@ -70,4 +70,24 @@ class HostConfigurationLockTest {
                 .isInstanceOf(IOException.class);
         assertThat(missing).as("an invalid host read leaves no new file").doesNotExist();
     }
+
+    @Test
+    void aTimedPoolLockStillExcludesReadersAndReleasesAfterAWaitExpires() throws Exception {
+        final Path file = Files.writeString(directory.resolve("mutex"), "");
+        try (var lock =
+                HostConfigurationLock.acquire(file, false, java.time.Duration.ofSeconds(1))) {
+            assertThatThrownBy(
+                            () ->
+                                    HostConfigurationLock.acquire(
+                                            file, true, java.time.Duration.ofMillis(40)))
+                    .isInstanceOf(IOException.class)
+                    .hasMessageContaining("acquire");
+            assertThat(tryFlock(file, true)).isEqualTo(1);
+        }
+        try (var lock =
+                HostConfigurationLock.acquire(file, false, java.time.Duration.ofSeconds(1))) {
+            assertThat(tryFlock(file, true)).isEqualTo(1);
+        }
+        assertThat(tryFlock(file, false)).isZero();
+    }
 }

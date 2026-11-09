@@ -7,6 +7,8 @@ import java.lang.foreign.Linker;
 import java.lang.foreign.ValueLayout;
 import java.lang.invoke.MethodHandle;
 import java.nio.file.Path;
+import java.time.Duration;
+import org.jspecify.annotations.Nullable;
 
 /** Linux flock, interoperable with the host's existing readers and writers. */
 final class HostConfigurationLock implements AutoCloseable {
@@ -34,14 +36,24 @@ final class HostConfigurationLock implements AutoCloseable {
     }
 
     static HostConfigurationLock acquire(Path file, boolean shared) throws IOException {
+        return acquire(file, shared, null);
+    }
+
+    static HostConfigurationLock acquire(Path file, boolean shared, @Nullable Duration timeout)
+            throws IOException {
         final int descriptor = open(file, 0x80000 | 0x20000);
         final HostConfigurationLock lock = new HostConfigurationLock(descriptor);
         try {
-            if ((int) FLOCK.invokeExact(descriptor, shared ? 1 : 2) != 0) {
-                throw new IOException("Cannot acquire configuration lock");
+            final long deadline = System.nanoTime() + (timeout == null ? 0 : timeout.toNanos());
+            final int operation = (shared ? 1 : 2) | (timeout == null ? 0 : 4);
+            while ((int) FLOCK.invokeExact(descriptor, operation) != 0) {
+                if (timeout == null || System.nanoTime() >= deadline)
+                    throw new IOException("Cannot acquire configuration lock");
+                Thread.sleep(20);
             }
             return lock;
         } catch (Throwable ex) {
+            if (ex instanceof InterruptedException) Thread.currentThread().interrupt();
             try {
                 lock.close();
             } catch (IOException closing) {

@@ -65,6 +65,34 @@ class HostProgramsTest {
         return runner(Duration.ofSeconds(10), 65536);
     }
 
+    @Test
+    void streamingTransfersKeepBothTheirInputAndTheirSeparateError() throws Exception {
+        final byte[] input =
+                "bundle content exceeding capture limit"
+                        .getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        final var output = new java.io.ByteArrayOutputStream();
+        final var result =
+                runner(Duration.ZERO, 8)
+                        .transfer(
+                                List.of("sh", "-c", "cat; printf warning >&2"),
+                                new java.io.ByteArrayInputStream(input),
+                                output,
+                                HostPrograms.ENVIRONMENT);
+        assertThat(output.toByteArray()).isEqualTo(input);
+        assertThat(result).isEqualTo(new HostPrograms.Result(0, "", "warning"));
+    }
+
+    @Test
+    void timeoutsKeepTheirFailureKindForPersonCommands() {
+        assertThatThrownBy(() -> runner(Duration.ofMillis(100), 100).run(List.of("sleep", "30")))
+                .isInstanceOfSatisfying(
+                        IOException.class,
+                        failure ->
+                                assertThat(HostPrograms.failureKind(failure))
+                                        .isEqualTo("TimeoutExpired"));
+        assertThat(HostPrograms.failureKind(new IOException("unavailable"))).isEqualTo("OSError");
+    }
+
     private HostPrograms runner(Duration timeout, int maximumBytes) {
         return new HostPrograms(timeout, maximumBytes, TestPrograms::find);
     }

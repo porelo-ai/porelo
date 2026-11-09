@@ -59,6 +59,16 @@ class HostManPageTest {
     }
 
     @Test
+    void theExitCodeSectionCoversEverySubcommand() throws Exception {
+        final String manual = Files.readString(Path.of("src/main/man/porelo-host.8"));
+        final String codes =
+                manual.split("\\.SS Codes by verb\\n", 2)[1].split("\\.SH FILES", 2)[0];
+        assertThat(missing(codes, PoreloHost.commandLine(), ""))
+                .as("each verb documents its own codes, beyond its invocation description")
+                .isEmpty();
+    }
+
+    @Test
     void aDocumentedTroffEscapedVerbIsRecognized() {
         final CommandLine command = new CommandLine(new FutureCommand());
         command.addSubcommand("future-verb", new FutureVerb());

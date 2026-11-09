@@ -102,7 +102,7 @@ LC_*
 Unknown names are refused with the variable's name, never its value:
 a widened sudo env_keep is a broken host configuration.
 Accepted variables do not configure behavior; SUDO_USER and SUDO_UID identify
-the person, and socket activation variables are reserved for later verbs.
+the person; LISTEN_FDS and LISTEN_PID authenticate the accepted socket handoff.
 HOME, PATH and directory variables are never used to locate configuration.
 .PP
 A person is taken only from SUDO_USER, never from an argument.
@@ -110,7 +110,8 @@ The login must be a non-root account and SUDO_UID must match the system account 
 Missing, empty, invalid, unknown or mismatching identities are refused.
 Root's unit invocations need no person until a verb acts for one.
 .PP
-Other invocations require real uid 0.
+Other invocations require real uid 0, except forge gate and forge measure.
+Every non-informational invocation still requires the host's own user namespace.
 Argument files are not expanded and JVM runtime options are ordinary arguments.
 Child programs are checked through SystemProgram, run without a shell from /,
 with a fixed locale: LANG=C.UTF-8 for task work, LC_ALL=C for project work.
@@ -135,19 +136,20 @@ no visible task, a refused task/token caller, or a refused forge operation.
 .TP
 .B 69 (EX_UNAVAILABLE)
 A required dependency or account database could not answer.
-Task and forge verbs also return this status when not root, as do project verbs
-other than check-central.
+Task and forge token verbs also return this status when not root, as do project
+verbs other than check-central. Forge gate and measure can run without root.
 .TP
 .B 73 (EX_CANTCREAT)
 A task path is unsafe, or the host's files or configuration lock could not be read.
 .TP
 .B 77 (EX_NOPERM)
-Root uid or a valid sudo person could not be established.
+Root uid, the host user namespace or a valid sudo person could not be established.
 .TP
 .B 78 (EX_CONFIG)
 The invocation environment contains an unapproved variable.
 .SS Codes by verb
 Shared boundary codes: 77 no valid root or sudo person; 78 unapproved environment variable.
+Pool verbs require root (77); forge gate and measure still check the host namespace (77).
 .TP
 .B org status
 0 status shown; 64 bad arguments; 65 sudo or invalid records;
@@ -185,6 +187,35 @@ Shared boundary codes: 77 no valid root or sudo person; 78 unapproved environmen
 .B forge issue\-token, forge lend\-token
 0 token answered; 64 bad arguments or no SUDO_USER; 65 caller or records refused;
 69 not root, no forge, file, dependency or forge failure; 73 lock or unhandled file failure.
+.TP
+.B forge gate
+0 connection served, including HTTP refusals; 1 unusable activation or connection failure;
+64 bad arguments or relative upstream; 65 sudo invocation; 69 account lookup failure.
+.TP
+.B forge measure
+0 all requests succeeded; 1 failed request or connection/execution failure;
+64 bad arguments or invalid measurement parameters.
+.TP
+.B pool revert
+0 one VM settled; 1 revert, list, watch, file or dependency failure;
+2 bad arguments or VM name; 65 sudo invocation.
+.TP
+.B pool give\-back
+0 poweroff scheduled; 1 file or dependency failure;
+2 bad arguments, missing/invalid sudo caller or absent run account.
+The systemd-run exit status is propagated.
+.TP
+.B pool make
+0 VM imported; 1 invalid name, existing VM, file, dependency or creation failure;
+2 bad arguments or invalid VM parameters; 65 sudo invocation.
+.TP
+.B pool address
+0 IPv4 lease shown; 1 bad arguments, invalid name/wait, stopped VM, timeout,
+file or dependency failure; 65 sudo invocation.
+.TP
+.B pool delete
+0 domain and volumes absent; 1 bad arguments, invalid name, unreadable census,
+remaining domain/volume, file or dependency failure; 65 sudo invocation.
 .TP
 .B project add
 0 registered; 64 bad arguments/signing key or interrupted registration;
@@ -351,3 +382,58 @@ waits for is refused. The result is the complete organization status as JSON.
 Take one login and canonical SSH key per line on standard input from root on the
 machine. Duplicate keys and malformed lines are refused. The pin is replaced
 atomically and the saved fetch refusal is cleared; the accepted revision remains.
+.SH FORGE AND POOL
+.TP
+.B forge gate --web|--git|--runner --upstream SOCKET
+Serve one accepted connection from descriptor 3, with LISTEN_FDS=1 and
+LISTEN_PID equal to this process's pid. The forge account's socket services
+may run this verb without root; a sudo invocation is refused.
+Web and runner require a Unix socket. Git also accepts loopback TCP.
+Web checks the peer's admission, Host and origin before forwarding.
+Framed web responses permit another request on the same connection;
+refusals and token gates close it. Reads and writes time out after 60 seconds.
+.TP
+.B forge measure --socket SOCKET --host HOST:PORT
+[--requests 1000] [--concurrency 32] [--per-connection 8] [--path /]
+measures GET requests through an installed gate, including activation.
+Run as an admitted person against the web socket, before and after switching
+its service executable, with identical arguments and forge contents.
+The JSON reports requests, connections, failures, seconds, requests_per_second,
+p50_ms and p95_ms. A non-200 response or failed exchange fails the measure.
+This verb also runs without root.
+.TP
+.B pool revert LIST
+The root pool service's lifecycle watch. Each round starts its watch before
+the census. A stopped VM is restored paused with its link down, resumed,
+and given the host's clock before its link goes up.
+.B pool revert --one NAME
+settles just one VM for up, retrying a VM left off after a failed clock correction.
+Reverts share the flock on /usr/local/libexec/porelo-host with the existing
+service, with a five-minute lock bound. Recovery notes live in
+/run/porelo-pool-revert; the service clears old off notes on restart.
+.TP
+.B pool give-back
+Mark /var/lib/porelo-pool/SUDO_USER resetting and schedule poweroff two
+seconds later through systemd-run. Takes no account argument.
+.TP
+.B pool make NAME VOLUME SEED MEMORY VCPUS OSINFO
+Import a pool VM with a prepared cloud-init seed, images storage pool,
+default network, a 20G disk and host-passthrough CPU. The guest-agent channel
+is always installed. Seed construction remains the build tool's job.
+All child programs use checked paths, fixed environment and no shell.
+Only give-back runs through sudo; the other pool verbs are root's alone.
+.TP
+.B pool address NAME [SECONDS]
+Wait for the VM's IPv4 lease, for 300 seconds unless a limit is given.
+A stopped VM or an expired wait fails with exit 1.
+.TP
+.B pool delete NAME
+Stop and undefine the VM, delete its disk and seed volume, then check
+libvirt's domain and volume lists. Anything left behind is a failure.
+.PP
+Web admission is resolved once per accepted connection; host, route and
+credential checks still run for every request. The measure reserves work
+before connecting, so its connection count includes no idle activations.
+Pool and measure execution failures exit 1; give-back refusals exit 2.
+Gate activation refusals exit 1. Pool diagnostics keep their script's
+wording; measurement diagnostics begin with "porelo-host forge measure:".

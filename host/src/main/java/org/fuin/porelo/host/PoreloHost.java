@@ -153,7 +153,7 @@ public final class PoreloHost implements Callable<Integer> {
         try {
             HostEnvironment.check(environment);
             final boolean informational = args.length == 1 && answersAlone(args[0]);
-            if (!informational && uid.real() != 0) {
+            if (!informational && uid.real() != 0 && !HostForgeCommands.unprivileged(args)) {
                 if (args.length > 0
                         && args[0].equals("project")
                         && !(args.length > 1 && args[1].equals("check-central"))) {
@@ -219,13 +219,47 @@ public final class PoreloHost implements Callable<Integer> {
                         .addSubcommand("sweep", new TaskSweep(host)));
         command.addSubcommand(
                 "forge",
-                new CommandLine(new Group())
+                HostForgeCommands.commandLine(host.environment)
                         .addSubcommand("issue-token", new ForgeToken(host, false))
                         .addSubcommand("lend-token", new ForgeToken(host, true)));
         command.addSubcommand("project", HostProject.commandLine(host.environment));
+        command.addSubcommand("pool", HostPoolCommands.commandLine(host.environment));
         command.setExpandAtFiles(false);
         command.setExecutionExceptionHandler(
                 (exception, line, parse) -> {
+                    final var rootParse = command.getParseResult();
+                    final var area = rootParse != null ? rootParse.subcommand() : null;
+                    final String group = area == null ? "" : area.commandSpec().name();
+                    final var verb = area == null ? null : area.subcommand();
+                    final String action = verb == null ? "" : verb.commandSpec().name();
+                    if (group.equals("pool")
+                            || group.equals("forge")
+                                    && (action.equals("gate") || action.equals("measure"))) {
+                        if (exception instanceof HostRefusal refusal) {
+                            final String message =
+                                    java.util.Objects.requireNonNull(
+                                            refusal.getMessage(),
+                                            "HostRefusal always has a safe diagnostic");
+                            line.getErr()
+                                    .println(
+                                            group.equals("forge") && action.equals("measure")
+                                                    ? "porelo-host forge measure: " + message
+                                                    : message);
+                            return group.equals("pool") && refusal.exitCode() >= 69
+                                    ? 1
+                                    : refusal.exitCode();
+                        }
+                        line.getErr()
+                                .println(
+                                        group.equals("pool")
+                                                ? "porelo-pool-"
+                                                        + action
+                                                        + ": cannot read or change the pool's files or run its programs"
+                                                : "porelo-host forge "
+                                                        + action
+                                                        + ": connection failed");
+                        return 1;
+                    }
                     if (exception instanceof HostRefusal refusal) {
                         // Keep the predecessor's diagnostic contract for the ported verbs.
                         final String message =
@@ -235,6 +269,9 @@ public final class PoreloHost implements Callable<Integer> {
                         line.getErr()
                                 .println(
                                         message.startsWith("porelo-host:")
+                                                        || message.startsWith("porelo-forge-gate:")
+                                                        || message.startsWith(
+                                                                "porelo-pool-give-back")
                                                 ? message
                                                 : "porelo-host-person: " + message);
                         return refusal.exitCode();

@@ -266,6 +266,11 @@ final class ProjectRuntime {
     }
 
     private @Nullable Account lookup(String login, Map<String, String> environment) {
+        final String[] fields = passwd(login, environment);
+        return fields == null ? null : new Account(login, Long.parseLong(fields[2]), fields[5]);
+    }
+
+    private String @Nullable [] passwd(String login, Map<String, String> environment) {
         final HostPrograms.Result result;
         try {
             result =
@@ -289,7 +294,33 @@ final class ProjectRuntime {
                 || Long.parseLong(fields[2]) >= 4294967295L) {
             throw new HostRefusal(69, "a required service or person account is missing");
         }
-        return new Account(login, Long.parseLong(fields[2]), fields[5]);
+        return fields;
+    }
+
+    @Nullable String gateLogin(String login) throws IOException {
+        if (!login.matches("[a-z][a-z0-9_-]{0,31}")) return null;
+        final String[] fields = passwd(login, PERSON_ENV);
+        if (fields == null
+                || Long.parseLong(fields[2]) < 1000
+                || !login.matches("[a-z][a-z0-9_-]{0,31}")
+                || !Set.of("/bin/bash", "/bin/sh", "/bin/zsh", "/usr/bin/bash", "/usr/bin/zsh")
+                        .contains(fields[6])) {
+            return null;
+        }
+        final HostPrograms.Result group =
+                commands.run(
+                        List.of("/usr/bin/getent", "group", "porelo-people"),
+                        new byte[0],
+                        PERSON_ENV,
+                        Duration.ofSeconds(10));
+        final String[] people = group.output().strip().split(":", -1);
+        if (group.exitCode() != 0 || people.length != 4 || !people[0].equals("porelo-people")) {
+            return null;
+        }
+        return people[2].equals(fields[3])
+                        || Arrays.asList(people[3].split(",", -1)).contains(login)
+                ? login
+                : null;
     }
 
     Account required(String login) {

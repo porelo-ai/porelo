@@ -1,6 +1,7 @@
 package org.fuin.porelo.host;
 
 import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -17,8 +18,10 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.FutureTask;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.function.Consumer;
 import java.util.function.Function;
 import org.fuin.porelo.wire.SystemProgram;
+import org.jspecify.annotations.Nullable;
 
 /** Runs checked programs without a shell or an inherited environment. */
 final class HostPrograms {
@@ -58,12 +61,12 @@ final class HostPrograms {
     }
 
     Result run(List<String> argv) throws IOException {
-        return run(argv, new ByteArrayInputStream(new byte[0]), null, Map.of(), true);
+        return run(argv, new ByteArrayInputStream(new byte[0]), null, ENVIRONMENT, null, () -> {});
     }
 
     Result run(List<String> argv, byte[] input, Map<String, String> environment)
             throws IOException {
-        return run(argv, new ByteArrayInputStream(input), null, environment, false);
+        return run(argv, new ByteArrayInputStream(input), null, environment, null, () -> {});
     }
 
     Result transfer(
@@ -72,15 +75,25 @@ final class HostPrograms {
             OutputStream output,
             Map<String, String> environment)
             throws IOException {
-        return run(argv, input, output, environment, false);
+        return run(argv, input, output, environment, null, () -> {});
+    }
+
+    Result watch(
+            List<String> argv,
+            Map<String, String> environment,
+            Runnable started,
+            Consumer<String> lines)
+            throws IOException {
+        return run(argv, new ByteArrayInputStream(new byte[0]), null, environment, lines, started);
     }
 
     private Result run(
             List<String> argv,
             InputStream input,
-            @org.jspecify.annotations.Nullable OutputStream outputStream,
+            @Nullable OutputStream outputStream,
             Map<String, String> environment,
-            boolean fixedEnvironment)
+            @Nullable Consumer<String> lines,
+            Runnable started)
             throws IOException {
         if (argv.isEmpty()) {
             throw new IllegalArgumentException("Expected a program and its arguments");
@@ -103,13 +116,15 @@ final class HostPrograms {
                         // Read stderr apart and bounded: an NSS warning is no part of its answer.
                         .redirectErrorStream(false);
         builder.environment().clear();
-        builder.environment().putAll(fixedEnvironment ? ENVIRONMENT : environment);
+        builder.environment().putAll(environment);
         final Process process = builder.start();
+        final var scanned = new java.util.concurrent.CountDownLatch(1);
         final FutureTask<byte[]> output =
                 new FutureTask<>(
                         () -> {
+                            scanned.await();
                             if (outputStream == null) {
-                                return read(process.getInputStream());
+                                return read(process.getInputStream(), lines);
                             }
                             try (var pipe = process.getInputStream()) {
                                 pipe.transferTo(outputStream);
@@ -128,10 +143,15 @@ final class HostPrograms {
                             return null;
                         });
         final Thread writer = Thread.ofVirtual().name("porelo-host-input").start(feed);
-        // Zero preserves a caller's lifetime where the predecessor imposes no deadline.
-        final long deadline = timeout.isZero() ? 0 : System.nanoTime() + timeout.toNanos();
         final Set<ProcessHandle> descendants = new HashSet<>();
         try {
+            try {
+                started.run();
+            } finally {
+                scanned.countDown();
+            }
+            // Zero preserves a caller's lifetime where the predecessor imposes no deadline.
+            final long deadline = timeout.isZero() ? 0 : System.nanoTime() + timeout.toNanos();
             while (process.isAlive() && !output.isDone()) {
                 process.descendants().forEach(descendants::add);
                 if (deadline != 0 && System.nanoTime() >= deadline) {
@@ -200,7 +220,27 @@ final class HostPrograms {
     }
 
     private byte[] read(InputStream stream) throws IOException {
+        return read(stream, null);
+    }
+
+    private byte[] read(InputStream stream, @Nullable Consumer<String> lines) throws IOException {
         try (stream) {
+            if (lines != null) {
+                final ByteArrayOutputStream all = new ByteArrayOutputStream();
+                final ByteArrayOutputStream line = new ByteArrayOutputStream();
+                int value;
+                while ((value = stream.read()) >= 0) {
+                    if (all.size() >= maximumBytes)
+                        throw new IOException("Host program exceeded its output limit");
+                    all.write(value);
+                    if (value == '\n') {
+                        lines.accept(line.toString(StandardCharsets.UTF_8));
+                        line.reset();
+                    } else line.write(value);
+                }
+                if (line.size() > 0) lines.accept(line.toString(StandardCharsets.UTF_8));
+                return all.toByteArray();
+            }
             final byte[] bytes = stream.readNBytes(maximumBytes + 1);
             if (bytes.length > maximumBytes) {
                 throw new IOException("Host program exceeded its output limit");
