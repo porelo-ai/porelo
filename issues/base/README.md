@@ -128,6 +128,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b557"></a>[B557](B557-Root-As-Seen-In-A-Hooks-Namespace-Is-Not-Its-Own.md) | S | - | `wire` refuses a file whose owner reads as the overflow uid, or as root through a nested namespace, rather than taking it as root's. |
 | <a id="b556"></a>[B556](B556-The-Talk-Log-Says-Whom-A-Line-Was-For-And-Whether-It-Woke.md) | S | - | `talk log --json` says each message's `to`, `via`, `all`, and whether it woke the agent. |
 | <a id="b552"></a>[B552](B552-The-Forge-Gates-And-The-Pool-In-The-Host-Tool.md) | L | [B540](#b540) | `porelo-host gate forge --web|--git|--runner` after HO153's load measure; `pool revert | make-vm | find-vm | delete-vm`. |
 | <a id="b551"></a>[B551](B551-The-Host-Purges-A-Person-And-Restores-Runtimes-In-Java.md) | L | [B550](#b550) | `porelo-host person purge <login> | restore-runtime`. |
