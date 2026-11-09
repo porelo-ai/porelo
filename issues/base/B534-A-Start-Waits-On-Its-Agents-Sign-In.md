@@ -1,6 +1,6 @@
 # [B534](README.md#b534) — A Start Waits On Its Agent's Sign-In
 
-**Status:** Backlog. Split 2026-11-09 from [B530](README.md#b530), whose build stopped at the start's wait (the split
+**Status:** Implementing. Split 2026-11-09 from [B530](README.md#b530), whose build stopped at the start's wait (the split
 its plan foresaw).
 **Size:** M - a start parameter, two typed errors, the credential check moved before side effects, one acceptance step.
 

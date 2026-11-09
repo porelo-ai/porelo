@@ -111,6 +111,8 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b527"></a>[B527](B527-A-Tasks-Message-Reaches-The-Task-It-Names.md) | M | - | A task's message reaches only the task it names, in place of every agent reading every message. |
+| <a id="b534"></a>[B534](B534-A-Start-Waits-On-Its-Agents-Sign-In.md) | M | [B530](#b530) | A start missing its agent's credential waits on that agent's running sign-in, or is answered SignInNeeded / VaultLocked as typed values before anything is made. |
 | <a id="b549"></a>[B549](B549-The-Push-Judge-In-The-Host-Tool.md) | L | [B547](#b547) | `porelo-host judge-push` behind the judge socket, with every refusal test. |
 | <a id="b560"></a>[B560](B560-A-Planning-Adapter-Behind-Its-Own-Contract.md) | M | - | `porelo-planning-api`: `org.fuin.porelo.Planning1`, `PlanningMain`, the client and discovery of installed planning adapters, a stub, and the adapter guide. |
 | <a id="b562"></a>[B562](B562-The-Board-Read-Through-Porelod.md) | L | [B560](README.md#b560), [B561](README.md#b561) | Tasks1 part `60-planning`'s reads through the adapter porelod runs, a GitHub App's token minted per call, a story's state computed from its issues in one workflow, and `planning.work` checked against it. |
@@ -152,8 +154,6 @@ from its side, as *blocked by*.
 | <a id="b542"></a>[B542](B542-The-Host-Tool-Sweeps-Ended-Task-Tokens.md) | S | [B541](#b541) | `porelo-host task sweep`, the timer's verb. |
 | <a id="b537"></a>[B537](B537-One-Host-File-That-Does-Not-Read-Hides-No-Other-Project.md) | S | - | On a host, a project whose host file does not read is a row saying so, and the others are listed. |
 | <a id="b538"></a>[B538](B538-A-Tasks-Container-Without-The-Doubled-Project-Name.md) | L | - | A task's container is `porelo-pi`, not `porelo-porelo-pi`, with tasks made before kept working and no clash between projects. High priority. |
-| <a id="b534"></a>[B534](B534-A-Start-Waits-On-Its-Agents-Sign-In.md) | M | [B530](#b530) | A start missing its agent's credential waits on that agent's running sign-in, or is answered SignInNeeded / VaultLocked as typed values before anything is made. |
-| <a id="b527"></a>[B527](B527-A-Tasks-Message-Reaches-The-Task-It-Names.md) | M | - | A task's message reaches only the task it names, in place of every agent reading every message. |
 | <a id="b514"></a>[B514](B514-Every-Task-Run-Kept-In-One-Timeline.md) | M | - | Every task run kept in one timeline: lifecycle entries (who and when, the run's numbers) in the events chain, logs archived past stop, reboot and removal, readings over varlink, MCP and the CLI, one structured log stream for every Porelo process with the journal as its home; porelo-frontend's timeline reads it. |
 | <a id="b118"></a>[B118](B118-An-Attached-Agent-Said-At-Rest-Or-Working.md) | M | - | A new `AT_REST` activity, judged from the screen reads the listing already makes with the wake's two-look rule; the stub agent gets an `at_rest`. |
 | <a id="b506"></a>[B506](B506-An-Agent-Waiting-On-A-Person.md) | XS | [B118](#b118) | A task's listing says when its agent waits on a person for its own question, where the agent declares how that is seen. |

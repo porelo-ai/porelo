@@ -1,6 +1,6 @@
 # [B527](README.md#b527) — A Task's Message Reaches The Task It Names
 
-**Status:** Backlog. Filed 2026-11-08 from the operator's decision on move 3's 13c/22: "tasks reach each other only
+**Status:** Implementing. Filed 2026-11-08 from the operator's decision on move 3's 13c/22: "tasks reach each other only
 by naming them".
 **Size:** M - it replaces 2026-10-04's "every agent reads every message in the room" in the hand-out.
 
