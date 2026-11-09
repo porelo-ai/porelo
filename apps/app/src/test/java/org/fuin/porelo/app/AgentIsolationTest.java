@@ -258,16 +258,11 @@ class AgentIsolationTest {
      * whatever the sources say.
      */
     private static List<Path> sources(Path root, boolean mainOnly) throws IOException {
-        final List<Path> found;
-        try (Stream<Path> all = Files.walk(root)) {
-            found =
-                    all.filter(path -> isProductSource(root, path))
-                            .filter(
-                                    path ->
-                                            !mainOnly
-                                                    || path.toString().contains("/src/main/java/"))
-                            .toList();
-        }
+        final List<Path> found =
+                RepositoryFiles.of(root).stream()
+                        .filter(path -> isProductSource(root, path))
+                        .filter(path -> !mainOnly || path.toString().contains("/src/main/java/"))
+                        .toList();
         assertThat(found)
                 .as("the sources scanned under %s", root)
                 .contains(

@@ -30,6 +30,7 @@
         <module>app-task</module>
         <module>app-project</module>
         <module>app-gate</module>
+        <module>app-planning</module>
         <module>app</module>
     </modules>
 

@@ -7,7 +7,6 @@ import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
-import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -62,16 +61,15 @@ class NullMarkedPackagesTest {
     }
 
     private static List<String> packages(Path root) throws IOException {
-        try (Stream<Path> files = Files.walk(root)) {
-            return files.filter(path -> path.toString().endsWith(".java"))
-                    .filter(path -> root.relativize(path).toString().contains("src/main/java/"))
-                    .filter(path -> !root.relativize(path).toString().contains("/target/"))
-                    .map(Path::getParent)
-                    .distinct()
-                    .map(directory -> root.relativize(directory).toString())
-                    .sorted()
-                    .toList();
-        }
+        return RepositoryFiles.of(root).stream()
+                .filter(path -> path.toString().endsWith(".java"))
+                .filter(path -> root.relativize(path).toString().contains("src/main/java/"))
+                .filter(path -> !root.relativize(path).toString().contains("/target/"))
+                .map(Path::getParent)
+                .distinct()
+                .map(directory -> root.relativize(directory).toString())
+                .sorted()
+                .toList();
     }
 
     private static boolean marked(Path directory) {

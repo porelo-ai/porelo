@@ -167,6 +167,7 @@ public final class PoreloDaemon {
         MessagingMethods.register(server, context, inventory, control);
         MachineMethods.register(server, context, inventory, control);
         EventMethods.register(server, context, inventory, control);
+        PlanningMethods.register(server, context, inventory, control);
     }
 
     static PoreloContext ownedContext(PoreloContext context) {

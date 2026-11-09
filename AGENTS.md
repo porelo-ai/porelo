@@ -55,12 +55,13 @@ The command line and the daemon's logic are modules by area, `app-<area>`, submo
 | projects, backups, clearing | `app-project` | `ProjectMethods` | `20-project` | `ProjectPaths` |
 | the gate and review | `app-gate` | `GateMethods` | `35-gate` | `GatePaths` |
 | the organization's commands: `org`, `project member\|repository\|address\|create-repository\|show`, `setup --organization` | `app-organization` | - | - | - |
+| the planning board | `app-planning` | `PlanningMethods` | `60-planning` | - |
 | the command line, `doctor`, `setup` | `app` | `MachineMethods` | `50-machine` | - |
 
 - **The modules' dependencies are the boundaries**: `base` depends on no area, `model` on `base` and `organization/git-tree`,
   `agents` on `base`; `vault`, `messaging` and `egress` on `base` and `model` and not on each other (`egress` also on
   `agents`); `task` on all of those and `organization/git-tree`; `project` on `task` and `messaging`; `gate` on `messaging`;
-  `organization` on `base`, `model`, `organization/api` and `organization/git-tree`.
+  `organization` on `base`, `model`, `organization/api` and `organization/git-tree`; `planning` on `model` and `planning/api`.
 - **A test that finds the repository's root from its module goes up two levels from `apps/app`** -
   `Path.of("").toAbsolutePath().getParent().getParent()`, or `Path.of("..", "..")`. Moved under `apps/`, a test that
   went up one level searched `apps/` alone: `NullMarkedPackagesTest` and `RealAccountTest` still passed that way

@@ -562,7 +562,8 @@ class InterfaceDescriptionTest {
         "40-agent, Agent",
         "45-messaging, Messaging",
         "50-machine, Machine",
-        "55-events, Event"
+        "55-events, Event",
+        "60-planning, Planning"
     })
     void eachAreaRegistersExactlyTheMethodsOfItsOwnPart(String part, String area, @TempDir Path dir)
             throws Exception {

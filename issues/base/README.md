@@ -130,7 +130,7 @@ from its side, as *blocked by*.
 |---|---|---|---|
 | <a id="b571"></a>[B571](B571-A-Task-Container-Finds-Its-Init.md) | XS | - | porelo's package depends on `catatonit`, the init every task container starts with, and a start without it refuses before anything is made. |
 | <a id="b561"></a>[B561](B561-What-Starts-Work-Named-In-The-Project-File.md) | M | - | `planning` in the signed project file: the adapter, its credential (`github-app` or `token`) and settings, `work` per working state (`from`, `done`, `per`, `modes`, `order`, `model`) and the coordinator's order. |
-| <a id="b564"></a>[B564](B564-States-Moved-On-The-Board.md) | M | [B562](README.md#b562) | `MoveStory` and `MoveIssues`, all or none; a working state is refused as a target with `EnteredOnlyByWork`. |
+| <a id="b564"></a>[B564](B564-States-Moved-On-The-Board.md) | M | [B562](README.md#b562) | `SaveMoves` saves story and issue moves together, all or none; a working state is refused as a target with `EnteredOnlyByWork`. |
 | <a id="b565"></a>[B565](B565-Work-Started-From-The-Board.md) | L | [B562](README.md#b562), [B563](README.md#b563) | `ProposeStoryWork`, `StartStoryWork`, `GetStoryWork`, `StopStoryWork`: tasks started for a story's working state and recorded by porelod. |
 | <a id="b566"></a>[B566](B566-An-Ended-Run-Says-What-Its-Agent-Answered.md) | S | - | `AgentEnded.answer`, the agent's declared last message, its end kept. |
 | <a id="b567"></a>[B567](B567-The-End-Of-A-Run-Sets-The-Done-State.md) | L | [B565](README.md#b565), [B566](README.md#b566) | A work task's end judged by `Outcome: done` or `blocked`: the done state set through the adapter, or the work left waiting for the operator. |

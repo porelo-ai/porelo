@@ -311,6 +311,12 @@
 
             <dependency>
                 <groupId>org.fuin.porelo</groupId>
+                <artifactId>porelo-app-planning</artifactId>
+                <version>${porelo.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.fuin.porelo</groupId>
                 <artifactId>porelo-app-model</artifactId>
                 <version>${porelo.version}</version>
             </dependency>

@@ -1,0 +1,302 @@
+
+# The board is read through this daemon; the planning adapter is never a window endpoint.
+# Reads do not fetch. Revisions are opaque store snapshots, never inferred by a client.
+# Work and reading state belong to this machine; a store read starts no work.
+
+# States are in workflow order. The adapter supplies names; kinds determine permitted actions.
+type PlanState (
+  # The adapter's state name, shared by stories and issues.
+  name: string,
+  # Waiting and closed states may be entered by a move; working states require a start.
+  # OTHER preserves a newer adapter kind for display and never authorizes a move or start.
+  kind: (WAITING, WORKING, CLOSED, OTHER)
+)
+
+# A named grouping of states in the order the adapter gives it.
+type PlanPhase (
+  name: string,
+  # State names, not copies of their definitions.
+  states: []string
+)
+
+# Signed work settings for one working state; faults are returned separately from reads.
+type PlanWorkRule (
+  state: string,
+  # States from which work may start, and the state reached after a successful run.
+  from: []string,
+  done: string,
+  # An optional next working state, entered by the work lifecycle.
+  then: ?string,
+  # Working target for classified blocking reader findings.
+  blocked: ?string,
+  # One main task per story or per repository.
+  per: (STORY, REPOSITORY),
+  modes: []Mode,
+  # The short work order template; never a host filename.
+  order: string
+)
+
+# A finding from a reader; notes alone do not cause another reworking round.
+type PlanFinding (
+  # Consecutive finding number within the reading round, starting at 1.
+  number: int,
+  # Only BLOCKING findings cause automatic reworking; NOTE accompanies Review.
+  severity: (BLOCKING, NOTE),
+  # Reader's explanation, kept verbatim, including pipes.
+  text: string,
+  # Optional repository-relative file; a line, when present, is positive and requires a file.
+  file: ?string,
+  line: ?int
+)
+
+# An issue on the board, enriched with this machine's reading and work status.
+type PlanIssue (
+  id: string,
+  # The project's repository key, as Start.repository takes it.
+  repository: string,
+  title: string,
+  state: string,
+  size: string,
+  # Issue ids that block this issue.
+  blockedBy: []string,
+  # Web page opened by Open issue.
+  link: string,
+  # Consumed readings (0 before any), and effective limit (project default without a cycle).
+  rounds: int,
+  roundsMost: int,
+  # True only while this machine has work running for the issue.
+  atWork: bool,
+  # The daemon has an outcome waiting for the operator.
+  needsYou: bool,
+  # The reading limit was reached with blocking findings; the operator must resolve it.
+  readingStopped: bool,
+  # Findings from the latest reading, empty before any reading.
+  findings: []PlanFinding,
+  # Full acceptance text, included by GetIssue and absent in summary listings.
+  whatMustBeTrue: ?string,
+  # Complete helper proposals, included by GetIssue and absent in summary listings.
+  subAgents: ?[]PlanWorker
+)
+
+# A proposed or selected worker. Brief is complete Markdown text, never a host path.
+type PlanWorker (
+  # Stable proposal name within the repository.
+  name: string,
+  agent: string,
+  model: string,
+  # OTHER proposals are display-only and must never be started.
+  role: (MAIN, BUILDER, TESTER, READER, OTHER),
+  brief: string
+)
+
+# A story's state is the earliest open issue state in workflow order, or earliest closed state
+# when all are closed. A story without issues keeps the adapter's own state.
+type PlanStory (
+  id: string,
+  title: string,
+  state: string,
+  # Web page opened by Open story.
+  link: string,
+  # Empty in board listings; GetStory reads the full description.
+  description: string,
+  # The same enriched issues returned by ListStoryIssues, from one local work snapshot.
+  issues: []PlanIssue,
+  # Local work for this story; absent on a machine without its record.
+  work: ?PlanWork,
+  # The adapter's priority label, when present; kept in listings, details and watches.
+  priority: ?string
+)
+
+# A stable helper assignment and its proposed or approved selection.
+type PlanAssignment (
+  # Identity scoped by repository/issue/name; cannot be substituted at start.
+  id: string,
+  issue: string,
+  name: string,
+  # Proposed or resulting selected agent/model; CHANGE carries the replacements.
+  agent: string,
+  model: string,
+  # The helper's role; readers are reserved for their chained working state.
+  # OTHER is display-only; it cannot be retained for work.
+  kind: (BUILDER, TESTER, READER, OTHER),
+  workingState: string,
+  # Complete Markdown instructions, never a host path.
+  brief: string,
+  # Proposal defaults to KEEP. Dropped briefs remain the main agent's responsibility.
+  choice: (KEEP, CHANGE, DROP)
+)
+
+# A repository's required main agent and proposed or chosen helpers.
+type PlanRepositoryWork (
+  repository: string,
+  # Eligible issue ids in this repository.
+  issues: []string,
+  main: PlanWorker,
+  # Builders, testers and deferred readers, with stable identities and whole briefs.
+  subAgents: []PlanAssignment
+)
+
+# Override of the story's reading limit for a single issue.
+type PlanIssueReadingRounds (
+  issue: string,
+  rounds: int
+)
+
+# The end is judged by the daemon; the window renders the outcome and decides nothing.
+type WorkEnded (
+  outcome: (DONE, BLOCKED, FAILED),
+  why: string,
+  answer: string,
+  # ISO-8601 instant.
+  at: string
+)
+
+# One task recorded for a story's work on this machine.
+type PlanWorkTask (
+  # Display name and the recorded runtime identity; a same-named task is never adopted.
+  task: string,
+  containerId: string,
+  repository: string,
+  issues: []string,
+  state: string,
+  done: string,
+  mode: Mode,
+  agent: string,
+  model: string,
+  role: (MAIN, BUILDER, TESTER, READER, OTHER),
+  since: string,
+  # True only for an active participant; stopped tasks retain their identity.
+  atWork: bool,
+  ended: ?WorkEnded
+)
+
+# One issue's local work result; the issue views carry these same values.
+type PlanWorkIssue (
+  issue: string,
+  rounds: int,
+  roundsMost: int,
+  atWork: bool,
+  needsYou: bool,
+  readingStopped: bool,
+  findings: []PlanFinding,
+  # ROUND_LIMIT is exhausted blocking Reading; other stops never set readingStopped.
+  reason: (NONE, ROUND_LIMIT, BLOCKED, FAILED, STOPPED)
+)
+
+# Local work only: absent means no local work record; stopped work has atWork false.
+type PlanWork (
+  tasks: []PlanWorkTask,
+  coordinator: ?string,
+  since: string,
+  atWork: bool,
+  # Saved assignments, choices and complete briefs, including deferred readers and drops.
+  repositories: []PlanRepositoryWork,
+  # Operator text delivered to the main agent and coordinator.
+  comment: string,
+  # Saved story limit and per-issue overrides; effective limits are in issues[].roundsMost.
+  readingRounds: int,
+  issueReadingRounds: []PlanIssueReadingRounds,
+  # Durable local results, not conclusions inferred from adapter states.
+  issues: []PlanWorkIssue
+)
+
+# Reads the installed adapter's ordered workflow and the project's work settings.
+# Faults explain inconsistent work settings without withholding the board's reads.
+method GetPlanningWorkflow(project: string) -> (states: []PlanState, phases: []PlanPhase, work: []PlanWorkRule, faults: []string)
+
+# Omitted states means all; [] means none. Filtering uses the computed story state.
+# One adapter ListStories call carries all issues; workflow revision mismatches retry.
+# Older adapters without the snapshot answer NotSupported("board-snapshot").
+method ListStories(project: string, states: ?[]string) -> (stories: []PlanStory, revision: string)
+
+# Answers the same board as ListStories first, then on store or local work changes with more.
+# This implementation answers a single snapshot without more; streaming answers NotYetBuilt.
+method WatchStories(project: string) -> (stories: []PlanStory, revision: string)
+
+# Explicitly asks the adapter to refresh; contract only until change subscriptions are implemented.
+method RefreshStories(project: string) -> (revision: string)
+
+# Reads a full story, with its computed state and web link.
+method GetStory(project: string, story: string) -> (story: PlanStory, revision: string)
+
+# Reads issue summaries with local reading status, without their acceptance text or briefs.
+method ListStoryIssues(project: string, story: string) -> (issues: []PlanIssue, revision: string)
+
+# Reads acceptance text and complete proposed helper briefs, as well as the summary fields.
+method GetIssue(project: string, issue: string) -> (issue: PlanIssue, revision: string)
+
+# Fills the start dialog without starting or moving anything. Coordinator is START or TELL.
+method ProposeStoryWork(project: string, story: string, to: string) -> (modes: []Mode, repositories: []PlanRepositoryWork, coordinator: (START, TELL), comment: string, readingRounds: int, issueReadingRounds: [](issue: string, rounds: int), revision: string)
+
+# Starts only after the operator has chosen KEEP, CHANGE or DROP for each proposal.
+# Comment explains changes and drops to the main agent and coordinator. Reading limits are
+# positive; issue override > story limit > project default (2). Omitted comment is empty.
+# Omitted repositories use the proposal; omitted limits use the project default.
+method StartStoryWork(project: string, story: string, to: string, mode: Mode, repositories: ?[]PlanRepositoryWork, comment: ?string, readingRounds: ?int, issueReadingRounds: ?[](issue: string, rounds: int), revision: string) -> (work: PlanWork, revision: string)
+
+# Reads this machine's recorded work, absent when this machine has none.
+method GetStoryWork(project: string, story: string) -> (work: ?PlanWork)
+
+# Stops the story's local tasks and leaves their items in their working state.
+method StopStoryWork(project: string, story: string) -> (work: ?PlanWork)
+
+# Saves all pending story and issue moves together against the displayed board revision, all or none.
+# Each move names exactly one of story or issue. A story move changes only its least advanced
+# issues, or its own state when it has none; moved names the issues moved (none for such a story).
+# Refusals change nothing: StaleRevision(revision), StateNotAllowed(item, from, to, reason),
+# StoryHasIssues(story), MoveNotAllowed(item, from, to, reason), EnteredOnlyByWork(item, to),
+# WorkNotAllowed(from, to, reason). Working targets require the start dialog, never a save.
+# NotYetBuilt(method) until state saving is implemented; starts nothing.
+method SaveMoves(project: string, moves: [](story: ?string, issue: ?string, to: string), revision: string) -> (revision: string, moved: []string)
+
+# Resolves a ROUND_LIMIT stop, against the displayed round and store revision.
+# REVIEW_ANYWAY enters the configured waiting done state and preserves findings/counts.
+# ONE_MORE_ROUND grants max(roundsMost, rounds + 1) and starts one fresh recorded reading.
+# REWORK requires nonblank comment, grants the same allowance and resumes the saved main task;
+# it consumes no reading until its successful chained Reading. No choice resets the cycle.
+# Stale revisions, a changed round and an absent stop refuse before any action.
+method ResolveIssueReading(project: string, story: string, issue: string, round: int, choice: (REVIEW_ANYWAY, ONE_MORE_ROUND, REWORK), comment: string, revision: string) -> (issue: PlanIssue, work: PlanWork, revision: string)
+
+# The project has no planning configuration.
+error PlanningNotSet(project: string)
+# Discovery, startup or the adapter's response failed; detail never includes credentials.
+error PlanningAdapterRefused(adapter: string, detail: string)
+# The adapter reports no workflow; this is distinct from an empty board.
+error WorkflowMissing(project: string, detail: string)
+# The requested planning item does not exist.
+error NoSuchStory(story: string)
+error NoSuchIssue(issue: string)
+# The store's current revision, so the window can reread before retrying.
+error StaleRevision(revision: string)
+# The adapter refused the transition or lacks an optional capability.
+error StateNotAllowed(item: string, from: string, to: string, reason: string)
+# A story with issues has no independently writable state.
+error StoryHasIssues(story: string)
+error NotSupported(capability: string)
+# The window should offer the start dialog for this working target.
+error EnteredOnlyByWork(item: string, to: string)
+# The target or transition cannot be used for this item.
+error MoveNotAllowed(item: string, from: string, to: string, reason: string)
+# Work cannot be started with this transition or selection.
+error WorkNotAllowed(from: string, to: string, reason: string)
+# A second start cannot replace work already running for the story.
+error WorkRunning(story: string, tasks: []string)
+# The issue has no owned ROUND_LIMIT stop left to resolve.
+error ReadingNotStopped(issue: string)
+# A delayed request names a different consumed reading count; reread before intervening.
+error ReadingRoundChanged(issue: string, rounds: int)
+# This daemon has the contract but no implementation of the requested operation yet.
+error NotYetBuilt(method: string)
+
+# Store failures remain distinct from discovery/startup or malformed replies.
+# retryAfter is nonnegative seconds; 0 means the store gave no wait.
+# Tasks1 already uses CredentialRefused for vault operations, with different fields.
+error PlanningCredentialRefused(detail: string, retryAfter: int)
+error RateLimited(detail: string, retryAfter: int)
+error NoSuchStore(detail: string, retryAfter: int)
+error Unreachable(detail: string, retryAfter: int)
+error InvalidSettings(detail: string)
+# The adapter's Failed(message) uses the common Tasks1 Failed(message).
+# Unknown newer adapter errors retain their qualified name and original fields, including nulls.
+# Render diagnostic fields as bounded, terminal-safe text, never parse them to choose an action.
+error PlanningAdapterError(adapter: string, error: string, parameters: object)

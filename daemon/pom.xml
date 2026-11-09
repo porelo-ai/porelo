@@ -29,7 +29,19 @@
             <artifactId>porelo-app</artifactId>
         </dependency>
 
+        <dependency>
+            <groupId>org.fuin.porelo</groupId>
+            <artifactId>porelo-planning-api</artifactId>
+        </dependency>
+
         <!-- test -->
+
+        <dependency>
+            <groupId>org.fuin.porelo</groupId>
+            <artifactId>porelo-planning-stub</artifactId>
+            <version>${porelo.version}</version>
+            <scope>test</scope>
+        </dependency>
 
         <dependency>
             <groupId>org.fuin.porelo</groupId>

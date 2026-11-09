@@ -93,6 +93,98 @@ porelod               # serves, until it is stopped
 
 It takes no other options, and an option it does not know is refused, not ignored.
 
+### The planning board
+
+Tasks1 part `60-planning` is the window's only planning endpoint. The installed planning adapter
+supplies the workflow and store records. Reads do not fetch. Store revisions are opaque strings;
+the board needs one `ListStories` call carrying every story's issue summaries and one `GetWorkflow` call.
+Revision mismatches retry the entire read (three attempts); persistent changes answer `StaleRevision` with
+the latest observed revision. No result mixes revisions. Porelod always requests all stored stories,
+then computes and filters their states locally. An older adapter with no listing snapshot
+answers `NotSupported("board-snapshot")`; it is never treated as an issue-less board and no per-story
+fallback is attempted. Explicit empty issue snapshots keep the story's stored state.
+A story with issues takes the first open issue state in workflow order, or the first closed state
+when all issues are closed. An issue-less story keeps its stored state. State names are adapter data.
+
+| Method | Request and answer |
+|---|---|
+| `GetPlanningWorkflow` | `project` → ordered `states`, `phases`, signed `work` rules and validation `faults`. |
+| `ListStories` | `project`, optional `states` → `stories`, `revision`; absent filter means all, empty means none; filtering uses computed states. |
+| `WatchStories` | `project` → the same board as `ListStories`; without `more`, one snapshot; streaming is not implemented yet. |
+| `RefreshStories` | `project` → `revision`; explicit fetch, not implemented yet. |
+| `GetStory` | `project`, `story` id → full `story`, `revision`. |
+| `ListStoryIssues` | `project`, `story` id → summary `issues`, `revision`. |
+| `GetIssue` | `project`, `issue` id → full `issue` details, `revision`. |
+| `ProposeStoryWork` | `project`, `story`, target `to` → allowed `modes`, per-repository proposals, `coordinator` (`START` or `TELL`), prefilled `comment`, `readingRounds`, `issueReadingRounds`, `revision`; changes nothing. |
+| `StartStoryWork` | `project`, `story`, `to`, `mode`, optional chosen `repositories`, optional `comment`, optional `readingRounds`, optional `issueReadingRounds`, `revision` → local `work`, `revision`. |
+| `GetStoryWork` | `project`, `story` → optional local `work`. |
+| `StopStoryWork` | `project`, `story` → optional stopped `work`; the items keep their working state. |
+| `SaveMoves` | `project`, `moves: [](story: ?string, issue: ?string, to: string)`, board `revision` → new `revision`, `moved: []string` (issue ids); all pending story and issue moves or none. Each move names exactly one item; a story move changes only issues in its computed state, or its own state without issues. |
+| `ResolveIssueReading` | `project`, `story`, `issue`, displayed `round`, `choice`, `comment`, `revision` → updated `issue`, `work`, `revision`; `REVIEW_ANYWAY` accepts, `ONE_MORE_ROUND` grants one further reading, `REWORK` resumes main with a required nonblank comment. Counts never reset; the round must still match. |
+
+The record fields are:
+
+| Record | Fields and meaning |
+|---|---|
+| `PlanState` | `name`: adapter state name; `kind`: `WAITING`, `WORKING`, `CLOSED` or `OTHER` (display only; never authorizes starting or moving work). Order comes from the workflow array. |
+| `PlanPhase` | `name`: phase label; `states`: ordered state names in it. |
+| `PlanWorkRule` | `state`: working state; `from`: allowed source states; `done`: successful end state; optional `then`: chained working state; optional `blocked`: working target for blocking findings; `per`: `STORY` or `REPOSITORY`; `modes`: allowed task modes; `order`: short instruction template. |
+| `PlanFinding` | `number`: reader's finding number in the round; `severity`: `BLOCKING` or `NOTE`; `file`: optional repository-relative path; `line`: optional positive source line (requires a file); `text`: reader's explanation. |
+| `PlanIssue` | `id`, `repository` (project repository key), `title`, `state`, `size`, `blockedBy` (issue ids), `link` (Open issue URL); `rounds` consumed, `roundsMost` effective limit; `atWork`, `needsYou`, `readingStopped` are daemon decisions; `findings` contains the last reading's findings; optional `whatMustBeTrue` and `subAgents` are present only in full issue reads. |
+| `PlanWorker` | `name`: stable proposal name; `agent`, `model`: proposed or selected implementation; `role`: `MAIN`, `BUILDER`, `TESTER`, `READER`, `OTHER` (display only); `brief`: complete Markdown instructions, never a host path. |
+| `PlanStory` | `id`, `title`, computed `state`, `link` (Open story URL), `description` (full text on `GetStory`, empty on `ListStories` and `WatchStories`), enriched `issues`, optional local `work`, optional `priority` (adapter label preserved in lists, details and watches). |
+| `PlanRepositoryWork` | `repository`, `issues` (ids), required `main` worker, `subAgents` (builders, testers and deferred readers). |
+| `PlanAssignment` | Stable `id` scoped by repository/issue/name; `issue`, `name`, proposed or resulting `agent`, `model`, helper-role `kind` (`BUILDER`, `TESTER`, `READER`, `OTHER` for display only), `workingState`, complete `brief`, `choice` (`KEEP`, `CHANGE`, `DROP`, initially `KEEP`). |
+| `PlanIssueReadingRounds` | `issue` id and its `rounds` override of the story's reading limit. |
+| `WorkEnded` | `outcome`: `DONE`, `BLOCKED`, `FAILED`; `why`: reason; `answer`: agent's last answer; `at`: ISO-8601 instant. |
+| `PlanWorkTask` | `task`: container name; `containerId`: recorded runtime identity; `repository`, `issues`, working `state`, successful `done`, `mode`, `agent`, `model`, `role`, `since` (ISO-8601 instant), participant `atWork`, optional `ended`. |
+| `PlanWorkIssue` | `issue` id, `rounds`, effective `roundsMost`, `atWork`, `needsYou`, `readingStopped`, last `findings`, typed `reason` (`NONE`, `ROUND_LIMIT`, `BLOCKED`, `FAILED`, `STOPPED`). |
+| `PlanWork` | `tasks`, optional `coordinator` task name, `since` (ISO-8601 instant), `atWork`; saved `repositories`, operator `comment`, story `readingRounds`, `issueReadingRounds` overrides, per-issue results `issues`. |
+
+Named errors preserve their typed parameters: `PlanningNotSet(project)`,
+`PlanningAdapterRefused(adapter, detail)`, `WorkflowMissing(project, detail)`, `NoSuchStory(story)`,
+`NoSuchIssue(issue)`, `StaleRevision(revision)`, `StateNotAllowed(item, from, to, reason)`, `StoryHasIssues(story)`, `NotSupported(capability)`,
+`EnteredOnlyByWork(item, to)`, `MoveNotAllowed(item, from, to, reason)`, `WorkNotAllowed(from, to, reason)`,
+`WorkRunning(story, tasks)`, `ReadingNotStopped(issue)`, `ReadingRoundChanged(issue, rounds)` and `NotYetBuilt(method)`. Working states are entered only by starting work.
+A window renders these names and values instead of parsing a diagnostic sentence.
+
+`SaveMoves` answers `NotYetBuilt(method)` and starts nothing until state saving is implemented.
+Its contract refuses the whole save with `StaleRevision(revision)`, `StateNotAllowed(item, from, to, reason)`,
+`StoryHasIssues(story)`, `MoveNotAllowed(item, from, to, reason)`, `EnteredOnlyByWork(item, to)` or
+`WorkNotAllowed(from, to, reason)`. Through MCP it belongs to `JUDGEMENT` and is offered only when the person
+lists it.
+
+Store failures map directly to `RateLimited(detail, retryAfter)`, `NoSuchStore(detail, retryAfter)`
+(absent or not visible), `Unreachable(detail, retryAfter)`, `InvalidSettings(detail)` and the common
+`Failed(message)`. Planning1's `CredentialRefused(detail, retryAfter)` maps to
+`PlanningCredentialRefused(detail, retryAfter)`, since Tasks1's vault already owns `CredentialRefused`
+with different fields. `retryAfter` is nonnegative seconds, 0 for an unknown wait; the window can show
+credential refusal, rate limiting and an unreachable store separately without parsing prose.
+Unknown newer adapter errors answer `PlanningAdapterError(adapter, error, parameters)`: `error` is the
+original qualified name and `parameters` is the original object, including null extension fields.
+Local startup, transport and malformed-reply failures remain `PlanningAdapterRefused(adapter, detail)`.
+Render all diagnostic fields as bounded, terminal-safe text. An absent or null adapter `subAgents` list
+becomes an empty list in a full issue; newer proposal and state kinds appear as `OTHER`. Such values
+never authorize a start or move; unfinished action methods still refuse with `NotYetBuilt`.
+Streaming watch remains unimplemented. When implemented, its first Planning1 `WatchChanges` revision
+must be compared with the preceding read; a mismatch requires rereading the whole board.
+
+Omitted start selections use the proposal. Omitted comment is empty. A positive per-issue reading limit
+overrides the story limit, which overrides `planning.reading.rounds` (default 2). Dropped briefs remain the
+main agent's responsibility, including a dropped reader. Reading findings retain optional locations;
+`ROUND_LIMIT` is not inferred from an adapter state. One local snapshot supplies every nested issue and
+`GetStoryWork` in a request; another machine's work is never guessed.
+
+**Current implementation:** the five reads and a single-snapshot watch use the installed adapter, opened and closed per request.
+Until the project model carries planning configuration, the read bridge accepts the `planning.adapter`
+and opaque `planning.settings` mapping from the project's recorded file. Credential-bearing configurations
+answer `NotYetBuilt(PlanningCredentials)` without opening a vault. Work rules and their checks are not
+implemented. Proposal/start/stop/moves/resolve/refresh and a streaming watch answer `NotYetBuilt` and change nothing.
+`GetStoryWork` has no local work until the work lifecycle supplies its saved snapshot. Without a cycle,
+rounds are 0, roundsMost is the project default, flags are false and findings empty. The read bridge can
+consume an immutable local work snapshot, including exhausted readings and notes. No response claims
+that tasks started or that an item moved.
+
 ### The systemd user unit
 
 `porelod.service` is a **user** unit, on purpose. **A Porelo node is an OS user, not a machine**: the vault,

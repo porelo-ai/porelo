@@ -78,7 +78,16 @@ reading design; state names come from the checked workflow/configuration.
    reading allowance and resumes the same main task into configured blocked (Reworking) with that text/findings;
    rounds stays unchanged until its successful chained Reading increments it. No choice resets the cycle.
    `round` must match the displayed PlanIssue.rounds, preventing a delayed retry from granting another round.
-   [B567](README.md#b567) owns checks/recovery; ordinary MoveIssues and StartStoryWork gain no implicit retry.
+   [B567](README.md#b567) owns checks/recovery; ordinary SaveMoves and StartStoryWork gain no implicit retry.
+5. `PlanStory.priority: ?string` carries the adapter's optional priority label on ListStories, GetStory and
+   WatchStories, absent when the adapter supplies none.
+6. `SaveMoves(project: string, moves: [](story: ?string, issue: ?string, to: string), revision: string)`
+   `-> (revision: string, moved: []string)` saves every pending story and issue move together against the board's
+   revision, all or none. Each move names exactly one of story or issue; a story move changes its least advanced
+   issues, or its own state without issues. `moved` carries issue ids. Refusals are `StaleRevision(revision)`,
+   `StateNotAllowed(item, from, to, reason)`, `StoryHasIssues(story)`, `MoveNotAllowed(item, from, to, reason)`,
+   `EnteredOnlyByWork(item, to)` and `WorkNotAllowed(from, to, reason)`. It answers `NotYetBuilt(method)` and starts
+   nothing until [B564](README.md#b564); through MCP it is `JUDGEMENT`, offered only from the person's list.
 
 ## Acceptance
 
@@ -100,7 +109,7 @@ reading design; state names come from the checked workflow/configuration.
 2. **What must be true and who builds it - answered.** `GetIssue` carries `whatMustBeTrue` (the adapter's `Issue`
    gives it, [B560](README.md#b560)); `ListStoryIssues` does not. Who builds it is the issue's `repository`, and the
    task working on it is in `GetStoryWork`.
-3. **MoveStory answers what it moved - answered:** `moved`, the issues' ids ([B564](README.md#b564)).
+3. **SaveMoves answers what it moved - answered:** `moved`, the issues' ids ([B564](README.md#b564)).
 4. **The shell's name - answered.** A work task is named from the story, and with `per: repository` the repository
    (`st294`, `st294-porelo`), cut to fit as a start cuts names; the coordinator is `coordinator`
    ([B568](README.md#b568)). An attended work opens that task's session, or the coordinator's with several.
@@ -115,3 +124,28 @@ reading design; state names come from the checked workflow/configuration.
 
 - Which way an issue names its repository: the project's repository key, as `Start.repository` takes it, so
   [B565](README.md#b565) can start its task; agreed with porelo-adapters.
+
+## As built (first part)
+
+Built by Codex CLI on Agent Core's brief, on [B560](README.md#b560); reviewed by Agent Core. The issue stays
+Implementing: this part is the window's wire and its reads, so the window can build against it.
+- **`60-planning`** in Tasks1 declares every method and record of "The window's wire". `porelod` answers the reads
+  (`GetPlanningWorkflow`, `ListStories`, `GetStory`, `ListStoryIssues`, `GetIssue`, a one-snapshot `WatchStories`,
+  `GetStoryWork`) from the installed planning adapter, through the new area `app-planning`.
+  `PlanStory.priority: ?string` preserves the adapter's label in every story view.
+- **The board is read in one call** through each story's issues; story states are computed and filtered in `porelod`,
+  never through the adapter's stored-state filter. A read whose revisions differ is retried whole twice, then refused
+  with `StaleRevision` and the latest revision; no mixed board is answered.
+- **The adapter's refusals reach the window by name:** `StateNotAllowed(item, from, to, reason)`, `StoryHasIssues`,
+  `PlanningCredentialRefused`, `RateLimited`, `NoSuchStore` and `Unreachable` (each with `retryAfter`),
+  `InvalidSettings`, and `PlanningAdapterError` keeping an unknown error's name and fields. `OTHER` states and kinds are
+  shown and never start work.
+- **Not yet built,** each answering `NotYetBuilt` and starting nothing: `RefreshStories` and a streaming `WatchStories`
+  ([B563](README.md#b563)), `SaveMoves(project, moves: [](story: ?string, issue: ?string, to: string), revision)`
+  `-> (revision, moved: []string)` for one all-or-none save ([B564](README.md#b564)), `ProposeStoryWork`,
+  `StartStoryWork` and `StopStoryWork` ([B565](README.md#b565)), `ResolveIssueReading` ([B567](README.md#b567)).
+- **Through MCP** an agent may read the board and the proposal; it never starts or stops work, and `SaveMoves` and
+  `ResolveIssueReading` are a person's judgement, offered only from the person's list.
+- **Tests.** `wire`, `planning/api`, `planning/stub`, `apps/app` (3661) and `daemon` (337) ran whole outside a sandbox,
+  green. Left for the second part: a workflow whose closed state comes before an open one in board order, which no
+  test holds yet.

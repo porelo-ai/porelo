@@ -57,6 +57,11 @@
         </dependency>
         <dependency>
             <groupId>org.fuin.porelo</groupId>
+            <artifactId>porelo-app-planning</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.fuin.porelo</groupId>
             <artifactId>porelo-app-gate</artifactId>
         </dependency>
 
