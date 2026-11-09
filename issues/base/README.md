@@ -110,6 +110,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b563"></a>[B563](B563-The-Board-Told-Of-Every-Change.md) | S | [B562](README.md#b562) | `WatchStories` and `RefreshStories`: the whole board, then every change from the adapter or porelod. |
 | <a id="b560"></a>[B560](B560-A-Planning-Adapter-Behind-Its-Own-Contract.md) | M | - | `porelo-planning-api`: `org.fuin.porelo.Planning1`, `PlanningMain`, the client and discovery of installed planning adapters, a stub, and the adapter guide. |
 | <a id="b562"></a>[B562](B562-The-Board-Read-Through-Porelod.md) | L | [B560](README.md#b560), [B561](README.md#b561) | Tasks1 part `60-planning`'s reads through the adapter porelod runs, a GitHub App's token minted per call, a story's state computed from its issues in one workflow, and `planning.work` checked against it. |
 | <a id="b541"></a>[B541](B541-The-Host-Tool-Reads-The-Organization-And-A-Task-By-Its-Signature.md) | L | [B540](#b540) | `porelo-host org status` and `task show <fingerprint>`, read-only, answering as the Python does. |
@@ -127,7 +128,6 @@ from its side, as *blocked by*.
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
 | <a id="b561"></a>[B561](B561-What-Starts-Work-Named-In-The-Project-File.md) | M | - | `planning` in the signed project file: the adapter, its credential (`github-app` or `token`) and settings, `work` per working state (`from`, `done`, `per`, `modes`, `order`, `model`) and the coordinator's order. |
-| <a id="b563"></a>[B563](B563-The-Board-Told-Of-Every-Change.md) | S | [B562](README.md#b562) | `WatchStories` and `RefreshStories`: the whole board, then every change from the adapter or porelod. |
 | <a id="b564"></a>[B564](B564-States-Moved-On-The-Board.md) | M | [B562](README.md#b562) | `MoveStory` and `MoveIssues`, all or none; a working state is refused as a target with `EnteredOnlyByWork`. |
 | <a id="b565"></a>[B565](B565-Work-Started-From-The-Board.md) | L | [B562](README.md#b562), [B563](README.md#b563) | `ProposeStoryWork`, `StartStoryWork`, `GetStoryWork`, `StopStoryWork`: tasks started for a story's working state and recorded by porelod. |
 | <a id="b566"></a>[B566](B566-An-Ended-Run-Says-What-Its-Agent-Answered.md) | S | - | `AgentEnded.answer`, the agent's declared last message, its end kept. |
