@@ -11,6 +11,9 @@ Feature: A declared name reaches a service on this host on TCP 443
     Background:
         Given the environment variable "PORELO_ACCEPTANCE_HOST_SERVICES" is set
         And the suite runs as an unprivileged user
+        And the environment variable "PORELO_ACCEPTANCE_FAKE_CREDENTIAL" is set
+        And a vault of this scenario's own, unlocked with the passphrase "acceptance"
+        And the vault holds the value of "PORELO_ACCEPTANCE_FAKE_CREDENTIAL" as "anthropic" of kind "api-key"
 
     Scenario Outline: a declared host service is reachable while other host ports stay closed
         Given a project called "host-service-<class>" of class "<class>" whose project file also says:

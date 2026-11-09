@@ -20,6 +20,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b540"></a>[B540](B540-The-Host-Tool-As-A-Module-Of-Porelo.md) | M | - | `host/` module, native `porelo-host`, package with man page, `--version`, the root boundary's checks (no caller environment, no JVM options from it, root-owned files, `SUDO_USER` only). |
 | <a id="b545"></a>[B545](B545-The-Host-Tool-Adds-Removes-Migrates-And-Takes-Off-A-Project.md) | L | [B541](#b541) | `porelo-host project add | remove | migrate | take-off`, internal, as `porelo-host-project`. |
 | <a id="b541"></a>[B541](B541-The-Host-Tool-Reads-The-Organization-And-A-Task-By-Its-Signature.md) | L | [B540](#b540) | `porelo-host org status` and `task show <fingerprint>`, read-only, answering as the Python does. |
 | <a id="b563"></a>[B563](B563-The-Board-Told-Of-Every-Change.md) | S | [B562](README.md#b562) | `WatchStories` and `RefreshStories`: the whole board, then every change from the adapter or porelod. |
@@ -137,7 +138,6 @@ from its side, as *blocked by*.
 | <a id="b562"></a>[B562](B562-The-Board-Read-Through-Porelod.md) | L | [B560](README.md#b560), [B561](README.md#b561) | Tasks1 part `60-planning`'s reads through the adapter porelod runs, a GitHub App's token minted per call, a story's state computed from its issues in one workflow, and `planning.work` checked against it. |
 | <a id="b553"></a>[B553](B553-A-Move-Runs-Without-A-Terminal-For-A-Rehearsal.md) | M | - | Every command of a move's person runs without a terminal, refusing at once instead of prompting, for an automated rehearsal. |
 | <a id="b554"></a>[B554](B554-A-Forge-Tokens-Reach-Checked-Against-What-A-Move-Needs.md) | S | - | A forge token's permissions checked against what a move asks of it, each missing one named, before a server is rented. |
-| <a id="b540"></a>[B540](B540-The-Host-Tool-As-A-Module-Of-Porelo.md) | M | - | `host/` module, native `porelo-host`, package with man page, `--version`, the root boundary's checks (no caller environment, no JVM options from it, root-owned files, `SUDO_USER` only). |
 | <a id="b505"></a>[B505](B505-Where-Delivered-Content-Came-From-In-Review.md) | M | [B467](#b467) | `Review` names where each file Porelo delivered into the task came from. |
 | <a id="b459"></a>[B459](B459-Every-Credential-Failure-Says-What-To-Do.md) | L | - | Credential failure inventory, upstream advice, agent readiness and source-aware unlock/storage actions; push/provider paths, frontend agreement, window controls and live remedies still pending. |
 | <a id="b458"></a>[B458](B458-A-Refused-Push-Says-Which-Credential.md) | M | - | Backend built: selected SSH identities, public key inventory, trial and named refusal; focused guards pass, complete unit verification blocked, window remains. |
