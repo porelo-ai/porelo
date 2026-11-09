@@ -108,6 +108,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b535"></a>[B535](B535-A-Sign-Ins-Vault-Said-And-Kept-Open.md) | S | - | A sign-in whose vault was locked meanwhile says so plainly; a terminal `vault login` keeps a vault it opened open until restart (the operator's decision). |
 | <a id="b505"></a>[B505](B505-Where-Delivered-Content-Came-From-In-Review.md) | M | [B467](#b467) | `Review` names where each file Porelo delivered into the task came from. |
 | <a id="b494"></a>[B494](B494-Build-Status-Reads-The-Builds-A-Host-Names.md) | S | - | `build status` on a host answers from the builds the host names when `project.yml` names none, as the task's watch does. |
 | <a id="b496"></a>[B496](B496-A-Shut-Vault-Is-Named-When-An-Organization-Change-Is-Refused.md) | S | - | An organization change refused because no forge token could be lent says `vault-shut` when the vault is shut. |
@@ -122,6 +123,8 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b537"></a>[B537](B537-One-Host-File-That-Does-Not-Read-Hides-No-Other-Project.md) | S | - | On a host, a project whose host file does not read is a row saying so, and the others are listed. |
+| <a id="b538"></a>[B538](B538-A-Tasks-Container-Without-The-Doubled-Project-Name.md) | L | - | A task's container is `porelo-pi`, not `porelo-porelo-pi`, with tasks made before kept working and no clash between projects. High priority. |
 | <a id="b534"></a>[B534](B534-A-Start-Waits-On-Its-Agents-Sign-In.md) | M | [B530](#b530) | A start missing its agent's credential waits on that agent's running sign-in, or is answered SignInNeeded / VaultLocked as typed values before anything is made. |
 | <a id="b527"></a>[B527](B527-A-Tasks-Message-Reaches-The-Task-It-Names.md) | M | - | A task's message reaches only the task it names, in place of every agent reading every message. |
 | <a id="b514"></a>[B514](B514-Every-Task-Run-Kept-In-One-Timeline.md) | M | - | Every task run kept in one timeline: lifecycle entries (who and when, the run's numbers) in the events chain, logs archived past stop, reboot and removal, readings over varlink, MCP and the CLI, one structured log stream for every Porelo process with the journal as its home; porelo-frontend's F436 reads it. |
@@ -202,6 +205,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b536"></a>[B536](B536-An-Mcp-Start-Takes-The-Projects-Model-Before-The-List.md) | - | - | An MCP start naming no model starts on the project's default when the agent's list allows it. |
 | <a id="b529"></a>[B529](B529-A-Peers-Message-Cannot-Pass-For-A-Filter-Note.md) | - | - | Another task's message shaped like a refusal note no longer wakes every task it reaches. |
 | <a id="b518"></a>[B518](B518-A-Person-Leaves-An-Organization.md) | S | - | `porelo org leave`: a person withdraws their own card and roles and forgets the organization on this machine, refused where it would leave no owner; the window's *Leave…* runs it. |
 | <a id="b517"></a>[B517](B517-A-Card-Proposed-And-Accepted-By-An-Owner.md) | M | - | A person who cannot write the organization's repository files their card as a proposal, which grants nothing until an owner accepts it; the window's *Join an organization…* and *Accept a proposed card…* wait on it. |
