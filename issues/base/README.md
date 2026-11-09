@@ -110,6 +110,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b560"></a>[B560](B560-A-Planning-Adapter-Behind-Its-Own-Contract.md) | M | - | `porelo-planning-api`: `org.fuin.porelo.Planning1`, `PlanningMain`, the client and discovery of installed planning adapters, a stub, and the adapter guide. |
 | <a id="b541"></a>[B541](B541-The-Host-Tool-Reads-The-Organization-And-A-Task-By-Its-Signature.md) | L | [B540](#b540) | `porelo-host org status` and `task show <fingerprint>`, read-only, answering as the Python does. |
 | <a id="b553"></a>[B553](B553-A-Move-Runs-Without-A-Terminal-For-A-Rehearsal.md) | M | - | Every command of a move's person runs without a terminal, refusing at once instead of prompting, for an automated rehearsal. |
 | <a id="b554"></a>[B554](B554-A-Forge-Tokens-Reach-Checked-Against-What-A-Move-Needs.md) | S | - | A forge token's permissions checked against what a move asks of it, each missing one named, before a server is rented. |
@@ -124,7 +125,6 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
-| <a id="b560"></a>[B560](B560-A-Planning-Adapter-Behind-Its-Own-Contract.md) | M | - | `porelo-planning-api`: `org.fuin.porelo.Planning1`, `PlanningMain`, the client and discovery of installed planning adapters, a stub, and the adapter guide. |
 | <a id="b561"></a>[B561](B561-What-Starts-Work-Named-In-The-Project-File.md) | S | - | `planning` in the signed project file: the adapter, its credential (`github-app` or `token`) and settings, `work` per working state (`from`, `done`, `per`, `modes`, `order`, `model`) and the coordinator's order. |
 | <a id="b562"></a>[B562](B562-The-Board-Read-Through-Porelod.md) | L | [B560](README.md#b560), [B561](README.md#b561) | Tasks1 part `60-planning`'s reads through the adapter porelod runs, a GitHub App's token minted per call, a story's state computed from its issues in one workflow, and `planning.work` checked against it. |
 | <a id="b563"></a>[B563](B563-The-Board-Told-Of-Every-Change.md) | S | [B562](README.md#b562) | `WatchStories` and `RefreshStories`: the whole board, then every change from the adapter or porelod. |

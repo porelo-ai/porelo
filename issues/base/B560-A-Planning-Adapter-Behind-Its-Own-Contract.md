@@ -1,6 +1,6 @@
 # [B560](README.md#b560) — A Planning Adapter Behind Its Own Contract
 
-**Status:** Backlog. Filed 2026-11-09 as porelo's part of `porelo-project` ST294, which the operator accepted on
+**Status:** Implementing, since 2026-11-09. Filed 2026-11-09 as porelo's part of `porelo-project` ST294, which the operator accepted on
 2026-11-09; nothing is built before the operator's word.
 **Size:** M - a new published module with one varlink contract another repository builds against, its stub, its
 discovery and one page of documentation; nothing in porelod yet.
