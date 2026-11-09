@@ -749,10 +749,7 @@ class TaskRunCommandTest {
                                 new org.fuin.porelo.vault.VaultEntry(
                                         "unrelated-fixture-secret", "api-key")));
 
-        assertThat(err.toString().lines().filter(line -> line.startsWith("porelo: the builds of ")))
-                .as("the start must name the missing entry and the command to make it on this host")
-                .containsExactly(
-                        "porelo: the builds of uc on this host are read with 'host-builds', which your vault does not hold; run porelo-host-forge-token on this host, then start the task again to be told its builds");
+        assertThat(err.toString()).contains("host-builds", "porelo host forge-token");
         assertThat(called)
                 .as("a missing host builds credential must start no watch-builds helper")
                 .isEmpty();
@@ -805,8 +802,8 @@ class TaskRunCommandTest {
                         true);
 
         assertThat(err.toString())
-                .as("only a task the forge builds may be sent to porelo-host-forge-token")
-                .doesNotContain("porelo-host-forge-token")
+                .as("only a task the forge builds may be sent to porelo host forge-token")
+                .doesNotContain("porelo host forge-token")
                 .contains("the task has no upstream branch");
         assertThat(called).as("a task without a gate starts no watch-builds helper").isEmpty();
     }

@@ -1,0 +1,2 @@
+title: "`porelo host forge-token` stores a new forge token after verifying the vault opens, `porelo host central-state` reads the host's published state file, and `porelo host stop-secrets` initializes or unlocks the vault and stores keys; the daemon reads central state directly from the file"
+type: added

@@ -423,6 +423,9 @@ What a task may resolve and reach. See [the firewall](security.md) and [DNS](sec
 |---|---|
 | `porelo host unlock <host> --host-key SHA256:... --login <account>` | Checks the host's Ed25519 key and sends a locally derived share over SSH to unlock or initialize its vault. `--previous-key FP` changes keys while keeping entries; `--remote-porelo PATH` selects the remote executable (default `porelo`); `--yes` authorizes a reset for another key; `--json` reports the outcome. |
 | `porelo host whoami [--json]` | Run in a host account, over the SSH a tunnel opens first: asks the account's own daemon at `$XDG_RUNTIME_DIR/porelo/porelod.sock` for its version (`GetInfo`, within 5 seconds; a socket file alone proves nothing) and answers `{"login", "uid", "return_socket"}`: the account's login and numeric uid and that socket, where the tunnel returns to. It reads and writes nothing else. Exit 0; 66 with `{"reason": "no-daemon", "words"}` on stdout (with `--json`) and the words on stderr when no daemon answers there. |
+| `porelo host forge-token [--if-forge]` | Mints this person's forge token on the host through `sudo -n /usr/sbin/porelo-host forge issue-token` (both programs checked as root's alone, with `sudo` resolved from fixed system directories), reads the token from its stdout, and stores it in this account's vault under `<forge>.person` from `/etc/porelo-host/forge.conf`. Verifies the vault opens before rotating the token, prompting only when shut and at a terminal. A missing vault refuses with 69 naming `porelo vault init`; a shut passphrase vault without a terminal names `porelo vault unlock`, and a shut share-only host vault names `porelo host unlock <host>`. A failed `sudo -n` refuses with 69 naming the sudo rule, and a non-zero answer from `porelo-host` is passed on with its words, redacting any token. `--if-forge` does nothing when the host runs no forge. |
+| `porelo host central-state <project> [--json]` | Reads `/etc/porelo-host/organization/central/<project>.json` directly (trusted only as a plain file owned by root and not writable by group or others, under root-owned directories with no symlink) and prints how each repository's copy on this host stands against central. A file that is missing, refused or unparsable answers `cannot-say` with `host-command-failed` or `host-answer-refused`, never `up-to-date`. |
+| `porelo host stop-secrets [--stdin] <need>...` | Fulfills this person's secrets at a host's stop (`vault-new` or `vault`, and with `--stdin` `keys`). At a terminal without `--stdin`, asks each passphrase in place until done or cancelled (exit 75); without a terminal and without `--stdin`, refuses at once with 69. With `--stdin`, reads one base64 secret line per need (`vault-new <b64>`, `vault <b64>`, `key <name> <b64>`) from a pipe (at most 256 lines and 1 MiB), checks every line and decoded key before using any, and asks nothing. |
 
 Run this on the person's machine with `SSH_AUTH_SOCK` pointing to their agent. With several Ed25519 keys,
 `--key SHA256:...` chooses the person's identity. Host name or IPv4 address, host key fingerprint and login are
@@ -793,13 +796,13 @@ porelo project default [list | add ADDRESS [--name=NAME] | remove NAME]
   person cannot read, is refused, and a gate command forwards nothing of it. Off a host `carriedHere` is
   absent. Before a carried project is taken, its rows are the repositories the host's file names, nothing measured.
   On a host, the upstream timer reads once per carried project what the host's follow last found of central, from
-  `/usr/local/sbin/porelo-host-push --central <project>` in the person's own account (no sudo, and only while root alone
-  can write the program and its directories), and a listing reads what it recorded: `central` is `up-to-date`, `ahead`,
+  `/etc/porelo-host/organization/central/<project>.json` in the person's own account (no sudo, and only while root alone
+  can write the file and its directories), and a listing reads what it recorded: `central` is `up-to-date`, `ahead`,
   `moved-on` (central has commits the copy lacks), `cannot-say` or `no-central` (the row names no `central`, so the
   host keeps no copy), and `centralWhy` says why it cannot say: the host's reason (`no-read-key`, `unreachable`,
   `no-central-main`, `local`; `unreachable` too for a repository the host did not list), or Porelo's own,
-  `host-answer-refused` for an answer that is not what the program may print and `host-command-failed` where it could
-  not be run or exited non-zero. `ahead` is the commits for `ahead` and 0 for `up-to-date`, with `aheadMeasured` the
+  `host-answer-refused` for an answer that is not what the file may hold and `host-command-failed` where the file could
+  not be read or trusted. `ahead` is the commits for `ahead` and 0 for `up-to-date`, with `aheadMeasured` the
   time the follow read it; otherwise absent, never 0 in its place, and a refused or failed answer keeps the earlier
   `ahead`. `behind` stays the gate's own measure. Off a host, or where `carriedHere` is not true, none of them is
   present.

@@ -68,20 +68,12 @@ class UpstreamWatchTest {
         assertThat(UpstreamWatch.interval(saying(""))).isEqualTo(UpstreamWatch.DEFAULT_INTERVAL);
     }
 
-    /** What happens on this machine while the host's program runs. */
+    /** What happens on this machine while the host's central-state file is read. */
     private Runnable whileAsked = () -> {};
 
-    private final FakeCommandRunner runner =
-            new FakeCommandRunner() {
-                @Override
-                public org.fuin.porelo.core.process.CommandResult run(
-                        final org.fuin.porelo.core.process.Command command) {
-                    if (command.arguments().contains("--central")) {
-                        whileAsked.run();
-                    }
-                    return super.run(command);
-                }
-            };
+    private Path centralFile;
+
+    private final FakeCommandRunner runner = new FakeCommandRunner();
 
     /** What the host answered of central the time before, which a refused answer must keep. */
     private static final UpstreamDistance.Central EARLIER =
@@ -129,10 +121,29 @@ class UpstreamWatchTest {
                      "repositories": ["backend", "frontend", "docs", "notes"]}
                     """);
         }
+        final Path central = dir.resolve("host/central");
+        Files.createDirectories(central);
+        centralFile = central.resolve("quad.json");
         final UpstreamWatch watch = new UpstreamWatch(context, Duration.ZERO);
         watch.hostFiles = files;
-        // Root owns nothing in a test; the check itself is SystemProgramTest's.
-        watch.taken = program -> program;
+        watch.centralFiles = central;
+        // Root owns nothing in a test; RootOwnedFile checks attributes through this reader.
+        watch.centralAttributes =
+                path -> {
+                    if (path.equals(centralFile)) {
+                        whileAsked.run();
+                    }
+                    if (!Files.exists(path, java.nio.file.LinkOption.NOFOLLOW_LINKS)) {
+                        throw new java.nio.file.NoSuchFileException(path.toString());
+                    }
+                    return java.util.Map.of(
+                            "uid",
+                            0,
+                            "mode",
+                            Files.isDirectory(path, java.nio.file.LinkOption.NOFOLLOW_LINKS)
+                                    ? 0040755
+                                    : 0100640);
+                };
         records(dir)
                 .putMeasured(
                         "quad.backend",
@@ -174,8 +185,8 @@ class UpstreamWatchTest {
                 + "{\"repository\":\"docs\",\"state\":\"cannot-say\",\"why\":\"unreachable\"}]}\n";
     }
 
-    private void answering(String output) {
-        runner.answering("--central quad", output);
+    private void answering(String output) throws Exception {
+        Files.writeString(centralFile, output);
     }
 
     @Test
@@ -203,9 +214,9 @@ class UpstreamWatchTest {
         assertThat(records(dir).get("quad.notes").central().state())
                 .as("no central address in the project file, so the host keeps no copy")
                 .isEqualTo("no-central");
-        assertThat(runner.only("--central quad").arguments())
-                .as("the host's program by its path, in this account, nothing else")
-                .containsExactly(HostCentral.PROGRAM.toString(), "--central", "quad");
+        assertThat(runner.lines())
+                .as("the published central-state file is read directly without spawning a program")
+                .noneMatch(line -> line.contains("porelo-host") || line.contains("central"));
     }
 
     @Test
@@ -393,20 +404,41 @@ class UpstreamWatchTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"69", "64", "1", "timeout", "missing", "not-roots"})
+    @ValueSource(strings = {"missing", "not-roots", "group-writable", "parent-writable", "symlink"})
     void aHostThatCannotBeAskedKeepsTheEarlierNumberAndCannotSay(String how, @TempDir Path dir)
             throws Exception {
         final UpstreamWatch watch = watch(dir, true);
+        if (!"missing".equals(how)) {
+            answering(withBackend("{\"repository\":\"backend\",\"state\":\"up-to-date\"}"));
+        }
+        final var regular = watch.centralAttributes;
         switch (how) {
-            case "timeout" -> runner.timingOut("--central quad");
-            case "missing" -> runner.missing(HostCentral.PROGRAM.toString());
+            case "missing" -> {}
             case "not-roots" ->
-                    watch.taken =
-                            program -> {
-                                throw new java.io.UncheckedIOException(
-                                        new java.io.IOException("writable by group or others"));
-                            };
-            default -> runner.failing("--central quad", Integer.parseInt(how), "");
+                    watch.centralAttributes =
+                            path ->
+                                    path.equals(centralFile)
+                                            ? java.util.Map.of("uid", 1000, "mode", 0100640)
+                                            : regular.read(path);
+            case "group-writable" ->
+                    watch.centralAttributes =
+                            path ->
+                                    path.equals(centralFile)
+                                            ? java.util.Map.of("uid", 0, "mode", 0100660)
+                                            : regular.read(path);
+            case "parent-writable" ->
+                    watch.centralAttributes =
+                            path ->
+                                    path.equals(centralFile.getParent())
+                                            ? java.util.Map.of("uid", 0, "mode", 0040775)
+                                            : regular.read(path);
+            case "symlink" ->
+                    watch.centralAttributes =
+                            path ->
+                                    path.equals(centralFile)
+                                            ? java.util.Map.of("uid", 0, "mode", 0120777)
+                                            : regular.read(path);
+            default -> throw new IllegalArgumentException(how);
         }
 
         watch.measureOnce();
@@ -418,25 +450,20 @@ class UpstreamWatchTest {
         assertThat(records(dir).get("quad.notes").central().state())
                 .as("a row with no central has no copy to ask about, whatever the host does")
                 .isEqualTo("no-central");
-        if ("not-roots".equals(how)) {
-            assertThat(runner.lines())
-                    .as("a program another account could replace is not run")
-                    .noneMatch(line -> line.contains("--central"));
-        }
     }
 
     @Test
     void offAHostTheHostIsNeverAsked(@TempDir Path dir) throws Exception {
-        // A machine that is no host has no such program, and one placed there by anybody else must
-        // not be run.
+        // A machine that is no host has no such file, and one placed there by anybody else must
+        // not be read.
         final UpstreamWatch watch = watch(dir, false);
         answering(withBackend("{\"repository\":\"backend\",\"state\":\"up-to-date\"}"));
+        final var read = new java.util.concurrent.atomic.AtomicBoolean();
+        whileAsked = () -> read.set(true);
 
         watch.measureOnce();
 
-        assertThat(runner.lines())
-                .as("nothing asked")
-                .noneMatch(line -> line.contains("--central"));
+        assertThat(read.get()).as("nothing asked").isFalse();
         assertThat(records(dir).get("quad.backend").central())
                 .as("what was there stays")
                 .isEqualTo(EARLIER);
@@ -452,7 +479,6 @@ class UpstreamWatchTest {
         inventory.projects();
 
         assertThat(runner.lines())
-                .as("a listing asks nothing")
-                .noneMatch(line -> line.contains("--central"));
+                .noneMatch(line -> line.contains("porelo-host") || line.contains("--central"));
     }
 }

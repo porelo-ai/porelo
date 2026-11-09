@@ -6,6 +6,11 @@ import picocli.CommandLine.Command;
 @Command(
         name = "host",
         mixinStandardHelpOptions = true,
-        description = "Opens a host vault with a key on this machine.",
-        subcommands = HostUnlockCommand.class)
+        description = "Handles this person's vault, forge token and central state on a host.",
+        subcommands = {
+            HostUnlockCommand.class,
+            HostForgeTokenCommand.class,
+            HostCentralStateCommand.class,
+            HostStopSecretsCommand.class
+        })
 public class HostCommand {}

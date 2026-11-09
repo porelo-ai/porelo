@@ -212,13 +212,17 @@ public class VaultPutCommand implements Callable<Integer>, PoreloFactory.Context
      * in place, so the conversion runs on a copy in a directory only this account can read, and the
      * copy is overwritten and removed afterwards. Somebody's daily key is not ours to rewrite.
      *
+     * @param context The account and its process runner.
      * @param text The key as it arrived.
      * @param out Where to report what was done.
      * @param err Where to report what could not be.
      * @return The key to store, or {@code null} when it could not be converted.
      */
-    private @org.jspecify.annotations.Nullable String converted(
-            final String text, final PrintWriter out, final PrintWriter err) {
+    static @org.jspecify.annotations.Nullable String converted(
+            final PoreloContext context,
+            final String text,
+            final PrintWriter out,
+            final PrintWriter err) {
 
         if (!org.fuin.porelo.vault.OpenSshPrivateKey.looksLikeOne(text)) {
             return text;
@@ -585,7 +589,7 @@ public class VaultPutCommand implements Callable<Integer>, PoreloFactory.Context
             // check, and undecodable at the first fetch - where the machine blamed the vault for
             // being empty.
             try {
-                value = converted(value, out, err);
+                value = converted(context, value, out, err);
                 if (value == null) {
                     return 70;
                 }

@@ -133,7 +133,7 @@ final class BuildsWiring {
                             + project.name()
                             + " on this host are read with '"
                             + selected.credential()
-                            + "', which your vault does not hold; run porelo-host-forge-token on this host,"
+                            + "', which your vault does not hold; run porelo host forge-token on this host,"
                             + " then start the task again to be told its builds";
             err.println("porelo: " + problem);
             err.flush();

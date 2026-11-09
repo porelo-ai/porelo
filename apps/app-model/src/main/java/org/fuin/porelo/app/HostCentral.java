@@ -1,17 +1,23 @@
 package org.fuin.porelo.app;
 
+import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.nio.charset.CharacterCodingException;
+import java.nio.charset.CodingErrorAction;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.time.Instant;
 import java.time.format.DateTimeParseException;
+import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
-import java.util.function.UnaryOperator;
-import org.fuin.porelo.core.process.Command;
-import org.fuin.porelo.core.process.CommandException;
-import org.fuin.porelo.core.process.CommandResult;
+import java.util.regex.Pattern;
 import org.fuin.porelo.wire.Json;
+import org.fuin.porelo.wire.RootOwnedFile;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -19,15 +25,29 @@ import org.jspecify.annotations.Nullable;
  * central forge.
  *
  * <p>The central forge's credential is root's on a host, so the person's account cannot measure
- * this itself. The host's {@code porelo-host-push --central <project>} prints the follow's last
- * answer in the person's own account, asking central nothing. Its output is another program's, so
- * the whole answer is judged before anything of it is recorded, and an answer that is refused or a
- * call that fails says {@code cannot-say} rather than a number.
+ * this itself. The host's follow publishes {@code
+ * /etc/porelo-host/organization/central/<project>.json} for the project's unlocked members to read
+ * in their own account, asking central nothing. The file is trusted only when it and every parent
+ * directory are root's alone with no symlink, and the whole answer is judged before anything of it
+ * is recorded or printed; an answer that is missing, refused or unparsable says {@code cannot-say}
+ * rather than {@code up-to-date}.
  */
 final class HostCentral {
 
-    /** Where a host installs the program, root's alone; taken by this path only. */
-    static final Path PROGRAM = Path.of("/usr/local/sbin/porelo-host-push");
+    /** Where a host's follow publishes each project's central state, root's alone. */
+    static final Path DIRECTORY = Path.of("/etc/porelo-host/organization/central");
+
+    /** Reads Unix ownership and mode without following symlinks. */
+    static final RootOwnedFile.Attributes ATTRIBUTES =
+            path ->
+                    java.nio.file.Files.readAttributes(
+                            path, "unix:uid,mode", java.nio.file.LinkOption.NOFOLLOW_LINKS);
+
+    /** A project name as the host's central-state files name it. */
+    static final Pattern PROJECT_PATTERN = Pattern.compile("^[a-z0-9]([a-z0-9-]{0,38}[a-z0-9])?$");
+
+    /** Largest central-state file read for one project. */
+    static final int MAXIMUM_BYTES = 1024 * 1024;
 
     /** The states a host may answer. */
     static final Set<String> STATES = Set.of("up-to-date", "ahead", "moved-on", "cannot-say");
@@ -41,7 +61,7 @@ final class HostCentral {
     /** Why recorded where the host's answer was refused. */
     static final String REFUSED = "host-answer-refused";
 
-    /** Why recorded where the host could not be asked. */
+    /** Why recorded where the host's file could not be read or trusted. */
     static final String FAILED = "host-command-failed";
 
     private static final Set<String> ANSWER_FIELDS = Set.of("project", "read_at", "repositories");
@@ -72,27 +92,34 @@ final class HostCentral {
         }
     }
 
-    private final PoreloContext context;
+    private final Path directory;
 
-    private final Path program;
-
-    private final UnaryOperator<Path> taken;
+    private final RootOwnedFile.Attributes attributes;
 
     /**
      * Constructor.
      *
-     * @param context The machine, whose runner bounds the call as every helper call is bounded.
-     * @param program The host's program.
-     * @param taken Checks the program before it runs: root's, in directories only root may write.
+     * @param directory Where the host publishes {@code <project>.json}.
+     * @param attributes Checks the file and every parent before it is read: root's, in directories
+     *     only root may write, with no symlink.
      */
-    HostCentral(final PoreloContext context, final Path program, final UnaryOperator<Path> taken) {
-        this.context = context;
-        this.program = program;
-        this.taken = taken;
+    HostCentral(final Path directory, final RootOwnedFile.Attributes attributes) {
+        this.directory = directory;
+        this.attributes = attributes;
     }
 
     /**
-     * Asks the host once for a project.
+     * Tells whether a project name may name a central-state file.
+     *
+     * @param project The project name.
+     * @return {@code true} when it is a single valid project name.
+     */
+    static boolean validProject(final String project) {
+        return PROJECT_PATTERN.matcher(project).matches();
+    }
+
+    /**
+     * Reads the host's published central state once for a project.
      *
      * @param project The project.
      * @param carried The repositories the host's file carries, each with the name of its copy on
@@ -100,26 +127,120 @@ final class HostCentral {
      * @return An answer for each of them.
      */
     Map<String, Answer> ask(final String project, final Map<String, @Nullable String> carried) {
-        final CommandResult asked;
-        try {
-            asked =
-                    context.runner()
-                            .run(Command.of(taken.apply(program).toString(), "--central", project));
-        } catch (final CommandException | java.io.UncheckedIOException ex) {
+        final String output = readFile(project);
+        if (output == null) {
             return all(carried, Answer.notTaken(FAILED));
         }
-        // 69 is no answer this account may read, 64 a wrong argument: neither is an answer.
-        if (!asked.successful()) {
-            return all(carried, Answer.notTaken(FAILED));
-        }
-        final Map<String, Answer> read = read(asked.standardOutput(), project, carried);
+        final Map<String, Answer> read = read(output, project, carried);
         return read == null ? all(carried, Answer.notTaken(REFUSED)) : read;
+    }
+
+    /**
+     * Reads and judges the host's published central state for {@code porelo host central-state}.
+     *
+     * @param project The project name.
+     * @return The judged answer map, or a {@code cannot-say} map naming {@link #FAILED} or {@link
+     *     #REFUSED}.
+     */
+    Map<String, Object> centralState(final String project) {
+        final String output = readFile(project);
+        if (output == null) {
+            return cannotSay(project, FAILED);
+        }
+        final Map<String, Object> judged = readStandalone(output, project);
+        return judged == null ? cannotSay(project, REFUSED) : judged;
+    }
+
+    private @Nullable String readFile(final String project) {
+        if (!validProject(project)) {
+            return null;
+        }
+        final Path file = directory.resolve(project + ".json");
+        final byte[] bytes;
+        try {
+            bytes = RootOwnedFile.read(file, MAXIMUM_BYTES, attributes, 0);
+        } catch (final IOException | IllegalArgumentException ex) {
+            return null;
+        }
+        try {
+            return StandardCharsets.UTF_8
+                    .newDecoder()
+                    .onMalformedInput(CodingErrorAction.REPORT)
+                    .decode(ByteBuffer.wrap(bytes))
+                    .toString();
+        } catch (final CharacterCodingException ex) {
+            return "";
+        }
+    }
+
+    private static Map<String, Object> cannotSay(final String project, final String why) {
+        final Map<String, Object> map = new LinkedHashMap<>();
+        map.put("project", project);
+        map.put("state", "cannot-say");
+        map.put("why", why);
+        map.put("repositories", List.of());
+        return Map.copyOf(map);
+    }
+
+    /**
+     * Judges a host's answer when no project file is open alongside it.
+     *
+     * @param output What the file held.
+     * @param project The project asked for.
+     * @return The judged answer map, or {@code null} where the answer is refused.
+     */
+    static @Nullable Map<String, Object> readStandalone(final String output, final String project) {
+        final Object parsed;
+        try {
+            parsed = Json.parseExact(output.strip());
+        } catch (final RuntimeException ex) {
+            return null;
+        }
+        if (!(parsed instanceof Map<?, ?> answer)
+                || !ANSWER_FIELDS.containsAll(answer.keySet())
+                || !project.equals(answer.get("project"))
+                || !(answer.get("read_at") instanceof String text)
+                || !(answer.get("repositories") instanceof List<?> entries)) {
+            return null;
+        }
+        final Instant readAt = utc(text);
+        if (readAt == null) {
+            return null;
+        }
+        final Set<String> seen = new HashSet<>();
+        final List<Map<String, Object>> rows = new ArrayList<>(entries.size());
+        for (final Object each : entries) {
+            if (!(each instanceof Map<?, ?> entry)
+                    || !(entry.get("repository") instanceof String named)
+                    || !printable(named)
+                    || !seen.add(named.toLowerCase(Locale.ROOT))) {
+                return null;
+            }
+            final Answer judged = judged(entry, readAt);
+            if (judged == null) {
+                return null;
+            }
+            final Map<String, Object> row = new LinkedHashMap<>();
+            row.put("repository", named);
+            row.put("state", judged.state());
+            if ("ahead".equals(judged.state()) && judged.ahead() != null) {
+                row.put("commits", judged.ahead());
+            } else if ("cannot-say".equals(judged.state()) && judged.why() != null) {
+                row.put("why", judged.why());
+            }
+            rows.add(Map.copyOf(row));
+        }
+        final Map<String, Object> result = new LinkedHashMap<>();
+        result.put("project", project);
+        result.put("read_at", text);
+        result.put("repositories", List.copyOf(rows));
+        return Map.copyOf(result);
     }
 
     /**
      * Judges a host's answer as a whole.
      *
-     * @param output What the program printed.
+     * @param output What the published file held.
      * @param project The project asked for.
      * @param carried The repositories carried, each with its copy's name or {@code null}.
      * @return An answer for each carried repository, or {@code null} where the answer is refused.

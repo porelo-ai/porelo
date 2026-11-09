@@ -40,11 +40,11 @@ public final class UpstreamWatch implements AutoCloseable {
     /** Where a host's files are; another place only in a test. */
     Path hostFiles = OrganizationProjects.HOST_FILES;
 
-    /** The host's program that answers of central; another only in a test. */
-    Path helper = HostCentral.PROGRAM;
+    /** Where a host's central-state files are; another directory only in a test. */
+    Path centralFiles = HostCentral.DIRECTORY;
 
-    /** Checks that program before it runs; another only in a test, where root owns nothing. */
-    java.util.function.UnaryOperator<Path> taken = org.fuin.porelo.wire.SystemProgram::at;
+    /** Checks each central-state file and its parents before reading; another only in a test. */
+    org.fuin.porelo.wire.RootOwnedFile.Attributes centralAttributes = HostCentral.ATTRIBUTES;
 
     /**
      * Constructor.
@@ -175,7 +175,9 @@ public final class UpstreamWatch implements AutoCloseable {
             return;
         }
         for (final java.util.Map.Entry<String, HostCentral.Answer> each :
-                new HostCentral(context, helper, taken).ask(summary.name(), rows).entrySet()) {
+                new HostCentral(centralFiles, centralAttributes)
+                        .ask(summary.name(), rows)
+                        .entrySet()) {
             if (!carried.contains(each.getKey())) {
                 continue;
             }
