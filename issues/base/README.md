@@ -124,6 +124,8 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b558"></a>[B558](B558-The-Event-Log-Has-A-Copy-Off-The-Machine.md) | M | [B154](#b154) | Medium. Where `config.yml` names a destination, each event log line is also sent off the machine; a failed send is named by `doctor` and never blocks an event. |
+| <a id="b559"></a>[B559](B559-The-Libraries-A-Plugin-Links-Are-Apache-Licensed.md) | M | - | `porelo-agent-api`, `porelo-build-api`, `porelo-ecosystem-api`, `porelo-wire` and the varlink definitions are Apache-2.0, checked by the build; the rest stays GPL-3.0-or-later. |
 | <a id="b557"></a>[B557](B557-Root-As-Seen-In-A-Hooks-Namespace-Is-Not-Its-Own.md) | S | - | `wire` refuses a file whose owner reads as the overflow uid, or as root through a nested namespace, rather than taking it as root's. |
 | <a id="b556"></a>[B556](B556-The-Talk-Log-Says-Whom-A-Line-Was-For-And-Whether-It-Woke.md) | S | - | `talk log --json` says each message's `to`, `via`, `all`, and whether it woke the agent. |
 | <a id="b552"></a>[B552](B552-The-Forge-Gates-And-The-Pool-In-The-Host-Tool.md) | L | [B540](#b540) | `porelo-host gate forge --web|--git|--runner` after HO153's load measure; `pool revert | make-vm | find-vm | delete-vm`. |

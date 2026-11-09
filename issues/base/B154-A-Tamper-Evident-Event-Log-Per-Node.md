@@ -1,8 +1,9 @@
 # B154 — A Tamper-Evident Event Log Per Node
 
-**Status:** Implementing; part 1 built, part 2 (step 5, the copy sent off the machine) after its *To be checked*.
-**Size:** L - a new record written from many commands, its anchor in the user's journal, an optional copy sent off the
-machine, and a log that `porelo clear` leaves.
+**Status:** Implementing; part 1 built. The copy sent off the machine is [B558](README.md#b558), on the operator's word of
+2026-11-09.
+**Size:** L - a new record written from many commands, its anchor in the user's journal, and a log that `porelo clear`
+leaves.
 
 **What must be true.** Every security-relevant event of a node - approve, reject, clearance, hand-in, runtime extensions, and every change of permissions (a clearance at run time, `--credential`, a change of `project.yml`) - is written to a log that shows when it was changed afterwards.
 
@@ -20,8 +21,8 @@ Today these are in separate journals that can be edited without a trace; regulat
 
 ## The shape
 
-One append-only, hash-chained log per account, anchored in the user's systemd journal, with an optional copy sent off
-the machine; read by a command and the daemon. It outlives `porelo clear` of the account.
+One append-only, hash-chained log per account, anchored in the user's systemd journal; read by a command and the
+daemon. It outlives `porelo clear` of the account.
 
 ## Plan
 
@@ -37,10 +38,7 @@ What is there today, all owned by the account and editable without a trace:
 
 Design: an account's own file cannot be made tamper-proof against the account. So the log is a hash chain in
 `$XDG_STATE_HOME/porelo/events.jsonl`, and each line's hash also goes to the user's systemd journal, whose files the
-account can read but not rewrite. A changed or removed line is then a line whose hash the journal does not hold. Where
-the account-wide settings file (`config.yml`, which [B153](README.md#b153) adds; whichever is built first brings its
-reader) names a destination, each line is also sent off the machine, so the record does not hang on this machine
-alone; without one, nothing leaves. The log is the account's history, not
+account can read but not rewrite. A changed or removed line is then a line whose hash the journal does not hold. The log is the account's history, not
 a project's, so `porelo clear` of the account leaves it and says so.
 
 Steps:
@@ -56,14 +54,11 @@ Steps:
    where it is granted, `task stop --all` beside `stops.log`.
 4. `porelo events [--since] [--verify]` (app) and the daemon's `Events()` and `VerifyEvents()` in a new
    `55-events.varlink`; `InterfaceDescriptionTest` holds them.
-5. The copy off the machine: `event_log: {copy: <destination>}` in `config.yml`, absent by default; each appended
-   line is sent there as well, and a send that fails is named by `doctor`, never blocks the event. `doc/settings.md`
-   gives the key.
-6. `porelo clear` of the account (`Clearing`, `apps/app-project`) leaves `events.jsonl`, and its listing says that the
+5. `porelo clear` of the account (`Clearing`, `apps/app-project`) leaves `events.jsonl`, and its listing says that the
    event log stays. Red: a clearing test that finds the log, with its chain intact, after an account is cleared.
-7. [B121](README.md#b121) then drops the chain from `MessageRecord` and `talk verify`.
-8. `doc/security.md` gets a section: what is logged, where, what the journal anchor and the copy off the machine do
-   and do not prove, and that a clearing of the account keeps the log.
+6. [B121](README.md#b121) then drops the chain from `MessageRecord` and `talk verify`.
+7. `doc/security.md` gets a section: what is logged, where, what the journal anchor does
+   and does not prove, and that a clearing of the account keeps the log.
 
 **Part 1, built, where it departs from the steps above:**
 
@@ -97,14 +92,9 @@ Steps:
 
 - Seen to fail first, then green: the behaviour above, in a test of the module that carries it.
 - A line edited, or removed with every later one, is named by `porelo events --verify` against the journal.
-- With a destination set, each event reaches it; without one, nothing leaves the machine.
 - After `porelo clear` of the account, `events.jsonl` is still there and verifies.
 - The documentation page that describes the area says it.
 
 ## To be checked
 
 - It replaces what [B121](README.md#b121) removes from the message record; near [B26](README.md#b26), whose machine-wide history may be the same file.
-- How the copy is sent off the machine - syslog over TLS, or an https endpoint - and whether a send that failed is
-  retried from the log's position.
-- Weigh an S3 Object Lock bucket written with a key that cannot delete, beside syslog over TLS and
-  an HTTPS endpoint for the copy sent off the machine.
