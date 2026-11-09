@@ -1,7 +1,8 @@
 # [B553](README.md#b553) — A Move Runs Without A Terminal, For A Rehearsal
 
-**Status:** Backlog. Filed 2026-11-09 for the operator's automated rehearsal of a move on a rented server, run by the
-agents under a test identity they hold. Priority to be set by the operator; nothing built before the operator's word.
+**Status:** Implementing, since 2026-11-09, on the operator's order to build the rehearsal now; nothing of it reaches
+`main` before the operator's move-4 test. Filed 2026-11-09 for the operator's automated rehearsal of a move on a rented
+server.
 **Size:** M - a walk through every porelo command a move's person runs, unattended, each gap closed with a test.
 
 **What must be true.** Every porelo command a person runs in a move works with no terminal and no person at a keyboard,

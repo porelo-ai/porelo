@@ -110,6 +110,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b553"></a>[B553](B553-A-Move-Runs-Without-A-Terminal-For-A-Rehearsal.md) | M | - | Every command of a move's person runs without a terminal, refusing at once instead of prompting, for an automated rehearsal. |
 | <a id="b554"></a>[B554](B554-A-Forge-Tokens-Reach-Checked-Against-What-A-Move-Needs.md) | S | - | A forge token's permissions checked against what a move asks of it, each missing one named, before a server is rented. |
 | <a id="b540"></a>[B540](B540-The-Host-Tool-As-A-Module-Of-Porelo.md) | M | - | `host/` module, native `porelo-host`, package with man page, `--version`, the root boundary's checks (no caller environment, no JVM options from it, root-owned files, `SUDO_USER` only). |
 | <a id="b505"></a>[B505](B505-Where-Delivered-Content-Came-From-In-Review.md) | M | [B467](#b467) | `Review` names where each file Porelo delivered into the task came from. |
@@ -127,7 +128,6 @@ from its side, as *blocked by*.
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
 | <a id="b556"></a>[B556](B556-The-Talk-Log-Says-Whom-A-Line-Was-For-And-Whether-It-Woke.md) | S | - | `talk log --json` says each message's `to`, `via`, `all`, and whether it woke the agent. |
-| <a id="b553"></a>[B553](B553-A-Move-Runs-Without-A-Terminal-For-A-Rehearsal.md) | M | - | Every command of a move's person runs without a terminal, refusing at once instead of prompting, for an automated rehearsal. |
 | <a id="b552"></a>[B552](B552-The-Forge-Gates-And-The-Pool-In-The-Host-Tool.md) | L | [B540](#b540) | `porelo-host gate forge --web|--git|--runner` after HO153's load measure; `pool revert | make-vm | find-vm | delete-vm`. |
 | <a id="b551"></a>[B551](B551-The-Host-Purges-A-Person-And-Restores-Runtimes-In-Java.md) | L | [B550](#b550) | `porelo-host person purge <login> | restore-runtime`. |
 | <a id="b550"></a>[B550](B550-The-Host-Follows-Its-Organization-In-Java.md) | L | [B546](#b546), [B547](#b547) | `porelo-host org follow | refresh | renew-pin`; the project verbs called in-process. |
