@@ -1,7 +1,6 @@
 # [B517](README.md#b517) — A Card Proposed, And Accepted By An Owner
 
-**Status:** Accepted, since 2026-11-09, in ST295 for estimation. Filed 2026-11-08. Not built until the operator
-says so.
+**Status:** Backlog, since 2026-11-09, in ST295. Filed 2026-11-08. Its plan reading comes first.
 **Size:** M - a proposal's place in the organization's tree, a reading of waiting proposals, an owner's acceptance, and
 the CLI for both sides.
 
