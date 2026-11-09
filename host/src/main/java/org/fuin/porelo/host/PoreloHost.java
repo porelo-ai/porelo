@@ -22,6 +22,9 @@ public final class PoreloHost implements Callable<Integer> {
     private final Map<String, String> environment;
     private final HostFiles files;
     private final HostSweep sweep;
+    private final HostTasks tasks;
+    private final HostTokens tokens;
+    private final java.io.InputStream input;
     private final Function<Map<String, String>, HostPerson> person;
 
     /** Uses only the installed host tree and the sudo identity. */
@@ -41,7 +44,28 @@ public final class PoreloHost implements Callable<Integer> {
             HostFiles files,
             Function<Map<String, String>, HostPerson> person,
             HostSweep sweep) {
+        this(
+                environment,
+                files,
+                person,
+                sweep,
+                new ProjectRuntime(files),
+                System.in,
+                java.time.Clock.systemUTC());
+    }
+
+    private PoreloHost(
+            Map<String, String> environment,
+            HostFiles files,
+            Function<Map<String, String>, HostPerson> person,
+            HostSweep sweep,
+            ProjectRuntime runtime,
+            java.io.InputStream input,
+            java.time.Clock clock) {
         this.sweep = sweep;
+        this.tasks = new HostTasks(files, runtime, clock);
+        this.tokens = new HostTokens(files, runtime, clock);
+        this.input = input;
         this.environment = Map.copyOf(environment);
         this.files = files;
         this.person = person;
@@ -100,6 +124,32 @@ public final class PoreloHost implements Callable<Integer> {
             HostFiles files,
             Function<Map<String, String>, HostPerson> person,
             HostSweep sweep) {
+        return run(
+                args,
+                environment,
+                uid,
+                out,
+                err,
+                files,
+                person,
+                sweep,
+                new ProjectRuntime(files),
+                System.in,
+                java.time.Clock.systemUTC());
+    }
+
+    static int run(
+            String[] args,
+            Map<String, String> environment,
+            Uid uid,
+            PrintWriter out,
+            PrintWriter err,
+            HostFiles files,
+            Function<Map<String, String>, HostPerson> person,
+            HostSweep sweep,
+            ProjectRuntime runtime,
+            java.io.InputStream input,
+            java.time.Clock clock) {
         try {
             HostEnvironment.check(environment);
             final boolean informational = args.length == 1 && answersAlone(args[0]);
@@ -108,6 +158,9 @@ public final class PoreloHost implements Callable<Integer> {
                         && args[0].equals("project")
                         && !(args.length > 1 && args[1].equals("check-central"))) {
                     throw new HostRefusal(69, "porelo-host-project: runs only as root");
+                }
+                if (args.length > 0 && (args[0].equals("task") || args[0].equals("forge"))) {
+                    throw new HostRefusal(69, "porelo-host-person: runs only as root");
                 }
                 throw new HostRefusal(
                         77,
@@ -122,7 +175,9 @@ public final class PoreloHost implements Callable<Integer> {
                 throw new HostRefusal(
                         64, "porelo-host: --version and --help take no other argument");
             }
-            return commandLine(new PoreloHost(environment, files, person, sweep))
+            return commandLine(
+                            new PoreloHost(
+                                    environment, files, person, sweep, runtime, input, clock))
                     .setOut(out)
                     .setErr(err)
                     .execute(args);
@@ -154,7 +209,14 @@ public final class PoreloHost implements Callable<Integer> {
                 "task",
                 new CommandLine(new Group())
                         .addSubcommand("show", new TaskShow(host))
+                        .addSubcommand("start", new TaskChange(host, true))
+                        .addSubcommand("end", new TaskChange(host, false))
                         .addSubcommand("sweep", new TaskSweep(host)));
+        command.addSubcommand(
+                "forge",
+                new CommandLine(new Group())
+                        .addSubcommand("issue-token", new ForgeToken(host, false))
+                        .addSubcommand("lend-token", new ForgeToken(host, true)));
         command.addSubcommand("project", HostProject.commandLine(host.environment));
         command.setExpandAtFiles(false);
         command.setExecutionExceptionHandler(
@@ -196,6 +258,83 @@ public final class PoreloHost implements Callable<Integer> {
         public Integer call() {
             spec.commandLine().usage(spec.commandLine().getErr());
             return 64;
+        }
+    }
+
+    private HostPerson sudoPerson(String verb) {
+        if (environment.getOrDefault("SUDO_USER", "").isEmpty()) {
+            throw new HostRefusal(64, verb + " runs through sudo, for the person who calls it");
+        }
+        try {
+            return person.apply(environment);
+        } catch (HostRefusal ex) {
+            if (ex.exitCode() == 77) {
+                throw new HostRefusal(
+                        65,
+                        java.util.Objects.requireNonNull(
+                                ex.getMessage(), "Identity refusals have safe diagnostics"));
+            }
+            throw ex;
+        }
+    }
+
+    @Command(mixinStandardHelpOptions = true, exitCodeOnInvalidInput = 64)
+    static final class TaskChange implements Callable<Integer> {
+        private final PoreloHost host;
+        private final boolean start;
+
+        @CommandLine.Parameters(index = "0", paramLabel = "<task>")
+        private String task;
+
+        @CommandLine.Spec private CommandLine.Model.CommandSpec spec;
+
+        TaskChange(PoreloHost host, boolean start) {
+            this.host = host;
+            this.start = start;
+        }
+
+        @Override
+        public Integer call() throws IOException {
+            HostTasks.checkName(task);
+            final var conf = host.files.path("/etc/porelo-host/forge.conf");
+            host.files.check(conf, 69, true, false, -1);
+            try (var lock = HostConfigurationLock.acquire(conf, false)) {
+                new HostRecords(host.files).read();
+                final HostPerson person = host.sudoPerson(start ? "task" : "end");
+                final PrintWriter out = spec.commandLine().getOut();
+                if (start) {
+                    out.print(host.tasks.start(person, task, host.input));
+                    out.flush();
+                } else {
+                    out.println(HostJson.write(host.tasks.end(person, task)));
+                }
+            }
+            return 0;
+        }
+    }
+
+    @Command(mixinStandardHelpOptions = true, exitCodeOnInvalidInput = 64)
+    static final class ForgeToken implements Callable<Integer> {
+        private final PoreloHost host;
+        private final boolean lend;
+        @CommandLine.Spec private CommandLine.Model.CommandSpec spec;
+
+        ForgeToken(PoreloHost host, boolean lend) {
+            this.host = host;
+            this.lend = lend;
+        }
+
+        @Override
+        public Integer call() throws IOException {
+            final var conf = host.files.path("/etc/porelo-host/forge.conf");
+            host.files.check(conf, 69, true, false, -1);
+            try (var lock = HostConfigurationLock.acquire(conf, false)) {
+                new HostRecords(host.files).read();
+                final HostPerson person = host.sudoPerson("forge-token");
+                spec.commandLine().getOut().print(host.tokens.issue(person, lend));
+                spec.commandLine().getOut().flush();
+            }
+            return 0;
         }
     }
 

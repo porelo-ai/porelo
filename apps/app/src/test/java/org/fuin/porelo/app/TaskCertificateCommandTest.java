@@ -21,6 +21,12 @@ import picocli.CommandLine;
 class TaskCertificateCommandTest {
 
     @TempDir Path dir;
+    private Path helper;
+
+    @org.junit.jupiter.api.BeforeEach
+    void installedHostHelper() throws Exception {
+        helper = Files.writeString(dir.resolve("porelo-host"), "fixture");
+    }
 
     private final FakeCommandRunner runner = new FakeCommandRunner();
 
@@ -46,14 +52,13 @@ class TaskCertificateCommandTest {
     void oneThisMachineDidNotKeepIsAskedOfTheHostAndItsAnswerChecked() throws Exception {
         final SshCertificate certificate = certificate();
         final String fingerprint = certificate.fingerprint();
-        runner.answering("porelo-host-person task --show", hostRecord(fingerprint, certificate));
+        runner.answering("porelo-host task show", hostRecord(fingerprint, certificate));
 
         assertThat(porelo("task", "certificate", fingerprint, "--json")).isZero();
         assertThat(out.toString()).contains("\"task\":\"fix\"");
         assertThat(runner.invocations().getLast().arguments())
                 .as("the host's records, read through sudo")
-                .startsWith(
-                        "sudo", "-n", HostPerson.PROGRAM.toString(), "task", "--show", fingerprint);
+                .startsWith("sudo", "-n", helper.toString(), "task", "show", fingerprint);
 
         final String other = "SHA256:" + "C".repeat(43);
         out.getBuffer().setLength(0);
@@ -69,7 +74,7 @@ class TaskCertificateCommandTest {
         // a receiver would trust.
         final SshCertificate other = certificate();
         final String fingerprint = "SHA256:" + "B".repeat(43);
-        runner.answering("porelo-host-person task --show", hostRecord(fingerprint, other));
+        runner.answering("porelo-host task show", hostRecord(fingerprint, other));
 
         assertThat(porelo("task", "certificate", fingerprint, "--json"))
                 .as("a record holding another key's certificate")
@@ -77,7 +82,7 @@ class TaskCertificateCommandTest {
         assertThat(out.toString()).isEmpty();
 
         runner.answering(
-                "porelo-host-person task --show",
+                "porelo-host task show",
                 "{\"task\":\"fix\",\"fingerprint\":\"" + fingerprint + "\"}\n");
         assertThat(porelo("task", "certificate", fingerprint, "--json"))
                 .as("a record holding no certificate")
@@ -99,7 +104,7 @@ class TaskCertificateCommandTest {
 
     @Test
     void noneKeptAnywhereOrNoFingerprintIsSaid() {
-        runner.failing("porelo-host-person", 65, "no such task key\n");
+        runner.failing("porelo-host", 65, "no such task key\n");
 
         assertThat(porelo("task", "certificate", "SHA256:" + "D".repeat(43))).isEqualTo(66);
         assertThat(err.toString()).contains("no certificate");
@@ -142,7 +147,11 @@ class TaskCertificateCommandTest {
     }
 
     private int porelo(String... args) {
-        final CommandLine cli = PoreloCli.commandLine(context());
+        final PoreloContext machine = context();
+        final CommandLine cli = PoreloCli.commandLine(machine);
+        final TaskCertificateCommand command =
+                cli.getSubcommands().get("task").getSubcommands().get("certificate").getCommand();
+        command.setHost(new HostPerson(machine, helper, dir.resolve("host-configuration")));
         cli.setOut(new PrintWriter(out, true));
         cli.setErr(new PrintWriter(err, true));
         return cli.execute(args);

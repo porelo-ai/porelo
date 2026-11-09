@@ -2,7 +2,12 @@ package org.fuin.porelo.host;
 
 import static org.fuin.porelo.host.HostJson.*;
 
+import java.io.IOException;
+import java.io.InputStream;
+import java.nio.file.FileAlreadyExistsException;
+import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
@@ -20,9 +25,133 @@ final class HostTasks {
             DateTimeFormatter.ofPattern("uuuu-MM-dd'T'HH:mm:ss")
                     .withResolverStyle(ResolverStyle.STRICT);
     private final HostFiles files;
+    private final ProjectRuntime runtime;
+    private final Clock clock;
 
     HostTasks(HostFiles files) {
+        this(files, new ProjectRuntime(files), Clock.systemUTC());
+    }
+
+    HostTasks(HostFiles files, ProjectRuntime runtime, Clock clock) {
         this.files = files;
+        this.runtime = runtime;
+        this.clock = clock;
+    }
+
+    static void checkName(String name) {
+        if (!name.matches("[a-z0-9][a-z0-9._-]{0,63}")) {
+            throw new HostRefusal(
+                    64,
+                    "a task must match [a-z0-9][a-z0-9._-]{0,63}, a task key's fingerprint SHA256:<43 base64>");
+        }
+    }
+
+    String start(HostPerson person, String task, InputStream input) throws IOException {
+        final HostRecords records = new HostRecords(files);
+        final HostRecords.Person admitted = records.admitted(person.login());
+        final byte[] supplied = input.readNBytes(HostCertificate.MAXIMUM + 1);
+        final String line;
+        try {
+            line = HostCertificate.line(supplied);
+        } finally {
+            java.util.Arrays.fill(supplied, (byte) 0);
+        }
+        final String key = records.currentKey(person.login());
+        final HostTaskCheck checker = new HostTaskCheck(files, runtime);
+        final HostCertificate certificate = checker.inspect(line);
+        final String project =
+                certificate.project(person.login(), task, key, admitted, clock.instant());
+        final var judged = checker.judge(person.login(), task, line, key);
+        if (!certificate.fingerprint().equals(judged.get("fingerprint"))
+                || !certificate.signedBy().equals(judged.get("signed_by"))
+                || !project.equals(judged.get("project"))) {
+            throw new HostRefusal(
+                    69,
+                    "porelo task check-certificate answered for another certificate than the one given");
+        }
+        final var entry = certificate.entry(person.login(), task, line);
+        for (Task recorded : read()) {
+            if (certificate.fingerprint().equals(recorded.entry().get("fingerprint"))
+                    && !(recorded.login().equals(person.login()) && recorded.name().equals(task))) {
+                throw new HostRefusal(
+                        65,
+                        "the task key "
+                                + certificate.fingerprint()
+                                + " is recorded for another task");
+            }
+        }
+        final var config = runtime.configuration(person.login());
+        if (config != null) {
+            runtime.personEndpoint(config);
+        }
+        publish(person.login(), task, entry);
+        if (config == null) {
+            return "";
+        }
+        try (var session = runtime.session(person.login())) {
+            final String identity = "porelo-" + person.login();
+            final String name = "porelo-task-" + task;
+            session.drop(identity, java.util.Set.of(name));
+            return session.token(identity, "write:repository,read:package", name);
+        }
+    }
+
+    Map<String, @Nullable Object> end(HostPerson person, String task) {
+        new HostRecords(files).admitted(person.login());
+        final Path root = files.path("/var/lib/porelo-host/tasks");
+        files.check(root, 73, false, true, 0700);
+        files.check(root.resolve(person.login()), 73, false, true, 0700);
+        final Path path = root.resolve(person.login()).resolve(task + ".json");
+        if (!files.check(path, 73, false, false, 0600)) {
+            throw new HostRefusal(65, "task " + task + " is not recorded for " + person.login());
+        }
+        taskRecord(path, person.login(), task);
+        if (runtime.configuration(person.login()) != null) {
+            try (var session = runtime.session(person.login())) {
+                session.drop("porelo-" + person.login(), java.util.Set.of("porelo-task-" + task));
+            }
+        }
+        return fields("task", task, "ended", true);
+    }
+
+    private void publish(String login, String task, Map<String, @Nullable Object> entry)
+            throws IOException {
+        try {
+            final Path directory = files.path("/var/lib/porelo-host/tasks/" + login);
+            files.directories(directory);
+            files.check(
+                    java.util.Objects.requireNonNull(
+                            directory.getParent(), "The person's tasks have a root directory"),
+                    73,
+                    true,
+                    true,
+                    0700);
+            final Path target = directory.resolve(task + ".json");
+            final Path temporary =
+                    ProjectFiles.stagePrivate(
+                            target, ".porelo-host-person.", write(entry) + "\n", null);
+            try {
+                try {
+                    Files.createLink(target, temporary);
+                    return;
+                } catch (FileAlreadyExistsException ex) {
+                    if (!java.util.Objects.equals(
+                            entry.get("certificate"),
+                            taskRecord(target, login, task).get("certificate"))) {
+                        throw new HostRefusal(
+                                65,
+                                "task " + task + " is recorded already, with another certificate");
+                    }
+                }
+            } finally {
+                Files.deleteIfExists(temporary);
+            }
+        } catch (HostRefusal ex) {
+            if (ex.exitCode() != 73) throw ex;
+            throw new HostRefusal(73, "cannot record task " + task);
+        } catch (IOException ex) {
+            throw new HostRefusal(73, "cannot record task " + task);
+        }
     }
 
     static void checkFingerprint(String fingerprint) {

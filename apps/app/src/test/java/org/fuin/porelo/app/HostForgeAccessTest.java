@@ -47,7 +47,8 @@ class HostForgeAccessTest {
                         args -> 0,
                         name -> null),
                 fetchFrom,
-                FetchAccess.NONE);
+                FetchAccess.NONE,
+                () -> true);
     }
 
     private static CommandRunner answering(final int code, final String out) {
@@ -67,8 +68,8 @@ class HostForgeAccessTest {
                                             "sudo",
                                             "-n",
                                             HostPerson.PROGRAM.toString(),
-                                            "forge-token",
-                                            "--lend");
+                                            "forge",
+                                            "lend-token");
                             assertThat(command.input()).isEmpty();
                         });
     }
@@ -144,7 +145,7 @@ class HostForgeAccessTest {
     }
 
     @ParameterizedTest
-    @ValueSource(ints = {69, 1, 64, 73, 126})
+    @ValueSource(ints = {69, 1, 64, 73, 77, 78, 126})
     void anything_else_cannot_say_and_it_holds_nothing_the_helper_said(final int code) {
         assertThatThrownBy(() -> access(GATE, answering(code, TOKEN)).lend(GATE))
                 .isInstanceOfSatisfying(
@@ -153,6 +154,27 @@ class HostForgeAccessTest {
                             assertThat(ex.code()).isEqualTo(69);
                             assertThat(ex.reason()).isEqualTo("cannot-say");
                             assertThat(ex.getMessage()).doesNotContain(TOKEN);
+                        });
+    }
+
+    @Test
+    void aMissingHostToolRefusesWithItsInstallationAction() {
+        final HostForgeAccess missing =
+                new HostForgeAccess(
+                        new PoreloContext(
+                                command -> new CommandResult(command, 1, "", "missing"),
+                                new PoreloPaths(XdgPaths.of(name -> null, dir), dir.resolve("bin")),
+                                args -> 0),
+                        GATE,
+                        FetchAccess.NONE,
+                        () -> false);
+        assertThatThrownBy(() -> missing.lend(GATE))
+                .isInstanceOfSatisfying(
+                        HostForgeAccess.Denied.class,
+                        ex -> {
+                            assertThat(ex.code()).isEqualTo(69);
+                            assertThat(ex.getMessage())
+                                    .contains("/usr/sbin/porelo-host", "install");
                         });
     }
 

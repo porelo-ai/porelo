@@ -93,6 +93,16 @@ public class GateApproveCommand implements Callable<Integer>, PoreloFactory.Cont
         return HostForgeLending.FORGE_CONF;
     }
 
+    GitGate gate(final Project project) {
+        return GateSupport.gate(
+                context,
+                project,
+                GateSupport.repository(context, project, repository, name),
+                upstream,
+                null,
+                forgeConf());
+    }
+
     @Override
     public Integer call() {
 
@@ -151,14 +161,7 @@ public class GateApproveCommand implements Callable<Integer>, PoreloFactory.Cont
             final PrintWriter out, final PrintWriter err, final Offer offer) {
         try {
             final Project project = GateSupport.byName(context, projectName);
-            final GitGate gate =
-                    GateSupport.gate(
-                            context,
-                            project,
-                            GateSupport.repository(context, project, repository, name),
-                            upstream,
-                            null,
-                            forgeConf());
+            final GitGate gate = gate(project);
             GateSupport.held(gate);
             final String pullRequest;
             if (signed) {
@@ -263,14 +266,7 @@ public class GateApproveCommand implements Callable<Integer>, PoreloFactory.Cont
     private String suggested(final String taken) {
         try {
             final Project project = GateSupport.byName(context, projectName);
-            final GitGate gate =
-                    GateSupport.gate(
-                            context,
-                            project,
-                            GateSupport.repository(context, project, repository, name),
-                            upstream,
-                            null,
-                            forgeConf());
+            final GitGate gate = gate(project);
             return gate.nextFreeBranch(taken);
         } catch (RuntimeException ex) {
             return taken + "-2";

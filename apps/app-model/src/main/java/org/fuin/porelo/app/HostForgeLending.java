@@ -24,7 +24,7 @@ final class HostForgeLending implements GitCredentials {
     static final Path FORGE_CONF = Path.of("/etc/porelo-host/forge.conf");
 
     /** Where a host installs the helper; sudo allows it by this path alone. */
-    static final Path PROGRAM = Path.of("/usr/local/sbin/porelo-host-person");
+    static final Path PROGRAM = Path.of("/usr/sbin/porelo-host");
 
     private static final Pattern ONE_TOKEN = Pattern.compile("\\S+");
 
@@ -33,6 +33,7 @@ final class HostForgeLending implements GitCredentials {
     private final GitCredentials otherwise;
 
     private final Path forgeConf;
+    private final java.util.function.BooleanSupplier installed;
 
     /**
      * Constructor.
@@ -43,9 +44,18 @@ final class HostForgeLending implements GitCredentials {
      */
     HostForgeLending(
             final PoreloContext context, final GitCredentials otherwise, final Path forgeConf) {
+        this(context, otherwise, forgeConf, () -> java.nio.file.Files.isRegularFile(PROGRAM));
+    }
+
+    HostForgeLending(
+            final PoreloContext context,
+            final GitCredentials otherwise,
+            final Path forgeConf,
+            final java.util.function.BooleanSupplier installed) {
         this.context = context;
         this.otherwise = otherwise;
         this.forgeConf = forgeConf;
+        this.installed = installed;
     }
 
     @Override
@@ -106,6 +116,10 @@ final class HostForgeLending implements GitCredentials {
     }
 
     private @Nullable String token() {
+        if (!installed.getAsBoolean()) {
+            throw new org.fuin.porelo.gate.GateException(
+                    "the host's /usr/sbin/porelo-host is missing; install the porelo-host package");
+        }
         final CommandResult asked;
         try {
             asked =
@@ -117,8 +131,8 @@ final class HostForgeLending implements GitCredentials {
                                                     "sudo",
                                                     "-n",
                                                     PROGRAM.toString(),
-                                                    "forge-token",
-                                                    "--lend")
+                                                    "forge",
+                                                    "lend-token")
                                             .withInput(""));
         } catch (final CommandException ex) {
             return null;

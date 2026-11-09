@@ -19,6 +19,7 @@ final class HostReadFixture {
     static final Map<String, String> SUDO = Map.of("SUDO_USER", "alice", "SUDO_UID", "1000");
     final Path root;
     final Map<Path, Map<String, Object>> overrides = new HashMap<>();
+    java.util.function.Consumer<Path> afterAttributes = path -> {};
 
     HostReadFixture(Path root) throws IOException {
         this.root = root;
@@ -52,15 +53,23 @@ final class HostReadFixture {
         return new HostFiles(
                 root,
                 path -> {
+                    final boolean descriptor = path.toString().startsWith("/proc/self/fd/");
                     final Map<String, Object> values =
                             new HashMap<>(
                                     Files.readAttributes(
-                                            path, "unix:uid,mode", LinkOption.NOFOLLOW_LINKS));
+                                            path,
+                                            "unix:uid,mode",
+                                            descriptor
+                                                    ? new LinkOption[0]
+                                                    : new LinkOption[] {
+                                                        LinkOption.NOFOLLOW_LINKS
+                                                    }));
                     values.put("uid", 0);
-                    if (!path.startsWith(root)) {
+                    if (!descriptor && !path.startsWith(root)) {
                         values.put("mode", 040755);
                     }
                     values.putAll(overrides.getOrDefault(path, Map.of()));
+                    afterAttributes.accept(path);
                     return values;
                 });
     }

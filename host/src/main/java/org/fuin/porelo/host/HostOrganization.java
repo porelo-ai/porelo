@@ -144,7 +144,7 @@ final class HostOrganization {
         return HostRecords.fingerprint(rows.get(1).substring(4));
     }
 
-    private @Nullable Map<String, @Nullable Object> applied() {
+    @Nullable Map<String, @Nullable Object> applied() {
         final Path path = files.path(ORGANIZATION + "applied.json");
         if (!files.check(path, 69, false, false, 0600)) {
             return null;

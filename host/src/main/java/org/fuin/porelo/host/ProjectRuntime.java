@@ -23,8 +23,7 @@ final class ProjectRuntime {
             Map.of("PATH", "/usr/sbin:/usr/bin:/sbin:/bin", "LC_ALL", "C");
     static final String ADMIN_SCOPES =
             "write:admin,write:organization,read:user,write:repository,write:package";
-    private static final Map<String, String> PERSON_ENV =
-            Map.of("PATH", "/usr/sbin:/usr/bin:/sbin:/bin", "LANG", "C.UTF-8");
+    private static final Map<String, String> PERSON_ENV = HostPrograms.ENVIRONMENT;
     private final ProjectFiles files;
     private final HostFiles personFiles;
     private final Commands commands;
@@ -78,7 +77,7 @@ final class ProjectRuntime {
                 path ->
                         Path.of(path).isAbsolute()
                                 ? SystemProgram.at(Path.of(path))
-                                : SystemProgram.find(path));
+                                : HostPrograms.program(path));
     }
 
     ProjectRuntime(ProjectFiles files, Commands commands, Programs programs) {
@@ -120,7 +119,7 @@ final class ProjectRuntime {
                 path ->
                         Path.of(path).isAbsolute()
                                 ? SystemProgram.at(Path.of(path))
-                                : SystemProgram.find(path),
+                                : HostPrograms.program(path),
                 HttpForgeAdmin::new);
     }
 
@@ -261,7 +260,7 @@ final class ProjectRuntime {
                             List.of("/usr/bin/getent", "passwd", login),
                             new byte[0],
                             environment,
-                            Duration.ofSeconds(10));
+                            Duration.ZERO);
         } catch (java.io.IOException ex) {
             throw new HostRefusal(69, "a required service or person account is missing");
         }
@@ -312,7 +311,7 @@ final class ProjectRuntime {
         return account.switched(personProgram("runuser"), personProgram("env"), arguments);
     }
 
-    private Path personProgram(String name) {
+    Path personProgram(String name) {
         try {
             return programs.checked(name);
         } catch (UncheckedIOException ex) {
@@ -340,7 +339,10 @@ final class ProjectRuntime {
         } catch (IOException ex) {
             throw new HostRefusal(
                     69,
-                    Path.of(arguments.getFirst()).getFileName() + " failed to complete (OSError)");
+                    Path.of(arguments.getFirst()).getFileName()
+                            + " failed to complete ("
+                            + HostPrograms.failureKind(ex)
+                            + ")");
         }
     }
 
@@ -655,15 +657,7 @@ final class ProjectRuntime {
                 java.util.Objects.requireNonNull(
                         configuration(user), "A forge session follows an enabled configuration");
         final String account = config.account();
-        if (!account.matches("[a-z][a-z0-9-]{0,31}")) {
-            throw new HostRefusal(69, "forge.conf names no valid account");
-        }
-        final var entry = find(account);
-        if (entry == null) {
-            throw new HostRefusal(69, "the forge account is missing");
-        }
-        final Path socket =
-                personFiles.path("/run/user/" + entry.uid() + "/porelo-forge/http.sock");
+        final Path socket = personEndpoint(config);
         final String name = "porelo-host-person-" + UUID.randomUUID().toString().replace("-", "");
         final String token =
                 forgeCommand(account, tokenArguments("porelo-admin", name, "write:admin")).strip();
@@ -672,10 +666,22 @@ final class ProjectRuntime {
         }
         final char[] credential = token.toCharArray();
         try {
-            return new Session(account, name, forgeFactory.open(socket, credential));
+            return new Session(account, name, forgeFactory.open(socket, credential), this);
         } finally {
             Arrays.fill(credential, '\0');
         }
+    }
+
+    Path personEndpoint(Configuration config) {
+        final String account = config.account();
+        if (!account.matches("[a-z][a-z0-9-]{0,31}")) {
+            throw new HostRefusal(69, "forge.conf names no valid account");
+        }
+        final var entry = find(account);
+        if (entry == null) {
+            throw new HostRefusal(69, "the forge account is missing");
+        }
+        return personFiles.path("/run/user/" + entry.uid() + "/porelo-forge/http.sock");
     }
 
     private String forgeCommand(String account, List<String> arguments) {
@@ -690,8 +696,17 @@ final class ProjectRuntime {
             return checkedResult(
                     "runuser", container(entry, adminArguments(arguments), PERSON_ENV));
         } catch (IOException ex) {
-            throw new HostRefusal(69, "runuser failed to complete (OSError)");
+            throw new HostRefusal(
+                    69, "runuser failed to complete (" + HostPrograms.failureKind(ex) + ")");
         }
+    }
+
+    String namedToken(String account, String identity, String scopes, String name) {
+        final String value = forgeCommand(account, tokenArguments(identity, name, scopes)).strip();
+        if (!value.matches("[0-9a-f]{40}")) {
+            throw new HostRefusal(69, "Forgejo made no valid access token");
+        }
+        return value;
     }
 
     void lock(String user, Runnable removeDelivery) {
@@ -746,11 +761,28 @@ final class ProjectRuntime {
         private final String account;
         private final String name;
         private final HttpForgeAdmin client;
+        private final ProjectRuntime runtime;
 
-        Session(String account, String name, HttpForgeAdmin client) {
+        Session(String account, String name, HttpForgeAdmin client, ProjectRuntime runtime) {
             this.account = account;
             this.name = name;
             this.client = client;
+            this.runtime = runtime;
+        }
+
+        String token(String identity, String scopes, String tokenName) {
+            return runtime.namedToken(account, identity, scopes, tokenName);
+        }
+
+        void dropMatching(String identity, java.util.function.Predicate<String> selected) {
+            try {
+                client.dropMatching(identity, selected);
+            } catch (HttpForgeAdmin.Refusal ex) {
+                throw new HostRefusal(
+                        69,
+                        java.util.Objects.requireNonNull(
+                                ex.getMessage(), "Forge failures carry safe diagnostics"));
+            }
         }
 
         List<String> drop(String identity, @Nullable Set<String> names) {

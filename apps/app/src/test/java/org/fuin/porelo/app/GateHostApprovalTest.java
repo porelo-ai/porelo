@@ -16,10 +16,11 @@ import java.util.List;
 import java.util.Map;
 import org.fuin.porelo.core.config.XdgPaths;
 import org.fuin.porelo.core.process.Command;
+import org.fuin.porelo.core.process.CommandResult;
 import org.fuin.porelo.core.process.ProcessCommandRunner;
+import org.fuin.porelo.core.project.Project;
 import org.fuin.porelo.gate.GateMode;
 import org.fuin.porelo.gate.GitGate;
-import org.fuin.porelo.testing.FakeCommandRunner;
 import org.fuin.porelo.vault.VaultEntry;
 import org.fuin.porelo.wire.Json;
 import org.junit.jupiter.api.AfterEach;
@@ -33,18 +34,22 @@ class GateHostApprovalTest {
 
     private static final String TOKEN = "test-task-forge-secret";
 
+    private static final String LENT_TOKEN = "test-person-lent-forge-secret";
+
     @TempDir Path dir;
 
     private final ProcessCommandRunner runner = new ProcessCommandRunner();
     private final HostVaultOwner owner = new HostVaultOwner();
     private final List<Map<?, ?>> created = new ArrayList<>();
     private final List<Boolean> authenticated = new ArrayList<>();
+    private final List<Boolean> gitAuthenticated = new ArrayList<>();
     private HttpServer forge;
     private Path conf;
     private Path upstream;
     private Path work;
     private Path mirror;
     private PoreloContext context;
+    private PoreloContext lendingContext;
     private String first;
     private String base;
     private String url;
@@ -65,10 +70,40 @@ class GateHostApprovalTest {
         git(work, "push", "-q", "origin", "main");
         final XdgPaths xdg = XdgPaths.of(name -> null, dir.resolve("home"));
         // A unit test must never ask the real host's helper for a person's forge token.
+        lendingContext =
+                new PoreloContext(
+                        command -> {
+                            assertThat(command.arguments())
+                                    .containsExactly(
+                                            "sudo",
+                                            "-n",
+                                            "/usr/sbin/porelo-host",
+                                            "forge",
+                                            "lend-token");
+                            assertThat(command.input()).isEmpty();
+                            assertThat(command.binaryInput()).isNull();
+                            assertThat(command.environment()).isEmpty();
+                            return new CommandResult(command, 0, LENT_TOKEN + "\n", "");
+                        },
+                        new PoreloPaths(xdg, dir.resolve("bin")),
+                        args -> 0);
+        // Approval also anchors an event; the helper's strict runner must never receive it.
         context =
                 new PoreloContext(
-                                new FakeCommandRunner(),
-                                new PoreloPaths(xdg, dir.resolve("bin")),
+                                command -> {
+                                    assertThat(command.arguments())
+                                            .as("approval anchors its event in the journal")
+                                            .containsExactly("logger", "--journald");
+                                    assertThat(command.input())
+                                            .as("the approval event withholds both credentials")
+                                            .startsWith("MESSAGE=porelo event approved ")
+                                            .contains("\nSYSLOG_IDENTIFIER=porelo-events\n")
+                                            .doesNotContain(TOKEN, LENT_TOKEN);
+                                    assertThat(command.binaryInput()).isNull();
+                                    assertThat(command.environment()).isEmpty();
+                                    return new CommandResult(command, 0, "", "");
+                                },
+                                lendingContext.paths(),
                                 args -> 0)
                         .withHostVault(owner);
         final byte[] share = new byte[32];
@@ -168,12 +203,16 @@ class GateHostApprovalTest {
                 .as("all API calls carry the task's token")
                 .isNotEmpty()
                 .containsOnly(true);
+        assertThat(gitAuthenticated)
+                .as("git carries the person's independently lent token")
+                .isNotEmpty()
+                .containsOnly(true);
         assertThat(result.out())
                 .as("the person can open the review")
                 .contains("pull request " + url + "/acme/repo/pulls/1");
         assertThat(result.out() + result.err())
                 .as("the token stays out of answers")
-                .doesNotContain(TOKEN);
+                .doesNotContain(TOKEN, LENT_TOKEN);
     }
 
     // A repeated approval must not create a second review for the same branch.
@@ -293,6 +332,20 @@ class GateHostApprovalTest {
                     Path forgeConf() {
                         return conf;
                     }
+
+                    @Override
+                    GitGate gate(final Project project) {
+                        return super.gate(project)
+                                .using(
+                                        new HostForgeLending(
+                                                lendingContext,
+                                                url -> {
+                                                    throw new AssertionError(
+                                                            "the host must lend its forge token");
+                                                },
+                                                conf,
+                                                () -> true));
+                    }
                 };
         command.setContext(context);
         final CommandLine cli = new CommandLine(command);
@@ -375,6 +428,13 @@ class GateHostApprovalTest {
     }
 
     private void gitHttp(HttpExchange exchange) throws IOException {
+        gitAuthenticated.add(
+                ("Basic "
+                                + java.util.Base64.getEncoder()
+                                        .encodeToString(
+                                                ("x-access-token:" + LENT_TOKEN)
+                                                        .getBytes(StandardCharsets.UTF_8)))
+                        .equals(exchange.getRequestHeaders().getFirst("Authorization")));
         final ProcessBuilder builder = new ProcessBuilder("git", "http-backend");
         final Map<String, String> env = builder.environment();
         env.put("GIT_CONFIG_GLOBAL", "/dev/null");

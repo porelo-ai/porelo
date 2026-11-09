@@ -32,6 +32,7 @@ final class HostForgeAccess implements FetchAccess {
     private final @Nullable String fetchFrom;
 
     private final FetchAccess otherwise;
+    private final java.util.function.BooleanSupplier installed;
 
     /**
      * Constructor.
@@ -44,9 +45,22 @@ final class HostForgeAccess implements FetchAccess {
             final PoreloContext context,
             final @Nullable String fetchFrom,
             final FetchAccess otherwise) {
+        this(
+                context,
+                fetchFrom,
+                otherwise,
+                () -> java.nio.file.Files.isRegularFile(HostPerson.PROGRAM));
+    }
+
+    HostForgeAccess(
+            final PoreloContext context,
+            final @Nullable String fetchFrom,
+            final FetchAccess otherwise,
+            final java.util.function.BooleanSupplier installed) {
         this.context = context;
         this.fetchFrom = fetchFrom;
         this.otherwise = otherwise;
+        this.installed = installed;
     }
 
     /**
@@ -105,10 +119,11 @@ final class HostForgeAccess implements FetchAccess {
                                                     HostPerson.PROGRAM.toString(),
                                                     // Lent for this command, beside the tokens
                                                     // a running task holds.
-                                                    "forge-token",
-                                                    "--lend")
+                                                    "forge",
+                                                    "lend-token")
                                             .withInput(""));
         } catch (final CommandException ex) {
+            requireInstalled();
             throw cannotSay();
         }
         if (asked.exitCode() == 65) {
@@ -121,9 +136,19 @@ final class HostForgeAccess implements FetchAccess {
         // One line end a helper may print after the token is no part of it.
         final String token = out.endsWith("\n") ? out.substring(0, out.length() - 1) : out;
         if (!asked.successful() || !ONE_TOKEN.matcher(token).matches()) {
+            requireInstalled();
             throw cannotSay();
         }
         return token;
+    }
+
+    private void requireInstalled() {
+        if (!installed.getAsBoolean()) {
+            throw new Denied(
+                    69,
+                    OrganizationQuestions.Refused.CANNOT_SAY,
+                    "the host's /usr/sbin/porelo-host is missing; install the porelo-host package");
+        }
     }
 
     private static Denied cannotSay() {

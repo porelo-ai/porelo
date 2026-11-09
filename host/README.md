@@ -1,6 +1,8 @@
 # host
 
 `porelo-host` is the host's own program, called by sudo rules and root's systemd units.
+`task start <task>` reads the sudo person's certificate on stdin and answers its gate token alone; `task end <task>` deletes that token and retains the record.
+`forge issue-token` rotates the person's token, while `forge lend-token` preserves concurrent lends; both answer only the token on stdout.
 It reads root's organization status and task certificate records and sweeps ended task tokens.
 Through sudo, a recorded, unlocked person who is not revoked by the organization can read any task whose principal names a project they belong to, using the host's people records for membership.
 A task outside those projects is refused with status 65 and exactly the same output as an unrecorded fingerprint.

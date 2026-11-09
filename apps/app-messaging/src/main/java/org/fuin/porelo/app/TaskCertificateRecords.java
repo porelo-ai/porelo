@@ -19,8 +19,8 @@ import org.jspecify.annotations.Nullable;
  *
  * <p>A signature made by a task's plain key names only the key. This is what names the task, the
  * person who certified it and when it was valid, kept after the task and its key are gone. Each
- * record is the line {@code porelo-host-person task --show} answers on a host, so a reader needs
- * one format for both.
+ * record is the line {@code porelo-host task show} answers on a host, so a reader needs one format
+ * for both.
  */
 final class TaskCertificateRecords {
 

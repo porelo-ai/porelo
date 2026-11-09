@@ -36,6 +36,12 @@ public class TaskCertificateCommand implements Callable<Integer>, PoreloFactory.
     @Spec private CommandSpec spec;
 
     private PoreloContext context = PoreloContext.real();
+    private @Nullable HostPerson host;
+
+    /** Package-local fixtures supply an installed helper with their own host paths. */
+    void setHost(HostPerson host) {
+        this.host = host;
+    }
 
     @Override
     public void setContext(PoreloContext context) {
@@ -56,6 +62,10 @@ public class TaskCertificateCommand implements Callable<Integer>, PoreloFactory.
             final Object answer;
             try {
                 answer = fromHost();
+            } catch (HostPerson.Refused ex) {
+                err.println("porelo: " + ex.getMessage());
+                err.flush();
+                return ex.code();
             } catch (IllegalArgumentException ex) {
                 err.println("porelo: the host answered for another key, or not as a record");
                 err.flush();
@@ -87,6 +97,7 @@ public class TaskCertificateCommand implements Callable<Integer>, PoreloFactory.
      * @throws IllegalArgumentException If it answered something else than a record of this key.
      */
     private @Nullable Object fromHost() {
-        return new HostPerson(context).show(fingerprint);
+        final HostPerson supplied = host;
+        return (supplied == null ? new HostPerson(context) : supplied).show(fingerprint);
     }
 }

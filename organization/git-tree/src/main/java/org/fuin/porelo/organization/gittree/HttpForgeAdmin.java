@@ -31,6 +31,7 @@ import java.util.concurrent.Flow;
 import java.util.concurrent.FutureTask;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.function.Predicate;
 import org.fuin.porelo.wire.Json;
 import org.fuin.porelo.wire.JsonException;
 import org.jspecify.annotations.Nullable;
@@ -252,6 +253,16 @@ public final class HttpForgeAdmin implements AutoCloseable {
 
     /** Reads all token pages before deleting any, in numeric ID order; null means every token. */
     public List<String> dropNamed(String identity, @Nullable Set<String> names) {
+        return dropTokens(identity, names == null ? null : names::contains);
+    }
+
+    /** Deletes names selected from a complete, validated snapshot of the identity's tokens. */
+    public List<String> dropMatching(
+            String identity, java.util.function.Predicate<String> selected) {
+        return dropTokens(identity, selected);
+    }
+
+    private List<String> dropTokens(String identity, @Nullable Predicate<String> selected) {
         final Map<BigInteger, @Nullable Object> tokens = new TreeMap<>();
         for (int page = 1; ; page++) {
             final @Nullable Object answer =
@@ -277,13 +288,14 @@ public final class HttpForgeAdmin implements AutoCloseable {
             }
             tokens.putAll(batch);
         }
-        if (names != null && tokens.values().stream().anyMatch(name -> !(name instanceof String))) {
+        if (selected != null
+                && tokens.values().stream().anyMatch(name -> !(name instanceof String))) {
             throw new Refusal(69, "Forgejo answered no valid access-token name");
         }
         final List<String> dropped = new ArrayList<>();
         for (var entry : tokens.entrySet()) {
             final Object name = entry.getValue();
-            if (names == null || name instanceof String text && names.contains(text)) {
+            if (selected == null || name instanceof String text && selected.test(text)) {
                 requestUser("DELETE", identity + "/tokens/" + entry.getKey(), 204, null);
                 // Only names of tasks are rendered by the host; other token names stay private.
                 if (name instanceof String text) {

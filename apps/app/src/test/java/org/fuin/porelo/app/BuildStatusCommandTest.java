@@ -224,7 +224,10 @@ class BuildStatusCommandTest {
                                             return reader;
                                         },
                                         new PrintWriter(err),
-                                        new HostPerson(context, directory.resolve("no-helper")),
+                                        new HostPerson(
+                                                context,
+                                                directory.resolve("no-helper"),
+                                                directory.resolve("absent-host")),
                                         host))
                 .as("refused as unconfigured, and no forge is asked")
                 .isInstanceOfSatisfying(

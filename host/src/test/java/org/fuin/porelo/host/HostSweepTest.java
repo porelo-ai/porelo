@@ -382,6 +382,7 @@ class HostSweepTest {
     }
 
     // py: test_later_runs_retry_pending_locks
+    // py: test_a_lock_deletes_the_persons_token_and_every_lend
     @Test
     void theSweepFinishesPendingRevocationsBeforeExaminingExpiredTasks() throws Exception {
         fixture.person("bob", "member=alpha developer\n", "reason=membership\nlock=pending\n");
@@ -390,6 +391,8 @@ class HostSweepTest {
         fixture.put("/run/porelo-host/people/bob/token", "private fixture");
         fixture.overrides.put(fixture.path("/run/porelo-host/people/bob"), Map.of("uid", 1000));
         add("bob", "personal");
+        add("bob", "porelo-host-lend-20261030T110000Z-young");
+        add("bob", "porelo-host-lend-20261029T110000Z-old");
         add("porelo-bob", "porelo-task-live");
         assertThat(sweep())
                 .as("successful retry clears its debt even with no expired task")

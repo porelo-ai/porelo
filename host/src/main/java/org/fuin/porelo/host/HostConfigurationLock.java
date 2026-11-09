@@ -4,7 +4,6 @@ import java.io.IOException;
 import java.lang.foreign.Arena;
 import java.lang.foreign.FunctionDescriptor;
 import java.lang.foreign.Linker;
-import java.lang.foreign.MemorySegment;
 import java.lang.foreign.ValueLayout;
 import java.lang.invoke.MethodHandle;
 import java.nio.file.Path;
@@ -35,17 +34,7 @@ final class HostConfigurationLock implements AutoCloseable {
     }
 
     static HostConfigurationLock acquire(Path file, boolean shared) throws IOException {
-        final int descriptor;
-        try (Arena arena = Arena.ofConfined()) {
-            final MemorySegment name = arena.allocateFrom(file.toString());
-            // Never create the mutex, follow a link, or lend its descriptor to a helper.
-            descriptor = (int) OPEN.invokeExact(name, 0x80000 | 0x20000);
-        } catch (Throwable ex) {
-            throw new IOException("Cannot open configuration lock", ex);
-        }
-        if (descriptor < 0) {
-            throw new IOException("Cannot open configuration lock");
-        }
+        final int descriptor = open(file, 0x80000 | 0x20000);
         final HostConfigurationLock lock = new HostConfigurationLock(descriptor);
         try {
             if ((int) FLOCK.invokeExact(descriptor, shared ? 1 : 2) != 0) {
@@ -60,6 +49,26 @@ final class HostConfigurationLock implements AutoCloseable {
             }
             throw new IOException("Cannot acquire configuration lock", ex);
         }
+    }
+
+    /** Opens a no-follow, nonblocking read descriptor; no flock is taken on the data file. */
+    static HostConfigurationLock openRead(Path file) throws IOException {
+        return new HostConfigurationLock(open(file, 0x80000 | 0x20000 | 0x800));
+    }
+
+    Path descriptorPath() {
+        return Path.of("/proc/self/fd/" + descriptor);
+    }
+
+    private static int open(Path file, int flags) throws IOException {
+        final int descriptor;
+        try (Arena arena = Arena.ofConfined()) {
+            descriptor = (int) OPEN.invokeExact(arena.allocateFrom(file.toString()), flags);
+        } catch (Throwable ex) {
+            throw new IOException("Cannot open host file", ex);
+        }
+        if (descriptor < 0) throw new IOException("Cannot open host file");
+        return descriptor;
     }
 
     /** Releases the flock by closing its private descriptor. */

@@ -119,6 +119,11 @@ class ProjectTakingTest {
     }
 
     private CommandResult helperAnswers(final Command command) {
+        assertThat(command.arguments())
+                .containsExactly("sudo", "-n", "/usr/sbin/porelo-host", "forge", "lend-token");
+        assertThat(command.input()).isEmpty();
+        assertThat(command.binaryInput()).isNull();
+        assertThat(command.environment()).isEmpty();
         asked.add(List.copyOf(command.arguments()));
         final CommandResult answer = helper.poll();
         assertThat(answer).as("what the helper answers the call %s", asked.size()).isNotNull();
@@ -654,12 +659,7 @@ class ProjectTakingTest {
         assertThat(asked)
                 .as("through sudo, for each fetch")
                 .containsOnly(
-                        List.of(
-                                "sudo",
-                                "-n",
-                                "/usr/local/sbin/porelo-host-person",
-                                "forge-token",
-                                "--lend"));
+                        List.of("sudo", "-n", "/usr/sbin/porelo-host", "forge", "lend-token"));
         assertThat(
                         Files.readString(
                                 context.paths()

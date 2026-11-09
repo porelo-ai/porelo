@@ -306,7 +306,14 @@ public final class MessageSigners implements MessageDelivery.Signers {
         } catch (CardException ex) {
             return Traced.refused("it is signed by a key that is not a task's Ed25519 key");
         }
-        final SshCertificate certificate = certificates.of(fingerprint);
+        final SshCertificate certificate;
+        try {
+            certificate = certificates.of(fingerprint);
+        } catch (HostPerson.Refused ex) {
+            return Traced.refused(
+                    java.util.Objects.requireNonNull(
+                            ex.getMessage(), "Host refusals have a diagnostic"));
+        }
         if (certificate == null || !certificate.key().equals(line)) {
             return Traced.refused(
                     "it is signed by key " + fingerprint + ", and no certificate is kept for it");
@@ -362,7 +369,7 @@ public final class MessageSigners implements MessageDelivery.Signers {
         try {
             final SshCertificate certificate = certificates.of(PersonCard.fingerprint(line));
             return certificate != null && certificate.key().equals(line);
-        } catch (CardException ex) {
+        } catch (CardException | HostPerson.Refused ex) {
             return false;
         }
     }

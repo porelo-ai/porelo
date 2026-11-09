@@ -44,6 +44,14 @@ public final class SystemProgram {
     }
 
     /**
+     * Searches a caller's fixed system directories with the same ownership and executable checks.
+     * The directory list must come from program constants, never from the environment.
+     */
+    public static Path find(String name, List<Path> directories) {
+        return found(name, List.copyOf(directories));
+    }
+
+    /**
      * Returns a root's program at the one absolute path it is installed at, checked as {@link
      * #find(String)} checks a distribution's.
      *

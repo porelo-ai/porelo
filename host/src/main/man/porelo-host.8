@@ -40,6 +40,34 @@ One person's forge failure stops no other person's sweep; failures answer status
 69, naming the completed deletions and failures. Removal of the temporary
 administrator token is attempted before the answer, including when a request
 fails; a cleanup failure refuses the call.
+.TP
+.B task start <task>
+Through sudo only: read one Ed25519 task certificate from bounded standard input.
+Require the calling person's current organization key, a single principal
+ task:<project>:<task>, current validity, and membership of that project.
+The installed porelo judges it again against that key and the host KRL in an
+isolated systemd unit. Record the certificate privately before making the gate
+ token; answer the token alone without a line end, or nothing on a forge-less host.
+An identical certificate is a retry and rotates its token. Another certificate
+for that task, or the same task key recorded elsewhere, is refused.
+.TP
+.B task end <task>
+Through sudo only: delete that task's gate token alone, retain its certificate,
+and print {"task":"<task>","ended":true}. An unrecorded task is refused.
+.TP
+.B forge issue\-token
+Through sudo only: replace the person's forge tokens except lends younger than
+one day, and answer the new token alone, without a line end.
+.TP
+.B forge lend\-token
+Through sudo only: make a token for one command, preserving the person's token
+and every lend younger than one day. Delete older or unreadable lends.
+Answer the new token alone, without a line end.
+.PP
+These four verbs take an exclusive flock on forge.conf for authorization,
+record publication and forge changes. They take the person from SUDO_USER only.
+A temporary administrator token is deleted before answering, even on failure.
+No certificate or token is put on a command line or in a diagnostic.
 .SH OPTIONS
 .TP
 .BR \-h ", " \-\-help
@@ -85,8 +113,10 @@ Root's unit invocations need no person until a verb acts for one.
 Other invocations require real uid 0.
 Argument files are not expanded and JVM runtime options are ordinary arguments.
 Child programs are checked through SystemProgram, run without a shell from /,
-with PATH=/usr/sbin:/usr/bin:/sbin:/bin and a fixed locale: LANG=C.UTF-8
-for task work, LC_ALL=C for project work. Time and output are bounded.
+with a fixed locale: LANG=C.UTF-8 for task work, LC_ALL=C for project work.
+Children use PATH=/usr/sbin:/usr/bin:/sbin:/bin; nothing under /usr/local is run.
+Command output is bounded. Person account lookup has no deadline; maintenance
+commands take at most 60 seconds. Project transfers keep their own deadlines.
 Root-owned data files must be regular files without symbolic links;
 the file and every parent through / must be root-owned and not writable
 by group or others, including sticky temporary directories.
@@ -97,14 +127,16 @@ Reads are bounded.
 The command completed successfully.
 .TP
 .B 64 (EX_USAGE)
-Invalid arguments or no verb.
+Invalid arguments, no verb, or a task start/end or forge token call without SUDO_USER.
 .TP
 .B 65 (EX_DATAERR)
 Invalid host records or project data, a root-only verb called through sudo,
-no visible task, or a refused forge operation.
+no visible task, a refused task/token caller, or a refused forge operation.
 .TP
 .B 69 (EX_UNAVAILABLE)
 A required dependency or account database could not answer.
+Task and forge verbs also return this status when not root, as do project verbs
+other than check-central.
 .TP
 .B 73 (EX_CANTCREAT)
 A task path is unsafe, or the host's files or configuration lock could not be read.
@@ -114,6 +146,84 @@ Root uid or a valid sudo person could not be established.
 .TP
 .B 78 (EX_CONFIG)
 The invocation environment contains an unapproved variable.
+.SS Codes by verb
+Shared boundary codes: 77 no valid root or sudo person; 78 unapproved environment variable.
+.TP
+.B org status
+0 status shown; 64 bad arguments; 65 sudo or invalid records;
+69 unsafe or unreadable host files; 73 lock or unhandled file/data failure.
+.TP
+.B task show
+0 record shown; 64 bad arguments or fingerprint; 65 caller, records or visibility refused;
+69 not root or file/account lookup failure; 73 unsafe task path, lock or file failure.
+.TP
+.B task sweep
+0 sweep complete; 64 bad arguments; 65 sudo or invalid records;
+69 not root, dependency, revocation or forge failure; 73 unsafe task path, lock or file failure.
+.TP
+.B task start
+0 task recorded and token answered, if enabled; 64 bad arguments, input form or no SUDO_USER;
+65 caller, certificate or task conflict; 69 not root, file, dependency or forge failure;
+73 unsafe task path, recording, lock or file failure.
+.TP
+.B task end
+0 token ended; 64 bad arguments, task name or no SUDO_USER; 65 caller, records or unknown task;
+69 not root, file, dependency or forge failure; 73 unsafe task path, lock or file failure.
+.TP
+.B forge issue\-token, forge lend\-token
+0 token answered; 64 bad arguments or no SUDO_USER; 65 caller or records refused;
+69 not root, no forge, file, dependency or forge failure; 73 lock or unhandled file failure.
+.TP
+.B project add
+0 registered; 64 bad arguments/signing key or interrupted registration;
+65 registration, data, inherited lock or forge refusal;
+69 not root or dependency/read/lock failure; 73 file/output write failure.
+.TP
+.B project remove
+0 removed; 64 bad arguments/central token or interrupted push check;
+65 project, data, inherited lock, forge refusal or unpushed work;
+69 not root or dependency/read/lock failure; 73 file/output write failure.
+.TP
+.B project migrate
+0 migrated; 64 bad arguments/JSON; 65 project, address, key, inherited lock or forge refusal;
+69 not root or dependency/read/lock failure; 73 file/output write failure.
+.TP
+.B project take\-off
+0 removed; 64 bad arguments/JSON; 65 project, data, inherited lock, forge refusal or unpushed work;
+69 not root or dependency/read/lock failure; 73 file/output write failure.
+.TP
+.B project central\-state
+0 state shown, including cannot-say; 64 bad arguments; 65 project, data or inherited lock refused;
+69 not root or dependency/read/lock failure; 73 output write failure.
+.TP
+.B project give\-back\-check
+0 all mains at central; 64 bad arguments; 65 data, wrong lock or main not known to be at central;
+69 not root or dependency/read/lock failure; 73 output write failure.
+.TP
+.B project project\-copy
+0 copy or unchanged main; 64 bad arguments; 65 project, address, data or inherited lock refused;
+69 not root or dependency/read/lock failure; 73 directory creation or output write failure.
+.TP
+.B project project\-advance
+0 comparison reported; 64 bad arguments; 65 project, changed copy, data or inherited lock refused;
+69 not root, dependency/read/lock, Git or cleanup failure; 73 file/output write failure.
+.TP
+.B project check\-central
+0 all commits at central; 64 bad arguments/oversized token; 65 CA path or unpushed work;
+66 local token unreadable/empty or unsafe CA; 69 dependency/configuration/read/Git failure;
+73 diagnostic write failure; 75 no central token; 77 sudo invocation.
+.TP
+.B project measure\-central
+0 published, possibly empty; 64 bad arguments; 65 project, data or inherited lock refused;
+69 not root or local dependency/read/lock failure; 73 publication, ACL or diagnostic write failure.
+.TP
+.B project pool\-key send
+0 key sent or already current; 64 bad arguments; 65 project data, inherited lock or forge refusal;
+69 not root or dependency/read/lock failure; 73 marker or output write failure.
+.TP
+.B project pool\-key withdraw
+0 withdrawn, absent or forge gone; 64 bad arguments; 65 data, wrong lock or forge refusal;
+69 not root or dependency/read/lock failure; 73 output write failure.
 .SH FILES
 .TP
 .B /etc/porelo-host/

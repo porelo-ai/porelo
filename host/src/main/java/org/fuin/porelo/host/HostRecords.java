@@ -30,6 +30,39 @@ final class HostRecords {
         this.files = files;
     }
 
+    Person admitted(String login) {
+        final Person person = read().get(login);
+        if (person == null || !person.admitted()) {
+            throw new HostRefusal(65, login + " is no unlocked person of this host");
+        }
+        return person;
+    }
+
+    boolean revoked(String login) {
+        final var applied = new HostOrganization(files).applied();
+        return applied != null && HostJson.array(applied.get("revoked")).contains(login);
+    }
+
+    String currentKey(String login) {
+        final var applied = new HostOrganization(files).applied();
+        if (applied != null) {
+            final var persons =
+                    HostJson.array(applied.get("persons")).stream()
+                            .map(HostJson::object)
+                            .filter(row -> login.equals(row.get("login")))
+                            .toList();
+            if (persons.size() == 1
+                    && Boolean.FALSE.equals(persons.getFirst().get("revoked"))
+                    && !HostJson.array(applied.get("revoked")).contains(login)
+                    && persons.getFirst().get("ssh") instanceof String key
+                    && validKey(key)) {
+                return key;
+            }
+        }
+        throw new HostRefusal(
+                65, "the host's organization names no current, unrevoked key of " + login);
+    }
+
     record Person(
             List<String> members, boolean locked, boolean pending, @Nullable LocalDate lockedOn) {
         boolean admitted() {

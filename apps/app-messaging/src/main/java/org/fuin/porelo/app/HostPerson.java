@@ -12,13 +12,13 @@ import org.fuin.porelo.wire.Json;
 
 /**
  * A task's start and end told to the host it runs on, through the host's own helper for its
- * persons, {@code porelo-host-person}.
+ * persons, {@code porelo-host}.
  *
  * <p>A host records every task's certificate and makes the task's forge token itself; the token
- * goes to the task's gate, never into its container. A machine without the helper is no such host,
- * and its tasks start as before. The contract is the host's: the certificate on the helper's input,
- * the token alone on its output, and exit 64, 65, 69 or 73 for wrong use, a refusal, an unreachable
- * forge and a host file.
+ * goes to the task's gate, never into its container. A machine without host configuration or the
+ * tool starts tasks as before. A configured host requires the installed tool. The contract is the
+ * host's: the certificate on the helper's input, the token alone on its output, and exit 64, 65, 69
+ * or 73 for wrong use, a refusal, an unreachable forge and a host file.
  */
 final class HostPerson {
 
@@ -28,6 +28,7 @@ final class HostPerson {
     private final PoreloContext context;
 
     private final Path program;
+    private final Path hostDirectory;
 
     /**
      * Constructor for the host's helper.
@@ -45,8 +46,13 @@ final class HostPerson {
      * @param program The helper.
      */
     HostPerson(PoreloContext context, Path program) {
+        this(context, program, Path.of("/etc/porelo-host"));
+    }
+
+    HostPerson(PoreloContext context, Path program, Path hostDirectory) {
         this.context = context;
         this.program = program;
+        this.hostDirectory = hostDirectory;
     }
 
     /**
@@ -56,10 +62,10 @@ final class HostPerson {
      * mode {@code 0700}, and reaches it through sudo, so asking for executable read every person on
      * a real host as no host.
      *
-     * @return {@code true} when the helper is there.
+     * @return {@code true} when host configuration or the installed tool is present.
      */
     boolean present() {
-        return Files.isRegularFile(program);
+        return Files.isRegularFile(program) || Files.isDirectory(hostDirectory);
     }
 
     /**
@@ -73,7 +79,7 @@ final class HostPerson {
     String start(String task, String certificate) {
         final CommandResult started =
                 run(
-                        Command.of("sudo", "-n", program.toString(), "task", task)
+                        Command.of("sudo", "-n", program.toString(), "task", "start", task)
                                 .withInput(certificate + "\n"));
         final String token = started.standardOutput();
         // One line end a helper may print after the token is no part of it.
@@ -89,7 +95,7 @@ final class HostPerson {
      */
     boolean end(String task) {
         final CommandResult ended =
-                run(Command.of("sudo", "-n", program.toString(), "task", "--end", task));
+                run(Command.of("sudo", "-n", program.toString(), "task", "end", task));
         try {
             return Json.parse(ended.standardOutput().strip()) instanceof Map<?, ?> answer
                     && task.equals(answer.get("task"))
@@ -108,6 +114,10 @@ final class HostPerson {
      */
     @org.jspecify.annotations.Nullable
     Map<?, ?> show(String fingerprint) {
+        if (!present()) {
+            return null;
+        }
+        requireProgram();
         final CommandResult shown;
         try {
             // The records are root's: sudo, which allows any admitted person.
@@ -119,7 +129,7 @@ final class HostPerson {
                                             "-n",
                                             program.toString(),
                                             "task",
-                                            "--show",
+                                            "show",
                                             fingerprint));
         } catch (CommandException ex) {
             return null;
@@ -147,11 +157,12 @@ final class HostPerson {
     }
 
     private CommandResult run(Command command) {
+        requireProgram();
         final CommandResult result;
         try {
             result = context.runner().run(command);
         } catch (CommandException ex) {
-            throw new Refused(69, "the host's helper could not be run: " + ex.getMessage());
+            throw new Refused(69, "the host's helper could not be run");
         }
         if (!result.successful()) {
             // Its error output only: its standard output may hold a token.
@@ -163,6 +174,14 @@ final class HostPerson {
                             + result.standardError().strip().replaceAll("\\p{Cntrl}", "?"));
         }
         return result;
+    }
+
+    private void requireProgram() {
+        if (!Files.isRegularFile(program)) {
+            throw new Refused(
+                    69,
+                    "the host's /usr/sbin/porelo-host is missing; install the porelo-host package");
+        }
     }
 
     /** The host refused, or could not be asked. */

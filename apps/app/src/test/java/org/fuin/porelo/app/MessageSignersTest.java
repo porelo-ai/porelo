@@ -30,6 +30,30 @@ class MessageSignersTest {
 
     @TempDir Path dir;
 
+    @Test
+    void anUnavailableHostRecordIsATracedRefusal() throws Exception {
+        final CertifiedTaskKeys keys = new CertifiedTaskKeys(dir);
+        final SigningKey task = keys.task("p", "build");
+        final PoreloContext context = context();
+        final HostPerson host =
+                new HostPerson(
+                        context,
+                        dir.resolve("absent-program"),
+                        Files.createDirectory(dir.resolve("configured-host")));
+        final TaskCertificateRecords records = new TaskCertificateRecords(context);
+        final MessageSigners signers =
+                new MessageSigners(
+                        () -> task,
+                        fingerprint -> records.certificate(fingerprint, host),
+                        "p",
+                        java.util.List::of);
+        final var traced = signers.trace(task.keyBlob(), Instant.now());
+        assertThat(traced.refusal()).contains("/usr/sbin/porelo-host", "install");
+        assertThat(signers.certified(task.keyBlob()))
+                .as("the record walk refuses the same unavailable host")
+                .isFalse();
+    }
+
     private Mailbox mailbox() throws IOException {
         final Mailbox mailbox = new Mailbox(dir.resolve("mail").resolve("porelo-p-review"));
         mailbox.create();

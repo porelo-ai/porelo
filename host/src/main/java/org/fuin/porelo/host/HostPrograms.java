@@ -22,8 +22,8 @@ import org.fuin.porelo.wire.SystemProgram;
 
 /** Runs checked programs without a shell or an inherited environment. */
 final class HostPrograms {
-    private static final Map<String, String> ENVIRONMENT =
-            Map.of("PATH", "/usr/sbin:/usr/bin:/sbin:/bin", "LANG", "C.UTF-8");
+    static final String HOST_PATH = "/usr/sbin:/usr/bin:/sbin:/bin";
+    static final Map<String, String> ENVIRONMENT = Map.of("PATH", HOST_PATH, "LANG", "C.UTF-8");
     private final Duration timeout;
     private final int maximumBytes;
     private final Function<String, Path> programs;
@@ -46,7 +46,11 @@ final class HostPrograms {
         this.programs = programs;
     }
 
-    record Result(int exitCode, String output) {
+    record Result(int exitCode, String output, String error) {
+        Result(int exitCode, String output) {
+            this(exitCode, output, "");
+        }
+
         @Override
         public String toString() {
             return "Result[exitCode=" + exitCode + ", output withheld]";
@@ -147,11 +151,15 @@ final class HostPrograms {
                 }
                 // A child may refuse before reading stdin; its refusal remains the verdict.
             }
-            java.util.Arrays.fill(errors.get(remaining(deadline), TimeUnit.NANOSECONDS), (byte) 0);
+            final byte[] stderr = errors.get(remaining(deadline), TimeUnit.NANOSECONDS);
             try {
-                return new Result(process.exitValue(), new String(bytes, StandardCharsets.UTF_8));
+                return new Result(
+                        process.exitValue(),
+                        new String(bytes, StandardCharsets.UTF_8),
+                        new String(stderr, StandardCharsets.UTF_8));
             } finally {
                 java.util.Arrays.fill(bytes, (byte) 0);
+                java.util.Arrays.fill(stderr, (byte) 0);
             }
         } catch (TimeoutException ex) {
             throw new IOException("Host program exceeded its timeout", ex);
@@ -180,10 +188,15 @@ final class HostPrograms {
         }
     }
 
-    private static Path program(String name) {
+    static Path program(String name) {
         return Path.of(name).isAbsolute()
                 ? SystemProgram.at(Path.of(name))
-                : SystemProgram.find(name);
+                : SystemProgram.find(
+                        name, java.util.Arrays.stream(HOST_PATH.split(":")).map(Path::of).toList());
+    }
+
+    static String failureKind(IOException failure) {
+        return failure.getCause() instanceof TimeoutException ? "TimeoutExpired" : "OSError";
     }
 
     private byte[] read(InputStream stream) throws IOException {

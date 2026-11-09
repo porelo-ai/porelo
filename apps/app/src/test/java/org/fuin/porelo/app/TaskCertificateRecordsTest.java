@@ -71,7 +71,7 @@ class TaskCertificateRecordsTest {
         program.toFile().setExecutable(true);
         final String fingerprint = keys.certificate(hosts).fingerprint();
         runner.answering(
-                "task --show " + fingerprint,
+                "task show " + fingerprint,
                 "{\"fingerprint\":\""
                         + fingerprint
                         + "\",\"certificate\":\""
@@ -81,14 +81,22 @@ class TaskCertificateRecordsTest {
         assertThat(
                         records.certificate(
                                 keys.certificate(kept).fingerprint(),
-                                new HostPerson(context, dir.resolve("none"))))
+                                new HostPerson(
+                                        context, dir.resolve("none"), dir.resolve("absent-host"))))
                 .as("kept here")
                 .extracting(SshCertificate::line)
                 .isEqualTo(keys.certificate(kept).line());
-        assertThat(records.certificate(fingerprint, new HostPerson(context, dir.resolve("none"))))
+        assertThat(
+                        records.certificate(
+                                fingerprint,
+                                new HostPerson(
+                                        context, dir.resolve("none"), dir.resolve("absent-host"))))
                 .as("not kept here, and no host to ask")
                 .isNull();
-        assertThat(records.certificate(fingerprint, new HostPerson(context, program)))
+        assertThat(
+                        records.certificate(
+                                fingerprint,
+                                new HostPerson(context, program, dir.resolve("absent-host"))))
                 .as("the host's record")
                 .extracting(SshCertificate::line)
                 .isEqualTo(keys.certificate(hosts).line());
@@ -106,7 +114,7 @@ class TaskCertificateRecordsTest {
         program.toFile().setExecutable(true);
         final String fingerprint = keys.certificate(asked).fingerprint();
         runner.answering(
-                "task --show " + fingerprint,
+                "task show " + fingerprint,
                 "{\"fingerprint\":\""
                         + fingerprint
                         + "\",\"certificate\":\""
@@ -115,7 +123,10 @@ class TaskCertificateRecordsTest {
 
         assertThat(
                         new TaskCertificateRecords(context)
-                                .certificate(fingerprint, new HostPerson(context, program)))
+                                .certificate(
+                                        fingerprint,
+                                        new HostPerson(
+                                                context, program, dir.resolve("absent-host"))))
                 .isNull();
     }
 

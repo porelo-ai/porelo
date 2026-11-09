@@ -17,14 +17,24 @@ final class HostFiles {
     private static final int MAXIMUM_BYTES = 16 * 1024 * 1024;
     private final Path root;
     private final RootOwnedFile.Attributes attributes;
+    private final RootOwnedFile.Attributes openedAttributes;
 
     HostFiles() {
         this(
                 Path.of("/"),
-                path -> Files.readAttributes(path, "unix:uid,mode", LinkOption.NOFOLLOW_LINKS));
+                path -> Files.readAttributes(path, "unix:uid,mode", LinkOption.NOFOLLOW_LINKS),
+                path -> Files.readAttributes(path, "unix:uid,mode"));
     }
 
     HostFiles(Path root, RootOwnedFile.Attributes attributes) {
+        this(root, attributes, attributes);
+    }
+
+    private HostFiles(
+            Path root,
+            RootOwnedFile.Attributes attributes,
+            RootOwnedFile.Attributes openedAttributes) {
+        this.openedAttributes = openedAttributes;
         this.root = root.toAbsolutePath().normalize();
         this.attributes = attributes;
     }
@@ -87,10 +97,80 @@ final class HostFiles {
             return StandardCharsets.UTF_8
                     .newDecoder()
                     .onMalformedInput(CodingErrorAction.REPORT)
-                    .decode(ByteBuffer.wrap(RootOwnedFile.read(path, MAXIMUM_BYTES, attributes, 0)))
+                    .decode(ByteBuffer.wrap(readBytes(path)))
                     .toString();
         } catch (IOException ex) {
             throw new HostRefusal(69, "cannot read " + path);
+        }
+    }
+
+    byte[] readBytes(Path path) {
+        check(path, 69, true, false, -1);
+        try {
+            RootOwnedFile.checkPath(path, attributes, 0);
+        } catch (IOException ex) {
+            throw new HostRefusal(69, "cannot read " + path);
+        }
+        try (var opened = HostConfigurationLock.openRead(path)) {
+            return RootOwnedFile.readOpened(
+                    opened.descriptorPath(), MAXIMUM_BYTES, openedAttributes, 0);
+        } catch (IOException ex) {
+            throw new HostRefusal(69, "cannot read " + path);
+        }
+    }
+
+    void directories(Path directory) throws IOException {
+        final boolean publicDirectory =
+                List.of(
+                                path("/etc/ssh/authorized_keys"),
+                                path("/run/porelo-host"),
+                                path("/run/porelo-host/people"))
+                        .contains(directory);
+        final int mode = publicDirectory ? 0755 : 0700;
+        if (check(directory, 73, false, true, publicDirectory ? -1 : 0700)) {
+            return;
+        }
+        final Path parent =
+                java.util.Objects.requireNonNull(
+                        directory.getParent(), "A host directory has a parent");
+        if (!check(parent, 73, false, true, -1)) {
+            directories(parent);
+        }
+        Files.createDirectory(
+                directory,
+                java.nio.file.attribute.PosixFilePermissions.asFileAttribute(
+                        java.nio.file.attribute.PosixFilePermissions.fromString(
+                                publicDirectory ? "rwxr-xr-x" : "rwx------")));
+        Files.setAttribute(directory, "unix:mode", mode);
+        check(directory, 73, true, true, mode);
+    }
+
+    Path syncDirectory(String prefix) throws IOException {
+        final Path sync = path("/run/porelo-host/sync");
+        directories(sync);
+        for (Path left : list(sync, 73, 0700)) {
+            removeTree(left);
+        }
+        return Files.createTempDirectory(
+                sync,
+                prefix + ".",
+                java.nio.file.attribute.PosixFilePermissions.asFileAttribute(
+                        java.nio.file.attribute.PosixFilePermissions.fromString("rwx------")));
+    }
+
+    void removeTree(Path path) throws IOException {
+        final Path parent =
+                java.util.Objects.requireNonNull(path.getParent(), "A scratch entry has a parent");
+        try (var stream = Files.newDirectoryStream(parent)) {
+            if (!(stream instanceof java.nio.file.SecureDirectoryStream<Path> secure)) {
+                throw new HostRefusal(
+                        69, "safe removal of the host's scratch directory is unavailable");
+            }
+            if (Files.isDirectory(path, LinkOption.NOFOLLOW_LINKS)) {
+                removeDirectory(secure, path.getFileName());
+            } else {
+                secure.deleteFile(path.getFileName());
+            }
         }
     }
 

@@ -43,6 +43,7 @@ class HostForgeLendingTest {
     private Path conf;
 
     private GitCredentials lending;
+    private PoreloContext context;
 
     @BeforeEach
     void host() throws Exception {
@@ -59,9 +60,9 @@ class HostForgeLendingTest {
                                     default -> null;
                                 },
                         dir);
-        final PoreloContext context =
+        context =
                 new PoreloContext(runner, new PoreloPaths(xdg, dir.resolve("bin")), arguments -> 0);
-        lending = new HostForgeLending(context, url -> FROM_THE_VAULT, conf);
+        lending = new HostForgeLending(context, url -> FROM_THE_VAULT, conf, () -> true);
     }
 
     @Test
@@ -73,7 +74,7 @@ class HostForgeLendingTest {
         assertThat(lease.arguments()).isEmpty();
         assertThat(runner.lines())
                 .as("a token of its own for this command, which leaves the person's other tokens")
-                .containsExactly("sudo -n " + HostPerson.PROGRAM + " forge-token --lend");
+                .containsExactly("sudo -n " + HostPerson.PROGRAM + " forge lend-token");
         assertThat(lease.environment())
                 .containsEntry("GIT_CONFIG_KEY_0", "http.http://127.0.0.1:3001/.extraHeader")
                 .containsEntry(
@@ -137,8 +138,26 @@ class HostForgeLendingTest {
     }
 
     @Test
-    void aHostThatGivesNoTokenLeavesTheVaultsAnswer() {
-        runner.failing("sudo", 65, "locked");
+    void aMissingHostToolRefusesBeforeBorrowingOtherCredentials() {
+        lending =
+                new HostForgeLending(
+                        context,
+                        url -> {
+                            throw new AssertionError("no fallback");
+                        },
+                        conf,
+                        () -> false);
+        org.assertj.core.api.Assertions.assertThatThrownBy(
+                        () -> lending.forUrl("http://127.0.0.1:3001/demo/first.git"))
+                .isInstanceOf(org.fuin.porelo.gate.GateException.class)
+                .hasMessageContaining("/usr/sbin/porelo-host");
+        assertThat(runner.invocations()).isEmpty();
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(ints = {64, 65, 69, 73, 77, 78})
+    void aHostThatGivesNoTokenLeavesTheVaultsAnswer(int code) {
+        runner.failing("sudo", code, "refused");
 
         assertThat(lending.forUrl("http://127.0.0.1:3001/demo/first.git").environment())
                 .containsEntry("FROM", "vault");

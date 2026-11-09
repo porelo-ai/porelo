@@ -16,7 +16,8 @@ record HostPerson(String login, long uid) {
                 environment,
                 login -> {
                     final HostPrograms.Result result =
-                            new HostPrograms().run(List.of("getent", "passwd", login));
+                            new HostPrograms(java.time.Duration.ZERO, 65536)
+                                    .run(List.of("getent", "passwd", login));
                     if (result.exitCode() == 2) {
                         return "";
                     }

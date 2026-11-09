@@ -38,7 +38,13 @@ class HostManPageTest {
                 .isEmpty();
         assertThat(manual.replace("\\-", "-"))
                 .as("the frame's version option is documented even with zero verbs")
-                .contains("--version", ".TH PORELO-HOST 8");
+                .contains(
+                        "--version",
+                        ".TH PORELO-HOST 8",
+                        "task start",
+                        "task end",
+                        "forge issue-token",
+                        "forge lend-token");
     }
 
     @Test
