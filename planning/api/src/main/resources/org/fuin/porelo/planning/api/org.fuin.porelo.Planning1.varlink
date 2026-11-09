@@ -1,0 +1,78 @@
+# A planning adapter keeps no secret: settings and the current call's token arrive on the owner-only socket.
+# Describe alone needs neither settings nor a token and remains available without a project workflow.
+# Identifiers, repository keys, target states and revisions are nonblank; display text and briefs may be empty.
+# Unknown fields (including optional JSON null fields) are ignored by readers; settings pass through unchanged.
+interface org.fuin.porelo.Planning1
+
+# Capabilities are write, watch, issues. Credentials are github-app and/or token.
+method Describe() -> (protocolVersion: int, name: string, version: string, capabilities: []string, credentials: []string)
+
+# Newer enum categories decode as OTHER in Java; callers must not start work for OTHER.
+# States are in board order and apply equally to stories and issues. Names belong to the adapter.
+# Which states are working states is Porelo's alone (planning.work in project.yml); WORKING is a hint only.
+# An adapter that cannot tell answers CLOSED for a closed state and WAITING for every other, never WORKING.
+type PlanState (name: string, kind: (WAITING, WORKING, CLOSED, OTHER))
+type PlanPhase (name: string, states: []string)
+type Workflow (states: []PlanState, phases: []PlanPhase)
+# state is the stored state, possibly empty for a story with issues; porelod computes its board state.
+# issues carries the complete immutable issue summaries at this read's revision, including [] for none.
+# Adapters with capability issues supply it; absent/null means unavailable, never an empty story.
+# priority is the story file's free text in the adapter's words; absent/null means none, including older replies.
+type StorySummary (id: string, title: string, state: string, link: string, issues: ?[]IssueSummary, priority: ?string)
+type Story (id: string, title: string, state: string, link: string, description: string, priority: ?string)
+# repository is the project's repository key; size and blockedBy are the store's own words and ids.
+type IssueSummary (id: string, repository: string, title: string, state: string, size: string, blockedBy: []string, link: string)
+# brief is the complete Markdown text, never a host path.
+type SubAgent (name: string, kind: (BUILDER, TESTER, READER, OTHER), agent: string, model: string, brief: string)
+# No proposals means subAgents is []; older replies without the list decode as [].
+type Issue (id: string, repository: string, title: string, state: string, size: string, blockedBy: []string, link: string, whatMustBeTrue: string, subAgents: ?[]SubAgent)
+# Exactly one of story or issue is non-null and nonblank; both/neither is InvalidParameter(changes).
+type StateChange (story: ?string, issue: ?string, to: string)
+# A revision and resource ids to reread; empty lists invalidate the entire board, including workflow changes.
+type Change (revision: string, stories: []string, issues: []string)
+
+# Every read is a snapshot with an opaque revision. No read fetches; Refresh fetches explicitly.
+method GetWorkflow(settings: object, token: string) -> (workflow: Workflow, revision: string)
+# states filters the STORED state; absent means all, [] means none. Board readers omit it and filter computed states.
+# For a coherent board, read GetWorkflow and ListStories without a filter and retry if revisions differ.
+# Revisions cover all workflow, story and issue data and are never reused for changed snapshots.
+method ListStories(settings: object, token: string, states: ?[]string) -> (stories: []StorySummary, revision: string)
+method GetStory(settings: object, token: string, story: string) -> (story: Story, revision: string)
+# Requires issues, even when a story has no issues.
+method ListStoryIssues(settings: object, token: string, story: string) -> (issues: []IssueSummary, revision: string)
+method GetIssue(settings: object, token: string, issue: string) -> (issue: Issue, revision: string)
+# Replaces SetStoryState and SetIssueStates before the first release; neither old method remains.
+# Requires write, plus issues when an issue is present. Only issue-less stories may move directly (StoryHasIssues).
+# Validate all story and issue moves against one revision before writing: all or none, one new revision/change.
+# Refusals (unknown ids, disallowed states, stale revision) leave data and revision unchanged. Duplicate ids within
+# a resource kind answer StateNotAllowed with reason "Duplicate story" or "Duplicate issue". An empty batch still
+# checks revision, changes nothing and returns the current revision without advancing it.
+method SetStates(settings: object, token: string, changes: []StateChange, revision: string) -> (revision: string)
+# Requires watch. Subscription and initial revision capture are atomic. The first reply MUST be compared
+# with the caller's read revision; if different, reread the whole board. It must never be ignored.
+# A write after subscription is delivered after that first reply, even before the first server take.
+# Slow consumers may coalesce later changes into a whole-board invalidation at the newest revision.
+# Without more answers the first snapshot only. Disconnecting releases the subscription.
+method WatchChanges(settings: object, token: string) -> (change: Change)
+# Requires watch. Fetches immediately; a change found also reaches WatchChanges.
+method Refresh(settings: object, token: string) -> (revision: string)
+
+# Every data operation answers WorkflowMissing when the project lacks its workflow, never an empty board.
+error WorkflowMissing(detail: string)
+# revision is the CURRENT store revision, never the rejected caller revision.
+error StaleRevision(revision: string)
+error NoSuchStory(story: string)
+error NoSuchIssue(issue: string)
+# item identifies the refused story or issue, including in a batch; reason explains the refusal.
+error StateNotAllowed(item: string, from: string, to: string, reason: string)
+error StoryHasIssues(story: string)
+error NotSupported(capability: string)
+
+# Safe details never echo credentials or raw store responses. retryAfter is seconds, 0 when unknown.
+error CredentialRefused(detail: string, retryAfter: int)
+error RateLimited(detail: string, retryAfter: int)
+# The store is absent, or this credential cannot see it (the counterpart of Build2's NoSuchRepository).
+error NoSuchStore(detail: string, retryAfter: int)
+error Unreachable(detail: string, retryAfter: int)
+error InvalidSettings(detail: string)
+error Failed(message: string)

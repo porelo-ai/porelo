@@ -57,8 +57,9 @@ installs. Names are not unique in this field, and an agent that only says "Pi" o
 ### 1. `agents/<name>/pom.xml`
 
 Copy an existing one. Two dependencies: `porelo-agent-api`, and `porelo-wire` for
-`Json`. Those are the only Porelo artifacts on Maven Central, so they are also the
-only ones an agent in its own repository can resolve. **Do not add a dependency on
+`Json`. These are the agent's two allowed production dependencies. Maven Central also
+holds `porelo-acceptance-kit`, `porelo-bom`, `porelo-build-api`, `porelo-ecosystem-api`
+and `porelo-planning-api`; the acceptance kit is test-only for an agent. **Do not add a dependency on
 another agent** — the build will reject it.
 
 Declare **two** things:

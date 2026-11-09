@@ -177,6 +177,40 @@ class AgentIsolationTest {
         assertThat(offences).as("ecosystem names used outside ecosystems/").isEmpty();
     }
 
+    @Test
+    void onlyThePlanningApiIsVisibleOutsideThePlanningModules() {
+        final JavaClasses classes = new ClassFileImporter().importPackages("org.fuin.porelo");
+        noClasses()
+                .that()
+                .resideOutsideOfPackage("org.fuin.porelo.planning..")
+                .should()
+                .dependOnClassesThat(
+                        com.tngtech.archunit.base.DescribedPredicate.describe(
+                                "a planning package outside its API",
+                                type ->
+                                        type.getPackageName()
+                                                        .startsWith("org.fuin.porelo.planning.")
+                                                && !type.getPackageName()
+                                                        .equals("org.fuin.porelo.planning.api")
+                                                && !type.getPackageName()
+                                                        .startsWith(
+                                                                "org.fuin.porelo.planning.api.")))
+                .because("planning adapters are discovered through their API")
+                .allowEmptyShould(true)
+                .check(classes);
+    }
+
+    @Test
+    void noPlanningStubNameAppearsAsAStringLiteralOutsideThePlanningModules() throws IOException {
+        final Path root = repositoryRoot();
+        assertThat(root.resolve("planning/stub/src/main/java")).isDirectory();
+        final List<String> offences = new ArrayList<>();
+        sources(root, true).stream()
+                .filter(path -> !root.relativize(path).startsWith("planning"))
+                .forEach(path -> scan(root, path, List.of("stub-planning"), offences));
+        assertThat(offences).as("planning names used outside planning/").isEmpty();
+    }
+
     /**
      * Returns the providers this repository declares, taken from the files themselves so the rule
      * needs no maintaining when one is added.

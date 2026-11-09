@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <parent><groupId>org.fuin.porelo</groupId><artifactId>porelo-planning</artifactId><version>0.5.1-SNAPSHOT</version></parent>
+    <artifactId>porelo-planning-stub</artifactId>
+    <name>Porelo Planning Stub</name>
+    <description>In-memory planning adapter for tests</description>
+    <licenses><license><name>LGPL-3.0-or-later</name><url>https://www.gnu.org/licenses/lgpl-3.0.html</url><distribution>repo</distribution></license></licenses>
+    <dependencies><dependency><groupId>org.fuin.porelo</groupId><artifactId>porelo-planning-api</artifactId></dependency></dependencies>
+    <build><resources><resource><directory>src/main/resources</directory></resource><resource><directory>${project.basedir}</directory><targetPath>META-INF</targetPath><includes><include>LICENSE</include></includes></resource></resources></build>
+    <profiles>
+
+        <profile>
+            <id>native</id>
+            <properties>
+                <porelo.cpu.skip>false</porelo.cpu.skip>
+                <porelo.cpu.images>porelo-planning-stub</porelo.cpu.images>
+            </properties>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.graalvm.buildtools</groupId>
+                        <artifactId>native-maven-plugin</artifactId>
+                        <executions>
+                            <execution>
+                                <id>build-porelo-planning-stub</id>
+                                <phase>package</phase>
+                                <goals>
+                                    <goal>compile-no-fork</goal>
+                                </goals>
+                                <configuration>
+                                    <imageName>porelo-planning-stub</imageName>
+                                    <mainClass>org.fuin.porelo.planning.stub.StubPlanning</mainClass>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+                    <plugin>
+                        <groupId>org.codehaus.mojo</groupId>
+                        <artifactId>exec-maven-plugin</artifactId>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+
+    </profiles>
+</project>

@@ -150,6 +150,16 @@ public record PoreloPaths(
                 packaged(Path.of("/usr/libexec/porelo/ecosystems")));
     }
 
+    /**
+     * Returns planning adapter locations, with the account's own before packaged adapters.
+     *
+     * @return Directories passed to planning discovery.
+     */
+    public java.util.List<Path> planningDirectories() {
+        return java.util.List.of(
+                xdg.data().resolve("planning"), packaged(Path.of("/usr/libexec/porelo/planning")));
+    }
+
     /** Environment variable naming a vault other than this user's own. */
     public static final String VAULT_VARIABLE = "PORELO_VAULT";
 

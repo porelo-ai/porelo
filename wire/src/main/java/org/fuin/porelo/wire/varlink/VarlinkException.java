@@ -44,7 +44,8 @@ public class VarlinkException extends RuntimeException {
     public VarlinkException(String errorName, Map<String, Object> parameters) {
         super(errorName + " " + parameters);
         this.errorName = errorName;
-        this.parameters = Map.copyOf(parameters);
+        this.parameters =
+                java.util.Collections.unmodifiableMap(new java.util.LinkedHashMap<>(parameters));
     }
 
     /**
