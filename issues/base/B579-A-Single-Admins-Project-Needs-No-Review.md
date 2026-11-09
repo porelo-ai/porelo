@@ -1,6 +1,6 @@
 # [B579](README.md#b579) — A Single Admin's Project Needs No Review
 
-**Status:** Backlog. Filed 2026-11-09 under ST290, from the fourth move.
+**Status:** Implementing. Filed 2026-11-09 under ST290, from the fourth move.
 **Size:** S - the default written by project creation, and a word where `required` cannot be met.
 
 **What must be true.** A project created with a single admin is written with `review: optional`; a project whose
