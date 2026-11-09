@@ -436,7 +436,7 @@ The command line and the daemon's logic are modules by area, `app-<area>`, submo
 
 ## Shared across the Porelo repositories
 
-> **BEGIN Shared Area** · sha256 `ab1ba804f05ae2d7` · changed 2026-11-09T12:12Z
+> **BEGIN Shared Area** · sha256 `a10e8e42ec48a8d7` · changed 2026-11-09T07:16Z
 
 Identical in every repository `project.yml` names but `porelo-parent`, which holds only the parent pom
 and no `AGENTS.md`. The markers carry the SHA-256 of the lines between them (the first 16 hex digits)
@@ -560,18 +560,12 @@ and the UTC time that text last changed; change it in the channel first, never i
       ## To be checked
 
       - What the agent must still measure, read or confirm itself; deleted once done.
-
-      ## Sub-agents
-
-      - Each part another agent does well beside the issue's own agent: what, its kind (builder or
-        tester), the agent and model proposed; and the reader proposed to read the issue's code as a
-        stranger. Shown when the work is started, to be kept, changed or dropped (from Analyzed on).
 - **An issue moves through these states, and only the operator, as product owner, sets six of them**:
   - **Idea** - anyone brings it: a title and *What must be true*.
   - **Accepted** or **Rejected** - the operator only; a rejection says why.
   - **Analyzed** - the agent owning the repository: the *Plan* (a base design of a page at most, read
-    in the code), the *Sub-agents*, the *Size*, the operator's decisions under *Open questions*, and what
-    it must still find out itself under *To be checked*.
+    in the code), the *Size*, the operator's decisions under *Open questions*, and what it must still find out
+    itself under *To be checked*.
   - **Estimated** - the operator only, after reading the design and settling its questions with the
     agent, who adjusts the plan and the size.
   - **Backlog** - the operator only: it is built in the next round; the order in the index is the
@@ -588,9 +582,6 @@ and the UTC time that text last changed; change it in the channel first, never i
 
   An agent never sets Accepted, Rejected, Estimated, Backlog, Rework or Finished; it proposes in the channel. A
   size or plan that grows clearly while building is said before building on.
-- **In a Porelo task an agent starts no other agent.** Its sub-agents and its reader are started with
-  the work, as its *Sub-agents* proposes and the operator confirms at the start. Outside Porelo tasks an
-  agent may still run its sub-agents itself.
 - **`issues/README.md` is the index, grouped by state** in this order: Review, Rework, Implementing,
   Backlog, Analyzed, Accepted, Idea, Estimated, then Finished and Rejected last; each group a table of
   number, size, blocked by (in this repository) and what it covers, and in *Analyzed* also the number
@@ -970,4 +961,4 @@ and the UTC time that text last changed; change it in the channel first, never i
   with `+`: estimates summed, the earliest start and the stack's readiness, VM time and tokens counted
   once.
 
-> **END Shared Area** · sha256 `ab1ba804f05ae2d7`
+> **END Shared Area** · sha256 `a10e8e42ec48a8d7`
