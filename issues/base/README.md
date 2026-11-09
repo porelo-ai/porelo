@@ -20,6 +20,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b582"></a>[B582](B582-A-Task-Is-Shown-In-Its-Room-By-Its-Own-Name.md) | S | - | A task is shown in its room as "Agent" and its own name ("Agent Pi"), the agent's name only to tell two apart. |
 | <a id="b577"></a>[B577](B577-An-Online-Tasks-Pushed-Commit-Waits-On-Nobody.md) | M | - | An online task whose push passed the gate is never shown as waiting on the person; its push appears as the task's. |
 | <a id="b543"></a>[B543](B543-The-Persons-Host-Commands-In-Porelo.md) | L | [B540](#b540) | `porelo host forge-token \| central-state \| stop-secrets`, and porelod reading the central state as a checked file. |
 | <a id="b527"></a>[B527](B527-A-Tasks-Message-Reaches-The-Task-It-Names.md) | M | - | A task's message reaches only the task it names, in place of every agent reading every message. |
@@ -137,7 +138,6 @@ from its side, as *blocked by*.
 | <a id="b548"></a>[B548](B548-A-Repositorys-Arrivals-Read-As-A-Published-File.md) | M | [B547](#b547) | root publishes arrivals with a read ACL; porelod reads the file, no sudo verb. |
 | <a id="b575"></a>[B575](B575-The-Wizards-Host-Key-Is-Not-Asked-Again.md) | S | - | No second host key question after the wizard compared and stored the key. |
 | <a id="b581"></a>[B581](B581-The-Task-Terminal-Takes-The-Largest-View.md) | XS | - | The task terminal sizes to the latest client (`window-size latest`). |
-| <a id="b582"></a>[B582](B582-A-Task-Is-Shown-In-Its-Room-By-Its-Own-Name.md) | S | - | A task is shown in its room as "Agent" and its own name ("Agent Pi"), the agent's name only to tell two apart. |
 | <a id="b585"></a>[B585](B585-A-Builds-Runs-By-Trigger-And-A-Failed-Jobs-Tests.md) | M | - | Build2's runs name their trigger and id, a job its run, failed tests and page; `build status` lists runs with their jobs. |
 | <a id="b560"></a>[B560](B560-A-Planning-Adapter-Behind-Its-Own-Contract.md) | M | - | `porelo-planning-api`: `org.fuin.porelo.Planning1`, `PlanningMain`, the client and discovery of installed planning adapters, a stub, and the adapter guide. |
 | <a id="b562"></a>[B562](B562-The-Board-Read-Through-Porelod.md) | L | [B560](README.md#b560), [B561](README.md#b561) | Tasks1 part `60-planning`'s reads through the adapter porelod runs, a GitHub App's token minted per call, a story's state computed from its issues in one workflow, and `planning.work` checked against it. |

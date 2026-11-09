@@ -218,13 +218,18 @@ final class TaskConversations {
             @Nullable String agent,
             PrintWriter err) {
         final Project found = projectOf(context, container, project);
+        // A room that holds the task under the agent's form it gave before is asked again, so the
+        // task takes its own name there.
         if (found == null
                 || found.mail().conversations().stream()
                         .allMatch(
-                                scheme ->
-                                        lifecycle
-                                                .displays(scheme, found.name())
-                                                .containsKey(container))) {
+                                scheme -> {
+                                    final String shown =
+                                            lifecycle.displays(scheme, found.name()).get(container);
+                                    return shown != null
+                                            && !TransportLifecycle.earlierForm(
+                                                    found.name(), container, agent, shown);
+                                })) {
             return;
         }
         try {

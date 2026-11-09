@@ -515,79 +515,139 @@ class TransportConversationsTest {
                 .toList();
     }
 
+    /**
+     * Writes the names the room already shows the project's tasks by, as earlier enrolls kept them.
+     */
+    private void holding(final Map<String, String> names) throws IOException {
+        final Path file = context().paths().xdg().state().resolve("transport/room/displays/p.json");
+        Files.createDirectories(file.getParent());
+        Files.writeString(file, org.fuin.porelo.wire.Json.write(names));
+    }
+
     @Test
-    void aTaskIsShownInTheRoomByItsAgentWhateverItsTaskIsCalled() throws Exception {
-        // Shown by its task name, a task named fix-login is "Agent Fix-login", and a line headed
-        // "Agent Scout:" reaches nobody.
+    void aTaskIsShownInTheRoomByItsOwnNameWhateverAgentRunsIt() throws Exception {
+        // Shown by its agent's name, a line headed "Agent Fix-Login:" reaches nobody and the
+        // person cannot tell two tasks of one agent apart.
         final TransportLifecycle lifecycle = room();
 
         lifecycle.enroll("room", "p", "porelo-p-fix-login", "scout", Map.of(), false);
 
         assertThat(shown())
-                .as("the room shows the task by its agent's name")
-                .containsExactly("Agent Scout");
+                .as("the room shows the task by its own name")
+                .containsExactly("Agent Fix-Login");
     }
 
     @Test
-    void aSecondTaskOfTheAgentIsShownWithItsShortNameWhileTheFirstKeepsItsOwn() throws Exception {
-        // Two tasks shown as "Agent Scout" would each take the other's words as their own.
+    void twoTasksOfOneAgentAreEachShownByTheirOwnNameOnEveryEnroll() throws Exception {
+        // Two tasks of one agent shown alike would each take the other's words as their own.
         final TransportLifecycle lifecycle = room();
-        final String long_ = "a-very-long-task-name-that-fills-the-room-for-a-name-entirely";
 
         lifecycle.enroll("room", "p", "porelo-p-scout", "scout", Map.of(), false);
         lifecycle.enroll("room", "p", "porelo-p-fix", "scout", Map.of(), false);
         lifecycle.enroll("room", "p", "porelo-p-scout", "scout", Map.of(), false);
         lifecycle.enroll("room", "p", "porelo-p-fix", "scout", Map.of(), false);
-        lifecycle.enroll("room", "p", "porelo-p-" + long_, "scout", Map.of(), false);
 
-        assertThat(shown().subList(0, 4))
-                .as("the first keeps the agent's name on every enroll, the second its own")
-                .containsExactly(
-                        "Agent Scout", "Agent Scout (fix)", "Agent Scout", "Agent Scout (fix)");
-        assertThat(shown().get(4))
-                .as("a long short name is cut so the whole fits a room's name")
-                .startsWith("Agent Scout (a-very")
-                .endsWith(")")
-                .hasSizeLessThanOrEqualTo(64);
+        assertThat(shown())
+                .as("each keeps its own name on every enroll")
+                .containsExactly("Agent Scout", "Agent Fix", "Agent Scout", "Agent Fix");
     }
 
     @Test
-    void aNameAStoppedTaskHoldsIsFreeOnlyOnceThatTaskIsRetired() throws Exception {
-        // Handed on while its task is still enrolled, a name would reach two tasks.
+    void aTaskWhoseOwnNameAnotherHoldsIsShownWithItsAgentInBracketsUntilThatTaskIsRetired()
+            throws Exception {
+        // Handed on while the task holding it is still enrolled, a name would reach two tasks.
         final TransportLifecycle lifecycle = room();
+        holding(Map.of("porelo-p-a", "Agent B", "porelo-p-c", "Agent D"));
 
-        lifecycle.enroll("room", "p", "porelo-p-scout", "scout", Map.of(), false);
         lifecycle.enroll("room", "p", "porelo-p-b", "scout", Map.of(), false);
-        lifecycle.retire("room", "p", "porelo-p-scout", Map.of());
-        lifecycle.enroll("room", "p", "porelo-p-c", "scout", Map.of(), false);
+        lifecycle.retire("room", "p", "porelo-p-c", Map.of());
+        lifecycle.enroll("room", "p", "porelo-p-d", "scout", Map.of(), false);
 
         assertThat(shown())
                 .as("held by an enrolled task it is not given; retired, it is free again")
-                .containsExactly("Agent Scout", "Agent Scout (b)", "Agent Scout");
+                .containsExactly("Agent B (Scout)", "Agent D");
     }
 
     @Test
     void aTaskEnrolledBeforeNamesWereKeptHoldsTheNameItWasShownByUntilItIsRetired()
             throws Exception {
-        // Its room still shows it as "Agent Scout": a new task given that name too would share it.
+        // Its room still shows it as "Agent Scout": a task outside the project's form, shown by
+        // its agent, given that name too would share it.
         final TransportLifecycle lifecycle = room();
         final Path file =
                 context().paths().xdg().state().resolve("transport/room/addresses/p.json");
         Files.createDirectories(file.getParent());
         Files.writeString(file, "{\"porelo-p-scout\":\"@porelo-p-scout\"}");
 
-        lifecycle.enroll("room", "p", "porelo-p-work", "scout", Map.of(), false);
+        lifecycle.enroll("room", "p", "custom-box", "scout", Map.of(), false);
         lifecycle.retire("room", "p", "porelo-p-scout", Map.of());
-        lifecycle.enroll("room", "p", "porelo-p-next", "scout", Map.of(), false);
+        lifecycle.enroll("room", "p", "other-box", "scout", Map.of(), false);
 
         assertThat(shown())
                 .as("held by the earlier task while it is enrolled, free once it is retired")
-                .containsExactly("Agent Scout (work)", "Agent Scout");
+                .containsExactly("Agent Scout (custom-box)", "Agent Scout");
     }
 
     @Test
-    void tasksWhoseShortNamesCutToOneAreStillEachShownByANameOfTheirOwn() throws Exception {
-        // Two cut to one, the second was given no name and the room showed its account.
+    void aHeldNameAnotherTaskHoldsTooIsNotKept() throws Exception {
+        // Kept unchecked, an earlier task's name that a later one was shown by reaches both.
+        final TransportLifecycle lifecycle = room();
+        holding(Map.of("porelo-p-x", "Agent Pi"));
+        final Path file =
+                context().paths().xdg().state().resolve("transport/room/addresses/p.json");
+        Files.createDirectories(file.getParent());
+        Files.writeString(file, "{\"porelo-p-pi\":\"@porelo-p-pi\"}");
+
+        lifecycle.enroll("room", "p", "porelo-p-pi", "claude", Map.of(), false);
+
+        assertThat(shown()).containsExactly("Agent Pi (Claude)");
+    }
+
+    @Test
+    void aTaskNamedAfterItsAgentKeepsTheNameItIsGivenNow() throws Exception {
+        // Given up on every enroll, the name of a task called as its agent changed back and forth.
+        final TransportLifecycle lifecycle = room();
+        holding(Map.of("porelo-p-fix", "Agent Scout", "porelo-p-scout", "Agent Scout (scout)"));
+
+        lifecycle.enroll("room", "p", "porelo-p-scout", "scout", Map.of(), false);
+        lifecycle.enroll("room", "p", "porelo-p-fix", "scout", Map.of(), false);
+        lifecycle.enroll("room", "p", "porelo-p-scout", "scout", Map.of(), false);
+
+        assertThat(shown())
+                .containsExactly("Agent Scout (Scout)", "Agent Fix", "Agent Scout (Scout)");
+    }
+
+    @Test
+    void aNameHeldInTheAgentsFormIsGivenUpForTheTasksOwn() throws Exception {
+        // Kept, a task named before the room showed tasks by their own names would stay "Agent
+        // Scout (fix)", and a line headed "Agent Fix:" would never reach it.
+        final TransportLifecycle lifecycle = room();
+        holding(Map.of("porelo-p-main", "Agent Scout", "porelo-p-fix", "Agent Scout (fix)"));
+
+        lifecycle.enroll("room", "p", "porelo-p-main", "scout", Map.of(), false);
+        lifecycle.enroll("room", "p", "porelo-p-fix", "scout", Map.of(), false);
+
+        assertThat(shown()).containsExactly("Agent Main", "Agent Fix");
+    }
+
+    @Test
+    void aNameHeldInAnotherFormIsKept() throws Exception {
+        // A name the room shows a task by that is not its agent's form was chosen for it; renamed,
+        // the persons' lines to it would reach nobody.
+        final TransportLifecycle lifecycle = room();
+        holding(Map.of("porelo-p-x", "Agent Pi", "porelo-p-y", "Agent Scout (Reviewer)"));
+
+        lifecycle.enroll("room", "p", "porelo-p-x", "scout", Map.of(), false);
+        lifecycle.enroll("room", "p", "porelo-p-y", "scout", Map.of(), false);
+
+        assertThat(shown()).containsExactly("Agent Pi", "Agent Scout (Reviewer)");
+    }
+
+    @Test
+    void tasksWithLongNamesAlikeAreEachShownByANameOfTheirOwn() throws Exception {
+        // Two long names alike once cut to one, and the second was given no name and the room
+        // showed
+        // its account.
         final TransportLifecycle lifecycle = room();
         final String base = "feature-authentication-oauth-token-refresh-handling-v";
 
@@ -609,7 +669,8 @@ class TransportConversationsTest {
         Assumptions.assumeTrue(
                 KernelKeyring.available(),
                 "no kernel keyring here: libkeyutils is missing or the kernel refuses it");
-        // Each start that chose its name before another recorded one took "Agent Scout" too.
+        // Each start that chose its name before another recorded one took "Agent Scout" too: tasks
+        // outside the project's form all want their agent's name.
         final int tasks = 6;
         final List<String> displays =
                 java.util.Collections.synchronizedList(new java.util.ArrayList<>());
@@ -661,7 +722,7 @@ class TransportConversationsTest {
                                                                     lifecycle.enroll(
                                                                             "room",
                                                                             "p",
-                                                                            "porelo-p-t" + n,
+                                                                            "custom-t" + n,
                                                                             "scout",
                                                                             Map.of(),
                                                                             false);

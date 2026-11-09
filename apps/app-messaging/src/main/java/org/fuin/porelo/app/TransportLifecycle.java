@@ -450,13 +450,15 @@ final class TransportLifecycle {
             java.util.regex.Pattern.compile("[a-z0-9]+(-[a-z0-9]+)*");
 
     /**
-     * Returns the name a task is to be shown by in its project's room: "Agent" and its agent's
-     * name, or "Agent" and its agent's name with its short name where another task of the project
-     * holds the first; a task that holds a name keeps it.
+     * Returns the name a task is to be shown by in its project's room: "Agent" and its own name
+     * ("Agent Pi" for the task {@code pi}, whatever agent runs it), the name a line headed for it
+     * reaches; the agent's name follows in brackets only where another task of the project holds
+     * the first. A task that holds a name keeps it, unless it is the agent-name form it was given
+     * before the room showed tasks by their own names.
      *
      * @param project The project.
      * @param container The task's container.
-     * @param agent The task's agent, or {@code null} to take its short name instead.
+     * @param agent The task's agent, or {@code null} when it is not known.
      * @param held The names the project's enrolled tasks hold, by container.
      * @return It, or {@code null} when no name fits that no other task holds.
      */
@@ -465,17 +467,9 @@ final class TransportLifecycle {
             final String container,
             final @Nullable String agent,
             final Map<String, String> held) {
-        final String own = held.get(container);
-        if (own != null) {
-            return own;
-        }
-        final String first =
-                agent != null && AGENT.matcher(agent).matches()
-                        ? capitalized(agent)
-                        : agentName(project, container);
-        if (first == null || first.length() > DISPLAY_LENGTH) {
-            return null;
-        }
+        final String agentForm =
+                agent != null && AGENT.matcher(agent).matches() ? capitalized(agent) : null;
+        final String named = agentName(project, container);
         final java.util.Set<String> others = new java.util.HashSet<>();
         held.forEach(
                 (task, name) -> {
@@ -483,10 +477,27 @@ final class TransportLifecycle {
                         others.add(name.toLowerCase(java.util.Locale.ROOT));
                     }
                 });
+        final String own = held.get(container);
+        // A name the task holds stays, unless another task holds it too or it is the agent's form
+        // the room gave before it showed tasks by their own names.
+        if (own != null
+                && !others.contains(own.toLowerCase(java.util.Locale.ROOT))
+                && !earlierForm(project, container, agent, own)) {
+            return own;
+        }
+        // A container of another form has no name of its own to show: then its agent's, as before.
+        final String first = named != null ? named : agentForm;
+        if (first == null || first.length() > DISPLAY_LENGTH) {
+            return null;
+        }
         if (!others.contains(first.toLowerCase(java.util.Locale.ROOT))) {
             return first;
         }
-        final String within = ContainerName.taskIn(project, container);
+        final String task = ContainerName.taskIn(project, container);
+        final String within =
+                named != null && agentForm != null
+                        ? agentForm.substring("Agent ".length())
+                        : task.isEmpty() ? container : task;
         final int room = DISPLAY_LENGTH - first.length() - " ()".length();
         // Numbered where two short names cut to one: a task shown by no name of its own is shown
         // by its account, which no head names.
@@ -502,6 +513,37 @@ final class TransportLifecycle {
             }
         }
         return null;
+    }
+
+    /**
+     * Says whether a name a task holds is the agent's form the room gave it before it showed tasks
+     * by their own names: "Agent Scout" for a task not called scout, or "Agent Scout (fix)" with
+     * its short name in lower case. A name the room gives now, or one a person chose, is not.
+     *
+     * @param project The project.
+     * @param container The task's container.
+     * @param agent The task's agent, or {@code null} when it is not known.
+     * @param own The name it holds.
+     * @return {@code true} when the task is to be given its own name instead.
+     */
+    static boolean earlierForm(
+            final String project,
+            final String container,
+            final @Nullable String agent,
+            final String own) {
+        final String agentForm =
+                agent != null && AGENT.matcher(agent).matches() ? capitalized(agent) : null;
+        final String named = agentName(project, container);
+        if (agentForm == null || named == null) {
+            return false;
+        }
+        if (own.equals(agentForm)) {
+            return !own.equals(named);
+        }
+        final String start = agentForm + " (";
+        return own.startsWith(start)
+                && own.length() > start.length()
+                && !Character.isUpperCase(own.charAt(start.length()));
     }
 
     /**

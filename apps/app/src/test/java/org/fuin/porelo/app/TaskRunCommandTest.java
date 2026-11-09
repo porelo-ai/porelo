@@ -2945,29 +2945,29 @@ class TaskRunCommandTest {
                 .satisfies(
                         command ->
                                 assertThat(command.arguments())
-                                        .as("under the name of the task's agent")
+                                        .as("under the task's own name")
                                         .containsSubsequence("--display", display));
     }
 
     @Test
-    void aNewTaskIsEnrolledInTheRoomUnderItsAgentsNameWhateverItIsCalled(@TempDir Path dir)
+    void aNewTaskIsEnrolledInTheRoomUnderItsOwnNameWhateverAgentRunsIt(@TempDir Path dir)
             throws IOException {
-        // Enrolled by its task name, a task named fix is "Agent Fix", and "Agent Preview:" reaches
-        // nobody.
+        // Enrolled by its agent's name, a task named fix is "Agent Preview", and "Agent Fix:"
+        // reaches nobody.
         final PoreloContext context =
                 countingContext(dir).asking(shown -> "test-passphrase".toCharArray());
         final String project = roomProject(context, dir);
 
         execute(context, "task", "start", "fix", "-p", project, "--agent", "preview", "--no-gate");
 
-        enrolledAs("Agent Preview");
+        enrolledAs("Agent Fix");
     }
 
     @Test
-    void aStoppedTaskStartedAgainIsEnrolledInTheRoomUnderItsRecordedAgentsName(@TempDir Path dir)
+    void aStoppedTaskStartedAgainIsEnrolledInTheRoomUnderItsOwnName(@TempDir Path dir)
             throws IOException {
-        // Enrolled by its short name on the way back, the task would no longer answer to its
-        // agent's name in the room.
+        // Enrolled by its recorded agent's name on the way back, the task would no longer answer
+        // to its own name in the room.
         final PoreloContext context =
                 context(dir, true).asking(shown -> "test-passphrase".toCharArray());
         final String project = roomProject(context, dir);
@@ -2978,14 +2978,14 @@ class TaskRunCommandTest {
 
         execute(context, "task", "start", "shell", "-p", project, "--detach");
 
-        enrolledAs("Agent Preview");
+        enrolledAs("Agent Shell");
     }
 
     @Test
-    void aTaskBroughtBackAfterARebootIsEnrolledUnderTheAgentItsDurableRecordNames(@TempDir Path dir)
+    void aTaskBroughtBackAfterARebootIsEnrolledUnderItsOwnName(@TempDir Path dir)
             throws IOException {
-        // A reboot empties the runtime directory before the resume puts the record back; read
-        // from there alone, the task came back into its room under its short name.
+        // A reboot empties the runtime directory before the resume puts the record back: the task
+        // must still come back into its room under its own name, not its agent's.
         final PoreloContext context =
                 context(dir, true).asking(shown -> "test-passphrase".toCharArray());
         final String project = roomProject(context, dir);
@@ -2999,7 +2999,7 @@ class TaskRunCommandTest {
 
         execute(context, "task", "start", "shell", "-p", project, "--detach");
 
-        enrolledAs("Agent Preview");
+        enrolledAs("Agent Shell");
     }
 
     @Test

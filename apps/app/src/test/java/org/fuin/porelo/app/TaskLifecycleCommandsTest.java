@@ -1351,7 +1351,7 @@ class TaskLifecycleCommandsTest {
     }
 
     @Test
-    void aResumedTaskTheRoomHoldsNoNameForIsEnrolledUnderItsAgentsName(@TempDir Path dir)
+    void aResumedTaskTheRoomHoldsNoNameForIsEnrolledUnderItsOwnName(@TempDir Path dir)
             throws Exception {
         // Resumed outside its room, a task from before names were kept answers to no head.
         final PoreloContext context = roomContext(dir);
@@ -1367,8 +1367,8 @@ class TaskLifecycleCommandsTest {
                 .satisfies(
                         arguments ->
                                 assertThat(arguments)
-                                        .as("under the name of the agent its start recorded")
-                                        .containsSubsequence("--display", "Agent Preview"));
+                                        .as("under its own name, not its agent's")
+                                        .containsSubsequence("--display", "Agent Shell-1"));
     }
 
     @Test
@@ -1380,13 +1380,37 @@ class TaskLifecycleCommandsTest {
         recordAgent(stateOf("porelo-uc-shell-1"), "preview");
         final Path held = context.paths().xdg().state().resolve("transport/room/displays/uc.json");
         Files.createDirectories(held.getParent());
-        Files.writeString(held, "{\"porelo-uc-shell-1\":\"Agent Preview\"}");
+        Files.writeString(held, "{\"porelo-uc-shell-1\":\"Agent Shell-1\"}");
 
         assertThat(resume(context, "porelo-uc-shell-1")).as(err.toString()).isZero();
 
         assertThat(runner.lines())
                 .as("neither set up nor enrolled again")
                 .noneMatch(line -> line.contains(" setup ") || line.contains(" enroll "));
+    }
+
+    @Test
+    void aResumedTaskTheRoomStillShowsByItsAgentTakesItsOwnName(@TempDir Path dir)
+            throws Exception {
+        // Skipped because it holds a name, the task would stay "Agent Preview" through every
+        // resume.
+        final PoreloContext context = roomContext(dir);
+        runner.answering("container inspect", "4711");
+        runner.answering("ps", "porelo-uc-shell-1\tExited (0)\t\t\tuc\tguarded\tuc\t\n");
+        recordAgent(stateOf("porelo-uc-shell-1"), "preview");
+        final Path held = context.paths().xdg().state().resolve("transport/room/displays/uc.json");
+        Files.createDirectories(held.getParent());
+        Files.writeString(held, "{\"porelo-uc-shell-1\":\"Agent Preview\"}");
+
+        assertThat(resume(context, "porelo-uc-shell-1")).as(err.toString()).isZero();
+
+        assertThat(enrolls())
+                .as("enrolled again on its way back: %s", err)
+                .singleElement()
+                .satisfies(
+                        arguments ->
+                                assertThat(arguments)
+                                        .containsSubsequence("--display", "Agent Shell-1"));
     }
 
     @Test

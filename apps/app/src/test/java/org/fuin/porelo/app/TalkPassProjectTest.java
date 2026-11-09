@@ -522,16 +522,16 @@ class TalkPassProjectTest {
         final Mailbox build = new Mailbox(context.paths().messaging().mailbox("porelo-p-build"));
         review.create();
         build.create();
-        posted(inbound, "m-1", "Agent Scout");
-        posted(inbound, "m-2", "Agent Scout (build)");
-        posted(inbound, "m-3", "Agent Review");
+        posted(inbound, "m-1", "Agent Review");
+        posted(inbound, "m-2", "Agent Build");
+        posted(inbound, "m-3", "Agent Scout");
 
         final int code = pass(context, "porelo-p-review", "--project", "p");
 
         assertThat(code).as(err.toString()).isZero();
         assertThat(review.record().resolve(TransportConversations.ARRIVED))
                 .as(
-                        "the actual room name reaches the task; its unassigned task-derived name does not")
+                        "the actual room name reaches the task; its unassigned agent-derived name does not")
                 .hasContent("m-1.json\n");
         assertThat(build.record().resolve(TransportConversations.ARRIVED))
                 .as("the second task is reached only by its own assigned display")
