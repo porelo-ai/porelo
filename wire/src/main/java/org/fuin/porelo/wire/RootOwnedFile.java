@@ -34,7 +34,20 @@ public final class RootOwnedFile {
         }
     }
 
-    static byte[] read(Path file, int maximumBytes, SystemProgram.Attributes attributes, int root)
+    /** Supplies no-follow Unix attributes, allowing a caller's fixture to model root ownership. */
+    @FunctionalInterface
+    public interface Attributes {
+        /**
+         * Returns the file's numeric {@code uid} and Unix {@code mode}, without following links.
+         */
+        java.util.Map<String, Object> read(Path path) throws IOException;
+    }
+
+    /**
+     * Reads with an explicit attribute source and root uid. All path, type, ownership, permission
+     * and size checks of {@link #read(Path, int)} still apply.
+     */
+    public static byte[] read(Path file, int maximumBytes, Attributes attributes, int root)
             throws IOException {
         if (!file.isAbsolute() || !file.equals(file.normalize())) {
             throw new IllegalArgumentException("Expected an absolute normalized file path");
@@ -43,11 +56,11 @@ public final class RootOwnedFile {
             throw new IllegalArgumentException("Expected a positive bounded read limit");
         }
         for (Path parent = file.getParent(); parent != null; parent = parent.getParent()) {
-            if ((SystemProgram.check(parent, attributes, root) & 0170000) != 0040000) {
+            if ((SystemProgram.check(parent, attributes::read, root) & 0170000) != 0040000) {
                 throw new IOException("Refusing " + parent + ": not a directory");
             }
         }
-        if ((SystemProgram.check(file, attributes, root) & 0170000) != 0100000) {
+        if ((SystemProgram.check(file, attributes::read, root) & 0170000) != 0100000) {
             throw new IOException("Refusing " + file + ": not a regular file");
         }
         // Checked ancestors cannot be replaced by an unprivileged caller between check and open.

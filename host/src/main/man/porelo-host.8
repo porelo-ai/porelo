@@ -9,7 +9,21 @@ porelo-host \- the host's own program
 is run by sudo rules granting NOPASSWD access for the calling person alone,
 or by root's systemd service and socket units.
 It is never typed directly by a person in a shell.
-This frame has no operational verbs yet.
+.SH COMMANDS
+.TP
+.B org status [\-\-json]
+Root's read of the last applied organization, persons, projects, repositories,
+and their last measured central state. Refused when SUDO_USER is set.
+Takes a shared flock on /etc/porelo-host/forge.conf and contacts no network.
+With \-\-json, prints one complete JSON object in the host protocol's field order.
+Otherwise prints the host, organization state, person count, and project count.
+.TP
+.B task show <fingerprint>
+Through sudo only: prints the complete recorded task certificate as one JSON object.
+Only the calling SUDO_USER's tasks are visible, and the person must be unlocked
+and hold a host membership. Takes an exclusive flock on forge.conf.
+The fingerprint must match SHA256: followed by exactly 43 base64 characters,
+without padding. No certificate or token is created or changed.
 .SH OPTIONS
 .TP
 .BR \-h ", " \-\-help
@@ -64,16 +78,19 @@ Reads are bounded.
 .SH EXIT STATUS
 .TP
 .B 0
-Help or version was printed.
+The requested information was printed.
 .TP
 .B 64 (EX_USAGE)
 Invalid arguments or no verb.
 .TP
 .B 65 (EX_DATAERR)
-Reserved for invalid input data in later verbs; this frame does not emit it.
+Invalid host records, a refused organization read through sudo, or no visible task.
 .TP
 .B 69 (EX_UNAVAILABLE)
 A required dependency or account database could not answer.
+.TP
+.B 73 (EX_CANTCREAT)
+A task path is unsafe, or the host's files or configuration lock could not be read.
 .TP
 .B 77 (EX_NOPERM)
 Root uid or a valid sudo person could not be established.
@@ -81,6 +98,12 @@ Root uid or a valid sudo person could not be established.
 .B 78 (EX_CONFIG)
 The invocation environment contains an unapproved variable.
 .SH FILES
+.TP
+.B /etc/porelo-host/
+Root's forge.conf, people records and organization state, pin and project progress.
+.TP
+.B /var/lib/porelo-host/tasks/<login>/<task>.json
+Root's private, durable task certificate records.
 .TP
 .B /usr/sbin/porelo-host
 The host program.

@@ -20,6 +20,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b541"></a>[B541](B541-The-Host-Tool-Reads-The-Organization-And-A-Task-By-Its-Signature.md) | L | [B540](#b540) | `porelo-host org status` and `task show <fingerprint>`, read-only, answering as the Python does. |
 | <a id="b563"></a>[B563](B563-The-Board-Told-Of-Every-Change.md) | S | [B562](README.md#b562) | `WatchStories` and `RefreshStories`: the whole board, then every change from the adapter or porelod. |
 | <a id="b555"></a>[B555](B555-A-Lock-Test-That-Misreads-The-Kernels-Lock-List.md) | S | - | The lock test reads the kernel's lock list until two reads agree, so a busy machine no longer fails it. |
 | <a id="b535"></a>[B535](B535-A-Sign-Ins-Vault-Said-And-Kept-Open.md) | S | - | A sign-in whose vault was locked meanwhile says so plainly; a terminal `vault login` keeps a vault it opened open until restart (the operator's decision). |
@@ -133,7 +134,6 @@ from its side, as *blocked by*.
 | <a id="b549"></a>[B549](B549-The-Push-Judge-In-The-Host-Tool.md) | L | [B547](#b547) | `porelo-host judge-push` behind the judge socket, with every refusal test. |
 | <a id="b560"></a>[B560](B560-A-Planning-Adapter-Behind-Its-Own-Contract.md) | M | - | `porelo-planning-api`: `org.fuin.porelo.Planning1`, `PlanningMain`, the client and discovery of installed planning adapters, a stub, and the adapter guide. |
 | <a id="b562"></a>[B562](B562-The-Board-Read-Through-Porelod.md) | L | [B560](README.md#b560), [B561](README.md#b561) | Tasks1 part `60-planning`'s reads through the adapter porelod runs, a GitHub App's token minted per call, a story's state computed from its issues in one workflow, and `planning.work` checked against it. |
-| <a id="b541"></a>[B541](B541-The-Host-Tool-Reads-The-Organization-And-A-Task-By-Its-Signature.md) | L | [B540](#b540) | `porelo-host org status` and `task show <fingerprint>`, read-only, answering as the Python does. |
 | <a id="b553"></a>[B553](B553-A-Move-Runs-Without-A-Terminal-For-A-Rehearsal.md) | M | - | Every command of a move's person runs without a terminal, refusing at once instead of prompting, for an automated rehearsal. |
 | <a id="b554"></a>[B554](B554-A-Forge-Tokens-Reach-Checked-Against-What-A-Move-Needs.md) | S | - | A forge token's permissions checked against what a move asks of it, each missing one named, before a server is rented. |
 | <a id="b540"></a>[B540](B540-The-Host-Tool-As-A-Module-Of-Porelo.md) | M | - | `host/` module, native `porelo-host`, package with man page, `--version`, the root boundary's checks (no caller environment, no JVM options from it, root-owned files, `SUDO_USER` only). |

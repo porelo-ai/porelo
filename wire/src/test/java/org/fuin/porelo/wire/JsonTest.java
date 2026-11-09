@@ -14,6 +14,33 @@ import org.junit.jupiter.params.provider.ValueSource;
 @SuppressWarnings("unchecked")
 class JsonTest {
 
+    @Test
+    void integerTokensRemainDistinctFromWholeValuedFloatingPointTokens() {
+        final Object answer = Json.parseNumberTypes("[2,2.0,2e0,9223372036854775808]");
+        assertThat(answer)
+                .as(
+                        "integer-only schemas must refuse floating-point spellings even when their value is whole")
+                .isEqualTo(
+                        List.of(
+                                new java.math.BigInteger("2"),
+                                2.0,
+                                2.0,
+                                new java.math.BigInteger("9223372036854775808")));
+        assertThat(Json.write(answer))
+                .as("large recorded integers retain every digit when forwarded")
+                .isEqualTo("[2,2.0,2.0,9223372036854775808]");
+    }
+
+    @Test
+    void preservingNumberTypesStillChecksTheWholeDocument() {
+        assertThatThrownBy(() -> Json.parseNumberTypes("[1e9999]"))
+                .as("a floating-point token that cannot be represented must fail closed")
+                .isInstanceOf(JsonException.class);
+        assertThatThrownBy(() -> Json.parseNumberTypes("[01]"))
+                .as("an invalid integer token must not become valid by conversion")
+                .isInstanceOf(JsonException.class);
+    }
+
     // Harm guarded: serialized keys and values must not inject terminal controls or forged lines.
     @ParameterizedTest
     @ValueSource(ints = {0, 27, 127, 128, 155, 159, 173, 8205, 8232, 8233, 8238, 917505})

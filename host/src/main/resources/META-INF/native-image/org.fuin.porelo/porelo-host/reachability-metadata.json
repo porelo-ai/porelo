@@ -1,5 +1,12 @@
 {
   "resources": [
     { "glob": "porelo-version.properties" }
-  ]
+  ],
+  "foreign": {
+    "downcalls": [
+      {"returnType": "jint", "parameterTypes": ["void*", "jint"]},
+      {"returnType": "jint", "parameterTypes": ["jint", "jint"]},
+      {"returnType": "jint", "parameterTypes": ["jint"]}
+    ]
+  }
 }

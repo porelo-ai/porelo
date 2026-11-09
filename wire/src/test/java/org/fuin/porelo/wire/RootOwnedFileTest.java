@@ -176,7 +176,7 @@ class RootOwnedFileTest {
     @Test
     void anUnmappedHostsRootIsAcceptedButTheNamespaceOwnerIsRefused() throws Exception {
         final Path file = file();
-        final SystemProgram.Attributes unmappedRoot =
+        final RootOwnedFile.Attributes unmappedRoot =
                 path -> {
                     final Map<String, Object> values = rootOwned(path);
                     values.put("uid", 65534);

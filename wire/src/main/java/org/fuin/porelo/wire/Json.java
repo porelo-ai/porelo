@@ -25,13 +25,20 @@ public final class Json {
 
     private final boolean decimals;
 
+    private final boolean numberTypes;
+
     private Json(String text) {
         this(text, false);
     }
 
     private Json(String text, boolean decimals) {
+        this(text, decimals, false);
+    }
+
+    private Json(String text, boolean decimals, boolean numberTypes) {
         this.text = text;
         this.decimals = decimals;
+        this.numberTypes = numberTypes;
     }
 
     /**
@@ -49,6 +56,15 @@ public final class Json {
     /** Parses with exact decimal numbers so rewriting a request cannot round its values. */
     public static @Nullable Object parseDecimals(String text) {
         return new Json(text, true).document();
+    }
+
+    /**
+     * Parses integer tokens as {@link java.math.BigInteger} and tokens containing a fraction or
+     * exponent as {@link Double}. Use when a persisted schema distinguishes an integer from a
+     * whole-valued floating-point number. Other values are read as by {@link #parse(String)}.
+     */
+    public static @Nullable Object parseNumberTypes(String text) {
+        return new Json(text, true, true).document();
     }
 
     /**
@@ -365,6 +381,16 @@ public final class Json {
                     throw error("Invalid number");
                 final java.math.BigDecimal number = new java.math.BigDecimal(lexical);
                 if (Math.abs((long) number.scale()) > 1024) throw error("Decimal scale too large");
+                if (numberTypes) {
+                    if (lexical.matches("-?(0|[1-9][0-9]*)")) {
+                        return number.toBigIntegerExact();
+                    }
+                    final Double floating = Double.valueOf(lexical);
+                    if (floating.isInfinite() || floating.isNaN()) {
+                        throw error("A number no double can hold");
+                    }
+                    return floating;
+                }
                 return number;
             }
             final Double number = Double.valueOf(text.substring(start, position));

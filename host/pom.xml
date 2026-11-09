@@ -75,6 +75,7 @@
                                     <buildArgs combine.children="append">
                                         <!-- Caller arguments must never configure the privileged runtime. -->
                                         <buildArg>-H:-ParseRuntimeOptions</buildArg>
+                                        <buildArg>--enable-native-access=ALL-UNNAMED</buildArg>
                                     </buildArgs>
                                 </configuration>
                             </execution>

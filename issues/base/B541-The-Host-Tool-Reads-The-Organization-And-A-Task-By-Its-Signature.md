@@ -1,7 +1,7 @@
 # [B541](README.md#b541) — The Host Tool Reads The Organization And A Task By Its Signature
 
-**Status:** Implementing, since 2026-11-09, on the operator's order to build the host's own program now; nothing of it
-reaches `main` before the operator's move-4 test. Filed 2026-11-09 from the porelo-host CLI proposal the operator took.
+**Status:** Review, since 2026-11-09. Built on the operator's order of 2026-11-09; nothing of it reaches `main` before
+the operator's move-4 test.
 **Size:** L.
 **Blocked by:** [B540](README.md#b540).
 
@@ -17,3 +17,25 @@ the person it acts for is `SUDO_USER`, never an argument) places every host scri
 change is Machines' own, in porelo-host: the collection installs the `porelo-host` package, its units, timers,
 sockets and sudo rules call it, and every host script goes. The contract between the two: porelo publishes the
 `porelo-host` package with every verb of these issues, at `/usr/sbin/porelo-host`, before the collection pins it. `host/` is built by Agent Core and read by Agent Machines, the domain owner of the host scripts it replaces.
+
+## As built
+
+Built by Codex CLI on Agent Core's brief, reviewed by Agent Core.
+- **`org status [--json]`** reads, under a shared `flock` on `/etc/porelo-host/forge.conf`, what the Python's `org_status` reads:
+  - the forge configuration and pin;
+  - the applied organization and the follow's last refusal;
+  - `people/`, the purged list, each project's progress and its last central measurement.
+  It answers the same JSON keys, values and order, and refuses (65) when `SUDO_USER` is set. Without `--json` it prints one line: `<host>: <organization state>; <n> persons; <n> projects`.
+- **`task show <fingerprint>`** takes the person from `SUDO_USER` alone and reads only that person's task directory, under the exclusive lock the Python takes. It refuses (65) a person who is not admitted and unlocked, another person's task, and a malformed fingerprint (64, the Python's words).
+- **Root's files** go through `HostFiles` on `RootOwnedFile`: root's, not writable by group or others, no symlink, every parent root's, bounded and strict UTF-8.
+- **The lock** is Linux `flock` through three FFM downcalls, so it is compatible with the Python's readers and writers while both run. The native build passed `ffm-check`: 3 downcalls registered.
+- **`wire`:** `RootOwnedFile` gains a public attribute reader, so `host/`'s fixtures still go through the real checks. `Json.parseNumberTypes` keeps integers apart from whole-valued floats, as the Python's JSON does.
+- **Where it answers differently from the Python:**
+  - `task show` no longer serves root without sudo, nor searches every person's records. An unrelated person's broken record therefore no longer blocks a lookup.
+  - Bounds: 16 MiB per file, no duplicate keys, no non-finite numbers.
+  - Only canonical dates are accepted.
+  - A malformed nested shape answers 73 where the Python crashed.
+  - No EINTR retry on `flock`.
+- **Tests:** `HostOrgStatusTest`, `HostTaskShowTest`, `HostReadRefusalsTest`, `HostConfigurationLockTest`, and new cases in `JsonTest`. Agent Core saw these go red with their checks broken: sudo refused for `org status`, the admission check, the group/other-writable check, and the fingerprint pattern.
+- **Not verified here:** the comparison against the Python on the rehearsal VM, with a real sudo and NSS.
+

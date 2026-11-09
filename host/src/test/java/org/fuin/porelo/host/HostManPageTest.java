@@ -43,7 +43,7 @@ class HostManPageTest {
 
     @Test
     void anUndocumentedNestedVerbIsDetected() {
-        final CommandLine command = PoreloHost.commandLine();
+        final CommandLine command = new CommandLine(new FutureCommand());
         command.addSubcommand(
                 "future",
                 new CommandLine(new FutureCommand()).addSubcommand("verb", new FutureVerb()));
@@ -54,7 +54,7 @@ class HostManPageTest {
 
     @Test
     void aDocumentedTroffEscapedVerbIsRecognized() {
-        final CommandLine command = PoreloHost.commandLine();
+        final CommandLine command = new CommandLine(new FutureCommand());
         command.addSubcommand("future-verb", new FutureVerb());
         assertThat(missing(".B future\\-verb", command, ""))
                 .as("troff hyphen escapes must not make a documented verb appear absent")
