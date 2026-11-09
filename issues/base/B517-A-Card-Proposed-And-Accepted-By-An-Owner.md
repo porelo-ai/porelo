@@ -1,7 +1,7 @@
 # [B517](README.md#b517) — A Card Proposed, And Accepted By An Owner
 
-**Status:** Idea. Filed 2026-11-08; the operator said yes to the step itself (15:36Z). Not built until the operator says
-so.
+**Status:** Accepted, since 2026-11-09, in ST295 for estimation. Filed 2026-11-08. Not built until the operator
+says so.
 **Size:** M - a proposal's place in the organization's tree, a reading of waiting proposals, an owner's acceptance, and
 the CLI for both sides.
 

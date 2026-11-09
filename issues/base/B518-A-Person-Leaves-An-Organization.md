@@ -1,6 +1,7 @@
 # [B518](README.md#b518) — A Person Leaves An Organization
 
-**Status:** Idea. Filed 2026-11-08; the operator said yes (15:36Z). Not built until the operator says so.
+**Status:** Accepted, since 2026-11-09, in ST295 for estimation. Filed 2026-11-08. Not built until the operator
+says so.
 **Size:** S - `porelo org leave`, on code that exists for revoking a card, plus forgetting the organization here.
 
 **What must be true.** `porelo org leave` takes a person out of an organization in one step.
