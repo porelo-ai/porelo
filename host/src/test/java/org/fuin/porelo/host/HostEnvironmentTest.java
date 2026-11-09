@@ -38,6 +38,8 @@ class HostEnvironmentTest {
                 "TRIGGER_UNIT",
                 "MONITOR_UNIT",
                 "REMOTE_ADDR",
+                "LISTEN_PIDFDID",
+                "SO_COOKIE",
                 "DISPLAY",
                 "XAUTHORITY",
                 "TZ",
@@ -49,7 +51,9 @@ class HostEnvironmentTest {
             })
     void whatSudoAndSystemdSetBesidesIsAcceptedToo(String name) {
         // Ubuntu's sudo sets USERNAME and systemd sets these for some units: refused, every call
-        // through the sudo rule or such a unit would fail.
+        // through the sudo rule or such a unit would fail (2026-11-09: systemd 259's
+        // LISTEN_PIDFDID and SO_COOKIE stopped every socket-activated porelo-host on the test
+        // host).
         assertThatCode(() -> HostEnvironment.check(Map.of(name, "value")))
                 .doesNotThrowAnyException();
     }

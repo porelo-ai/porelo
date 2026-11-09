@@ -49,3 +49,7 @@ Built by Codex CLI on Agent Core's brief, the package by a second Codex run, rev
 - **Tests:** `PoreloHostTest`, `HostEnvironmentTest`, `HostUidTest`, `HostPersonTest`, `HostProgramsTest`,
   `HostManPageTest`, `RootOwnedFileTest`, package-check's `HostInstallTest` and `DebianPublishingTest`; the stack's
   `host` module whole (1038) green, and package-check green on the shared test host.
+- **systemd 258 and later:** the environment check also accepts `LISTEN_PIDFDID` and `SO_COOKIE`, which systemd sets
+  for socket activation and for each connection of an `Accept=yes` socket. Without them every socket-activated
+  `porelo-host` (the forge runner, the push judge, the gates) refused at start with exit 78 on the test host's
+  systemd 259 (snapshot 963, 2026-11-09). `HostEnvironmentTest` names both, red before.

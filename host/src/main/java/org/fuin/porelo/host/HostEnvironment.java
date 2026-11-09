@@ -28,6 +28,11 @@ final class HostEnvironment {
                     "LISTEN_FDS",
                     "LISTEN_PID",
                     "LISTEN_FDNAMES",
+                    // systemd 258 and later: the listening process's pidfd id, and each
+                    // connection's
+                    // cookie of an Accept=yes socket.
+                    "LISTEN_PIDFDID",
+                    "SO_COOKIE",
                     "RUNTIME_DIRECTORY",
                     "STATE_DIRECTORY",
                     "CACHE_DIRECTORY",
