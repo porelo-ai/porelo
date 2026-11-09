@@ -1,6 +1,6 @@
 # [B562](README.md#b562) — The Board Read Through Porelod
 
-**Status:** Analyzed. Filed 2026-11-09 as porelo's part of `porelo-project` ST294, which the operator accepted on
+**Status:** Backlog. Filed 2026-11-09 as porelo's part of `porelo-project` ST294, which the operator accepted on
 2026-11-09; nothing is built before the operator's word.
 **Size:** L - a contract part with five reads, the adapter run by porelod with a token minted per call for a GitHub
 App, and a story's state computed; four modules.

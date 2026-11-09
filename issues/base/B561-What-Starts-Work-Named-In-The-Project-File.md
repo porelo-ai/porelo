@@ -1,6 +1,6 @@
 # [B561](README.md#b561) — What Starts Work Named In The Project File
 
-**Status:** Analyzed. Filed 2026-11-09 as porelo's part of `porelo-project` ST294, which the operator accepted on
+**Status:** Backlog. Filed 2026-11-09 as porelo's part of `porelo-project` ST294, which the operator accepted on
 2026-11-09; nothing is built before the operator's word.
 **Size:** S - one section more in the project file's model, its schema, its check and its page; one module.
 **Blocked by:** -.

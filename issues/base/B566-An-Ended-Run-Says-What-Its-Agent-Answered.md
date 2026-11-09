@@ -1,6 +1,6 @@
 # [B566](README.md#b566) — An Ended Run Says What Its Agent Answered
 
-**Status:** Analyzed. Filed 2026-11-09 as porelo's part of `porelo-project` ST294, which the operator accepted on
+**Status:** Backlog. Filed 2026-11-09 as porelo's part of `porelo-project` ST294, which the operator accepted on
 2026-11-09; nothing is built before the operator's word.
 **Size:** S - one field more in `AgentEnded`, read with what the agent API already declares; no plugin changes.
 **Blocked by:** -.

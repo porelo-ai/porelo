@@ -1,6 +1,6 @@
 # [B564](README.md#b564) — States Moved On The Board
 
-**Status:** Analyzed. Filed 2026-11-09 as porelo's part of `porelo-project` ST294, which the operator accepted on
+**Status:** Backlog. Filed 2026-11-09 as porelo's part of `porelo-project` ST294, which the operator accepted on
 2026-11-09; nothing is built before the operator's word.
 **Size:** M - two writes in the contract, checked against the workflow and `planning.work`, all or none through the
 adapter.

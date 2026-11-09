@@ -1,6 +1,6 @@
 # [B565](README.md#b565) — Work Started From The Board
 
-**Status:** Analyzed. Filed 2026-11-09 as porelo's part of `porelo-project` ST294, which the operator accepted on
+**Status:** Backlog. Filed 2026-11-09 as porelo's part of `porelo-project` ST294, which the operator accepted on
 2026-11-09; nothing is built before the operator's word.
 **Size:** L - four methods, a record of running work that outlives porelod, and `Start`'s checks made callable from
 a second place without growing apart.

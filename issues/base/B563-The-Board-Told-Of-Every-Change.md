@@ -1,6 +1,6 @@
 # [B563](README.md#b563) — The Board Told Of Every Change
 
-**Status:** Analyzed. Filed 2026-11-09 as porelo's part of `porelo-project` ST294, which the operator accepted on
+**Status:** Backlog. Filed 2026-11-09 as porelo's part of `porelo-project` ST294, which the operator accepted on
 2026-11-09; nothing is built before the operator's word.
 **Size:** S - one stream more, fed by the adapter's stream and by porelod's own writes; no new reading.
 **Blocked by:** [B562](README.md#b562).

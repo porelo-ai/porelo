@@ -1,6 +1,6 @@
 # [B567](README.md#b567) — The End Of A Run Sets The Done State
 
-**Status:** Analyzed. Filed 2026-11-09 as porelo's part of `porelo-project` ST294, which the operator accepted on
+**Status:** Backlog. Filed 2026-11-09 as porelo's part of `porelo-project` ST294, which the operator accepted on
 2026-11-09; nothing is built before the operator's word.
 **Size:** M - a watch over the recorded work tasks, one rule read from the answer's last line, a write through the
 adapter, an event and the end recorded for the window; no agent calls porelo.
