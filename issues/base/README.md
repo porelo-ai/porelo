@@ -20,6 +20,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b555"></a>[B555](B555-A-Lock-Test-That-Misreads-The-Kernels-Lock-List.md) | S | - | The lock test reads the kernel's lock list until two reads agree, so a busy machine no longer fails it. |
 | <a id="b535"></a>[B535](B535-A-Sign-Ins-Vault-Said-And-Kept-Open.md) | S | - | A sign-in whose vault was locked meanwhile says so plainly; a terminal `vault login` keeps a vault it opened open until restart (the operator's decision). |
 | <a id="b531"></a>[B531](B531-A-Projects-Repositories-On-This-Machine.md) | L | - | Each repository of a project says whether this machine carries it, how far its mirror is ahead and behind the central forge, and how many of its tasks run here. |
 | <a id="b532"></a>[B532](B532-A-Task-Shown-By-Its-Name-Not-Its-Container.md) | M | - | A task is shown by the name given at its start or its short name from the repository, the container name only in its details, and in the room by its agent's name. |
@@ -123,7 +124,6 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
-| <a id="b555"></a>[B555](B555-A-Lock-Test-That-Misreads-The-Kernels-Lock-List.md) | S | - | Highest: the lock test reads the kernel's lock list until two reads agree, so a busy machine no longer fails it. |
 | <a id="b554"></a>[B554](B554-A-Forge-Tokens-Reach-Checked-Against-What-A-Move-Needs.md) | S | - | A forge token's permissions checked against what a move asks of it, each missing one named, before a server is rented. |
 | <a id="b553"></a>[B553](B553-A-Move-Runs-Without-A-Terminal-For-A-Rehearsal.md) | M | - | Every command of a move's person runs without a terminal, refusing at once instead of prompting, for an automated rehearsal. |
 | <a id="b552"></a>[B552](B552-The-Forge-Gates-And-The-Pool-In-The-Host-Tool.md) | L | [B540](#b540) | `porelo-host gate forge --web|--git|--runner` after HO153's load measure; `pool revert | make-vm | find-vm | delete-vm`. |

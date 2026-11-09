@@ -1,7 +1,7 @@
 # [B555](README.md#b555) — A Lock Test That Misreads The Kernel's Lock List
 
-**Status:** Backlog, priority Highest (the first row): a flaky test that blocked a delivery, filed under the shared
-rule. Filed 2026-11-09.
+**Status:** Review. Filed 2026-11-09 in Backlog, priority Highest (the first row), as a flaky test that blocked a
+delivery, under the shared rule; fixed the same day, at the first try.
 **Size:** S - the test's own reading of the kernel's lock list, no product code.
 
 **What must be true.** `FileLocksTest.aProbeNeverDropsTheLockAnotherThreadOfThisProcessHolds` fails only when a probe
@@ -27,3 +27,12 @@ so a lock that is held reads as gone.
 - Seen red first by a seam that makes the first read miss the line: before the change the hold counts as dropped,
   after it it does not. The real check stays: with the probe's guard taken out of `FileLocks.free`, the test still
   fails.
+
+## As built
+
+- `heldHere` reads the list through `heldIn`, which reads until two reads in a row agree (at most five), and with no
+  agreement answers whether any read listed the lock: a miss in one read no longer counts as a drop.
+- Seen red first: `aReadOfTheKernelsListThatMissesTheLineOnceStillReadsTheLockAsHeld` failed with `heldIn` cut back to
+  one read, and passes with it.
+- The real check stays: with the guard in `FileLocks.free` taken out, the probe test failed (`holds whose lock the
+  kernel no longer had`), and passes with it in. `FileLocksTest` passed five runs in a row.

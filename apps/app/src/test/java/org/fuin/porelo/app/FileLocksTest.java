@@ -68,11 +68,56 @@ class FileLocksTest {
         assertThat(dropped).as("holds whose lock the kernel no longer had").isZero();
     }
 
+    @Test
+    void aReadOfTheKernelsListThatMissesTheLineOnceStillReadsTheLockAsHeld() throws IOException {
+        // The kernel writes /proc/locks in pieces while every process takes and drops locks; one
+        // read during a busy build missed a held lock and failed the probe test above.
+        final String line = "1: POSIX  ADVISORY  WRITE 4242 00:2a:77 0 EOF";
+        final java.util.Iterator<List<String>> reads =
+                List.of(List.<String>of(), List.of(line), List.of(line)).iterator();
+        assertThat(heldIn(reads::next, "4242", 77))
+                .as("a lock missing from one read but listed by the next two is held")
+                .isTrue();
+        final java.util.Iterator<List<String>> none =
+                List.of(List.<String>of(), List.<String>of()).iterator();
+        assertThat(heldIn(none::next, "4242", 77))
+                .as("a lock two reads in a row do not list is not held")
+                .isFalse();
+    }
+
     /** Says whether the kernel lists a lock of this process on the file. */
     private static boolean heldHere(final Path lock) throws IOException {
         final long inode = (long) Files.getAttribute(lock, "unix:ino");
         final String pid = Long.toString(ProcessHandle.current().pid());
-        for (final String line : Files.readAllLines(Path.of("/proc/locks"))) {
+        return heldIn(() -> Files.readAllLines(Path.of("/proc/locks")), pid, inode);
+    }
+
+    /** One read of the kernel's lock list. */
+    private interface LockList {
+        List<String> read() throws IOException;
+    }
+
+    /**
+     * Reads the list until two reads in a row agree, at most five times, and answers what they
+     * agree on; with no agreement, whether any read listed the lock.
+     */
+    private static boolean heldIn(final LockList list, final String pid, final long inode)
+            throws IOException {
+        Boolean last = null;
+        boolean seen = false;
+        for (int read = 0; read < 5; read++) {
+            final boolean now = listed(list.read(), pid, inode);
+            seen |= now;
+            if (last != null && last == now) {
+                return now;
+            }
+            last = now;
+        }
+        return seen;
+    }
+
+    private static boolean listed(final List<String> lines, final String pid, final long inode) {
+        for (final String line : lines) {
             final String[] fields = line.trim().split("\\s+");
             if (fields.length > 5 && fields[4].equals(pid) && fields[5].endsWith(":" + inode)) {
                 return true;
