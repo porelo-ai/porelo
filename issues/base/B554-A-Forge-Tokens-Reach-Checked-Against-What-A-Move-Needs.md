@@ -1,8 +1,8 @@
 # [B554](README.md#b554) — A Forge Token's Reach Checked Against What A Move Needs
 
-**Status:** Backlog. Filed 2026-11-09 for the operator's automated rehearsal of a move on a rented server, run by the
-agents under a test identity whose token the operator makes once. Priority to be set by the operator; nothing built
-before the operator's word.
+**Status:** Implementing, since 2026-11-09, on the operator's order to build the rehearsal now; nothing of it reaches
+`main` before the operator's move-4 test. Filed 2026-11-09 for the operator's automated rehearsal of a move on a rented
+server, run by the agents under a test identity whose token the operator makes once.
 **Size:** S - one more need in the founding's check, read-only, from the forge's own answers.
 
 **What must be true.** Before a move, a person learns from porelo, without changing anything, whether their forge token
