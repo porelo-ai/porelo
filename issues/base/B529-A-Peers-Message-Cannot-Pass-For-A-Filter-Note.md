@@ -1,6 +1,6 @@
 # [B529](README.md#b529) — A Peer's Message Cannot Pass For A Filter Note
 
-**Status:** Backlog.
+**Status:** Implementing.
 **Size:** S - one predicate in `AgentWake` given the task's mailbox, and its tests; no contract changes.
 **Severity:** low - it costs every task it reaches a turn; it widens no reach and shows nothing.
 
