@@ -589,19 +589,27 @@ class InterfaceDescriptionTest {
                     changes);
         } else {
             final Class<?> registrar = Class.forName("org.fuin.porelo.daemon." + area + "Methods");
+            final List<Class<?>> signature =
+                    new java.util.ArrayList<>(
+                            List.of(
+                                    VarlinkServer.class,
+                                    PoreloContext.class,
+                                    org.fuin.porelo.app.TaskInventory.class,
+                                    org.fuin.porelo.app.TaskControl.class));
+            final List<Object> arguments =
+                    new java.util.ArrayList<>(
+                            List.of(
+                                    server,
+                                    context,
+                                    org.fuin.porelo.app.TaskInventory.deriving(context),
+                                    new org.fuin.porelo.app.TaskControl(context)));
+            if (Set.of("Task", "Agent").contains(area)) {
+                signature.add(org.fuin.porelo.app.AgentSignInRuns.class);
+                arguments.add(org.fuin.porelo.app.AgentSignInRuns.of(context));
+            }
             final java.lang.reflect.Method register =
-                    registrar.getDeclaredMethod(
-                            "register",
-                            VarlinkServer.class,
-                            PoreloContext.class,
-                            org.fuin.porelo.app.TaskInventory.class,
-                            org.fuin.porelo.app.TaskControl.class);
-            register.invoke(
-                    null,
-                    server,
-                    context,
-                    org.fuin.porelo.app.TaskInventory.deriving(context),
-                    new org.fuin.porelo.app.TaskControl(context));
+                    registrar.getDeclaredMethod("register", signature.toArray(Class<?>[]::new));
+            register.invoke(null, arguments.toArray());
         }
         changes.close();
         final Set<String> registered =

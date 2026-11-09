@@ -121,10 +121,28 @@ final class McpTaskSockets implements McpDaemonSockets.Opener, AutoCloseable {
         this(context, planning, false);
     }
 
+    McpTaskSockets(
+            PoreloContext context,
+            org.fuin.porelo.app.PlanningChanges planning,
+            org.fuin.porelo.app.AgentSignInRuns signIns) {
+        this(context, planning, false, signIns);
+    }
+
     private McpTaskSockets(
             PoreloContext context,
             org.fuin.porelo.app.PlanningChanges planning,
             boolean ownsPlanning) {
+        this(context, planning, ownsPlanning, org.fuin.porelo.app.AgentSignInRuns.of(context));
+    }
+
+    private final org.fuin.porelo.app.AgentSignInRuns signIns;
+
+    private McpTaskSockets(
+            PoreloContext context,
+            org.fuin.porelo.app.PlanningChanges planning,
+            boolean ownsPlanning,
+            org.fuin.porelo.app.AgentSignInRuns signIns) {
+        this.signIns = signIns;
         this.context = context;
         this.inventory = TaskInventory.deriving(context);
         this.control = new TaskControl(context);
@@ -242,7 +260,7 @@ final class McpTaskSockets implements McpDaemonSockets.Opener, AutoCloseable {
         try {
             server.describedBy(cut(PoreloDaemon.description(), new HashSet<>(endpoint.methods())))
                     .reporting(org.fuin.porelo.app.PoreloVersion.version());
-            PoreloDaemon.register(server, context, inventory, control, planning);
+            PoreloDaemon.register(server, context, inventory, control, planning, signIns);
             thread = Thread.ofPlatform().daemon().name("porelod-mcp-" + task).start(server);
         } catch (RuntimeException ex) {
             // Bound and not served: the socket goes, as a stale one would.
@@ -317,7 +335,7 @@ final class McpTaskSockets implements McpDaemonSockets.Opener, AutoCloseable {
             i++;
         }
         comment.forEach(each -> kept.append(each).append('\n'));
-        return kept.toString();
+        return kept.toString().replaceAll("(?m)(?:^  #.*\\R)*^  waitForSignIn: \\?bool,\\R", "");
     }
 
     /**
@@ -357,7 +375,7 @@ final class McpTaskSockets implements McpDaemonSockets.Opener, AutoCloseable {
      * parameters a task may set, and a task brought back only when it is the caller's and with the
      * agent and model it was made with.
      */
-    private void start(
+    void start(
             final String caller,
             final String project,
             final McpEndpoint endpoint,
@@ -492,6 +510,8 @@ final class McpTaskSockets implements McpDaemonSockets.Opener, AutoCloseable {
             starting.put(token, new Starting(caller, container));
         }
         try {
+            // Credential preflight and its wait belong inside the reservation, before launch
+            // effects.
             // The run's lines and answer are what Logs and Tail read: a section that allows neither
             // gets neither through Start.
             start.call(held, readsTheRun(endpoint) ? replies : withoutTheRun(replies));

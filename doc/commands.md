@@ -266,7 +266,13 @@ For a new task, `phase` appears from its container on; the conversation's wait c
 is in `Start`'s stream only.
 A waiting phase includes ` - waiting on <waitingOn>` after the step's text, and the phase clears
 when the start ends.
-Typed error replies (`EarlierWorkWaits`, `UpstreamUnreadable`) carry no `steps`.
+Typed error replies (`EarlierWorkWaits`, `UpstreamUnreadable`, `SignInNeeded`, `VaultLocked`) carry no `steps`.
+For a start that needs its agent's model credential, `SignInNeeded` names the agent and any running sign-in;
+`VaultLocked` asks for unlocking instead. `waitForSignIn: true` waits on that agent's running sign-in for at most
+30 minutes and re-checks the exact credential needed by the selected provider. A different credential stored by
+the sign-in does not let the start proceed. Other missing credentials never cause this wait. The refusals happen
+before hooks, credential extraction, an upstream probe, a purchase or a container, including on resume.
+A task's MCP start cannot request the wait.
 
 | Step | What it does |
 |---|---|

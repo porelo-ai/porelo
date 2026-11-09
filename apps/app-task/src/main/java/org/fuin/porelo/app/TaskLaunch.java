@@ -995,20 +995,16 @@ public final class TaskLaunch {
             final org.fuin.porelo.core.project.Repository repository,
             final PrintWriter out,
             final PrintWriter err) {
+        final RepositoryOwnSettings.Found own =
+                repositorySettings(project, projectFile, repository);
         if (!DefaultProject.is(project.name())) {
-            // Signed by a project admin or developer, or refused: nothing is asked here.
-            final RepositoryOwnSettings.Found signed =
-                    RepositoryOwnSettings.ofOrganization(
-                            context, projectFile, project.name(), repository);
-            ownSettingsHash = signed == null ? "" : signed.hash();
-            if (signed == null) {
+            ownSettingsHash = own == null ? "" : own.hash();
+            if (own == null) {
                 return project;
             }
-            said(signed, out);
-            return signed.project();
+            said(own, out);
+            return own.project();
         }
-        final RepositoryOwnSettings.Found own =
-                RepositoryOwnSettings.of(context, projectFile, repository);
         if (own == null) {
             return project;
         }
@@ -1046,6 +1042,117 @@ public final class TaskLaunch {
         new RepositoryAllowance(context).allow(repository.name(), own.asked());
         out.println("settings       allowed for " + repository.name() + " on this machine");
         return own.project();
+    }
+
+    private boolean repositorySettingsRead;
+    private RepositoryOwnSettings.@Nullable Found repositorySettings;
+
+    /** A start uses the same settings snapshot to check credentials and to admit its files. */
+    private RepositoryOwnSettings.@Nullable Found repositorySettings(
+            Project project, Path file, org.fuin.porelo.core.project.Repository repository) {
+        if (!repositorySettingsRead) {
+            repositorySettings =
+                    DefaultProject.is(project.name())
+                            ? RepositoryOwnSettings.of(context, file, repository)
+                            : RepositoryOwnSettings.ofOrganization(
+                                    context, file, project.name(), repository);
+            repositorySettingsRead = true;
+        }
+        return repositorySettings;
+    }
+
+    private Project credentialProject(
+            Project project, Path file, org.fuin.porelo.core.project.Repository repository) {
+        final RepositoryOwnSettings.Found own = repositorySettings(project, file, repository);
+        return own == null ? project : own.project();
+    }
+
+    private boolean newCredentialsReady(
+            Project project,
+            Path file,
+            org.fuin.porelo.core.project.Repository repository,
+            PrintWriter out,
+            PrintWriter err) {
+        credentialCheckCode = 69;
+        final Project effective = credentialProject(project, file, repository);
+        if (!newArgumentsReady(effective, repository, err)) {
+            credentialCheckCode = 64;
+            return false;
+        }
+        final boolean descriptionNeededForUsage =
+                subagents != 0
+                        || request.model() != null
+                        || !effective.providers().isEmpty()
+                        || request.parent() != null;
+        // With no description-dependent usage to refuse, a missing other credential needs no
+        // adapter.
+        if (!descriptionNeededForUsage && !otherCredentialsReady(effective, err)) {
+            return false;
+        }
+        try (InstalledAgents agents = context.agents()) {
+            final InstalledAgent agent = select(agents);
+            reportAgentChoice(out, err);
+            if (agent != null && refusesSubagents(agent, err)) {
+                credentialCheckCode = 64;
+                return false;
+            }
+            try (PrintWriter quiet = new PrintWriter(java.io.Writer.nullWriter())) {
+                if (refusesModel(agent, effective, file, quiet, err)) {
+                    credentialCheckCode = 2;
+                    return false;
+                }
+            }
+            if (descriptionNeededForUsage && !otherCredentialsReady(effective, err)) {
+                return false;
+            }
+            if (refusesCredential(agent, err)) {
+                return false;
+            }
+            return !refusesStartCredentials(agent, effective, request.mode(), out, err);
+        } catch (org.fuin.porelo.agent.api.AgentException ex) {
+            err.println("porelo: " + ex.getMessage());
+            err.flush();
+            return false;
+        }
+    }
+
+    private boolean otherCredentialsReady(Project project, PrintWriter err) {
+        context.openIfShut(
+                !project.credentials().isEmpty() || !request.credentials().isEmpty(), true, err);
+        return !refusesOtherCredentials(project, request.mode(), err);
+    }
+
+    /** Invalid usage must not be hidden by a missing or incompatible credential. */
+    private boolean newArgumentsReady(
+            Project project, org.fuin.porelo.core.project.Repository repository, PrintWriter err) {
+        try {
+            values = project.parameters().resolve(request.parameters());
+        } catch (ProjectException ex) {
+            err.println("porelo: " + ex.getMessage());
+            err.println("porelo: nothing was created");
+            err.flush();
+            return false;
+        }
+        try (PrintWriter quiet = new PrintWriter(java.io.Writer.nullWriter())) {
+            if (!settleSubagents(project, quiet, err)) {
+                return false;
+            }
+        }
+        final String refused =
+                request.noGate()
+                        ? StartCheck.hostServicesWithoutAGate(project)
+                        : settleForgeBranch(project, repository);
+        if (refused == null) {
+            return true;
+        }
+        err.println(
+                "porelo: "
+                        + (request.noGate() ? "--no-gate: " : "")
+                        + refused
+                        + (request.noGate() ? "; start it with its gate" : ""));
+        err.println("porelo: nothing was created");
+        err.flush();
+        return false;
     }
 
     private void adopt(Project project, PrintWriter out) {
@@ -1125,18 +1232,6 @@ public final class TaskLaunch {
             // launch says what it would do; the listing's startAction says which case applies.
             return null;
         }
-        final org.fuin.porelo.runtime.HookInstaller.Registration hooks =
-                context.hooks().registration();
-        if (hooks != org.fuin.porelo.runtime.HookInstaller.Registration.ACTIVE
-                && !((hooks == org.fuin.porelo.runtime.HookInstaller.Registration.MISSING
-                                || hooks
-                                        == org.fuin.porelo.runtime.HookInstaller.Registration.STALE)
-                        && context.hooks().binariesPresent())) {
-            // Refused by the launch, and before anything is asked of the runtime: a machine whose
-            // hooks cannot be repaired cannot start a task either way.
-            return null;
-        }
-
         final Project project;
         try {
             project = ProjectReader.read(request.projectFile());
@@ -1160,12 +1255,6 @@ public final class TaskLaunch {
         if (!summary.get().running()
                 && OpenSshFloor.ask(context.runner()) instanceof OpenSshFloor.TooOld) {
             return null;
-        }
-        // Repaired once it is known the task exists: left to the launch, hooks it repairs hid a
-        // running task, which was then made again beside itself.
-        if (hooks != org.fuin.porelo.runtime.HookInstaller.Registration.ACTIVE
-                && !hooksReady(out, err)) {
-            return new Existing(container, project.name(), 69);
         }
         final String theirs = ofAnotherProject(summary.get(), project.name());
         if (theirs != null) {
@@ -1264,6 +1353,10 @@ public final class TaskLaunch {
         }
 
         if (summary.get().running()) {
+            // Its live helpers need current stop hooks even when no new task is being started.
+            if (!hooksReady(out, err)) {
+                return new Existing(container, project.name(), 69);
+            }
             if (goingIn) {
                 return new Existing(container, project.name(), 0, "RUNNING");
             }
@@ -1271,6 +1364,70 @@ public final class TaskLaunch {
             err.println("       go into it with 'porelo task attach " + container + "'.");
             err.flush();
             return new Existing(container, project.name(), 65, "RUNNING");
+        }
+
+        final org.fuin.porelo.wire.TaskProfile profile = keptProfile(container);
+        final Path runtime = context.paths().tasks().containerState(container);
+        if (!java.nio.file.Files.isDirectory(runtime) && new TaskState(context).saved(container)) {
+            final TaskHelpers saved =
+                    TaskHelpers.readFrom(context.paths().tasks().taskRecord(container));
+            final boolean needsTokens =
+                    saved.helpers().stream()
+                            .anyMatch(
+                                    helper ->
+                                            "gate".equals(helper.name())
+                                                    || "vault".equals(helper.name()));
+            context.openIfShut(needsTokens, true, err);
+            if (needsTokens && new TaskSecrets(context).read(container).isEmpty()) {
+                credentialRefusal =
+                        new CredentialRefusal(
+                                profile == null || profile.agent() == null ? "" : profile.agent(),
+                                true,
+                                null);
+                final int code =
+                        TaskResumeCommand.render(
+                                new TaskControl.Resumed(
+                                        TaskControl.Outcome.NEEDS_VAULT,
+                                        0,
+                                        saved.helpers().size(),
+                                        null,
+                                        null,
+                                        java.util.List.of()),
+                                container,
+                                out,
+                                err,
+                                null);
+                return new Existing(container, project.name(), code, "NEEDS_VAULT");
+            }
+        }
+        try {
+            final Project effective =
+                    recorded == null || recorded.isBlank()
+                            ? project
+                            : credentialProject(
+                                    project,
+                                    request.projectFile(),
+                                    GateSupport.repository(project, recorded));
+            if (profile != null) {
+                final org.fuin.porelo.wire.TaskMode mode =
+                        refusesWithoutCredential(request.mode()) ? request.mode() : profile.mode();
+                if (refusesRecordedCredentials(profile, container, effective, mode, err)) {
+                    return new Existing(container, project.name(), 69);
+                }
+            } else if (refusesOtherCredentials(effective, request.mode(), err)) {
+                return new Existing(container, project.name(), 69);
+            }
+        } catch (org.fuin.porelo.agent.api.AgentException ex) {
+            err.println("porelo: " + ex.getMessage());
+            err.flush();
+            return new Existing(container, project.name(), 69);
+        } catch (ProjectException ex) {
+            err.println("porelo: " + ex.getMessage());
+            err.flush();
+            return new Existing(container, project.name(), 64);
+        }
+        if (!hooksReady(out, err)) {
+            return new Existing(container, project.name(), 69);
         }
 
         // Into the project's conversations again: a task that existed before its project named a
@@ -1768,13 +1925,6 @@ public final class TaskLaunch {
                 out.println("source         " + verifiedAt + " (the organization's, judged)");
             }
 
-            // Where this project's file is, for an interface that has no filesystem on this machine
-            // to find it in. Recorded on every start rather than by a registration step nobody
-            // would run.
-            if (!judged) {
-                new ProjectRegistry(context.paths().projects().projectRegistry())
-                        .remember(project.name(), projectFile.toAbsolutePath());
-            }
         } catch (ProjectException ex) {
             // A bad project file is the user's problem to fix, not a defect: report it as one line,
             // not as a stack trace.
@@ -1809,6 +1959,20 @@ public final class TaskLaunch {
         }
 
         workedOn = repository;
+
+        if (!request.dryRun()) {
+            try {
+                if (!newCredentialsReady(project, projectFile, repository, out, err)) {
+                    return credentialCheckCode;
+                }
+            } catch (ProjectException ex) {
+                err.println("porelo: " + ex.getMessage());
+                err.flush();
+                return 64;
+            }
+            new ProjectRegistry(context.paths().projects().projectRegistry())
+                    .remember(project.name(), projectFile.toAbsolutePath());
+        }
 
         steps.started(StartStep.Step.CHECKS);
         out.println("task           " + request.task());
@@ -2044,18 +2208,7 @@ public final class TaskLaunch {
             // First, before a credential is looked at or anything is made: a task its agent cannot
             // hold to its number is not one to prepare.
             final InstalledAgent asked = select(agents);
-            if (decision != null) {
-                sayFoundWarnings(decision, err);
-                if (chosenAgent[0] == null) {
-                    sayChoice(decision, out);
-                } else {
-                    final String picked = decision.picked(chosenAgent[0]);
-                    if (picked != null) {
-                        out.println(picked);
-                        out.flush();
-                    }
-                }
-            }
+            reportAgentChoice(out, err);
             if (asked != null && refusesSubagents(asked, err)) {
                 return 64;
             }
@@ -2182,7 +2335,9 @@ public final class TaskLaunch {
             // a terminal the refusals below stay as they were.
             steps.started(StartStep.Step.CREDENTIALS);
             context.openIfShut(
-                    !declaredOrAdded.isEmpty() || wiring().unavailableFor(select(agents)) != null,
+                    !declaredOrAdded.isEmpty()
+                            || wiring().unavailableFor(select(agents))
+                                    != StartCredentials.State.PRESENT,
                     true,
                     err);
             // Unlocking can reveal a refused kind that the early check could not read.
@@ -2217,13 +2372,15 @@ public final class TaskLaunch {
                 if (request.mode() == org.fuin.porelo.wire.TaskMode.UNATTENDED
                         && CredentialWiring.credentialUnavailable(
                                         context.readableCredentials(), named.getKey())
-                                != null) {
+                                != StartCredentials.State.PRESENT) {
                     err.println(
                             "porelo: the project names credential '"
                                     + named.getKey()
                                     + "', and "
-                                    + CredentialWiring.credentialUnavailable(
-                                            context.readableCredentials(), named.getKey()));
+                                    + CredentialWiring.reason(
+                                            CredentialWiring.credentialUnavailable(
+                                                    context.readableCredentials(), named.getKey()),
+                                            named.getKey()));
                     err.println(
                             "porelo: nothing was created; an unattended run cannot ask anybody, so it is refused"
                                     + " rather than started to fail");
@@ -2269,46 +2426,6 @@ public final class TaskLaunch {
                                 + " - the task starts, and requests that"
                                 + " need it will fail until the authorization server sells a token");
                 err.flush();
-            }
-
-            if (refusesWithoutCredential(request.mode())) {
-                final String unavailable = wiring().unavailableFor(select(agents));
-                final java.util.List<String> command =
-                        unavailable == null || offer == Offer.NOBODY
-                                ? java.util.List.of()
-                                : signInCommand(select(agents));
-                if (unavailable != null
-                        && !command.isEmpty()
-                        && offer.resolve(
-                                credentialRemedy(
-                                        unavailable,
-                                        command,
-                                        () -> wiring().unavailableFor(select(agents)) == null),
-                                err)) {
-                    out.println(
-                            "credential "
-                                    + String.join(" ", command.subList(1, command.size()))
-                                    + " - in place");
-                    out.flush();
-                } else if (!command.isEmpty()) {
-                    err.println("porelo: nothing was created");
-                    err.flush();
-                    return 69;
-                } else if (unavailable != null) {
-                    err.println("porelo: " + unavailable);
-                    err.println(
-                            "porelo: nothing was created; "
-                                    + (request.mode() == org.fuin.porelo.wire.TaskMode.UNATTENDED
-                                            ? "an unattended run cannot ask anybody, so it is refused"
-                                                    + " rather than started to fail. "
-                                                    + signIn(select(agents)).replaceFirst("; $", "")
-                                            : "the agent would start without a credential and fail on its"
-                                                    + " first request. "
-                                                    + signIn(select(agents))
-                                                    + "'--attach shell' starts the task without one."));
-                    err.flush();
-                    return 69;
-                }
             }
 
             // A task asked to open the agent's session must have one. Before the workspace, the
@@ -3398,6 +3515,9 @@ public final class TaskLaunch {
 
     @Nullable
     private InstalledAgent select(InstalledAgents agents) {
+        if (chosenAgent[0] != null) {
+            return agents.require(chosenAgent[0]);
+        }
         if (AgentChoice.wanted(request.agentName(), workedOn).name() != null) {
             if (decision == null) {
                 decision = AgentChoice.decided(context, agents, request.agentName(), workedOn);
@@ -3435,6 +3555,25 @@ public final class TaskLaunch {
     private static @Nullable InstalledAgent agentOf(
             final InstalledAgents agents, final AgentChoice.Choice choice) {
         return choice.agent() == null ? null : agents.require(choice.agent().name());
+    }
+
+    private boolean agentChoiceReported;
+
+    private void reportAgentChoice(PrintWriter out, PrintWriter err) {
+        if (agentChoiceReported || decision == null) {
+            return;
+        }
+        sayFoundWarnings(decision, err);
+        if (chosenAgent[0] == null) {
+            sayChoice(decision, out);
+        } else {
+            final String picked = decision.picked(chosenAgent[0]);
+            if (picked != null) {
+                out.println(picked);
+                out.flush();
+            }
+        }
+        agentChoiceReported = true;
     }
 
     private void sayChoice(final AgentChoice.Choice choice, final PrintWriter out) {
@@ -3992,6 +4131,278 @@ public final class TaskLaunch {
         return chosen == null ? null : chosen.provider();
     }
 
+    /** Checks a new start's credentials before the daemon asks an upstream for a host key. */
+    public boolean credentialsReady(PrintWriter out, PrintWriter err) {
+        credentialCheckCode = 69;
+        if (request.dryRun()) {
+            return true;
+        }
+        // A project file or repository the start cannot settle is the launch's own refusal, in
+        // its own order (a task name it would refuse first); the credential gate answers only for
+        // credentials.
+        final Project project;
+        final org.fuin.porelo.core.project.Repository repository;
+        try {
+            project = ProjectReader.read(request.projectFile());
+            repository = chosenRepository(project);
+        } catch (ProjectException ex) {
+            return true;
+        }
+        workedOn = repository;
+        return newCredentialsReady(project, request.projectFile(), repository, out, err);
+    }
+
+    private int credentialCheckCode = 69;
+
+    /**
+     * Returns the ordinary refusal's exit code when credential preflight did not raise a typed
+     * error.
+     */
+    public int credentialCheckCode() {
+        return credentialCheckCode;
+    }
+
+    /** A start refused before making anything because its model credential cannot be read. */
+    public record CredentialRefusal(String agent, boolean locked, @Nullable String running) {}
+
+    private @Nullable CredentialRefusal credentialRefusal;
+    private @Nullable AgentSignInRuns signIns;
+    private boolean waitForSignIn;
+
+    /** Uses the daemon's shared sign-in registry; a wait has the registry's own time limit. */
+    public TaskLaunch waitingForSignIn(AgentSignInRuns runs, boolean wait) {
+        signIns = runs;
+        waitForSignIn = wait;
+        return this;
+    }
+
+    /** Returns the credential refusal, or null when the start was not refused for it. */
+    public @Nullable CredentialRefusal credentialRefusal() {
+        return credentialRefusal;
+    }
+
+    /** Refuses every missing non-model credential before considering a wait on the agent. */
+    private boolean refusesOtherCredentials(
+            Project project, org.fuin.porelo.wire.TaskMode mode, PrintWriter err) {
+        if (mode != org.fuin.porelo.wire.TaskMode.UNATTENDED) {
+            return false;
+        }
+        final java.util.Set<String> names =
+                new java.util.LinkedHashSet<>(project.credentials().keySet());
+        names.addAll(request.credentials().keySet());
+        for (final String name : names) {
+            final StartCredentials.State state =
+                    CredentialWiring.credentialUnavailable(context.readableCredentials(), name);
+            if (state != StartCredentials.State.PRESENT || authorizationMissing(name)) {
+                if (state == StartCredentials.State.VAULT_LOCKED) {
+                    credentialRefusal = new CredentialRefusal("", true, null);
+                }
+                err.println(
+                        "porelo: the project names credential '"
+                                + name
+                                + "', and "
+                                + (state == StartCredentials.State.PRESENT
+                                        ? "nobody has granted it yet"
+                                        : CredentialWiring.reason(state, name)));
+                err.println(
+                        "porelo: nothing was created; an unattended run cannot ask anybody, so it is refused rather than started to fail");
+                err.flush();
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** Other missing credentials cannot be repaired by the agent's sign-in. */
+    private boolean otherCredentialsPresent(Project project) {
+        final java.util.Set<String> names =
+                new java.util.LinkedHashSet<>(project.credentials().keySet());
+        names.addAll(request.credentials().keySet());
+        return names.stream()
+                .allMatch(
+                        name ->
+                                CredentialWiring.credentialUnavailable(
+                                                        context.readableCredentials(), name)
+                                                == StartCredentials.State.PRESENT
+                                        && !authorizationMissing(name));
+    }
+
+    /**
+     * A stopped container keeps its agent; checking its recorded provider needs no installed
+     * adapter.
+     */
+    private boolean refusesRecordedCredentials(
+            org.fuin.porelo.wire.TaskProfile profile,
+            String container,
+            Project project,
+            org.fuin.porelo.wire.TaskMode mode,
+            PrintWriter err) {
+        if (!refusesWithoutCredential(mode)) {
+            return false;
+        }
+        final String agent = profile.agent();
+        final String provider = profile.provider();
+        context.openIfShut(
+                provider != null
+                        || !project.credentials().isEmpty()
+                        || !request.credentials().isEmpty(),
+                true,
+                err);
+        if (refusesOtherCredentials(project, mode, err)) {
+            return true;
+        }
+        if (agent == null || provider == null) {
+            return false;
+        }
+        // The broker's original key wins over a provider alias or a later legacy-key migration.
+        final Path runtime = context.paths().tasks().containerState(container);
+        final TaskHelpers helpers =
+                TaskHelpers.readFrom(
+                        java.nio.file.Files.isDirectory(runtime)
+                                ? runtime
+                                : context.paths().tasks().taskRecord(container));
+        final String recordedKey = brokerCredential(helpers);
+        final java.util.function.Supplier<StartCredentials.State> available =
+                () -> {
+                    final var stored = context.readableCredentials();
+                    final String key =
+                            recordedKey != null
+                                    ? recordedKey
+                                    : SelectedProvider.credentialKey(
+                                            stored.map(java.util.Map::keySet)
+                                                    .orElse(java.util.Set.of()),
+                                            agent,
+                                            provider);
+                    return CredentialWiring.credentialUnavailable(stored, key);
+                };
+        final StartCredentials.Refusal refusal =
+                StartCredentials.check(
+                        agent,
+                        available,
+                        signIns,
+                        waitForSignIn && otherCredentialsPresent(project));
+        if (refusal == null) {
+            return false;
+        }
+        credentialRefusal =
+                new CredentialRefusal(
+                        agent,
+                        refusal.state() == StartCredentials.State.VAULT_LOCKED,
+                        refusal.running());
+        if (signIns == null) {
+            err.println(
+                    "porelo: "
+                            + CredentialWiring.reason(
+                                    refusal.state(), recordedKey == null ? provider : recordedKey));
+            err.println(
+                    "porelo: nothing was created; "
+                            + nextStep(
+                                    agent,
+                                    false,
+                                    context.providers().get(provider),
+                                    recordedKey == null ? provider : recordedKey));
+            err.flush();
+        }
+        return true;
+    }
+
+    private static @Nullable String brokerCredential(TaskHelpers helpers) {
+        for (final TaskHelpers.Helper helper : helpers.helpers()) {
+            if ("vault".equals(helper.name())) {
+                final int option = helper.command().indexOf("--credential");
+                if (option >= 0 && option + 1 < helper.command().size()) {
+                    return helper.command().get(option + 1);
+                }
+            }
+        }
+        return null;
+    }
+
+    /** Keeps terminal remedies and words on the same gate the daemon reads as values. */
+    private boolean refusesStartCredentials(
+            @Nullable InstalledAgent agent,
+            Project project,
+            org.fuin.porelo.wire.TaskMode mode,
+            PrintWriter out,
+            PrintWriter err) {
+        if (!refusesWithoutCredential(mode)) {
+            return false;
+        }
+        context.openIfShut(
+                !project.credentials().isEmpty()
+                        || !request.credentials().isEmpty()
+                        || wiring().unavailableFor(agent) != StartCredentials.State.PRESENT,
+                true,
+                err);
+        if (refusesOtherCredentials(project, mode, err) || refusesCredential(agent, err)) {
+            return true;
+        }
+        if (agent == null) {
+            return false;
+        }
+        final StartCredentials.Refusal refusal =
+                StartCredentials.check(
+                        agent.name(),
+                        () -> wiring().unavailableFor(agent),
+                        signIns,
+                        waitForSignIn && otherCredentialsPresent(project));
+        if (refusal == null) {
+            return false;
+        }
+        credentialRefusal =
+                new CredentialRefusal(
+                        agent.name(),
+                        refusal.state() == StartCredentials.State.VAULT_LOCKED,
+                        refusal.running());
+        if (signIns != null) {
+            return true;
+        }
+        final String unavailable =
+                java.util.Objects.requireNonNull(
+                        CredentialWiring.reason(
+                                refusal.state(), credentials().credentialName(agent)),
+                        "a refused credential has a reason");
+        final java.util.List<String> command =
+                offer == Offer.NOBODY ? java.util.List.of() : signInCommand(agent);
+        if (!command.isEmpty()
+                && offer.resolve(
+                        credentialRemedy(
+                                unavailable,
+                                command,
+                                () ->
+                                        wiring().unavailableFor(agent)
+                                                == StartCredentials.State.PRESENT),
+                        err)) {
+            credentialRefusal = null;
+            out.println(
+                    "credential "
+                            + String.join(" ", command.subList(1, command.size()))
+                            + " - in place");
+            out.flush();
+            return false;
+        }
+        credentialRefusal =
+                new CredentialRefusal(
+                        agent.name(),
+                        refusal.state() == StartCredentials.State.VAULT_LOCKED,
+                        refusal.running());
+        if (command.isEmpty()) {
+            err.println("porelo: " + unavailable);
+            err.println(
+                    "porelo: nothing was created; "
+                            + (mode == org.fuin.porelo.wire.TaskMode.UNATTENDED
+                                    ? "an unattended run cannot ask anybody, so it is refused rather than started to fail. "
+                                            + signIn(agent).replaceFirst("; $", "")
+                                    : "the agent would start without a credential and fail on its first request. "
+                                            + signIn(agent)
+                                            + "'--attach shell' starts the task without one."));
+        } else {
+            err.println("porelo: nothing was created");
+        }
+        err.flush();
+        return true;
+    }
+
     private CredentialChoice credentials() {
         if (credentials == null) {
             credentials =
@@ -4014,6 +4425,21 @@ public final class TaskLaunch {
      * @param name The credential's vault entry.
      * @return Why it could not be bought, or {@code null} when it could or is not of that kind.
      */
+    /** A declared grant is usable only after its authorization has been stored. */
+    private boolean authorizationMissing(String name) {
+        return ungrantedAuthorization(name) && !authorizationStored(name);
+    }
+
+    private boolean authorizationStored(String name) {
+        return context.opener()
+                .map(
+                        opener ->
+                                context.vault()
+                                        .read(opener)
+                                        .containsKey(TaskSecrets.GRANT_PREFIX + name))
+                .orElse(false);
+    }
+
     private boolean ungrantedAuthorization(String name) {
         final org.fuin.porelo.vault.VaultEntry entry =
                 context.readableCredentials().map(stored -> stored.get(name)).orElse(null);
@@ -4026,14 +4452,7 @@ public final class TaskLaunch {
         if (entry != null && org.fuin.porelo.supervisor.Grants.isGrant(entry.type())) {
             // Only whether a person has granted it: spending it here could rotate it under the
             // broker.
-            final boolean granted =
-                    context.opener()
-                            .map(
-                                    opener ->
-                                            context.vault()
-                                                    .read(opener)
-                                                    .containsKey(TaskSecrets.GRANT_PREFIX + name))
-                            .orElse(false);
+            final boolean granted = authorizationStored(name);
             return granted
                     ? null
                     : "nobody has granted it yet; a person authorizes it once with 'porelo vault authorize "

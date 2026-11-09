@@ -52,11 +52,23 @@ public final class StubAgent implements Agent {
         this(false);
     }
 
+    /** Lets the suite keep a real sign-in pending until it sends input to its terminal. */
+    static AgentDefinition definition(boolean awaitingInput) {
+        final String source = yaml();
+        final String configured =
+                awaitingInput
+                        ? source.replace(
+                                "arguments: [\"login\"]",
+                                "arguments: [\"login\", \"--wait-for-input\"]")
+                        : source;
+        return AgentDefinitionReader.read(new java.io.StringReader(configured), RESOURCE);
+    }
+
     private StubAgent(final boolean sessionless) {
         this.definition =
                 sessionless
                         ? sessionless()
-                        : AgentDefinitionReader.fromResource(StubAgent.class, RESOURCE);
+                        : definition("yes".equals(System.getenv("PORELO_AGENT_STUB_LOGIN_WAIT")));
         if (!definition.name().equals(sessionless ? SESSIONLESS_NAME : "stub")) {
             throw new AgentException(
                     "the stub's definition names itself '" + definition.name() + "'");
@@ -110,19 +122,21 @@ public final class StubAgent implements Agent {
      * <p>From the one file rather than a second copy of it, which would drift from the script it
      * installs.
      */
-    private static AgentDefinition sessionless() {
-        final String yaml;
+    private static String yaml() {
         try (java.io.InputStream in = StubAgent.class.getResourceAsStream(RESOURCE)) {
             if (in == null) {
                 throw new AgentException("No agent definition at " + RESOURCE);
             }
-            yaml = new String(in.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
+            return new String(in.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
         } catch (java.io.IOException ex) {
             throw new AgentException("Cannot read " + RESOURCE, ex);
         }
-        final String without = withoutSessionIds(yaml);
+    }
+
+    private static AgentDefinition sessionless() {
         return AgentDefinitionReader.read(
-                new java.io.StringReader(without), RESOURCE + " without session_id");
+                new java.io.StringReader(withoutSessionIds(yaml())),
+                RESOURCE + " without session_id");
     }
 
     /**

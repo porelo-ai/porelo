@@ -484,6 +484,13 @@ method Start(
   provider: ?string,
   # Overrides the stored credential kind for this run.
   credentialType: ?string,
+  # Waits on this agent's running sign-in when its selected model credential is missing.
+  # The wait has its own 30-minute limit, independent of minutes. Afterwards the vault is
+  # re-checked for exactly the credential this start needs. A sign-in for another provider,
+  # or one that stored nothing, leaves SignInNeeded; a locked vault answers VaultLocked.
+  # Missing other credentials (forge, builds, other grants) never cause this wait.
+  # Omitted or false refuses immediately. Not offered through a task's MCP start.
+  waitForSignIn: ?bool,
   # Lifetime of the gate token. Default: 8.
   tokenHours: ?int,
   # Upstream to gate against. Default: the project's own.
@@ -1408,3 +1415,11 @@ method ConfirmFirstStart(checkout: string, hash: string, proxy: ?[string]string)
 # local project's, or a project approved for another host, port or path), NO_NAME, FILE_UNREADABLE, MOVED_ON (the text is no longer what the hash named),
 # NOTHING_ASKED or NOT_WRITTEN; detail says it in words.
 error FirstStartRefused(reason: string, detail: string)
+
+# The agent's selected model credential is missing. No task, hooks or helpers were made;
+# no upstream probe or token purchase ran. running names this agent's sign-in, when one runs;
+# it is "" while that sign-in is being prepared and has no container name yet.
+error SignInNeeded(agent: string, running: ?string)
+
+# The vault cannot be read. Unlock it before starting again; nothing was made.
+error VaultLocked()

@@ -316,6 +316,15 @@ then, never judging by how the login exited; `AgentSignIns` gives each agent's s
 `AgentSignIns` once and signs in each missing agent in turn before it starts its tasks. Neither starting nor waiting
 on a sign-in is offered to a task over MCP.
 
+`Start(waitForSignIn: true)` can wait for its selected agent's running sign-in when that agent's model credential
+is missing. The wait has its own 30-minute limit, independent of the run's `minutes`. Afterwards the vault is
+re-checked for exactly the credential the start needs for its selected provider. A sign-in that stored for another
+provider, or stored nothing, leaves `SignInNeeded(agent, running)`; without the wait, the same error answers at
+once, naming a running sign-in when there is one. A locked vault answers `VaultLocked`. Other missing credentials
+(forge, builds or another OAuth grant) never cause this wait. These refusals precede hook repair, credential
+extraction, upstream probes, token purchases and container creation, on a new start and a resume alike.
+`waitForSignIn` is not offered to a task through MCP; a task's start never waits for a person's sign-in.
+
 ### A subscription granted once: GitHub Copilot
 
 Copilot is reached with a GitHub token a person grants once, through GitHub's device flow. One command makes

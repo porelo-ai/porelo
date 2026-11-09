@@ -26,9 +26,7 @@ class CredentialWiringTest {
         // it was reported absent. That sent somebody to store a credential they already had, and it
         // is the one confusion the interface asked never to be shown.
         assertThat(CredentialWiring.credentialUnavailable(Optional.empty(), "anthropic"))
-                .contains("locked")
-                .contains("porelo vault unlock")
-                .doesNotContain("holds no credential");
+                .isEqualTo(StartCredentials.State.VAULT_LOCKED);
     }
 
     @Test
@@ -37,16 +35,14 @@ class CredentialWiringTest {
         // The name, not the category: 'anthropic is not in the vault' is something somebody can act
         // on, 'a credential is missing' is not.
         assertThat(CredentialWiring.credentialUnavailable(Optional.of(HOLDING), "openai"))
-                .contains("holds no credential")
-                .contains("openai")
-                .doesNotContain("locked");
+                .isEqualTo(StartCredentials.State.MISSING);
     }
 
     @Test
     void anUnlockedVaultHoldingItSaysNothing() {
 
         assertThat(CredentialWiring.credentialUnavailable(Optional.of(HOLDING), "anthropic"))
-                .isNull();
+                .isEqualTo(StartCredentials.State.PRESENT);
     }
 
     @Test
@@ -55,8 +51,7 @@ class CredentialWiringTest {
         // The case the fix turns on. Both are "nothing to authenticate with", and only one of them
         // is fixed by unlocking - so an empty vault must not borrow the locked wording.
         assertThat(CredentialWiring.credentialUnavailable(Optional.of(Map.of()), "anthropic"))
-                .contains("holds no credential")
-                .doesNotContain("locked");
+                .isEqualTo(StartCredentials.State.MISSING);
     }
 
     @Test

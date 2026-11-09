@@ -1,0 +1,2 @@
+title: "A daemon Start can wait up to 30 minutes for its agent's sign-in and re-check its selected model credential before making anything, with typed SignInNeeded and VaultLocked refusals on new starts and resumes"
+type: added

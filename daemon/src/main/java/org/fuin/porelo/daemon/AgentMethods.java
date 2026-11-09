@@ -31,13 +31,15 @@ final class AgentMethods {
      * @param context The machine.
      * @param inventory The daemon's one task inventory.
      * @param control The daemon's one task control.
+     * @param signIns The daemon's one sign-in registry.
      */
     @SuppressWarnings("unused")
     static void register(
             VarlinkServer server,
             PoreloContext context,
             TaskInventory inventory,
-            TaskControl control) {
+            TaskControl control,
+            org.fuin.porelo.app.AgentSignInRuns signIns) {
         // The same rows 'porelo providers' prints, from the same class.
         server.method(
                 "Providers",
@@ -113,8 +115,6 @@ final class AgentMethods {
 
         // One per agent on the machine, kept for the daemon's life so a wait after a sign-in
         // ended hears how it ended.
-        final org.fuin.porelo.app.AgentSignInRuns signIns =
-                org.fuin.porelo.app.AgentSignInRuns.of(context);
         server.method(
                 "AgentSignIns",
                 (parameters, replies) -> {

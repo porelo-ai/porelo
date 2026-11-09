@@ -18,6 +18,40 @@ class StubAgentTest {
 
     private final StubAgent agent = new StubAgent();
 
+    @Test
+    void aControlledLoginStoresNothingUntilInputArrives(
+            @org.junit.jupiter.api.io.TempDir java.nio.file.Path dir) throws Exception {
+        // An automatic login would let the acceptance task start without ever exercising its wait.
+        final java.nio.file.Path script = dir.resolve("stub.sh");
+        java.nio.file.Files.writeString(script, renderedScript());
+        final ProcessBuilder command =
+                new ProcessBuilder("sh", script.toString(), "login", "--wait-for-input");
+        command.environment().put("HOME", dir.toString());
+        command.environment().put("PORELO_STUB_LINGER", "0");
+        final Process process = command.start();
+        try {
+            assertThat(process.waitFor(100, java.util.concurrent.TimeUnit.MILLISECONDS))
+                    .as("a controlled login must wait before producing its credential")
+                    .isFalse();
+            assertThat(dir.resolve(".porelo-stub/.credentials.json"))
+                    .as("nothing can be stored until the test completes sign-in")
+                    .doesNotExist();
+            process.getOutputStream().write('\n');
+            process.getOutputStream().flush();
+            assertThat(process.waitFor(3, java.util.concurrent.TimeUnit.SECONDS))
+                    .as("sign-in ends after input")
+                    .isTrue();
+            assertThat(dir.resolve(".porelo-stub/.credentials.json"))
+                    .as("the login produces its credential after input")
+                    .exists();
+            assertThat(StubAgent.definition(true).loginArguments())
+                    .as("the suite's adapter declares the input gate")
+                    .containsExactly("login", "--wait-for-input");
+        } finally {
+            process.destroyForcibly();
+        }
+    }
+
     /** The container-build line, exactly as the image build receives it. */
     private String buildLine() {
         return String.join("\n", agent.definition().installAsRoot());

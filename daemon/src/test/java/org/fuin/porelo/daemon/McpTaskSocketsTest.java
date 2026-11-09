@@ -20,8 +20,6 @@ import java.util.regex.Pattern;
 import org.fuin.porelo.app.PoreloContext;
 import org.fuin.porelo.app.PoreloPaths;
 import org.fuin.porelo.core.config.XdgPaths;
-import org.fuin.porelo.core.process.Command;
-import org.fuin.porelo.core.process.CommandResult;
 import org.fuin.porelo.testing.FakeCommandRunner;
 import org.fuin.porelo.wire.TaskMode;
 import org.fuin.porelo.wire.TaskProfile;
@@ -54,31 +52,34 @@ class McpTaskSocketsTest {
 
     @TempDir Path dir;
 
-    private final HeldRunner runner = new HeldRunner();
+    private final FakeCommandRunner runner = new FakeCommandRunner();
 
-    /** A fake runner that can hold each start at the machine's check, as a slow start waits. */
-    private static final class HeldRunner extends FakeCommandRunner {
+    /** Holds preflight at the callback boundary after the start has reserved its place. */
+    private static final class HeldStart
+            implements org.fuin.porelo.wire.varlink.VarlinkServer.Method {
         private final CountDownLatch release = new CountDownLatch(1);
         private final AtomicInteger held = new AtomicInteger();
-        private volatile boolean holding;
+        private final CountDownLatch entered = new CountDownLatch(1);
 
         @Override
-        public CommandResult run(final Command command) {
-            if (holding && command.describe().startsWith("podman version")) {
-                held.incrementAndGet();
-                try {
-                    release.await(30, TimeUnit.SECONDS);
-                } catch (InterruptedException ex) {
-                    Thread.currentThread().interrupt();
+        public void call(
+                final Map<String, Object> parameters,
+                final org.fuin.porelo.wire.varlink.VarlinkServer.Replies replies)
+                throws IOException {
+            held.incrementAndGet();
+            entered.countDown();
+            try {
+                if (!release.await(30, TimeUnit.SECONDS)) {
+                    throw new IOException("the held start was not released");
                 }
+            } catch (InterruptedException ex) {
+                Thread.currentThread().interrupt();
+                throw new IOException("the held start was interrupted", ex);
             }
-            synchronized (this) {
-                return super.run(command);
-            }
+            replies.last(Map.of("exitCode", 0));
         }
 
         void letGo() {
-            holding = false;
             release.countDown();
         }
     }
@@ -614,45 +615,56 @@ class McpTaskSocketsTest {
 
     @Test
     void twoUnnamedStartsAtOnceBothCountAgainstTheLimit() throws Exception {
-        final Path socket = opened(HEAD + SECTION);
+        // Overlapping preflights must not spend more task places than the project allows.
+        context(HEAD + SECTION);
         final Map<String, Object> unnamed = start("alpha", null, 30);
         unnamed.remove("task");
-        runner.holding = true;
-        final CompletableFuture<Object> first = attempt(socket, unnamed);
+        final HeldStart held = new HeldStart();
+        final CompletableFuture<Object> first = attempt(unnamed, held);
         try {
-            until(() -> runner.held.get() == 1);
-            final CompletableFuture<Object> second = attempt(socket, unnamed);
-            until(() -> second.isDone() || runner.held.get() > 1);
+            assertThat(held.entered.await(5, TimeUnit.SECONDS))
+                    .as("the first preflight is held")
+                    .isTrue();
+            final CompletableFuture<Object> second = attempt(unnamed, held);
+            until(() -> second.isDone() || held.held.get() > 1);
 
-            assertThat(runner.held.get()).as("the second start was let through").isEqualTo(1);
-            assertRefused(second.get(), "ChildLimitReached", Map.of("running", 1L, "limit", 1L));
+            assertThat(held.held.get()).as("the second start was let through").isEqualTo(1);
+            assertRefused(
+                    second.get(5, TimeUnit.SECONDS),
+                    "ChildLimitReached",
+                    Map.of("running", 1L, "limit", 1L));
         } finally {
-            runner.letGo();
-            first.get(30, TimeUnit.SECONDS);
+            held.letGo();
+            assertThat(first.get(30, TimeUnit.SECONDS)).isEqualTo(Map.of("exitCode", 0));
         }
     }
 
     @Test
     void twoStartsOfOneNameAtOnceAreOneAndTheRefusedOneFreesNoPlace() throws Exception {
-        final Path socket = opened(HEAD + SECTION);
-        runner.holding = true;
-        final CompletableFuture<Object> first = attempt(socket, start("alpha", null, 30));
+        // A duplicate refusal must not release another start's task place.
+        context(HEAD + SECTION);
+        final HeldStart held = new HeldStart();
+        final CompletableFuture<Object> first = attempt(start("alpha", null, 30), held);
         try {
-            until(() -> runner.held.get() == 1);
-            final CompletableFuture<Object> again = attempt(socket, start("alpha", null, 30));
-            until(() -> again.isDone() || runner.held.get() > 1);
+            assertThat(held.entered.await(5, TimeUnit.SECONDS))
+                    .as("the first preflight is held")
+                    .isTrue();
+            final CompletableFuture<Object> again = attempt(start("alpha", null, 30), held);
+            until(() -> again.isDone() || held.held.get() > 1);
 
-            assertThat(runner.held.get()).as("the second start was let through").isEqualTo(1);
-            assertRefused(again.get(), "AlreadyStarting", Map.of("task", "porelo-uc-child"));
-            refused(
-                    socket,
-                    "Start",
-                    named("other", start("alpha", null, 30)),
+            assertThat(held.held.get()).as("the second start was let through").isEqualTo(1);
+            assertRefused(
+                    again.get(5, TimeUnit.SECONDS),
+                    "AlreadyStarting",
+                    Map.of("task", "porelo-uc-child"));
+            assertRefused(
+                    attempt(named("other", start("alpha", null, 30)), held)
+                            .get(5, TimeUnit.SECONDS),
                     "ChildLimitReached",
                     Map.of("running", 1L, "limit", 1L));
         } finally {
-            runner.letGo();
-            first.get(30, TimeUnit.SECONDS);
+            held.letGo();
+            assertThat(first.get(30, TimeUnit.SECONDS)).isEqualTo(Map.of("exitCode", 0));
         }
     }
 
@@ -670,6 +682,7 @@ class McpTaskSocketsTest {
         refusedOnes.put("credentialType", "api-key");
         refusedOnes.put("rm", true);
         refusedOnes.put("now", true);
+        refusedOnes.put("waitForSignIn", true);
         refusedOnes.put("certify", true);
         refusedOnes.put("parent", "porelo-uc-other");
 
@@ -975,6 +988,51 @@ class McpTaskSocketsTest {
     private static Map<String, Object> named(final String task, final Map<String, Object> start) {
         start.put("task", task);
         return start;
+    }
+
+    private CompletableFuture<Object> attempt(
+            final Map<String, Object> parameters,
+            final org.fuin.porelo.wire.varlink.VarlinkServer.Method preflight) {
+        return CompletableFuture.supplyAsync(
+                () -> {
+                    final Map<String, Object> answer = new java.util.LinkedHashMap<>();
+                    try {
+                        final org.fuin.porelo.core.project.McpEndpoint endpoint =
+                                org.fuin.porelo.core.project.ProjectReader.endpoint(
+                                                dir.resolve("project.yml"))
+                                        .orElseThrow();
+                        sockets.start(
+                                LEAD,
+                                "uc",
+                                endpoint,
+                                parameters,
+                                new org.fuin.porelo.wire.varlink.VarlinkServer.Replies() {
+                                    @Override
+                                    public void more(Map<String, Object> parameters) {
+                                        throw new AssertionError("no progress reply was expected");
+                                    }
+
+                                    @Override
+                                    public void last(Map<String, Object> parameters) {
+                                        answer.putAll(parameters);
+                                    }
+
+                                    @Override
+                                    public boolean streaming() {
+                                        return false;
+                                    }
+
+                                    @Override
+                                    public boolean open() {
+                                        return true;
+                                    }
+                                },
+                                preflight);
+                        return Map.copyOf(answer);
+                    } catch (IOException | RuntimeException ex) {
+                        return ex;
+                    }
+                });
     }
 
     private static CompletableFuture<Object> attempt(

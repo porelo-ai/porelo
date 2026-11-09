@@ -211,31 +211,27 @@ final class CredentialWiring {
         }
     }
 
-    /**
-     * Says why this task will run without a credential, or {@code null} when it will have one.
-     *
-     * <p><strong>Locked is not the same as absent, and this used to say it was.</strong> A locked
-     * vault reads as an empty set, so a credential that is sitting in the vault was reported as
-     * missing - sending somebody to store one they already have, when what they have to do is
-     * unlock it. The same conflation was in the daemon's {@code readable} field and is fixed there;
-     * this is the other place it lived.
-     *
-     * @param stored What the vault holds, or empty when it cannot be read.
-     * @param name Vault key this task's credential would be under.
-     * @return The reason, or {@code null} when the credential is there.
-     */
-    @Nullable
-    static String credentialUnavailable(
+    /** Returns whether the vault holds the credential, without conflating locked and missing. */
+    static StartCredentials.State credentialUnavailable(
             java.util.Optional<java.util.Map<String, org.fuin.porelo.vault.VaultEntry>> stored,
             String name) {
         if (stored.isEmpty()) {
-            return "the vault is locked, so this task cannot authenticate;"
-                    + " 'porelo vault unlock' and start it again";
+            return StartCredentials.State.VAULT_LOCKED;
         }
-        if (!stored.get().containsKey(name)) {
-            return "the vault holds no credential for '" + name + "'";
-        }
-        return null;
+        return stored.get().containsKey(name)
+                ? StartCredentials.State.PRESENT
+                : StartCredentials.State.MISSING;
+    }
+
+    /** Renders a credential state for a person at a terminal. */
+    static @Nullable String reason(StartCredentials.State state, String name) {
+        return switch (state) {
+            case PRESENT -> null;
+            case MISSING -> "the vault holds no credential for '" + name + "'";
+            case VAULT_LOCKED ->
+                    "the vault is locked, so this task cannot authenticate;"
+                            + " 'porelo vault unlock' and start it again";
+        };
     }
 
     /**
@@ -254,22 +250,23 @@ final class CredentialWiring {
      * reasoning once covered both interactive modes and was wrong for one of them: it argues about
      * somebody opening a terminal, and says nothing about somebody who asked for the agent.
      *
-     * <p>An agent that takes no brokered credential answers {@code null}: there is nothing that
+     * <p>An agent that takes no brokered credential answers {@code PRESENT}: there is nothing that
      * could be missing, and refusing it would stop a task that was never going to authenticate
      * anyway.
      *
      * @param agent The agent, or {@code null} when none is installed.
-     * @return The reason, or {@code null} when there is nothing in the way.
+     * @return The credential's availability, with locked distinct from missing.
      */
-    @Nullable String unavailableFor(org.fuin.porelo.agent.api.@Nullable InstalledAgent agent) {
+    StartCredentials.State unavailableFor(
+            org.fuin.porelo.agent.api.@Nullable InstalledAgent agent) {
         if (agent == null) {
-            return null;
+            return StartCredentials.State.PRESENT;
         }
         final SelectedProvider selection = choice.provider(agent);
         final org.fuin.porelo.agent.api.ProviderRoute route =
                 selection == null ? null : selection.route();
         if (route == null || choice.tokenVariable(agent) == null) {
-            return null;
+            return StartCredentials.State.PRESENT;
         }
         return credentialUnavailable(context.readableCredentials(), choice.credentialName(agent));
     }
@@ -312,7 +309,9 @@ final class CredentialWiring {
         extras.forEach(
                 (name, destination) -> {
                     final String missing =
-                            credentialUnavailable(context.readableCredentials(), name);
+                            reason(
+                                    credentialUnavailable(context.readableCredentials(), name),
+                                    name);
                     if (missing != null) {
                         out.println("credential " + name + " none - " + missing);
                     } else {
@@ -626,7 +625,10 @@ final class CredentialWiring {
             return null;
         }
         final String unavailable =
-                credentialUnavailable(context.readableCredentials(), choice.credentialName(agent));
+                reason(
+                        credentialUnavailable(
+                                context.readableCredentials(), choice.credentialName(agent)),
+                        choice.credentialName(agent));
         if (unavailable != null) {
             out.println("token     none - " + unavailable);
             return null;

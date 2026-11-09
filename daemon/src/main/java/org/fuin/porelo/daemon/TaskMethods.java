@@ -70,6 +70,22 @@ final class TaskMethods {
                 Map.of("reason", refused.reason().name(), "detail", refused.detail()));
     }
 
+    /** Maps the common start gate to the daemon's typed refusals. */
+    static void credentialRefused(TaskLaunch.@Nullable CredentialRefusal refused) {
+        if (refused == null) {
+            return;
+        }
+        if (refused.locked()) {
+            throw new VarlinkException(INTERFACE + ".VaultLocked", Map.of());
+        }
+        final Map<String, Object> fields = new LinkedHashMap<>();
+        fields.put("agent", refused.agent());
+        if (refused.running() != null) {
+            fields.put("running", refused.running());
+        }
+        throw new VarlinkException(INTERFACE + ".SignInNeeded", fields);
+    }
+
     /**
      * Registers this area's methods.
      *
@@ -77,13 +93,15 @@ final class TaskMethods {
      * @param context The machine.
      * @param inventory The daemon's one task inventory.
      * @param control The daemon's one task control.
+     * @param signIns The daemon's one sign-in registry.
      */
     @SuppressWarnings("unused")
     static void register(
             VarlinkServer server,
             PoreloContext context,
             TaskInventory inventory,
-            TaskControl control) {
+            TaskControl control,
+            org.fuin.porelo.app.AgentSignInRuns signIns) {
         // The same question 'porelo task list' asks, answered by the same code. A second
         // implementation is how the two come to disagree about what is running.
         server.method(
@@ -857,44 +875,6 @@ final class TaskMethods {
                         replies.last(reply);
                         return;
                     }
-                    // Refused as itself before anything is launched: a destination nobody declared
-                    // is a typed answer an interface can show, not a launch line among others. A
-                    // host never met is a typed refusal, before anything is made: it went ahead
-                    // without a gate before. The host the start will fetch from: the upstream it
-                    // was given, as the launch asks it.
-                    final String unmet =
-                            org.fuin.porelo.app.StartCheck.unknownHost(
-                                    context,
-                                    projectFile(parameters, context),
-                                    empty(parameters, "repository"),
-                                    address(parameters, "upstream"));
-                    if (unmet != null) {
-                        throw new VarlinkException(
-                                INTERFACE + ".UnknownHostKey",
-                                Map.of(
-                                        "host",
-                                        unmet,
-                                        "hostKeys",
-                                        org.fuin.porelo.app.HostKeys.offeredBy(context, unmet)
-                                                .stream()
-                                                .map(org.fuin.porelo.app.HostKeys.Offered::asMap)
-                                                .toList(),
-                                        "detail",
-                                        "this machine has never met "
-                                                + unmet
-                                                + "; confirm its key with TrustHostKey"
-                                                + " against what its owner publishes, and start again"));
-                    }
-                    final String undeclared =
-                            org.fuin.porelo.app.StartCheck.undeclared(
-                                    context,
-                                    projectFile(parameters, context),
-                                    credentials(parameters));
-                    if (undeclared != null) {
-                        throw new VarlinkException(
-                                INTERFACE + ".NoSuchDestination",
-                                Map.of("name", undeclared.substring(0, undeclared.indexOf('\n'))));
-                    }
                     // Into the domain, not out to a subprocess. Until TaskLaunch existed this
                     // spawned 'porelo task run' and read one line of its output for the container
                     // name, because running the command was the only way to start a task. Now the
@@ -904,9 +884,10 @@ final class TaskMethods {
                             new java.util.concurrent.atomic.AtomicReference<>("");
                     final TaskLaunch launch =
                             new TaskLaunch(
-                                    context,
-                                    request(parameters, context),
-                                    new org.fuin.porelo.app.StartSteps(progress, sink));
+                                            context,
+                                            request(parameters, context),
+                                            new org.fuin.porelo.app.StartSteps(progress, sink))
+                                    .waitingForSignIn(signIns, flag(parameters, "waitForSignIn"));
                     if (replies.streaming()) {
                         // The run's own lines as it writes them, apart from Porelo's.
                         launch.followRun(line -> progress.stream().send(Map.of("runLine", line)));
@@ -930,6 +911,67 @@ final class TaskMethods {
                     // the CLI makes first, so a stopped task answers the same over the socket as at
                     // a terminal.
                     final TaskLaunch.Existing existing = launch.startExisting(sink, sink);
+                    if (existing == null) {
+                        // Refused as itself before anything is launched, the credentials too: a
+                        // destination nobody declared is a typed answer an interface can show, not
+                        // a
+                        // launch line among others. A host never met is a typed refusal, before
+                        // anything is made. The host the start will fetch from: the upstream it was
+                        // given, as the launch asks it.
+                        final String unmet =
+                                org.fuin.porelo.app.StartCheck.unknownHost(
+                                        context,
+                                        projectFile(parameters, context),
+                                        empty(parameters, "repository"),
+                                        address(parameters, "upstream"));
+                        if (unmet != null) {
+                            throw new VarlinkException(
+                                    INTERFACE + ".UnknownHostKey",
+                                    Map.of(
+                                            "host",
+                                            unmet,
+                                            "hostKeys",
+                                            org.fuin.porelo.app.HostKeys.offeredBy(context, unmet)
+                                                    .stream()
+                                                    .map(
+                                                            org.fuin.porelo.app.HostKeys.Offered
+                                                                    ::asMap)
+                                                    .toList(),
+                                            "detail",
+                                            "this machine has never met "
+                                                    + unmet
+                                                    + "; confirm its key with TrustHostKey"
+                                                    + " against what its owner publishes, and start again"));
+                        }
+                        final String undeclared =
+                                org.fuin.porelo.app.StartCheck.undeclared(
+                                        context,
+                                        projectFile(parameters, context),
+                                        credentials(parameters));
+                        if (undeclared != null) {
+                            throw new VarlinkException(
+                                    INTERFACE + ".NoSuchDestination",
+                                    Map.of(
+                                            "name",
+                                            undeclared.substring(0, undeclared.indexOf('\n'))));
+                        }
+                        if (!launch.credentialsReady(sink, sink)) {
+                            credentialRefused(launch.credentialRefusal());
+                            final Map<String, Object> reply = new LinkedHashMap<>();
+                            reply.put("container", "");
+                            reply.put("exitCode", launch.credentialCheckCode());
+                            reply.put("action", "CREATE");
+                            reply.put(
+                                    "output",
+                                    replies.streaming()
+                                            ? List.of()
+                                            : collected.toString().lines().toList());
+                            progress.finish(reply);
+                            replies.last(reply);
+                            return;
+                        }
+                    }
+                    credentialRefused(launch.credentialRefusal());
                     final int code;
                     // What Start did, or the refusal it answered with - on the final reply, as the
                     // contract says.
@@ -971,6 +1013,7 @@ final class TaskMethods {
                                         });
                     }
                     sink.flush();
+                    credentialRefused(launch.credentialRefusal());
                     final org.fuin.porelo.gate.GitGate.Waiting earlier = launch.earlierWork();
                     if (existing == null && code != 0 && earlier != null) {
                         // Typed, so an interface offers the waiting work or another name in the
