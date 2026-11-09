@@ -3,6 +3,7 @@ package org.fuin.porelo.organization.gittree;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -47,5 +48,15 @@ class ForgeAddressTest {
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("is not https://HOST/ORG/REPO")
                 .hasMessageNotContaining("\u001b");
+    }
+
+    @Test
+    void theRepositoryIsTheAddressesLastNameWithoutGit() {
+        assertThat(ForgeAddress.of("git@github.com:acme/registry.git").repository())
+                .isEqualTo("registry");
+        assertThat(ForgeAddress.of("https://forge.example:3000/acme/registry/").repository())
+                .isEqualTo("registry");
+        assertThat(ForgeAddress.of("ssh://git@forge.example:2222/acme/registry").repository())
+                .isEqualTo("registry");
     }
 }

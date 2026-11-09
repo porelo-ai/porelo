@@ -28,6 +28,14 @@ final class OrgCreateCheck {
 
     private static final String NOT_KNOWN = "not-known-until-created";
 
+    /** The first step of a move that would show a permission the forge does not say. */
+    private static final Map<String, String> SHOWN_BY =
+            Map.of(
+                    "members", "shown by the first read of the organization",
+                    "administration", "shown by a project's opening",
+                    "contents", "shown by the first push",
+                    "workflows", "shown by the first push of a workflow change");
+
     /** What is asked of the forge; a test has one of its own. */
     interface Forge {
         /**
@@ -51,6 +59,13 @@ final class OrgCreateCheck {
          * @return The answer.
          */
         HttpForgeDirectory.TokenAccount token();
+
+        /**
+         * Reports how far the token reaches in the organization, for what a move asks of it.
+         *
+         * @return One reach per need, none without a token.
+         */
+        List<HttpForgeDirectory.Reach> tokenReach();
 
         /**
          * Reports whether a login owns the organization.
@@ -120,6 +135,16 @@ final class OrgCreateCheck {
             @Override
             public HttpForgeDirectory.TokenAccount token() {
                 return directory().tokenAccount();
+            }
+
+            @Override
+            public List<HttpForgeDirectory.Reach> tokenReach() {
+                try {
+                    return directory().tokenReach(origin.organization(), origin.repository());
+                } catch (IllegalArgumentException ex) {
+                    // A name the forge's API would not take is no answer about the token.
+                    return List.of();
+                }
             }
 
             @Override
@@ -308,8 +333,51 @@ final class OrgCreateCheck {
                                 ""));
             }
         }
+        if (account.state() == HttpForgeDirectory.TokenState.ACCEPTED
+                || account.state() == HttpForgeDirectory.TokenState.CANNOT_SAY) {
+            reach(forge.tokenReach(), needs);
+        }
         if (card != null) {
             owner(card, origin, forge, needs);
+        }
+    }
+
+    /**
+     * Says whether the token reaches what a move asks of it: a permission the forge says it lacks
+     * is missing, named as the forge names it, so the token is made right before a server is
+     * rented; one the forge does not say is untold, with the step that would show it.
+     */
+    private static void reach(
+            final List<HttpForgeDirectory.Reach> reaches, final List<Map<String, String>> needs) {
+        final List<String> missing = new ArrayList<>();
+        final List<String> untold = new ArrayList<>();
+        for (final HttpForgeDirectory.Reach reach : reaches) {
+            final String named = reach.permission() + " (" + reach.need() + ")";
+            switch (reach.state()) {
+                case MISSING -> missing.add(named);
+                case CANNOT_TELL -> untold.add(named + ", " + SHOWN_BY.get(reach.need()));
+                case READY -> {}
+            }
+        }
+        if (!missing.isEmpty()) {
+            needs.add(
+                    need(
+                            "token-reach",
+                            MISSING,
+                            "the token lacks " + String.join(", ", missing),
+                            "give the token each of these on the forge's token page"));
+        } else if (!untold.isEmpty() || reaches.isEmpty()) {
+            needs.add(
+                    need(
+                            "token-reach",
+                            CANNOT_TELL,
+                            reaches.isEmpty()
+                                    ? "the forge was not asked what the token may do"
+                                    : "the forge does not say whether the token has "
+                                            + String.join("; ", untold),
+                            "see on the forge's token page that it has each of these"));
+        } else {
+            needs.add(need("token-reach", READY, "the token reaches what a move asks of it", ""));
         }
     }
 

@@ -50,9 +50,22 @@ class HttpForgeDirectoryTest {
     private URI base;
 
     /** What the forge answers on one path. */
-    private record Reply(int status, byte[] body, long stallMillis) {
+    private record Reply(int status, byte[] body, long stallMillis, Map<String, String> headers) {
+        Reply(int status, byte[] body, long stallMillis) {
+            this(status, body, stallMillis, Map.of());
+        }
+
+        static Reply with(int status, String body, String header, String value) {
+            return new Reply(
+                    status, body.getBytes(StandardCharsets.UTF_8), 0, Map.of(header, value));
+        }
+
         static Reply of(int status, String body) {
             return new Reply(status, body.getBytes(StandardCharsets.UTF_8), 0);
+        }
+
+        static Reply scoped(String scopes) {
+            return with(200, "{\"login\":\"mia\"}", "X-OAuth-Scopes", scopes);
         }
     }
 
@@ -72,6 +85,7 @@ class HttpForgeDirectoryTest {
                     seen.add(
                             new Seen(path, exchange.getRequestHeaders().getFirst("Authorization")));
                     final Reply reply = replies.getOrDefault(path, Reply.of(500, "unexpected"));
+                    reply.headers().forEach(exchange.getResponseHeaders()::add);
                     try (exchange;
                             OutputStream out = exchange.getResponseBody()) {
                         if (reply.body().length == 0) {
@@ -133,6 +147,151 @@ class HttpForgeDirectoryTest {
                         new HttpForgeDirectory.TokenAccount(
                                 HttpForgeDirectory.TokenState.ACCEPTED, "mia"));
         assertThat(account.toString()).as("the token is no part of it").doesNotContain(TOKEN);
+    }
+
+    private static List<String> states(final List<HttpForgeDirectory.Reach> reaches) {
+        return reaches.stream().map(each -> each.need() + "=" + each.state()).toList();
+    }
+
+    /** The reads a move makes on GitHub, each granted. */
+    private void gitHubReadsGranted() {
+        replies.put("/api/user/memberships/orgs/acme", Reply.of(200, "{\"role\":\"member\"}"));
+        replies.put("/api/repos/acme/registry/keys?per_page=1", Reply.of(200, "[]"));
+        replies.put("/api/repos/acme/registry/commits?per_page=1", Reply.of(409, "{}"));
+    }
+
+    @Test
+    void aClassicGitHubTokensScopesSayEachNeedAndNameWhatIsLacking() {
+        gitHubReadsGranted();
+        replies.put("/api/user", Reply.scoped("read:org, workflow"));
+
+        final List<HttpForgeDirectory.Reach> reach = gitHub(TOKEN).tokenReach("acme", "registry");
+
+        assertThat(states(reach))
+                .as("without repo it can neither make a repository nor push")
+                .containsExactly(
+                        "members=READY",
+                        "administration=MISSING",
+                        "contents=MISSING",
+                        "workflows=READY");
+        assertThat(reach.get(1).permission()).as("GitHub's own name for it").isEqualTo("repo");
+
+        replies.put("/api/user", Reply.scoped("repo, write:org, workflow"));
+        assertThat(states(gitHub(TOKEN).tokenReach("acme", "registry")))
+                .as("write:org reads members too; an empty repository's 409 is a read")
+                .containsOnly(
+                        "members=READY",
+                        "administration=READY",
+                        "contents=READY",
+                        "workflows=READY");
+    }
+
+    @Test
+    void aClassicTokenWhoseScopesSufficeIsNotReadyWhereTheOrganizationRefusesIt() {
+        // Scopes alone say nothing of an organization that refuses the token, as single sign-on
+        // does, or of another account's token that may not see the repository.
+        gitHubReadsGranted();
+        replies.put("/api/user", Reply.scoped("repo, read:org, workflow"));
+        replies.put("/api/repos/acme/registry/keys?per_page=1", Reply.of(404, "{}"));
+
+        assertThat(states(gitHub(TOKEN).tokenReach("acme", "registry")))
+                .contains("administration=CANNOT_TELL")
+                .doesNotContain("administration=READY");
+    }
+
+    @Test
+    void aFineGrainedTokensRefusedReadIsMissingAndAGrantedOneLeavesTheWritingUntold() {
+        gitHubReadsGranted();
+        replies.put("/api/user", Reply.of(200, "{\"login\":\"mia\"}"));
+        replies.put("/api/repos/acme/registry/keys?per_page=1", Reply.of(403, "{}"));
+
+        final List<HttpForgeDirectory.Reach> reach = gitHub(TOKEN).tokenReach("acme", "registry");
+
+        assertThat(states(reach))
+                .as("members is read by the founding's own call, and reading is all it asks")
+                .containsExactly(
+                        "members=READY",
+                        "administration=MISSING",
+                        "contents=CANNOT_TELL",
+                        "workflows=CANNOT_TELL");
+        assertThat(reach.get(1).permission()).isEqualTo("Administration: Read and write");
+        assertThat(seen)
+                .as("only reads were asked, each with the token")
+                .allSatisfy(each -> assertThat(each.authorization()).isEqualTo("Bearer " + TOKEN));
+
+        replies.put("/api/repos/acme/registry/commits?per_page=1", Reply.of(403, "{}"));
+        assertThat(states(gitHub(TOKEN).tokenReach("acme", "registry")))
+                .as("a refused read of the commits is no push either")
+                .contains("contents=MISSING");
+    }
+
+    @Test
+    void aFineGrainedTokenWithoutMembersReadIsMissingThoughThePublicMemberListAnswers() {
+        // The public member list answers any token; only the membership the founding asks shows it.
+        gitHubReadsGranted();
+        replies.put("/api/user", Reply.of(200, "{\"login\":\"mia\"}"));
+        replies.put("/api/orgs/acme/members?per_page=1", Reply.of(200, "[]"));
+        replies.put("/api/user/memberships/orgs/acme", Reply.of(403, "{}"));
+
+        assertThat(states(gitHub(TOKEN).tokenReach("acme", "registry")))
+                .contains("members=MISSING");
+    }
+
+    @Test
+    void aRateLimitsOrASingleSignOnsRefusalIsNoMissingPermission() {
+        gitHubReadsGranted();
+        replies.put("/api/user", Reply.of(200, "{\"login\":\"mia\"}"));
+        replies.put(
+                "/api/repos/acme/registry/keys?per_page=1",
+                Reply.with(403, "{}", "X-RateLimit-Remaining", "0"));
+        replies.put(
+                "/api/user/memberships/orgs/acme",
+                Reply.with(403, "{}", "X-GitHub-SSO", "required; url=https://example"));
+
+        assertThat(states(gitHub(TOKEN).tokenReach("acme", "registry")))
+                .as("a forge that refuses for now says nothing of the token's permissions")
+                .contains("members=CANNOT_TELL", "administration=CANNOT_TELL");
+    }
+
+    @Test
+    void aForgejoTokensReachIsToldByTheMovesOwnReadsAndItsScopeByName() {
+        replies.put("/api/v1/user", Reply.of(200, "{\"login\":\"mia\"}"));
+        replies.put(
+                "/api/v1/users/mia/orgs/acme/permissions",
+                Reply.of(
+                        403,
+                        "{\"message\":\"token does not have at least one of required scope(s):"
+                                + " [read:user]\"}"));
+        replies.put("/api/v1/orgs/acme", Reply.of(200, "{}"));
+        replies.put("/api/v1/repos/acme/registry", Reply.of(403, "{\"message\":\"forbidden\"}"));
+
+        final List<HttpForgeDirectory.Reach> reach = forgejo(TOKEN).tokenReach("acme", "registry");
+
+        assertThat(states(reach))
+                .as("a 403 naming no scope is not the token's lack")
+                .containsExactly(
+                        "members=MISSING",
+                        "administration=CANNOT_TELL",
+                        "contents=CANNOT_TELL",
+                        "workflows=CANNOT_TELL");
+        assertThat(reach.get(0).permission()).as("the scope Forgejo names").isEqualTo("read:user");
+        assertThat(reach.get(1).permission())
+                .as("making a repository in an organization takes its write")
+                .isEqualTo("write:organization");
+        assertThat(forgejo(null).tokenReach("acme", "registry"))
+                .as("no token, nothing asked")
+                .isEmpty();
+    }
+
+    @Test
+    void aGitHubThatDoesNotTakeTheTokenCannotTellAnyReach() {
+        replies.put("/api/user", Reply.of(502, ""));
+
+        assertThat(states(gitHub(TOKEN).tokenReach("acme", "registry")))
+                .as("a forge down is no missing permission")
+                .containsOnly(
+                        "members=CANNOT_TELL", "administration=CANNOT_TELL",
+                        "contents=CANNOT_TELL", "workflows=CANNOT_TELL");
     }
 
     @Test

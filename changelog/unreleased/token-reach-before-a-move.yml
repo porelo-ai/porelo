@@ -1,0 +1,2 @@
+title: "`porelo org create --check` says in `token-reach` whether the forge token may do what a move asks of it in the organization (members, administration, contents, workflows), naming each permission it lacks as the forge names it, so the token is made right before a server is rented; a write the forge does not show is `cannot-tell`"
+type: added

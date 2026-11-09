@@ -50,6 +50,18 @@ class OrgCreateCheckTest {
 
     private Optional<Boolean> owns = Optional.of(true);
 
+    private List<HttpForgeDirectory.Reach> reach =
+            List.of(
+                    reach("members", "read:org", HttpForgeDirectory.ReachState.READY),
+                    reach("administration", "repo", HttpForgeDirectory.ReachState.READY),
+                    reach("contents", "repo", HttpForgeDirectory.ReachState.READY),
+                    reach("workflows", "workflow", HttpForgeDirectory.ReachState.READY));
+
+    private static HttpForgeDirectory.Reach reach(
+            final String need, final String permission, final HttpForgeDirectory.ReachState state) {
+        return new HttpForgeDirectory.Reach(need, permission, state);
+    }
+
     private Optional<List<String>> authentication = Optional.empty();
 
     private Optional<List<String>> signing = Optional.empty();
@@ -73,6 +85,11 @@ class OrgCreateCheckTest {
         @Override
         public HttpForgeDirectory.TokenAccount token() {
             return token;
+        }
+
+        @Override
+        public List<HttpForgeDirectory.Reach> tokenReach() {
+            return reach;
         }
 
         @Override
@@ -398,6 +415,75 @@ class OrgCreateCheckTest {
         token = new TokenAccount(TokenState.NONE, null);
 
         says("token", "missing", "porelo credentials declare https://github.com");
+    }
+
+    @Test
+    void aTokenThatReachesWhatAMoveAsksIsReady() {
+        says("token-reach", "ready", "");
+    }
+
+    @Test
+    void aTokenLackingAPermissionIsMissingNamingItAsTheForgeDoes() {
+        // Found only at a project's opening, a missing administration write costs a rented server.
+        reach =
+                List.of(
+                        reach("members", "read:org", HttpForgeDirectory.ReachState.READY),
+                        reach("administration", "repo", HttpForgeDirectory.ReachState.MISSING),
+                        reach("contents", "repo", HttpForgeDirectory.ReachState.MISSING),
+                        reach("workflows", "workflow", HttpForgeDirectory.ReachState.MISSING));
+
+        says("token-reach", "missing", "token page");
+        assertThat(need("token-reach").get("words"))
+                .asString()
+                .as("each lacking permission by the forge's name, and what the move does with it")
+                .contains("repo (administration)")
+                .contains("repo (contents)")
+                .contains("workflow (workflows)")
+                .doesNotContain("read:org");
+    }
+
+    @Test
+    void aPermissionTheForgeDoesNotSayCannotTellAndNamesTheStepThatWouldShowIt() {
+        reach =
+                List.of(
+                        reach("members", "Members: Read", HttpForgeDirectory.ReachState.READY),
+                        reach(
+                                "workflows",
+                                "Workflows: Read and write",
+                                HttpForgeDirectory.ReachState.CANNOT_TELL));
+
+        says("token-reach", "cannot-tell", "token page");
+        assertThat(need("token-reach").get("words"))
+                .asString()
+                .contains("Workflows: Read and write")
+                .contains("the first push of a workflow change");
+    }
+
+    @Test
+    void aRefusedTokenIsNotAskedWhatItReaches() {
+        token = new TokenAccount(TokenState.REFUSED, null);
+
+        assertThat(check(SSH, "--json")).isZero();
+        assertThat(registry.answer().get("needs").toString())
+                .as("a refused token reaches nothing worth saying twice")
+                .doesNotContain("token-reach");
+    }
+
+    @Test
+    void aTokenThatWillNotSayWhoseItIsIsStillAskedWhatItReaches() {
+        // An app's installation token says no owner, yet its permissions decide a move as much.
+        token = new TokenAccount(TokenState.CANNOT_SAY, null);
+        reach = List.of(reach("contents", "Contents", HttpForgeDirectory.ReachState.MISSING));
+
+        says("token-reach", "missing", "token page");
+    }
+
+    @Test
+    void aForgeNotAskedWhatTheTokenMayDoCannotTell() {
+        reach = List.of();
+
+        says("token-reach", "cannot-tell", "token page");
+        assertThat(need("token-reach").get("words")).asString().contains("was not asked");
     }
 
     @Test

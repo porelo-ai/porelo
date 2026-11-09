@@ -91,4 +91,19 @@ public record ForgeAddress(String url, URI forge, String organization, int port)
     public static String withoutUserinfoIn(final String text) {
         return org.fuin.porelo.vault.Userinfo.leftOutOf(text);
     }
+
+    /**
+     * The repository the address names, without a trailing {@code .git}.
+     *
+     * @return Its name.
+     */
+    public String repository() {
+        String path = url;
+        while (path.endsWith("/")) {
+            path = path.substring(0, path.length() - 1);
+        }
+        // Every form ends in organization/repository, after a slash or, for scp's, a colon.
+        final String name = path.substring(path.lastIndexOf('/') + 1);
+        return name.endsWith(".git") ? name.substring(0, name.length() - 4) : name;
+    }
 }

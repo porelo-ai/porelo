@@ -200,6 +200,187 @@ public final class HttpForgeDirectory implements IdentitySource {
                 : new TokenAccount(TokenState.ACCEPTED, login);
     }
 
+    /** How far a token reaches for one thing a move asks of it. */
+    public enum ReachState {
+        /** The forge says the token may. */
+        READY,
+        /** The forge says the token may not. */
+        MISSING,
+        /** The forge does not say whether the token may. */
+        CANNOT_TELL
+    }
+
+    /**
+     * One thing a move asks of a token, and how the token stands for it.
+     *
+     * @param need What the move does with it: {@code members}, {@code administration}, {@code
+     *     contents} or {@code workflows}.
+     * @param permission The forge's own name for the permission it takes.
+     * @param state How the token stands.
+     */
+    public record Reach(String need, String permission, ReachState state) {}
+
+    /**
+     * Asks how far the configured token reaches in an organization, changing nothing.
+     *
+     * <p>A move reads who owns the organization (members), makes a project's repository and adds a
+     * host's read key (administration), pushes and fetches (contents) and changes a workflow file
+     * (workflows). Each is asked by a read the move itself makes, or the nearest one to it. GitHub
+     * names a classic token's scopes in every answer, so a lacking scope is told; a fine-grained
+     * token's and a Forgejo token's permissions are named nowhere, so a refused read is missing and
+     * a granted one leaves a write untold. Only a refusal for want of the permission is missing: a
+     * rate limit's or a single sign-on's 403 is untold.
+     *
+     * @param organisation The organization.
+     * @param repository A repository of it the token should reach, its organization's own.
+     * @return One reach per need, in that order; none without a token.
+     */
+    public List<Reach> tokenReach(final String organisation, final String repository) {
+        final String org = name(organisation, "organisation");
+        final String repo = name(repository, "repository");
+        if (token == null) {
+            return List.of();
+        }
+        return api == null ? forgejoReach(token, org, repo) : gitHubReach(api, token, org, repo);
+    }
+
+    private List<Reach> gitHubReach(
+            final String api, final String token, final String org, final String repo) {
+        final String authorization = "Bearer " + token;
+        final Answer user = get(api + "/user", authorization);
+        if (user == null || user.status() != 200) {
+            return untold(
+                    "Members: Read",
+                    "Administration: Read and write",
+                    "Contents: Read and write",
+                    "Workflows: Read and write");
+        }
+        final String at = api + "/repos/" + org + "/" + repo;
+        // The read a founding makes first to learn who owns the organization.
+        final ReachState members =
+                read(get(api + "/user/memberships/orgs/" + org, authorization), true, false);
+        final @Nullable Answer keys = get(at + "/keys?per_page=1", authorization);
+        final @Nullable Answer commits = get(at + "/commits?per_page=1", authorization);
+        if (user.scopes().isEmpty()) {
+            return List.of(
+                    new Reach("members", "Members: Read", members),
+                    new Reach(
+                            "administration",
+                            "Administration: Read and write",
+                            read(keys, false, false)),
+                    new Reach("contents", "Contents: Read and write", read(commits, false, false)),
+                    // Workflows is a write alone; no read shows it.
+                    new Reach("workflows", "Workflows: Read and write", ReachState.CANNOT_TELL));
+        }
+        final Set<String> scopes = new LinkedHashSet<>();
+        for (final String header : user.scopes()) {
+            for (final String scope : header.split(",")) {
+                scopes.add(scope.strip());
+            }
+        }
+        final boolean readsMembers =
+                scopes.contains("read:org")
+                        || scopes.contains("write:org")
+                        || scopes.contains("admin:org");
+        final boolean repoScope = scopes.contains("repo");
+        return List.of(
+                new Reach("members", "read:org", scoped(readsMembers, members)),
+                // A classic scope covers the writing too, once a read shows the organization lets
+                // the token in at all.
+                new Reach("administration", "repo", scoped(repoScope, read(keys, true, false))),
+                new Reach("contents", "repo", scoped(repoScope, read(commits, true, false))),
+                new Reach(
+                        "workflows",
+                        "workflow",
+                        scoped(scopes.contains("workflow"), read(commits, true, false))));
+    }
+
+    private List<Reach> forgejoReach(final String token, final String org, final String repo) {
+        final String authorization = "token " + token;
+        final String base = apiBase();
+        final Answer user = get(base + "/user", authorization);
+        final @Nullable String login =
+                user != null && user.status() == 200 && json(user.body()) instanceof Map<?, ?> f
+                        ? field(f, "login")
+                        : null;
+        if (login == null || !NAME.matcher(login).matches() || login.contains("..")) {
+            return untold(
+                    "read:organization",
+                    "write:organization",
+                    "write:repository",
+                    "write:repository");
+        }
+        // The read a founding makes to learn who owns the organization.
+        final Answer owner =
+                get(base + "/users/" + login + "/orgs/" + org + "/permissions", authorization);
+        // Making a repository in the organization takes its write; reading it shows only the read.
+        final Answer organization = get(base + "/orgs/" + org, authorization);
+        final Answer repository = get(base + "/repos/" + org + "/" + repo, authorization);
+        final ReachState contents = read(repository, false, true);
+        return List.of(
+                new Reach(
+                        "members", scopeNamed(owner, "read:organization"), read(owner, true, true)),
+                new Reach("administration", "write:organization", read(organization, false, true)),
+                new Reach("contents", "write:repository", contents),
+                new Reach("workflows", "write:repository", contents));
+    }
+
+    private static List<Reach> untold(
+            final String members,
+            final String administration,
+            final String contents,
+            final String workflows) {
+        return List.of(
+                new Reach("members", members, ReachState.CANNOT_TELL),
+                new Reach("administration", administration, ReachState.CANNOT_TELL),
+                new Reach("contents", contents, ReachState.CANNOT_TELL),
+                new Reach("workflows", workflows, ReachState.CANNOT_TELL));
+    }
+
+    /** A classic scope lacking is missing; one held stands as the read shows. */
+    private static ReachState scoped(final boolean held, final ReachState read) {
+        return held ? read : ReachState.MISSING;
+    }
+
+    /**
+     * What a read says of a permission: refused for want of it is missing; granted is the need met
+     * when reading is all it asks, and otherwise leaves the writing untold. A 409 is GitHub's empty
+     * repository, read.
+     */
+    private static ReachState read(
+            final @Nullable Answer answer, final boolean readIsAll, final boolean forgejo) {
+        if (answer == null) {
+            return ReachState.CANNOT_TELL;
+        }
+        if (lacking(answer, forgejo)) {
+            return ReachState.MISSING;
+        }
+        final boolean granted = answer.status() == 200 || answer.status() == 409;
+        return granted && readIsAll ? ReachState.READY : ReachState.CANNOT_TELL;
+    }
+
+    /**
+     * Whether a 403 says the token lacks the permission: not a rate limit's nor a single sign-on's,
+     * and on Forgejo only one that names a scope.
+     */
+    private static boolean lacking(final Answer answer, final boolean forgejo) {
+        if (answer.status() != 403 || answer.notThePermission()) {
+            return false;
+        }
+        return !forgejo || new String(answer.body(), StandardCharsets.UTF_8).contains("scope");
+    }
+
+    /** The scope a Forgejo refusal names, as {@code required scope(s): [read:user]} says it. */
+    private static String scopeNamed(final @Nullable Answer answer, final String otherwise) {
+        if (answer == null || answer.status() != 403) {
+            return otherwise;
+        }
+        final java.util.regex.Matcher named =
+                Pattern.compile("scope\\(s\\): \\[([a-z:, ]{1,80})\\]")
+                        .matcher(new String(answer.body(), StandardCharsets.UTF_8));
+        return named.find() ? named.group(1).strip() : otherwise;
+    }
+
     /** The public profile of a login. */
     public Optional<Profile> profile(final String login) {
         return profileGet(apiBase() + "/users/" + name(login, "login"), null);
@@ -425,7 +606,15 @@ public final class HttpForgeDirectory implements IdentitySource {
         try {
             final HttpResponse<byte[]> response =
                     pending.get(timeout.toMillis(), TimeUnit.MILLISECONDS);
-            return new Answer(response.statusCode(), response.body());
+            final java.net.http.HttpHeaders headers = response.headers();
+            return new Answer(
+                    response.statusCode(),
+                    response.body(),
+                    headers.allValues("X-OAuth-Scopes"),
+                    // A rate limit or an organization's single sign-on refuses too, with a 403.
+                    headers.firstValue("X-RateLimit-Remaining").filter("0"::equals).isPresent()
+                            || headers.firstValue("Retry-After").isPresent()
+                            || headers.firstValue("X-GitHub-SSO").isPresent());
         } catch (TimeoutException ex) {
             pending.cancel(true);
             return null;
@@ -472,7 +661,11 @@ public final class HttpForgeDirectory implements IdentitySource {
     }
 
     /** A status and the whole body that came with it. */
-    private record Answer(int status, byte[] body) {}
+    private record Answer(int status, byte[] body, List<String> scopes, boolean notThePermission) {
+        Answer(final int status, final byte[] body) {
+            this(status, body, List.of(), false);
+        }
+    }
 
     /** Collects a body, giving up past {@link #LIMIT} bytes instead of holding more. */
     private static final class Bounded implements HttpResponse.BodySubscriber<byte[]> {
