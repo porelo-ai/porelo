@@ -210,10 +210,11 @@ method GetPlanningWorkflow(project: string) -> (states: []PlanState, phases: []P
 method ListStories(project: string, states: ?[]string) -> (stories: []PlanStory, revision: string)
 
 # Answers the same board as ListStories first, then on store or local work changes with more.
-# This implementation answers a single snapshot without more; streaming answers NotYetBuilt.
+# Without more answers once. Slow clients may coalesce to the newest full board.
+# An adapter without watch is read again every three minutes; reads never fetch.
 method WatchStories(project: string) -> (stories: []PlanStory, revision: string)
 
-# Explicitly asks the adapter to refresh; contract only until change subscriptions are implemented.
+# Explicitly asks the adapter to refresh and returns its revision; refusals match board reads.
 method RefreshStories(project: string) -> (revision: string)
 
 # Reads a full story, with its computed state and web link.

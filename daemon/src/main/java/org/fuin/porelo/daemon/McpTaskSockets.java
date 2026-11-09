@@ -62,6 +62,8 @@ final class McpTaskSockets implements McpDaemonSockets.Opener, AutoCloseable {
     private final PoreloContext context;
     private final TaskInventory inventory;
     private final TaskControl control;
+    private final org.fuin.porelo.app.PlanningChanges planning;
+    private final boolean ownsPlanning;
     private final Map<String, Served> open = new ConcurrentHashMap<>();
 
     /**
@@ -108,9 +110,26 @@ final class McpTaskSockets implements McpDaemonSockets.Opener, AutoCloseable {
      * @param context The machine.
      */
     McpTaskSockets(final PoreloContext context) {
+        this(
+                context,
+                PlanningMethods.changes(
+                        context, project -> org.fuin.porelo.app.PlanningReadSnapshot.empty()),
+                true);
+    }
+
+    McpTaskSockets(PoreloContext context, org.fuin.porelo.app.PlanningChanges planning) {
+        this(context, planning, false);
+    }
+
+    private McpTaskSockets(
+            PoreloContext context,
+            org.fuin.porelo.app.PlanningChanges planning,
+            boolean ownsPlanning) {
         this.context = context;
         this.inventory = TaskInventory.deriving(context);
         this.control = new TaskControl(context);
+        this.planning = planning;
+        this.ownsPlanning = ownsPlanning;
     }
 
     /**
@@ -223,7 +242,7 @@ final class McpTaskSockets implements McpDaemonSockets.Opener, AutoCloseable {
         try {
             server.describedBy(cut(PoreloDaemon.description(), new HashSet<>(endpoint.methods())))
                     .reporting(org.fuin.porelo.app.PoreloVersion.version());
-            PoreloDaemon.register(server, context, inventory, control);
+            PoreloDaemon.register(server, context, inventory, control, planning);
             thread = Thread.ofPlatform().daemon().name("porelod-mcp-" + task).start(server);
         } catch (RuntimeException ex) {
             // Bound and not served: the socket goes, as a stale one would.
@@ -253,6 +272,7 @@ final class McpTaskSockets implements McpDaemonSockets.Opener, AutoCloseable {
         for (final String task : List.copyOf(open.keySet())) {
             close(task);
         }
+        if (ownsPlanning) planning.close();
     }
 
     /**

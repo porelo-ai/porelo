@@ -312,6 +312,19 @@ class PlanningReadsTest {
                                     reads.read("GetIssue", Map.of("issue", "issue")).get("issue"));
             assertThat(full.findings()).isEqualTo(issue.findings());
             assertThat(full.readingStopped()).isEqualTo(issue.readingStopped());
+            var latest =
+                    PlanStory.of(
+                            (Map<?, ?>)
+                                    ((List<?>)
+                                                    reads.board(PlanningReadSnapshot.empty())
+                                                            .get("stories"))
+                                            .getFirst());
+            assertThat(latest.work())
+                    .as("a fresh local snapshot is used on each watch read")
+                    .isNull();
+            assertThat(latest.issues().getFirst().rounds())
+                    .as("old local results do not survive a new snapshot")
+                    .isZero();
         }
     }
 
@@ -421,6 +434,45 @@ class PlanningReadsTest {
         }
     }
 
+    @Test
+    void refreshReturnsTheAdaptersRevisionWithoutReadingOrFetchingAnythingElse() {
+        // An explicit fetch must use the adapter's result, not a cached board revision.
+        var source =
+                new Source() {
+                    public String refresh() {
+                        calls.add("refresh");
+                        return "fetched";
+                    }
+                };
+        try (var reads = reads(source)) {
+            assertThat(reads.refresh()).as("the fetched revision").isEqualTo("fetched");
+            assertThat(source.calls).as("no extra board reads").containsExactly("refresh");
+        }
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.EnumSource(
+            value = PlanningRefused.Reason.class,
+            names = {"CREDENTIAL_REFUSED", "RATE_LIMITED", "UNREACHABLE"})
+    void refreshMapsAdapterRefusalsExactlyAsReadsDo(PlanningRefused.Reason reason) {
+        // The window must distinguish credential repair from a transient store failure.
+        var fields = Map.<String, Object>of("detail", "Safe detail", "retryAfter", 37);
+        var source =
+                new Source() {
+                    public String refresh() {
+                        throw new PlanningRefused(reason, fields);
+                    }
+                };
+        try (var reads = reads(source)) {
+            refusal(
+                    reads::refresh,
+                    reason == PlanningRefused.Reason.CREDENTIAL_REFUSED
+                            ? "PlanningCredentialRefused"
+                            : reason.wire(),
+                    fields);
+        }
+    }
+
     private static void refusal(Runnable action, String name, Map<String, Object> fields) {
         assertThatThrownBy(action::run)
                 .isInstanceOfSatisfying(
@@ -430,5 +482,226 @@ class PlanningReadsTest {
                                     .isEqualTo(TasksContract.INTERFACE + "." + name);
                             assertThat(ex.getParameters()).isEqualTo(fields);
                         });
+    }
+
+    @Test
+    void boardAndWatchDelegateToTheSameAdapter() {
+        // A watch or board using another source can silently omit store changes.
+        var observed = new ArrayList<String>();
+        var source =
+                new Source() {
+                    public boolean hasWatch() {
+                        return true;
+                    }
+
+                    public void watch(java.util.function.Consumer<String> changed) {
+                        changed.accept("changed");
+                    }
+
+                    public String refresh() {
+                        return "fetched";
+                    }
+                };
+        try (var reads = reads(source)) {
+            assertThat(reads.board(PlanningReadSnapshot.empty()))
+                    .as("board uses the enriched ListStories path")
+                    .isEqualTo(reads.read("ListStories", Map.of()));
+            assertThat(reads.hasWatch()).as("watch capability comes from the adapter").isTrue();
+            reads.watch(observed::add);
+            assertThat(observed).as("watch revisions reach the caller").containsExactly("changed");
+            assertThat(reads.refresh()).as("refresh uses this adapter").isEqualTo("fetched");
+        }
+    }
+
+    @Test
+    void boardCapabilityAndWatchKeepNamedRefusals() {
+        // Losing typed failures leaves callers on stale boards without a usable diagnosis.
+        var source =
+                new Source() {
+                    private PlanningRefused refusal() {
+                        return new PlanningRefused(
+                                PlanningRefused.Reason.INVALID_SETTINGS,
+                                Map.of("detail", "Repair settings"));
+                    }
+
+                    public Result<List<StorySummary>> stories() {
+                        throw refusal();
+                    }
+
+                    public boolean hasWatch() {
+                        throw refusal();
+                    }
+
+                    public void watch(java.util.function.Consumer<String> changed) {
+                        throw refusal();
+                    }
+                };
+        try (var reads = reads(source)) {
+            for (Runnable operation :
+                    List.<Runnable>of(
+                            () -> reads.board(PlanningReadSnapshot.empty()),
+                            () -> reads.hasWatch(),
+                            () -> reads.watch(revision -> {}))) {
+                assertThatThrownBy(operation::run)
+                        .as("the adapter refusal retains its wire name and parameters")
+                        .isInstanceOfSatisfying(
+                                VarlinkException.class,
+                                ex -> {
+                                    assertThat(ex.getErrorName())
+                                            .as("mapped refusal name")
+                                            .isEqualTo(
+                                                    TasksContract.INTERFACE + ".InvalidSettings");
+                                    assertThat(ex.getParameters())
+                                            .as("mapped refusal fields")
+                                            .containsEntry("detail", "Repair settings");
+                                });
+            }
+        }
+    }
+
+    @Test
+    void installedChangeSourceForwardsRefusalsFromItsWatchThread() throws Exception {
+        // An asynchronous refusal must terminate every client instead of retrying stale data.
+        var source =
+                new Source() {
+                    public boolean hasWatch() {
+                        return true;
+                    }
+
+                    public void watch(java.util.function.Consumer<String> changed) {
+                        throw new PlanningRefused(
+                                PlanningRefused.Reason.CREDENTIAL_REFUSED,
+                                Map.of("detail", "Sign in", "retryAfter", 0));
+                    }
+                };
+        try (var owner =
+                        new PlanningChanges(
+                                name ->
+                                        new PlanningChangeSource(
+                                                reads(source), PlanningReadSnapshot::empty),
+                                new PlanningChangeSource.Timer());
+                var watcher = owner.watch("shop")) {
+            watcher.next(0);
+            assertThatThrownBy(() -> watcher.next(2000))
+                    .as("asynchronous watch refusal reaches the subscription")
+                    .isInstanceOfSatisfying(
+                            VarlinkException.class,
+                            ex ->
+                                    assertThat(ex.getErrorName())
+                                            .as("credential refusal name")
+                                            .isEqualTo(
+                                                    TasksContract.INTERFACE
+                                                            + ".PlanningCredentialRefused"));
+        }
+    }
+
+    @Test
+    void closingTheChangeSourceStopsItsPlatformWatchThread() throws Exception {
+        // An idle board must not leave a watch thread or adapter behind.
+        var entered = new java.util.concurrent.CountDownLatch(1);
+        var release = new java.util.concurrent.CountDownLatch(1);
+        var thread = new java.util.concurrent.atomic.AtomicReference<Thread>();
+        var changes = new java.util.concurrent.atomic.AtomicInteger();
+        var ends = new java.util.concurrent.atomic.AtomicInteger();
+        var source =
+                new Source() {
+                    public void watch(java.util.function.Consumer<String> changed) {
+                        thread.set(Thread.currentThread());
+                        entered.countDown();
+                        try {
+                            release.await();
+                        } catch (InterruptedException ex) {
+                            Thread.currentThread().interrupt();
+                        }
+                        changed.accept("late");
+                    }
+
+                    public void close() {
+                        release.countDown();
+                    }
+                };
+        try (var edge = new PlanningChangeSource(reads(source), PlanningReadSnapshot::empty)) {
+            edge.watch(
+                    revision -> changes.incrementAndGet(),
+                    error -> {
+                        throw new AssertionError(error);
+                    },
+                    ends::incrementAndGet);
+            assertThat(entered.await(2, java.util.concurrent.TimeUnit.SECONDS))
+                    .as("adapter watch started")
+                    .isTrue();
+            assertThat(thread.get().isVirtual())
+                    .as("blocking watch uses a platform thread")
+                    .isFalse();
+            edge.close();
+            thread.get().join(2000);
+            assertThat(thread.get().isAlive())
+                    .as("closing the source releases its watch thread")
+                    .isFalse();
+            assertThat(changes.get()).as("no revision after close").isZero();
+            assertThat(ends.get()).as("closing is not retried").isZero();
+        } finally {
+            release.countDown();
+        }
+    }
+
+    @Test
+    void theIdleTimerReleasesItsExecutorAndCanBeUsedAgain() throws Exception {
+        // Last-client cleanup must release threads without breaking a later subscription.
+        var threads = new java.util.concurrent.ConcurrentLinkedQueue<Thread>();
+        try (var timer =
+                new PlanningChangeSource.Timer(
+                        action -> {
+                            var thread = Thread.ofPlatform().daemon().unstarted(action);
+                            threads.add(thread);
+                            return thread;
+                        })) {
+            for (int round = 0; round < 2; round++) {
+                var ran = new java.util.concurrent.CountDownLatch(1);
+                timer.schedule(java.time.Duration.ZERO, ran::countDown);
+                assertThat(ran.await(2, java.util.concurrent.TimeUnit.SECONDS))
+                        .as("timer fires after being acquired")
+                        .isTrue();
+                timer.close();
+                for (var thread : threads) {
+                    thread.join(2000);
+                    assertThat(thread.isAlive())
+                            .as("idle timer leaves no executor thread or action thread")
+                            .isFalse();
+                }
+                threads.clear();
+            }
+        }
+    }
+
+    @Test
+    void aBlockedTimerActionDoesNotDelayAnotherProject() throws Exception {
+        // One slow board poll must not suspend every project's polling and reconnects.
+        var entered = new java.util.concurrent.CountDownLatch(1);
+        var release = new java.util.concurrent.CountDownLatch(1);
+        var healthy = new java.util.concurrent.CountDownLatch(1);
+        try (var timer = new PlanningChangeSource.Timer()) {
+            timer.schedule(
+                    java.time.Duration.ZERO,
+                    () -> {
+                        entered.countDown();
+                        try {
+                            release.await();
+                        } catch (InterruptedException ex) {
+                            Thread.currentThread().interrupt();
+                        }
+                    });
+            try {
+                assertThat(entered.await(2, java.util.concurrent.TimeUnit.SECONDS))
+                        .as("the first timer action is blocked")
+                        .isTrue();
+                timer.schedule(java.time.Duration.ZERO, healthy::countDown);
+                assertThat(healthy.await(2, java.util.concurrent.TimeUnit.SECONDS))
+                        .as("another project's scheduled action runs while a poll blocks")
+                        .isTrue();
+            } finally {
+                release.countDown();
+            }
+        }
     }
 }

@@ -110,8 +110,8 @@ when all issues are closed. An issue-less story keeps its stored state. State na
 |---|---|
 | `GetPlanningWorkflow` | `project` → ordered `states`, `phases`, signed `work` rules and validation `faults`. |
 | `ListStories` | `project`, optional `states` → `stories`, `revision`; absent filter means all, empty means none; filtering uses computed states. |
-| `WatchStories` | `project` → the same board as `ListStories`; without `more`, one snapshot; streaming is not implemented yet. |
-| `RefreshStories` | `project` → `revision`; explicit fetch, not implemented yet. |
+| `WatchStories` | `project` → the same board as `ListStories`; without `more`, one snapshot; with `more`, the whole board again on store or local work changes. |
+| `RefreshStories` | `project` → `revision`; explicitly asks the adapter to fetch now; store refusals match board reads. |
 | `GetStory` | `project`, `story` id → full `story`, `revision`. |
 | `ListStoryIssues` | `project`, `story` id → summary `issues`, `revision`. |
 | `GetIssue` | `project`, `issue` id → full `issue` details, `revision`. |
@@ -121,6 +121,18 @@ when all issues are closed. An issue-less story keeps its stored state. State na
 | `StopStoryWork` | `project`, `story` → optional stopped `work`; the items keep their working state. |
 | `SaveMoves` | `project`, `moves: [](story: ?string, issue: ?string, to: string)`, board `revision` → new `revision`, `moved: []string` (issue ids); all pending story and issue moves or none. Each move names exactly one item; a story move changes only issues in its computed state, or its own state without issues. |
 | `ResolveIssueReading` | `project`, `story`, `issue`, displayed `round`, `choice`, `comment`, `revision` → updated `issue`, `work`, `revision`; `REVIEW_ANYWAY` accepts, `ONE_MORE_ROUND` grants one further reading, `REWORK` resumes main with a required nonblank comment. Counts never reset; the round must still match. |
+
+The first board and every update use the same computed states and local work fields as `ListStories`.
+Porelod shares one adapter stream per watched project and releases it with the last watcher. It compares
+the adapter's initial revision with the board read, so changes during subscription are not lost. Duplicate
+revisions produce no repeated board; a local work signal rereads even when the store revision is unchanged.
+Slow clients keep the initial board and the newest full update. A closed client releases its subscription.
+An ended adapter stream reconnects after one second, doubling the delay up to three minutes;
+existing clients remain subscribed. Without the adapter's `watch` capability, Porelod reads every three
+minutes and never fetches implicitly. A named refusal from a board read, watch or reopen ends that project's streams with its error.
+An explicit refresh publishes a changed board immediately; a new subscriber rereads while the
+adapter is watchless or reconnecting.
+`WatchStories` is an MCP reading method; `RefreshStories` is offered only from the person's writing list.
 
 The record fields are:
 
@@ -166,8 +178,6 @@ Local startup, transport and malformed-reply failures remain `PlanningAdapterRef
 Render all diagnostic fields as bounded, terminal-safe text. An absent or null adapter `subAgents` list
 becomes an empty list in a full issue; newer proposal and state kinds appear as `OTHER`. Such values
 never authorize a start or move; unfinished action methods still refuse with `NotYetBuilt`.
-Streaming watch remains unimplemented. When implemented, its first Planning1 `WatchChanges` revision
-must be compared with the preceding read; a mismatch requires rereading the whole board.
 
 Omitted start selections use the proposal. Omitted comment is empty. A positive per-issue reading limit
 overrides the story limit, which overrides `planning.reading.rounds` (default 2). Dropped briefs remain the
@@ -175,11 +185,12 @@ main agent's responsibility, including a dropped reader. Reading findings retain
 `ROUND_LIMIT` is not inferred from an adapter state. One local snapshot supplies every nested issue and
 `GetStoryWork` in a request; another machine's work is never guessed.
 
-**Current implementation:** the five reads and a single-snapshot watch use the installed adapter, opened and closed per request.
+**Current implementation:** board reads, streaming watches and explicit refreshes use the installed adapter.
+An active project's watchers and refreshes share its process; the other reads open and close an adapter per request.
 Until the project model carries planning configuration, the read bridge accepts the `planning.adapter`
 and opaque `planning.settings` mapping from the project's recorded file. Credential-bearing configurations
 answer `NotYetBuilt(PlanningCredentials)` without opening a vault. Work rules and their checks are not
-implemented. Proposal/start/stop/moves/resolve/refresh and a streaming watch answer `NotYetBuilt` and change nothing.
+implemented. Proposal/start/stop/moves/resolve answer `NotYetBuilt` and change nothing.
 `GetStoryWork` has no local work until the work lifecycle supplies its saved snapshot. Without a cycle,
 rounds are 0, roundsMost is the project default, flags are false and findings empty. The read bridge can
 consume an immutable local work snapshot, including exhausted readings and notes. No response claims

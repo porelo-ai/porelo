@@ -108,6 +108,19 @@ public final class PoreloDaemon {
     /** Serves the same methods with an injectable kernel peer check. */
     public static VarlinkServer serving(
             PoreloContext supplied, Path socket, VarlinkServer.PeerReader peers) {
+        return serving(
+                supplied,
+                socket,
+                peers,
+                PlanningMethods.changes(
+                        supplied, project -> org.fuin.porelo.app.PlanningReadSnapshot.empty()));
+    }
+
+    private static VarlinkServer serving(
+            PoreloContext supplied,
+            Path socket,
+            VarlinkServer.PeerReader peers,
+            org.fuin.porelo.app.PlanningChanges planning) {
         final PoreloContext context =
                 supplied.hostVault() instanceof org.fuin.porelo.app.HostVaultOwner
                         ? supplied
@@ -121,6 +134,7 @@ public final class PoreloDaemon {
                         try {
                             super.close();
                         } finally {
+                            planning.close();
                             owner.close();
                         }
                     }
@@ -139,7 +153,7 @@ public final class PoreloDaemon {
         // still there. Sending to a closed connection used to be the only sign, so a stream with no
         // news ran for the daemon's life after its client had reconnected.
 
-        register(server, context, inventory, control);
+        register(server, context, inventory, control, planning);
         return server;
     }
 
@@ -151,12 +165,14 @@ public final class PoreloDaemon {
      * @param context The machine.
      * @param inventory The one task inventory.
      * @param control The one task control.
+     * @param planning The board subscriptions closed by this server's owner.
      */
     static void register(
             VarlinkServer server,
             PoreloContext context,
             TaskInventory inventory,
-            TaskControl control) {
+            TaskControl control,
+            org.fuin.porelo.app.PlanningChanges planning) {
         // Each area registers its own methods, from its own file.
         TaskMethods.register(server, context, inventory, control);
         ProjectMethods.register(server, context, inventory, control);
@@ -167,7 +183,13 @@ public final class PoreloDaemon {
         MessagingMethods.register(server, context, inventory, control);
         MachineMethods.register(server, context, inventory, control);
         EventMethods.register(server, context, inventory, control);
-        PlanningMethods.register(server, context, inventory, control);
+        PlanningMethods.register(
+                server,
+                context,
+                inventory,
+                control,
+                project -> org.fuin.porelo.app.PlanningReadSnapshot.empty(),
+                planning);
     }
 
     static PoreloContext ownedContext(PoreloContext context) {
@@ -1265,8 +1287,17 @@ public final class PoreloDaemon {
             final Path socket = owned.paths().daemonSocket();
             final var upstream = watches.upstream();
             final var mail = watches.mail();
-            try (VarlinkServer server = serving(owned, socket);
-                    McpTaskSockets taskSockets = new McpTaskSockets(owned)) {
+            final var planning =
+                    PlanningMethods.changes(
+                            owned, project -> org.fuin.porelo.app.PlanningReadSnapshot.empty());
+            try (planning;
+                    VarlinkServer server =
+                            serving(
+                                    owned,
+                                    socket,
+                                    org.fuin.porelo.core.process.SocketPeer::read,
+                                    planning);
+                    McpTaskSockets taskSockets = new McpTaskSockets(owned, planning)) {
                 // A task's start asks for its MCP socket through this; nothing else installs one.
                 org.fuin.porelo.app.McpDaemonSockets.install(taskSockets);
                 // A task still running keeps its porelo-mcp, pointed at a socket the daemon before

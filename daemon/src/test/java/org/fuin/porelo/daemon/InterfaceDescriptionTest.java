@@ -574,20 +574,36 @@ class InterfaceDescriptionTest {
         final PoreloContext context = context(dir);
         final VarlinkServer server =
                 new VarlinkServer(dir.resolve("porelod.sock"), PoreloDaemon.INTERFACE);
-        final Class<?> registrar = Class.forName("org.fuin.porelo.daemon." + area + "Methods");
-        final java.lang.reflect.Method register =
-                registrar.getDeclaredMethod(
-                        "register",
-                        VarlinkServer.class,
-                        PoreloContext.class,
-                        org.fuin.porelo.app.TaskInventory.class,
-                        org.fuin.porelo.app.TaskControl.class);
-        register.invoke(
-                null,
-                server,
-                context,
-                org.fuin.porelo.app.TaskInventory.deriving(context),
-                new org.fuin.porelo.app.TaskControl(context));
+        // The board's area takes the daemon's one PlanningChanges, which its owner closes.
+        final java.util.function.Function<String, org.fuin.porelo.app.PlanningReadSnapshot>
+                snapshots = project -> org.fuin.porelo.app.PlanningReadSnapshot.empty();
+        final org.fuin.porelo.app.PlanningChanges changes =
+                PlanningMethods.changes(context, snapshots);
+        if ("Planning".equals(area)) {
+            PlanningMethods.register(
+                    server,
+                    context,
+                    org.fuin.porelo.app.TaskInventory.deriving(context),
+                    new org.fuin.porelo.app.TaskControl(context),
+                    snapshots,
+                    changes);
+        } else {
+            final Class<?> registrar = Class.forName("org.fuin.porelo.daemon." + area + "Methods");
+            final java.lang.reflect.Method register =
+                    registrar.getDeclaredMethod(
+                            "register",
+                            VarlinkServer.class,
+                            PoreloContext.class,
+                            org.fuin.porelo.app.TaskInventory.class,
+                            org.fuin.porelo.app.TaskControl.class);
+            register.invoke(
+                    null,
+                    server,
+                    context,
+                    org.fuin.porelo.app.TaskInventory.deriving(context),
+                    new org.fuin.porelo.app.TaskControl(context));
+        }
+        changes.close();
         final Set<String> registered =
                 new TreeSet<>(
                         server.methodNames().stream()

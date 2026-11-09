@@ -6,6 +6,8 @@ import java.nio.file.Path;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Consumer;
+import java.util.function.Supplier;
 import org.fuin.porelo.planning.api.InstalledPlanning;
 import org.fuin.porelo.planning.api.Issue;
 import org.fuin.porelo.planning.api.IssueSummary;
@@ -131,6 +133,21 @@ public final class PlanningReads implements AutoCloseable {
 
         boolean hasIssues();
 
+        /** Whether this source advertises an independent change stream. */
+        default boolean hasWatch() {
+            return false;
+        }
+
+        /** Blocks until its adapter stream ends; close must unblock it. */
+        default void watch(Consumer<String> changed) {
+            throw PlanningRefused.notSupported("watch");
+        }
+
+        /** Explicitly fetches instead of reading the current cache. */
+        default String refresh() {
+            throw PlanningRefused.notSupported("watch");
+        }
+
         @Override
         default void close() {}
     }
@@ -162,6 +179,24 @@ public final class PlanningReads implements AutoCloseable {
             return installed.describe().capabilities().contains("issues");
         }
 
+        public boolean hasWatch() {
+            return installed.describe().capabilities().contains("watch");
+        }
+
+        public void watch(Consumer<String> changed) {
+            installed.watchChanges(
+                    settings,
+                    "",
+                    change -> {
+                        changed.accept(change.revision());
+                        return true;
+                    });
+        }
+
+        public String refresh() {
+            return installed.refresh(settings, "");
+        }
+
         public void close() {
             installed.close();
         }
@@ -177,18 +212,58 @@ public final class PlanningReads implements AutoCloseable {
         workConfigured = false;
     }
 
+    private PlanningReads(PlanningReads reads, PlanningReadSnapshot local) {
+        adapter = reads.adapter;
+        project = reads.project;
+        adapterName = reads.adapterName;
+        workConfigured = reads.workConfigured;
+        readingRounds = reads.readingRounds;
+        this.local = local;
+    }
+
+    /** Reads the board against one fresh local work snapshot, keeping the installed adapter. */
+    public Map<String, Object> board(PlanningReadSnapshot snapshot) {
+        return new PlanningReads(this, snapshot).read("ListStories", Map.of());
+    }
+
+    /** Whether the installed adapter advertises a stream. */
+    public boolean hasWatch() {
+        return asked(adapter::hasWatch);
+    }
+
+    /** Blocks on the adapter's independent stream; closing these reads cancels it. */
+    public void watch(Consumer<String> changed) {
+        asked(
+                () -> {
+                    adapter.watch(changed);
+                    return true;
+                });
+    }
+
+    /** Fetches explicitly and translates refusals exactly as board reads do. */
+    public String refresh() {
+        return asked(adapter::refresh);
+    }
+
     /** Answers a read from one revision, retrying a concurrently changed snapshot at most twice. */
     public Map<String, Object> read(String method, Map<String, Object> parameters) {
-        try {
-            for (int attempt = 0; ; attempt++) {
-                try {
-                    return readOnce(method, parameters);
-                } catch (SnapshotChanged ex) {
-                    if (attempt == 2) {
-                        throw error("StaleRevision", Map.of("revision", ex.revision));
+        return asked(
+                () -> {
+                    for (int attempt = 0; ; attempt++) {
+                        try {
+                            return readOnce(method, parameters);
+                        } catch (SnapshotChanged ex) {
+                            if (attempt == 2) {
+                                throw error("StaleRevision", Map.of("revision", ex.revision));
+                            }
+                        }
                     }
-                }
-            }
+                });
+    }
+
+    private <T> T asked(Supplier<T> operation) {
+        try {
+            return operation.get();
         } catch (PlanningRefused ex) {
             final var fields = new LinkedHashMap<String, Object>(ex.parameters());
             if (ex.reason() == PlanningRefused.Reason.WORKFLOW_MISSING) {

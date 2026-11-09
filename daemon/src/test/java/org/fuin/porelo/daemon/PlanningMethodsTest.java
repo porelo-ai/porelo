@@ -172,7 +172,6 @@ class PlanningMethodsTest {
                     final var before = runner.invocations();
                     for (String method :
                             List.of(
-                                    "RefreshStories",
                                     "ProposeStoryWork",
                                     "StartStoryWork",
                                     "StopStoryWork",
@@ -434,23 +433,100 @@ class PlanningMethodsTest {
     }
 
     @Test
-    void aStreamingBoardWatchRefusesRatherThanPretendingToSubscribe() throws Exception {
+    void anOutsideChangeReachesTheRealBoardStreamWithinTheDeadline() throws Exception {
+        // A missing adapter subscription strands the window on an obsolete board indefinitely.
         serving(
-                client ->
-                        assertThatThrownBy(
-                                        () ->
-                                                client.callMore(
-                                                        PoreloDaemon.INTERFACE + ".WatchStories",
-                                                        Map.of("project", "shop"),
-                                                        reply -> true))
-                                .as("a stream is not silently answered as a completed subscription")
-                                .isInstanceOfSatisfying(
-                                        VarlinkException.class,
-                                        ex ->
-                                                assertThat(ex.getErrorName())
-                                                        .isEqualTo(
-                                                                PoreloDaemon.INTERFACE
-                                                                        + ".NotYetBuilt")));
+                client -> {
+                    var answers =
+                            new java.util.concurrent.LinkedBlockingQueue<Map<String, Object>>();
+                    var failure = new java.util.concurrent.CompletableFuture<Void>();
+                    Thread reader =
+                            Thread.ofPlatform()
+                                    .start(
+                                            () -> {
+                                                try {
+                                                    client.callMore(
+                                                            PoreloDaemon.INTERFACE
+                                                                    + ".WatchStories",
+                                                            Map.of("project", "shop"),
+                                                            reply -> {
+                                                                answers.add(reply);
+                                                                return true;
+                                                            });
+                                                    failure.complete(null);
+                                                } catch (Throwable ex) {
+                                                    failure.completeExceptionally(ex);
+                                                }
+                                            });
+                    try {
+                        var first = answers.poll(10, java.util.concurrent.TimeUnit.SECONDS);
+                        if (first == null && failure.isDone()) failure.get();
+                        assertThat(first)
+                                .as("initial full board before the bounded deadline")
+                                .isNotNull();
+                        Path runtime = context.paths().xdg().runtime().resolve("planning");
+                        Path adapterSocket;
+                        try (var paths = Files.list(runtime)) {
+                            adapterSocket = paths.findFirst().orElseThrow().resolve("s");
+                        }
+                        try (var outside = new VarlinkClient(adapterSocket)) {
+                            outside.call(
+                                    "org.fuin.porelo.Planning1.SetStates",
+                                    Map.of(
+                                            "settings",
+                                            Map.of(),
+                                            "token",
+                                            "",
+                                            "changes",
+                                            List.of(Map.of("issue", "one", "to", "Working")),
+                                            "revision",
+                                            first.get("revision")));
+                        }
+                        var second = answers.poll(10, java.util.concurrent.TimeUnit.SECONDS);
+                        if (second == null && failure.isDone()) failure.get();
+                        assertThat(second)
+                                .as("outside changes must produce another board reply")
+                                .isNotNull();
+                        assertThat(second.get("revision"))
+                                .as("the changed adapter revision")
+                                .isNotEqualTo(first.get("revision"));
+                        var story =
+                                org.fuin.porelo.wire.planning.PlanStory.of(
+                                        (Map<?, ?>) ((List<?>) second.get("stories")).getFirst());
+                        assertThat(story.issues().getFirst().state())
+                                .as("the changed issue crosses both processes")
+                                .isEqualTo("Working");
+                        if (failure.isDone()) failure.get();
+                        assertThat(reader.isAlive())
+                                .as("the client remains streaming until explicitly closed")
+                                .isTrue();
+                    } finally {
+                        client.close();
+                        reader.join(5000);
+                        assertThat(reader.isAlive())
+                                .as("disconnect releases the client reader")
+                                .isFalse();
+                        Path runtime = context.paths().xdg().runtime().resolve("planning");
+                        long deadline =
+                                System.nanoTime()
+                                        + java.util.concurrent.TimeUnit.SECONDS.toNanos(5);
+                        boolean gone;
+                        do {
+                            if (Files.isDirectory(runtime)) {
+                                try (var paths = Files.list(runtime)) {
+                                    gone = paths.findAny().isEmpty();
+                                }
+                            } else gone = !Files.exists(runtime);
+                            if (!gone)
+                                java.util.concurrent.locks.LockSupport.parkNanos(
+                                        java.util.concurrent.TimeUnit.MILLISECONDS.toNanos(10));
+                        } while (!gone && System.nanoTime() < deadline);
+                        assertThat(gone)
+                                .as(
+                                        "disconnect closes the adapter and removes its runtime directory while the daemon still serves")
+                                .isTrue();
+                    }
+                });
     }
 
     @Test
@@ -508,13 +584,15 @@ class PlanningMethodsTest {
                 new org.fuin.porelo.wire.planning.PlanWork(
                         List.of(), null, "", false, List.of(), "", 2, List.of(), List.of(result));
         final var local = new org.fuin.porelo.app.PlanningReadSnapshot(Map.of("story", work));
-        try (var server = new VarlinkServer(socket(), PoreloDaemon.INTERFACE)) {
+        try (var changes = PlanningMethods.changes(context, name -> local);
+                var server = new VarlinkServer(socket(), PoreloDaemon.INTERFACE)) {
             PlanningMethods.register(
                     server,
                     context,
                     org.fuin.porelo.app.TaskInventory.deriving(context),
                     new org.fuin.porelo.app.TaskControl(context),
-                    project -> local);
+                    project -> local,
+                    changes);
             Thread.ofPlatform().daemon().start(server);
             try (var client = new VarlinkClient(server.socketPath())) {
                 final var full =
