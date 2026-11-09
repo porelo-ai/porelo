@@ -2,7 +2,8 @@
 
 **Status:** Backlog (Estimated, M, 180 minutes, on the operator's word, 2026-11-06).
 **Size:** M - a package route in the task's broker, the task's own forge token read for it, the start ordered for it,
-and the settings through `porelo.yml` and Configure; their tests. Estimate 180 minutes, once
+and the settings through `porelo.yml` and Configure, the token's end kept pending until the host answers; their tests.
+Estimate 180 minutes, once
 [B470](README.md#b470) and [B467](README.md#b467) have landed.
 
 **What must be true.** A task's build resolves its project's own snapshots from the host's forge registry, by the
@@ -10,6 +11,14 @@ repository name its `porelo.yml` declares, through Porelo's broker: `GET` and `H
 `/api/packages/<organization>/maven` of the task's own project and nothing else, with the host-issued token never in
 the container. The project's plan holds the whole; this is porelo's part, and the host's part is porelo-host's: the
 task token it issues gains `read:package`, with its Molecule check.
+
+- **Removing a task ends its host-issued token at once**: the host revokes it when told the task ended, and its expiry
+  alone is not enough. A removal that cannot tell the host - a refusal, an unreachable helper - does not pass in
+  silence: it says the token still stands and until when, and the next removal or start on that machine tells the host
+  again until it answers that the task ended.
+- **Which snapshot a build resolves, and which coordinates go to the host's registry at all** (the newest-snapshot rule
+  and the private-coordinate filter), follow the registry design [B306](README.md#b306)'s builds use, unchanged; a task
+  adds no rule of its own.
 
 ## Found
 
@@ -46,10 +55,9 @@ Read in the code on 2026-11-06 (a Codex reading, checked line by line):
 - **Red tests:** a package request outside the organization's maven path is refused before upstream; a jar and a POM
   round-trip unchanged; the real token is in neither the container, its environment nor its settings; a failed start
   ends it.
+- **The end at removal:** `TaskControl` already tells the host (`HostPerson.end`, `task --end`) when the task's key is in
+  the vault, and today swallows a `Refused`, leaving the token to its certificate's expiry. Kept instead as a pending
+  end in the task's durable state, answered at the next removal or start, and said in the removal's answer; a red
+  test: a helper that refuses leaves the end pending and the removal says so.
 - **Measured only on a forge:** a real task resolving a private snapshot by its declared name (porelo-host's VM with
   Porelo installed, or a rented host).
-
-## Open questions
-
-- Whether removing a task ends its token at once, or its expiry suffices.
-- The newest-snapshot rule and the private-coordinate filter: the shared registry design, as for [B306](README.md#b306).
