@@ -19,11 +19,14 @@ import org.fuin.porelo.wire.Directories;
 import org.fuin.porelo.wire.Json;
 
 /**
- * Which settings of a repository's own files this machine allowed, in the default project.
+ * Which settings of a repository's own files this machine allowed: in the default project, what the
+ * checkout's files ask; in a project written on this machine, the image its mirror's {@code
+ * porelo.yml} gives, which nobody signs.
  *
  * <p><strong>A yes is bound to what was set.</strong> Every setting allowed is kept, so a later
- * change asks only for what is new, changed or removed since; a file that asks for less, or changes
- * only its image, asks nothing. The hash a yes names is of the whole state then asked for.
+ * change asks only for what is new, changed or removed since; a file that asks for less asks
+ * nothing. Its image is a setting like the others: a new or changed line, base image or variable
+ * asks again. The hash a yes names is of the whole state then asked for.
  *
  * <p>One file per repository, as a registry two processes write is.
  */
@@ -43,8 +46,21 @@ public final class RepositoryAllowance {
      * @param context This machine.
      */
     public RepositoryAllowance(final PoreloContext context) {
-        this.directory =
-                context.paths().xdg().state().resolve(DefaultProject.NAME).resolve("allowed");
+        this(context, DefaultProject.NAME);
+    }
+
+    /**
+     * Constructor, for a project's repositories.
+     *
+     * @param context This machine.
+     * @param project The project's name.
+     * @throws IllegalArgumentException When the name is no directory's.
+     */
+    public RepositoryAllowance(final PoreloContext context, final String project) {
+        if (!NAME.matcher(project).matches()) {
+            throw new IllegalArgumentException("not a project's name: " + project);
+        }
+        this.directory = context.paths().xdg().state().resolve(project).resolve("allowed");
     }
 
     /**

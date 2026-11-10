@@ -1242,6 +1242,105 @@ class TaskRunCommandTest {
     }
 
     @Test
+    void aClonedRepositorysImageLineIsNotBuiltWithNoInputUntilAllowed(@TempDir Path dir)
+            throws IOException {
+        // Its lines run as root while the image is built: nobody answered, so nothing is built.
+        final Path checkout = Files.createDirectories(dir.resolve("shop")).toRealPath();
+        Files.writeString(
+                checkout.resolve("porelo.yml"), "image:\n  run: \"RUN echo cloned-line\"\n");
+
+        final int refused =
+                firstStartAt(
+                        context(dir, true),
+                        checkout,
+                        true,
+                        "y",
+                        "--no-input",
+                        "--attach",
+                        "shell",
+                        "--detach");
+
+        assertThat(refused).isNotZero();
+        assertThat(firstStartAsked).as("a file already there is no first start's").isEmpty();
+        assertThat(err.toString())
+                .contains("has not allowed", "+ image.run[1] = RUN echo cloned-line");
+        assertThat(runner.lines())
+                .noneMatch(line -> line.contains("podman build") || line.contains("podman create"));
+
+        final PoreloContext context = context(dir, true);
+        final Path file = new DefaultProject(context).file();
+        final String hash =
+                RepositoryOwnSettings.of(
+                                context,
+                                file,
+                                org.fuin.porelo.core.project.ProjectReader.read(file)
+                                        .repository("shop"))
+                        .hash();
+        assertThat(RepositoryOwnSettings.allowIfUnchanged(context, "shop", hash)).isTrue();
+        err.getBuffer().setLength(0);
+
+        assertThat(
+                        firstStartAt(
+                                context,
+                                checkout,
+                                true,
+                                "y",
+                                "--no-input",
+                                "--attach",
+                                "shell",
+                                "--detach"))
+                .as("allowed, it starts unasked: %s", err)
+                .isZero();
+        assertThat(err.toString()).doesNotContain("has not allowed");
+    }
+
+    @Test
+    void aDryRunInDefaultNamesEachLineNotAllowedOnce(@TempDir Path dir) throws IOException {
+        // The checkout's settings are said once, the image among them: no second list for it.
+        final Path checkout = Files.createDirectories(dir.resolve("shop")).toRealPath();
+        Files.writeString(
+                checkout.resolve("porelo.yml"), "image:\n  run: \"RUN echo cloned-line\"\n");
+
+        final int code =
+                firstStartAt(
+                        context(dir, true),
+                        checkout,
+                        true,
+                        "y",
+                        "--no-input",
+                        "--dry-run",
+                        "--attach",
+                        "shell",
+                        "--detach");
+
+        assertThat(code).as("%s%s", out, err).isZero();
+        assertThat(out.toString().lines().filter(line -> line.contains("RUN echo cloned-line")))
+                .as("%s", out)
+                .hasSize(1);
+        assertThat(out.toString())
+                .contains("not allowed on this machine yet")
+                .doesNotContain("image settings not allowed");
+    }
+
+    @Test
+    void aNoAtTheFirstStartBuildsNoLineOfThePersonsOwnFile(@TempDir Path dir) throws IOException {
+        final Path checkout = Files.createDirectories(dir.resolve("shop")).toRealPath();
+        Files.writeString(
+                checkout.resolve(".porelo.yml"), "image:\n  run: \"RUN echo own-line\"\n");
+
+        final int code =
+                firstStartAt(
+                        context(dir, true), checkout, true, "n", "--attach", "shell", "--detach");
+
+        assertThat(firstStartAsked).hasSize(1);
+        assertThat(checkout.resolve("porelo.yml")).doesNotExist();
+        assertThat(code).as("the start is refused: %s", out).isNotZero();
+        assertThat(err.toString()).contains("+ image.run[1] = RUN echo own-line");
+        assertThat(runner.lines())
+                .noneMatch(line -> line.contains("podman build") || line.contains("podman create"));
+    }
+
+    @Test
     void aYesAtTheFirstStartStartsFromTheFileItWrote(@TempDir Path dir) throws IOException {
         final Path checkout = Files.createDirectories(dir.resolve("shop")).toRealPath();
 
@@ -4403,12 +4502,312 @@ class TaskRunCommandTest {
         git(dir, "clone", "-q", "--bare", upstream.toString(), mirror.toString());
         Files.writeString(upstream.resolve("porelo.yml"), after);
         git(upstream, "commit", "-q", "-am", "after");
+        final String file =
+                projectFile(
+                        dir,
+                        MINIMAL.replace(
+                                "  security_class: \"guarded\"",
+                                "  security_class: \"guarded\"\n  upstream: \"file://%s\""
+                                        .formatted(upstream)));
+        // These starts are about what the files say, not about this machine's yes to their lines.
+        final PoreloContext context = context(dir, true);
+        allowRepositoryImage(
+                context, ProjectSource.resolve(context, file).file(), "uc", before, after);
+        return file;
+    }
+
+    @Test
+    void aWindowAllowsAnImageLineNamingTheRepositoryByItsFullName(@TempDir Path dir)
+            throws Exception {
+        // CanStart takes the full name a person reads in the window; the yes takes it too.
+        final String file = unallowedRepositoryImage(dir, "image:\n  run: \"RUN echo one\"\n");
+        final PoreloContext context = context(dir, true);
+        final var project =
+                org.fuin.porelo.core.project.ProjectReader.read(
+                        ProjectSource.resolve(context, file).file());
+        String shown = "";
+        try {
+            ImageChoice.preview(context, project, project.repository("uc"));
+        } catch (ImageChoice.NotAllowed ex) {
+            shown = ex.hash();
+        }
+        assertThat(shown).as("the file asks first").isNotEmpty();
+
+        assertThat(ImageChoice.allowIfUnchanged(context, file, "upstream", shown)).isTrue();
+        assertThat(
+                        ImageChoice.preview(context, project, project.repository("uc"))
+                                .choice()
+                                .snippet())
+                .isEqualTo("RUN echo one");
+    }
+
+    /** A hand-written project whose repository's file, in its mirror, nobody allowed yet. */
+    private String unallowedRepositoryImage(final Path dir, final String text) throws IOException {
+        final Path upstream = Files.createDirectories(dir.resolve("upstream"));
+        git(upstream, "init", "-q");
+        Files.writeString(upstream.resolve("porelo.yml"), text);
+        git(upstream, "add", "porelo.yml");
+        git(upstream, "commit", "-q", "-m", "upstream");
+        final Path mirror = dir.resolve("data/porelo/mirrors/uc.git");
+        Files.createDirectories(mirror.getParent());
+        git(dir, "clone", "-q", "--bare", upstream.toString(), mirror.toString());
         return projectFile(
                 dir,
                 MINIMAL.replace(
                         "  security_class: \"guarded\"",
                         "  security_class: \"guarded\"\n  upstream: \"file://%s\""
                                 .formatted(upstream)));
+    }
+
+    @Test
+    void aHandWrittenProjectsUnsignedImageLineIsBuiltOnlyOnceThisMachineAllowedIt(@TempDir Path dir)
+            throws Exception {
+        // Nobody signs it, and its lines run as root while the image is built.
+        final String file =
+                unallowedRepositoryImage(
+                        dir, "image:\n  from: ubuntu:24.04\n  run: RUN echo upstream-line\n");
+        final PoreloContext context = repositoryImageContext(dir);
+
+        final int refused =
+                execute(
+                        context,
+                        "task",
+                        "start",
+                        "--attach",
+                        "shell",
+                        "--detach",
+                        "--no-gate",
+                        "-p",
+                        file);
+
+        assertThat(refused).as("nobody answered: %s", out).isNotZero();
+        assertThat(err.toString())
+                .contains("has not allowed", "+ image.run[1] = RUN echo upstream-line");
+        assertThat(runner.lines())
+                .noneMatch(line -> line.contains("podman build") || line.contains("podman create"));
+
+        out.getBuffer().setLength(0);
+        assertThat(execute(context, "task", "start", "--no-gate", "--dry-run", "-p", file))
+                .as("a dry run shows what a start would ask: %s", err)
+                .isZero();
+        assertThat(out.toString())
+                .contains(
+                        "setting        + image.run[1] = RUN echo upstream-line",
+                        "image settings not allowed on this machine yet; a start asks first");
+
+        final Path projectFile = ProjectSource.resolve(context, file).file();
+        final var project = org.fuin.porelo.core.project.ProjectReader.read(projectFile);
+        final StartCheck.Result asked =
+                StartCheck.withSettings(
+                        context,
+                        new StartCheck.Result(StartCheck.Outcome.READY, "", "", "", ""),
+                        projectFile,
+                        "uc");
+        assertThat(asked.outcome())
+                .as("CanStart refuses it as Start does")
+                .isEqualTo(StartCheck.Outcome.SETTINGS_NOT_ALLOWED);
+        assertThat(asked.settingsToAllow())
+                .extracting(each -> each.get("key") + " = " + each.get("value"))
+                .contains("image.run[1] = RUN echo upstream-line");
+        assertThat(
+                        ImageChoice.allowIfUnchanged(
+                                context, project, project.repository("uc"), "0".repeat(64)))
+                .as("a hash nobody was shown allows nothing")
+                .isFalse();
+        assertThat(
+                        ImageChoice.allowIfUnchanged(
+                                context, project, project.repository("uc"), asked.settingsHash()))
+                .isTrue();
+        assertThat(
+                        StartCheck.withSettings(
+                                        context,
+                                        new StartCheck.Result(
+                                                StartCheck.Outcome.READY, "", "", "", ""),
+                                        projectFile,
+                                        "uc")
+                                .outcome())
+                .isEqualTo(StartCheck.Outcome.READY);
+
+        err.getBuffer().setLength(0);
+        assertThat(
+                        execute(
+                                context,
+                                "task",
+                                "start",
+                                "--attach",
+                                "shell",
+                                "--detach",
+                                "--no-gate",
+                                "-p",
+                                file))
+                .as("allowed, it starts unasked: %s", err)
+                .isZero();
+        assertThat(err.toString()).doesNotContain("has not allowed");
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource({"y,true", "n,false"})
+    void aPersonAtATerminalIsAskedForAnUnsignedImageLineOnce(
+            final String answer, final boolean started, @TempDir Path dir) throws Exception {
+        final String file =
+                unallowedRepositoryImage(
+                        dir, "image:\n  from: ubuntu:24.04\n  run: RUN echo upstream-line\n");
+        final PoreloContext context = repositoryImageContext(dir);
+        final Path projectFile = ProjectSource.resolve(context, file).file();
+        final PrintWriter said = new PrintWriter(err, true);
+        final List<String> questions = new ArrayList<>();
+
+        final int code =
+                new TaskLaunch(
+                                context,
+                                new TaskLaunch.Request(
+                                        "shell",
+                                        projectFile,
+                                        null,
+                                        null,
+                                        null,
+                                        8,
+                                        null,
+                                        true,
+                                        false,
+                                        "deny",
+                                        true,
+                                        org.fuin.porelo.wire.TaskMode.SHELL,
+                                        null,
+                                        null,
+                                        null,
+                                        60,
+                                        "uc",
+                                        java.util.Map.of(),
+                                        java.util.Map.of(),
+                                        null,
+                                        null),
+                                new StartSteps(step -> {}, said))
+                        .offering(
+                                new Offer(
+                                        question -> {
+                                            questions.add(question);
+                                            return answer;
+                                        },
+                                        false,
+                                        false,
+                                        said))
+                        .launch(new PrintWriter(out, true), said, running -> 0);
+
+        assertThat(questions)
+                .as("asked once, naming the line")
+                .singleElement()
+                .asString()
+                .contains("+ image.run[1] = RUN echo upstream-line");
+        assertThat(code == 0).as("%s%s", out, err).isEqualTo(started);
+        final var project = org.fuin.porelo.core.project.ProjectReader.read(projectFile);
+        assertThat(
+                        new RepositoryAllowance(context, project.name())
+                                .notAllowed(
+                                        "uc",
+                                        List.of(
+                                                new org.fuin.porelo.core.project.file
+                                                        .RepositorySettings.Asked(
+                                                        "image.run[1]",
+                                                        "RUN echo upstream-line",
+                                                        "",
+                                                        false))))
+                .as("a yes is kept, a No keeps nothing")
+                .hasSize(started ? 0 : 1);
+    }
+
+    @Test
+    void aFileTheFirstFetchBringsIsAskedForAfterTheFetch(@TempDir Path dir) throws Exception {
+        // A new repository has no mirror before its first fetch: the question comes after it.
+        final String file =
+                unallowedRepositoryImage(
+                        dir, "image:\n  from: ubuntu:24.04\n  run: RUN echo upstream-line\n");
+        final Path mirror = dir.resolve("data/porelo/mirrors/uc.git");
+        try (var all = Files.walk(mirror)) {
+            all.sorted(java.util.Comparator.reverseOrder()).forEach(path -> path.toFile().delete());
+        }
+        final PoreloContext context = repositoryImageContext(dir);
+        final Path projectFile = ProjectSource.resolve(context, file).file();
+        final PrintWriter said = new PrintWriter(err, true);
+        final List<String> questions = new ArrayList<>();
+
+        final int code =
+                new TaskLaunch(
+                                context,
+                                new TaskLaunch.Request(
+                                        "shell",
+                                        projectFile,
+                                        null,
+                                        null,
+                                        null,
+                                        8,
+                                        null,
+                                        false,
+                                        false,
+                                        "deny",
+                                        true,
+                                        org.fuin.porelo.wire.TaskMode.SHELL,
+                                        null,
+                                        null,
+                                        null,
+                                        60,
+                                        "uc",
+                                        java.util.Map.of(),
+                                        java.util.Map.of(),
+                                        null,
+                                        null),
+                                new StartSteps(step -> {}, said))
+                        .offering(
+                                new Offer(
+                                        question -> {
+                                            questions.add(question);
+                                            return "y";
+                                        },
+                                        false,
+                                        false,
+                                        said))
+                        .launch(new PrintWriter(out, true), said, running -> 0);
+
+        assertThat(mirror).as("the start fetched it").exists();
+        assertThat(questions)
+                .as("asked once, after the fetch")
+                .singleElement()
+                .asString()
+                .contains("+ image.run[1] = RUN echo upstream-line");
+        assertThat(code).as("%s%s", out, err).isZero();
+        assertThat(out.toString())
+                .as("shown as before a fetch, line by line")
+                .contains("setting        + image.run[1] = RUN echo upstream-line")
+                .contains("settings       image allowed for uc");
+    }
+
+    /** Allows the image lines each text gives the project's repository, as a person's yes does. */
+    private static void allowRepositoryImage(
+            final PoreloContext context,
+            final Path projectFile,
+            final String repository,
+            final String... texts) {
+        final var project = org.fuin.porelo.core.project.ProjectReader.read(projectFile);
+        final List<org.fuin.porelo.core.project.file.RepositorySettings.Asked> asked =
+                new ArrayList<>();
+        for (final String text : texts) {
+            try {
+                asked.addAll(
+                        RepositoryOwnSettings.image(
+                                project,
+                                null,
+                                List.of(
+                                        org.fuin.porelo.core.project.RepositoryImageReader.read(
+                                                text,
+                                                "porelo.yml",
+                                                org.fuin.porelo.core.project.SnippetFiles.beside(
+                                                        projectFile))),
+                                new java.util.LinkedHashMap<>()));
+            } catch (org.fuin.porelo.core.project.ProjectException ex) {
+                // A file the start refuses is refused before anything is allowed.
+            }
+        }
+        new RepositoryAllowance(context, project.name()).allow(repository, asked);
     }
 
     @Test

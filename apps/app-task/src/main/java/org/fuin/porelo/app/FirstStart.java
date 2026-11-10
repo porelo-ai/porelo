@@ -312,6 +312,9 @@ public final class FirstStart {
     /** A new draft belongs to its repository while the project stays default. */
     private static final String REPOSITORY_FILE = ImageChoice.FILE;
 
+    /** A person's own file beside it, which a start reads first. */
+    private static final String OVERRIDE_FILE = "." + ImageChoice.FILE;
+
     /** How many lookups a question keeps, for a daemon that is asked by many. */
     private static final int KEPT = 32;
 
@@ -615,7 +618,13 @@ public final class FirstStart {
         final Path top =
                 Objects.requireNonNull(file.getParent(), "a repository file has a checkout");
         boolean wrote = false;
+        boolean moved = false;
         try {
+            // The person's own file is read before the draft is written: a change since the
+            // question writes nothing.
+            if (!repositoryHash(answer.file(), override(top)).equals(answer.hash())) {
+                throw new Refused(Reason.MOVED_ON, "the file is not what that hash named");
+            }
             write(file, answer.file());
             wrote = true;
             final DefaultProject fallback = new DefaultProject(context);
@@ -630,10 +639,14 @@ public final class FirstStart {
                     Objects.requireNonNull(
                             RepositoryOwnSettings.of(context, projectFile, repository),
                             "the draft just written is a repository's own settings");
-            if (!ProjectApprovals.hash(top, List.of(REPOSITORY_FILE)).equals(answer.hash())) {
-                throw new Refused(Reason.MOVED_ON, "the file is not what that hash named");
+            // Read after the settings: a file changed meanwhile names another hash.
+            moved =
+                    !repositoryHash(Files.readString(file, StandardCharsets.UTF_8), override(top))
+                            .equals(answer.hash());
+            if (!moved) {
+                new RepositoryAllowance(context).allow(entry.name(), found.asked());
+                return;
             }
-            new RepositoryAllowance(context).allow(entry.name(), found.asked());
         } catch (IOException | DefaultProject.Refused | RuntimeException ex) {
             if (wrote) {
                 try {
@@ -644,6 +657,16 @@ public final class FirstStart {
             }
             throw new Refused(Reason.NOT_WRITTEN, "cannot keep it: " + printable(ex.toString()));
         }
+        // A file changed meanwhile: the draft is taken back, so the next start asks again.
+        try {
+            Files.deleteIfExists(file);
+        } catch (IOException cleanup) {
+            final Refused refused =
+                    new Refused(Reason.MOVED_ON, "the file is not what that hash named");
+            refused.addSuppressed(cleanup);
+            throw refused;
+        }
+        throw new Refused(Reason.MOVED_ON, "the file is not what that hash named");
     }
 
     /** Answers without detection; the launch still checks an existing file's allowance. */
@@ -707,21 +730,72 @@ public final class FirstStart {
         }
     }
 
-    /** Hashes a single named text with the same framing as a project approval. */
-    private static String hash(final String name, final String text) {
+    /** Hashes named texts, name then text, with the same framing as a project approval. */
+    private static String hash(final String... namesAndTexts) {
         try {
             final java.security.MessageDigest digest =
                     java.security.MessageDigest.getInstance("SHA-256");
-            final byte[] named = name.getBytes(StandardCharsets.UTF_8);
-            final byte[] bytes = text.getBytes(StandardCharsets.UTF_8);
-            digest.update((named.length + ":").getBytes(StandardCharsets.UTF_8));
-            digest.update(named);
-            digest.update((":" + bytes.length + ":").getBytes(StandardCharsets.UTF_8));
-            digest.update(bytes);
+            for (int at = 0; at + 1 < namesAndTexts.length; at += 2) {
+                final byte[] named = namesAndTexts[at].getBytes(StandardCharsets.UTF_8);
+                final byte[] bytes = namesAndTexts[at + 1].getBytes(StandardCharsets.UTF_8);
+                digest.update((named.length + ":").getBytes(StandardCharsets.UTF_8));
+                digest.update(named);
+                digest.update((":" + bytes.length + ":").getBytes(StandardCharsets.UTF_8));
+                digest.update(bytes);
+            }
             return java.util.HexFormat.of().formatHex(digest.digest());
         } catch (java.security.NoSuchAlgorithmException ex) {
             throw new IllegalStateException("every Java has SHA-256", ex);
         }
+    }
+
+    /**
+     * A person's own file in a checkout: its text, its image's lines, and whether they are read
+     * from a run file, so not already in its text.
+     */
+    private record OwnFile(String text, String snippet, boolean fromFile) {}
+
+    /** Reads a checkout's {@code .porelo.yml} as a start would; {@code null} when there is none. */
+    private static @Nullable OwnFile override(final Path top) throws IOException {
+        final Path file = top.resolve(OVERRIDE_FILE);
+        if (!Files.exists(file, java.nio.file.LinkOption.NOFOLLOW_LINKS)) {
+            return null;
+        }
+        if (!Files.isRegularFile(file, java.nio.file.LinkOption.NOFOLLOW_LINKS)
+                || Files.size(file) > 1024 * 1024) {
+            throw new IOException("it is a link, not a file, or larger than 1 MiB");
+        }
+        final String text = Files.readString(file, StandardCharsets.UTF_8);
+        final org.fuin.porelo.core.project.SnippetFiles beside =
+                org.fuin.porelo.core.project.SnippetFiles.beside(file);
+        final boolean[] fromFile = {false};
+        final String snippet =
+                org.fuin.porelo.core.project.RepositoryImageReader.readBesideSettings(
+                                text,
+                                OVERRIDE_FILE,
+                                (named, origin) -> {
+                                    fromFile[0] = true;
+                                    return beside.read(named, origin);
+                                })
+                        .snippet();
+        return new OwnFile(text, snippet == null ? "" : snippet, fromFile[0]);
+    }
+
+    /**
+     * The hash a yes to a new repository file names: the file, and a person's own file beside it
+     * with the lines its image reads, which the same yes allows. Without one, a single file's hash.
+     */
+    private static String repositoryHash(final String text, final @Nullable OwnFile override) {
+        if (override == null) {
+            return hash(REPOSITORY_FILE, text);
+        }
+        return hash(
+                REPOSITORY_FILE,
+                text,
+                OVERRIDE_FILE,
+                override.text(),
+                OVERRIDE_FILE + " lines",
+                override.snippet());
     }
 
     private Optional<Refused> install(
@@ -1055,7 +1129,49 @@ public final class FirstStart {
             notes.add(
                     "this repository stays in 'default': its history comes from the checkout, and"
                             + " approved work goes back there");
-            final String hash = hash(REPOSITORY_FILE, text);
+            // The same yes allows what a person's own file beside it asks, so it is shown too.
+            final OwnFile override;
+            try {
+                override = override(top);
+            } catch (ProjectException | IOException ex) {
+                return Answer.plain(
+                        Outcome.NOTHING_RECOGNIZED,
+                        "",
+                        "",
+                        List.of(
+                                printable(
+                                        OVERRIDE_FILE
+                                                + " in this checkout does not read: "
+                                                + ex.getMessage())));
+            }
+            if (override != null) {
+                override.text()
+                        .lines()
+                        .filter(line -> !line.isBlank())
+                        .forEach(
+                                line ->
+                                        found.add(
+                                                new Found(
+                                                        "your own file",
+                                                        printable(line),
+                                                        OVERRIDE_FILE,
+                                                        false,
+                                                        "")));
+                // Lines written in it are shown above; a run file's are shown here.
+                override.snippet()
+                        .lines()
+                        .filter(line -> override.fromFile() && !line.isBlank())
+                        .forEach(
+                                line ->
+                                        found.add(
+                                                new Found(
+                                                        "image line",
+                                                        printable(line),
+                                                        OVERRIDE_FILE,
+                                                        false,
+                                                        "")));
+            }
+            final String hash = repositoryHash(text, override);
             return new Answer(
                     Outcome.ASK_NEW,
                     List.copyOf(found),

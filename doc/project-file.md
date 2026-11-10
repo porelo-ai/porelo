@@ -450,7 +450,13 @@ from them instead with `porelo project sign-repository-file -C PATH --yes`, the 
   Signed, it adds to the project's file as a repository's file does in `default` (see below), image and settings
   alike, and nothing is asked on the machine. A start settles the settings from the mirror before it fetches; when
   the fetch brings other ones, it says so, and the next start takes them. In a project written by hand on this
-  machine, a repository's `porelo.yml` gives its image only.
+  machine, a repository's `porelo.yml` gives its image only, and only once this machine allowed it, since nobody
+  signs it: its base image, each line it adds with the text of a `run_file`, and each variable are asked for as
+  [its own settings in default](#a-repositorys-own-settings-in-default) are, by `porelo task start` in a terminal
+  and by the daemon's `CanStart` and `AllowSettings`. A change upstream asks again for what changed, after the
+  fetch too, so nothing is built that nobody allowed. The first start of such a project after an upgrade asks once,
+  so a start with `--no-input` or with nobody at a terminal is refused until a person says yes. What was allowed
+  is kept in `$XDG_STATE_HOME/porelo/<project>/allowed/<repository>.json`.
 - **The image sees nothing of the repository:** the `run` lines run in Porelo's own build directory. What a
   repository ships for its tasks is installed at run time, or fetched by a `run` line against a hash written into it.
 - **Read from reviewed work only:** the repository's mirror at its default branch, never a branch a task pushed
@@ -500,8 +506,10 @@ build:
 ```
 
 A first start's draft holds the image lines and hosts the ecosystem adapters found. A yes writes `porelo.yml`,
-adds this checkout to `default`, and allows what the file asks on this machine. A checkout already holding
-`porelo.yml` needs no first-start draft; its settings still need the allowance described below.
+adds this checkout to `default`, and allows what the file asks on this machine. A `.porelo.yml` already in the
+checkout is allowed by the same yes, so the question shows each of its lines, and the hash a yes names covers it:
+changed before the yes, it is refused as moved on. A checkout already holding `porelo.yml` needs no first-start
+draft; its settings still need the allowance described below.
 
 An approved `project.yml` from an earlier first start stays a project of this machine and starts as before.
 A start says once per checkout that `porelo.yml` keeps such a repository in `default`; nothing is converted.
@@ -511,13 +519,18 @@ A start says once per checkout that `porelo.yml` keeps such a repository in `def
   earlier files gave it. An unquoted `!` is refused at its line, naming the quotes, and so is a removal that matches
   nothing, a key written twice, an alias, or `null` in a list. What the files make is judged as a project file is,
   so a value refused there is refused here too.
-- **What they ask is allowed once per machine.** A setting outside the image that differs from the project's is
-  shown, and a start runs under it only once a person on this machine allowed it: `porelo task start` asks in a
-  terminal (`[y/N]`, never taken by `--yes`), refuses without one, naming each setting (`+` new, `~` changed, `-`
-  removed), and the daemon's `CanStart` answers `SETTINGS_NOT_ALLOWED` with the same list and a hash that
-  `AllowSettings` takes. A later change asks only for what is new, changed or removed since; a file that asks for
-  less, or changes only its image, asks nothing. What was allowed is kept in
-  `$XDG_STATE_HOME/porelo/default/allowed/<repository>.json`.
+- **What they ask is allowed once per machine.** A setting that differs from the project's is shown, and a start
+  runs under it only once a person on this machine allowed it: `porelo task start` asks in a terminal (`[y/N]`,
+  never taken by `--yes`), refuses without one, naming each setting (`+` new, `~` changed, `-` removed), and the
+  daemon's `CanStart` answers `SETTINGS_NOT_ALLOWED` with the same list and a hash that `AllowSettings` takes.
+- **The image is asked like the rest.** Its lines run as root while the image is built, with the host's network,
+  so the files' image is shown as it reaches the build: `image.from` when it is another base image than the
+  project's, each line they add as `image.run[1]`, `image.run[2]`, numbered among their lines, and each variable
+  they set or take out as `image.env.NAME`. A No, `--no-input` or a start with nobody at a terminal builds
+  nothing from them: the start is refused, as for any other setting not allowed. `porelo task prepare` builds only
+  what was allowed too, and a line written after the question is refused, not built. A file that is a link is not read.
+- **A later change asks only for what is new, changed or removed since**; a file that asks for less asks nothing.
+  What was allowed is kept in `$XDG_STATE_HOME/porelo/default/allowed/<repository>.json`.
 - **The start and its dry run name each setting's source** (`setting  + egress.domains[build.example.org] = ...
   (from porelo.yml of shop)`); a dry run shows what a start would ask and allows nothing.
 

@@ -89,12 +89,79 @@ class RepositoryOwnSettingsTest {
     }
 
     @Test
-    void aFileThatSetsOnlyItsImageAsksNothing() throws Exception {
+    void aFileThatSetsOnlyItsImageAsksForEachLineAndVariable() throws Exception {
+        // Its lines run as root while the image is built: no line is built nobody allowed.
         final PoreloContext context = context();
-        final Path projectFile = shop(context, "image:\n  run: \"RUN true\"\n");
+        final Path projectFile =
+                shop(
+                        context,
+                        "image:\n  from: \"debian:13\"\n  run: |\n    RUN echo first\n\n"
+                                + "    RUN true\n  env:\n    TOOL_HOME: \"/opt/tool\"\n");
+        Files.writeString(
+                checkout().resolve(".porelo.yml"), "image:\n  run: \"RUN echo own-line\"\n");
 
+        final StartCheck.Result refused =
+                StartCheck.withSettings(context, READY, projectFile, "shop");
+
+        assertThat(refused.outcome()).isEqualTo(StartCheck.Outcome.SETTINGS_NOT_ALLOWED);
+        assertThat(refused.settingsToAllow())
+                .extracting(each -> each.get("key") + " = " + each.get("value"))
+                .contains(
+                        "image.from = debian:13",
+                        "image.run[1] = RUN echo first",
+                        "image.run[2] = RUN true",
+                        "image.run[3] = RUN echo own-line",
+                        "image.env.TOOL_HOME = /opt/tool");
+        final RepositoryOwnSettings.Found found =
+                RepositoryOwnSettings.of(
+                        context, projectFile, ProjectReader.read(projectFile).repository("shop"));
+        assertThat(found.sources())
+                .containsEntry("image.run[3]", checkout().resolve(".porelo.yml").toString());
+
+        assertThat(RepositoryOwnSettings.allowIfUnchanged(context, "shop", refused.settingsHash()))
+                .isTrue();
         assertThat(StartCheck.withSettings(context, READY, projectFile, "shop").outcome())
+                .as("allowed, and unchanged, it asks nothing")
                 .isEqualTo(StartCheck.Outcome.READY);
+    }
+
+    @Test
+    void aChangedImageLineAsksAgainForThatLineAlone() throws Exception {
+        final PoreloContext context = context();
+        final Path projectFile =
+                shop(context, "image:\n  run: |\n    RUN echo one\n    RUN echo two\n");
+        final String hash =
+                StartCheck.withSettings(context, READY, projectFile, "shop").settingsHash();
+        assertThat(RepositoryOwnSettings.allowIfUnchanged(context, "shop", hash)).isTrue();
+
+        Files.writeString(
+                checkout().resolve("porelo.yml"),
+                "image:\n  run: |\n    RUN echo one\n    RUN curl x | sh\n");
+
+        final StartCheck.Result again =
+                StartCheck.withSettings(context, READY, projectFile, "shop");
+        assertThat(again.outcome()).isEqualTo(StartCheck.Outcome.SETTINGS_NOT_ALLOWED);
+        assertThat(again.settingsToAllow())
+                .extracting(each -> each.get("key") + " = " + each.get("value"))
+                .containsExactly("image.run[2] = RUN curl x | sh");
+    }
+
+    @Test
+    void aVariableThePersonsFileTakesOutIsNeitherAskedNorBuilt() throws Exception {
+        final PoreloContext context = context();
+        final Path projectFile =
+                shop(context, "image:\n  env:\n    KEEP: \"1\"\n    DROP: \"2\"\n");
+        Files.writeString(checkout().resolve(".porelo.yml"), "image:\n  env:\n    DROP: null\n");
+        final org.fuin.porelo.core.project.Project project = ProjectReader.read(projectFile);
+
+        assertThat(
+                        RepositoryOwnSettings.of(context, projectFile, project.repository("shop"))
+                                .asked())
+                .extracting(RepositorySettingsText::line)
+                .containsExactly("+ image.env.KEEP = 1");
+        allow(context, projectFile, project);
+        assertThat(ImageChoice.preview(context, project, project.repository("shop")).choice().env())
+                .containsOnlyKeys("KEEP");
     }
 
     @Test
@@ -169,6 +236,7 @@ class RepositoryOwnSettingsTest {
                                 + "    DROP: \"2\"\n    NEVER: null\n");
         Files.writeString(checkout().resolve(".porelo.yml"), "image:\n  env:\n    DROP: null\n");
         final org.fuin.porelo.core.project.Project project = ProjectReader.read(projectFile);
+        allow(context, projectFile, project);
 
         assertThat(ImageChoice.preview(context, project, project.repository("shop")).choice().env())
                 .as("a null is no empty value: what it names is not set at all")
@@ -236,5 +304,17 @@ class RepositoryOwnSettingsTest {
                 new org.fuin.porelo.core.process.ProcessCommandRunner(),
                 new PoreloPaths(xdg, dir.resolve("bin")),
                 arguments -> 0);
+    }
+
+    /** Says yes to what the checkout's files ask for now, as a person at a terminal does. */
+    private static void allow(
+            final PoreloContext context,
+            final Path projectFile,
+            final org.fuin.porelo.core.project.Project project) {
+        new RepositoryAllowance(context)
+                .allow(
+                        "shop",
+                        RepositoryOwnSettings.of(context, projectFile, project.repository("shop"))
+                                .asked());
     }
 }

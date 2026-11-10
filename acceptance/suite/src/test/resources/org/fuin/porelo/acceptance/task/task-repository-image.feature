@@ -7,6 +7,10 @@ Feature: A repository says what its tasks are built in
     anything is built. The start says where each part of the image came from, and a repository's own
     image is named apart from the project's. Each source is taken whole: the person's override first,
     then the repository's file, then the project's image, and nothing of a later one is mixed in.
+    Nobody signs a hand-written project's repository file, and its lines run as root while the image
+    is built, so a start builds them only once a person on this machine allowed them: asked at a
+    terminal, refused with nobody to answer, and asked again when the file changes. In 'default' the
+    checkout's own files are asked for the same way, their image among their settings.
 
     Background:
         Given the suite runs as an unprivileged user
@@ -16,7 +20,7 @@ Feature: A repository says what its tasks are built in
               sets: []
             """
 
-    Scenario: a repository's own file shapes the image of a task on it, and the start names it
+    Scenario: a repository's own file shapes the image of a task on it once allowed, and the start names it
         When a script runs:
             """
             set -e
@@ -29,13 +33,22 @@ Feature: A repository says what its tasks are built in
             git -C "$source" -c user.name=T -c user.email=t@example.com commit -q -m image
             printf '%s\n' 'repositories:' '  tooled:' "    upstream: \"file://$source\"" >> ~/imaged/project.yml
             git -C ~/imaged add project.yml && git -C ~/imaged commit -q -m tooled
+            set +e
             timeout 600 porelo task start shaped --project imaged --repository tooled --agent stub \
-                --attach shell --detach --clearance deny
+                --attach shell --detach --clearance deny --no-input
+            echo "unanswered exit $?"
+            podman image exists porelo/imaged_tooled && echo "an image was built" || echo "no image was built"
             """
-        Then it exits zero
-        And its output has a line matching "image lines +from porelo.yml at refs/heads/main of tooled.*"
-        And its output has a line matching "image env +REPOSITORY_IMAGE from porelo.yml at refs/heads/main of tooled.*"
-        And its output has a line matching "task image +porelo/imaged_tooled"
+        Then its output has a line matching "unanswered exit [1-9][0-9]*"
+        And its output contains "+ image.run[1] = RUN echo from-the-repository > /etc/porelo-repository-image"
+        And its output contains "no image was built"
+        Given a terminal on the machine
+        When I run "porelo task start shaped --project imaged --repository tooled --agent stub --attach shell --detach --clearance deny; echo start-exit-$?"
+        Then the terminal shows "Allow them for tooled of imaged on this machine?"
+        When I type "y"
+        Then within 600 seconds the terminal shows "start-exit-0"
+        And the terminal shows "from porelo.yml at refs/heads/main of tooled"
+        And the terminal shows "porelo/imaged_tooled"
         When a script runs:
             """
             podman exec porelo-imaged-shaped sh -c 'cat /etc/porelo-repository-image; echo "env: $REPOSITORY_IMAGE"'
@@ -61,11 +74,14 @@ Feature: A repository says what its tasks are built in
             git -C "$source" -c user.name=T -c user.email=t@example.com commit -q -m image
             printf '%s\n' 'repositories:' '  pinned:' "    upstream: \"file://$source\"" >> ~/imaged/project.yml
             git -C ~/imaged add project.yml && git -C ~/imaged commit -q -m pinned
-            timeout 600 porelo task start copied --project imaged --repository pinned --agent stub \
-                --attach shell --detach --clearance deny
             """
         Then it exits zero
-        And its output has a line matching "image lines +from porelo.yml at refs/heads/main of pinned.*"
+        Given a terminal on the machine
+        When I run "porelo task start copied --project imaged --repository pinned --agent stub --attach shell --detach --clearance deny; echo start-exit-$?"
+        Then the terminal shows "Allow them for pinned of imaged on this machine?"
+        When I type "y"
+        Then within 600 seconds the terminal shows "start-exit-0"
+        And the terminal shows "from porelo.yml at refs/heads/main of pinned"
         When a script runs:
             """
             podman exec porelo-imaged-copied sh -c 'grep -c "^ID=ubuntu" /etc/porelo-copied-os-release'
@@ -111,30 +127,40 @@ Feature: A repository says what its tasks are built in
             printf '%s\n' 'repositories:' '  tooled:' "    upstream: \"file://$source\"" >> ~/imaged/project.yml
             git -C ~/imaged add project.yml && git -C ~/imaged commit -q -m tooled
             override="${XDG_CONFIG_HOME:-$HOME/.config}/porelo/projects/imaged/tooled"
-            # Taken back whatever happens below: a leftover override would speak in the next run.
-            trap 'rm -rf -- "$override"' EXIT
+            # Taken back by the script after the start: a leftover override would speak in the next run.
             mkdir -p "$override"
             printf '%s\n' 'image:' '  from: "ubuntu:24.04"' '  env:' '    REPOSITORY_IMAGE: "said by the person"' \
                 > "$override/.porelo.yml"
-            timeout 600 porelo task start overridden --project imaged --repository tooled --agent stub \
-                --attach shell --detach --clearance deny
+            """
+        Then it exits zero
+        Given a terminal on the machine
+        When I run "porelo task start overridden --project imaged --repository tooled --agent stub --attach shell --detach --clearance deny; echo start-exit-$?"
+        Then the terminal shows "Allow them for tooled of imaged on this machine?"
+        When I type "y"
+        Then within 600 seconds the terminal shows "start-exit-0"
+        And the terminal shows "projects/imaged/tooled/.porelo.yml (local override)"
+        When a script runs:
+            """
+            override="${XDG_CONFIG_HOME:-$HOME/.config}/porelo/projects/imaged/tooled"
+            trap 'rm -rf -- "$override"' EXIT
             podman exec porelo-imaged-overridden sh -c \
                 'echo "env: $REPOSITORY_IMAGE / ${KEPT:-unset}"; cat /etc/porelo-repository-image 2>/dev/null || echo "no repository lines"'
             porelo task remove porelo-imaged-overridden --force > /dev/null
             podman rmi porelo/imaged_tooled > /dev/null 2>&1 || true
             """
         Then it exits zero
-        And its output has a line matching "image env +REPOSITORY_IMAGE from .*/projects/imaged/tooled/.porelo.yml \(local override\)"
         And its output contains "env: said by the person / the repository's"
         And its output contains "from-the-repository"
 
-    Scenario: a task started from a checkout in 'default' takes the checkout's own files, the override adding to them
+    Scenario: a task started from a checkout in 'default' takes the checkout's own files once allowed, the override adding to them
         When a script runs:
             """
             set -e
-            base=$(mktemp -d)
-            repo="dimg$(basename "$base" | tr 'A-Z' 'a-z' | tr -dc 'a-z0-9')"
-            trap 'porelo task remove porelo-default-fromco --force > /dev/null 2>&1; porelo project default remove "$repo" > /dev/null 2>&1; podman rmi "porelo/default_$repo" > /dev/null 2>&1; rm -rf "$base"' EXIT
+            base=~/default-image-probe
+            repo=dimgprobe
+            porelo task remove porelo-default-fromco --force > /dev/null 2>&1 || true
+            porelo project default remove "$repo" > /dev/null 2>&1 || true
+            rm -rf "$base"
             git init -q --bare --initial-branch=main "$base/$repo.git"
             git init -q --initial-branch=main "$base/seed"
             printf '%s\n' 'image:' '  from: "ubuntu:24.04"' '  run: |' \
@@ -148,13 +174,26 @@ Feature: A repository says what its tasks are built in
                 > "$base/$repo/.porelo.yml"
             cd "$base/$repo"
             set +e
-            timeout 600 porelo task start fromco --agent stub --attach shell --detach --clearance deny
-            echo "start exit $?"
+            timeout 600 porelo task start fromco --agent stub --attach shell --detach --clearance deny --no-input
+            echo "unanswered exit $?"
+            podman image exists "porelo/default_$repo" && echo "an image was built" || echo "no image was built"
+            """
+        Then its output has a line matching "unanswered exit [1-9][0-9]*"
+        And its output contains "+ image.run[1] = RUN echo from-the-checkout > /etc/porelo-checkout-image"
+        And its output contains "no image was built"
+        Given a terminal on the machine
+        When I run "cd ~/default-image-probe/dimgprobe && porelo task start fromco --agent stub --attach shell --detach --clearance deny; echo start-exit-$?"
+        Then the terminal shows "Allow it for dimgprobe on this machine?"
+        When I type "y"
+        Then within 600 seconds the terminal shows "start-exit-0"
+        And the terminal shows "default-image-probe/dimgprobe/.porelo.yml"
+        And the terminal shows "porelo/default_dimgprobe"
+        When a script runs:
+            """
+            trap 'porelo task remove porelo-default-fromco --force > /dev/null 2>&1; porelo project default remove dimgprobe > /dev/null 2>&1; podman rmi porelo/default_dimgprobe > /dev/null 2>&1; rm -rf ~/default-image-probe' EXIT
             podman exec porelo-default-fromco sh -c \
                 'echo "env: $CHECKOUT_IMAGE"; cat /etc/porelo-checkout-image 2>/dev/null || echo "no checked-in lines"'
             """
-        Then its output contains "start exit 0"
-        And its output has a line matching "image env +CHECKOUT_IMAGE from .*/dimg[a-z0-9]*/.porelo.yml"
-        And its output has a line matching "task image +porelo/default_dimg[a-z0-9]*"
+        Then it exits zero
         And its output contains "env: the person's"
         And its output contains "from-the-checkout"

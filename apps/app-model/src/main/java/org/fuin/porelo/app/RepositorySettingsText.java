@@ -29,6 +29,25 @@ public final class RepositorySettingsText {
     }
 
     /**
+     * Says that a start does not build image lines this machine has not allowed for a project.
+     *
+     * @param origin The file that gives them, as a start names it.
+     * @param project The project's name.
+     * @param asked What of them is to be allowed.
+     * @return One line, with each of them.
+     */
+    public static String imageNotAllowed(
+            final String origin, final String project, final List<Asked> asked) {
+        return "the "
+                + origin
+                + " adds to the image of "
+                + project
+                + " what this machine has not allowed: "
+                + String.join("; ", asked.stream().map(RepositorySettingsText::line).toList())
+                + ". Start it in a terminal to be asked, or allow them in the window";
+    }
+
+    /**
      * Returns one setting as a person reads it.
      *
      * @param asked The setting.

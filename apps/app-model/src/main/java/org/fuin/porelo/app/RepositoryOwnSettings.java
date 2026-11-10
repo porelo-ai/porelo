@@ -7,11 +7,16 @@ import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import org.fuin.porelo.core.project.ImageSource;
+import org.fuin.porelo.core.project.Project;
 import org.fuin.porelo.core.project.ProjectException;
 import org.fuin.porelo.core.project.ProjectReader;
 import org.fuin.porelo.core.project.Repository;
+import org.fuin.porelo.core.project.RepositoryImageReader;
 import org.fuin.porelo.core.project.SnippetFiles;
 import org.fuin.porelo.core.project.file.RepositorySettings;
 import org.fuin.porelo.core.project.file.RepositorySettings.Asked;
@@ -24,6 +29,11 @@ import org.jspecify.annotations.Nullable;
  * <p><strong>Read from the checkout, as the person sees it.</strong> Approved work lands on a
  * branch of its own, never on the one checked out, so a task cannot change either file; a file that
  * came with a pull still asks this machine before a start runs under it.
+ *
+ * <p><strong>The image is asked like the rest.</strong> Its lines run as root while the image is
+ * built, so its base image, each line it adds with the text of the files they are read from, and
+ * each variable are asked for and allowed as every other setting is: a No or a start nobody answers
+ * builds nothing from them.
  */
 public final class RepositoryOwnSettings {
 
@@ -41,7 +51,7 @@ public final class RepositoryOwnSettings {
      * What the files make.
      *
      * @param project The project a task on the repository runs under, image aside.
-     * @param asked What they set otherwise than the project, outside the image.
+     * @param asked What they set otherwise than the project, the image's lines as they reach it.
      * @param hash The hash a yes names: of all of {@code asked}, the state allowed, though a person
      *     is shown only what is new, changed or removed since the last yes.
      * @param sources Each value's path to the file that set it.
@@ -124,12 +134,110 @@ public final class RepositoryOwnSettings {
                         projectFile.toString(),
                         SnippetFiles.beside(projectFile),
                         layers);
+        final List<Asked> asked = new ArrayList<>(read.asked());
+        final Map<String, String> sources = new LinkedHashMap<>(read.sources());
+        asked.addAll(
+                image(
+                        ProjectReader.read(projectFile),
+                        read.project().imageEnv().keySet(),
+                        checkoutImages(top),
+                        sources));
         return new Found(
                 read.project(),
-                read.asked(),
-                RepositoryAllowance.hash(read.asked()),
-                read.sources(),
+                List.copyOf(asked),
+                RepositoryAllowance.hash(asked),
+                java.util.Collections.unmodifiableMap(sources),
                 read.removed());
+    }
+
+    /**
+     * Reads the image each of a checkout's own files gives, the one that wins first: the person's
+     * {@code .porelo.yml}, then the repository's {@code porelo.yml}. Read as their settings are, so
+     * what is built is what was asked.
+     *
+     * @param checkout The checkout.
+     * @return One source per file there.
+     * @throws ProjectException If a file cannot be read or its image is wrong.
+     */
+    static List<ImageSource> checkoutImages(final Path checkout) {
+        final List<ImageSource> order = new ArrayList<>();
+        for (final String name : List.of("." + ImageChoice.FILE, ImageChoice.FILE)) {
+            final Path file = checkout.resolve(name);
+            if (Files.isRegularFile(file, LinkOption.NOFOLLOW_LINKS)) {
+                // Settings beside the image are merged and allowed with the project's.
+                order.add(
+                        RepositoryImageReader.readBesideSettings(
+                                text(file), file.toString(), SnippetFiles.beside(file)));
+            }
+        }
+        return List.copyOf(order);
+    }
+
+    /**
+     * What a repository's files do to the image, as the build takes it: a base image other than the
+     * project's, each line they add, numbered among theirs, and each variable they set otherwise or
+     * take out.
+     *
+     * @param declared The project as its file declares it.
+     * @param kept The variables the files' merge keeps, or {@code null} when none takes one out.
+     * @param added The files' images, the one that wins first.
+     * @param sources Where each key asked for is put with the file that gave it.
+     * @return What they ask, in the order of the build.
+     */
+    static List<Asked> image(
+            final Project declared,
+            final java.util.@Nullable Set<String> kept,
+            final List<ImageSource> added,
+            final Map<String, String> sources) {
+        if (added.isEmpty()) {
+            return List.of();
+        }
+        final ImageSource own = ImageSource.of(declared);
+        final List<ImageSource> order = new ArrayList<>(added);
+        order.add(own);
+        final ImageChoice choice = ImageChoice.merge(order);
+        final List<Asked> asked = new ArrayList<>();
+        if (!Objects.equals(choice.baseImage(), declared.baseImage())) {
+            asked.add(
+                    new Asked(
+                            "image.from",
+                            choice.baseImage(),
+                            Objects.requireNonNullElse(declared.baseImage(), ""),
+                            false));
+            sources.put("image.from", choice.baseFrom());
+        }
+        if (choice.snippet() != null) {
+            final List<String> lines = choice.snippet().lines().toList();
+            int number = 0;
+            for (int at = 0; at < lines.size(); at++) {
+                final String from = choice.lineFrom().get(at);
+                if (!from.equals(own.from()) && !lines.get(at).isBlank()) {
+                    number++;
+                    final String key = "image.run[" + number + "]";
+                    asked.add(new Asked(key, lines.get(at), "", false));
+                    sources.put(key, from);
+                }
+            }
+        }
+        // A null in a file takes a variable out: the merged project keeps only what is set.
+        final java.util.Set<String> set = kept == null ? choice.env().keySet() : kept;
+        final Map<String, String> was = declared.imageEnv();
+        choice.env()
+                .forEach(
+                        (name, value) -> {
+                            final String key = "image.env." + name;
+                            if (set.contains(name) && !Objects.equals(was.get(name), value)) {
+                                asked.add(new Asked(key, value, was.getOrDefault(name, ""), false));
+                                sources.put(key, choice.envFrom().get(name));
+                            }
+                        });
+        was.forEach(
+                (name, value) -> {
+                    if (!set.contains(name)) {
+                        asked.add(new Asked("image.env." + name, "", value, true));
+                    }
+                });
+        return asked;
     }
 
     /**

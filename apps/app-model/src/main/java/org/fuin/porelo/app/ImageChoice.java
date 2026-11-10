@@ -11,9 +11,11 @@ import java.util.Map;
 import org.fuin.porelo.core.project.ImageSource;
 import org.fuin.porelo.core.project.Project;
 import org.fuin.porelo.core.project.ProjectException;
+import org.fuin.porelo.core.project.ProjectReader;
 import org.fuin.porelo.core.project.Repository;
 import org.fuin.porelo.core.project.RepositoryImageReader;
 import org.fuin.porelo.core.project.SnippetFiles;
+import org.fuin.porelo.core.project.file.RepositorySettings.Asked;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -179,6 +181,238 @@ public record ImageChoice(
     }
 
     /**
+     * The image lines a repository's {@code porelo.yml} gives a project written on this machine,
+     * which nobody signs, and which this machine has not allowed for it: nothing of them is built.
+     */
+    public static final class NotAllowed extends ProjectException {
+
+        private static final long serialVersionUID = 1L;
+
+        private final String project;
+
+        private final String repository;
+
+        private final String origin;
+
+        private final transient List<Asked> asked;
+
+        private final transient List<Asked> toAllow;
+
+        private final String hash;
+
+        private transient @Nullable Preview preview;
+
+        /**
+         * Constructor.
+         *
+         * @param project The project's name.
+         * @param repository The repository's name.
+         * @param origin The file, as a start names it.
+         * @param asked Everything it asks: the state a yes allows.
+         * @param toAllow What of it is new, changed or removed since the last yes.
+         */
+        public NotAllowed(
+                final String project,
+                final String repository,
+                final String origin,
+                final List<Asked> asked,
+                final List<Asked> toAllow) {
+            super(RepositorySettingsText.imageNotAllowed(origin, project, toAllow));
+            this.project = project;
+            this.repository = repository;
+            this.origin = origin;
+            this.asked = List.copyOf(asked);
+            this.toAllow = List.copyOf(toAllow);
+            this.hash = RepositoryAllowance.hash(asked);
+        }
+
+        /**
+         * Returns the project's name.
+         *
+         * @return It.
+         */
+        public String project() {
+            return project;
+        }
+
+        /**
+         * Returns the repository's name.
+         *
+         * @return It.
+         */
+        public String repository() {
+            return repository;
+        }
+
+        /**
+         * Returns the file, as a start names it.
+         *
+         * @return It.
+         */
+        public String origin() {
+            return origin;
+        }
+
+        /**
+         * Returns everything the file asks: the state a yes allows.
+         *
+         * @return It.
+         */
+        public List<Asked> asked() {
+            return asked;
+        }
+
+        /**
+         * Returns what a person is to be shown.
+         *
+         * @return What is new, changed or removed since the last yes.
+         */
+        public List<Asked> toAllow() {
+            return toAllow;
+        }
+
+        /**
+         * Returns the hash a yes names.
+         *
+         * @return Of everything asked.
+         */
+        public String hash() {
+            return hash;
+        }
+
+        /**
+         * Returns the image as it would be built with the lines not allowed, for a dry run to show.
+         *
+         * @return It, or {@code null} when it was not chosen.
+         */
+        public @Nullable Preview preview() {
+            return preview;
+        }
+
+        /**
+         * Records a yes to what was shown.
+         *
+         * @param context This machine.
+         */
+        public void allow(final PoreloContext context) {
+            new RepositoryAllowance(context, project).allow(repository, asked);
+        }
+    }
+
+    /**
+     * Allows what a repository's unsigned {@code porelo.yml} adds to a project's image now, when it
+     * is what a person was shown.
+     *
+     * @param context This machine.
+     * @param project The project, written on this machine.
+     * @param repository The repository.
+     * @param hash The hash of what was shown.
+     * @return Whether it was allowed; {@code false} when the file asks for something else now, or
+     *     nothing.
+     * @throws ProjectException If a source is refused as it stands.
+     */
+    public static boolean allowIfUnchanged(
+            final PoreloContext context,
+            final Project project,
+            final Repository repository,
+            final String hash) {
+        try {
+            preview(context, project, repository);
+            return false;
+        } catch (NotAllowed ex) {
+            if (!ex.hash().equals(hash)) {
+                return false;
+            }
+            ex.allow(context);
+            return true;
+        }
+    }
+
+    /**
+     * What of a checkout's files this machine has not allowed in the default project, if any: their
+     * settings as read now, and the image lines about to be built.
+     */
+    private static @Nullable NotAllowed checkoutNotAllowed(
+            final PoreloContext context,
+            final Repository repository,
+            final List<ImageSource> built) {
+        if (built.isEmpty()) {
+            return null;
+        }
+        final Path projectFile = new DefaultProject(context).file();
+        final RepositoryOwnSettings.Found own =
+                RepositoryOwnSettings.of(context, projectFile, repository);
+        final RepositoryAllowance allowance = new RepositoryAllowance(context);
+        final List<Asked> toAllow = new ArrayList<>();
+        if (own != null) {
+            toAllow.addAll(allowance.notAllowed(repository.name(), own.asked()));
+        }
+        for (final Asked each :
+                allowance.notAllowed(
+                        repository.name(),
+                        RepositoryOwnSettings.image(
+                                ProjectReader.read(projectFile),
+                                own == null ? null : own.project().imageEnv().keySet(),
+                                built,
+                                new LinkedHashMap<>()))) {
+            if (!toAllow.contains(each)) {
+                toAllow.add(each);
+            }
+        }
+        if (toAllow.isEmpty()) {
+            return null;
+        }
+        return new NotAllowed(
+                DefaultProject.NAME,
+                repository.name(),
+                FILE + " of " + repository.name(),
+                own == null ? toAllow : own.asked(),
+                toAllow);
+    }
+
+    /**
+     * Allows what a repository's unsigned {@code porelo.yml} adds to a project's image now, named
+     * as a client names them: the repository by its key or its full name, as a start takes it.
+     *
+     * @param context This machine.
+     * @param projectName The project's name.
+     * @param repository The repository's key or full name.
+     * @param hash The hash of what was shown.
+     * @return Whether it was allowed; {@code false} when the file asks for something else now,
+     *     nothing, or the project is not on this machine.
+     * @throws ProjectException If a source is refused as it stands, or no repository has the name.
+     */
+    public static boolean allowIfUnchanged(
+            final PoreloContext context,
+            final String projectName,
+            final String repository,
+            final String hash) {
+        final Path file = ProjectSource.resolve(context, projectName).file();
+        if (file == null) {
+            return false;
+        }
+        final Project project = ProjectReader.read(file);
+        return allowIfUnchanged(
+                context, project, GateSupport.repository(project, repository), hash);
+    }
+
+    /** What of a file's image lines this machine has not allowed for the project, if any. */
+    private static @Nullable NotAllowed notAllowed(
+            final PoreloContext context,
+            final Project project,
+            final Repository repository,
+            final ImageSource source) {
+        final List<Asked> asked =
+                RepositoryOwnSettings.image(project, null, List.of(source), new LinkedHashMap<>());
+        final List<Asked> toAllow =
+                new RepositoryAllowance(context, project.name())
+                        .notAllowed(repository.name(), asked);
+        return toAllow.isEmpty()
+                ? null
+                : new NotAllowed(project.name(), repository.name(), source.from(), asked, toAllow);
+    }
+
+    /**
      * An image preview with any refusal that a mirror refresh may repair.
      *
      * @param choice The image chosen without a refused mirror source.
@@ -225,18 +459,21 @@ public record ImageChoice(
                                     .findFirst()
                                     .orElse("");
             if (!checkout.isEmpty()) {
-                for (final String name : List.of("." + FILE, FILE)) {
-                    final Path file = Path.of(checkout).resolve(name);
-                    if (Files.isRegularFile(file)) {
-                        // Settings beside the image are read, merged and allowed elsewhere.
-                        order.add(
-                                RepositoryImageReader.readBesideSettings(
-                                        text(file), file.toString(), SnippetFiles.beside(file)));
-                    }
-                }
+                // Read as they are asked for: a start builds only what its allowance names.
+                order.addAll(RepositoryOwnSettings.checkoutImages(Path.of(checkout)));
             }
             order.add(ImageSource.of(project));
-            return new Preview(withoutUnset(merge(order), context, project, repository), null);
+            final Preview preview =
+                    new Preview(withoutUnset(merge(order), context, project, repository), null);
+            final NotAllowed notAllowed =
+                    checkoutNotAllowed(context, repository, order.subList(0, order.size() - 1));
+            if (notAllowed != null) {
+                // Whoever builds it, a start or a prepare: only what this machine allowed, and
+                // the lines read here, not those read when the person was asked.
+                notAllowed.preview = preview;
+                throw notAllowed;
+            }
+            return preview;
         }
         final Path override = override(context, project, repository);
         if (Files.isRegularFile(override)) {
@@ -247,6 +484,7 @@ public record ImageChoice(
                             SnippetFiles.beside(override)));
         }
         ProjectException mirrorRefusal = null;
+        NotAllowed notAllowed = null;
         try {
             final Path mirror = GateSupport.mirror(context, project, repository);
             final var branch = MirrorFile.defaultBranch(context.runner(), mirror);
@@ -263,25 +501,20 @@ public record ImageChoice(
                 // settings are read; only the image is taken here.
                 final boolean besideSettings =
                         RepositoryOwnSettings.fromOrganization(context, project.name());
-                MirrorFile.read(context.runner(), mirror, FILE)
-                        .ifPresent(
-                                text ->
-                                        order.add(
-                                                besideSettings
-                                                        ? RepositoryImageReader.readBesideSettings(
-                                                                text,
-                                                                origin,
-                                                                MirrorFile.snippets(
-                                                                        context.runner(),
-                                                                        mirror,
-                                                                        found.ref()))
-                                                        : RepositoryImageReader.read(
-                                                                text,
-                                                                origin,
-                                                                MirrorFile.snippets(
-                                                                        context.runner(),
-                                                                        mirror,
-                                                                        found.ref()))));
+                final String text = MirrorFile.read(context.runner(), mirror, FILE).orElse(null);
+                if (text != null) {
+                    final SnippetFiles snippets =
+                            MirrorFile.snippets(context.runner(), mirror, found.ref());
+                    if (besideSettings) {
+                        order.add(RepositoryImageReader.readBesideSettings(text, origin, snippets));
+                    } else {
+                        // Nobody signs it: what it adds is built only once this machine allowed it.
+                        final ImageSource source =
+                                RepositoryImageReader.read(text, origin, snippets);
+                        notAllowed = notAllowed(context, project, repository, source);
+                        order.add(source);
+                    }
+                }
             }
         } catch (RepositorySettingsSignature.Unsigned ex) {
             // No fetch repairs a change nobody who may sign it signed: refused as it stands.
@@ -291,7 +524,14 @@ public record ImageChoice(
             mirrorRefusal = ex;
         }
         order.add(ImageSource.of(project));
-        return new Preview(merge(order), mirrorRefusal);
+        final Preview preview = new Preview(merge(order), mirrorRefusal);
+        if (notAllowed != null) {
+            // No fetch repairs a line nobody allowed: refused as it stands, with what it would
+            // build.
+            notAllowed.preview = preview;
+            throw notAllowed;
+        }
+        return preview;
     }
 
     /**

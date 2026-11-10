@@ -1443,7 +1443,10 @@ public final class StartCheck {
             }
             repositoryName = chosen.name();
             if (!DefaultProject.is(project.name())) {
-                return signed(context, rest, project, chosen);
+                final Result judged = signed(context, rest, project, chosen);
+                return judged.outcome() == Outcome.READY
+                        ? imageAllowed(context, judged, project, chosen)
+                        : judged;
             }
             found = RepositoryOwnSettings.of(context, projectFile, chosen);
         } catch (RuntimeException ex) {
@@ -1470,6 +1473,39 @@ public final class StartCheck {
                 rest.importCommand(),
                 RepositoryOwnSettings.Found.asMaps(toAllow),
                 found.hash());
+    }
+
+    /**
+     * The answer for a project written on this machine: refused as Start refuses it when the
+     * repository's unsigned {@code porelo.yml} adds to the image what this machine has not allowed,
+     * with what to allow and the hash AllowSettings takes.
+     */
+    private static Result imageAllowed(
+            final PoreloContext context,
+            final Result rest,
+            final org.fuin.porelo.core.project.Project project,
+            final org.fuin.porelo.core.project.Repository repository) {
+        try {
+            ImageChoice.preview(context, project, repository);
+            return rest;
+        } catch (ImageChoice.NotAllowed ex) {
+            return new Result(
+                    Outcome.SETTINGS_NOT_ALLOWED,
+                    rest.agent(),
+                    rest.provider(),
+                    rest.credential(),
+                    String.valueOf(ex.getMessage()),
+                    rest.host(),
+                    rest.agentSource(),
+                    rest.agentFoundIn(),
+                    rest.signedIn(),
+                    rest.importCommand(),
+                    RepositoryOwnSettings.Found.asMaps(ex.toAllow()),
+                    ex.hash());
+        } catch (RuntimeException ex) {
+            // A source that does not read is Start's to report.
+            return rest;
+        }
     }
 
     /**

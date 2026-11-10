@@ -189,6 +189,112 @@ class FirstStartTest {
                 .isNotEmpty();
     }
 
+    /** A cloned repository's file that sets only its image is asked about at the launch too. */
+    @Test
+    void aClonedRepositorysImageLinesAreLeftToTheLaunchToAsk() throws Exception {
+        Files.writeString(checkout.resolve("porelo.yml"), "image:\n  run: \"RUN echo cloned\"\n");
+
+        assertThat(firstStart().look(checkout).outcome()).isEqualTo(FirstStart.Outcome.KNOWN);
+        assertThat(atTerminal("n").project()).isEqualTo("default");
+        assertThat(questions).as("the first start asks nothing of a file already there").isEmpty();
+
+        final Path file = new DefaultProject(context).file();
+        final var project = org.fuin.porelo.core.project.ProjectReader.read(file);
+        assertThat(
+                        RepositoryOwnSettings.of(context, file, project.repository("shop"))
+                                .toAllow(context, "shop"))
+                .extracting(RepositorySettingsText::line)
+                .containsExactly("+ image.run[1] = RUN echo cloned");
+    }
+
+    /** A person's own file beside a new draft is allowed by the same yes, so it is shown too. */
+    @Test
+    void aPersonsOwnFileBesideTheDraftIsShownAndCountsInTheHash() throws Exception {
+        plugin();
+        Files.writeString(checkout.resolve(".porelo.yml"), "image:\n  env:\n    OWN: \"before\"\n");
+
+        final FirstStart.Answer asked = firstStart().look(checkout);
+
+        assertThat(asked.outcome()).isEqualTo(FirstStart.Outcome.ASK_NEW);
+        assertThat(asked.found())
+                .filteredOn(each -> each.source().equals(".porelo.yml"))
+                .extracting(FirstStart.Found::value)
+                .containsExactly("image:", "  env:", "    OWN: \"before\"");
+
+        Files.writeString(
+                checkout.resolve(".porelo.yml"), "image:\n  env:\n    OWN: \"changed\"\n");
+
+        assertThatThrownBy(() -> firstStart().confirm(checkout, asked.hash()))
+                .as("the person's file is part of what the yes named")
+                .isInstanceOfSatisfying(
+                        FirstStart.Refused.class,
+                        ex -> assertThat(ex.reason()).isEqualTo(FirstStart.Reason.MOVED_ON));
+        assertThat(checkout.resolve("porelo.yml")).doesNotExist();
+
+        assertThat(firstStart().confirm(checkout, firstStart().look(checkout).hash()))
+                .isEqualTo("default");
+        final Path file = new DefaultProject(context).file();
+        final var project = org.fuin.porelo.core.project.ProjectReader.read(file);
+        final var found = RepositoryOwnSettings.of(context, file, project.repository("shop"));
+        assertThat(found.asked())
+                .extracting(RepositorySettingsText::line)
+                .contains("+ image.env.OWN = changed");
+        assertThat(found.toAllow(context, "shop")).as("the yes allowed what it showed").isEmpty();
+    }
+
+    /** A line written in the person's own file is shown once; a run file's lines are shown too. */
+    @Test
+    void aPersonsOwnLineIsShownOnceAndARunFilesLinesBesideIt() throws Exception {
+        plugin();
+        Files.writeString(checkout.resolve(".porelo.yml"), "image:\n  run: \"RUN own\"\n");
+
+        assertThat(firstStart().look(checkout).found())
+                .filteredOn(each -> each.source().equals(".porelo.yml"))
+                .extracting(FirstStart.Found::value)
+                .containsExactly("image:", "  run: \"RUN own\"");
+
+        Files.writeString(checkout.resolve("own.run"), "RUN from-a-file\n");
+        Files.writeString(checkout.resolve(".porelo.yml"), "image:\n  run_file: \"own.run\"\n");
+
+        assertThat(firstStart().look(checkout).found())
+                .filteredOn(each -> each.source().equals(".porelo.yml"))
+                .extracting(FirstStart.Found::value)
+                .containsExactly("image:", "  run_file: \"own.run\"", "RUN from-a-file");
+    }
+
+    /** A yes taken after the person's file changed keeps nothing of the draft. */
+    @Test
+    void aYesTakenAfterThePersonsFileChangedWritesNothing() throws Exception {
+        plugin();
+        Files.writeString(checkout.resolve(".porelo.yml"), "image:\n  env:\n    OWN: \"before\"\n");
+        final FirstStart.Answer asked = firstStart().look(checkout);
+        Files.writeString(
+                checkout.resolve(".porelo.yml"), "image:\n  env:\n    OWN: \"changed\"\n");
+
+        assertThatThrownBy(() -> firstStart().take(asked))
+                .isInstanceOfSatisfying(
+                        FirstStart.Refused.class,
+                        ex -> assertThat(ex.reason()).isEqualTo(FirstStart.Reason.MOVED_ON));
+        assertThat(checkout.resolve("porelo.yml"))
+                .as("the draft is taken back, so the next start asks again")
+                .doesNotExist();
+        assertThat(context.paths().xdg().state().resolve("default/allowed/shop.json"))
+                .as("nothing was allowed")
+                .doesNotExist();
+    }
+
+    /** Without a person's own file the draft's hash is the one it always was. */
+    @Test
+    void aDraftAloneNamesTheHashOfItsTextAlone() throws Exception {
+        plugin();
+
+        final FirstStart.Answer asked = firstStart().look(checkout);
+
+        Files.writeString(checkout.resolve("porelo.yml"), asked.file());
+        assertThat(asked.hash())
+                .isEqualTo(ProjectApprovals.hash(checkout, java.util.List.of("porelo.yml")));
+    }
+
     /** The old approved project stays intact; advice is recorded per checkout on this machine. */
     @Test
     void anApprovedLocalProjectStartsAsBeforeAndHearsTheNoteOnce() throws Exception {

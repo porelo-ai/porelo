@@ -1043,6 +1043,89 @@ public final class TaskLaunch {
         return own.project();
     }
 
+    /**
+     * Previews the image, asking once for the lines a repository's unsigned {@code porelo.yml} adds
+     * that this machine has not allowed for the project, as its own settings in 'default' are
+     * asked.
+     *
+     * @return The preview, or {@code null} when what is asked was not allowed, which is said.
+     * @throws ProjectException If a source is refused, or the file changed again before the yes.
+     */
+    private ImageChoice.@org.jspecify.annotations.Nullable Preview allowedPreview(
+            final Project asDeclared,
+            final org.fuin.porelo.core.project.Repository repository,
+            final PrintWriter out,
+            final PrintWriter err) {
+        final ImageChoice.NotAllowed asked;
+        try {
+            return ImageChoice.preview(context, asDeclared, repository);
+        } catch (ImageChoice.NotAllowed ex) {
+            asked = ex;
+        }
+        if (request.dryRun() && DefaultProject.is(asDeclared.name())) {
+            // The checkout's settings were said with the rest, the image among them.
+            return asked.preview();
+        }
+        for (final var each : asked.toAllow()) {
+            out.println("setting        " + RepositorySettingsText.line(each));
+        }
+        if (request.dryRun()) {
+            out.println(
+                    "settings       "
+                            + asked.toAllow().size()
+                            + " image settings not allowed on this machine yet; a start asks first");
+            out.flush();
+            return asked.preview();
+        }
+        if (!allowedImage(asked, asDeclared, repository, err)) {
+            return null;
+        }
+        out.println(
+                "settings       image allowed for "
+                        + repository.name()
+                        + " of "
+                        + asDeclared.name()
+                        + " on this machine");
+        out.flush();
+        return ImageChoice.preview(context, asDeclared, repository);
+    }
+
+    /**
+     * Asks once for the image lines a repository's unsigned file adds that this machine has not
+     * allowed, before the fetch or after it, when the fetch brought the file first.
+     *
+     * @return Whether a person allowed them; a refusal is said.
+     */
+    private boolean allowedImage(
+            final ImageChoice.NotAllowed asked,
+            final Project asDeclared,
+            final org.fuin.porelo.core.project.Repository repository,
+            final PrintWriter err) {
+        if (offer == Offer.NOBODY
+                || !offer.confirm(
+                        "the "
+                                + asked.origin()
+                                + " adds to the image what this machine has not allowed: "
+                                + String.join(
+                                        "; ",
+                                        asked.toAllow().stream()
+                                                .map(RepositorySettingsText::line)
+                                                .toList()),
+                        "Allow them for "
+                                + repository.name()
+                                + " of "
+                                + asDeclared.name()
+                                + " on this machine?",
+                        "",
+                        true)) {
+            steps.refusal(String.valueOf(asked.getMessage()));
+            err.println("porelo: " + asked.getMessage());
+            return false;
+        }
+        asked.allow(context);
+        return true;
+    }
+
     private boolean repositorySettingsRead;
     private RepositoryOwnSettings.@Nullable Found repositorySettings;
 
@@ -2180,8 +2263,12 @@ public final class TaskLaunch {
         final ProjectException previewRefusal;
         final Project asDeclared = project;
         try {
-            final ImageChoice.Preview preview =
-                    ImageChoice.preview(context, asDeclared, repository);
+            final ImageChoice.Preview preview = allowedPreview(asDeclared, repository, out, err);
+            if (preview == null) {
+                err.println("porelo: nothing was created");
+                err.flush();
+                return 64;
+            }
             image = preview.choice();
             previewRefusal = preview.mirrorRefusal();
         } catch (ProjectException ex) {
@@ -2706,9 +2793,29 @@ public final class TaskLaunch {
             }
             // Only the fetched file can settle a refused preview.
             if (workspace != null) {
-                final ImageChoice fetched;
+                ImageChoice fetched;
                 try {
-                    fetched = ImageChoice.of(context, asDeclared, repository);
+                    try {
+                        fetched = ImageChoice.of(context, asDeclared, repository);
+                    } catch (ImageChoice.NotAllowed ex) {
+                        // The fetch brought the file, or changed it: asked here, as before it.
+                        for (final var each : ex.toAllow()) {
+                            out.println("setting        " + RepositorySettingsText.line(each));
+                        }
+                        out.flush();
+                        if (!allowedImage(ex, asDeclared, repository, err)) {
+                            err.println("porelo: nothing was created");
+                            err.flush();
+                            return 64;
+                        }
+                        out.println(
+                                "settings       image allowed for "
+                                        + repository.name()
+                                        + " of "
+                                        + asDeclared.name()
+                                        + " on this machine");
+                        fetched = ImageChoice.of(context, asDeclared, repository);
+                    }
                 } catch (ProjectException ex) {
                     err.println("porelo: " + ex.getMessage());
                     err.println("porelo: nothing was created");

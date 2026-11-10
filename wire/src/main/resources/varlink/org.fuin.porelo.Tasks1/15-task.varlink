@@ -903,7 +903,9 @@ type StartOutcome (
   # the model and the file. Start refuses the same case before anything is created (exitCode 2).
   MODEL_REFUSED,
   # In 'default', the repository's porelo.yml, or the person's .porelo.yml beside it, sets something
-  # other than the project does, outside the image, and this machine has not allowed exactly that.
+  # other than the project does, its image among it, and this machine has not allowed exactly that;
+  # or, in a project written on this machine, the repository's porelo.yml, which nobody signs, adds
+  # a base image, a line or a variable to the image that this machine has not allowed.
   # settingsToAllow lists what is new, changed or removed since the last allowance (the first time,
   # all of it); settingsHash names the whole state asked for now. AllowSettings with that hash allows
   # it, and asking again answers READY until the files ask for something else. Start refuses the
@@ -1044,11 +1046,12 @@ method CanStart(
   commit: string
 )
 
-# A person's yes to the settings a SETTINGS_NOT_ALLOWED answer showed, for a repository of 'default'.
-# outcome is ALLOWED, after which CanStart answers READY for them, or CHANGED when porelo.yml moved since
-# the hash was answered: nothing is allowed, and CanStart shows the new list. A name that is no
-# repository of 'default' is CHANGED too, with nothing to allow.
-method AllowSettings(repository: string, hash: string) -> (outcome: string)
+# A person's yes to the settings a SETTINGS_NOT_ALLOWED answer showed, for a repository of 'default',
+# or of the project named, which CanStart was asked about. outcome is ALLOWED, after which CanStart
+# answers READY for them, or CHANGED when porelo.yml moved since the hash was answered: nothing is
+# allowed, and CanStart shows the new list. A name that is no repository of the project is CHANGED
+# too, with nothing to allow.
+method AllowSettings(repository: string, hash: string, project: ?string) -> (outcome: string)
 
 # Gives a task a changeable caption, or removes one.
 #

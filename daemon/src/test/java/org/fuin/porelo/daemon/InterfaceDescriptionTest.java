@@ -341,6 +341,36 @@ class InterfaceDescriptionTest {
     }
 
     @Test
+    void anEmptyProjectAllowsTheDefaultProjectsSettingsAsCanStartReadsIt(@TempDir Path dir)
+            throws Exception {
+        // CanStart reads an empty project as none; the yes to what it showed must too.
+        final PoreloContext context = context(dir);
+        final Path checkout = Files.createDirectories(dir.resolve("shop"));
+        Files.writeString(checkout.resolve("porelo.yml"), "image:\n  run: \"RUN echo one\"\n");
+        final org.fuin.porelo.app.DefaultProject fallback =
+                new org.fuin.porelo.app.DefaultProject(context);
+        fallback.add("https://repo.example.org/shop.git", "shop", checkout.toString());
+        final Path file = fallback.file();
+        final String hash =
+                org.fuin.porelo.app.RepositoryOwnSettings.of(
+                                context,
+                                file,
+                                org.fuin.porelo.core.project.ProjectReader.read(file)
+                                        .repository("shop"))
+                        .hash();
+        try (VarlinkServer server = PoreloDaemon.serving(context, dir.resolve("porelod.sock"))) {
+            Thread.ofVirtual().start(server);
+            try (VarlinkClient client = new VarlinkClient(server.socketPath())) {
+                assertThat(
+                                client.call(
+                                        PoreloDaemon.INTERFACE + ".AllowSettings",
+                                        Map.of("repository", "shop", "hash", hash, "project", "")))
+                        .containsEntry("outcome", "ALLOWED");
+            }
+        }
+    }
+
+    @Test
     void taskActivityCarriesTheFieldsTheContractDeclares(@TempDir Path dir) throws Exception {
         // Clients need both measurements to show quiet and ended runs without guessing.
         final PoreloContext context = context(dir);

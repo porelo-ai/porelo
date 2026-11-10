@@ -81,7 +81,9 @@ proxy settings of the shell, and through `FirstStart` with those the interface s
 the daemon holds no shell's. A start with a file, a start with `--no-input`, `--yes` or `--dry-run`, and a start
 with nobody at a terminal look nothing up. The lines an adapter fetched run as root of the image's build, so the
 question shows each of them whole, as `image line`, and each variable as `image env`, for a new file too; they are
-part of the file a yes names. A lookup that failed is said among `notes`. A yes meets the lookup its question
+part of the file a yes names. A person's own `.porelo.yml` already in the checkout is allowed by the same yes, so
+each of its lines is shown as `your own file`, and it is part of what a yes names too. A lookup that failed is said
+among `notes`. A yes meets the lookup its question
 made, so what is written is what the person read; a yes after that lookup is no longer kept looks up anew, and a
 changed answer is then a changed file.
 

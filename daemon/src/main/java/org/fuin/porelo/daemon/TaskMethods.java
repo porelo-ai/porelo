@@ -780,11 +780,16 @@ final class TaskMethods {
                     // Allowed only as shown: a file changed since CanStart asks again.
                     final String repository = String.valueOf(parameters.get("repository"));
                     final String hash = String.valueOf(parameters.get("hash"));
+                    // Read as CanStart reads it: an empty project is none.
+                    final String project = text(parameters, "project");
                     boolean allowed;
                     try {
                         allowed =
-                                org.fuin.porelo.app.RepositoryOwnSettings.allowIfUnchanged(
-                                        context, repository, hash);
+                                project.isEmpty() || org.fuin.porelo.app.DefaultProject.is(project)
+                                        ? org.fuin.porelo.app.RepositoryOwnSettings
+                                                .allowIfUnchanged(context, repository, hash)
+                                        : org.fuin.porelo.app.ImageChoice.allowIfUnchanged(
+                                                context, project, repository, hash);
                     } catch (RuntimeException ex) {
                         // A file that no longer reads allows nothing; CanStart says why.
                         allowed = false;
