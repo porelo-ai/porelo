@@ -1,6 +1,7 @@
 # B398 — A Test That Cannot Reach The Person's Vault
 
 **Status:** Review.
+**Size:** M - a refusing real context and paths in a test's JVM, set by the build for every unit test; core, the app's context and paths, and the root's surefire configuration (sized 2026-11-10 from what was built).
 
 **What must be true.** A test run on a person's machine never reads or writes that person's vault or configuration, even
 when it builds a command the wrong way. Today 106 commands start with `PoreloContext.real()` until a factory gives them

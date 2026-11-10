@@ -111,7 +111,7 @@ from its side, as *blocked by*.
 | <a id="b457"></a>[B457](B457-A-File-Not-Taken-Is-A-Warning.md) | XS | - | A start going on without a `project.yml` that was not taken warns in color. |
 | <a id="b452"></a>[B452](B452-A-Value-With-No-File-Prints-No-Line.md) | XS | - | A value with no file prints no `:0` in a draft. |
 | <a id="b455"></a>[B455](B455-A-First-Start-Says-What-A-Plugin-Could-Not-Place.md) | S | - | A first start's question shows what a plugin could not place and its notes. |
-| <a id="b444"></a>[B444](B444-The-First-Start-Finds-What-A-Repository-Needs.md) | - | - | `task start` in a checkout with no `project.yml` finds what it needs, asks yes or no, writes the file and starts from it. |
+| <a id="b444"></a>[B444](B444-The-First-Start-Finds-What-A-Repository-Needs.md) | L | - | `task start` in a checkout with no `project.yml` finds what it needs, asks yes or no, writes the file and starts from it. |
 | <a id="b440"></a>[B440](B440-An-OpenSSH-Below-The-Floor-Is-Refused-In-Words.md) | S | - | An OpenSSH below the stated floor is refused in words, and the documents state the floor. |
 | <a id="b441"></a>[B441](B441-A-Credentials-Length-Reaches-No-Agent-And-No-Line.md) | S | - | A credential's length is shown to its owner and reaches no agent and no log. |
 | <a id="b443"></a>[B443](B443-What-A-Tasks-Image-Was-Built-With.md) | M | - | The daemon answers which settings a task's image was built with and where each comes from, and `project show default` answers. |
@@ -138,7 +138,7 @@ from its side, as *blocked by*.
 | <a id="b220"></a>[B220](B220-Build-Tool-Plugins-Found-At-Run-Time.md) | M | - | Build-tool plugins as native executables of their own over `Ecosystem1` (`detect`, `configure`), found at run time; the contract, discovery and a stub. |
 | <a id="b221"></a>[B221](B221-A-Project-Proposed-From-A-Checkout.md) | L | `porelo` [B220](README.md#b220) | `porelo project init <checkout>`: the plugins' answers merged into a tools draft and a `project.yml` draft, each value with its source, disagreements named, no credential copied. |
 | <a id="b214"></a>[B214](B214-A-Vault-Entry-Put-Again-Unchanged.md) | M | - | `vault put` given the value an entry already holds says `unchanged` and exits 0, so a second play reports nothing changed |
-| <a id="b398"></a>[B398](B398-A-Test-That-Cannot-Reach-The-Persons-Vault.md) | - | - | A test that builds a command the wrong way falls to the real context, and so to the person's vault |
+| <a id="b398"></a>[B398](B398-A-Test-That-Cannot-Reach-The-Persons-Vault.md) | M | - | A test that builds a command the wrong way falls to the real context, and so to the person's vault |
 | <a id="b426"></a>[B426](B426-A-Persons-Projects-Listed-From-The-Hosts-File.md) | S | - | `porelo project list` on a host names what the host's file for this person names, also before a first start |
 | <a id="b148"></a>[B148](B148-Token-Counting-Per-Task.md) | L | - | The broker reads four answer formats, streamed or not, into a per-task `usage/<task>.jsonl` kept after removal: agent, provider, models, five counts (`null` when not reported), tools, how it ended, a reported cost; asks for the streamed Chat Completions count; sums in `task status` and `Usage`. |
 | <a id="b231"></a>[B231](B231-The-Usage-Records-Kept-Off-The-Machine.md) | M | - | `porelo keep <dir>` copies the usage records up to their last complete line, `keep --restore <dir>` puts them back before a task runs and never shortens one. |
