@@ -4,8 +4,9 @@ name: Build
 # A push that only touches documentation builds nothing; the documents are checked locally before every
 # hand-over and by the Shared rules check once a day.
 on:
+    # A commit is built once: main by its push, a task's branch by its pull request.
     push:
-        branches: ['**']
+        branches: [main]
         # A release: v<version>, built and published to the 'releases' channel. Paths are not filtered for a tag.
         tags: ['v*']
         # Workflows alone build nothing: an action's move is checked by its pull request, and the next push with
