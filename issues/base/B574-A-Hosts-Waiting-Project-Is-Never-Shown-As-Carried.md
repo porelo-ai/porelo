@@ -1,6 +1,6 @@
 # [B574](README.md#b574) — A Host's Waiting Project Is Never Shown As Carried
 
-**Status:** Backlog. Filed 2026-11-09 under ST291, from the fourth move.
+**Status:** Implementing. Filed 2026-11-09 under ST291, from the fourth move.
 **Size:** L - the host publishes each project's follow state beside its central state, porelod reads it, the contract carries it; [B543](README.md#b543) first.
 
 **What must be true.** While a host's follow reports a project as waiting (`waiting-for-token`, or another state that
