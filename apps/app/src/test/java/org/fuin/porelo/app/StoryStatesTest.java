@@ -52,6 +52,34 @@ class StoryStatesTest {
     }
 
     @Test
+    void aClosedStateEarlierInBoardOrderNeverHidesAnOpenIssue() {
+        final Workflow closedFirst =
+                new Workflow(
+                        List.of(
+                                new PlanState("Rejected", PlanState.Kind.CLOSED),
+                                new PlanState("Queue", PlanState.Kind.WAITING),
+                                new PlanState("Review", PlanState.Kind.WAITING),
+                                new PlanState("Finished", PlanState.Kind.CLOSED)),
+                        List.of(
+                                new PlanPhase(
+                                        "All",
+                                        List.of("Rejected", "Queue", "Review", "Finished"))));
+
+        assertThat(
+                        StoryStates.of(
+                                closedFirst, "Queue", List.of(issue("Rejected"), issue("Review"))))
+                .as("an open issue decides even when a closed state comes first on the board")
+                .isEqualTo("Review");
+        assertThat(
+                        StoryStates.of(
+                                closedFirst,
+                                "Queue",
+                                List.of(issue("Finished"), issue("Rejected"))))
+                .as("with all closed, board order decides among the closed states")
+                .isEqualTo("Rejected");
+    }
+
+    @Test
     void noIssuesPreservesTheStoredStoryStateAndAnUnknownIssueStateIsRefused() {
         assertThat(StoryStates.of(WORKFLOW, "Queue", List.of()))
                 .as("issue-less story keeps its own state")

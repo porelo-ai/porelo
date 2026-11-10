@@ -147,5 +147,8 @@ Implementing: this part is the window's wire and its reads, so the window can bu
 - **Through MCP** an agent may read the board and the proposal; it never starts or stops work, and `SaveMoves` and
   `ResolveIssueReading` are a person's judgement, offered only from the person's list.
 - **Tests.** `wire`, `planning/api`, `planning/stub`, `apps/app` (3661) and `daemon` (337) ran whole outside a sandbox,
-  green. Left for the second part: a workflow whose closed state comes before an open one in board order, which no
-  test holds yet.
+  green. `StoryStatesTest` holds a workflow whose closed state comes before an open one in board order: an open issue
+  still decides, and among closed ones board order does.
+- **Left for the second part:** the credential (`token` from the vault, `github-app` minted per call by
+  `GitHubAppToken`; today a set `planning.credential` answers `NotYetBuilt`) and `WorkCheck` of `planning.work`, which
+  waits on [B561](README.md#b561).
